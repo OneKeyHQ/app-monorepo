@@ -21,6 +21,12 @@ export type ICopyReferralCodeParams = {
   landingPage: string;
 };
 
+export type IReferralPageOpenParams = {
+  referralCode: string;
+  landingPage: string;
+  pageVariant: string;
+};
+
 export type ICreatorProgramBannerParams = {
   locale: string;
 };
@@ -105,6 +111,12 @@ export class PageScene extends BaseScene {
   @LogToLocal({ level: 'info' })
   public toggleReceivingAddressVisibility(isVisible: boolean) {
     return { isVisible };
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public referralPageOpen(params: IReferralPageOpenParams) {
+    return params;
   }
 
   @LogToServer()

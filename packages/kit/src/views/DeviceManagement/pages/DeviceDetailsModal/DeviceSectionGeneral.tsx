@@ -9,6 +9,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useStatefulAction } from '@onekeyhq/kit/src/hooks/useStatefulAction';
 import {
+  useDeviceAtom,
   useDeviceAutoLockDelayMsAtom,
   useDeviceAutoShutDownDelayMsAtom,
   useDeviceDetailsActions,
@@ -26,12 +27,48 @@ import deviceUtils, {
   ESupportSettings,
 } from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
 
+import { TREZOR_AUTO_LOCK_OPTIONS } from './utils';
+
 const NEVER_LOCK_VALUE = 268_435_456;
 const LOCKED_VALUE = 0;
+
+function getDurationLabel({
+  intl,
+  option,
+}: {
+  intl: ReturnType<typeof useIntl>;
+  option: (typeof TREZOR_AUTO_LOCK_OPTIONS)[number];
+}) {
+  if ('minute' in option) {
+    return intl.formatMessage(
+      { id: ETranslations.earn_number_minutes },
+      { number: option.minute },
+    );
+  }
+  if ('hour' in option) {
+    return intl.formatMessage(
+      { id: ETranslations.earn_number_hours },
+      { number: option.hour },
+    );
+  }
+  return intl.formatMessage(
+    { id: ETranslations.earn_number_days },
+    { number: option.day },
+  );
+}
+
+function isNumberFeature(features: Record<string, unknown>, field: string) {
+  return typeof features[field] === 'number';
+}
+
+function isBooleanFeature(features: Record<string, unknown>, field: string) {
+  return typeof features[field] === 'boolean';
+}
 
 export function LanguageListItem({
   languageOptions,
@@ -290,10 +327,17 @@ function DeviceSectionGeneral() {
 
   const [deviceMeta] = useDeviceMetaStaticAtom();
   const [deviceType] = useDeviceTypeAtom();
+  const [device] = useDeviceAtom();
+  const isTrezor = device?.vendor === EHardwareVendor.trezor;
+  const trezorFeatures = useMemo(
+    () => (device?.featuresInfo ?? {}) as Record<string, unknown>,
+    [device?.featuresInfo],
+  );
 
   // Load and format language options
   const { result: languageOptions } = usePromiseResult(
     async () => {
+      if (isTrezor) return [];
       if (!deviceType) return [];
       const options = await deviceUtils.getLanguageConfig({ deviceType });
       return options.map((option) => ({
@@ -301,7 +345,7 @@ function DeviceSectionGeneral() {
         value: option.code,
       }));
     },
-    [deviceType],
+    [deviceType, isTrezor],
     {
       initResult: [],
     },
@@ -310,6 +354,12 @@ function DeviceSectionGeneral() {
   // Load and format auto lock options
   const { result: autoLockOptions } = usePromiseResult(
     async () => {
+      if (isTrezor) {
+        return TREZOR_AUTO_LOCK_OPTIONS.map((option) => ({
+          label: getDurationLabel({ intl, option }),
+          value: timerUtils.getTimeDurationMs(option),
+        }));
+      }
       if (!deviceType) return [];
       const options = await deviceUtils.getAutoLockOptions({ deviceType });
       return options.map((option) => {
@@ -338,7 +388,7 @@ function DeviceSectionGeneral() {
         return { label, value };
       });
     },
-    [deviceType, intl],
+    [deviceType, intl, isTrezor],
     {
       initResult: [],
     },
@@ -347,6 +397,7 @@ function DeviceSectionGeneral() {
   // Load and format auto shutdown options
   const { result: autoShutDownOptions } = usePromiseResult(
     async () => {
+      if (isTrezor) return [];
       if (!deviceType) return [];
       const options = await deviceUtils.getAutoShutDownOptions({ deviceType });
       return options.map((option) => {
@@ -374,7 +425,7 @@ function DeviceSectionGeneral() {
         return { label, value };
       });
     },
-    [deviceType, intl],
+    [deviceType, intl, isTrezor],
     {
       initResult: [],
     },
@@ -386,7 +437,23 @@ function DeviceSectionGeneral() {
     showAutoShutDown,
     showHapticFeedback,
     showBrightness,
+    showWallpaper,
   } = useMemo(() => {
+    if (isTrezor) {
+      return {
+        showLanguage: false,
+        showAutoLock:
+          isNumberFeature(trezorFeatures, 'auto_lock_delay_ms') &&
+          autoLockOptions.length > 0,
+        showAutoShutDown: false,
+        showHapticFeedback: isBooleanFeature(trezorFeatures, 'haptic_feedback'),
+        showBrightness:
+          isNumberFeature(trezorFeatures, 'homescreen_width') &&
+          isNumberFeature(trezorFeatures, 'homescreen_height'),
+        showWallpaper: false,
+      };
+    }
+
     if (!deviceType)
       return {
         showLanguage: false,
@@ -394,6 +461,7 @@ function DeviceSectionGeneral() {
         showAutoShutDown: false,
         showHapticFeedback: false,
         showBrightness: false,
+        showWallpaper: false,
       };
 
     const supportLanguage = deviceUtils.supportSettings({
@@ -433,6 +501,7 @@ function DeviceSectionGeneral() {
         autoShutDownOptions.length > 0,
       showHapticFeedback: supportHapticFeedback,
       showBrightness: supportBrightness,
+      showWallpaper: true,
     };
   }, [
     deviceMeta.firmwareVersion,
@@ -440,6 +509,8 @@ function DeviceSectionGeneral() {
     languageOptions,
     autoLockOptions,
     autoShutDownOptions,
+    isTrezor,
+    trezorFeatures,
   ]);
 
   const onPressHomescreen = useCallback(async () => {
@@ -468,16 +539,18 @@ function DeviceSectionGeneral() {
       {showLanguage ? (
         <LanguageListItem languageOptions={languageOptions} />
       ) : null}
-      <ListItem
-        key="addWallpaper"
-        title={intl.formatMessage({
-          id: deviceMeta.addWallpaperTitleId,
-        })}
-        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-        drillIn
-        onPress={onPressHomescreen}
-        testID={DeviceManagementTestIDs.wallpaperItem}
-      />
+      {showWallpaper ? (
+        <ListItem
+          key="addWallpaper"
+          title={intl.formatMessage({
+            id: deviceMeta.addWallpaperTitleId,
+          })}
+          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+          drillIn
+          onPress={onPressHomescreen}
+          testID={DeviceManagementTestIDs.wallpaperItem}
+        />
+      ) : null}
       {showBrightness ? (
         <ListItem
           key="changeBrightness"

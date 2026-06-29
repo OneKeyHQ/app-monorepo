@@ -26,6 +26,7 @@ interface IMobileMarketPerpsFlatListProps {
   listContainerProps: {
     paddingBottom: number;
   };
+  shouldSuppressItemPress?: () => boolean;
 }
 
 const EMPTY_DATA: IMarketPerpsToken[] = [];
@@ -33,6 +34,7 @@ const EMPTY_DATA: IMarketPerpsToken[] = [];
 function MobileMarketPerpsFlatListImpl({
   selectedCategoryId,
   listContainerProps,
+  shouldSuppressItemPress,
 }: IMobileMarketPerpsFlatListProps) {
   const { navigateToPerps } = usePerpsNavigation();
   const intl = useIntl();
@@ -41,7 +43,15 @@ function MobileMarketPerpsFlatListImpl({
     selectedCategoryId,
   });
 
-  const handleTokenPress = navigateToPerps;
+  const handleTokenPress = useCallback(
+    (tokenName: string) => {
+      if (shouldSuppressItemPress?.()) {
+        return;
+      }
+      navigateToPerps(tokenName);
+    },
+    [navigateToPerps, shouldSuppressItemPress],
+  );
 
   const renderItem: FlatListProps<IMarketPerpsToken>['renderItem'] =
     useCallback(

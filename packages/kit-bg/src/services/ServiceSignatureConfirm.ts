@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/shared/types/signatureConfirm';
 import type {
   IAfterSendTxActionParams,
+  IDisplayComponent,
   IParseMessageParams,
   IParseMessageResp,
   IParseTransactionParams,
@@ -154,29 +155,45 @@ function fixPrivateSendRecipientDisplay({
     }
   });
 
-  decodedTx.txDisplay.components = decodedTx.txDisplay.components.map(
-    (component) => {
-      if (component.type !== EParseTxComponentType.Address) {
-        return component;
-      }
-
+  let hasOriginalRecipientDisplay = false;
+  const components: IDisplayComponent[] = [];
+  for (const component of decodedTx.txDisplay.components) {
+    if (component.type !== EParseTxComponentType.Address) {
+      components.push(component);
+    } else {
+      const addressKey = getAddressKey(component.address);
+      const isRecipientAddress =
+        component.role === EParseTxComponentRole.SwapReceiver ||
+        (component.highlight === true && addressKey === originalRecipientKey);
       const shouldUseOriginalRecipient =
         component.role === EParseTxComponentRole.SwapReceiver ||
-        payinAddresses.has(getAddressKey(component.address));
-      if (!shouldUseOriginalRecipient) {
-        return component;
-      }
+        payinAddresses.has(addressKey);
 
-      return {
-        ...component,
-        label: appLocale.intl.formatMessage({ id: ETranslations.global_to }),
-        address: originalRecipient,
-        tags: [],
-        isNavigable: false,
-        highlight: true,
-      };
-    },
-  );
+      if (!shouldUseOriginalRecipient) {
+        if (!isRecipientAddress) {
+          components.push(component);
+        } else if (!hasOriginalRecipientDisplay) {
+          hasOriginalRecipientDisplay = true;
+          components.push(component);
+        }
+      } else if (!hasOriginalRecipientDisplay) {
+        // Private Send fallback displays the recipient once, then displays the
+        // provider pay-in address. After rewriting the pay-in row it becomes a
+        // duplicate recipient row, so keep only the first recipient display.
+        hasOriginalRecipientDisplay = true;
+        components.push({
+          ...component,
+          label: appLocale.intl.formatMessage({ id: ETranslations.global_to }),
+          address: originalRecipient,
+          tags: [],
+          isNavigable: false,
+          highlight: true,
+        });
+      }
+    }
+  }
+
+  decodedTx.txDisplay.components = components;
 }
 
 @backgroundClass()

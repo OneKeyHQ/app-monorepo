@@ -1462,10 +1462,11 @@ class ServiceStaking extends ServiceBase {
     code?: string | number;
     message?: string;
     requestId?: string;
+    disableAutoToast?: boolean;
   }) {
     if (data.code !== undefined && Number(data.code) !== 0 && data.message) {
       throw new OneKeyServerApiError({
-        autoToast: true,
+        autoToast: !data.disableAutoToast,
         disableFallbackMessage: true,
         code: Number(data.code),
         message: data.message,

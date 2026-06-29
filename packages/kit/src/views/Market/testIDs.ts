@@ -11,7 +11,6 @@ export const MarketTestIDs = {
   watchList: 'market-watch-list',
 
   // Sort controls
-  sortByPrice: 'market-sort-price',
   sortByChange: 'market-sort-change',
   sortByMarketCap: 'market-sort-market-cap',
   sortByVolume: 'market-sort-volume',

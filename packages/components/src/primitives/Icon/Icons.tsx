@@ -41,6 +41,7 @@ const icons = {
   CheckboxIndeterminateCustom: () =>
     import("./react/custom/CheckboxIndeterminate"),
   ColorfulGiftCustom: () => import("./react/custom/ColorfulGift"),
+  FunctionCustom: () => import("./react/custom/Function"),
   OnekeyDeviceCustom: () => import("./react/custom/OnekeyDevice"),
   RestartToUpdateCustom: () => import("./react/custom/RestartToUpdate"),
   ShortcutsCustom: () => import("./react/custom/Shortcuts"),

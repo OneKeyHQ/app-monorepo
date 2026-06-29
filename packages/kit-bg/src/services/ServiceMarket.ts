@@ -178,7 +178,13 @@ class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchTokenChart(coingeckoId: string, days: string) {
+  async fetchTokenChart(
+    coingeckoId: string,
+    days: string,
+    options?: {
+      requestCurrency?: string;
+    },
+  ) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
       data: IMarketTokenChart;
@@ -188,6 +194,13 @@ class ServiceMarket extends ServiceBase {
         days,
         points: !platformEnv.isNative || platformEnv.isNativeIOSPad ? 500 : 200,
       },
+      ...(options?.requestCurrency
+        ? {
+            headers: {
+              'x-onekey-request-currency': options.requestCurrency,
+            },
+          }
+        : {}),
     });
     const { data } = response.data;
     return data;

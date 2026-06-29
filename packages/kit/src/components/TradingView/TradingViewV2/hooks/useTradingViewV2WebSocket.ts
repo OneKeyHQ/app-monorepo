@@ -7,6 +7,9 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IMarketTokenKLineResponse } from '@onekeyhq/shared/types/marketV2';
+
+import { sendVolumeVisibilityUpdate } from '../messageHandlers/volumeVisibilityHandler';
 
 import type { IWebViewRef } from '../../../WebView/types';
 
@@ -17,11 +20,14 @@ interface IUseTradingViewV2WebSocketProps {
   enabled?: boolean;
   chartType?: string;
   currency?: string;
+  symbol?: string;
 }
 
 interface IMarketPriceUpdatePayload {
   channel: string;
   tokenAddress: string;
+  networkId?: string;
+  isSubscriptionAmbiguous?: boolean;
   messageType?: string;
   data: unknown;
   originalData?: unknown;
@@ -60,6 +66,16 @@ function normalizeMarketWsKLineInterval(interval: string | undefined): string {
   }
 }
 
+function isMarketTokenKLineResponse(
+  data: unknown,
+): data is IMarketTokenKLineResponse {
+  return (
+    Boolean(data) &&
+    typeof data === 'object' &&
+    Array.isArray((data as { points?: unknown }).points)
+  );
+}
+
 export function useTradingViewV2WebSocket({
   networkId,
   tokenAddress,
@@ -67,6 +83,7 @@ export function useTradingViewV2WebSocket({
   enabled = true,
   chartType = '1m',
   currency = 'usd',
+  symbol,
 }: IUseTradingViewV2WebSocketProps): void {
   const lastUpdateTime = useRef<number>(0);
   const wsChartType = normalizeMarketWsKLineInterval(chartType);
@@ -132,6 +149,26 @@ export function useTradingViewV2WebSocket({
         return;
       }
 
+      if (payload.networkId && payload.networkId !== networkId) {
+        return;
+      }
+
+      if (!payload.networkId && payload.isSubscriptionAmbiguous) {
+        return;
+      }
+
+      const receivedData = payload.data as
+        | IWsPriceData
+        | IMarketTokenKLineResponse;
+      if (
+        receivedData &&
+        !isMarketTokenKLineResponse(receivedData) &&
+        receivedData.type &&
+        normalizeMarketWsKLineInterval(receivedData.type) !== wsChartType
+      ) {
+        return;
+      }
+
       markSubscriptionActivity();
 
       const now = Math.floor(Date.now() / 1000);
@@ -144,18 +181,8 @@ export function useTradingViewV2WebSocket({
         return;
       }
 
-      const receivedData = payload.data as IWsPriceData;
-      if (
-        receivedData &&
-        !('points' in receivedData) &&
-        receivedData.type &&
-        normalizeMarketWsKLineInterval(receivedData.type) !== wsChartType
-      ) {
-        return;
-      }
-
-      const dataForWebView =
-        receivedData && 'points' in receivedData
+      const dataForWebView: IMarketTokenKLineResponse =
+        isMarketTokenKLineResponse(receivedData)
           ? receivedData
           : {
               points: [
@@ -177,10 +204,20 @@ export function useTradingViewV2WebSocket({
           timestamp: now,
         },
       });
+      sendVolumeVisibilityUpdate({
+        allowHide: false,
+        kLineData: dataForWebView,
+        source: 'realtime',
+        symbol,
+        webRef,
+      });
 
       void backgroundApiProxy.serviceMarketWS.clearDataCount({
         address: tokenAddress,
         type: 'ohlcv',
+        networkId,
+        chartType: wsChartType,
+        currency,
       });
 
       lastUpdateTime.current = now;
@@ -201,8 +238,11 @@ export function useTradingViewV2WebSocket({
     markSubscriptionActivity,
     networkId,
     tokenAddress,
+    chartType,
+    currency,
     webRef,
     enabled,
     wsChartType,
+    symbol,
   ]);
 }

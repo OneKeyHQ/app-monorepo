@@ -820,7 +820,13 @@ function ManageAccountActivity() {
 
   const { result: wallets = [], isLoading } = usePromiseResult(
     () =>
-      backgroundApiProxy.serviceNotification.getNotificationWalletsWithAccounts(),
+      backgroundApiProxy.serviceNotification.getNotificationWalletsWithAccounts(
+        {
+          // variant-address accounts (cosmos/dot/cfx/fil) keep db `address`
+          // empty, resolve it for address-based avatars (same as account selector)
+          resolveOthersWalletAccountsAddress: true,
+        },
+      ),
     [],
     {
       watchLoading: true,

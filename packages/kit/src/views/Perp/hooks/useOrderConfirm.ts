@@ -35,6 +35,7 @@ import {
   type IPerpsMarketDataFreshness,
   shouldBlockPerpsTradingForMarketData,
 } from '../utils/perpsMarketDataFreshness';
+import { resolveTpSlTriggerPx } from '../utils/resolveTpSlTriggerPx';
 import { getScaleOrderValidationErrorMessage } from '../utils/scaleOrderValidation';
 
 import { useOrderPrice } from './useOrderPrice';
@@ -278,10 +279,12 @@ function useOrderConfirmWithMarketDataFreshness({
             side,
             size: scaleSize,
             positionSize: position?.szi,
-            missingPositionMessage:
-              'Reduce-only scale requires an opposite open position',
-            exceedsPositionMessage:
-              'Reduce-only scale size exceeds the current position',
+            missingPositionMessage: intl.formatMessage({
+              id: ETranslations.perp_scale_reduce_only_opposite_position_required__msg,
+            }),
+            exceedsPositionMessage: intl.formatMessage({
+              id: ETranslations.perp_scale_reduce_only_size_exceeds_position__msg,
+            }),
           });
           if (reduceOnlyError) {
             Toast.error({
@@ -389,10 +392,12 @@ function useOrderConfirmWithMarketDataFreshness({
             side,
             size: twapSize,
             positionSize: position?.szi,
-            missingPositionMessage:
-              'Reduce-only TWAP requires an opposite open position',
-            exceedsPositionMessage:
-              'Reduce-only TWAP size exceeds the current position',
+            missingPositionMessage: intl.formatMessage({
+              id: ETranslations.perp_twap_reduce_only_opposite_position_required__msg,
+            }),
+            exceedsPositionMessage: intl.formatMessage({
+              id: ETranslations.perp_twap_reduce_only_size_exceeds_position__msg,
+            }),
           });
           if (reduceOnlyError) {
             Toast.error({
@@ -471,60 +476,24 @@ function useOrderConfirmWithMarketDataFreshness({
         slType,
         leverage = 1,
       } = formDataSnapshot;
-      const leverageBN = new BigNumber(leverage);
-      if (formDataSnapshot.hasTpsl && (tpValue || slValue)) {
-        const entryPrice =
+      const { tpTriggerPx, slTriggerPx } = resolveTpSlTriggerPx({
+        hasTpsl: formDataSnapshot.hasTpsl,
+        tpType,
+        tpValue,
+        slType,
+        slValue,
+        referencePrice:
           effectiveFormData.type === 'market'
             ? midPriceBN
-            : new BigNumber(effectiveFormData.price || '0');
-
-        let calculatedTpTriggerPx: BigNumber | null = null;
-        let calculatedSlTriggerPx: BigNumber | null = null;
-
-        if (tpValue) {
-          const _tpValue = new BigNumber(tpValue);
-          if (tpType === 'price') {
-            calculatedTpTriggerPx = _tpValue;
-          }
-          if (tpType === 'percentage' && entryPrice.gt(0)) {
-            const percentChange = entryPrice
-              .multipliedBy(_tpValue)
-              .dividedBy(100)
-              .dividedBy(leverageBN);
-            const tpPrice =
-              side === 'long'
-                ? entryPrice.plus(percentChange)
-                : entryPrice.minus(percentChange);
-            calculatedTpTriggerPx = tpPrice;
-          }
-        }
-
-        if (slValue) {
-          const _slValue = new BigNumber(slValue);
-          if (slType === 'price') {
-            calculatedSlTriggerPx = _slValue;
-          }
-          if (slType === 'percentage' && entryPrice.gt(0)) {
-            const percentChange = entryPrice
-              .multipliedBy(_slValue)
-              .dividedBy(100)
-              .dividedBy(leverageBN);
-            const slPrice =
-              side === 'long'
-                ? entryPrice.minus(percentChange)
-                : entryPrice.plus(percentChange);
-            calculatedSlTriggerPx = slPrice;
-          }
-        }
-
+            : new BigNumber(effectiveFormData.price || '0'),
+        side,
+        leverage,
+      });
+      if (tpTriggerPx !== undefined || slTriggerPx !== undefined) {
         effectiveFormData = {
           ...effectiveFormData,
-          tpTriggerPx: calculatedTpTriggerPx
-            ? formatPriceToSignificantDigits(calculatedTpTriggerPx)
-            : '',
-          slTriggerPx: calculatedSlTriggerPx
-            ? formatPriceToSignificantDigits(calculatedSlTriggerPx)
-            : '',
+          tpTriggerPx: tpTriggerPx ?? '',
+          slTriggerPx: slTriggerPx ?? '',
         };
       }
 

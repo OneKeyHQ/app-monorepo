@@ -20,11 +20,20 @@ import { TradingFormInput } from './TradingFormInput';
 
 import type { ISide } from '../selectors/TradeSideToggle';
 
+type ISizeInputUnit = 'token' | 'usd' | 'margin';
+
+export type ISizeInputDisplayValueChangePayload = {
+  inputMode: ISizeInputUnit;
+  displayValue: string;
+  tokenValue: string;
+};
+
 interface ISizeInputProps {
   value: string;
   side: ISide;
   symbol: string;
   onChange: (value: string) => void;
+  onDisplayValueChange?: (payload: ISizeInputDisplayValueChangePayload) => void;
   activeAsset: IPerpsActiveAssetAtom;
   isAssetCtxReady: boolean;
   referencePrice: string;
@@ -43,6 +52,7 @@ export const SizeInput = memo(
   ({
     value,
     onChange,
+    onDisplayValueChange,
     symbol,
     activeAsset,
     isAssetCtxReady,
@@ -64,8 +74,9 @@ export const SizeInput = memo(
 
     const [tradingPreferences, setTradingPreferences] =
       usePerpsTradingPreferencesAtom();
-    const rawInputMode = tradingPreferences.sizeInputUnit ?? 'usd';
-    const inputMode =
+    const rawInputMode: ISizeInputUnit =
+      tradingPreferences.sizeInputUnit ?? 'usd';
+    const inputMode: ISizeInputUnit =
       !allowMarginInput && rawInputMode === 'margin' ? 'usd' : rawInputMode;
     const setInputMode = useCallback(
       (mode: 'token' | 'usd' | 'margin') => {
@@ -85,6 +96,9 @@ export const SizeInput = memo(
     const prevValueRef = useRef(value);
     const prevPriceRef = useRef(referencePrice);
     const prevLeverageRef = useRef(leverage);
+    const preserveRawInputOnEmptyValueRef = useRef<'usd' | 'margin' | null>(
+      null,
+    );
 
     const isSliderMode = sizeInputMode === 'slider';
 
@@ -177,9 +191,29 @@ export const SizeInput = memo(
       prevValueRef.current = value;
 
       if (!value) {
+        const preserveRawInputMode = preserveRawInputOnEmptyValueRef.current;
+        preserveRawInputOnEmptyValueRef.current = null;
+
+        if (
+          isUserTyping &&
+          ((preserveRawInputMode === 'usd' &&
+            inputMode === 'usd' &&
+            usdAmount) ||
+            (preserveRawInputMode === 'margin' &&
+              inputMode === 'margin' &&
+              marginAmount))
+        ) {
+          return;
+        }
+
         setUsdAmount('');
         setMarginAmount('');
         setIsUserTyping(false);
+        onDisplayValueChange?.({
+          inputMode,
+          displayValue: '',
+          tokenValue: '',
+        });
         return;
       }
 
@@ -197,7 +231,16 @@ export const SizeInput = memo(
           if (usdValue) setUsdAmount(usdValue);
         }
       }
-    }, [value, inputMode, isUserTyping, calcUsdFromToken, calcMarginFromToken]);
+    }, [
+      value,
+      inputMode,
+      isUserTyping,
+      usdAmount,
+      marginAmount,
+      calcUsdFromToken,
+      calcMarginFromToken,
+      onDisplayValueChange,
+    ]);
 
     // Effect: Leverage change handling
     useEffect(() => {
@@ -320,16 +363,35 @@ export const SizeInput = memo(
 
         if (inputMode === 'token') {
           setTokenAmount(newValue);
+          onDisplayValueChange?.({
+            inputMode,
+            displayValue: newValue,
+            tokenValue: newValue,
+          });
           onChange(newValue);
         } else if (inputMode === 'usd') {
           setUsdAmount(newValue);
           const tokenValue = calcTokenFromUsd(newValue);
+          preserveRawInputOnEmptyValueRef.current =
+            newValue && !tokenValue ? 'usd' : null;
           setTokenAmount(tokenValue);
+          onDisplayValueChange?.({
+            inputMode,
+            displayValue: newValue,
+            tokenValue,
+          });
           onChange(tokenValue);
         } else {
           setMarginAmount(newValue);
           const tokenValue = calcTokenFromMargin(newValue);
+          preserveRawInputOnEmptyValueRef.current =
+            newValue && !tokenValue ? 'margin' : null;
           setTokenAmount(tokenValue);
+          onDisplayValueChange?.({
+            inputMode,
+            displayValue: newValue,
+            tokenValue,
+          });
           onChange(tokenValue);
         }
       },
@@ -337,6 +399,7 @@ export const SizeInput = memo(
         isSliderMode,
         inputMode,
         onChange,
+        onDisplayValueChange,
         calcTokenFromUsd,
         calcTokenFromMargin,
         onRequestManualMode,
@@ -352,25 +415,38 @@ export const SizeInput = memo(
         setInputMode(mode);
         setIsUserTyping(false);
 
+        let displayValue = '';
         if (mode === 'usd' && tokenAmount) {
           const usdValue = calcUsdFromToken(tokenAmount);
           if (usdValue) setUsdAmount(usdValue);
+          displayValue = usdValue || usdAmount;
           const marginValue = calcMarginFromToken(tokenAmount);
           if (marginValue) setMarginAmount(marginValue);
         } else if (mode === 'token' && tokenAmount) {
+          displayValue = tokenAmount;
           const marginValue = calcMarginFromToken(tokenAmount);
           if (marginValue) setMarginAmount(marginValue);
         } else if (mode === 'margin' && tokenAmount) {
           const marginValue = calcMarginFromToken(tokenAmount);
           if (marginValue) setMarginAmount(marginValue);
+          displayValue = marginValue || marginAmount;
         }
+
+        onDisplayValueChange?.({
+          inputMode: mode,
+          displayValue,
+          tokenValue: tokenAmount,
+        });
       },
       [
         inputMode,
         tokenAmount,
+        usdAmount,
+        marginAmount,
         calcUsdFromToken,
         calcMarginFromToken,
         onRequestManualMode,
+        onDisplayValueChange,
         setInputMode,
       ],
     );

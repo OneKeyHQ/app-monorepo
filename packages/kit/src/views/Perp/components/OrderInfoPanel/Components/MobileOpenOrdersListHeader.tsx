@@ -44,7 +44,7 @@ export function MobileOpenOrdersListHeader({
 
   return (
     <XStack
-      px="$5"
+      px="$4"
       pt="$2.5"
       justifyContent="space-between"
       alignItems="center"

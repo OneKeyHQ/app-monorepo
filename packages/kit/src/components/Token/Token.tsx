@@ -29,7 +29,6 @@ import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { useAccountData } from '../../hooks/useAccountData';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
-import { useAggregateTokensListMapAtom } from '../../states/jotai/contexts/tokenList';
 import { NetworkAvatar, NetworkAvatarBase } from '../NetworkAvatar';
 
 import type { ImageURISource } from 'react-native';
@@ -43,6 +42,7 @@ export type ITokenProps = {
   tokenImageUris?: string[];
   networkImageUri?: ImageURISource['uri'];
   showNetworkIcon?: boolean;
+  showNetworkIconBorder?: boolean;
   networkId?: string;
   isAggregateToken?: boolean;
 } & Omit<IImageProps, 'size'>;
@@ -71,6 +71,7 @@ export function Token({
   networkImageUri,
   networkId,
   showNetworkIcon,
+  showNetworkIconBorder = true,
   fallbackIcon,
   isAggregateToken,
   bg: bgProp,
@@ -163,8 +164,8 @@ export function Token({
           position="absolute"
           right="$-1"
           bottom="$-1"
-          p="$0.5"
-          bg="$bgApp"
+          p={showNetworkIconBorder ? '$0.5' : '$0'}
+          bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
           borderRadius="$full"
         >
           <NetworkAvatarBase size={chainImageSize} logoURI={networkImageUri} />
@@ -181,8 +182,8 @@ export function Token({
           position="absolute"
           right="$-1"
           bottom="$-1"
-          p="$0.5"
-          bg="$bgApp"
+          p={showNetworkIconBorder ? '$0.5' : '$0'}
+          bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
           borderRadius="$full"
         >
           <NetworkAvatar networkId={networkId} size={chainImageSize} />
@@ -205,6 +206,7 @@ export function TokenName({
   isAggregateToken,
   withAggregateBadge,
   allAggregateTokenMap,
+  aggregateTokenList: aggregateTokenListProp,
   ...rest
 }: {
   $key: string;
@@ -217,12 +219,18 @@ export function TokenName({
   isAggregateToken?: boolean;
   withAggregateBadge?: boolean;
   allAggregateTokenMap?: Record<string, { tokens: IAccountToken[] }>;
+  // Resolved owned aggregate sub-token list for this `$key`, passed by
+  // TokenListView-side callers instead of reading
+  // `aggregateTokensListMapAtom` here (tokenList cells full-delete plan, PR-1).
+  // `TokenName` is a SHARED component not always mounted under the tokenList
+  // store, so callers outside that context simply omit this (-> [] fallback,
+  // matching the previous empty-atom behavior).
+  aggregateTokenList?: IAccountToken[];
 } & IXStackProps) {
   const { network } = useAccountData({ networkId });
   const intl = useIntl();
 
-  const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
-  const aggregateTokenList = aggregateTokensListMap[$key]?.tokens ?? [];
+  const aggregateTokenList = aggregateTokenListProp ?? [];
   const allAggregateTokenList = allAggregateTokenMap?.[$key]?.tokens ?? [];
   const firstAggregateToken = aggregateTokenList?.[0] ?? [];
   const { network: firstAggregateTokenNetwork } = useAccountData({

@@ -54,20 +54,20 @@ function OrderTypeDialogContent({
           key={option.value}
           onPress={() => handleSelect(option.value)}
           alignItems="center"
-          gap="$3"
-          px="$1"
+          gap="$2.5"
+          px="$0"
           py="$3"
           testID={`perp-order-type-option-${option.value}`}
           cursor="pointer"
         >
           <Stack
-            width={38}
-            height={38}
+            width={32}
+            height={32}
             alignItems="center"
             justifyContent="center"
             flexShrink={0}
           >
-            <Icon name={option.icon} width={32} height={32} color="$text" />
+            <Icon name={option.icon} width={28} height={28} color="$text" />
           </Stack>
           <YStack flex={1} gap="$1">
             <SizableText size="$bodyMdMedium" fontWeight="600" color="$text">

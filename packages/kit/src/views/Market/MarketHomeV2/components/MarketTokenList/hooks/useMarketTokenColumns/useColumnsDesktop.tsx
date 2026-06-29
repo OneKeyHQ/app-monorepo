@@ -18,7 +18,7 @@ import {
 } from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
 import {
   LeverageBadge,
-  SubtitleBadge,
+  SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -134,10 +134,10 @@ export const useColumnsDesktop = (
                 {record.maxLeverage ? (
                   <LeverageBadge leverage={record.maxLeverage} />
                 ) : null}
-                {record.perpsSubtitle ? (
-                  <SubtitleBadge subtitle={record.perpsSubtitle} />
-                ) : null}
               </XStack>
+              {record.perpsSubtitle ? (
+                <SubtitleText subtitle={record.perpsSubtitle} />
+              ) : null}
             </Stack>
           </XStack>
         ) : (
@@ -167,57 +167,50 @@ export const useColumnsDesktop = (
         </XStack>
       ),
     },
-    useStockMetadataColumns
-      ? undefined
-      : {
-          title: intl.formatMessage({ id: ETranslations.global_price }),
-          dataIndex: 'price',
-          columnProps: { flex: 1 },
-          render: (text: string) => {
-            return (
-              <NumberSizeableText
-                size="$bodyMd"
-                formatter={
-                  BigNumber(text).gt(1_000_000) ? 'marketCap' : 'price'
-                }
-                formatterOptions={{ currency: '$', capAtMaxT: true }}
-              >
-                {text}
-              </NumberSizeableText>
-            );
-          },
-          renderSkeleton: () => <Skeleton width={70} height={16} />,
-        },
-    useStockMetadataColumns
-      ? undefined
-      : {
-          title:
-            change24hColumnTitle ??
-            `${intl.formatMessage({
-              id: ETranslations.dexmarket_token_change,
-            })}(%)`,
-          dataIndex: 'change24h',
-          columnProps: { flex: 1 },
-          render: (text: number) => {
-            const { changeColor, showPlusMinusSigns } =
-              getTokenPriceChangeStyle({
-                priceChange: text,
-              });
-            return (
-              <NumberSizeableText
-                size="$bodyMd"
-                formatter="priceChange"
-                color={changeColor}
-                formatterOptions={{
-                  showPlusMinusSigns,
-                }}
-              >
-                {text}
-              </NumberSizeableText>
-            );
-          },
-          renderSkeleton: () => <Skeleton width={60} height={16} />,
-        },
+    {
+      title: intl.formatMessage({ id: ETranslations.global_price }),
+      dataIndex: 'price',
+      columnProps: { flex: 1 },
+      render: (text: string) => {
+        return (
+          <NumberSizeableText
+            size="$bodyMd"
+            formatter={BigNumber(text).gt(1_000_000) ? 'marketCap' : 'price'}
+            formatterOptions={{ currency: '$', capAtMaxT: true }}
+          >
+            {text}
+          </NumberSizeableText>
+        );
+      },
+      renderSkeleton: () => <Skeleton width={70} height={16} />,
+    },
+    {
+      title:
+        change24hColumnTitle ??
+        `${intl.formatMessage({
+          id: ETranslations.dexmarket_token_change,
+        })}(%)`,
+      dataIndex: 'change24h',
+      columnProps: { flex: 1 },
+      render: (text: number) => {
+        const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
+          priceChange: text,
+        });
+        return (
+          <NumberSizeableText
+            size="$bodyMd"
+            formatter="priceChange"
+            color={changeColor}
+            formatterOptions={{
+              showPlusMinusSigns,
+            }}
+          >
+            {text}
+          </NumberSizeableText>
+        );
+      },
+      renderSkeleton: () => <Skeleton width={60} height={16} />,
+    },
     isWatchlistMode && !useStockMetadataColumns
       ? undefined
       : {

@@ -1,15 +1,26 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { HOME_MARKET_CATEGORY_REQUEST_LIMIT } from './constants';
-import { EMPTY_DISPLAY_TOKENS, mapMarketTokenToDisplay } from './utils';
+import {
+  HOME_MARKET_CATEGORY_REQUEST_LIMIT,
+  HOME_PERPS_HOT_CATEGORY_ID,
+  HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
+} from './constants';
+import {
+  EMPTY_DISPLAY_TOKENS,
+  mapMarketPerpsTokenToDisplay,
+  mapMarketTokenToDisplay,
+} from './utils';
 
 import type { IFavoriteTokenDisplay } from './types';
+import type { IMarketApiTimeFrame } from '../../../Market/MarketHomeV2/types';
 
 const HOME_MARKET_CATEGORY_POLLING_INTERVAL = timerUtils.getTimeDurationMs({
   seconds: 30,
 });
+const HOME_MARKET_CATEGORY_TIME_FRAME: IMarketApiTimeFrame = '4';
 
 type ICategoryTokensResult = {
   requestKey: string;
@@ -53,6 +64,27 @@ function useHomeMarketCategoryTokens({
           };
         }
 
+        if (selectedMarketCategoryId === HOME_PERPS_HOT_CATEGORY_ID) {
+          const [response, tokenSearchAliases] = await Promise.all([
+            backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
+              category: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
+            }),
+            backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases(),
+          ]);
+
+          return {
+            requestKey: currentRequestKey,
+            tokens: response.tokens
+              .map((token) =>
+                mapMarketPerpsTokenToDisplay({
+                  token,
+                  subtitle: getTokenSubtitle(token.name, tokenSearchAliases),
+                }),
+              )
+              .slice(0, HOME_MARKET_CATEGORY_REQUEST_LIMIT),
+          };
+        }
+
         const response =
           await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
             networkId: '',
@@ -62,7 +94,7 @@ function useHomeMarketCategoryTokens({
             limit: HOME_MARKET_CATEGORY_REQUEST_LIMIT,
             minLiquidity,
             type: selectedMarketCategoryId,
-            timeFrame: '2',
+            timeFrame: HOME_MARKET_CATEGORY_TIME_FRAME,
           });
 
         return {

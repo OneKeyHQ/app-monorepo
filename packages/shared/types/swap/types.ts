@@ -44,6 +44,7 @@ export enum EProtocolOfExchange {
   SWAP = 'Swap', // swap and bridge
   LIMIT = 'Limit', // TODO
   PRIVATE_SEND = 'PrivateSend',
+  STOCK = 'Stock',
   ALL = 'All',
 }
 
@@ -52,6 +53,7 @@ export enum ESwapTabSwitchType {
   BRIDGE = 'bridge',
   LIMIT = 'limit',
   PRIVATE_SEND = 'privateSend',
+  STOCK = 'stock',
 }
 
 export enum ESwapDirectionType {
@@ -139,6 +141,7 @@ export interface ISwapNetworkBase {
   supportSingleSwap?: boolean;
   supportLimit?: boolean;
   supportPrivateSend?: boolean;
+  supportStock?: boolean;
 }
 
 export interface ISwapNetwork extends ISwapNetworkBase {
@@ -147,6 +150,7 @@ export interface ISwapNetwork extends ISwapNetworkBase {
   shortcode?: string;
   logoURI?: string;
   backendIndex?: boolean;
+  isDeFiEnabled?: boolean;
   isAllNetworks?: boolean;
 }
 
@@ -154,6 +158,7 @@ export interface ISwapTokenBase {
   fiatValue?: string;
   balanceParsed?: string;
   price?: string;
+  currency?: string;
   networkId: string;
   contractAddress: string;
   isNative?: boolean;
@@ -163,6 +168,7 @@ export interface ISwapTokenBase {
   logoURI?: string;
   speedSwapDefaultAmount?: number[];
   supportProtocol?: boolean;
+  isStock?: boolean;
 }
 
 export interface IFreeFeeTokenItem {
@@ -218,6 +224,7 @@ export interface IFetchTokensParams {
   onlyAccountTokens?: boolean;
   isAllNetworkFetchAccountTokens?: boolean;
   lpToken?: boolean;
+  currency?: string;
 }
 
 export interface IFetchTokenListParams {
@@ -988,6 +995,10 @@ export interface ISwapTxHistory {
   swapOrderHash?: ISwapOrderHash;
   ctx?: any;
   currency?: string;
+  currencyId?: string;
+  // Timestamp at which this item was archived ("read") by the Swap history
+  // preview module. Presence = read; absence = unread. Value is never compared.
+  previewReadAt?: number;
   accountInfo: {
     sender: {
       accountId?: string;

@@ -28,8 +28,6 @@ import {
   type IScaleOrderTif,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { getScopedOpenOrdersByCoin } from './utils/coldStartMergeUtils';
-
 import type {
   IPerpsBboWithLocalReceivedAt,
   IPerpsL2BookWithLocalReceivedAt,
@@ -145,6 +143,26 @@ export const {
 export const { atom: l2BookAtom, use: useL2BookAtom } =
   contextAtom<IPerpsL2BookWithLocalReceivedAt | null>(null);
 
+export type IPerpsL2BookColdCacheAtom = Record<
+  string,
+  {
+    data: IPerpsL2BookWithLocalReceivedAt;
+    updatedAt: number;
+  }
+>;
+
+export const {
+  atom: perpsL2BookColdCacheAtom,
+  use: usePerpsL2BookColdCacheAtom,
+} = contextAtom<IPerpsL2BookColdCacheAtom>(
+  {},
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsL2BookColdCacheAtom,
+  },
+);
+
 export const { atom: bboAtom, use: useBboAtom } =
   contextAtom<IPerpsBboWithLocalReceivedAt | null>(null);
 
@@ -256,6 +274,9 @@ export interface ITradingFormData {
   bboPriceMode?: IBBOPriceMode;
   limitTif?: HL.ITIF;
 
+  // Standard-limit reduce-only; trigger/scale/twap have their own fields below.
+  reduceOnly?: boolean;
+
   // Take Profit / Stop Loss
   hasTpsl: boolean;
   tpTriggerPx: string; // TP Price
@@ -301,6 +322,7 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
     leverage: 1,
     bboPriceMode: null,
     limitTif: 'Gtc',
+    reduceOnly: false,
     hasTpsl: false,
     tpTriggerPx: '',
     tpGainPercent: '',
@@ -645,39 +667,6 @@ export const {
     {} as { [coin: string]: number[] },
   );
 });
-
-export const perpsOpenOrdersByCoinAtomCache = new Map<
-  string,
-  ReturnType<typeof contextAtomComputed<HL.IPerpsFrontendOrder[]>>
->();
-
-function getOrCreatePerpsOpenOrdersByCoinAtom(coin: string) {
-  let entry = perpsOpenOrdersByCoinAtomCache.get(coin);
-  if (!entry) {
-    entry = contextAtomComputed((get) => {
-      const activeAccount = get(perpsActiveAccountAtom.atom());
-      const { accountAddress, openOrdersByCoin } = get(
-        perpsActiveOpenOrdersAtom(),
-      );
-      return getScopedOpenOrdersByCoin({
-        activeAccountAddress: activeAccount?.accountAddress,
-        openOrdersAccountAddress: accountAddress,
-        openOrdersByCoin,
-        coin,
-      });
-    });
-    perpsOpenOrdersByCoinAtomCache.set(coin, entry);
-  }
-  return entry;
-}
-
-export function usePerpsOpenOrdersByCoin(
-  coin: string,
-): HL.IPerpsFrontendOrder[] {
-  const { use } = getOrCreatePerpsOpenOrdersByCoinAtom(coin);
-  const [orders] = use();
-  return orders;
-}
 
 export type IPerpsLedgerUpdatesAtom = {
   accountAddress: string | undefined;

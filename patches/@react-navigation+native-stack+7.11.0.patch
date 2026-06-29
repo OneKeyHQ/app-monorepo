@@ -1,0 +1,16 @@
+diff --git a/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js b/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js
+index 492390b..52edfbd 100644
+--- a/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js
++++ b/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js
+@@ -346,6 +346,10 @@
+     children,
+     headerLeftBarButtonItems: processBarButtonItems(leftItems, colors, fonts),
+     headerRightBarButtonItems: processBarButtonItems(rightItems, colors, fonts),
+-    experimental_userInterfaceStyle: dark ? 'dark' : 'light'
++    // OneKey: prefer the app theme mirrored by ConfigProvider on iOS 26 so the
++    // nav-bar Liquid Glass paints the right light/dark variant on the first
++    // frame instead of flashing its light variant until react-navigation's
++    // theme resolves. Falls back to the default when unset (non-iOS26 / others).
++    experimental_userInterfaceStyle: globalThis.$onekeyGlassHeaderUIStyle ?? (dark ? 'dark' : 'light')
+   };
+ }

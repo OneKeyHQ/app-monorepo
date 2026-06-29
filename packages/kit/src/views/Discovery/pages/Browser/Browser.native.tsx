@@ -12,6 +12,7 @@ import {
   Stack,
   XStack,
   YStack,
+  isLiquidGlassAvailable,
   rootNavigationRef,
   useIsSplitView,
   useSafeAreaInsets,
@@ -53,6 +54,7 @@ import {
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
 import { MarketHomeWithProvider } from '../../../Market/MarketHomeV2/MarketHomeV2';
@@ -180,6 +182,10 @@ const popToDiscoveryHomePage = (depth = 0) => {
   }
 };
 
+// Stable reference so the Browser tab's universal-search scope doesn't rebuild
+// downstream memos on every render (OK-56756).
+const DAPP_ONLY_SEARCH_FILTER_TYPES = [EUniversalSearchType.Dapp];
+
 function MobileBrowser() {
   const isTabletMainView = useSplitMainView();
   const isTabletDetailView = useSplitSubView();
@@ -214,6 +220,14 @@ function MobileBrowser() {
     }
     return undefined;
   }, [selectedHeaderTab]);
+
+  // Under the Browser tab the search should only surface dapps — restrict the
+  // universal search scope so market/perp/wallet results don't leak in
+  // (OK-56756). Other header tabs keep the full-scope universal search.
+  const searchFilterTypes =
+    selectedHeaderTab === ETranslations.global_browser
+      ? DAPP_ONLY_SEARCH_FILTER_TYPES
+      : undefined;
 
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
@@ -370,6 +384,18 @@ function MobileBrowser() {
   );
 
   const { top } = useSafeAreaInsets();
+  // iOS 26: the Discover search bar opts into the Liquid Glass capsule (so it
+  // matches the Wallet header's glass search bar) and is nudged down so its
+  // center vertically aligns with the Wallet search bar — which sits centered in
+  // a 56pt row, i.e. ~6pt lower than this bar's safe-area-top anchor. Off iOS 26
+  // / Android nothing changes.
+  const searchGlassActive = isLiquidGlassAvailable();
+  let discoverSearchTop = top;
+  if (platformEnv.isNativeAndroid) {
+    discoverSearchTop = top + 5;
+  } else if (searchGlassActive) {
+    discoverSearchTop = top + 6;
+  }
   const takeScreenshot = useTakeScreenshot(activeTabId);
 
   const handleGoBackHome = useCallback(async () => {
@@ -635,18 +661,29 @@ function MobileBrowser() {
           top={0}
           left={0}
           bg="$bgApp"
-          pt="$12"
+          // iOS 26: the search bar grew (40->44) and shifted down +6 for Wallet
+          // alignment, which ate the gap to the segment row (Market/DeFi/Browser)
+          // below it. Push that row down so the gap matches the original ~8pt
+          // (6 shift + 44 bar + 8 gap = 58). Off iOS 26 keep the original $12.
+          pt={searchGlassActive ? 58 : '$12'}
           width="100%"
           onLayout={handleTabPageLayout}
         >
           <Stack
             position="absolute"
-            top={platformEnv.isNativeAndroid ? top + 5 : top}
+            top={discoverSearchTop}
             px="$5"
+            // iOS 26: the glass search bar fills its width via flex, which
+            // collapses to 0 inside this shrink-to-fit absolute container — pin
+            // left/right so it spans the header width. Off iOS 26 the Stack
+            // keeps its original content width (unchanged).
+            {...(searchGlassActive && { left: 0, right: 0 })}
           >
             <LegacyUniversalSearchInput
               size="medium"
+              glass
               initialTab={searchInitialTab}
+              filterTypes={searchFilterTypes}
             />
           </Stack>
           <TabPageHeader

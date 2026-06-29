@@ -22,10 +22,6 @@ const SwapTipsContainer = ({ pageType }: ISwapTipsContainerProps) => {
   }
   const swapTips = swapTipsState.tips;
 
-  if (swapTipsState.status === 'unknown') {
-    return <YStack h={SWAP_TIPS_RESERVED_HEIGHT} />;
-  }
-
   if (!swapTips) {
     return null;
   }

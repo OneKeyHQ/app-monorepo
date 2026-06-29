@@ -160,16 +160,6 @@ function UnifiedNetworkSelector() {
 
   const [searchKey, setSearchKey] = useState('');
 
-  // Network values for portfolio tab
-  const [accountNetworkValues, setAccountNetworkValues] = useState<
-    Record<string, string>
-  >({});
-  const [accountNetworkValueCurrency, setAccountNetworkValueCurrency] =
-    useState<string | undefined>(undefined);
-  const [accountDeFiOverview, setAccountDeFiOverview] = useState<
-    Record<string, { netWorth: number }>
-  >({});
-
   const [_enabledNetworksWithoutAccount, setEnabledNetworksWithoutAccount] =
     useState<
       {
@@ -287,50 +277,113 @@ function UnifiedNetworkSelector() {
 
   const compatibleNetworks = networkMeta?.compatibleNetworks;
 
-  // Balances + DeFi: intentionally uncached. Depends on compatibleNetworks for
-  // the sort step, so meta changes fan out here via the `compatibleNetworks`
-  // dep. No manual run needed — deps-driven revalidation covers every path.
-  usePromiseResult(async () => {
-    if (!compatibleNetworks) return;
-    if (!accountId && !indexedAccountId) return;
+  // Balances + DeFi: now SWR-cached via the cold-start MMKV instance so the
+  // "networks with assets" (有资产的网络) section is present on the very first
+  // render frame, eliminating the layout jump that happened when this section
+  // popped in only after the async resolved. The request still always fires and
+  // revalidates the cache in place; the cached values are local USD snapshots,
+  // so brief staleness before revalidation is acceptable. Only primitive
+  // (MMKV-serializable) fields are returned — Record<string,string> values, a
+  // currency string, and Record<string,{ netWorth: number }> DeFi overview;
+  // never the IServerNetwork objects from compatibleNetworks. Depends on
+  // compatibleNetworks for the sort step, so meta changes fan out here via the
+  // `compatibleNetworks` dep.
+  const { result: accountValuesResult } = usePromiseResult(
+    async (): Promise<
+      | {
+          accountNetworkValues: Record<string, string>;
+          currency: string | undefined;
+          accountDeFiOverview: Record<string, { netWorth: number }>;
+        }
+      | undefined
+    > => {
+      // Return `undefined` (not an empty object) when we cannot compute a real
+      // result yet. usePromiseResult only writes the swr cache when the result
+      // is `!== undefined`, so this prevents a transient pre-meta run from
+      // overwriting a previously-good cached snapshot (which would bring the
+      // layout jump back on the next cold start). An empty *computed* result
+      // below (account genuinely has no assets) is still returned and cached.
+      if (!compatibleNetworks) {
+        return undefined;
+      }
+      if (!accountId && !indexedAccountId) {
+        return undefined;
+      }
 
-    const [_accountsValue, _localDeFiOverview] = await Promise.all([
-      backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValueByAccountId(
-        { accountId: indexedAccountId ?? accountId ?? '' },
-      ),
-      backgroundApiProxy.serviceDeFi.getAccountsLocalDeFiOverview({
-        accounts: [
-          {
-            accountId: indexedAccountId ?? accountId ?? '',
-            networkId: getNetworkIdsMap().onekeyall,
-            indexedAccountId,
-          },
-        ],
-        networksEnabledOnly: false,
+      const [_accountsValue, _localDeFiOverview] = await Promise.all([
+        backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValueByAccountId(
+          { accountId: indexedAccountId ?? accountId ?? '' },
+        ),
+        backgroundApiProxy.serviceDeFi.getAccountsLocalDeFiOverview({
+          accounts: [
+            {
+              accountId: indexedAccountId ?? accountId ?? '',
+              networkId: getNetworkIdsMap().onekeyall,
+              indexedAccountId,
+            },
+          ],
+          networksEnabledOnly: false,
+        }),
+      ]);
+
+      if (_accountsValue || _localDeFiOverview[0]) {
+        const {
+          formattedAccountNetworkValues,
+          accountDeFiOverview: _accountDeFiOverview,
+        } =
+          await backgroundApiProxy.serviceNetwork.sortChainSelectorNetworksByValue(
+            {
+              walletId: accountUtils.getWalletIdFromAccountId({
+                accountId: _accountsValue?.accountId ?? '',
+              }),
+              chainSelectorNetworks: compatibleNetworks,
+              accountNetworkValues: _accountsValue?.value ?? {},
+              localDeFiOverview: _localDeFiOverview[0]?.overview ?? {},
+            },
+          );
+
+        return {
+          accountNetworkValues: formattedAccountNetworkValues ?? {},
+          currency: _accountsValue?.currency,
+          accountDeFiOverview: _accountDeFiOverview ?? {},
+        };
+      }
+
+      // Defensive: `_accountsValue` is always a truthy object, so this branch
+      // is effectively unreachable, but if it ever is hit we have no data to
+      // compute — return `undefined` to leave the cache untouched.
+      return undefined;
+    },
+    // walletId is kept in deps because it feeds the swrKey: a wallet-scope
+    // change must trigger revalidation. exhaustive-deps only inspects the
+    // callback body (which derives its own walletId from the resolved account)
+    // and therefore flags walletId as unnecessary — suppress that here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [accountId, indexedAccountId, compatibleNetworks, walletId],
+    {
+      swrKey: swrKeys.unifiedNetworkSelectorValues({
+        walletId,
+        accountId,
+        indexedAccountId,
       }),
-    ]);
+    },
+  );
 
-    if (_accountsValue || _localDeFiOverview[0]) {
-      const {
-        formattedAccountNetworkValues,
-        accountDeFiOverview: _accountDeFiOverview,
-      } =
-        await backgroundApiProxy.serviceNetwork.sortChainSelectorNetworksByValue(
-          {
-            walletId: accountUtils.getWalletIdFromAccountId({
-              accountId: _accountsValue?.accountId ?? '',
-            }),
-            chainSelectorNetworks: compatibleNetworks,
-            accountNetworkValues: _accountsValue?.value ?? {},
-            localDeFiOverview: _localDeFiOverview[0]?.overview ?? {},
-          },
-        );
-
-      setAccountNetworkValues(formattedAccountNetworkValues ?? {});
-      setAccountNetworkValueCurrency(_accountsValue?.currency);
-      setAccountDeFiOverview(_accountDeFiOverview ?? {});
-    }
-  }, [accountId, indexedAccountId, compatibleNetworks]);
+  // Derive the portfolio values straight from the SWR result so the first
+  // render reflects cached data without a frame of empty objects. Declared
+  // after the usePromiseResult above to keep hook ordering stable.
+  const accountNetworkValues = useMemo(
+    () => accountValuesResult?.accountNetworkValues ?? {},
+    [accountValuesResult],
+  );
+  const accountNetworkValueCurrency = useMemo(
+    () => accountValuesResult?.currency,
+    [accountValuesResult],
+  );
+  const accountDeFiOverview = useMemo(
+    () => accountValuesResult?.accountDeFiOverview ?? {},
+    [accountValuesResult],
+  );
 
   // Refresh portfolio data when a custom network is added. Meta revalidation
   // produces a new compatibleNetworks reference, which cascades into the

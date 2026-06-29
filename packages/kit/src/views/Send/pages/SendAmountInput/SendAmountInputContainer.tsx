@@ -28,7 +28,6 @@ import {
   NumberSizeableText,
   Page,
   ScrollView,
-  Select,
   SizableText,
   Skeleton,
   Stack,
@@ -41,6 +40,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
+import AddressTypeSelectorTrigger from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelectorTrigger';
 import { calcPercentBalance } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { LightningUnitSwitch } from '@onekeyhq/kit/src/components/UnitSwitch';
@@ -54,19 +54,32 @@ import {
   useSelectedUTXOsAtom,
   useSendConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
 import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IAccountDeriveInfo,
   ITransferInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { POLLING_INTERVAL_FOR_TOKEN } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalSendRoutes,
+  EModalSwapRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type {
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList,
@@ -81,6 +94,7 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IAddressValidateStatus } from '@onekeyhq/shared/types/address';
 import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
@@ -88,19 +102,28 @@ import { ENFTType } from '@onekeyhq/shared/types/nft';
 import {
   privateSendHelpCenterUrl,
   privateSendProvider,
+  swapDefaultSetTokens,
+  swapQuoteFetchInterval,
   swapSlippageAutoValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchQuoteInfo,
   IFetchQuoteResult,
+  IFetchQuotesParams,
+  ISwapQuoteEvent,
+  ISwapQuoteEventAutoSlippage,
+  ISwapQuoteEventData,
+  ISwapQuoteEventError,
+  ISwapQuoteEventInfo,
+  ISwapQuoteEventQuoteResult,
   ISwapToken,
   ISwapTxHistory,
   ISwapTxInfo,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
-  ESwapFetchCancelCause,
   ESwapQuoteKind,
+  ESwapSource,
   ESwapTabSwitchType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -196,8 +219,62 @@ type IPrivateSendBuildCtx = {
   payinAddress?: unknown;
 };
 
+type IPrivateSendQuoteEvent = {
+  type: 'message' | 'done' | 'error' | 'close' | 'open';
+  event: ISwapQuoteEvent;
+  params: IFetchQuotesParams;
+  accountId?: string;
+  tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
+};
+
+type IPrivateSendQuoteEventRequest = {
+  fromToken: ISwapToken;
+  toToken: ISwapToken;
+  fromTokenAmount: string;
+  userAddress: string;
+  receivingAddress: string;
+  accountId?: string;
+};
+
+type IPrivateSendQuoteEventsResult = {
+  quotes: IFetchQuoteResult[];
+  quoteError?: string;
+};
+
+let privateSendQuoteEventsSessionId = 0;
+let stopPrivateSendQuoteEventsSession: (() => void) | undefined;
+
+async function cancelPrivateSendQuoteEvents() {
+  const stopSession = stopPrivateSendQuoteEventsSession;
+  if (!stopSession) return;
+
+  privateSendQuoteEventsSessionId += 1;
+  stopPrivateSendQuoteEventsSession = undefined;
+  stopSession();
+  await backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents();
+}
+
 const privateSendValueDropWarningPercent = 5;
 const privateSendValueDropCountdownSeconds = 5;
+
+function convertBaseTokenToSwapToken({
+  networkId,
+  tokenInfo,
+}: {
+  networkId: string;
+  tokenInfo?: IToken | null;
+}): ISwapToken | undefined {
+  if (!tokenInfo) return undefined;
+  return {
+    networkId,
+    contractAddress: tokenInfo.address,
+    isNative: tokenInfo.isNative,
+    symbol: tokenInfo.symbol,
+    decimals: tokenInfo.decimals,
+    name: tokenInfo.name,
+    logoURI: tokenInfo.logoURI,
+  };
+}
 
 function convertTokenToSwapToken({
   networkId,
@@ -206,19 +283,43 @@ function convertTokenToSwapToken({
   networkId: string;
   tokenDetails?: { info: IToken } & ITokenFiat;
 }): ISwapToken | undefined {
-  if (!tokenDetails?.info) return undefined;
-  return {
+  if (!tokenDetails) return undefined;
+  const swapToken = convertBaseTokenToSwapToken({
     networkId,
-    contractAddress: tokenDetails.info.address,
-    isNative: tokenDetails.info.isNative,
-    symbol: tokenDetails.info.symbol,
-    decimals: tokenDetails.info.decimals,
-    name: tokenDetails.info.name,
-    logoURI: tokenDetails.info.logoURI,
+    tokenInfo: tokenDetails.info,
+  });
+  if (!swapToken) return undefined;
+  return {
+    ...swapToken,
     balanceParsed: tokenDetails.balanceParsed,
     price: tokenDetails.price?.toString(),
     fiatValue: tokenDetails.fiatValue,
   };
+}
+
+function getSendSwapDefaultFromToken({
+  networkId,
+  targetToken,
+}: {
+  networkId: string;
+  targetToken?: ISwapToken;
+}): ISwapToken | undefined {
+  if (!targetToken) return undefined;
+  const defaultTokens = swapDefaultSetTokens[networkId];
+  const candidates = [
+    defaultTokens?.fromToken,
+    defaultTokens?.toToken,
+    defaultTokens?.limitFromToken,
+    defaultTokens?.limitToToken,
+  ];
+  return candidates.find(
+    (candidate) =>
+      candidate &&
+      !equalTokenNoCaseSensitive({
+        token1: candidate,
+        token2: targetToken,
+      }),
+  );
 }
 
 function buildPrivateSendQuoteScopeKey({
@@ -272,6 +373,63 @@ function getPositivePrivateSendAmount(amount?: string | number) {
     : undefined;
 }
 
+function getPrivateSendQuoteProvider(quote?: IFetchQuoteResult) {
+  return (
+    quote?.info.provider || quote?.info.providerName || privateSendProvider
+  );
+}
+
+function getPrivateSendQuoteArrivalEta(quote?: IFetchQuoteResult) {
+  const arrivalEta = quote?.estimatedTime ?? quote?.estTime;
+  return typeof arrivalEta === 'string' || typeof arrivalEta === 'number'
+    ? arrivalEta
+    : undefined;
+}
+
+function buildPrivateSendQuoteAnalyticsKey({
+  scopeKey,
+  quote,
+  status,
+  message,
+}: {
+  scopeKey: string;
+  quote?: IFetchQuoteResult;
+  status: 'success' | 'failed';
+  message?: string;
+}) {
+  return [
+    scopeKey,
+    quote?.eventId ?? '',
+    getPrivateSendQuoteProvider(quote),
+    quote?.fromAmount ?? '',
+    quote?.toAmount ?? '',
+    status,
+    message ?? '',
+  ].join('|');
+}
+
+function getPrivateSendSendValue({
+  amount,
+  token,
+}: {
+  amount?: string | number;
+  token?: ISwapToken;
+}) {
+  const amountBN = new BigNumber(amount ?? 0);
+  const priceBN = new BigNumber(token?.price ?? 0);
+  if (
+    amountBN.isNaN() ||
+    priceBN.isNaN() ||
+    !amountBN.isFinite() ||
+    !priceBN.isFinite() ||
+    amountBN.isLessThan(0) ||
+    priceBN.isLessThan(0)
+  ) {
+    return undefined;
+  }
+  return amountBN.multipliedBy(priceBN).toFixed();
+}
+
 function isPositivePrivateSendAmount(amount?: string | number) {
   return Boolean(getPositivePrivateSendAmount(amount));
 }
@@ -286,11 +444,304 @@ function isPrivateSendQuoteUsable(
   );
 }
 
-function isSwapQuoteCancelError(error: unknown) {
+function isPrivateSendQuoteEventMatched({
+  event,
+  request,
+}: {
+  event: IPrivateSendQuoteEvent;
+  request: IPrivateSendQuoteEventRequest;
+}) {
   return (
-    (error as { cause?: unknown } | undefined)?.cause ===
-    ESwapFetchCancelCause.SWAP_QUOTE_CANCEL
+    event.accountId === request.accountId &&
+    event.params.protocol === EProtocolOfExchange.PRIVATE_SEND &&
+    event.params.fromTokenAmount === request.fromTokenAmount &&
+    event.params.userAddress === request.userAddress &&
+    event.params.receivingAddress === request.receivingAddress &&
+    event.params.kind === ESwapQuoteKind.SELL &&
+    equalTokenNoCaseSensitive({
+      token1: event.tokenPairs.fromToken,
+      token2: request.fromToken,
+    }) &&
+    equalTokenNoCaseSensitive({
+      token1: event.tokenPairs.toToken,
+      token2: request.toToken,
+    })
   );
+}
+
+function parsePrivateSendQuoteEventData(event: ISwapQuoteEvent) {
+  const data = (event as { data?: unknown }).data;
+  if (typeof data !== 'string' || !data) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(data) as ISwapQuoteEventData;
+  } catch {
+    return undefined;
+  }
+}
+
+function applyPrivateSendAutoSlippage({
+  quote,
+  autoSlippage,
+}: {
+  quote: IFetchQuoteResult;
+  autoSlippage?: ISwapQuoteEventAutoSlippage;
+}) {
+  if (
+    !autoSlippage ||
+    quote.autoSuggestedSlippage ||
+    quote.eventId !== autoSlippage.eventId ||
+    !equalTokenNoCaseSensitive({
+      token1: quote.fromTokenInfo,
+      token2: {
+        networkId: autoSlippage.fromNetworkId,
+        contractAddress: autoSlippage.fromTokenAddress,
+      },
+    }) ||
+    !equalTokenNoCaseSensitive({
+      token1: quote.toTokenInfo,
+      token2: {
+        networkId: autoSlippage.toNetworkId,
+        contractAddress: autoSlippage.toTokenAddress,
+      },
+    })
+  ) {
+    return quote;
+  }
+  return {
+    ...quote,
+    autoSuggestedSlippage: autoSlippage.autoSuggestedSlippage,
+  };
+}
+
+function normalizePrivateSendQuoteEventResults({
+  quotes,
+  request,
+  eventId,
+  autoSlippage,
+}: {
+  quotes: IFetchQuoteResult[];
+  request: IPrivateSendQuoteEventRequest;
+  eventId?: string;
+  autoSlippage?: ISwapQuoteEventAutoSlippage;
+}) {
+  return quotes
+    .map((quote) => applyPrivateSendAutoSlippage({ quote, autoSlippage }))
+    .filter(
+      (quote) =>
+        quote.info.provider &&
+        quote.protocol === EProtocolOfExchange.PRIVATE_SEND &&
+        (!eventId || quote.eventId === eventId) &&
+        equalTokenNoCaseSensitive({
+          token1: quote.fromTokenInfo,
+          token2: request.fromToken,
+        }) &&
+        equalTokenNoCaseSensitive({
+          token1: quote.toTokenInfo,
+          token2: request.toToken,
+        }),
+    );
+}
+
+function mergePrivateSendQuoteEventResults({
+  current,
+  next,
+  request,
+  eventId,
+  autoSlippage,
+}: {
+  current: IFetchQuoteResult[];
+  next: IFetchQuoteResult[];
+  request: IPrivateSendQuoteEventRequest;
+  eventId?: string;
+  autoSlippage?: ISwapQuoteEventAutoSlippage;
+}) {
+  const normalizedNext = normalizePrivateSendQuoteEventResults({
+    quotes: next,
+    request,
+    eventId,
+    autoSlippage,
+  });
+  const updated = current.map((oldQuote) => {
+    const nextQuote = normalizedNext.find(
+      (quote) =>
+        quote.info.provider === oldQuote.info.provider &&
+        quote.info.providerName === oldQuote.info.providerName,
+    );
+    return nextQuote ?? oldQuote;
+  });
+  const additions = normalizedNext.filter(
+    (quote) =>
+      !current.some(
+        (oldQuote) =>
+          quote.info.provider === oldQuote.info.provider &&
+          quote.info.providerName === oldQuote.info.providerName,
+      ),
+  );
+  return normalizePrivateSendQuoteEventResults({
+    quotes: [...updated, ...additions],
+    request,
+    eventId,
+    autoSlippage,
+  });
+}
+
+async function fetchPrivateSendQuotesEvents({
+  request,
+  quoteError,
+}: {
+  request: IPrivateSendQuoteEventRequest;
+  quoteError: string;
+}): Promise<IPrivateSendQuoteEventsResult> {
+  await cancelPrivateSendQuoteEvents();
+
+  privateSendQuoteEventsSessionId += 1;
+  const sessionId = privateSendQuoteEventsSessionId;
+
+  await backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents();
+
+  return new Promise<IPrivateSendQuoteEventsResult>((resolve) => {
+    let settled = false;
+    let quotes: IFetchQuoteResult[] = [];
+    let eventId: string | undefined;
+    let totalQuoteCount: number | undefined;
+    let autoSlippage: ISwapQuoteEventAutoSlippage | undefined;
+    let cleanup = (_cancelEventSource: boolean) => {};
+
+    const isCurrentSession = () =>
+      privateSendQuoteEventsSessionId === sessionId;
+
+    const settle = (
+      result: IPrivateSendQuoteEventsResult,
+      options?: { cancelEventSource?: boolean },
+    ) => {
+      if (settled) return;
+      settled = true;
+      cleanup((options?.cancelEventSource ?? true) && isCurrentSession());
+      resolve(result);
+    };
+
+    const maybeSetEventId = (nextEventId?: string) => {
+      if (!nextEventId) return true;
+      if (eventId && eventId !== nextEventId) return false;
+      eventId = nextEventId;
+      return true;
+    };
+
+    const quoteEventHandler = (event: IPrivateSendQuoteEvent) => {
+      if (!isCurrentSession()) {
+        return;
+      }
+      if (!isPrivateSendQuoteEventMatched({ event, request })) {
+        return;
+      }
+
+      if (event.type === 'message') {
+        const data = parsePrivateSendQuoteEventData(event.event);
+        if (!data) return;
+
+        const errorData = data as ISwapQuoteEventError;
+        if (errorData.errorMessage) {
+          if (!maybeSetEventId(errorData.eventId)) return;
+          settle({ quotes: [], quoteError: errorData.errorMessage });
+          return;
+        }
+
+        const autoSlippageData = data as ISwapQuoteEventAutoSlippage;
+        if (autoSlippageData.autoSuggestedSlippage !== undefined) {
+          if (!maybeSetEventId(autoSlippageData.eventId)) return;
+          autoSlippage = autoSlippageData;
+          quotes = normalizePrivateSendQuoteEventResults({
+            quotes,
+            request,
+            eventId,
+            autoSlippage,
+          });
+          return;
+        }
+
+        if (
+          (data as ISwapQuoteEventInfo).totalQuoteCount ||
+          (data as ISwapQuoteEventInfo).totalQuoteCount === 0
+        ) {
+          const infoData = data as ISwapQuoteEventInfo;
+          if (!maybeSetEventId(infoData.eventId)) return;
+          totalQuoteCount = infoData.totalQuoteCount;
+          if (totalQuoteCount === 0) {
+            settle({ quotes: [] });
+          }
+          return;
+        }
+
+        const quoteResultData = data as ISwapQuoteEventQuoteResult;
+        if (quoteResultData.data?.length) {
+          const quoteEventId = quoteResultData.data[0]?.eventId;
+          if (!maybeSetEventId(quoteEventId)) return;
+          quotes = mergePrivateSendQuoteEventResults({
+            current: quotes,
+            next: quoteResultData.data,
+            request,
+            eventId,
+            autoSlippage,
+          });
+          if (
+            totalQuoteCount !== undefined &&
+            quotes.length >= totalQuoteCount
+          ) {
+            settle({ quotes });
+          }
+        }
+        return;
+      }
+
+      if (event.type === 'done' || event.type === 'close') {
+        settle({ quotes });
+        return;
+      }
+
+      if (event.type === 'error') {
+        settle(quotes.length ? { quotes } : { quotes, quoteError });
+      }
+    };
+
+    const timeoutId = setTimeout(() => {
+      settle(quotes.length ? { quotes } : { quotes, quoteError });
+    }, swapQuoteFetchInterval);
+    const stopCurrentSession = () => {
+      settle({ quotes: [] }, { cancelEventSource: false });
+    };
+    cleanup = (cancelEventSource: boolean) => {
+      clearTimeout(timeoutId);
+      appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+      if (stopPrivateSendQuoteEventsSession === stopCurrentSession) {
+        stopPrivateSendQuoteEventsSession = undefined;
+      }
+      if (cancelEventSource) {
+        void backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents();
+      }
+    };
+    stopPrivateSendQuoteEventsSession = stopCurrentSession;
+
+    appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+    appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+
+    void backgroundApiProxy.serviceSwap
+      .fetchQuotesEvents({
+        fromToken: request.fromToken,
+        toToken: request.toToken,
+        fromTokenAmount: request.fromTokenAmount,
+        userAddress: request.userAddress,
+        receivingAddress: request.receivingAddress,
+        slippagePercentage: swapSlippageAutoValue,
+        protocol: ESwapTabSwitchType.PRIVATE_SEND,
+        kind: ESwapQuoteKind.SELL,
+        accountId: request.accountId,
+      })
+      .catch(() => {
+        settle({ quotes: [], quoteError });
+      });
+  });
 }
 
 function PrivateSendValueDropWarningContent({
@@ -356,7 +807,8 @@ function SendAmountInputContainer() {
   const [isUseFiat, setIsUseFiat] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMaxSend, setIsMaxSend] = useState(false);
-  const [settings, setSettings] = useSettingsPersistAtom();
+  const [settings] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const [selectedUTXOs] = useSelectedUTXOsAtom();
   const sendConfirmActions = useSendConfirmActions();
 
@@ -394,7 +846,7 @@ function SendAmountInputContainer() {
 
   const [currentAccountId, setCurrentAccountId] = useState(accountId);
 
-  const { account, network, vaultSettings, deriveInfo, deriveType } =
+  const { account, network, wallet, vaultSettings, deriveInfo, deriveType } =
     useAccountData({
       accountId: currentAccountId,
       networkId,
@@ -432,8 +884,14 @@ function SendAmountInputContainer() {
   const { serviceToken, serviceNFT } = backgroundApiProxy;
 
   const {
-    result: [tokenDetails, nftDetails, hasFrozenBalance, balanceAccountId] = [],
+    result: [
+      tokenDetailsUsdBasis,
+      nftDetails,
+      hasFrozenBalance,
+      balanceAccountId,
+    ] = [],
     isLoading: isLoadingAssets,
+    run: refreshTokenDetails,
   } = usePromiseResult(
     async () => {
       if (!account?.id || !network?.id) return;
@@ -497,15 +955,71 @@ function SendAmountInputContainer() {
       tokenInfo,
       settings.inscriptionProtection,
     ],
-    { watchLoading: true, alwaysSetState: true },
+    {
+      watchLoading: true,
+      alwaysSetState: true,
+      // Keep the balance fresh while the user lingers on this page: poll on the
+      // standard token interval and refetch when the page regains focus. The
+      // event subscription below adds second-level refresh on tx/push updates.
+      pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
+      revalidateOnFocus: true,
+    },
   );
 
-  // Calculate balanceParsed if not provided
-  if (tokenDetails && isNil(tokenDetails?.balanceParsed)) {
-    tokenDetails.balanceParsed = new BigNumber(tokenDetails.balance)
-      .shiftedBy(tokenDetails.info.decimals * -1)
-      .toFixed();
-  }
+  // fetchTokensDetails responses are normalized to USD basis for caching
+  // (ServiceToken tags them currency:'usd'), but this page both renders fiat
+  // amounts under settings.currencyInfo.symbol and does math on them against
+  // user input entered in the display currency (fiat-mode division, Max fill,
+  // balance checks), so convert once at the data layer rather than wrapping
+  // every render site with <Currency>.
+  const tokenDetails = useMemo(() => {
+    if (!tokenDetailsUsdBasis) return tokenDetailsUsdBasis;
+    let converted = convertTokenFiatToCurrency({
+      tokenFiat: tokenDetailsUsdBasis,
+      targetCurrency: settings.currencyInfo.id,
+      currencyMap,
+    });
+    // If the basis still differs from the display currency (rate map not
+    // hydrated yet), zero out the price so the page's existing "no usable
+    // price" gates keep fiat mode unreachable, rather than silently doing
+    // math on USD numbers under the display-currency symbol. Untagged
+    // (pre-migration) data is already in the display currency and passes.
+    if (converted.currency && converted.currency !== settings.currencyInfo.id) {
+      converted = { ...converted, price: 0 };
+    }
+    // Derive balanceParsed here rather than mutating the memo result during
+    // render.
+    if (isNil(converted.balanceParsed)) {
+      converted = {
+        ...converted,
+        balanceParsed: new BigNumber(converted.balance)
+          .shiftedBy(converted.info.decimals * -1)
+          .toFixed(),
+      };
+    }
+    return converted;
+  }, [tokenDetailsUsdBasis, settings.currencyInfo.id, currencyMap]);
+
+  // Balance can change elsewhere (incoming transfer, a tx the user just sent, a
+  // push notification) while the user stays on this amount page. Polling and
+  // revalidateOnFocus cover the slow / return-to-page paths; subscribing to the
+  // balance-refresh events makes the displayed available balance update within
+  // seconds of those changes too. The input value is intentionally left
+  // untouched here — only the available balance display and the validation
+  // react to the new balance.
+  useEffect(() => {
+    const refresh = () => {
+      void refreshTokenDetails({ alwaysSetState: true });
+    };
+    appEventBus.on(EAppEventBusNames.RefreshTokenList, refresh);
+    appEventBus.on(EAppEventBusNames.LocalPendingTxConfirmed, refresh);
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
+    return () => {
+      appEventBus.off(EAppEventBusNames.RefreshTokenList, refresh);
+      appEventBus.off(EAppEventBusNames.LocalPendingTxConfirmed, refresh);
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
+    };
+  }, [refreshTokenDetails]);
 
   const [lnUnit, setLnUnit] = useState<ELightningUnit>(ELightningUnit.SATS);
 
@@ -515,6 +1029,8 @@ function SendAmountInputContainer() {
   );
   const enableAllowListValidation = !isLightningNetwork;
   const [sendMode, setSendMode] = useState<ESendMode>(ESendMode.PUBLIC);
+  const trackedPrivateSendQuoteKeysRef = useRef(new Set<string>());
+  const trackedPrivateSendValueDropQuoteKeysRef = useRef(new Set<string>());
   const shouldUsePrivateSendQuoteCollapse =
     sendMode === ESendMode.PRIVATE && !media.gtMd;
   const [
@@ -525,6 +1041,23 @@ function SendAmountInputContainer() {
   const privateSendToken = useMemo(
     () => convertTokenToSwapToken({ networkId, tokenDetails }),
     [networkId, tokenDetails],
+  );
+  const sendSwapTargetToken = useMemo(
+    () =>
+      privateSendToken ??
+      convertBaseTokenToSwapToken({
+        networkId,
+        tokenInfo,
+      }),
+    [networkId, privateSendToken, tokenInfo],
+  );
+  const sendSwapFromToken = useMemo(
+    () =>
+      getSendSwapDefaultFromToken({
+        networkId,
+        targetToken: sendSwapTargetToken,
+      }),
+    [networkId, sendSwapTargetToken],
   );
 
   const { result: isPrivateSendSupported = false } = usePromiseResult(
@@ -645,9 +1178,14 @@ function SendAmountInputContainer() {
 
   const maxBalanceFiat = useMemo(() => {
     if (!tokenDetails) return '0';
+    // Backend may report "--" for an unknown price, which parses to NaN. Guard
+    // the multiplication the same way the linkedAmount conversion does so the
+    // UTXO-selected fiat balance never renders as "NaN".
+    const priceBN = new BigNumber(tokenDetails.price ?? 0);
     if (
       currentSelectedUtxoInfo?.totalValue &&
-      tokenDetails.price &&
+      priceBN.isFinite() &&
+      priceBN.isGreaterThan(0) &&
       tokenDetails.info
     ) {
       const balanceInToken = new BigNumber(
@@ -656,7 +1194,7 @@ function SendAmountInputContainer() {
           token: tokenDetails.info,
         }),
       );
-      return balanceInToken.times(tokenDetails.price).toFixed();
+      return balanceInToken.times(priceBN).toFixed();
     }
     return tokenDetails.fiatValue ?? '0';
   }, [tokenDetails, currentSelectedUtxoInfo?.totalValue]);
@@ -670,9 +1208,14 @@ function SendAmountInputContainer() {
         ? new BigNumber(chainValueUtils.convertBtcToSats(amountBN.toFixed()))
         : amountBN;
 
+    // Backend returns "--" (and 0) for "no price"; new BigNumber("--") is NaN.
+    // Treat any non-finite / non-positive price as unusable so neither the
+    // fiat→token division nor the token→fiat multiplication can yield NaN.
+    const price = new BigNumber(tokenDetails?.price ?? 0);
+    const hasPrice = price.isFinite() && price.isGreaterThan(0);
+
     if (isUseFiat) {
-      const price = new BigNumber(tokenDetails?.price ?? 0);
-      if (price.isZero()) {
+      if (!hasPrice) {
         return { originalAmount: '0', linkedAmount: '0' };
       }
       // fiat / pricePerSat = sats. Convert to BTC if lnUnit is BTC.
@@ -691,7 +1234,9 @@ function SendAmountInputContainer() {
         linkedAmount: amountBN.toFixed(),
       };
     }
-    const price = new BigNumber(tokenDetails?.price ?? 0);
+    if (!hasPrice) {
+      return { originalAmount: amountBN.toFixed(), linkedAmount: '0' };
+    }
     const linkedAmountValue = amountForPrice.multipliedBy(price);
     return {
       originalAmount: amountBN.toFixed(),
@@ -705,6 +1250,17 @@ function SendAmountInputContainer() {
     tokenDetails?.info.decimals,
     tokenDetails?.price,
   ]);
+
+  // Usable price gate for the fiat/token toggle. Defined here (before the
+  // toggle handler) so handleToggleFiatMode can guard on it. Backend may send
+  // "--" for an unknown price, which parses to NaN downstream.
+  const hasUsablePrice = useMemo(() => {
+    // Match the finite + positive check used by linkedAmount / maxBalanceFiat so
+    // the three "is the price usable" gates can't drift apart. "--" parses to
+    // NaN (non-finite), so it is correctly treated as unusable.
+    const priceBN = new BigNumber(tokenDetails?.price ?? 0);
+    return priceBN.isFinite() && priceBN.isGreaterThan(0);
+  }, [tokenDetails?.price]);
 
   const privateSendAmount = useMemo(
     () => (isUseFiat ? linkedAmount.originalAmount : amount),
@@ -849,17 +1405,27 @@ function SendAmountInputContainer() {
       }
       const scopeKey = privateSendQuoteRequestKey;
       try {
-        const quotes = await backgroundApiProxy.serviceSwap.fetchQuotes({
-          fromToken: privateSendToken,
-          toToken: privateSendToken,
-          fromTokenAmount: amountBN.toFixed(),
-          userAddress: account.address,
-          receivingAddress: privateSendQuoteRecipientAddress,
-          slippagePercentage: swapSlippageAutoValue,
-          protocol: ESwapTabSwitchType.PRIVATE_SEND,
-          kind: ESwapQuoteKind.SELL,
-          accountId: currentAccountId,
+        const { quotes, quoteError } = await fetchPrivateSendQuotesEvents({
+          request: {
+            fromToken: privateSendToken,
+            toToken: privateSendToken,
+            fromTokenAmount: amountBN.toFixed(),
+            userAddress: account.address,
+            receivingAddress: privateSendQuoteRecipientAddress,
+            accountId: currentAccountId,
+          },
+          quoteError: intl.formatMessage({
+            id: ETranslations.global_network_error,
+          }),
         });
+        if (quoteError) {
+          return {
+            selectedQuote: undefined,
+            quotes,
+            scopeKey,
+            quoteError,
+          };
+        }
         const selectedQuote =
           quotes.find((item) => isPrivateSendQuoteUsable(item)) ??
           quotes.find((item) => item.info.provider) ??
@@ -870,10 +1436,7 @@ function SendAmountInputContainer() {
           quotes,
           scopeKey,
         };
-      } catch (error) {
-        if (isSwapQuoteCancelError(error)) {
-          return undefined;
-        }
+      } catch {
         return {
           selectedQuote: undefined,
           quotes: [],
@@ -897,6 +1460,14 @@ function SendAmountInputContainer() {
     ],
     { watchLoading: true, alwaysSetState: true, debounced: 500 },
   );
+  useEffect(() => {
+    if (!canFetchPrivateSendQuote) {
+      void cancelPrivateSendQuoteEvents();
+    }
+    return () => {
+      void cancelPrivateSendQuoteEvents();
+    };
+  }, [canFetchPrivateSendQuote]);
   const isPrivateSendQuoteScopeMatched =
     !!privateSendQuoteResult &&
     privateSendQuoteResult.scopeKey === privateSendQuoteRequestKey;
@@ -909,6 +1480,56 @@ function SendAmountInputContainer() {
       isPrivateSendQuoteLoading ||
       (canFetchPrivateSendQuote && !isPrivateSendQuoteScopeMatched));
   const privateSendQuote = scopedPrivateSendQuoteResult?.selectedQuote;
+  useEffect(() => {
+    if (
+      sendMode !== ESendMode.PRIVATE ||
+      !scopedPrivateSendQuoteResult ||
+      !privateSendToken
+    ) {
+      return;
+    }
+    const quoteMessage =
+      scopedPrivateSendQuoteResult.quoteError ??
+      scopedPrivateSendQuoteResult.selectedQuote?.errorMessage;
+    const isQuoteUsable = isPrivateSendQuoteUsable(privateSendQuote);
+    const status = isQuoteUsable && !quoteMessage ? 'success' : 'failed';
+    const message =
+      quoteMessage ??
+      (status === 'failed'
+        ? intl.formatMessage({
+            id: ETranslations.swap_page_alert_no_provider_supports_trade,
+          })
+        : undefined);
+    const analyticsKey = buildPrivateSendQuoteAnalyticsKey({
+      scopeKey: scopedPrivateSendQuoteResult.scopeKey,
+      quote: privateSendQuote,
+      status,
+      message,
+    });
+    if (trackedPrivateSendQuoteKeysRef.current.has(analyticsKey)) {
+      return;
+    }
+    trackedPrivateSendQuoteKeysRef.current.add(analyticsKey);
+    defaultLogger.transaction.send.sendPrivateQuote({
+      status,
+      provider: getPrivateSendQuoteProvider(privateSendQuote),
+      network: privateSendToken.networkId,
+      tokenSymbol: privateSendToken.symbol,
+      receivedTokenSymbol:
+        privateSendQuote?.toTokenInfo?.symbol ?? privateSendToken.symbol,
+      sendAmount: privateSendQuote?.fromAmount ?? privateSendAmount,
+      estimatedReceived: privateSendQuote?.toAmount,
+      arrivalEta: getPrivateSendQuoteArrivalEta(privateSendQuote),
+      message,
+    });
+  }, [
+    intl,
+    privateSendAmount,
+    privateSendQuote,
+    privateSendToken,
+    scopedPrivateSendQuoteResult,
+    sendMode,
+  ]);
   const refreshPrivateSendQuote = useCallback(() => {
     if (
       !canFetchPrivateSendQuote ||
@@ -955,6 +1576,13 @@ function SendAmountInputContainer() {
   ]);
 
   const handleToggleFiatMode = useCallback(() => {
+    // No usable price → the fiat conversion is NaN. Refuse to ENTER fiat mode
+    // so NaN is never written into the input. Exiting fiat mode stays allowed:
+    // polling can drop the price mid-session while the user sits in fiat mode,
+    // and without this escape hatch they'd be locked there until the price
+    // recovers. The exit path is NaN-safe — `linkedAmount.originalAmount`
+    // collapses to '0' when the price is unusable.
+    if (!hasUsablePrice && !isUseFiat) return;
     // When currently in fiat mode (isUseFiat=true), switching to token mode -> use originalAmount
     // When currently in token mode (isUseFiat=false), switching to fiat mode -> use linkedAmount
     let amountValue = isUseFiat
@@ -983,6 +1611,7 @@ function SendAmountInputContainer() {
     form.setValue('amount', amountValue);
   }, [
     form,
+    hasUsablePrice,
     isLightningNetwork,
     isUseFiat,
     linkedAmount.linkedAmount,
@@ -1300,12 +1929,17 @@ function SendAmountInputContainer() {
     validationEffectiveMinAmount,
   ]);
 
-  // Fiat input needs a usable price to convert it to a token amount. Single
-  // source of truth for the fiat-mode guards below.
-  const hasUsablePrice = useMemo(
-    () => new BigNumber(tokenDetails?.price ?? 0).isGreaterThan(0),
-    [tokenDetails?.price],
-  );
+  // Balance just refreshed in the background (polling / events). Re-run the
+  // field validator so the vault-level checks (gas-aware insufficient balance)
+  // and form.isValid stay in sync with the new balance — the button-level
+  // isInsufficientBalance memo updates on its own, but the form validator
+  // otherwise only re-runs on user input. The trigger effect above covers
+  // PRIVATE mode only. `maxBalance` / `balanceParsed` are stable strings, so
+  // this only fires when the balance value actually changes, not on every poll.
+  useEffect(() => {
+    if (!form.getValues('amount')) return;
+    void form.trigger('amount');
+  }, [form, maxBalance, tokenDetails?.balanceParsed]);
 
   // Check if balance is insufficient (show on button instead of form error)
   const isInsufficientBalance = useMemo(() => {
@@ -1443,6 +2077,23 @@ function SendAmountInputContainer() {
       isWatchingWallet,
     ],
   );
+  const showSwapButton = useMemo(
+    () =>
+      isInsufficientBalance &&
+      !isNFT &&
+      showReviewControl &&
+      !!sendSwapTargetToken &&
+      !!sendSwapFromToken &&
+      !(isWatchingWallet && !platformEnv.isDev),
+    [
+      isInsufficientBalance,
+      isNFT,
+      showReviewControl,
+      sendSwapTargetToken,
+      sendSwapFromToken,
+      isWatchingWallet,
+    ],
+  );
   const [isBuyLoading, setIsBuyLoading] = useState(false);
   const handleBuyToken = useCallback(async () => {
     setIsBuyLoading(true);
@@ -1465,6 +2116,26 @@ function SendAmountInputContainer() {
       setIsBuyLoading(false);
     }
   }, [networkId, tokenInfo?.address, currentAccountId]);
+  const handleSwapToken = useCallback(() => {
+    if (!sendSwapTargetToken) return;
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapMainLand,
+      params: {
+        importNetworkId: networkId,
+        importDeriveType: deriveType,
+        importFromToken: sendSwapFromToken,
+        importToToken: sendSwapTargetToken,
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+        swapSource: ESwapSource.WALLET_TAB,
+      },
+    });
+  }, [
+    deriveType,
+    navigation,
+    networkId,
+    sendSwapFromToken,
+    sendSwapTargetToken,
+  ]);
 
   const onSelectPercentageStage = useCallback(
     (stage: number) => {
@@ -1505,16 +2176,6 @@ function SendAmountInputContainer() {
     () => !!vaultSettings?.coinControlEnabled,
     [vaultSettings?.coinControlEnabled],
   );
-
-  const handleCoinControlPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SendModal, {
-      screen: EModalSendRoutes.CoinControl,
-      params: {
-        accountId: currentAccountId,
-        networkId,
-      },
-    });
-  }, [navigation, currentAccountId, networkId]);
 
   const normalizeAmountInputValue = useCallback(
     (rawValue: string) => {
@@ -1599,6 +2260,30 @@ function SendAmountInputContainer() {
 
   // Ref for AmountInput to trigger button focus
   const amountInputRef = useRef<ISendAmountAutoSizeInputRef>(null);
+
+  const dismissAmountInputKeyboardBeforeOverlayOpen = useCallback(async () => {
+    if (!platformEnv.isNative) return;
+    amountInputRef.current?.blur();
+    await Keyboard.dismissWithDelay(80);
+  }, []);
+
+  const handleCoinControlPress = useCallback(() => {
+    void (async () => {
+      await dismissAmountInputKeyboardBeforeOverlayOpen();
+      navigation.pushModal(EModalRoutes.SendModal, {
+        screen: EModalSendRoutes.CoinControl,
+        params: {
+          accountId: currentAccountId,
+          networkId,
+        },
+      });
+    })();
+  }, [
+    currentAccountId,
+    dismissAmountInputKeyboardBeforeOverlayOpen,
+    navigation,
+    networkId,
+  ]);
 
   // Ref to track submit disabled state for keyboard shortcuts
   const isSubmitDisabledRef = useRef(true);
@@ -1688,36 +2373,40 @@ function SendAmountInputContainer() {
 
   const showTxMessageRawData = useCallback(() => {
     if (!txMessage) return;
-    let content = txMessageLinkedString;
-    if (isHexTxMessage) {
-      try {
-        content = Buffer.from(txMessage.replace(/^0x/i, ''), 'hex').toString(
-          'utf-8',
-        );
-      } catch {
-        content = txMessageLinkedString;
+    void (async () => {
+      await dismissAmountInputKeyboardBeforeOverlayOpen();
+      let content = txMessageLinkedString;
+      if (isHexTxMessage) {
+        try {
+          content = Buffer.from(txMessage.replace(/^0x/i, ''), 'hex').toString(
+            'utf-8',
+          );
+        } catch {
+          content = txMessageLinkedString;
+        }
       }
-    }
-    Dialog.show({
-      title: txMessageViewActionLabel,
-      renderContent: (
-        <ScrollView maxHeight="$96">
-          <SizableText
-            size="$bodyLg"
-            color="$textSubdued"
-            selectable
-            style={
-              platformEnv.isNative ? undefined : { wordBreak: 'break-all' }
-            }
-          >
-            {content}
-          </SizableText>
-        </ScrollView>
-      ),
-      showCancelButton: false,
-      onConfirmText: intl.formatMessage({ id: ETranslations.global_ok }),
-    });
+      Dialog.show({
+        title: txMessageViewActionLabel,
+        renderContent: (
+          <ScrollView maxHeight="$96">
+            <SizableText
+              size="$bodyLg"
+              color="$textSubdued"
+              selectable
+              style={
+                platformEnv.isNative ? undefined : { wordBreak: 'break-all' }
+              }
+            >
+              {content}
+            </SizableText>
+          </ScrollView>
+        ),
+        showCancelButton: false,
+        onConfirmText: intl.formatMessage({ id: ETranslations.global_ok }),
+      });
+    })();
   }, [
+    dismissAmountInputKeyboardBeforeOverlayOpen,
     intl,
     isHexTxMessage,
     txMessage,
@@ -1726,22 +2415,25 @@ function SendAmountInputContainer() {
   ]);
 
   const showTxMessageFaq = useCallback(() => {
-    Dialog.show({
-      title: intl.formatMessage({
-        id: recipientIsContract
-          ? ETranslations.global_hex_data_default
-          : ETranslations.global_hex_data,
-      }),
-      icon: 'ConsoleOutline',
-      description: intl.formatMessage({
-        id: ETranslations.global_hex_data_faq_desc,
-      }),
-      showCancelButton: false,
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.global_ok,
-      }),
-    });
-  }, [intl, recipientIsContract]);
+    void (async () => {
+      await dismissAmountInputKeyboardBeforeOverlayOpen();
+      Dialog.show({
+        title: intl.formatMessage({
+          id: recipientIsContract
+            ? ETranslations.global_hex_data_default
+            : ETranslations.global_hex_data,
+        }),
+        icon: 'ConsoleOutline',
+        description: intl.formatMessage({
+          id: ETranslations.global_hex_data_faq_desc,
+        }),
+        showCancelButton: false,
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_ok,
+        }),
+      });
+    })();
+  }, [dismissAmountInputKeyboardBeforeOverlayOpen, intl, recipientIsContract]);
 
   const getRecipientValidateMessage = useCallback(
     (status?: Exclude<IAddressValidateStatus, 'valid'>) => {
@@ -1830,6 +2522,29 @@ function SendAmountInputContainer() {
       ) {
         return true;
       }
+      if (
+        typeof valueDropPercent === 'number' &&
+        valueDropPercent >= privateSendValueDropWarningPercent
+      ) {
+        const analyticsKey = buildPrivateSendQuoteAnalyticsKey({
+          scopeKey: privateSendQuoteScopeKey,
+          quote,
+          status: 'success',
+        });
+        if (
+          !trackedPrivateSendValueDropQuoteKeysRef.current.has(analyticsKey)
+        ) {
+          trackedPrivateSendValueDropQuoteKeysRef.current.add(analyticsKey);
+          defaultLogger.transaction.send.sendPrivateValueDropWarning({
+            dropPercent: valueDropPercent,
+            provider: getPrivateSendQuoteProvider(quote),
+            network: privateSendToken?.networkId,
+            tokenSymbol: privateSendToken?.symbol,
+            receivedTokenSymbol:
+              quote.toTokenInfo?.symbol ?? privateSendToken?.symbol,
+          });
+        }
+      }
       return new Promise<boolean>((resolve) => {
         let settled = false;
         const settle = (confirmed: boolean) => {
@@ -1857,7 +2572,7 @@ function SendAmountInputContainer() {
         });
       });
     },
-    [intl],
+    [intl, privateSendQuoteScopeKey, privateSendToken],
   );
 
   onSubmitRef.current = useCallback(
@@ -2067,6 +2782,25 @@ function SendAmountInputContainer() {
             if (!confirmedValueDrop) {
               return;
             }
+            const privateSendOrderSendAmount =
+              normalizedBuildSwapRes.result.fromAmount ?? privateSendFromAmount;
+            const privateSendOrderEstimatedReceived =
+              normalizedBuildSwapRes.result.toAmount ?? privateSendToAmount;
+            defaultLogger.transaction.send.sendPrivateCreateOrder({
+              walletType: wallet?.type,
+              provider: privateSendProviderInfo.provider,
+              network: privateSendToken.networkId,
+              tokenSymbol: privateSendToken.symbol,
+              receivedTokenSymbol:
+                normalizedBuildSwapRes.result.toTokenInfo?.symbol ??
+                privateSendToken.symbol,
+              sendAmount: privateSendOrderSendAmount,
+              sendValue: getPrivateSendSendValue({
+                amount: privateSendOrderSendAmount,
+                token: privateSendToken,
+              }),
+              estimatedReceived: privateSendOrderEstimatedReceived,
+            });
 
             const transfersInfo: ITransferInfo[] = [
               {
@@ -2163,12 +2897,10 @@ function SendAmountInputContainer() {
                   updated: created,
                 },
                 swapInfo: {
-                  instantRate: normalizedBuildSwapRes.result.instantRate ?? '0',
+                  instantRate: normalizedBuildSwapRes.result.instantRate ?? '',
                   provider: privateSendProviderInfo,
-                  oneKeyFee:
-                    normalizedBuildSwapRes.result.fee?.percentageFee ?? 0,
-                  protocolFee:
-                    normalizedBuildSwapRes.result.fee?.protocolFees ?? 0,
+                  oneKeyFee: normalizedBuildSwapRes.result.fee?.percentageFee,
+                  protocolFee: normalizedBuildSwapRes.result.fee?.protocolFees,
                   otherFeeInfos:
                     normalizedBuildSwapRes.result.fee?.otherFeeInfos ?? [],
                   orderId: privateSendOrderId,
@@ -2353,6 +3085,7 @@ function SendAmountInputContainer() {
       tokenInfo?.isNative,
       txMessageLinkedString,
       validateRecipientBeforeSubmit,
+      wallet?.type,
       intl,
     ],
   );
@@ -2453,12 +3186,15 @@ function SendAmountInputContainer() {
         ml="$2"
         p="$0.5"
         onPress={() => {
-          showBalanceDetailsDialog({
-            accountId: currentAccountId,
-            networkId,
-            mergeDeriveAssetsEnabled: false,
-            intl,
-          });
+          void (async () => {
+            await dismissAmountInputKeyboardBeforeOverlayOpen();
+            showBalanceDetailsDialog({
+              accountId: currentAccountId,
+              networkId,
+              mergeDeriveAssetsEnabled: false,
+              intl,
+            });
+          })();
         }}
         hoverStyle={{ opacity: 0.7 }}
         pressStyle={{ opacity: 0.5 }}
@@ -2467,224 +3203,159 @@ function SendAmountInputContainer() {
         <Icon name="InfoCircleOutline" size="$4.5" color="$iconSubdued" />
       </XStack>
     );
-  }, [hasFrozenBalance, currentAccountId, networkId, intl]);
+  }, [
+    currentAccountId,
+    dismissAmountInputKeyboardBeforeOverlayOpen,
+    hasFrozenBalance,
+    intl,
+    networkId,
+  ]);
 
   const handleSendModeChange = useCallback(
     (value: string | number) => {
       const nextMode =
         value === ESendMode.PRIVATE ? ESendMode.PRIVATE : ESendMode.PUBLIC;
-      if (
-        nextMode === ESendMode.PRIVATE &&
-        platformEnv.isNative &&
-        !settings.isPrivateSendGuideClicked
-      ) {
-        setSettings((prev) => ({
-          ...prev,
-          isPrivateSendGuideClicked: true,
-        }));
+      if (nextMode !== sendMode) {
+        defaultLogger.transaction.send.sendModeSwitch({
+          fromMode: sendMode,
+          toMode: nextMode,
+          network: networkId,
+          tokenSymbol,
+        });
       }
       setSendMode(nextMode);
     },
-    [settings.isPrivateSendGuideClicked, setSettings],
+    [networkId, sendMode, tokenSymbol],
   );
 
-  const handlePrivateSendGuideClick = useCallback(() => {
-    if (settings.isPrivateSendGuideClicked) return;
-    setSettings((prev) => ({
-      ...prev,
-      isPrivateSendGuideClicked: true,
-    }));
-  }, [settings.isPrivateSendGuideClicked, setSettings]);
+  // Shared Public | Private segmented control, reused by the desktop
+  // header-right and the mobile tab band so both stay visually consistent.
+  const renderPrivateSendModeSegmented = useCallback(
+    (publicLabel: string) => {
+      const privateLabel = intl.formatMessage({
+        id: ETranslations.private_send_private_option,
+      });
+      const publicActive = sendMode === ESendMode.PUBLIC;
+      const privateActive = sendMode === ESendMode.PRIVATE;
 
-  const renderPrivateSendHeaderRight = useCallback(() => {
-    if (!showPrivateSendModeSwitch) return null;
-
-    const regularLabel = intl.formatMessage({
-      id: ETranslations.send_regular,
-    });
-    const privateLabel = intl.formatMessage({
-      id: ETranslations.private_send_private_option,
-    });
-    const isPrivateMode = sendMode === ESendMode.PRIVATE;
-
-    if (!media.gtMd) {
-      const showPrivateSendGuideDot = !settings.isPrivateSendGuideClicked;
-      return (
-        <Select
-          testID="send-private-mode-select"
-          title={intl.formatMessage({
-            id: ETranslations.private_send_select_mode_title,
-          })}
-          value={sendMode}
-          onChange={handleSendModeChange}
-          items={[
-            {
-              label: regularLabel,
-              value: ESendMode.PUBLIC,
-            },
-            {
-              label: privateLabel,
-              value: ESendMode.PRIVATE,
-            },
-          ]}
-          renderTrigger={({ onPress }) => (
-            <XStack
-              w={112}
-              h={30}
-              px="$1.5"
-              alignItems="center"
-              justifyContent="center"
-              gap="$1"
-              bg="$bgStrong"
-              borderRadius="$full"
-              borderCurve="continuous"
-              cursor="pointer"
-              hoverStyle={{ bg: '$bgHover' }}
-              pressStyle={{ bg: '$bgActive' }}
-              onPress={(event) => {
-                handlePrivateSendGuideClick();
-                if (platformEnv.isNative) {
-                  event.persist();
-                  event.stopPropagation();
-                  amountInputRef.current?.blur();
-                  void Keyboard.dismissWithDelay(80).finally(() => {
-                    onPress?.(event);
-                  });
-                  return;
-                }
-                onPress?.(event);
-              }}
-            >
-              <Icon
-                name={isPrivateMode ? 'AnonymousHiddenOutline' : 'SendOutline'}
-                size="$4"
-                color="$icon"
-              />
-              <SizableText
-                size="$bodySmMedium"
-                color="$text"
-                numberOfLines={1}
-                flexShrink={1}
-              >
-                {isPrivateMode ? privateLabel : regularLabel}
-              </SizableText>
-              <Icon
-                name="ChevronDownSmallOutline"
-                size="$4"
-                color="$iconSubdued"
-              />
-              {showPrivateSendGuideDot ? (
-                <Stack
-                  position="absolute"
-                  top="$0.5"
-                  right="$1.5"
-                  w="$1.5"
-                  h="$1.5"
-                  borderRadius="$full"
-                  bg="$iconCritical"
-                />
-              ) : null}
-            </XStack>
-          )}
-        />
+      const renderModeButton = ({
+        active,
+        children,
+        value,
+        minWidth,
+      }: {
+        active: boolean;
+        children: React.ReactNode;
+        value: ESendMode;
+        minWidth: number;
+      }) => (
+        <XStack
+          minWidth={minWidth}
+          h={28}
+          px="$2"
+          alignItems="center"
+          justifyContent="center"
+          borderRadius="$2"
+          borderCurve="continuous"
+          cursor="pointer"
+          userSelect="none"
+          bg={active ? '$bg' : 'transparent'}
+          borderWidth={active ? 1 : 0}
+          borderColor="$borderSubdued"
+          hoverStyle={active ? undefined : { bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
+          onPress={() => handleSendModeChange(value)}
+        >
+          {children}
+        </XStack>
       );
-    }
 
-    const publicActive = sendMode === ESendMode.PUBLIC;
-    const privateActive = sendMode === ESendMode.PRIVATE;
+      return (
+        <XStack
+          h={32}
+          p={2}
+          alignItems="center"
+          bg="$bgStrong"
+          borderRadius="$3"
+          borderCurve="continuous"
+        >
+          {renderModeButton({
+            active: publicActive,
+            value: ESendMode.PUBLIC,
+            minWidth: 92,
+            children: (
+              <XStack alignItems="center" justifyContent="center" gap="$1">
+                <Icon
+                  name="SendOutline"
+                  size="$4"
+                  color={publicActive ? '$icon' : '$iconSubdued'}
+                />
+                <SizableText
+                  size="$bodyMdMedium"
+                  color={publicActive ? '$text' : '$textSubdued'}
+                  numberOfLines={1}
+                >
+                  {publicLabel}
+                </SizableText>
+              </XStack>
+            ),
+          })}
+          {renderModeButton({
+            active: privateActive,
+            value: ESendMode.PRIVATE,
+            minWidth: 92,
+            children: (
+              <XStack alignItems="center" justifyContent="center" gap="$1">
+                <Icon
+                  name="AnonymousHiddenOutline"
+                  size="$4"
+                  color={privateActive ? '$icon' : '$iconSubdued'}
+                />
+                <SizableText
+                  size="$bodyMdMedium"
+                  color={privateActive ? '$text' : '$textSubdued'}
+                  numberOfLines={1}
+                >
+                  {privateLabel}
+                </SizableText>
+              </XStack>
+            ),
+          })}
+        </XStack>
+      );
+    },
+    [handleSendModeChange, intl, sendMode],
+  );
 
-    const renderModeButton = ({
-      active,
-      children,
-      value,
-      minWidth,
-    }: {
-      active: boolean;
-      children: React.ReactNode;
-      value: ESendMode;
-      minWidth: number;
-    }) => (
-      <XStack
-        minWidth={minWidth}
-        h={28}
-        px="$2"
-        alignItems="center"
-        justifyContent="center"
-        borderRadius="$2"
-        borderCurve="continuous"
-        cursor="pointer"
-        userSelect="none"
-        bg={active ? '$bg' : 'transparent'}
-        borderWidth={active ? 1 : 0}
-        borderColor="$borderSubdued"
-        hoverStyle={active ? undefined : { bg: '$bgHover' }}
-        pressStyle={{ bg: '$bgActive' }}
-        onPress={() => handleSendModeChange(value)}
-      >
-        {children}
-      </XStack>
+  // Desktop/tablet: segmented control stays in the header-right.
+  const renderPrivateSendHeaderRight = useCallback(() => {
+    if (!showPrivateSendModeSwitch || !media.gtMd) return null;
+    return renderPrivateSendModeSegmented(
+      intl.formatMessage({ id: ETranslations.send_regular }),
     );
+  }, [
+    intl,
+    media.gtMd,
+    renderPrivateSendModeSegmented,
+    showPrivateSendModeSwitch,
+  ]);
 
+  // Mobile: a directly-visible Public | Private tab pinned below the title.
+  // Rendered as a fixed band (outside the vertically-centered amount area),
+  // so the keyboard never overlaps it and the layout doesn't jump on toggle.
+  const renderPrivateSendModeBand = useCallback(() => {
+    if (!showPrivateSendModeSwitch || media.gtMd) return null;
     return (
-      <XStack
-        h={32}
-        p={2}
-        alignItems="center"
-        bg="$bgStrong"
-        borderRadius="$3"
-        borderCurve="continuous"
-      >
-        {renderModeButton({
-          active: publicActive,
-          value: ESendMode.PUBLIC,
-          minWidth: 92,
-          children: (
-            <XStack alignItems="center" justifyContent="center" gap="$1">
-              <Icon
-                name="SendOutline"
-                size="$4"
-                color={publicActive ? '$icon' : '$iconSubdued'}
-              />
-              <SizableText
-                size="$bodyMdMedium"
-                color={publicActive ? '$text' : '$textSubdued'}
-                numberOfLines={1}
-              >
-                {regularLabel}
-              </SizableText>
-            </XStack>
-          ),
-        })}
-        {renderModeButton({
-          active: privateActive,
-          value: ESendMode.PRIVATE,
-          minWidth: 92,
-          children: (
-            <XStack alignItems="center" justifyContent="center" gap="$1">
-              <Icon
-                name="AnonymousHiddenOutline"
-                size="$4"
-                color={privateActive ? '$icon' : '$iconSubdued'}
-              />
-              <SizableText
-                size="$bodyMdMedium"
-                color={privateActive ? '$text' : '$textSubdued'}
-                numberOfLines={1}
-              >
-                {privateLabel}
-              </SizableText>
-            </XStack>
-          ),
-        })}
+      <XStack px="$5" pb="$3" justifyContent="center">
+        {renderPrivateSendModeSegmented(
+          intl.formatMessage({ id: ETranslations.send_regular }),
+        )}
       </XStack>
     );
   }, [
-    handlePrivateSendGuideClick,
-    handleSendModeChange,
     intl,
     media.gtMd,
-    sendMode,
-    settings.isPrivateSendGuideClicked,
+    renderPrivateSendModeSegmented,
     showPrivateSendModeSwitch,
   ]);
 
@@ -2706,6 +3377,13 @@ function SendAmountInputContainer() {
             // currently selected derive type and would show wrong balances
             // for other types (e.g. Taproot).
             refreshOnOpen
+            renderSelectorTrigger={
+              deriveInfo ? (
+                <Stack onPress={dismissAmountInputKeyboardBeforeOverlayOpen}>
+                  <AddressTypeSelectorTrigger activeDeriveInfo={deriveInfo} />
+                </Stack>
+              ) : undefined
+            }
             onSelect={async ({ account: a }) => {
               if (a) {
                 setCurrentAccountId(a.id);
@@ -2745,6 +3423,7 @@ function SendAmountInputContainer() {
     deriveInfo,
     deriveType,
     displayCoinControlButton,
+    dismissAmountInputKeyboardBeforeOverlayOpen,
     handleCoinControlPress,
     networkId,
     pulseSignal,
@@ -2834,6 +3513,17 @@ function SendAmountInputContainer() {
       minAmountHint ?? (hasAmountError ? NEUTRAL_AMOUNT_HINT : undefined);
   }
 
+  // Fiat/token equivalent shown beneath the input. Backend may report "--" for
+  // an unknown price (NaN once parsed); show the unavailable placeholder and
+  // disable the toggle below instead of surfacing NaN or carrying it into the
+  // input.
+  let fiatTokenEquivalentValue = UNAVAILABLE_DISPLAY;
+  if (hasUsablePrice) {
+    fiatTokenEquivalentValue = isUseFiat
+      ? linkedAmount.originalAmount
+      : linkedAmount.linkedAmount;
+  }
+
   const renderAmountInput = useMemo(
     () => (
       <>
@@ -2850,14 +3540,19 @@ function SendAmountInputContainer() {
           <SendAutoSizeAmountInput
             ref={amountInputRef}
             tokenSymbol={isUseFiat ? undefined : tokenSymbol}
-            reversible={!isInvoiceAmountLocked}
+            reversible={
+              !isInvoiceAmountLocked ? hasUsablePrice || isUseFiat : undefined
+            }
             valueProps={{
               currency: isUseFiat ? undefined : currencySymbol,
               tokenSymbol: isUseFiat ? tokenSymbol : undefined,
-              value: isUseFiat
-                ? linkedAmount.originalAmount
-                : linkedAmount.linkedAmount,
-              onPress: handleToggleFiatMode,
+              // Unknown price → show "--" and disable entering fiat mode so NaN
+              // can't be carried into the input. When already IN fiat mode the
+              // toggle stays live as an escape hatch back to token mode (the
+              // price may have dropped to "--" mid-session via polling).
+              value: fiatTokenEquivalentValue,
+              onPress:
+                hasUsablePrice || isUseFiat ? handleToggleFiatMode : undefined,
             }}
             inputProps={{
               inputAccessoryViewID: platformEnv.isNativeIOS
@@ -2904,17 +3599,17 @@ function SendAmountInputContainer() {
     [
       amountHint,
       currencySymbol,
+      fiatTokenEquivalentValue,
       handleAmountInputChange,
       handleAmountInputBlur,
       handleAmountInputFocus,
       handleToggleFiatMode,
       handleValidateTokenAmount,
+      hasUsablePrice,
       intl,
       isIntegerAmount,
       isInvoiceAmountLocked,
       isUseFiat,
-      linkedAmount.linkedAmount,
-      linkedAmount.originalAmount,
       tokenSymbol,
     ],
   );
@@ -3029,7 +3724,19 @@ function SendAmountInputContainer() {
   ]);
 
   const renderBalanceRowContent = useCallback(() => {
-    if (isLoadingAssets) {
+    // Only show the skeleton before the first balance load. During polling /
+    // event-driven refreshes `isLoadingAssets` toggles true again, but the
+    // existing balance stays visible and updates silently to avoid a periodic
+    // skeleton flash. The `balanceAccountId` clause covers in-place account
+    // switches (auto derive-type switch): the previous account's balance stays
+    // in `tokenDetails` until the new fetch lands, and without it that stale
+    // balance — and a tappable Max fed by it — would briefly render as if it
+    // belonged to the new account. Regular polls keep `balanceAccountId ===
+    // currentAccountId`, so they never re-trigger the skeleton.
+    if (
+      (isLoadingAssets && !tokenDetails && !nftDetails) ||
+      balanceAccountId !== currentAccountId
+    ) {
       return (
         <>
           <Skeleton w="$10" h="$10" radius="round" mr="$3" />
@@ -3132,7 +3839,9 @@ function SendAmountInputContainer() {
       </>
     );
   }, [
+    balanceAccountId,
     balanceInfoContent,
+    currentAccountId,
     form,
     intl,
     isLoadingAssets,
@@ -3140,7 +3849,9 @@ function SendAmountInputContainer() {
     maxBalance,
     maxBalanceFiat,
     network?.logoURI,
+    nftDetails,
     sendMode,
+    tokenDetails,
     tokenInfo?.logoURI,
     tokenSymbol,
   ]);
@@ -3274,8 +3985,11 @@ function SendAmountInputContainer() {
     const handleTogglePrivateSendQuoteDetails = () => {
       if (!shouldUsePrivateSendQuoteCollapse) return;
       if (!isPrivateSendQuoteDetailsExpanded) {
-        amountInputRef.current?.blur();
-        Keyboard.dismiss();
+        void (async () => {
+          await dismissAmountInputKeyboardBeforeOverlayOpen();
+          setIsPrivateSendQuoteDetailsExpanded((expanded) => !expanded);
+        })();
+        return;
       }
       setIsPrivateSendQuoteDetailsExpanded((expanded) => !expanded);
     };
@@ -3338,6 +4052,7 @@ function SendAmountInputContainer() {
               dashThickness={0.5}
               tooltip={estimatedReceivedTooltip}
               tooltipTitle={estimatedReceivedTitle}
+              onPress={dismissAmountInputKeyboardBeforeOverlayOpen}
             >
               {estimatedReceivedTitle}
             </DashText>
@@ -3351,7 +4066,7 @@ function SendAmountInputContainer() {
               isRefreshQuote={isPrivateSendQuoteRefreshing}
               isLoading={isPrivateSendQuoteRefreshing}
               isFocused={isRouteFocused}
-              autoRefresh={!isSubmitting}
+              autoRefresh={false}
             />
           </XStack>
           <XStack
@@ -3449,6 +4164,7 @@ function SendAmountInputContainer() {
     );
   }, [
     currencySymbol,
+    dismissAmountInputKeyboardBeforeOverlayOpen,
     intl,
     isLoadingAssets,
     isNFT,
@@ -3473,6 +4189,19 @@ function SendAmountInputContainer() {
     isPrivateSendMode && platformEnv.isNative && !media.gtMd;
   const shouldUseScrollablePrivateSendBody =
     isPrivateSendMode && !isMobilePrivateSendLayout;
+  // Normal (non-private) send on small native screens: the auto-switch alert,
+  // derive-type selector, balance card and Preview button all live in the
+  // keyboard-avoiding Page.Footer while the centered amount input lives in a
+  // non-scrollable Page.Body. On short devices (e.g. iPhone SE) with the
+  // keyboard up there isn't enough height, so the lifted footer content
+  // overlapped the body and the amount hint was drawn over the alert
+  // (the "已自动切换地址格式" tip). Route this case through the same
+  // keyboard-aware scrollable body used by tablet private send so the content
+  // can reflow/scroll instead of overlapping.
+  const isMobileNormalSendScrollable =
+    !isPrivateSendMode && platformEnv.isNative && !media.gtMd;
+  const shouldUseScrollableAmountBody =
+    shouldUseScrollablePrivateSendBody || isMobileNormalSendScrollable;
   const shouldHidePrivateSendFooterHelp =
     isMobilePrivateSendLayout && isAmountInputFocused;
 
@@ -3514,9 +4243,26 @@ function SendAmountInputContainer() {
     : intl.formatMessage({
         id: ETranslations.send_preview_button,
       });
+  const isInsufficientActionAvailable = showSwapButton || showBuyButton;
 
-  const renderPrivateSendFooterButtons = showBuyButton ? (
-    <>
+  let renderInsufficientPrimaryButton: ReactNode = null;
+  if (showSwapButton) {
+    renderInsufficientPrimaryButton = (
+      <Button
+        testID={SendTestIDs.swapTokenButton}
+        variant="primary"
+        onPress={handleSwapToken}
+        flexGrow={1}
+        flexShrink={1}
+        textEllipsis
+      >
+        {`${intl.formatMessage({
+          id: ETranslations.global_swap,
+        })} ${tokenSymbol}`}
+      </Button>
+    );
+  } else if (showBuyButton) {
+    renderInsufficientPrimaryButton = (
       <Button
         testID={SendTestIDs.buyTokenButton}
         variant="primary"
@@ -3535,6 +4281,12 @@ function SendAmountInputContainer() {
           id: ETranslations.global_buy,
         })} ${tokenSymbol}`}
       </Button>
+    );
+  }
+
+  const renderPrivateSendFooterButtons = isInsufficientActionAvailable ? (
+    <>
+      {renderInsufficientPrimaryButton}
       <Button
         testID={SendTestIDs.insufficientFundsButton}
         disabled
@@ -3574,26 +4326,9 @@ function SendAmountInputContainer() {
     </Button>
   );
 
-  const renderDefaultBuyFooterButtons = (
+  const renderDefaultInsufficientFooterButtons = (
     <XStack gap="$2.5" flex={1}>
-      <Button
-        testID={SendTestIDs.buyTokenButton}
-        variant="primary"
-        onPress={handleBuyToken}
-        loading={isBuyLoading}
-        flexGrow={1}
-        flexShrink={1}
-        textEllipsis
-        $md={
-          {
-            size: 'large',
-          } as any
-        }
-      >
-        {`${intl.formatMessage({
-          id: ETranslations.global_buy,
-        })} ${tokenSymbol}`}
-      </Button>
+      {renderInsufficientPrimaryButton}
       <Button
         testID={SendTestIDs.insufficientFundsButton}
         disabled
@@ -3636,9 +4371,11 @@ function SendAmountInputContainer() {
         {media.gtMd ? null : renderPrivateSendFooterHelp}
       </Stack>
     );
-  } else if (showBuyButton) {
+  } else if (isInsufficientActionAvailable) {
     renderFooterActions = (
-      <Page.FooterActions confirmButton={renderDefaultBuyFooterButtons} />
+      <Page.FooterActions
+        confirmButton={renderDefaultInsufficientFooterButtons}
+      />
     );
   } else {
     renderFooterActions = (
@@ -3654,9 +4391,9 @@ function SendAmountInputContainer() {
   }
 
   const pageTitleTranslationId =
-    sendMode === ESendMode.PRIVATE
-      ? ETranslations.private_send_private_send
-      : ETranslations.enter_amount__title;
+    !media.gtMd || sendMode !== ESendMode.PRIVATE
+      ? ETranslations.enter_amount__title
+      : ETranslations.private_send_private_send;
 
   const renderAmountFormContent = (
     <Form form={form}>
@@ -3799,7 +4536,7 @@ function SendAmountInputContainer() {
         </ScrollView>
       </Page.Body>
     );
-  } else if (shouldUseScrollablePrivateSendBody) {
+  } else if (shouldUseScrollableAmountBody) {
     renderPageBody = (
       <Page.Body minHeight={0} overflow="hidden">
         <Keyboard.AwareScrollView
@@ -3811,6 +4548,12 @@ function SendAmountInputContainer() {
           bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
         >
           <YStack px="$5" py="$5" gap="$5" flexGrow={1}>
+            {/* Do NOT wrap the amount input in an onPress handler to dismiss
+                the keyboard: the input is a Nitro HybridView that does not
+                claim the RN touch responder, so a parent onPress also fires
+                when tapping the input itself and immediately blurs it (the
+                keyboard flashes up then closes). Keyboard dismissal is handled
+                by `keyboardDismissMode="on-drag"` on the scroll view instead. */}
             <YStack flex={1} justifyContent="center">
               {renderAmountFormContent}
             </YStack>
@@ -3832,12 +4575,15 @@ function SendAmountInputContainer() {
       <Page.Header
         title={intl.formatMessage({ id: pageTitleTranslationId })}
         headerRight={renderPrivateSendHeaderRight}
+        headerRightNoGlass
       />
+
+      {renderPrivateSendModeBand()}
 
       {renderPageBody}
 
       <Page.Footer>
-        {shouldUseScrollablePrivateSendBody ? null : (
+        {shouldUseScrollableAmountBody ? null : (
           <Stack px="$5" gap="$3">
             {isMobilePrivateSendLayout
               ? renderMobilePrivateSendFooterInfoContent

@@ -39,6 +39,7 @@ import type { GestureResponderEvent } from 'react-native';
 export interface IActionButtonProps extends IButtonProps {
   tradeType: ITradeType;
   supportSpeedSwap?: boolean;
+  onlySupportCrossChain?: boolean;
   amount: string;
   token?: IToken;
   paymentToken?: IToken;
@@ -47,8 +48,10 @@ export interface IActionButtonProps extends IButtonProps {
   isWrapped?: boolean;
   actionToken?: ISwapToken;
   actionOtherToken?: ISwapToken;
-  onlySupportCrossChain?: boolean;
   onSwapAction?: () => void;
+  // Hard-disable that wins over the no-amount "enter amount" re-enable below
+  // (e.g. stock market closed — trading is impossible regardless of input).
+  forceDisabled?: boolean;
 }
 
 export function ActionButton({
@@ -66,6 +69,7 @@ export function ActionButton({
   onlySupportCrossChain,
   actionToken,
   onSwapAction,
+  forceDisabled,
   ...otherProps
 }: IActionButtonProps) {
   const [hasClickedWithoutAmount, setHasClickedWithoutAmount] = useState(false);
@@ -227,8 +231,9 @@ export function ActionButton({
   const noAccount =
     !activeAccount?.indexedAccount?.id && !activeAccount?.account?.id;
 
-  // Disable button if insufficient balance
-  const shouldDisable = isInsufficientBalance;
+  const shouldJumpToSwap =
+    !supportSpeedSwap || (isInsufficientBalance && !isWrapped);
+  const shouldDisable = isInsufficientBalance && !shouldJumpToSwap;
   const displayAmountFormatted = numberFormat(displayAmount, tokenFormatter);
 
   let buttonText = `${actionText} ${displayAmountFormatted} `;
@@ -286,7 +291,7 @@ export function ActionButton({
     isButtonDisabled = false;
   }
 
-  if (!supportSpeedSwap) {
+  if (shouldJumpToSwap) {
     shouldUseColoredStyle = true;
   }
 
@@ -294,6 +299,17 @@ export function ActionButton({
     buttonText = intl.formatMessage({ id: ETranslations.global_connect });
     shouldUseColoredStyle = false;
     isButtonDisabled = false;
+  }
+
+  // Hard-disable (e.g. stock market closed) blocks order submission only — it
+  // must NOT block wallet/address setup. Keep the "Connect" / "Create address"
+  // branches clickable so the user can still finish setup while the market is
+  // closed (handlePress routes those to connect/createAddress, not submit).
+  const isSetupAction =
+    noAccount || Boolean(shouldCreateAddress?.result) || createAddressLoading;
+  if (forceDisabled && !isSetupAction) {
+    isButtonDisabled = true;
+    shouldUseColoredStyle = false;
   }
 
   const buttonStyleProps = shouldUseColoredStyle
@@ -326,7 +342,7 @@ export function ActionButton({
         showAccountSelector();
         return;
       }
-      if (!supportSpeedSwap) {
+      if (shouldJumpToSwap) {
         handleJumpToSwapAction();
         return;
       }
@@ -369,6 +385,13 @@ export function ActionButton({
         return;
       }
 
+      // Hard-disable (e.g. stock market closed): never submit an order. Every
+      // setup branch above has already returned, so this guards only the
+      // submission path (defense-in-depth on top of the disabled button).
+      if (forceDisabled) {
+        return;
+      }
+
       // Log swap action before executing - with error protection
       try {
         onSwapAction?.();
@@ -380,13 +403,14 @@ export function ActionButton({
       void onPress?.(event);
     },
     [
-      supportSpeedSwap,
+      shouldJumpToSwap,
       hasAmount,
       hasClickedWithoutAmount,
       noAccount,
       createAddressLoading,
       shouldCreateAddress?.result,
       onPress,
+      forceDisabled,
       handleJumpToSwapAction,
       showAccountSelector,
       createAddress,

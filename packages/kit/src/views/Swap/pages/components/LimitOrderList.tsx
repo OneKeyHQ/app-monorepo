@@ -28,6 +28,7 @@ import {
 
 import LimitOrderListItem from '../../components/LimitOrderListItem';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
+import { SwapTestIDs } from '../../testIDs';
 
 import LimitOrderCancelDialog from './LimitOrderCancelDialog';
 
@@ -103,8 +104,9 @@ const LimitOrderList = ({
     [intl, runCancel],
   );
   const renderItem = useCallback(
-    ({ item }: { item: IFetchLimitOrderRes }) => (
+    ({ item, index }: { item: IFetchLimitOrderRes; index: number }) => (
       <LimitOrderListItem
+        testID={SwapTestIDs.limitOrderItem(index)}
         item={item}
         cancelLoading={cancelLoading[item.orderId]}
         onClickCell={onClickCell}

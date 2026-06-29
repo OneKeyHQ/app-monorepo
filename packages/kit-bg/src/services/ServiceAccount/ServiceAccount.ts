@@ -75,6 +75,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   InvalidMnemonic,
+  LocalSecretEnvelopeUnavailable,
   OneKeyError,
   OneKeyInternalError,
   OneKeyLocalError,
@@ -119,6 +120,7 @@ import {
   swrCacheNamespaces,
   swrCacheUtils,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -151,6 +153,10 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import { EDBAccountType } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
+import {
+  normalizePortableCredential,
+  shouldUnwrapCredentialForPortableExport,
+} from '../../dbs/local/localSecretEnvelope';
 import {
   EIndexedDBBucketNames,
   type IDBAccount,
@@ -195,6 +201,8 @@ import {
   isDefaultBotWalletName,
   resolveBotWalletSyncItemDataTime,
 } from './botWalletCreateUtils';
+import { getHwHiddenWalletPassphraseState } from './hardwarePassphraseState';
+import { resolveHwWalletTransportType } from './resolveHwWalletTransportType';
 
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
@@ -248,6 +256,33 @@ class ServiceAccount extends ServiceBase {
   }, 600);
 
   private importedAccountKdfProbeIndex = 0;
+
+  private async getFirmwareTypeFromDeviceFeatures({
+    vendor,
+    features,
+  }: {
+    vendor?: EHardwareVendor;
+    features: IOneKeyDeviceFeatures | undefined;
+  }) {
+    const rawFeatureVendor =
+      features && 'vendor' in features
+        ? (features as { vendor?: unknown }).vendor
+        : undefined;
+    const featureVendor =
+      rawFeatureVendor === EHardwareVendor.ledger ||
+      rawFeatureVendor === EHardwareVendor.trezor
+        ? rawFeatureVendor
+        : undefined;
+    const resolvedVendor = vendor ?? featureVendor ?? EHardwareVendor.onekey;
+    if (getVendorProfile(resolvedVendor).isThirdParty) {
+      return thirdPartyDeviceUtils.getFirmwareType({
+        features,
+      });
+    }
+    return deviceUtils.getFirmwareType({
+      features,
+    });
+  }
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -864,13 +899,60 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async dumpCredentials() {
+  async dumpCredentials(): Promise<{
+    credentials: Record<string, string>;
+    // Credential ids skipped because the local secret envelope layer was
+    // transiently unavailable while unwrapping them (see caller handling).
+    unavailableCredentialIds: string[];
+  }> {
     const { credentials } = await this.getAllCredentials();
-    return credentials.reduce(
-      (mapping, { id, credential }) =>
-        Object.assign(mapping, { [id]: credential }),
-      {},
+    const unavailableCredentialIds: string[] = [];
+    const entries = await Promise.all(
+      credentials.map(async ({ credential: rawCredential, id }) => {
+        const rawPortableCredential = normalizePortableCredential({
+          credential: rawCredential,
+        });
+        if (rawPortableCredential) {
+          return [id, rawPortableCredential] as const;
+        }
+
+        if (!shouldUnwrapCredentialForPortableExport(rawCredential)) {
+          return undefined;
+        }
+
+        try {
+          const credential = await localDb.getCredentialInner({
+            credentialId: id,
+          });
+          const portableCredential = normalizePortableCredential({
+            credential: credential.credential,
+          });
+          if (!portableCredential) {
+            return undefined;
+          }
+          return [id, portableCredential] as const;
+        } catch (error) {
+          // Skip credentials whose local secret envelope layer is transiently
+          // unavailable (keychain busy / pre-first-unlock on native; IndexedDB
+          // CryptoKey missing or unreadable on web-ext) instead of aborting the
+          // entire export via Promise.all. Genuine ciphertext corruption and any
+          // other error still propagate so they are not silently dropped.
+          if (error instanceof LocalSecretEnvelopeUnavailable) {
+            unavailableCredentialIds.push(id);
+            return undefined;
+          }
+          throw error;
+        }
+      }),
     );
+    return {
+      credentials: Object.fromEntries(
+        entries.filter((entry): entry is readonly [string, string] =>
+          Boolean(entry),
+        ),
+      ),
+      unavailableCredentialIds,
+    };
   }
 
   @backgroundMethod()
@@ -899,7 +981,7 @@ class ServiceAccount extends ServiceBase {
     password: string;
   }) {
     ensureSensitiveTextEncoded(password);
-    const dbCredential = await localDb.getCredential(credentialId);
+    const dbCredential = await localDb.getCredentialInner({ credentialId });
     const { mnemonic, rs } = await this.getCredentialDecryptFromCredential({
       password,
       credential: dbCredential.credential,
@@ -3311,6 +3393,69 @@ class ServiceAccount extends ServiceBase {
     };
   }
 
+  private async getFeaturesForHwWalletCreate({
+    dbDevice,
+    compatibleConnectId,
+  }: {
+    dbDevice: IDBDevice;
+    compatibleConnectId: string;
+  }): Promise<IOneKeyDeviceFeatures> {
+    let features: IOneKeyDeviceFeatures | undefined;
+    const vendorProfile = getVendorProfile(
+      dbDevice.vendor ?? EHardwareVendor.onekey,
+    );
+    if (dbDevice.vendor && vendorProfile.isThirdParty) {
+      const connected =
+        await this.backgroundApi.serviceThirdPartyHardware.connectDevice({
+          vendor: dbDevice.vendor,
+          connectId: compatibleConnectId,
+        });
+      if (connected.success) {
+        features = connected.payload.features as IOneKeyDeviceFeatures;
+      }
+    } else {
+      features = await this.backgroundApi.serviceHardware.getFeatures({
+        connectId: compatibleConnectId,
+      });
+    }
+    return features || dbDevice.featuresInfo || ({} as IOneKeyDeviceFeatures);
+  }
+
+  private async getFirstEvmAddressForHwWalletCreate({
+    compatibleConnectId,
+    deviceId,
+    passphraseState,
+    vendor,
+    isMockedStandardHwWallet,
+  }: {
+    compatibleConnectId: string;
+    deviceId: string;
+    passphraseState?: string;
+    vendor?: EHardwareVendor;
+    isMockedStandardHwWallet?: boolean;
+  }): Promise<string | null> {
+    if (isMockedStandardHwWallet) {
+      return '';
+    }
+    const vendorProfile = vendor ? getVendorProfile(vendor) : undefined;
+    if (!vendorProfile?.isThirdParty) {
+      return this.backgroundApi.serviceHardware.getEvmAddressByStandardWallet({
+        connectId: compatibleConnectId,
+        deviceId,
+        path: FIRST_EVM_ADDRESS_PATH,
+        vendor,
+      });
+    }
+    return this.backgroundApi.serviceHardware.getEvmAddressByWalletState({
+      connectId: compatibleConnectId,
+      deviceId,
+      path: FIRST_EVM_ADDRESS_PATH,
+      vendor,
+      passphraseState: passphraseState || undefined,
+      useEmptyPassphrase: passphraseState ? undefined : true,
+    });
+  }
+
   @backgroundMethod()
   @toastIfError()
   async createHWHiddenWallet({
@@ -3335,11 +3480,14 @@ class ServiceAccount extends ServiceBase {
     // createHWHiddenWallet
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        const passphraseState =
-          await this.backgroundApi.serviceHardware.getPassphraseState({
-            connectId: compatibleConnectId,
-            forceInputPassphrase: true,
-          });
+        const passphraseState = await getHwHiddenWalletPassphraseState({
+          vendor: dbDevice.vendor,
+          connectId: compatibleConnectId,
+          dbDevice,
+          serviceHardware: this.backgroundApi.serviceHardware,
+          serviceThirdPartyHardware:
+            this.backgroundApi.serviceThirdPartyHardware,
+        });
 
         if (!passphraseState) {
           const deviceNotOpenedPassphraseError = new DeviceNotOpenedPassphrase({
@@ -3355,12 +3503,13 @@ class ServiceAccount extends ServiceBase {
         }
 
         // TODO save remember states
-        const features = await this.backgroundApi.serviceHardware.getFeatures({
-          connectId: compatibleConnectId,
+        const resolvedFeatures = await this.getFeaturesForHwWalletCreate({
+          dbDevice,
+          compatibleConnectId,
         });
         const dbWallet = await this.createHWWalletBase({
           device: deviceUtils.dbDeviceToSearchDevice(dbDevice),
-          features: features || dbDevice.featuresInfo || ({} as any),
+          features: resolvedFeatures,
           passphraseState,
           fillingXfpByCallingSdk: true,
         });
@@ -3391,7 +3540,7 @@ class ServiceAccount extends ServiceBase {
 
         return {
           ...dbWallet,
-          isAttachPinMode: features.unlocked_attach_pin,
+          isAttachPinMode: resolvedFeatures.unlocked_attach_pin,
         };
       },
       {
@@ -3425,9 +3574,20 @@ class ServiceAccount extends ServiceBase {
     // Get forceTransportType from global atom first, otherwise fallback to current transport type setting
     const hardwareForceTransportAtomState =
       await hardwareForceTransportAtom.get();
-    const transportType =
+    const globalTransportType =
       hardwareForceTransportAtomState.forceTransportType ||
       (await this.backgroundApi.serviceSetting.getHardwareTransportType());
+
+    // Don't trust the global transport flag alone — use the picked device's
+    // actual connectionType (carried on `device.raw` for third-party devices;
+    // absent for OneKey HD, so they're unaffected).
+    const transportType = resolveHwWalletTransportType({
+      globalTransportType,
+      deviceConnectionType: (
+        params.device as { raw?: { connectionType?: 'usb' | 'ble' } }
+      ).raw?.connectionType,
+      isNative: !!platformEnv.isNative,
+    });
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
@@ -3497,9 +3657,11 @@ class ServiceAccount extends ServiceBase {
             featuresDeviceId: params.device.deviceId ?? '',
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
+
     const deviceId = deviceUtils.getRawDeviceId({
       device: params.device,
       features,
+      isThirdParty: vendorProfile?.isThirdParty,
     });
 
     let xfp: string | undefined;
@@ -3535,19 +3697,13 @@ class ServiceAccount extends ServiceBase {
       xfp,
       passphraseState: passphraseState || '',
       getFirstEvmAddressFn: async (): Promise<string | null> => {
-        if (isMockedStandardHwWallet) {
-          return '';
-        }
-        const r: string | null =
-          await this.backgroundApi.serviceHardware.getEvmAddressByStandardWallet(
-            {
-              connectId: compatibleConnectId,
-              deviceId,
-              path: FIRST_EVM_ADDRESS_PATH,
-              vendor,
-            },
-          );
-        return r;
+        return this.getFirstEvmAddressForHwWalletCreate({
+          compatibleConnectId,
+          deviceId,
+          passphraseState,
+          vendor,
+          isMockedStandardHwWallet,
+        });
       },
       verifySeedMatchFn:
         vendor === EHardwareVendor.ledger
@@ -3561,6 +3717,31 @@ class ServiceAccount extends ServiceBase {
       transportType,
     });
     // Third-party chain fingerprints are generated lazily by the keyring via SDK.
+
+    // Trezor: THP pairing credentials were minted while probing the device above
+    // (before this DB record existed) and buffered in the adapter. Now that the
+    // record exists, flush them into its settings so a SW restart auto-connects.
+    // Best-effort — a miss just means re-pairing on next boot, never a failure.
+    if (vendor === EHardwareVendor.trezor) {
+      try {
+        defaultLogger.hardware.sdkLog.log(
+          `[TrezorTHPTrace][serviceAccount.persist] ${JSON.stringify({
+            connectId: params.device.connectId,
+            rawDeviceId: deviceId,
+            paramsDeviceId: params.device.deviceId,
+            featuresDeviceId: features.device_id,
+          })}`,
+        );
+        await this.backgroundApi.serviceThirdPartyHardware.persistTrezorThpCredentials(
+          {
+            connectId: params.device.connectId ?? undefined,
+            deviceId,
+          },
+        );
+      } catch {
+        // ignore — credential persistence is non-critical to wallet creation.
+      }
+    }
 
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
@@ -4364,7 +4545,9 @@ class ServiceAccount extends ServiceBase {
       xfp: string;
     };
   }> {
-    const parentCredential = await localDb.getCredential(parentKeylessWalletId);
+    const parentCredential = await localDb.getCredentialInner({
+      credentialId: parentKeylessWalletId,
+    });
     let parentMnemonic: string | undefined;
     let realMnemonic: string | undefined;
 
@@ -5104,7 +5287,9 @@ class ServiceAccount extends ServiceBase {
         reason,
         hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
       });
-    const credential = await localDb.getCredential(walletId);
+    const credential = await localDb.getCredentialInner({
+      credentialId: walletId,
+    });
     const mnemonicRaw = await mnemonicFromEntropy(
       credential.credential,
       password,
@@ -5128,11 +5313,11 @@ class ServiceAccount extends ServiceBase {
         accountId,
         reason: EReasonForNeedPassword.Security,
       });
-    const credential = await localDb.getCredential(
-      accountUtils.buildTonMnemonicCredentialId({
+    const credential = await localDb.getCredentialInner({
+      credentialId: accountUtils.buildTonMnemonicCredentialId({
         accountId,
       }),
-    );
+    });
     const mnemonicRaw = await tonMnemonicFromEntropy(
       credential.credential,
       password,
@@ -5147,7 +5332,7 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async hasTonImportedAccountMnemonic({ accountId }: { accountId: string }) {
     try {
-      const credential = await localDb.getCredential(
+      const credential = await localDb.getCredentialRaw(
         accountUtils.buildTonMnemonicCredentialId({
           accountId,
         }),
@@ -6055,7 +6240,9 @@ class ServiceAccount extends ServiceBase {
             // eslint-disable-next-line no-continue
             continue;
           }
-          const credentialInfo = await localDb.getCredential(wallet.id);
+          const credentialInfo = await localDb.getCredentialInner({
+            credentialId: wallet.id,
+          });
           if (!credentialInfo) {
             // eslint-disable-next-line no-continue
             continue;
@@ -7373,7 +7560,7 @@ class ServiceAccount extends ServiceBase {
     }) => {
       let firmwareType: EFirmwareType | undefined;
       if (featuresInfo) {
-        firmwareType = await deviceUtils.getFirmwareType({
+        firmwareType = await this.getFirmwareTypeFromDeviceFeatures({
           features: featuresInfo,
         });
       } else {
@@ -7382,7 +7569,8 @@ class ServiceAccount extends ServiceBase {
             walletId,
           });
         if (walletDevice) {
-          firmwareType = await deviceUtils.getFirmwareType({
+          firmwareType = await this.getFirmwareTypeFromDeviceFeatures({
+            vendor: walletDevice.vendor,
             features: walletDevice.featuresInfo,
           });
         }
@@ -7397,7 +7585,11 @@ class ServiceAccount extends ServiceBase {
         const fwVendor = options.featuresInfo?.fw_vendor || '';
         const capabilities =
           options.featuresInfo?.capabilities?.join(',') ?? '';
-        return `${options.walletId}-${fwVendor}-${capabilities}`;
+        const unitBtcOnly = String(
+          (options.featuresInfo as { unit_btconly?: boolean } | undefined)
+            ?.unit_btconly ?? '',
+        );
+        return `${options.walletId}-${fwVendor}-${capabilities}-${unitBtcOnly}`;
       },
       maxAge: timerUtils.getTimeDurationMs({ seconds: 60 }),
       max: 5,

@@ -76,10 +76,13 @@ export function getPerpsOrderPanelEnableTradingModeByAccount({
   const isHardwareAccount = accountUtils.isHwAccount({
     accountId: resolvedAccountId,
   });
+  const shouldUseOrderPanelEnableTradingDialog =
+    isHardwareAccount || !isSoftwareAccount;
 
   return {
     canAutoEnableInOrderPanel: isSoftwareAccount,
-    requiresEnableTradingDialogInOrderPanel: isHardwareAccount,
+    requiresEnableTradingDialogInOrderPanel:
+      shouldUseOrderPanelEnableTradingDialog,
     requiresExplicitEnableTrading: !isSoftwareAccount,
   };
 }
@@ -199,7 +202,7 @@ export type IPerpsOrderPanelPostEnableTradingResult =
 export function shouldDisablePerpsOrderPanelTradingButton({
   isTradingStatusDisabled,
   shouldEnableTradingBeforeOrder,
-  isNoEnoughMargin,
+  isNoEnoughMargin: _isNoEnoughMargin,
   isAccountLoading,
   isSubmitting,
   hasBboPriceError,
@@ -215,7 +218,6 @@ export function shouldDisablePerpsOrderPanelTradingButton({
 }) {
   return (
     isTradingStatusDisabled ||
-    (!shouldEnableTradingBeforeOrder && isNoEnoughMargin) ||
     isAccountLoading ||
     isSubmitting ||
     (!shouldEnableTradingBeforeOrder && hasBboPriceError) ||

@@ -7,7 +7,10 @@ import type {
   IFetchBuildTxResponse,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { buildMarketExecutionPayload } from './marketBuildExecutionUtils';
 
@@ -109,6 +112,54 @@ describe('marketBuildExecutionUtils', () => {
     expect(buildLMSwapEncodedTx).toHaveBeenCalledTimes(1);
     expect(result.encodedTx).toEqual({
       data: '0xlm',
+    });
+  });
+
+  it('passes Bridge type into OKX encoded tx builds for cross-network orders', async () => {
+    const buildOkxSwapEncodedTx = jest.fn<Promise<IEncodedTx>, [unknown]>();
+    buildOkxSwapEncodedTx.mockResolvedValue({
+      data: '0xokx',
+    } as IEncodedTx);
+
+    const result = await buildMarketExecutionPayload({
+      accountId: 'account-1',
+      buildRes: createBuildRes({
+        OKXTxObject: {
+          from: '0xfrom',
+          to: '0xto',
+          value: '0',
+          data: '0xokx',
+        } as never,
+        result: {
+          ...createBuildRes().result,
+          toTokenInfo: {
+            ...toToken,
+            networkId: 'evm--137',
+          },
+        },
+      }),
+      currentFromToken: fromToken,
+      currentToToken: {
+        ...toToken,
+        networkId: 'evm--137',
+      },
+      fromAmount: '1',
+      receivingAddress: '0xuser',
+      slippage: 1,
+      swapType: ESwapTabSwitchType.BRIDGE,
+      userAddress: '0xuser',
+      onBuildOkxSwapEncodedTx: buildOkxSwapEncodedTx,
+      onBuildLMSwapEncodedTx: jest.fn(),
+      onBuildInternalDappTx: jest.fn(),
+    });
+
+    expect(buildOkxSwapEncodedTx).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: ESwapTabSwitchType.BRIDGE,
+      }),
+    );
+    expect(result.encodedTx).toEqual({
+      data: '0xokx',
     });
   });
 

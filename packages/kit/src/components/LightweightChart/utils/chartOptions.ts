@@ -13,6 +13,8 @@ export function createChartOptions(
   showPriceScale = false,
   fontSize?: number,
   priceScaleMargins?: { top: number; bottom: number },
+  showTimeScale = true,
+  priceScaleEntireTextOnly = false,
 ): DeepPartial<ChartOptions> {
   return {
     layout: {
@@ -20,6 +22,7 @@ export function createChartOptions(
       textColor: theme.textSubduedColor,
       fontSize: fontSize ?? 12,
       fontFamily: CHART_FONT_FAMILY,
+      attributionLogo: false,
     },
     crosshair: {
       mode: 1, // CrosshairMode.Normal
@@ -31,9 +34,13 @@ export function createChartOptions(
       },
       horzLine: {
         visible: false,
+        // Hide the price tag the crosshair draws on the price axis on hover; it
+        // duplicates the custom hover tooltip (mirrors vertLine labelVisible).
+        labelVisible: false,
       },
     },
     timeScale: {
+      visible: showTimeScale,
       borderVisible: false,
       timeVisible: true,
       secondsVisible: false,
@@ -44,6 +51,7 @@ export function createChartOptions(
     rightPriceScale: {
       visible: showPriceScale,
       borderVisible: false,
+      entireTextOnly: priceScaleEntireTextOnly,
       ...(priceScaleMargins && { scaleMargins: priceScaleMargins }),
     },
     leftPriceScale: {

@@ -17,6 +17,7 @@ export const PerpTestIDs = {
   OrderTypeMarketTab: 'perp-order-type-market-tab',
   OrderTypeLimitTab: 'perp-order-type-limit-tab',
   OrderTypeTriggerTab: 'perp-order-type-trigger-tab',
+  OrderTypeInfoButton: 'perp-order-type-info-button',
 
   // -- Trading form: price inputs --
   PriceInput: 'perp-price-input',
@@ -33,6 +34,7 @@ export const PerpTestIDs = {
   TpInput: 'perp-tp-input',
   SlInput: 'perp-sl-input',
   TriggerReduceOnlyCheckbox: 'perp-trigger-reduce-only-checkbox',
+  StandardReduceOnlyCheckbox: 'perp-standard-reduce-only-checkbox',
 
   // -- Trading buttons: side toggle + place order --
   TradeSideToggle: 'perp-trade-side-toggle',

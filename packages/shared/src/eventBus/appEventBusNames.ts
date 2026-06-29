@@ -61,7 +61,15 @@ export enum EAppEventBusNames {
   EstimateTxFeeRetry = 'estimateTxFeeRetry',
   GasAccountSubmitRetryScheduled = 'gasAccountSubmitRetryScheduled',
   GasAccountSubmitRetryCleared = 'gasAccountSubmitRetryCleared',
-  TokenListUpdate = 'TokenListUpdate',
+  // TokenList cells Phase-2 BG frame transport (D2=A hybrid push + PULL). The two
+  // events are kept separate so the structure (low-frequency, generation-guard)
+  // and valuation (per-tick, version-gap) channels can be guarded independently.
+  TokenListStructureFrame = 'TokenListStructureFrame',
+  TokenListValuationFrame = 'TokenListValuationFrame',
+  // TokenList cells Phase-2 risky frame (design 2026-06-16 §R0). Full idempotent
+  // risky-token snapshot for an owner with its OWN monotonic version (independent
+  // of structure/valuation). Small + low-frequency -> PUSH; never diffed.
+  TokenListRiskyFrame = 'TokenListRiskyFrame',
   TabListStateUpdate = 'TabListStateUpdate',
   RefreshTokenList = 'RefreshTokenList',
   RefreshHistoryList = 'RefreshHistoryList',
@@ -81,6 +89,7 @@ export enum EAppEventBusNames {
   SwapSpeedApprovingReset = 'SwapSpeedApprovingReset',
   SwapSpeedBalanceUpdate = 'SwapSpeedBalanceUpdate',
   SwapSpeedBuildTxSuccess = 'SwapSpeedBuildTxSuccess',
+  SwapStockTokenSelected = 'SwapStockTokenSelected',
   AddedCustomNetwork = 'AddedCustomNetwork',
   ShowFindInWebPage = 'ShowFindInWebPage',
   ChangeTokenDetailTabVerticalScrollEnabled = 'ChangeTokenDetailTabVerticalScrollEnabled',
@@ -123,6 +132,15 @@ export enum EAppEventBusNames {
   ShowHardwareErrorDialog = 'ShowHardwareErrorDialog',
   SwapPanelDismissKeyboard = 'SwapPanelDismissKeyboard',
   ShowFallbackUpdateDialog = 'ShowFallbackUpdateDialog',
+  // Background → foreground signal: an update was discovered mid-session and
+  // its server strategy is auto (silent/seamless) or it is a rollback, so the
+  // foreground should kick off the real byte transfer. The background keeps the
+  // status at `notify` and only emits this event — it cannot pull bytes nor
+  // advance the status itself. The native download (BundleUpdate.downloadBundle,
+  // with headers/retry) lives exclusively in the foreground useDownloadPackage
+  // hook, whose serviceAppUpdate.downloadPackage() flips `notify` →
+  // `downloadPackage`. This event bridges the two runtimes.
+  StartAutoDownloadUpdate = 'StartAutoDownloadUpdate',
   PendingInstallTaskProcessFinished = 'PendingInstallTaskProcessFinished',
   HomePageReady = 'HomePageReady',
   ShowNotificationViewDialog = 'ShowNotificationViewDialog',
@@ -136,6 +154,7 @@ export enum EAppEventBusNames {
   PerpSwitchActiveInstrument = 'PerpSwitchActiveInstrument',
   BtcFreshAddressUpdated = 'BtcFreshAddressUpdated',
   BtcFreshAddressConnectDappRejected = 'BtcFreshAddressConnectDappRejected',
+  BtcFindAddressUpdated = 'BtcFindAddressUpdated',
   ClientLogUploadProgress = 'ClientLogUploadProgress',
   SwitchDiscoveryTabInNative = 'SwitchDiscoveryTabInNative',
   SwitchEarnMode = 'SwitchEarnMode',

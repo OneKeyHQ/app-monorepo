@@ -150,8 +150,16 @@ export interface ISwapProviderManager {
   providerInfo: ISwapProviderInfo;
   enable: boolean;
   serviceDisable?: boolean;
+  isSupportSingleSwap?: boolean;
+  isSupportCrossChain?: boolean;
+  singleSwapEnable?: boolean;
+  crossChainEnable?: boolean;
+  supportSingleSwapNetworks?: ISwapNetwork[];
+  supportCrossChainNetworks?: ISwapNetwork[];
   supportNetworks?: ISwapNetwork[];
   disableNetworks?: ISwapNetwork[];
+  singleSwapDisableNetworks?: ISwapNetwork[];
+  crossChainDisableNetworks?: ISwapNetwork[];
   serviceDisableNetworks?: ISwapNetwork[];
 }
 
@@ -199,6 +207,8 @@ export const swapProBuyInputSegmentItems = [
 
 export const swapProPositionsListMinValue = 1;
 export const swapProPositionsListMaxCount = 20;
+// Stock positions use a lower floor so small (but non-dust) stock holdings show.
+export const swapProStockPositionsListMinValue = 0.1;
 
 export const swapDefaultSetTokens: Record<
   string,
@@ -1787,6 +1797,29 @@ export const swapBridgeDefaultTokenExtraConfigs = {
     },
   },
 };
+
+export function getSwapBridgeDefaultToToken(
+  token: Pick<ISwapToken, 'networkId' | 'contractAddress'>,
+) {
+  const matchedConfig = swapBridgeDefaultTokenConfigs.find((config) =>
+    config.fromTokens.some(
+      (fromToken) =>
+        fromToken.networkId === token.networkId &&
+        fromToken.contractAddress.toLowerCase() ===
+          token.contractAddress.toLowerCase(),
+    ),
+  );
+
+  if (matchedConfig) {
+    return matchedConfig.toTokenDefaultMatch;
+  }
+
+  return token.networkId ===
+    swapBridgeDefaultTokenExtraConfigs.mainNetDefaultToTokenConfig.networkId
+    ? swapBridgeDefaultTokenExtraConfigs.mainNetDefaultToTokenConfig
+        .defaultToToken
+    : swapBridgeDefaultTokenExtraConfigs.defaultToToken;
+}
 
 export const wrappedTokens = [
   {

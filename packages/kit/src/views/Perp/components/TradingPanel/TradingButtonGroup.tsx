@@ -127,6 +127,33 @@ interface ITradingButtonGroupProps {
   enableTradingModeOverride?: IPerpsOrderPanelEnableTradingMode;
 }
 
+function IpRestrictedSingleButton({ isMobile }: { isMobile: boolean }) {
+  const intl = useIntl();
+
+  return (
+    <YStack {...(!isMobile && { mt: '$4' })}>
+      <Button
+        testID="perp-ip-restricted-button"
+        size="medium"
+        disabled
+        childrenAsText={false}
+        borderRadius="$full"
+        variant="secondary"
+        disabledStyle={{ opacity: 1 }}
+        h={isMobile ? 46 : 44}
+        iconAfter="LockOutline"
+        iconColor="$iconSubdued"
+      >
+        <SizableText size="$bodyMdMedium" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.trading_unavailable__action,
+          })}
+        </SizableText>
+      </Button>
+    </YStack>
+  );
+}
+
 interface ISideButtonProps {
   side: 'long' | 'short';
   isMobile: boolean;
@@ -280,6 +307,33 @@ function SideButtonInternal({
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const handleDepositFromToast = useCallback(() => {
+    void showDepositWithdrawModal('deposit');
+  }, [showDepositWithdrawModal]);
+  const showNoEnoughMarginToast = useCallback(
+    (latestIsSpot: boolean) => {
+      Toast.error({
+        title: intl.formatMessage({
+          id: latestIsSpot
+            ? ETranslations.dexmarket_insufficient_balance
+            : ETranslations.perp_insufficient_margin__title,
+        }),
+        actions: (
+          <Button
+            testID={PerpTestIDs.MarginToastDepositButton}
+            size="small"
+            variant="primary"
+            onPress={handleDepositFromToast}
+          >
+            {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+          </Button>
+        ),
+        actionsAlign: 'left',
+        toastId: `perp-no-enough-margin-${latestIsSpot ? 'spot' : 'perp'}`,
+      });
+    },
+    [handleDepositFromToast, intl],
+  );
   const perpsAccountKey = useMemo(
     () => getPerpsAccountKey(perpsAccount),
     [perpsAccount],
@@ -403,7 +457,6 @@ function SideButtonInternal({
   const hasNonColdStartDisabledReason = useMemo(
     () =>
       Boolean(
-        (!shouldAutoEnableTrading && isNoEnoughMargin) ||
         (!perpsAccountStatus.canTrade && !shouldEnableTradingBeforeOrder) ||
         isSubmitting ||
         priceError === 'bbo_unavailable' ||
@@ -411,11 +464,9 @@ function SideButtonInternal({
       ),
     [
       perpsAccountStatus.canTrade,
-      isNoEnoughMargin,
       isServerActionDisabled,
       isSubmitting,
       priceError,
-      shouldAutoEnableTrading,
       shouldEnableTradingBeforeOrder,
     ],
   );
@@ -425,7 +476,6 @@ function SideButtonInternal({
       isLiveStatusPending,
       hasNonColdStartDisabledReason,
     });
-
   const buttonDisabled = useMemo(() => {
     return shouldDisablePerpsOrderPanelTradingButton({
       isTradingStatusDisabled,
@@ -512,19 +562,9 @@ function SideButtonInternal({
       return intl.formatMessage({
         id: ETranslations.Perps_BBO_unavailable,
       });
-    if (perpConfigCommon?.ipDisablePerp)
-      return intl.formatMessage({
-        id: ETranslations.perp_button_ip_restricted,
-      });
     if (perpConfigCommon?.disablePerpActionPerp)
       return intl.formatMessage({
         id: ETranslations.perp_button_disable_perp,
-      });
-    if (!shouldEnableTradingBeforeOrder && isNoEnoughMargin)
-      return intl.formatMessage({
-        id: isSpot
-          ? ETranslations.dexmarket_insufficient_balance
-          : ETranslations.perp_trading_button_no_enough_margin,
       });
     if (isSpot) {
       if (!spotTradeSymbol) {
@@ -556,12 +596,10 @@ function SideButtonInternal({
   }, [
     priceError,
     formData.orderMode,
-    isNoEnoughMargin,
     isSpot,
     side,
     spotTradeSymbol,
     intl,
-    perpConfigCommon?.ipDisablePerp,
     perpConfigCommon?.disablePerpActionPerp,
     shouldEnableTradingBeforeOrder,
   ]);
@@ -641,6 +679,7 @@ function SideButtonInternal({
         effectivePriceBN: latestEffectivePriceBN,
         formData: latestFormData,
         isMinimumOrderNotMetForSide: latestIsMinimumOrderNotMetForSide,
+        isNoEnoughMargin: latestIsNoEnoughMargin,
         isSpot: latestIsSpot,
         isScaleMode: latestIsScaleMode,
         isTriggerMode: latestIsTriggerMode,
@@ -841,6 +880,11 @@ function SideButtonInternal({
         return false;
       }
 
+      if (latestIsNoEnoughMargin) {
+        showNoEnoughMarginToast(latestIsSpot);
+        return false;
+      }
+
       if (latestIsScaleMode) {
         const legs = buildScaleOrderLegs({
           totalSize: latestComputedSizeForSide.toFixed(),
@@ -1014,7 +1058,7 @@ function SideButtonInternal({
 
       return true;
     },
-    [intl],
+    [intl, showNoEnoughMarginToast],
   );
 
   const requestOrderPanelEnableTrading = useCallback(
@@ -1163,13 +1207,7 @@ function SideButtonInternal({
             isDepositRequired,
           })
         ) {
-          Toast.message({
-            title: intl.formatMessage({
-              id: preEnableOrderPanelState.isSpot
-                ? ETranslations.dexmarket_insufficient_balance
-                : ETranslations.perp_trading_button_no_enough_margin,
-            }),
-          });
+          showNoEnoughMarginToast(preEnableOrderPanelState.isSpot);
           return;
         }
 
@@ -1205,13 +1243,7 @@ function SideButtonInternal({
           return;
         }
         if (postEnableTradingResult === 'noEnoughMargin') {
-          Toast.message({
-            title: intl.formatMessage({
-              id: postEnableState.isSpot
-                ? ETranslations.dexmarket_insufficient_balance
-                : ETranslations.perp_trading_button_no_enough_margin,
-            }),
-          });
+          showNoEnoughMarginToast(postEnableState.isSpot);
           return;
         }
       }
@@ -1257,11 +1289,19 @@ function SideButtonInternal({
           size: submitState.computedSizeForSide,
           positionSize: position?.szi,
           missingPositionMessage: submitState.isTwapMode
-            ? 'Reduce-only TWAP requires an opposite open position'
-            : 'Reduce-only scale requires an opposite open position',
+            ? intl.formatMessage({
+                id: ETranslations.perp_twap_reduce_only_opposite_position_required__msg,
+              })
+            : intl.formatMessage({
+                id: ETranslations.perp_scale_reduce_only_opposite_position_required__msg,
+              }),
           exceedsPositionMessage: submitState.isTwapMode
-            ? 'Reduce-only TWAP size exceeds the current position'
-            : 'Reduce-only scale size exceeds the current position',
+            ? intl.formatMessage({
+                id: ETranslations.perp_twap_reduce_only_size_exceeds_position__msg,
+              })
+            : intl.formatMessage({
+                id: ETranslations.perp_scale_reduce_only_size_exceeds_position__msg,
+              }),
         });
         if (reduceOnlyError) {
           Toast.message({ title: reduceOnlyError });
@@ -1402,6 +1442,49 @@ function SideButtonInternal({
     ),
     [intl],
   );
+  const actionButton = (() => {
+    return (
+      <Button
+        testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
+        size="medium"
+        childrenAsText={false}
+        borderRadius="$4"
+        bg={buttonStyles.bg}
+        hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
+        pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
+        disabled={buttonDisabled}
+        disabledStyle={
+          shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
+        }
+        onPress={handlePress}
+        h={36}
+        py={!orderValue.isZero() && orderValue.isFinite() ? '$0.5' : undefined}
+      >
+        <YStack alignItems="center" gap={2}>
+          <SizableText
+            size="$bodyMdMedium"
+            lineHeight={18}
+            color="$textOnColor"
+            numberOfLines={1}
+          >
+            {buttonText}
+          </SizableText>
+
+          {buttonSecondaryText ? (
+            <SizableText
+              fontSize={11}
+              color="$textOnColor"
+              opacity={0.8}
+              lineHeight={11}
+              numberOfLines={1}
+            >
+              {buttonSecondaryText}
+            </SizableText>
+          ) : null}
+        </YStack>
+      </Button>
+    );
+  })();
 
   if (isMobile) {
     return (
@@ -1473,96 +1556,13 @@ function SideButtonInternal({
           </YStack>
         ) : null}
 
-        <Button
-          testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
-          size="medium"
-          childrenAsText={false}
-          borderRadius="$4"
-          bg={buttonStyles.bg}
-          hoverStyle={
-            !buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined
-          }
-          pressStyle={
-            !buttonDisabled ? { bg: buttonStyles.pressBg } : undefined
-          }
-          disabled={buttonDisabled}
-          disabledStyle={
-            shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
-          }
-          loading={shouldShowButtonLoading}
-          onPress={handlePress}
-          h={36}
-          py={
-            !orderValue.isZero() && orderValue.isFinite() ? '$0.5' : undefined
-          }
-        >
-          <YStack alignItems="center" gap={2}>
-            <SizableText
-              size="$bodyMdMedium"
-              lineHeight={18}
-              color="$textOnColor"
-              numberOfLines={1}
-            >
-              {buttonText}
-            </SizableText>
-
-            {buttonSecondaryText ? (
-              <SizableText
-                fontSize={11}
-                color="$textOnColor"
-                opacity={0.8}
-                lineHeight={11}
-                numberOfLines={1}
-              >
-                {buttonSecondaryText}
-              </SizableText>
-            ) : null}
-          </YStack>
-        </Button>
+        {actionButton}
       </YStack>
     );
   }
   return (
     <YStack gap="$2" flex={1} onLayout={handleLayout}>
-      <Button
-        testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
-        size="medium"
-        childrenAsText={false}
-        borderRadius="$4"
-        bg={buttonStyles.bg}
-        hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
-        pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
-        disabled={buttonDisabled}
-        disabledStyle={
-          shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
-        }
-        loading={shouldShowButtonLoading}
-        onPress={handlePress}
-        h={36}
-        py={!orderValue.isZero() && orderValue.isFinite() ? '$0.5' : undefined}
-      >
-        <YStack alignItems="center" gap={2}>
-          <SizableText
-            size="$bodyMdMedium"
-            lineHeight={18}
-            color="$textOnColor"
-            numberOfLines={1}
-          >
-            {buttonText}
-          </SizableText>
-          {buttonSecondaryText ? (
-            <SizableText
-              fontSize={11}
-              color="$textOnColor"
-              opacity={0.8}
-              lineHeight={11}
-              numberOfLines={1}
-            >
-              {buttonSecondaryText}
-            </SizableText>
-          ) : null}
-        </YStack>
-      </Button>
+      {actionButton}
       {shouldShowCostAndLiqPrice ? (
         <YStack gap="$1.5">
           {/* <XStack justifyContent="space-between">
@@ -1705,10 +1705,6 @@ function EmptySizeSideButton({
   }, [activeTradeInstrument, isSpot]);
 
   const buttonText = useMemo(() => {
-    if (perpConfigCommon?.ipDisablePerp)
-      return intl.formatMessage({
-        id: ETranslations.perp_button_ip_restricted,
-      });
     if (perpConfigCommon?.disablePerpActionPerp)
       return intl.formatMessage({
         id: ETranslations.perp_button_disable_perp,
@@ -1744,7 +1740,6 @@ function EmptySizeSideButton({
     intl,
     isSpot,
     perpConfigCommon?.disablePerpActionPerp,
-    perpConfigCommon?.ipDisablePerp,
     side,
     spotTradeSymbol,
   ]);
@@ -1937,7 +1932,6 @@ function EmptySizeSideButton({
       trailing: false,
     },
   );
-
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
       if (!isMobile) {
@@ -1966,35 +1960,36 @@ function EmptySizeSideButton({
     ],
   );
 
-  const button = (
-    <Button
-      testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
-      size="medium"
-      childrenAsText={false}
-      borderRadius="$4"
-      bg={buttonStyles.bg}
-      hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
-      pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
-      disabled={buttonDisabled}
-      disabledStyle={
-        shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
-      }
-      loading={shouldShowButtonLoading || isSubmitting}
-      onPress={handlePress}
-      h={36}
-    >
-      <YStack alignItems="center" gap={2}>
-        <SizableText
-          size="$bodyMdMedium"
-          lineHeight={18}
-          color="$textOnColor"
-          numberOfLines={1}
-        >
-          {buttonText}
-        </SizableText>
-      </YStack>
-    </Button>
-  );
+  const button = (() => {
+    return (
+      <Button
+        testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
+        size="medium"
+        childrenAsText={false}
+        borderRadius="$4"
+        bg={buttonStyles.bg}
+        hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
+        pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
+        disabled={buttonDisabled}
+        disabledStyle={
+          shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
+        }
+        onPress={handlePress}
+        h={36}
+      >
+        <YStack alignItems="center" gap={2}>
+          <SizableText
+            size="$bodyMdMedium"
+            lineHeight={18}
+            color="$textOnColor"
+            numberOfLines={1}
+          >
+            {buttonText}
+          </SizableText>
+        </YStack>
+      </Button>
+    );
+  })();
 
   if (isMobile) {
     return (
@@ -2168,6 +2163,7 @@ function TradingButtonGroupLive({
   enableTradingModeOverride,
 }: ITradingButtonGroupProps) {
   const [tradingMode] = useTradingModeAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const tradingSide = useTradingFormSide();
   const marketDataFreshness = usePerpsMarketDataFreshness();
   const liveHandleConfirmRef = useRef(noopHandleConfirm);
@@ -2177,6 +2173,10 @@ function TradingButtonGroupLive({
     [],
   );
   const isSpot = tradingMode === 'spot';
+
+  if (perpConfigCommon?.ipDisablePerp) {
+    return <IpRestrictedSingleButton isMobile={isMobile} />;
+  }
 
   const renderSideButtons = () => {
     if (isSpot) {
@@ -2260,8 +2260,13 @@ function TradingButtonGroupEmptySize({
   enableTradingModeOverride,
 }: ITradingButtonGroupProps) {
   const [tradingMode] = useTradingModeAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const tradingSide = useTradingFormSide();
   const isSpot = tradingMode === 'spot';
+
+  if (perpConfigCommon?.ipDisablePerp) {
+    return <IpRestrictedSingleButton isMobile={isMobile} />;
+  }
 
   const renderSideButtons = () => {
     if (isSpot) {

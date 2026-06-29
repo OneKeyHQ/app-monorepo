@@ -34,6 +34,7 @@ interface ITokenDetailHeaderLeftProps {
   networkLogoUri?: string;
   showMediaAndSecurity?: boolean;
   isNative?: boolean;
+  showFavoriteButton?: boolean;
 }
 
 export function TokenDetailHeaderLeft({
@@ -42,6 +43,7 @@ export function TokenDetailHeaderLeft({
   networkLogoUri,
   showMediaAndSecurity = true,
   isNative = false,
+  showFavoriteButton = true,
 }: ITokenDetailHeaderLeftProps) {
   const { md } = useMedia();
 
@@ -72,17 +74,18 @@ export function TokenDetailHeaderLeft({
 
   const { website, twitter } = extraData || {};
 
-  const marketStar = networkId ? (
-    <MarketStarV2
-      chainId={networkId}
-      contractAddress={address}
-      size="small"
-      customIconSize="$4"
-      from={EWatchlistFrom.Detail}
-      tokenSymbol={symbol}
-      isNative={isNative}
-    />
-  ) : null;
+  const marketStar =
+    showFavoriteButton && networkId ? (
+      <MarketStarV2
+        chainId={networkId}
+        contractAddress={address}
+        size="small"
+        customIconSize="$4"
+        from={EWatchlistFrom.Detail}
+        tokenSymbol={symbol}
+        isNative={isNative}
+      />
+    ) : null;
 
   const shareButton = networkId ? (
     <ShareButton

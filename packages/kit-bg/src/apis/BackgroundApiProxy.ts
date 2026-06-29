@@ -12,6 +12,7 @@ import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceAccountProfile from '../services/ServiceAccountProfile';
 import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
+import type ServiceAddressRiskCheck from '../services/ServiceAddressRiskCheck';
 import type ServiceAllNetwork from '../services/ServiceAllNetwork';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceAppCleanup from '../services/ServiceAppCleanup';
@@ -83,7 +84,9 @@ import type ServiceSignatureConfirm from '../services/ServiceSignatureConfirm';
 import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
+import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 import type ServiceToken from '../services/ServiceToken';
+import type ServiceTokenViewModel from '../services/ServiceTokenViewModel';
 import type ServiceTransaction from '../services/ServiceTransaction';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
@@ -137,6 +140,10 @@ class BackgroundApiProxy
 
   serviceSetting = this._createProxyService('serviceSetting') as ServiceSetting;
 
+  serviceAddressRiskCheck = this._createProxyService(
+    'serviceAddressRiskCheck',
+  ) as ServiceAddressRiskCheck;
+
   serviceNetwork = this._createProxyService('serviceNetwork') as ServiceNetwork;
 
   serviceAccount = this._createProxyService('serviceAccount') as ServiceAccount;
@@ -152,6 +159,10 @@ class BackgroundApiProxy
   serviceSwap = this._createProxyService('serviceSwap') as ServiceSwap;
 
   serviceToken = this._createProxyService('serviceToken') as ServiceToken;
+
+  serviceTokenViewModel = this._createProxyService(
+    'serviceTokenViewModel',
+  ) as ServiceTokenViewModel;
 
   serviceNFT = this._createProxyService('serviceNFT') as ServiceNFT;
 
@@ -268,6 +279,10 @@ class BackgroundApiProxy
   serviceHardwareUI = this._createProxyService(
     'serviceHardwareUI',
   ) as ServiceHardwareUI;
+
+  serviceThirdPartyHardware = this._createProxyService(
+    'serviceThirdPartyHardware',
+  ) as ServiceThirdPartyHardware;
 
   serviceFirmwareUpdate = this._createProxyService(
     'serviceFirmwareUpdate',

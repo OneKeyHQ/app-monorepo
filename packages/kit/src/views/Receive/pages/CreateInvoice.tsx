@@ -17,7 +17,10 @@ import {
   useForm,
   useMedia,
 } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -33,6 +36,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { LightningUnitSwitch } from '../../../components/UnitSwitch';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { convertTokenFiatToCurrency } from '../../../utils/fiatConvert';
 import { ReceiveTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -60,6 +64,7 @@ function CreateInvoice() {
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const { accountId, networkId } = route.params;
   const [settings] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const { serviceLightning } = backgroundApiProxy;
   const [isLoading, setIsLoading] = useState(false);
 
@@ -101,7 +106,7 @@ function CreateInvoice() {
     };
   }, [invoiceConfig, lnUnit]);
 
-  const { result } = usePromiseResult(async () => {
+  const { result: tokenDetails } = usePromiseResult(async () => {
     const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
       accountId,
       networkId,
@@ -109,20 +114,25 @@ function CreateInvoice() {
       withFrozenBalance: false,
       withCheckInscription: false,
     });
-    const price = r[0]?.price;
-    return {
-      price,
-    };
+    return r[0];
   }, [networkId, accountId]);
 
   const fiatValue = useMemo(() => {
+    if (!tokenDetails) return '0.00';
+    // fetchTokensDetails responses are normalized to USD basis (tagged
+    // currency:'usd'); convert before rendering under
+    // settings.currencyInfo.symbol.
+    const { price } = convertTokenFiatToCurrency({
+      tokenFiat: tokenDetails,
+      targetCurrency: settings.currencyInfo.id,
+      currencyMap,
+    });
     const amountBN = new BigNumber(linkedAmount || '0');
-    const price = new BigNumber(result?.price || '0');
-    if (amountBN.isInteger() && price) {
-      return amountBN.multipliedBy(price).toFixed(2);
+    if (amountBN.isInteger()) {
+      return amountBN.multipliedBy(new BigNumber(price || '0')).toFixed(2);
     }
     return '0.00';
-  }, [linkedAmount, result?.price]);
+  }, [linkedAmount, tokenDetails, settings.currencyInfo.id, currencyMap]);
 
   const onSubmit = useCallback(
     async (values: IFormValues) => {

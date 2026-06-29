@@ -90,6 +90,10 @@ const LedgerAppOpsGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LedgerAppOps'),
 );
+const TrezorMultiTransportGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TrezorMultiTransport'),
+);
 const IconGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Icon'),
@@ -125,6 +129,10 @@ const JotaiGlobalGallery = LazyLoadPage(
 const LinearGradientGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LinearGradient'),
+);
+const LightweightChartStyleGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LightweightChartStyle'),
 );
 const ListItemGallery = LazyLoadPage(
   () =>
@@ -374,11 +382,6 @@ const CloudBackupGallery = LazyLoadPage(
 const CloudSyncGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CloudSyncGallery'),
-);
-
-const KeylessWalletGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/KeylessWalletGallery'),
 );
 
 const TradingViewGallery = LazyLoadPage(
@@ -684,6 +687,10 @@ export const galleryScreenList: {
     component: LinearGradientGallery,
   },
   {
+    name: EGalleryRoutes.ComponentLightweightChartStyle,
+    component: LightweightChartStyleGallery,
+  },
+  {
     name: EGalleryRoutes.ComponentAccountModel,
     component: AccountModelGallery,
   },
@@ -694,6 +701,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentLedgerAppOps,
     component: LedgerAppOpsGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentTrezorMultiTransport,
+    component: TrezorMultiTransportGallery,
   },
   {
     name: EGalleryRoutes.ComponentImage,
@@ -758,10 +769,6 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentCloudSync,
     component: CloudSyncGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentKeylessWallet,
-    component: KeylessWalletGallery,
   },
   {
     name: EGalleryRoutes.ComponentOrderBook,

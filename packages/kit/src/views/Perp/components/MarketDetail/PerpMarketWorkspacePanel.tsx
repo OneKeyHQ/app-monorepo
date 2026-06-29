@@ -71,21 +71,21 @@ export function PerpMarketWorkspacePanel({
   const [mountedInfoMarketKey, setMountedInfoMarketKey] = useState<
     string | undefined
   >();
+  const [collapseChartExpandSignal, setCollapseChartExpandSignal] = useState(0);
 
   const handleChangeActiveView = useCallback(
     (view: IPerpMarketWorkspaceView) => {
+      if (view !== 'chart') {
+        setLayoutState((prev) =>
+          prev.chartExpanded ? { ...prev, chartExpanded: false } : prev,
+        );
+        setCollapseChartExpandSignal((prev) => prev + 1);
+      }
+
       setActiveView(view);
     },
-    [],
+    [setLayoutState],
   );
-
-  useEffect(() => {
-    if (activeView !== 'chart') {
-      setLayoutState((prev) =>
-        prev.chartExpanded ? { ...prev, chartExpanded: false } : prev,
-      );
-    }
-  }, [activeView, setLayoutState]);
 
   useEffect(() => {
     setMountedInfoMarketKey((prev) => {
@@ -125,7 +125,10 @@ export function PerpMarketWorkspacePanel({
           minHeight={0}
           display={activeView === 'chart' ? 'flex' : 'none'}
         >
-          <PerpCandles onTouchScroll={onTouchScroll} />
+          <PerpCandles
+            collapseChartExpandSignal={collapseChartExpandSignal}
+            onTouchScroll={onTouchScroll}
+          />
         </YStack>
 
         {shouldRenderInfo ? (

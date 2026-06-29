@@ -1,72 +1,17 @@
-import { Transaction } from '@mysten/sui/transactions';
-import { SUI_TYPE_ARG } from '@mysten/sui/utils';
+import { Transaction, coinWithBalance } from '@mysten/sui/transactions';
+import { SUI_TYPE_ARG, normalizeSuiAddress } from '@mysten/sui/utils';
 import BigNumber from 'bignumber.js';
 
-import {
-  OneKeyInternalError,
-  OneKeyLocalError,
-} from '@onekeyhq/shared/src/errors';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-
-import { normalizeSuiCoinType } from './utils';
 
 import type { OneKeySuiClient } from './ClientSui';
-import type { BalanceChange, CoinStruct } from '@mysten/sui/client';
+import type { BalanceChange } from '@mysten/sui/jsonRpc';
 
 export enum ESuiTransactionType {
   ContractInteraction = 'ContractInteraction',
   TokenTransfer = 'Token Transfer',
   Unknown = 'UNKNOWN',
-}
-
-async function getAllCoinsByCoinType({
-  client,
-  address,
-  coinType,
-}: {
-  client: OneKeySuiClient;
-  address: string;
-  coinType: string;
-}) {
-  let cursor: string | null | undefined = null;
-  const allCoins: CoinStruct[] = [];
-  let hasNextPage = true;
-  const maxRetries = 5;
-  let retries = 0;
-
-  while (hasNextPage && retries < maxRetries) {
-    try {
-      const resp = await client.getCoins({
-        owner: address,
-        coinType,
-        cursor,
-        limit: 50,
-      });
-
-      const { data, nextCursor, hasNextPage: nextPageExists } = resp;
-
-      if (data && data.length) {
-        allCoins.push(...data);
-      }
-
-      cursor = nextCursor;
-      hasNextPage = nextPageExists;
-      retries = 0; // Reset retry count on successful request
-    } catch (error) {
-      retries += 1;
-      console.error(`Failed to fetch coins, retry attempt: ${retries}`, error);
-      if (retries >= maxRetries) {
-        throw new OneKeyLocalError(
-          'Failed to fetch coins, maximum retry attempts reached',
-        );
-      }
-      // Add delay before retrying
-      await timerUtils.wait(300);
-    }
-  }
-
-  return allCoins;
 }
 
 async function createTokenTransaction({
@@ -75,7 +20,6 @@ async function createTokenTransaction({
   recipient,
   amount,
   coinType,
-  maxSendNativeToken = false,
 }: {
   client: OneKeySuiClient;
   sender: string;
@@ -85,71 +29,52 @@ async function createTokenTransaction({
   maxSendNativeToken?: boolean;
 }) {
   const tx = new Transaction();
-  const allCoins = await getAllCoinsByCoinType({
-    client,
-    address: sender,
+  tx.setSender(sender);
+
+  // totalBalance includes both coin objects and address balances
+  const { totalBalance } = await client.getBalance({
+    owner: sender,
     coinType,
   });
 
-  const totalBalance = allCoins.reduce(
-    (sum, coin) => sum.plus(coin.balance),
-    new BigNumber(0),
-  );
-
-  if (
-    totalBalance.lt(amount) ||
-    (totalBalance.isZero() && allCoins.length === 0)
-  ) {
+  if (new BigNumber(totalBalance).lt(amount)) {
     throw new OneKeyInternalError({
       key: ETranslations.earn_insufficient_balance,
     });
   }
 
-  // Max send native token
-  if (maxSendNativeToken && coinType === SUI_TYPE_ARG) {
-    tx.transferObjects([tx.gas], recipient);
-    tx.setGasPayment(
-      allCoins
-        .filter(
-          (coin) =>
-            normalizeSuiCoinType(coin.coinType) ===
-            normalizeSuiCoinType(coinType),
-        )
-        .map((coin) => ({
-          objectId: coin.coinObjectId,
-          digest: coin.digest,
-          version: coin.version,
-        })),
-    );
-
-    return tx;
-  }
-  // Native token
-  if (coinType === SUI_TYPE_ARG) {
-    const coin = tx.splitCoins(tx.gas, [amount]);
-    tx.transferObjects([coin], recipient);
-  } else {
-    // Token transfer
-    const [primaryCoin, ...mergeCoins] = allCoins.filter(
-      (coin) =>
-        normalizeSuiCoinType(coin.coinType) === normalizeSuiCoinType(coinType),
-    );
-    const primaryCoinInput = tx.object(primaryCoin.coinObjectId);
-    if (mergeCoins.length) {
-      tx.mergeCoins(
-        primaryCoinInput,
-        mergeCoins.map((coin) => tx.object(coin.coinObjectId)),
-      );
-    }
-    const coin = tx.splitCoins(primaryCoinInput, [amount]);
-    tx.transferObjects([coin], recipient);
-  }
+  // coinWithBalance resolves from coin objects and address balances at build time
+  const coin = tx.add(
+    coinWithBalance({
+      type: coinType,
+      balance: BigInt(amount),
+    }),
+  );
+  tx.transferObjects([coin], recipient);
   return tx;
+}
+
+// coinWithBalance injects 0x2::coin / 0x2::balance helper calls (redeem_funds,
+// send_funds, etc.) for address-balance transfers; not contract interactions.
+function isCoinFrameworkMoveCall(moveCall: {
+  package: string;
+  module: string;
+  function: string;
+}) {
+  return (
+    normalizeSuiAddress(moveCall.package) === normalizeSuiAddress('0x2') &&
+    (moveCall.module === 'coin' || moveCall.module === 'balance')
+  );
 }
 
 function analyzeTransactionType(tx: Transaction) {
   const commands = tx.getData().commands;
-  const hasMoveCall = commands.some((cmd) => cmd.$kind === 'MoveCall');
+  const hasMoveCall = commands.some(
+    (cmd) =>
+      cmd.$kind === 'MoveCall' &&
+      cmd.MoveCall &&
+      !isCoinFrameworkMoveCall(cmd.MoveCall),
+  );
   if (hasMoveCall) {
     return ESuiTransactionType.ContractInteraction;
   }

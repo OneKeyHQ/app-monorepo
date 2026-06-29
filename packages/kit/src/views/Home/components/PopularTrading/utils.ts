@@ -1,17 +1,14 @@
-import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketPerpsTokenFromServer,
+  IMarketTokenListItem,
+} from '@onekeyhq/shared/types/marketV2';
 
 import {
   getNativeTokenInfo,
-  getStockMarketCapValue,
-  getStockPeRatioValue,
-  getStockVolume24hValue,
   normalizeStockMetadataValue,
-  shouldUseStockMetadataColumnsForTokens,
 } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 
 import type { IFavoriteTokenDisplay } from './types';
-
-const EMPTY_MARKET_VALUE = '--';
 
 function getTokenKey(token: {
   chainId: string;
@@ -25,45 +22,6 @@ function getTokenKey(token: {
 }
 
 const EMPTY_DISPLAY_TOKENS: IFavoriteTokenDisplay[] = [];
-
-function getDefaultMarketValue(value?: number) {
-  return value ? value : EMPTY_MARKET_VALUE;
-}
-
-function getStockPreferredDisplayValue(
-  stockValue: string | undefined,
-  fallbackValue?: number,
-) {
-  return stockValue ?? getDefaultMarketValue(fallbackValue);
-}
-
-function getVolume24hValue(
-  record: IFavoriteTokenDisplay,
-  useStockMetadataColumns?: boolean,
-) {
-  return useStockMetadataColumns
-    ? getStockPreferredDisplayValue(
-        getStockVolume24hValue(record),
-        record.volume24h,
-      )
-    : getDefaultMarketValue(record.volume24h);
-}
-
-function getMarketCapValue(
-  record: IFavoriteTokenDisplay,
-  useStockMetadataColumns?: boolean,
-) {
-  return useStockMetadataColumns
-    ? getStockPreferredDisplayValue(
-        getStockMarketCapValue(record),
-        record.marketCap,
-      )
-    : getDefaultMarketValue(record.marketCap);
-}
-
-function getPeRatioValue(record: IFavoriteTokenDisplay) {
-  return getStockPeRatioValue(record) ?? EMPTY_MARKET_VALUE;
-}
 
 function parseMarketValue(value?: string | number | null) {
   const normalizedValue = normalizeStockMetadataValue(value);
@@ -96,6 +54,14 @@ function getMarketTokenDisplayVolume24h(item: IMarketTokenListItem) {
   );
 }
 
+function getMarketTokenDisplayPrice(item: IMarketTokenListItem) {
+  return parseMarketValue(item.price) ?? 0;
+}
+
+function getMarketTokenDisplayPriceChange24h(item: IMarketTokenListItem) {
+  return parseMarketValue(item.priceChange24hPercent) ?? 0;
+}
+
 function mapMarketTokenToDisplay(
   item: IMarketTokenListItem,
 ): IFavoriteTokenDisplay | null {
@@ -113,23 +79,47 @@ function mapMarketTokenToDisplay(
     symbol: item.symbol,
     name: item.name,
     logoUrl: item.logoUrl ?? '',
-    price: parseFloat(item.price ?? '0'),
-    priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
+    logoUrls: item.logoUrls,
+    price: getMarketTokenDisplayPrice(item),
+    priceChange24h: getMarketTokenDisplayPriceChange24h(item),
     marketCap: getMarketTokenDisplayMarketCap(item),
     volume24h: getMarketTokenDisplayVolume24h(item),
+    communityRecognized: item.communityRecognized,
     stock: item.stock,
+  };
+}
+
+function mapMarketPerpsTokenToDisplay({
+  token,
+  subtitle,
+}: {
+  token: IMarketPerpsTokenFromServer;
+  subtitle?: string;
+}): IFavoriteTokenDisplay {
+  return {
+    chainId: '',
+    contractAddress: '',
+    isNative: false,
+    symbol: token.displayName,
+    name: token.displayName,
+    logoUrl: token.tokenImageUrl ?? '',
+    price: parseMarketValue(token.markPrice) ?? 0,
+    priceChange24h: parseMarketValue(token.change24hPercent) ?? 0,
+    marketCap: 0,
+    volume24h: parseMarketValue(token.volume24h) ?? 0,
+    perpsCoin: token.name,
+    perpsSubtitle: subtitle,
+    maxLeverage: token.maxLeverage,
   };
 }
 
 export {
   EMPTY_DISPLAY_TOKENS,
-  EMPTY_MARKET_VALUE,
-  getMarketCapValue,
   getMarketTokenDisplayMarketCap,
+  getMarketTokenDisplayPrice,
+  getMarketTokenDisplayPriceChange24h,
   getMarketTokenDisplayVolume24h,
-  getPeRatioValue,
   getTokenKey,
-  getVolume24hValue,
+  mapMarketPerpsTokenToDisplay,
   mapMarketTokenToDisplay,
-  shouldUseStockMetadataColumnsForTokens,
 };

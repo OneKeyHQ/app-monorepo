@@ -14,6 +14,8 @@ import type {
 import { MESSAGE_TYPES } from '../../TradingViewPerpsV2/constants/messageTypes';
 import { fetchTradingViewV2DataWithSlicing } from '../hooks';
 
+import { sendVolumeVisibilityUpdate } from './volumeVisibilityHandler';
+
 import type { IMessageHandlerContext, IMessageHandlerParams } from './types';
 
 const MAX_MARKS_COUNT = 60;
@@ -84,6 +86,16 @@ function buildEmptyKLineData(): IMarketTokenKLineResponse {
     points: [],
     total: 0,
   };
+}
+
+function getKLineErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  return undefined;
 }
 
 function formatAmount(amount: string) {
@@ -253,6 +265,7 @@ export async function handleKLineDataRequest({
     webRef,
     accountAddress,
     marksTimeRange,
+    tokenSymbol,
   } = context;
 
   // Safely extract history data with proper type checking
@@ -271,6 +284,7 @@ export async function handleKLineDataRequest({
     const resolution = safeData.resolution as string;
     const from = safeData.from as number;
     const to = safeData.to as number;
+    const isFirstDataRequest = safeData.firstDataRequest === true;
 
     if (context.onCurrentKLineResolutionChange) {
       context.onCurrentKLineResolutionChange(resolution);
@@ -315,6 +329,7 @@ export async function handleKLineDataRequest({
       const kLineData = shouldUseEmptyKLineData
         ? buildEmptyKLineData()
         : fetchedKLineData;
+      const isEmptyKLineData = !kLineData?.points?.length;
 
       if (webRef.current && kLineData) {
         webRef.current.sendMessageViaInjectedScript({
@@ -325,13 +340,35 @@ export async function handleKLineDataRequest({
             requestData: messageData,
           },
         });
+
+        sendVolumeVisibilityUpdate({
+          allowHide: Boolean(safeData.firstDataRequest),
+          kLineData,
+          source: 'history',
+          symbol: (safeData.symbol as string) || tokenSymbol || tokenAddress,
+          webRef,
+        });
       }
 
-      if (shouldUseEmptyKLineData) {
-        sendClearAccountMarks({
-          tokenAddress,
-          symbol: (safeData.symbol as string) || tokenAddress,
-          webRef,
+      if (isEmptyKLineData) {
+        if (isFirstDataRequest) {
+          context.onKLineLoadError?.({
+            status: 'empty',
+            period: normalizeTradingViewKLineInterval(resolution),
+          });
+        }
+        if (shouldUseEmptyKLineData) {
+          sendClearAccountMarks({
+            tokenAddress,
+            symbol: (safeData.symbol as string) || tokenAddress,
+            webRef,
+          });
+        }
+      }
+
+      if (!isEmptyKLineData) {
+        context.onKLineDataReady?.({
+          period: normalizeTradingViewKLineInterval(resolution),
         });
       }
 
@@ -353,6 +390,11 @@ export async function handleKLineDataRequest({
         });
       }
     } catch (error) {
+      context.onKLineLoadError?.({
+        status: 'failed',
+        period: normalizeTradingViewKLineInterval(resolution),
+        message: getKLineErrorMessage(error),
+      });
       console.error('Failed to fetch and send kline data:', error);
     }
   }

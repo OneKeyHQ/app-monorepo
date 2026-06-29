@@ -1,3 +1,4 @@
+// cspell:ignore OCDS
 // Pure error-taxonomy utilities for the bundle / app update pipeline.
 // Extracted from UpdateReminder/hooks.tsx so the regex catalog and the
 // PII scrubber can be unit-tested independently of the React hooks
@@ -115,22 +116,106 @@ export function extractUpdateErrorCode(error: unknown): string | undefined {
 }
 
 /**
+ * OCDS v1.1 §4 failure classification. The downloader's two failure classes
+ * have opposite recoveries, so every HTTP status must resolve to exactly one
+ * of them. This shared map is the single source of truth that each native
+ * classifier (iOS / Android / Node) MUST agree with — a code marked permanent
+ * here but transient natively (or vice-versa) double-handles a download.
+ *
+ *   Permanent → concurrency is fundamentally unusable for this object; the
+ *               already-fetched bytes are unsalvageable, fall back / give up.
+ *   Transient → the transfer was interrupted but is resumable; keep artifacts
+ *               and retry.
+ *
+ * The §4 default rule (used for any status not explicitly listed):
+ *   - 4xx → Permanent, EXCEPT 408 and 429 → Transient
+ *   - 5xx → Transient, EXCEPT 501 and 505 → Permanent
+ *   - anything else / unknown → Permanent
+ *
+ * 401 / 403 are Permanent *for this URL* specifically (auth / expired signed
+ * URL): the caller should fetch a fresh signed URL rather than blindly retry
+ * the dead one (see runDownloadWithRetry's url-refresh path).
+ */
+export type IHttpStatusClass = 'permanent' | 'transient';
+
+// Explicit §4 table rows that override the default rule. Statuses absent here
+// fall through to the 4xx/5xx default logic in classifyHttpStatus.
+const HTTP_STATUS_TRANSIENT_OVERRIDES = new Set<number>([
+  408, // request timeout → retry
+  416, // range-not-satisfiable on a resume request → re-evaluate size, keep
+  429, // throttling → back off + retry
+]);
+const HTTP_STATUS_PERMANENT_OVERRIDES = new Set<number>([
+  401, // auth required / expired signed URL (permanent for THIS url)
+  403, // forbidden / expired signed URL (permanent for THIS url)
+  404, // not found
+  410, // gone
+  501, // not implemented
+  505, // http version not supported
+]);
+
+/**
+ * Classify a raw HTTP status code per OCDS v1.1 §4, including the catch-all
+ * default rule so the "exactly one of two classes" property holds for every
+ * code, listed or not. Returns `'permanent'` for non-numeric / unknown input.
+ */
+export function classifyHttpStatus(status: number): IHttpStatusClass {
+  if (!Number.isFinite(status)) return 'permanent';
+  if (HTTP_STATUS_TRANSIENT_OVERRIDES.has(status)) return 'transient';
+  if (HTTP_STATUS_PERMANENT_OVERRIDES.has(status)) return 'permanent';
+  // 4xx → Permanent (the transient 4xx exceptions are in the override set).
+  if (status >= 400 && status <= 499) return 'permanent';
+  // 5xx → Transient (the permanent 5xx exceptions are in the override set).
+  if (status >= 500 && status <= 599) return 'transient';
+  // Anything else / unknown → Permanent.
+  return 'permanent';
+}
+
+/**
+ * True when a permanent-class HTTP status means "this URL is dead, obtain a
+ * fresh signed URL" rather than "give up entirely". Per §4 these are 401/403.
+ * The caller may retry ONCE against a freshly-signed URL before treating the
+ * download as terminal.
+ */
+export function isPermanentThisUrlHttpStatus(status: number): boolean {
+  return status === 401 || status === 403;
+}
+
+/**
  * Codes that mean a retry will deterministically fail the same way — either
  * the server actively rejects us (auth, gone, malformed), or the bytes we
  * have on disk are already verified-bad (SHA256 mismatch — partial gets
  * wiped, retrying just re-downloads the same bad payload). Bail immediately
  * for these so we don't burn three round-trips on a known-dead state.
+ *
+ * Mirrors the permanent rows of HTTP_STATUS_PERMANENT_OVERRIDES (§4). Kept as
+ * a code-string set because isUnrecoverableDownloadError works off the
+ * normalized error code, not a raw numeric status. 401/403 are permanent for
+ * THIS url (caller should refresh the signed URL) but still unrecoverable for
+ * the current attempt, so they bail here too.
  */
 export const UNRECOVERABLE_DOWNLOAD_ERROR_CODES = new Set<string>([
   'SHA256_MISMATCH',
+  'HTTP_401',
   'HTTP_403',
   'HTTP_404',
   'HTTP_410',
+  'HTTP_501',
+  'HTTP_505',
 ]);
 
 export function isUnrecoverableDownloadError(error: unknown): boolean {
   const code = extractUpdateErrorCode(error);
   if (code && UNRECOVERABLE_DOWNLOAD_ERROR_CODES.has(code)) return true;
+  // A raw HTTP code that didn't surface as one of the known unrecoverable
+  // strings above still has to obey the §4 default rule, so a code marked
+  // permanent there (e.g. 451, 502→transient is fine, 555→permanent) bails
+  // here instead of re-spending the retry budget on a deterministically-dead
+  // status.
+  const status = extractHttpStatusFromError(error);
+  if (status !== undefined && classifyHttpStatus(status) === 'permanent') {
+    return true;
+  }
   // Programmer/config-error throws — extractUpdateErrorCode returns undefined
   // for these because the messages are plain English. Match the canonical
   // set thrown by the native modules.
@@ -141,4 +226,30 @@ export function isUnrecoverableDownloadError(error: unknown): boolean {
     msg.includes('Already downloading') ||
     msg.includes('Invalid URL')
   );
+}
+
+/**
+ * Pull a numeric HTTP status out of a thrown download error, if the message
+ * carries one in a recognized shape ("HTTP 416", "HTTP error 504",
+ * "status: 503"). Returns undefined for non-HTTP errors. Used so the retry
+ * loop can run §4 classification (classifyHttpStatus) and the 401/403
+ * url-refresh check off the same error object.
+ */
+export function extractHttpStatusFromError(error: unknown): number | undefined {
+  const code = extractUpdateErrorCode(error);
+  if (code && code.startsWith('HTTP_')) {
+    const parsed = Number(code.slice('HTTP_'.length));
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
+/**
+ * True when a download error is a permanent-this-URL (401/403) failure: the
+ * URL is dead (auth / expired signed URL) but a freshly-signed URL may still
+ * work, so the caller should refresh it and retry once rather than give up.
+ */
+export function isPermanentThisUrlDownloadError(error: unknown): boolean {
+  const status = extractHttpStatusFromError(error);
+  return status !== undefined && isPermanentThisUrlHttpStatus(status);
 }

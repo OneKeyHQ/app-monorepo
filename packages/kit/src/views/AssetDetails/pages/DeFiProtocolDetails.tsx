@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { type RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -13,17 +13,29 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { DeFiPositionHealthFactorRow } from '@onekeyhq/kit/src/components/DeFi/DeFiPositionHealthFactorRow';
+import { ProtocolPositionActionButton } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
+import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import { ProtocolPositionSection } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionSection';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import { getProtocolPositionSectionsValueState } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+  type ILocalizedProtocolPositionItem,
   buildLocalizedProtocolPositionItems,
   buildProtocolDisplayInfo,
   getProtocolPositionDisplayName,
+  isSectionedPosition,
 } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -34,6 +46,32 @@ import {
   openUrlExternal,
   openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type { IDeFiProtocol } from '@onekeyhq/shared/types/defi';
+
+function buildActionPosition(
+  position: ILocalizedProtocolPositionItem,
+): IDeFiProtocol['positions'][number] {
+  return {
+    groupId: position.groupId,
+    category: position.category,
+    poolName: position.poolName ?? '',
+    poolFullName: position.poolFullName ?? position.poolName ?? '',
+    value: position.value,
+    assets: position.sections
+      .filter(
+        (section) =>
+          section.assetType === 'supplied' || section.assetType === 'other',
+      )
+      .flatMap((section) => section.assets),
+    debts: position.sections
+      .filter((section) => section.assetType === 'borrowed')
+      .flatMap((section) => section.assets),
+    rewards: position.sections
+      .filter((section) => section.assetType === 'rewards')
+      .flatMap((section) => section.assets),
+    sourcePositions: position.sourcePositions,
+  };
+}
 
 function DeFiProtocolDetails() {
   const route =
@@ -43,9 +81,39 @@ function DeFiProtocolDetails() {
         EModalAssetDetailRoutes.DeFiProtocolDetails
       >
     >();
-  const { protocol, protocolInfo } = route.params;
+  const {
+    protocol,
+    protocolInfo,
+    accountId: routeAccountId,
+    indexedAccountId: routeIndexedAccountId,
+  } = route.params;
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
+  const { result: supportedActions = [] } = usePromiseResult(async () => {
+    try {
+      return await backgroundApiProxy.serviceDeFi.fetchSupportedDeFiProtocols();
+    } catch (error) {
+      console.error(error);
+      return [];
+    }
+  }, []);
+  const actionAccountId = protocol.accountId ?? routeAccountId;
+  const actionIndexedAccountId =
+    protocol.indexedAccountId ?? routeIndexedAccountId;
+  const handleActionSuccess = useCallback(
+    ({ accountId, networkId }: IProtocolPositionActionSuccessParams) => {
+      appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+      void backgroundApiProxy.serviceDeFi
+        .refreshAccountDeFiPositionsAfterAction({
+          accountId,
+          networkId,
+        })
+        .catch(console.error);
+      navigation.pop();
+    },
+    [navigation],
+  );
 
   const priceUnavailableLabel = intl.formatMessage({
     id: ETranslations.wallet_price_unavailable,
@@ -141,6 +209,11 @@ function DeFiProtocolDetails() {
             const hasPartialUnavailableValue =
               positionValueState.hasAvailableValue &&
               positionValueState.hasUnavailableValue;
+            const actionPosition = buildActionPosition(position);
+            // Lending / debt-bearing positions put a scoped action on each
+            // supplied/borrowed/rewards row; simple positions keep a single
+            // position-level button below.
+            const sectioned = isSectionedPosition(position);
 
             return (
               <Stack key={position.positionKey} px="$5">
@@ -182,6 +255,13 @@ function DeFiProtocolDetails() {
                     />
                   </Stack>
                 </XStack>
+                {typeof position.healthFactor === 'number' ? (
+                  <Stack pt="$2" pb="$1">
+                    <DeFiPositionHealthFactorRow
+                      healthFactor={position.healthFactor}
+                    />
+                  </Stack>
+                ) : null}
                 <YStack gap="$2">
                   {position.sections.map((section) => (
                     <ProtocolPositionSection
@@ -190,8 +270,31 @@ function DeFiProtocolDetails() {
                       section={section}
                       currencySymbol={settings.currencyInfo.symbol}
                       priceUnavailableLabel={priceUnavailableLabel}
+                      actionProps={
+                        sectioned
+                          ? {
+                              accountId: actionAccountId,
+                              indexedAccountId: actionIndexedAccountId,
+                              protocol,
+                              actionPosition,
+                              supportedActions,
+                              onActionSuccess: handleActionSuccess,
+                            }
+                          : undefined
+                      }
                     />
                   ))}
+                  {sectioned ? null : (
+                    <ProtocolPositionActionButton
+                      accountId={actionAccountId}
+                      indexedAccountId={actionIndexedAccountId}
+                      protocol={protocol}
+                      position={actionPosition}
+                      supportedActions={supportedActions}
+                      block
+                      onSuccess={handleActionSuccess}
+                    />
+                  )}
                 </YStack>
               </Stack>
             );

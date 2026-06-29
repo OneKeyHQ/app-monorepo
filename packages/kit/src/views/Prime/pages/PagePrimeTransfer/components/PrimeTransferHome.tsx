@@ -13,7 +13,6 @@ import {
 } from '@onekeyhq/components';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { PrimeTransferHomeEnterLink } from './PrimeTransferHomeEnterLink';
 import { PrimeTransferHomeQrCode } from './PrimeTransferHomeQrCode';
@@ -35,7 +34,6 @@ export function PrimeTransferHome({
   autoConnect,
   autoConnectCustomServer,
   defaultTab,
-  transferType,
   botWalletId,
 }: {
   remotePairingCode: string;
@@ -43,7 +41,6 @@ export function PrimeTransferHome({
   autoConnect?: boolean;
   autoConnectCustomServer?: string;
   defaultTab?: 'qr-code' | 'enter-link';
-  transferType?: EPrimeTransferDataType;
   botWalletId?: string;
 }) {
   const intl = useIntl();
@@ -83,9 +80,6 @@ export function PrimeTransferHome({
     if (isBotWalletExport) {
       return 'Export Bot Wallet';
     }
-    if (transferType === EPrimeTransferDataType.keylessWallet) {
-      return 'Transfer Keyless Wallet';
-    }
     return intl.formatMessage({
       id: ETranslations.transfer_establish_connection,
     });
@@ -98,8 +92,7 @@ export function PrimeTransferHome({
       {isBotWalletExport ? null : <PrimeTransferServerStatusBar />}
 
       <Stack px="$4" gap="$5" mt="$2">
-        {transferType === EPrimeTransferDataType.keylessWallet ||
-        isBotWalletExport ? null : (
+        {isBotWalletExport ? null : (
           <SegmentControl
             fullWidth
             value={value}

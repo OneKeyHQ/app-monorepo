@@ -576,13 +576,19 @@ async function shouldUseV2FirmwareUpdateFlow({
 function getRawDeviceId({
   device,
   features,
+  isThirdParty,
 }: {
   device: Omit<SearchDevice, 'commType'>;
   features: IOneKeyDeviceFeatures;
+  isThirdParty?: boolean;
 }) {
-  // SearchDevice.deviceId is undefined when BLE connecting
-  // const rawDeviceId = device.deviceId || features.device_id || '';
-  const rawDeviceId = device.deviceId || features.device_id || '';
+  // Third-party (Trezor) only: SearchDevice.deviceId is undefined while BLE
+  // connecting, so prefer the firmware features.device_id. OneKey HD keeps its
+  // original precedence (device.deviceId first) so its wallet-id derivation is
+  // unchanged — the two stacks must not affect each other.
+  const rawDeviceId = isThirdParty
+    ? features.device_id || device.deviceId || ''
+    : device.deviceId || features.device_id || '';
   return rawDeviceId;
 }
 

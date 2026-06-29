@@ -19,7 +19,6 @@ import { EBtcRewardErrorCode } from '@onekeyhq/shared/src/referralCode/type';
 import type {
   EExportTimeRange,
   IBatchCheckWalletItem,
-  IBatchCheckWalletResponse,
   IBatchCheckWalletV2Response,
   IBtcRewardCommitData,
   IBtcRewardCommitParams,
@@ -588,15 +587,6 @@ class ServiceReferralCode extends ServiceBase {
       return postConfig;
     }
     return this.fetchPostConfig();
-  }
-
-  @backgroundMethod()
-  async batchCheckWalletsBoundReferralCode(items: IBatchCheckWalletItem[]) {
-    const client = await this.getClient(EServiceEndpointEnum.Rebate);
-    const response = await client.post<{
-      data: IBatchCheckWalletResponse;
-    }>('/rebate/v1/wallet/batch-check', { items });
-    return response.data.data;
   }
 
   @backgroundMethod()

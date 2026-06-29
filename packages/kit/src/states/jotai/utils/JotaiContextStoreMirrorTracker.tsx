@@ -17,6 +17,7 @@ import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
+import { isSwapColdStartAllNetworkContextNetworkId } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 
 import { AccountSelectorRootProvider } from '../../../components/AccountSelector/AccountSelectorRootProvider';
 import { DiscoveryBrowserRootProvider } from '../../../views/Discovery/components/DiscoveryBrowserRootProvider';
@@ -43,8 +44,47 @@ type IGlobalColdStartSnapshot = typeof globalThis & {
   __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
 };
 
+type ISelectedAccountSnapshot = {
+  networkId?: string;
+};
+
+type ISelectedAccountsSnapshot = Record<
+  string | number,
+  ISelectedAccountSnapshot | undefined
+>;
+
+const COLD_START_SCOPED_KEY_SEPARATOR = '::';
+const ACCOUNT_SELECTOR_HOME_SCOPE_KEY = 'store:accountSelector@home';
+
 function getColdStartSnapshot() {
   return (globalThis as IGlobalColdStartSnapshot).__ONEKEY_CTX_ATOM_SNAPSHOT__;
+}
+
+function buildContextAtomSnapshotKey({
+  coldStartScopeKey,
+  coldStartCacheKey,
+}: {
+  coldStartScopeKey: string;
+  coldStartCacheKey: string;
+}) {
+  return `${coldStartScopeKey}${COLD_START_SCOPED_KEY_SEPARATOR}${coldStartCacheKey}`;
+}
+
+function hasAllNetworkHomeSelectedAccountSnapshot() {
+  const snapshot = getColdStartSnapshot();
+  if (!snapshot) {
+    return false;
+  }
+
+  const selectedAccounts = snapshot[
+    buildContextAtomSnapshotKey({
+      coldStartScopeKey: ACCOUNT_SELECTOR_HOME_SCOPE_KEY,
+      coldStartCacheKey:
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom,
+    })
+  ] as ISelectedAccountsSnapshot | null | undefined;
+  const selectedAccount = selectedAccounts?.[0] ?? selectedAccounts?.['0'];
+  return isSwapColdStartAllNetworkContextNetworkId(selectedAccount?.networkId);
 }
 
 function hasPerpsColdStartSnapshot() {
@@ -59,6 +99,7 @@ function hasPerpsColdStartSnapshot() {
 
   const perpsColdStartCacheKeys = [
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActiveTradeInstrumentAtom,
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsL2BookColdCacheAtom,
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActivePositionAtom,
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActiveOpenOrdersAtom,
   ];
@@ -85,30 +126,12 @@ function hasSwapColdStartSnapshot() {
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProPositionsCacheAtom,
   ];
-  return Object.keys(snapshot).some((key) =>
-    swapColdStartCacheKeys.some((cacheKey) => key.endsWith(`::${cacheKey}`)),
+  return (
+    Object.keys(snapshot).some((key) =>
+      swapColdStartCacheKeys.some((cacheKey) => key.endsWith(`::${cacheKey}`)),
+    ) || hasAllNetworkHomeSelectedAccountSnapshot()
   );
 }
-
-const PerpsColdStartRootProvider = memo(() => {
-  const shouldMount = useMemo(() => hasPerpsColdStartSnapshot(), []);
-  if (!shouldMount) {
-    return null;
-  }
-
-  return <PerpsRootProvider />;
-});
-PerpsColdStartRootProvider.displayName = 'PerpsColdStartRootProvider';
-
-const SwapColdStartRootProvider = memo(() => {
-  const shouldMount = useMemo(() => hasSwapColdStartSnapshot(), []);
-  if (!shouldMount) {
-    return null;
-  }
-
-  return <SwapRootProvider />;
-});
-SwapColdStartRootProvider.displayName = 'SwapColdStartRootProvider';
 
 // AccountSelectorMapTracker
 export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
@@ -175,6 +198,14 @@ export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
 function JotaiContextRootProvidersAutoMountCmp() {
   const [map] = useJotaiContextStoreMapAtom();
   const mapEntries = useMemo(() => Object.entries(map), [map]);
+  const shouldMountSwapColdStartRootProvider = useMemo(
+    () => hasSwapColdStartSnapshot(),
+    [],
+  );
+  const shouldMountPerpsColdStartRootProvider = useMemo(
+    () => hasPerpsColdStartSnapshot(),
+    [],
+  );
   // const mapEntries = [];
   if (process.env.NODE_ENV !== 'production') {
     // console.log(
@@ -186,8 +217,8 @@ function JotaiContextRootProvidersAutoMountCmp() {
   }
   return (
     <>
-      <SwapColdStartRootProvider />
-      <PerpsColdStartRootProvider />
+      {shouldMountSwapColdStartRootProvider ? <SwapRootProvider /> : null}
+      {shouldMountPerpsColdStartRootProvider ? <PerpsRootProvider /> : null}
       {mapEntries.map(([key, value]) => {
         const { accountSelectorInfo, count, storeName } = value;
         // const config = {
@@ -240,6 +271,9 @@ function JotaiContextRootProvidersAutoMountCmp() {
             return <MarketWatchListProviderV2 key={key} />;
           }
           case EJotaiContextStoreNames.swap: {
+            if (shouldMountSwapColdStartRootProvider) {
+              return null;
+            }
             return <SwapRootProvider key={key} />;
           }
           case EJotaiContextStoreNames.swapModal: {
@@ -259,6 +293,9 @@ function JotaiContextRootProvidersAutoMountCmp() {
             return <SignatureConfirmRootProvider key={key} />;
           }
           case EJotaiContextStoreNames.perps: {
+            if (shouldMountPerpsColdStartRootProvider) {
+              return null;
+            }
             return <PerpsRootProvider key={key} />;
           }
           default: {

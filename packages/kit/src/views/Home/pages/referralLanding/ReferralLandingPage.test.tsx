@@ -5,6 +5,8 @@ import { act, cleanup, render } from '@testing-library/react-native';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { createReferralLandingRequestId } from '@onekeyhq/kit/src/routes/config/deeplink/referralLandingRequestGuard';
 import type { ISimpleDbPerpData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityPerp';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { openReferralInvitedByFriendModalWithGuard } from './referralLandingModalGuard';
@@ -15,6 +17,16 @@ const mockNavigation = {
   pushModal: jest.fn(),
   reset: jest.fn(),
 };
+type IReferralWebLandingMockProps = {
+  onDownload: () => void;
+  onScrollToBind: () => void;
+  onCopyCode: () => void;
+  onBind: () => void;
+  onTrade: () => void;
+};
+let mockReferralWebLandingProps: IReferralWebLandingMockProps | undefined;
+let mockIsOneKeyInstalled = false;
+const mockBindViaExtension = jest.fn();
 let mockRouteParams: {
   code: string;
   page?: string;
@@ -74,7 +86,7 @@ jest.mock(
   '@onekeyhq/kit/src/hooks/useWebDapp/useOneKeyWalletDetection',
   () => ({
     useOneKeyWalletDetection: () => ({
-      isOneKeyInstalled: false,
+      isOneKeyInstalled: mockIsOneKeyInstalled,
     }),
   }),
 );
@@ -83,7 +95,7 @@ jest.mock(
   '@onekeyhq/kit/src/views/ReferFriends/hooks/useBindReferralViaExtension',
   () => ({
     useBindReferralViaExtension: () => ({
-      bindViaExtension: jest.fn(),
+      bindViaExtension: mockBindViaExtension,
     }),
   }),
 );
@@ -115,6 +127,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
       page: {
         enterReferralGuide: jest.fn(),
         enterFromReferralLink: jest.fn(),
+        referralPageOpen: jest.fn(),
         clickReferralLandingButton: jest.fn(),
         copyReferralCode: jest.fn(),
       },
@@ -152,13 +165,22 @@ jest.mock('@onekeyhq/shared/src/utils/uriUtils', () => ({
   },
 }));
 
+jest.mock('../../utils/deepLinkLaunchUtils', () => ({
+  openAppViaDeepLink: jest.fn(),
+  redirectToStore: jest.fn(),
+  scheduleDeepLinkFallbackHint: jest.fn(() => jest.fn()),
+}));
+
 jest.mock('@onekeyhq/kit/src/views/Earn/earnUtils', () => ({
   safePushToEarnRoute: jest.fn(),
 }));
 
 jest.mock('./components', () => ({
   REFERRAL_STEP2_ANCHOR_ID: 'referral-step-2',
-  ReferralWebLanding: () => null,
+  ReferralWebLanding: (props: IReferralWebLandingMockProps) => {
+    mockReferralWebLandingProps = props;
+    return null;
+  },
 }));
 
 jest.mock('./referralLandingModalGuard', () => ({
@@ -169,6 +191,17 @@ const mockedOpenReferralInvitedByFriendModalWithGuard =
   openReferralInvitedByFriendModalWithGuard as jest.MockedFunction<
     typeof openReferralInvitedByFriendModalWithGuard
   >;
+const mockedPlatformEnv = platformEnv as {
+  isWeb: boolean;
+  isWebMobileAndroid: boolean;
+  isWebMobileIOS: boolean;
+};
+const mockedReferralLogger = defaultLogger.referral.page as unknown as {
+  referralPageOpen: jest.Mock;
+  enterReferralGuide: jest.Mock;
+  enterFromReferralLink: jest.Mock;
+  clickReferralLandingButton: jest.Mock;
+};
 const mockedPerpSimpleDb = backgroundApiProxy.simpleDb.perp as unknown as {
   setPerpData: jest.MockedFunction<
     (
@@ -191,6 +224,11 @@ describe('ReferralLandingPage', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    mockReferralWebLandingProps = undefined;
+    mockIsOneKeyInstalled = false;
+    mockedPlatformEnv.isWeb = false;
+    mockedPlatformEnv.isWebMobileAndroid = false;
+    mockedPlatformEnv.isWebMobileIOS = false;
     mockRouteParams = {
       code: 'R7EKUT',
     };
@@ -199,6 +237,83 @@ describe('ReferralLandingPage', () => {
   afterEach(() => {
     cleanup();
     jest.useRealTimers();
+  });
+
+  it('logs referral page open once for the same web landing route', async () => {
+    mockedPlatformEnv.isWeb = true;
+    mockRouteParams = {
+      code: 'LI2ZUE',
+      page: 'perps',
+    };
+
+    const view = render(<ReferralLandingPage />);
+    await flushAsyncTasks();
+
+    expect(mockedReferralLogger.referralPageOpen).toHaveBeenCalledTimes(1);
+    expect(mockedReferralLogger.referralPageOpen).toHaveBeenCalledWith({
+      referralCode: 'LI2ZUE',
+      landingPage: '/app/perps',
+      pageVariant: 'perps',
+    });
+
+    view.rerender(<ReferralLandingPage />);
+    await flushAsyncTasks();
+
+    expect(mockedReferralLogger.referralPageOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it('deduplicates repeated web enter events with the same source', () => {
+    mockedPlatformEnv.isWeb = true;
+    mockIsOneKeyInstalled = true;
+    mockRouteParams = {
+      code: 'LI2ZUE',
+      page: 'perps',
+    };
+
+    render(<ReferralLandingPage />);
+
+    act(() => {
+      mockReferralWebLandingProps?.onBind();
+      mockReferralWebLandingProps?.onBind();
+    });
+
+    expect(
+      mockedReferralLogger.clickReferralLandingButton,
+    ).toHaveBeenCalledTimes(2);
+    expect(mockedReferralLogger.enterReferralGuide).toHaveBeenCalledTimes(1);
+    expect(mockedReferralLogger.enterFromReferralLink).toHaveBeenCalledTimes(1);
+    expect(mockedReferralLogger.enterFromReferralLink).toHaveBeenCalledWith({
+      referralCode: 'LI2ZUE',
+      landingPage: '/app/perps',
+      utmSource: 'web_bind_extension',
+    });
+  });
+
+  it('logs a same-source web enter retry after the dedupe window', () => {
+    mockedPlatformEnv.isWeb = true;
+    mockIsOneKeyInstalled = true;
+    mockRouteParams = {
+      code: 'LI2ZUE',
+      page: 'perps',
+    };
+
+    render(<ReferralLandingPage />);
+
+    act(() => {
+      mockReferralWebLandingProps?.onBind();
+      jest.advanceTimersByTime(3000);
+      mockReferralWebLandingProps?.onBind();
+    });
+
+    expect(mockedReferralLogger.enterFromReferralLink).toHaveBeenCalledTimes(2);
+    expect(mockedReferralLogger.enterFromReferralLink).toHaveBeenNthCalledWith(
+      2,
+      {
+        referralCode: 'LI2ZUE',
+        landingPage: '/app/perps',
+        utmSource: 'web_bind_extension',
+      },
+    );
   });
 
   it('does not open a stale code-only route after a newer referral request arrives', async () => {

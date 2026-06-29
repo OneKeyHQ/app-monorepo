@@ -7,6 +7,7 @@ import { normalizeAllNetworkInstallCancelErrors } from './thirdPartyAllNetworkEr
 import {
   attachLedgerAllNetworkFingerprints,
   normalizeThirdPartyAllNetworkBundle,
+  shouldUseThirdPartyAllNetworkGetAddress,
 } from './thirdPartyAllNetworkParams';
 
 import type { IHwAllNetworkPrepareAccountsItem } from '../../vaults/types';
@@ -122,6 +123,37 @@ describe('normalizeThirdPartyAllNetworkBundle', () => {
     expect(result).toBe(true);
     expect((bundle[0] as { deviceId?: string }).deviceId).toBe('evm-fp');
     expect((bundle[1] as { deviceId?: string }).deviceId).toBeUndefined();
+  });
+
+  it('keeps request-level common params out of normalized all-network items', () => {
+    const [item] = normalizeThirdPartyAllNetworkBundle([
+      {
+        network: 'evm',
+        path: "m/44'/60'/0'/0/0",
+        showOnOneKey: false,
+        passphraseState: 'aabbccdd',
+        useEmptyPassphrase: true,
+        autoInstallApp: false,
+      } as AllNetworkAddressParams,
+    ]);
+
+    expect(item.methodName).toBe('evmGetAddress');
+    expect(item).not.toHaveProperty('passphraseState');
+    expect(item).not.toHaveProperty('useEmptyPassphrase');
+    expect(item).not.toHaveProperty('autoInstallApp');
+  });
+});
+
+describe('shouldUseThirdPartyAllNetworkGetAddress', () => {
+  it('allows verify-address calls when the third-party adapter supports all-network', () => {
+    expect(
+      shouldUseThirdPartyAllNetworkGetAddress({
+        isThirdPartyWallet: true,
+        isVerifyAddressAction: true,
+        supportsAllNetworkGetAddress: true,
+        hasAllNetworkGetAddress: true,
+      }),
+    ).toBe(true);
   });
 });
 

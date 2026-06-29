@@ -26,6 +26,7 @@ import type {
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 import { getNetworkIdBySymbol } from '@onekeyhq/shared/types/market/marketProvider.constants';
+import { getSwapBridgeDefaultToToken } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapSource,
   ESwapTabSwitchType,
@@ -66,7 +67,7 @@ export const useMarketTradeNetworkId = (
   }, [network, symbol]);
 
 export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
-  const { symbol = '', name } = token || {};
+  const { symbol = '', name, image } = token || {};
   const intl = useIntl();
   const network = useMarketTradeNetwork(token);
   const networkId = useMarketTradeNetworkId(network, symbol);
@@ -223,21 +224,25 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       const onekeyNetwork = await backgroundApiProxy.serviceNetwork.getNetwork({
         networkId,
       });
+      const importFromToken = {
+        ...onekeyNetwork,
+        logoURI: isNative ? onekeyNetwork.logoURI : undefined,
+        contractAddress: realContractAddress,
+        networkId,
+        isNative,
+        networkLogoURI: onekeyNetwork.logoURI,
+        symbol: symbol.toUpperCase(),
+        name,
+      };
+      const importToToken =
+        !isSupportSwap && isSupportCrossChain
+          ? getSwapBridgeDefaultToToken(importFromToken)
+          : undefined;
 
       navigateToSwapPage({
-        importFromToken: {
-          ...onekeyNetwork,
-          logoURI: isNative ? onekeyNetwork.logoURI : undefined,
-          contractAddress: realContractAddress,
-          networkId,
-          isNative,
-          networkLogoURI: onekeyNetwork.logoURI,
-          symbol: symbol.toUpperCase(),
-          name,
-        },
-        swapTabSwitchType: isSupportSwap
-          ? ESwapTabSwitchType.SWAP
-          : ESwapTabSwitchType.BRIDGE,
+        importFromToken,
+        importToToken,
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
         marketPresetToken: {
           networkId,
           contractAddress: realContractAddress,
@@ -294,10 +299,11 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       // Navigate to protocols list page if multiple providers
       void EarnNavigation.pushToEarnProtocols(navigation, {
         symbol: normalizedSymbol,
+        logoURI: image ? encodeURIComponent(image) : undefined,
         // filterNetworkId: networkId,
       });
     }
-  }, [createAccountIfNotExists, navigation, networkId, symbol]);
+  }, [createAccountIfNotExists, image, navigation, networkId, symbol]);
   const canStaking = useMemo(() => isSupportStaking(symbol), [symbol]);
 
   return useMemo(

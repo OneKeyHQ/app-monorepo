@@ -9,6 +9,7 @@ export const MESSAGE_TYPES = {
   PERPS_TV_LINES_CLEAR: 'PERPS_TV_LINES_CLEAR',
   PERPS_TV_LINE_EDIT_RESULT: 'PERPS_TV_LINE_EDIT_RESULT',
   PERPS_TV_ORDER_PRICE_UPDATE_REJECTED: 'PERPS_TV_ORDER_PRICE_UPDATE_REJECTED',
+  PERPS_TV_CHART_EXPAND_SYNC: 'PERPS_TV_CHART_EXPAND_SYNC',
 } as const;
 
 // Iframe -> App message methods
@@ -17,7 +18,9 @@ export const PERPS_TV_MESSAGE_METHODS = {
   READY: 'tradingview_perpsReady',
   LINE_DRAG_COMMIT: 'tradingview_lineDragCommit',
   ORDER_CANCEL: 'tradingview_perpsOrderCancel',
+  // Legacy in-chart place-order draft path; kept only for old-chart version skew.
   ORDER_DRAFT_CREATE: 'tradingview_perpsOrderDraftCreate',
+  CHART_ORDER_INTENT: 'tradingview_perpsChartOrderIntent',
   ORDER_PRICE_UPDATE: 'tradingview_perpsOrderPriceUpdate',
   CHART_EXPAND: 'tradingview_chartExpand',
 } as const;

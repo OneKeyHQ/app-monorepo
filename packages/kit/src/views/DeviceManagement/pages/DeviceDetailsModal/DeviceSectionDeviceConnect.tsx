@@ -3,9 +3,13 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
+import { showTrezorBleBindingDialog } from '@onekeyhq/kit/src/components/Hardware/TrezorBleBindingDialog';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useDeviceDetailsActions } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
+import {
+  useDeviceAtom,
+  useDeviceDetailsActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
@@ -14,6 +18,7 @@ import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
 
 import { useDialogForgetDevice } from './dialog/DialogForgetDevice';
+import { canShowTrezorBleBinding } from './utils';
 
 function DeviceSectionDeviceConnect() {
   const intl = useIntl();
@@ -21,6 +26,20 @@ function DeviceSectionDeviceConnect() {
   const accountActions = useAccountSelectorActions();
   const { handleBackPress } = useDeviceBackNavigation();
   const { show: showDialogForgetDevice } = useDialogForgetDevice();
+  const [device] = useDeviceAtom();
+
+  // Trezor-only USB→BLE binding entry. This section renders for every
+  // third-party device (Trezor + Ledger), so gate strictly on the vendor and
+  // hide once a BLE connectId is already bound — Ledger never sees this row.
+  const canBindTrezorBle = canShowTrezorBleBinding(device);
+
+  const onPressBindBluetooth = useCallback(() => {
+    if (!device?.connectId || !device?.deviceId) return;
+    showTrezorBleBindingDialog({
+      usbConnectId: device.connectId,
+      featuresDeviceId: device.deviceId,
+    });
+  }, [device?.connectId, device?.deviceId]);
 
   const onPressForgetDevice = useCallback(async () => {
     const walletWithDevice = await actions.getWalletWithDevice();
@@ -59,6 +78,14 @@ function DeviceSectionDeviceConnect() {
         id: ETranslations.global_device_connection,
       })}
     >
+      {canBindTrezorBle ? (
+        <ListItem
+          title={intl.formatMessage({ id: ETranslations.global_bluetooth })}
+          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+          drillIn
+          onPress={onPressBindBluetooth}
+        />
+      ) : null}
       <ListItem
         title={intl.formatMessage({
           id: ETranslations.global_forget_device,

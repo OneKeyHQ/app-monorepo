@@ -24,6 +24,7 @@ import {
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import {
+  useSwapFromTokenAmountAtom,
   useSwapProDirectionAtom,
   useSwapProSelectTokenAtom,
   useSwapProSellToTokenAtom,
@@ -34,12 +35,13 @@ import {
   useSwapSelectTokenNetworkAtom,
   useSwapSelectedTokensColdStartContextAtom,
   useSwapToAnotherAccountAddressAtom,
+  useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import {
-  buildSwapSelectedTokensColdStartContext,
-  isSwapSelectedTokensColdStartContextMatched,
+  isSwapSelectedTokensColdStartContextValidForAccountNetworkSync,
+  shouldPreserveSwapUserInputOnAccountSwitch,
 } from '../utils/swapColdStartTokenCacheUtils';
 
 import {
@@ -57,6 +59,8 @@ import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/co
 export function useSwapFromAccountNetworkSync() {
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [toTokenAmount] = useSwapToTokenAmountAtom();
   const { activeAccount: toActiveAccount } = useActiveAccount({
     num: 1,
   });
@@ -69,27 +73,30 @@ export function useSwapFromAccountNetworkSync() {
   const [toToken] = useSwapSelectToTokenAtom();
   const [selectedTokensColdStartContext] =
     useSwapSelectedTokensColdStartContextAtom();
+  const shouldPreserveSelectedTokensForAccountNetworkSync = useMemo(
+    () =>
+      shouldPreserveSwapUserInputOnAccountSwitch({
+        fromTokenAmount,
+        hasSelectedTokens: Boolean(fromToken || toToken),
+        toTokenAmount,
+      }),
+    [fromToken, fromTokenAmount, toToken, toTokenAmount],
+  );
   const isSelectedTokensColdStartContextValid = useMemo(() => {
-    if (!fromToken && !toToken) {
-      return true;
-    }
-    if (!selectedTokensColdStartContext) {
-      return true;
-    }
-
-    const currentContext = buildSwapSelectedTokensColdStartContext({
+    return isSwapSelectedTokensColdStartContextValidForAccountNetworkSync({
       activeAccount: fromActiveAccount,
-      networkId: fromActiveAccount.network?.id,
+      fromToken,
+      preserveSelectedTokens: shouldPreserveSelectedTokensForAccountNetworkSync,
+      selectedTokensColdStartContext,
+      toToken,
     });
-    if (!currentContext) {
-      return false;
-    }
-
-    return isSwapSelectedTokensColdStartContextMatched({
-      cachedContext: selectedTokensColdStartContext,
-      currentContext,
-    });
-  }, [fromToken, fromActiveAccount, selectedTokensColdStartContext, toToken]);
+  }, [
+    fromToken,
+    fromActiveAccount,
+    selectedTokensColdStartContext,
+    shouldPreserveSelectedTokensForAccountNetworkSync,
+    toToken,
+  ]);
   const fromTokenRef = useRef<ISwapToken | undefined>(undefined);
   const toTokenRef = useRef<ISwapToken | undefined>(undefined);
   const isSelectedTokensColdStartContextValidRef = useRef(

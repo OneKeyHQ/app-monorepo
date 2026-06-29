@@ -32,7 +32,6 @@ import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useNativePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
 import { PerpGuidePopover } from '../components/Guide/PerpGuidePopover';
-import { PerpChartPrewarm } from '../components/PerpChartPrewarm';
 import { PerpContentFooter } from '../components/PerpContentFooter';
 import { PerpsActivityCenterAction } from '../components/PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../components/PerpSettingsButton';
@@ -189,7 +188,11 @@ function PerpContent() {
             top={-PERP_NATIVE_HEADER_TOP_OFFSET}
             left={0}
             bg="$bgApp"
-            pt="$5"
+            // iOS: shift the floating header down 6px so its content centers at
+            // safe-area top+28, matching the Wallet header. The MDHeader non-home
+            // row is h=44 → center top+22 with the -20/pt($5) cancel; pt=26
+            // (=20 offset + 6) lands it at top+28. Other platforms keep $5.
+            pt={platformEnv.isNativeIOS ? 26 : '$5'}
             width="100%"
             onLayout={handleTabPageLayout}
             zIndex={FLOAT_NAV_BAR_Z_INDEX}
@@ -204,9 +207,6 @@ function PerpContent() {
         <LazyPageContainer>
           <PerpBodyContent />
         </LazyPageContainer>
-        {/* Keep the shared chart WebView warm + pre-switched to the active pair
-            so opening the chart sub-page is instant (native, hidden offscreen). */}
-        <PerpChartPrewarm />
       </Page.Body>
     </Page>
   );

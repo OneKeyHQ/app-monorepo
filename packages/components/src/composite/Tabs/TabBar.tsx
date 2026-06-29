@@ -47,6 +47,7 @@ const DIRECT_TAB_PRESS_SETTLE_TIMEOUT = 450;
 const DIRECT_TAB_PRESS_MIN_INTERVAL = 600;
 
 export type ITabBarVariant = 'default' | 'pill';
+export type IDirectTabPressAnimationMode = 'timing' | 'instant';
 
 const animatedTextStyles = StyleSheet.create({
   text: {
@@ -509,6 +510,7 @@ export interface ITabBarProps extends TabBarProps<string> {
   containerStyle?: IYStackProps;
   renderToolbar?: ({ focusedTab }: { focusedTab: string }) => React.ReactNode;
   directTabPressAnimation?: boolean;
+  directTabPressAnimationMode?: IDirectTabPressAnimationMode;
 }
 
 export interface ITabBarItemProps {
@@ -627,6 +629,7 @@ export function TabBar({
   variant = 'default',
   textSize,
   directTabPressAnimation = false,
+  directTabPressAnimationMode = 'timing',
 }: Omit<Partial<ITabBarProps>, 'focusedTab' | 'tabNames'> & {
   focusedTab: SharedValue<string>;
   tabNames: string[];
@@ -640,6 +643,7 @@ export function TabBar({
   textSize?: ISizableTextProps['size'];
   indexDecimal?: SharedValue<number>;
   directTabPressAnimation?: boolean;
+  directTabPressAnimationMode?: IDirectTabPressAnimationMode;
 }) {
   const listViewRef = useRef<IListViewRef<string>>(null);
   const listViewTimerId = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -661,9 +665,9 @@ export function TabBar({
     !scrollable &&
     !renderItem &&
     !textSize;
-  // iOS collapsible-tab-view can report intermediate focused tabs when
-  // jumping across non-adjacent tabs. Keep this opt-in because it decouples
-  // the tab bar indicator from the native pager while the jump settles.
+  // Native pagers can report intermediate focused tabs while a tab press
+  // settles. Keep this opt-in because it decouples the tab bar indicator from
+  // the pager state during that short window.
   const useDirectTabPressAnimation =
     directTabPressAnimation && useAnimatedDefault;
   const displayIndexDecimal = useSharedValue(indexDecimal?.value ?? 0);
@@ -838,22 +842,32 @@ export function TabBar({
       useDirectTabPressAnimation && currentTabIndex >= 0
         ? currentTabIndex
         : focusedIndex;
-    const shouldAnimateDirectPress =
+    const shouldHoldDirectPress =
       useDirectTabPressAnimation &&
       indexDecimal &&
       targetIndex >= 0 &&
       currentIndex >= 0 &&
+      targetIndex !== currentIndex &&
+      (directTabPressAnimationMode === 'instant' ||
+        Math.abs(targetIndex - currentIndex) > 1);
+    const shouldAnimateDirectPress =
+      shouldHoldDirectPress &&
+      directTabPressAnimationMode === 'timing' &&
       Math.abs(targetIndex - currentIndex) > 1;
 
-    if (shouldAnimateDirectPress) {
+    if (shouldHoldDirectPress) {
       directTabPressResyncCountRef.current = 0;
       directTabPressTargetIndex.value = targetIndex;
       directTabPressStartedAt.value = now;
       directTabPressReachedAt.value = 0;
-      displayIndexDecimal.value = indexDecimal.value;
-      displayIndexDecimal.value = withTiming(targetIndex, {
-        duration: DIRECT_TAB_PRESS_ANIMATION_DURATION,
-      });
+      if (shouldAnimateDirectPress) {
+        displayIndexDecimal.value = indexDecimal.value;
+        displayIndexDecimal.value = withTiming(targetIndex, {
+          duration: DIRECT_TAB_PRESS_ANIMATION_DURATION,
+        });
+      } else {
+        displayIndexDecimal.value = targetIndex;
+      }
       directTabPressTimerId.current = setTimeout(() => {
         directTabPressTimerId.current = null;
         if (directTabPressTargetIndex.value !== targetIndex) {

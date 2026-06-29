@@ -159,6 +159,9 @@ const clearPackage: IClearPackage = async () => {
   await globalThis.desktopApiProxy.appUpdate.clearUpdateCache();
 };
 
+// Desktop has no standalone APK artifacts (Android-only concept) — no-op.
+const clearApkCache = async (): Promise<void> => {};
+
 const manualInstallPackage: IManualInstallPackage = async (params) =>
   new Promise((resolve) => {
     void globalThis.desktopApiProxy.appUpdate.manualInstallPackage(params);
@@ -175,6 +178,7 @@ export const AppUpdate: IAppUpdate = {
   installPackage,
   manualInstallPackage,
   clearPackage,
+  clearApkCache,
 };
 
 export const BundleUpdate: IBundleUpdate = {
@@ -196,6 +200,8 @@ export const BundleUpdate: IBundleUpdate = {
     globalThis.desktopApiProxy.bundleUpdate.setCurrentUpdateBundleData(params),
   isSkipGpgVerificationAllowed: () =>
     globalThis.desktopApiProxy.bundleUpdate.isSkipGpgVerificationAllowed(),
+  pruneStaleAppVersionBundles: () =>
+    globalThis.desktopApiProxy.bundleUpdate.pruneStaleAppVersionBundles(),
   isBundleExists: (appVersion, bundleVersion) =>
     globalThis.desktopApiProxy.bundleUpdate.isBundleExists(
       appVersion,

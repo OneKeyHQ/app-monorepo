@@ -49,6 +49,7 @@ import {
   useKeyboardEventWithoutNavigation,
   useModalNavigatorContextPortalId,
   useOverlayZIndex,
+  useSafeAreaInsets,
 } from '../../hooks';
 import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
@@ -124,9 +125,16 @@ const EMPTY_DIALOG_STYLE = {} as const;
 
 const DEFAULT_KEYBOARD_HEIGHT = 330;
 const useSafeKeyboardAnimationStyle = () => {
+  const { bottom } = useSafeAreaInsets();
   const keyboardHeightValue = useSharedValue(0);
+  // Keep the dialog clear of both the home indicator and the keyboard.
+  // These are two independent concerns collapsed into one paddingBottom:
+  //   - bottom safe-area inset: always required (static)
+  //   - keyboard height: only while the keyboard is shown (dynamic)
+  // They must not stack — once the keyboard is up it already covers the
+  // safe area, so take the larger of the two instead of summing them.
   const animatedStyles = useAnimatedStyle(() => ({
-    paddingBottom: keyboardHeightValue.value,
+    paddingBottom: Math.max(keyboardHeightValue.value, bottom),
   }));
 
   useKeyboardEventWithoutNavigation({

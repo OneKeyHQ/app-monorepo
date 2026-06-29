@@ -41,7 +41,7 @@ describe('getPerpsOrderPanelEnableTradingModeByAccount', () => {
     });
   });
 
-  it('routes cached external accounts through explicit enable-trading confirmation', () => {
+  it('routes cached external accounts through the order-panel enable dialog', () => {
     expect(
       getPerpsOrderPanelEnableTradingModeByAccount({
         accountId: 'external--60--injected--wallet',
@@ -49,7 +49,7 @@ describe('getPerpsOrderPanelEnableTradingModeByAccount', () => {
       }),
     ).toEqual({
       canAutoEnableInOrderPanel: false,
-      requiresEnableTradingDialogInOrderPanel: false,
+      requiresEnableTradingDialogInOrderPanel: true,
       requiresExplicitEnableTrading: true,
     });
   });
@@ -562,6 +562,20 @@ describe('shouldDisablePerpsOrderPanelTradingButton', () => {
         isServerActionDisabled: false,
       }),
     ).toBe(true);
+  });
+
+  it('keeps insufficient-margin buttons pressable so the press can show a toast', () => {
+    expect(
+      shouldDisablePerpsOrderPanelTradingButton({
+        isTradingStatusDisabled: false,
+        shouldEnableTradingBeforeOrder: false,
+        isNoEnoughMargin: true,
+        isAccountLoading: false,
+        isSubmitting: false,
+        hasBboPriceError: false,
+        isServerActionDisabled: false,
+      }),
+    ).toBe(false);
   });
 });
 

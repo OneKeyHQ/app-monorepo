@@ -14,6 +14,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { IButtonProps } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EarnNavigation } from '@onekeyhq/kit/src/views/Earn/earnUtils';
 import type {
@@ -28,6 +29,10 @@ import type {
 import { EarnIcon } from './EarnIcon';
 import { EarnText } from './EarnText';
 
+// Align dialog CTA with the design system convention (Dialog.Footer):
+// `large` on mobile breakpoint, default `medium` on desktop.
+const dialogCtaMdSize: Pick<IButtonProps, 'size'> = { size: 'large' };
+
 function getVisibleEarnText(text?: Partial<IEarnText>): IEarnText | undefined {
   if (!text?.text?.trim()) {
     return undefined;
@@ -38,29 +43,28 @@ function getVisibleEarnText(text?: Partial<IEarnText>): IEarnText | undefined {
   };
 }
 
-function BonusRulesInfoRow({
+function BonusRulesDataItem({
   item,
 }: {
   item: NonNullable<IEarnPopupActionIcon['data']['items']>[number];
 }) {
   return (
-    <XStack gap="$3" ai="center" jc="space-between">
-      <XStack gap="$2" ai="center" flex={1} minWidth={0}>
+    <YStack flex={1} minWidth={0} gap="$1.5" jc="center">
+      <EarnText
+        text={item.title}
+        size="$bodySm"
+        color={item.title.color ?? '$textSubdued'}
+      />
+      <XStack gap="$1.5" ai="center">
         <EarnIcon icon={item.icon} size="$4" color="$iconSubdued" />
         {item.token?.info.logoURI ? (
           <Image src={item.token.info.logoURI} w="$4" h="$4" />
         ) : null}
-        <EarnText
-          text={item.title}
-          size="$bodyMd"
-          color={item.title.color ?? '$textSubdued'}
-          flexShrink={1}
-        />
+        <SizableText size="$bodyMdMedium" color="$text">
+          {item.value}
+        </SizableText>
       </XStack>
-      <SizableText size="$bodyMdMedium" color="$text" textAlign="right">
-        {item.value}
-      </SizableText>
-    </XStack>
+    </YStack>
   );
 }
 
@@ -90,8 +94,9 @@ function EarnPlatformBonusDialogFooter({
     return (
       <Button
         testID="earn-platform-bonus-rules-close"
-        variant="primary"
+        variant="secondary"
         w="100%"
+        $md={dialogCtaMdSize}
         disabled={actionIcon.disabled}
         onPress={() => {
           void onClose();
@@ -115,6 +120,7 @@ function EarnPlatformBonusDialogFooter({
         testID="earn-platform-bonus-rules-portfolio"
         variant="primary"
         w="100%"
+        $md={dialogCtaMdSize}
         disabled={isDisabled}
         onPress={() => {
           void Promise.resolve(onClose()).then(() =>
@@ -154,38 +160,33 @@ function EarnPlatformBonusRulesDialogContent({
   return (
     <YStack gap="$5">
       {data.items?.length ? (
-        <YStack gap="$2.5">
+        <XStack gap="$3">
           {data.items.map((item, index) => (
-            <BonusRulesInfoRow
+            <BonusRulesDataItem
               key={`${item.title.text || 'item'}-${index}`}
               item={item}
             />
           ))}
-        </YStack>
+        </XStack>
       ) : null}
-      {platformBonusInfos?.length ? (
-        <YStack gap="$4">
-          {data.items?.length ? <Divider /> : null}
-          {platformBonusInfos.map((item, index) => (
-            <YStack key={`${item.title.text || 'info'}-${index}`} gap="$2">
-              {getVisibleEarnText(item.title) ? (
-                <EarnText
-                  text={item.title}
-                  size="$bodyMdMedium"
-                  color={item.title.color ?? '$text'}
-                />
-              ) : null}
-              {getVisibleEarnText(item.description) ? (
-                <EarnText
-                  text={item.description}
-                  size="$bodyMd"
-                  color={item.description.color ?? '$textSubdued'}
-                />
-              ) : null}
-            </YStack>
-          ))}
+      {platformBonusInfos?.map((item, index) => (
+        <YStack key={`${item.title.text || 'info'}-${index}`} gap="$1.5">
+          {getVisibleEarnText(item.title) ? (
+            <EarnText
+              text={item.title}
+              size="$bodyMdMedium"
+              color={item.title.color ?? '$text'}
+            />
+          ) : null}
+          {getVisibleEarnText(item.description) ? (
+            <EarnText
+              text={item.description}
+              size="$bodyMd"
+              color={item.description.color ?? '$textSubdued'}
+            />
+          ) : null}
         </YStack>
-      ) : null}
+      ))}
       <EarnPlatformBonusDialogFooter
         actionIcon={data.button}
         onClose={onClose}
@@ -201,11 +202,15 @@ export function EarnPlatformBonusSection({
   footer,
   protocolInfo,
   tokenInfo,
+  appearance = 'card',
 }: {
   platformBonus?: IEarnPlatformBonus;
   footer?: ReactNode;
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
+  // 'card': bordered card on app/white background (deposit/withdraw modal).
+  // 'alert': design-system Alert styling, bg-subdued (protocol details page).
+  appearance?: 'card' | 'alert';
 }) {
   const media = useMedia();
   const dialogData = platformBonus?.button?.data;
@@ -278,7 +283,9 @@ export function EarnPlatformBonusSection({
         <Button
           testID="earn-platform-bonus-view-rules"
           variant="secondary"
+          size="small"
           w="100%"
+          mt="$3"
           onPress={showRulesDialog}
         >
           {rulesButtonText?.text}
@@ -328,15 +335,23 @@ export function EarnPlatformBonusSection({
 
   return (
     <YStack
-      p="$3.5"
+      px={appearance === 'alert' ? '$4' : '$3.5'}
+      py="$3.5"
       gap="$4"
       borderRadius="$3"
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
+      // 'alert': match the design-system Alert styling (bg-subdued) on the
+      // protocol details page; 'card': transparent on the app/white modal.
+      backgroundColor={appearance === 'alert' ? '$bgSubdued' : undefined}
     >
       <XStack gap="$2" ai="center" flexWrap="wrap">
         <XStack gap="$1.5" ai="center">
-          <EarnIcon icon={platformBonus.icon} size="$4" color="$iconSuccess" />
+          <EarnIcon
+            icon={platformBonus.icon}
+            size="$3.5"
+            color="$iconSuccess"
+          />
           <EarnText
             text={platformBonus.title}
             size="$bodyMdMedium"

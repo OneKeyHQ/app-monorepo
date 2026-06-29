@@ -302,7 +302,7 @@ const ProviderFold = ({
                   key={`${providerInfo.provider} - ${net.networkId}`}
                   networkId={net.networkId}
                   enable={net.enable}
-                  serviceDisable={net.serviceDisable}
+                  serviceDisable={net.serviceDisable || !providerEnable}
                   networkName={net.networkName}
                   onNetworkSwitch={onProviderNetworkEnable}
                 />

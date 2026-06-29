@@ -17,8 +17,12 @@ import {
 } from '../../../states/jotai/contexts/swap';
 import { jotaiContextStore } from '../../../states/jotai/utils/jotaiContextStore';
 import { JotaiContextStoreMirrorTracker } from '../../../states/jotai/utils/JotaiContextStoreMirrorTracker';
+import { getVisibleSwapTabSwitchType } from '../utils/swapTypeUtils';
 
-import { useSwapContextStoreInitData } from './SwapRootProvider';
+import {
+  hydrateSwapDefaultTokensFromGlobalHomeSnapshot,
+  useSwapContextStoreInitData,
+} from './SwapRootProvider';
 
 export const SwapProviderMirror = memo(
   (
@@ -36,23 +40,26 @@ export const SwapProviderMirror = memo(
     const data = useSwapContextStoreInitData(storeName);
     const store = jotaiContextStore.getOrCreateStore(data);
     const hasInitializedSelectedTokensRef = useRef(false);
-    if (
-      initialSelectedTokensOnInit &&
-      !hasInitializedSelectedTokensRef.current
-    ) {
-      hasInitializedSelectedTokensRef.current = true;
-      store.set(
-        swapSelectFromTokenAtom(),
-        initialSelectedTokensOnInit.fromToken,
-      );
-      store.set(swapSelectToTokenAtom(), initialSelectedTokensOnInit.toToken);
-      store.set(swapSelectedTokensColdStartContextAtom(), undefined);
-      store.set(swapInitialSelectedTokensSyncedAtom(), true);
-      store.set(swapFromTokenAmountAtom(), { value: '', isInput: false });
-      store.set(
-        swapTypeSwitchAtom(),
-        initialSelectedTokensOnInit.swapType ?? ESwapTabSwitchType.SWAP,
-      );
+    if (!hasInitializedSelectedTokensRef.current) {
+      if (initialSelectedTokensOnInit) {
+        hasInitializedSelectedTokensRef.current = true;
+        store.set(
+          swapSelectFromTokenAtom(),
+          initialSelectedTokensOnInit.fromToken,
+        );
+        store.set(swapSelectToTokenAtom(), initialSelectedTokensOnInit.toToken);
+        store.set(swapSelectedTokensColdStartContextAtom(), undefined);
+        store.set(swapInitialSelectedTokensSyncedAtom(), true);
+        store.set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+        store.set(
+          swapTypeSwitchAtom(),
+          getVisibleSwapTabSwitchType(initialSelectedTokensOnInit.swapType) ??
+            ESwapTabSwitchType.SWAP,
+        );
+      } else {
+        hasInitializedSelectedTokensRef.current =
+          hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store);
+      }
     }
 
     return (

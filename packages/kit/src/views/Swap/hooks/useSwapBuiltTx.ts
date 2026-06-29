@@ -128,6 +128,11 @@ import {
   checkSwapLatestBalanceSufficient,
   getSwapRequiredNativeBalanceAmount,
 } from '../utils/swapBalanceUtils';
+import {
+  SWAP_STOCK_ANALYTICS_ORDER_TYPE,
+  getStockTradeAnalyticsPayload,
+} from '../utils/swapStockAnalytics';
+import { getSwapExecutionTypeFromQuoteResult } from '../utils/swapTypeUtils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapBuildTxInfo, useSwapProAccount } from './useSwapPro';
@@ -891,14 +896,9 @@ export function useSwapBuildTx() {
       swapInfo?: ISwapTxInfo,
       isBatch?: boolean,
     ) => {
-      let swapType = ESwapTabSwitchType.SWAP;
-      if (swapInfo?.protocol === EProtocolOfExchange.LIMIT) {
-        swapType = ESwapTabSwitchType.LIMIT;
-      } else if (
-        swapInfo?.sender.token.networkId !== swapInfo?.receiver.token.networkId
-      ) {
-        swapType = ESwapTabSwitchType.BRIDGE;
-      }
+      const swapType = getSwapExecutionTypeFromQuoteResult(
+        swapInfo?.swapBuildResData.result,
+      );
       defaultLogger.swap.swapEstimateFee.swapEstimateFee({
         status,
         message,
@@ -935,14 +935,9 @@ export function useSwapBuildTx() {
       swapInfo?: ISwapTxInfo,
       quoteResult?: IFetchQuoteResult,
     ) => {
-      let swapType = ESwapTabSwitchType.SWAP;
-      if (swapInfo?.protocol === EProtocolOfExchange.LIMIT) {
-        swapType = ESwapTabSwitchType.LIMIT;
-      } else if (
-        swapInfo?.sender.token.networkId !== swapInfo?.receiver.token.networkId
-      ) {
-        swapType = ESwapTabSwitchType.BRIDGE;
-      }
+      const swapType = getSwapExecutionTypeFromQuoteResult(
+        swapInfo?.swapBuildResData.result,
+      );
       defaultLogger.swap.swapSendTx.swapSendTx({
         fromAddress: fromUserAddress ?? '',
         toAddress: toUserAddress ?? '',
@@ -1849,14 +1844,15 @@ export function useSwapBuildTx() {
       buildSwapRes: { orderId?: string; result?: IFetchQuoteResult },
       quoteResult?: IFetchQuoteResult,
     ) => {
-      let swapType = ESwapTabSwitchType.SWAP;
+      const swapType = getSwapExecutionTypeFromQuoteResult(
+        buildSwapRes?.result,
+      );
       if (buildSwapRes?.result?.protocol === EProtocolOfExchange.SWAP) {
         void syncRecentTokenPairs({
           swapFromToken: fromToken as ISwapToken,
           swapToToken: toToken as ISwapToken,
         });
       } else if (buildSwapRes?.result?.protocol === EProtocolOfExchange.LIMIT) {
-        swapType = ESwapTabSwitchType.LIMIT;
         appEventBus.emit(
           EAppEventBusNames.SwapLimitOrderBuildSuccess,
           undefined,
@@ -1868,12 +1864,6 @@ export function useSwapBuildTx() {
             : undefined,
           true,
         );
-      }
-      if (
-        buildSwapRes.result?.fromTokenInfo.networkId !==
-        buildSwapRes.result?.toTokenInfo.networkId
-      ) {
-        swapType = ESwapTabSwitchType.BRIDGE;
       }
       defaultLogger.swap.createSwapOrder.swapCreateOrder({
         fromTokenAmount: buildSwapRes.result?.fromAmount ?? '',
@@ -1895,6 +1885,15 @@ export function useSwapBuildTx() {
         isFirstTime: isFirstTimeSwap,
         createFrom: isModalPage ? 'modal' : 'swapPage',
         orderId: buildSwapRes?.orderId ?? '',
+        orderType:
+          buildSwapRes.result?.protocol === EProtocolOfExchange.STOCK
+            ? SWAP_STOCK_ANALYTICS_ORDER_TYPE
+            : undefined,
+        ...getStockTradeAnalyticsPayload({
+          protocol: buildSwapRes.result?.protocol,
+          fromToken: buildSwapRes.result?.fromTokenInfo,
+          toToken: buildSwapRes.result?.toTokenInfo,
+        }),
       });
       setPersistSettings((prev) => ({
         ...prev,
@@ -1965,12 +1964,15 @@ export function useSwapBuildTx() {
             toToken: data.toTokenInfo,
             toTokenAmount: data.toAmount,
             fromTokenAmount: data.fromAmount,
-            slippagePercentage: slippageItem.value,
+            slippagePercentage:
+              data.protocol === EProtocolOfExchange.STOCK
+                ? (data.slippage ?? slippageItem.value)
+                : slippageItem.value,
             receivingAddress: toUserAddress ?? '',
             userAddress: fromUserAddress,
-            provider: data?.info.provider,
+            provider: data.info.provider,
             accountId: fromAccountId ?? '',
-            quoteResultCtx: data?.quoteResultCtx,
+            quoteResultCtx: data.quoteResultCtx,
             protocol: data.protocol ?? EProtocolOfExchange.SWAP,
             kind: data.kind ?? ESwapQuoteKind.SELL,
             walletType: swapFromAddressInfo.accountInfo?.wallet?.type ?? '',
@@ -1985,14 +1987,7 @@ export function useSwapBuildTx() {
               },
             }));
           }
-          let swapType = ESwapTabSwitchType.SWAP;
-          if (data?.protocol === EProtocolOfExchange.LIMIT) {
-            swapType = ESwapTabSwitchType.LIMIT;
-          } else if (
-            data?.fromTokenInfo.networkId !== data?.toTokenInfo.networkId
-          ) {
-            swapType = ESwapTabSwitchType.BRIDGE;
-          }
+          const swapType = getSwapExecutionTypeFromQuoteResult(data);
           defaultLogger.swap.createSwapOrder.swapCreateOrder({
             fromTokenAmount: data?.fromAmount ?? '',
             toTokenAmount: buildSwapRes?.result?.toAmount ?? '',
@@ -2015,6 +2010,15 @@ export function useSwapBuildTx() {
             isFirstTime: isFirstTimeSwap,
             createFrom: isModalPage ? 'modal' : 'swapPage',
             orderId: buildSwapRes?.orderId ?? '',
+            orderType:
+              data?.protocol === EProtocolOfExchange.STOCK
+                ? SWAP_STOCK_ANALYTICS_ORDER_TYPE
+                : undefined,
+            ...getStockTradeAnalyticsPayload({
+              protocol: data?.protocol,
+              fromToken: data?.fromTokenInfo,
+              toToken: data?.toTokenInfo,
+            }),
           });
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           const ne = new Error(e?.message ?? 'unknown error');
@@ -2087,7 +2091,7 @@ export function useSwapBuildTx() {
                 networkId: buildSwapRes.result.fromTokenInfo.networkId,
                 okxTx: buildSwapRes.OKXTxObject,
                 fromTokenInfo: buildSwapRes.result.fromTokenInfo,
-                type: swapTypeSwitch,
+                type: getSwapExecutionTypeFromQuoteResult(buildSwapRes.result),
               });
           } else if (buildSwapRes?.LMTronObject) {
             encodedTx =
@@ -2153,7 +2157,8 @@ export function useSwapBuildTx() {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             buildSwapRes?.ctx?.cowSwapOrderId ||
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            buildSwapRes?.ctx?.oneInchFusionOrderHash
+            buildSwapRes?.ctx?.oneInchFusionOrderHash ||
+            buildSwapRes.result.swapShouldSignedData
           ) {
             skipSendTransAction = true;
           }
@@ -2178,7 +2183,10 @@ export function useSwapBuildTx() {
           }
 
           const swapInfo: ISwapTxInfo = {
-            protocol: buildSwapRes.result.protocol ?? EProtocolOfExchange.SWAP,
+            protocol:
+              buildSwapRes.result.protocol ??
+              data.protocol ??
+              EProtocolOfExchange.SWAP,
             sender: {
               amount: buildSwapRes.result.fromAmount ?? data.fromAmount,
               token: currentFromToken ?? buildSwapRes.result.fromTokenInfo,
@@ -2212,6 +2220,8 @@ export function useSwapBuildTx() {
             buildSwapRes?.ctx?.oneInchFusionOrderHash ??
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             buildSwapRes?.ctx?.changeHeroOrderId ??
+            buildSwapRes.orderId ??
+            buildSwapRes.result.quoteId ??
             '';
           setSwapSteps((prev) => ({
             ...prev,
@@ -2264,7 +2274,6 @@ export function useSwapBuildTx() {
       isModalPage,
       toAccountId,
       swapBuildFinish,
-      swapTypeSwitch,
       intl,
     ],
   );
@@ -3372,7 +3381,10 @@ export function useSwapBuildTx() {
                           ...pre,
                           swapApprovingTransaction: {
                             txId: approveSendTx?.txid,
-                            swapType: swapTypeSwitch,
+                            swapType:
+                              getSwapExecutionTypeFromQuoteResult(
+                                quoteResultFinal,
+                              ),
                             protocol:
                               quoteResultFinal?.protocol ??
                               EProtocolOfExchange.SWAP,
@@ -3575,7 +3587,6 @@ export function useSwapBuildTx() {
       swapActionState.approveUnLimit,
       intl,
       setInAppNotificationAtom,
-      swapTypeSwitch,
       fromUserAddress,
       fromAccountId,
       wrappedTx,

@@ -1,7 +1,6 @@
 import { memo, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { ISizableTextProps } from '@onekeyhq/components';
@@ -66,7 +65,8 @@ function SwapInfo(props: IProps) {
   );
 
   const tokenRate = useMemo(() => {
-    if (isNil(instantRate)) {
+    const instantRateBN = new BigNumber(instantRate ?? '');
+    if (!instantRateBN.isFinite() || instantRateBN.lte(0)) {
       return null;
     }
 
@@ -92,7 +92,7 @@ function SwapInfo(props: IProps) {
           }}
           {...textStyle}
         >
-          {instantRate}
+          {instantRateBN.toFixed()}
         </NumberSizeableText>
       </XStack>
     );

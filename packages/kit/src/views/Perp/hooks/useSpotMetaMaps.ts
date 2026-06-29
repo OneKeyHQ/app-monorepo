@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { getSpotTokenDisplayName } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  buildPreferredSpotUniverseByBaseNameMap,
+  getSpotTokenDisplayName,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
 export function useSpotMetaMaps() {
@@ -60,20 +63,7 @@ export function useSpotMetaMaps() {
   }, []);
 
   const universeByBaseName = useMemo(() => {
-    // Two passes so USDC-quoted pairs win the default mapping when a base
-    // coin has multiple quotes.
-    const map: Record<string, ISpotUniverse> = {};
-    for (const u of spotUniverses) {
-      if (u.quoteName === 'USDC') {
-        map[u.baseName] = u;
-      }
-    }
-    for (const u of spotUniverses) {
-      if (!map[u.baseName]) {
-        map[u.baseName] = u;
-      }
-    }
-    return map;
+    return buildPreferredSpotUniverseByBaseNameMap(spotUniverses);
   }, [spotUniverses]);
 
   return {

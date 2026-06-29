@@ -1992,6 +1992,29 @@ function formatSpotPairDisplayName(
   return `${getSpotTokenDisplayName(baseName)}/${quoteName}`;
 }
 
+function buildPreferredSpotUniverseByBaseNameMap<
+  T extends Pick<ISpotUniverse, 'baseName' | 'quoteName'>,
+>(spotUniverses: T[]): Record<string, T> {
+  const map: Record<string, T> = {};
+
+  // Hyperliquid can list the same spot base token against multiple quotes.
+  // Account USD values should use the USDC-quoted universe first so background
+  // totals match the holdings list.
+  for (const universe of spotUniverses) {
+    if (universe.quoteName === 'USDC') {
+      map[universe.baseName] = universe;
+    }
+  }
+
+  for (const universe of spotUniverses) {
+    if (!map[universe.baseName]) {
+      map[universe.baseName] = universe;
+    }
+  }
+
+  return map;
+}
+
 function getOrderBookSizeDisplaySymbol({
   coin,
   isSpot,
@@ -2075,6 +2098,7 @@ export {
   isPredictionMarketInstrument,
   getSpotTokenDisplayName,
   formatSpotPairDisplayName,
+  buildPreferredSpotUniverseByBaseNameMap,
   getOrderBookSizeDisplaySymbol,
   filterSpotTokensStrict,
   SPOT_TOKEN_DISPLAY_MAP,
@@ -2134,6 +2158,7 @@ export default {
   isPredictionMarketInstrument,
   getSpotTokenDisplayName,
   formatSpotPairDisplayName,
+  buildPreferredSpotUniverseByBaseNameMap,
   getOrderBookSizeDisplaySymbol,
   filterSpotTokensStrict,
   SPOT_TOKEN_DISPLAY_MAP,

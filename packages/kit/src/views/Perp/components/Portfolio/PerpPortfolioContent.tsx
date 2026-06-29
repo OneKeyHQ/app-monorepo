@@ -784,17 +784,23 @@ function PerpPortfolioContentComponent({
             height={chartHeight}
             onHover={handleHover}
             lineColor="#2EAA40"
+            secondaryLineData={isPnl ? undefined : chartSeriesData}
+            secondaryLineColor="#2EAA40"
+            secondaryLineWidth={3}
             topColor="#2EAA4026"
             bottomColor="#2EAA4000"
             lineWidth={3}
             showPriceScale
-            showHorzGridLines
+            showHorzGridLines={isPnl}
             priceScaleMargins={CHART_PRICE_SCALE_MARGINS}
+            priceScaleEntireTextOnly={!isPnl}
             priceFormatter={formatChartUsdPrice}
             fontSize={11}
-            seriesType={isPnl ? 'baseline' : 'area'}
+            seriesType={isPnl ? 'baseline' : 'dotted-area'}
             baselineOptions={isPnl ? baselineOptions : undefined}
-            showLastValue
+            showLastValue={isPnl}
+            showLastPointMarker={isPnl ? undefined : false}
+            pulseLastPoint={!isPnl}
           />
         </YStack>
       )}

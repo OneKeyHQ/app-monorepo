@@ -529,9 +529,11 @@ export type IProtocolInfo = {
   symbol: string;
   vault: string;
   approve?: {
+    allowance?: string;
     approveType: EApproveType;
     approveTarget: string;
   };
+  approveAsset?: string;
   withdrawApprove?: IEarnWithdrawApproveInfo;
   providerDetail: {
     name: string;
@@ -909,7 +911,7 @@ export interface IEarnTextTooltip {
   type: 'text';
   data: {
     title?: IEarnText;
-    description: IEarnText;
+    description?: IEarnText;
     items?: IEarnTooltipComparisonItem[];
   };
 }
@@ -1387,6 +1389,9 @@ export interface IEarnManagePageResponse {
     approveType?: string;
     approveTarget?: string;
   };
+  approveAsset?: string;
+  approveTarget?: string;
+  borrowAllowance?: string;
   withdrawApprove?: IEarnWithdrawApproveInfo;
   nums?: {
     overflow?: string;
@@ -1507,7 +1512,9 @@ export interface IStakeEarnDetail {
   };
   intro?: {
     title: IEarnText;
+    description?: IEarnText;
     items: IEarnGridItem[];
+    tooltip?: IEarnTooltip;
   };
   rules?: {
     title: IEarnText;

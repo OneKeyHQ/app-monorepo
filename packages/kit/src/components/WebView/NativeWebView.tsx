@@ -53,6 +53,8 @@ const NativeWebView = forwardRef(
       onLoad,
       onLoadEnd,
       onScroll,
+      style,
+      containerStyle,
       pullToRefreshEnabled = true,
       webviewDebuggingEnabled,
       useGeckoView,
@@ -311,7 +313,7 @@ const NativeWebView = forwardRef(
       if (useGeckoView) {
         return (
           <GeckoView
-            style={styles.container}
+            style={[styles.container, style]}
             ref={webviewRef as any}
             injectedJavaScriptBeforeContentLoaded={
               injectedJavaScriptBeforeContentLoaded || ''
@@ -330,7 +332,8 @@ const NativeWebView = forwardRef(
         <WebView
           key={webViewKey}
           cacheEnabled={false}
-          style={styles.container}
+          style={[styles.container, style]}
+          containerStyle={[styles.container, containerStyle]}
           originWhitelist={['*']}
           allowsBackForwardNavigationGestures={
             allowsBackForwardNavigationGestures
@@ -368,6 +371,8 @@ const NativeWebView = forwardRef(
       safeOnLoadEnd,
       safeOnLoadProgress,
       safeOnScroll,
+      style,
+      containerStyle,
       props,
       pullToRefreshEnabled,
       renderError,

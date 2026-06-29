@@ -44,7 +44,10 @@ const injectedMetaJavaScript = `
 
 const defaultOnMessage = (_event: any) => {};
 
-const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
+type INativeInpageProviderWebViewProps = IInpageProviderWebViewProps &
+  Pick<WebViewProps, 'containerStyle' | 'style'>;
+
+const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
   (
     {
       src = '',
@@ -54,6 +57,8 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onShouldStartLoadWithRequest,
       nativeWebviewSource,
       nativeInjectedJavaScriptBeforeContentLoaded,
+      style,
+      containerStyle: webViewContainerStyle,
       isSpinnerLoading,
       onContentLoaded,
       onOpenWindow,
@@ -78,7 +83,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onError,
       onHttpError,
       disableBridge,
-    }: IInpageProviderWebViewProps,
+    }: INativeInpageProviderWebViewProps,
     ref: any,
   ) => {
     const [progress, setProgress] = useState(5);
@@ -208,6 +213,8 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           receiveHandler={disableBridge ? undefined : receiveHandler}
           disableBridge={disableBridge}
           injectedJavaScriptBeforeContentLoaded={nativeInjectedJsCode}
+          style={style}
+          containerStyle={webViewContainerStyle}
           onLoadProgress={({ nativeEvent }) => {
             const p = Math.ceil(nativeEvent.progress * 100);
             onProgress?.(p);

@@ -25,6 +25,7 @@ import {
   HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
 } from '../consts/perp';
 import {
+  COINTYPE_ADA,
   COINTYPE_ALLNETWORKS,
   COINTYPE_BTC,
   COINTYPE_ETH,
@@ -700,16 +701,68 @@ function buildAccountLocalAssetsKey({
   return ((xpub || accountAddress) ?? '').toLowerCase();
 }
 
-// Mirrors the BTC vault's `getAccountXpub` precedence so address-keyed storage
-// reads/writes land at the same key. Nested-segwit (P2SH-P2WPKH) accounts hold
-// the spendable xpub in `xpubSegwit`; reading raw `.xpub` instead misses that
-// derive type's worth. Accepts any account-shaped object — callers pass
-// IDBAccount / INetworkAccount whose non-UTXO variants don't structurally
-// declare these fields.
+// Mirrors each vault's `getXpubFromAccount` precedence so address-keyed storage
+// reads/writes land at the same key. The write path resolves the storage owner
+// via `ServiceAccount.getAccountXpub` (vault-dispatched), so this sync helper —
+// used by the batch readers, the legacy migration and the orphan sweep — MUST
+// return the same owner per chain or values are written and read under
+// different keys (symptom: account selector shows "--" despite a real balance).
+//
+// - Nested-segwit BTC (P2SH-P2WPKH) holds the spendable xpub in `xpubSegwit`;
+//   reading raw `.xpub` instead misses that derive type's worth (see
+//   `BtcVault.getXpubFromAccount`).
+// - Cardano (coinType 1815) has no usable extended-pubkey owner: its account is
+//   identified by the stake address at `addresses['2/0']`, which
+//   `AdaVault.getXpubFromAccount` returns as the "xpub". Returning raw `.xpub`
+//   here landed reads on a key the write path never produced.
+//
+// Accepts any account-shaped object — callers pass IDBAccount / INetworkAccount
+// whose non-UTXO variants don't structurally declare these fields.
 function pickXpubFromDBAccount(account: unknown): string | undefined {
   if (!account || typeof account !== 'object') return undefined;
-  const a = account as { xpub?: string; xpubSegwit?: string };
+  const a = account as {
+    coinType?: string;
+    xpub?: string;
+    xpubSegwit?: string;
+    addresses?: Record<string, string>;
+  };
+  if (a.coinType === COINTYPE_ADA) {
+    return a.addresses?.['2/0'];
+  }
   return a.xpubSegwit || a.xpub;
+}
+
+// Returns true if a per-account local-assets storage key still belongs to a
+// valid (non-deleted) owner. Keys built by `buildAccountLocalAssetsKey` /
+// `buildLocalAggregateTokenMapKey` are either `${networkId}_${owner}` (owner =
+// lowercased address / xpub / accountId) or a bare `${owner}` (all-networks
+// aggregate keys with no networkId prefix). networkId uses `--` as its own
+// separator and never contains `_`, so the owner is exactly the substring after
+// the first `_`. Used by the ServiceAppCleanup orphan sweep; the failure mode of
+// over-matching (keeping an orphan) or under-matching (dropping a live cache key)
+// is benign — these maps are pure caches that the normal refresh repopulates —
+// but we still match precisely to avoid needless cache churn on live accounts.
+function isLocalAssetsKeyOwnedBy({
+  key,
+  validOwners,
+}: {
+  key: string;
+  validOwners: Set<string>;
+}): boolean {
+  const lower = key.toLowerCase();
+  // bare owner key (e.g. all-networks aggregate / accountValue.allByAddress)
+  if (validOwners.has(lower)) {
+    return true;
+  }
+  // networkId-prefixed key: owner is everything after the first underscore
+  const underscoreIndex = lower.indexOf('_');
+  if (
+    underscoreIndex >= 0 &&
+    validOwners.has(lower.slice(underscoreIndex + 1))
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function isAccountCompatibleWithNetwork({
@@ -1127,14 +1180,6 @@ function isEnabledBtcFreshAddress({
   return false;
 }
 
-function buildKeylessWalletId({
-  sharePackSetId,
-}: {
-  sharePackSetId: string;
-}): string {
-  return `${WALLET_TYPE_HD}-keyless-${sharePackSetId}`;
-}
-
 function buildHdWalletHash({ mnemonic }: { mnemonic: string }): string {
   const text = `${mnemonic}--${HD_WALLET_HASH_SALT}`;
   return bufferUtils.bytesToHex(
@@ -1173,16 +1218,6 @@ function isKeylessAccount({ accountId }: { accountId: string }): boolean {
   return isKeylessWallet({ walletId });
 }
 
-function getKeylessWalletPackSetId({ walletId }: { walletId: string }): string {
-  const packSetId = walletId.split(`${WALLET_TYPE_HD}-keyless-`)[1];
-  if (!packSetId) {
-    throw new OneKeyLocalError(
-      'getKeylessWalletPackSetId ERROR: packSetId is empty',
-    );
-  }
-  return packSetId;
-}
-
 // ---- Bot Wallet ID utilities ----
 
 function buildBotWalletId({
@@ -1209,14 +1244,6 @@ function isBotAccount({ accountId }: { accountId: string }): boolean {
 }
 
 // ---- End Bot Wallet ID utilities ----
-
-function buildKeylessDevicePackKey({
-  packSetId,
-}: {
-  packSetId: string;
-}): string {
-  return `OneKey_Keyless__${packSetId}`;
-}
 
 function buildKeylessMnemonicPasswordKey({
   ownerId,
@@ -1324,12 +1351,9 @@ export default {
   URL_ACCOUNT_ID,
   HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
 
-  getKeylessWalletPackSetId,
-  buildKeylessDevicePackKey,
   buildKeylessMnemonicPasswordKey,
   buildKeylessRefreshTokenKey,
   buildKeylessTokenKey,
-  buildKeylessWalletId,
   buildHdWalletHash,
   buildKeylessWalletIdV2,
   buildAccountValueKey,
@@ -1410,6 +1434,7 @@ export default {
   buildHiddenWalletName,
   buildAccountLocalAssetsKey,
   pickXpubFromDBAccount,
+  isLocalAssetsKeyOwnedBy,
   buildTonMnemonicCredentialId,
   getAccountIdFromTonMnemonicCredentialId,
   buildHyperLiquidAgentCredentialId,

@@ -20,6 +20,7 @@ import {
   Image,
   LottieView,
   NavBackButton,
+  Page,
   Popover,
   ScrollView,
   SizableText,
@@ -27,6 +28,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  glassBarItem,
   rootNavigationRef,
   useIsDesktopModeUIInTabPages,
   useIsWebHorizontalLayout,
@@ -39,16 +41,14 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  useAllTokenListAtom,
-  useAllTokenListMapAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import {
   useFirmwareUpdatesDetectStatusPersistAtom,
   useHardwareWalletXfpStatusAtom,
   useNotificationsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getUpdateFileType } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -58,6 +58,7 @@ import {
   EModalSettingRoutes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import {
   EActionCenterPages,
@@ -87,7 +88,11 @@ import { showRedemptionCenterDialog } from '../../views/Redemption/components/Re
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { ESettingsTabNames } from '../../views/Setting/pages/Tab/config';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
-import { isShowAppUpdateUIWhenUpdating, useAppUpdateInfo } from '../AppUpdate';
+import {
+  isShowAppUpdateUIWhenUpdating,
+  isToolboxUpdateIndicatorRedundant,
+  useAppUpdateInfo,
+} from '../AppUpdate';
 import { MultipleClickStack } from '../MultipleClickStack';
 import { OneKeyIdAvatar } from '../OneKeyIdAvatar';
 import { UpdateReminder } from '../UpdateReminder';
@@ -148,8 +153,7 @@ function MoreActionContentHeader({
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
-  const [allTokens] = useAllTokenListAtom();
-  const [map] = useAllTokenListMapAtom();
+  const { tokens, keys, map } = useHomeTokenListSnapshot();
   const scanQrCode = useScanQrCode();
   const { closePopover } = usePopoverContext();
 
@@ -161,20 +165,12 @@ function MoreActionContentHeader({
       account,
       network,
       tokens: {
-        data: allTokens.tokens,
-        keys: allTokens.keys,
+        data: tokens,
+        keys,
         map,
       },
     });
-  }, [
-    closePopover,
-    scanQrCode,
-    account,
-    network,
-    allTokens.tokens,
-    allTokens.keys,
-    map,
-  ]);
+  }, [closePopover, scanQrCode, account, network, tokens, keys, map]);
 
   const popupMenu = useMemo(() => {
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
@@ -255,6 +251,48 @@ function MoreActionContentHeader({
       rootNavigationRef.current?.goBack();
     }
   }, []);
+
+  // iOS 26 page-level usage: render via the native UINavigationBar so the
+  // back chevron + right items get the system Liquid Glass material. Each
+  // right item is a OneKey SVG IconButton (custom subview) so the glyphs
+  // match the brand; iOS 26 wraps each in its own system glass capsule, and
+  // the GlassHeaderProvider lets the inner IconButton drop its self-drawn
+  // background/press. The body of MoreActionContentPage continues to render
+  // the rest of the page below the bar.
+  const buildNativeRightItems = useCallback(
+    () => [
+      glassBarItem(
+        <HeaderIconButton
+          title={intl.formatMessage({
+            id: ETranslations.settings_contact_us,
+          })}
+          icon="HelpSupportOutline"
+          onPress={handleCustomerSupport}
+        />,
+      ),
+      glassBarItem(
+        <HeaderIconButton
+          title={intl.formatMessage({
+            id: ETranslations.scan_scan_qr_code,
+          })}
+          icon="ScanOutline"
+          onPress={() => {
+            void handleScan();
+          }}
+        />,
+      ),
+    ],
+    [intl, handleCustomerSupport, handleScan],
+  );
+
+  if (platformEnv.isNativeIOS26Plus && showBackButton) {
+    return (
+      <Page.Header
+        headerShown
+        unstable_headerRightItems={buildNativeRightItems}
+      />
+    );
+  }
 
   return (
     <XStack
@@ -744,10 +782,23 @@ const useIsShowAppUpdateDot = () => {
       updateStatus: appUpdateInfo.data.status,
     });
   }, [appUpdateInfo.data.updateStrategy, appUpdateInfo.data.status]);
+  // On desktop, hot updates are surfaced by the dedicated header Update button,
+  // so the more-actions dot would open an empty Action Center — suppress it.
+  const isAppUpdateIndicatorRedundant = useMemo(
+    () =>
+      isToolboxUpdateIndicatorRedundant({
+        isDesktop: !!platformEnv.isDesktop,
+        fileType: getUpdateFileType({
+          latestVersion: appUpdateInfo.data.latestVersion,
+          jsBundleVersion: appUpdateInfo.data.jsBundleVersion,
+        }),
+      }),
+    [appUpdateInfo.data.latestVersion, appUpdateInfo.data.jsBundleVersion],
+  );
   const isNeedUpgradeFirmware = useIsNeedUpgradeFirmware();
   const isShowWalletXfpStatus = useIsShowWalletXfpStatus();
   return (
-    (isShowAppUpdateUI && isAppNeedUpdate) ||
+    (isShowAppUpdateUI && isAppNeedUpdate && !isAppUpdateIndicatorRedundant) ||
     isNeedUpgradeFirmware ||
     isShowWalletXfpStatus
   );
@@ -850,8 +901,7 @@ function MoreActionGeneralGrid() {
   } = useActiveAccount({ num: 0 });
   const scanQrCode = useScanQrCode();
 
-  const [allTokens] = useAllTokenListAtom();
-  const [map] = useAllTokenListMapAtom();
+  const { tokens, keys, map } = useHomeTokenListSnapshot();
 
   const handleScan = useCallback(async () => {
     await scanQrCode.start({
@@ -860,12 +910,12 @@ function MoreActionGeneralGrid() {
       account,
       network,
       tokens: {
-        data: allTokens.tokens,
-        keys: allTokens.keys,
+        data: tokens,
+        keys,
         map,
       },
     });
-  }, [scanQrCode, account, network, allTokens.tokens, allTokens.keys, map]);
+  }, [scanQrCode, account, network, tokens, keys, map]);
 
   const handlePrime = useCallback(() => {
     navigation.pushFullModal(EModalRoutes.PrimeModal, {
@@ -1032,6 +1082,16 @@ const MoreActionWalletGrid = () => {
     checkIsPrimeUser,
   ]);
 
+  const openAddressRiskCheckModule = useCallback(() => {
+    if (!checkIsPrimeUser(EPrimeFeatures.AddressRiskCheck)) {
+      return;
+    }
+    navigation.pushModal(EModalRoutes.AddressRiskCheckModal, {
+      screen: EModalAddressRiskCheckRoutes.AddressRiskCheckInput,
+      params: { networkId: network?.id },
+    });
+  }, [checkIsPrimeUser, navigation, network?.id]);
+
   const items = useMemo(() => {
     return [
       platformEnv.isWebDappMode
@@ -1109,6 +1169,26 @@ const MoreActionWalletGrid = () => {
             trackID: 'bulk-send-in-more-action',
             isPrimeFeature: true,
           },
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            title: intl.formatMessage({
+              id: ETranslations.address_risk_check__title,
+            }),
+            icon: 'ChecklistBoxSearchOutline' as const,
+            onPress: () => {
+              if (!isPrimeUser) {
+                defaultLogger.prime.subscription.primeEntryClick({
+                  featureName: EPrimeFeatures.AddressRiskCheck,
+                  entryPoint: 'moreActions',
+                  isPrimeActive,
+                });
+              }
+              openAddressRiskCheckModule();
+            },
+            trackID: 'address-risk-check-in-more-action',
+            isPrimeFeature: true,
+          },
     ].filter(Boolean);
   }, [
     handleAddressBook,
@@ -1121,6 +1201,7 @@ const MoreActionWalletGrid = () => {
     isPrimeUser,
     openBulkCopyAddressesModule,
     openBulkSendModule,
+    openAddressRiskCheckModule,
   ]);
   return (
     <BaseMoreActionGrid

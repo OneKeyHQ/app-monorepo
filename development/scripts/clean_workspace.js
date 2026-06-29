@@ -57,9 +57,6 @@ const dirsToRemove = [
   './apps/mobile/android/lib-keys-secret/build',
   './apps/mobile/android/lib-keys-secret/.cxx',
   './apps/mobile/android/app/src/main/assets/web-embed',
-  './apps/mobile/tradingview-assets',
-  './apps/mobile/android/app/src/main/assets/tradingview-assets',
-  './apps/desktop/app/tradingview-assets',
 
   // web
   './apps/web/node_modules',
@@ -89,6 +86,7 @@ const dirsToRemove = [
   './packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.text-js',
   './packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.js.LICENSE.txt',
   './packages/kit/src/components/WebView/translateInject.text-js',
+  './packages/kit/src/components/LightweightChart/utils/lightweightChartsStandalone.text-js',
 
   // kit-bg
   './packages/kit-bg/node_modules',

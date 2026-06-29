@@ -48,6 +48,7 @@ import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxReadyAtom,
   usePerpsActiveAssetDataAtom,
+  usePerpsCommonConfigPersistAtom,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -65,6 +66,7 @@ import {
   validateScaleOrderLegs,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   formatPriceToSignificantDigits,
   formatSpotPriceToValid,
@@ -95,12 +97,17 @@ import {
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
 import { PerpsSlider } from '../../PerpsSlider';
+import { PerpIpRestrictionNotice } from '../components/PerpIpRestrictionNotice';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';
-import { SizeInput } from '../inputs/SizeInput';
+import {
+  type ISizeInputDisplayValueChangePayload,
+  SizeInput,
+} from '../inputs/SizeInput';
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
 import { TradingFormInput } from '../inputs/TradingFormInput';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
+import { AccountModeSelector } from '../selectors/AccountModeSelector';
 import { BBOSelector } from '../selectors/BBOSelector';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
 import { MobileOrderTypeSelector } from '../selectors/MobileOrderTypeSelector';
@@ -112,9 +119,19 @@ interface IPerpTradingFormProps {
   isMobile?: boolean;
   reserveMobileEnableTradingLayout?: boolean;
 }
+
 type IPrimaryOrderType = 'market' | 'limit' | 'trigger';
 type ITriggerDropdownValue = ETriggerOrderType | 'scale' | 'twap';
 type ITwapDurationInputField = 'hours' | 'minutes';
+type IOrderTypeInfoValue = IPrimaryOrderType | ITriggerDropdownValue;
+type ISizeInputDraft = ISizeInputDisplayValueChangePayload;
+type IOrderTypeInfoItem = {
+  description: string;
+  helpUrl?: string;
+  label: string;
+  value: IOrderTypeInfoValue;
+};
+
 const DESKTOP_TRADING_HEADER_HEIGHT =
   PERP_LAYOUT_CONFIG.desktop.panelHeaderHeight;
 
@@ -162,6 +179,7 @@ const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
 const TWAP_ESTIMATED_SLICE_INTERVAL_MINUTES = 0.5;
 const TWAP_MIN_SLICE_NOTIONAL_HINT = 10;
+const ORDER_TYPE_HELP_CENTER_URL = 'https://help.onekey.so/articles/15442238';
 const TWAP_DURATION_PRESET_OPTIONS = [
   { label: '1h', minutes: 60 },
   { label: '6h', minutes: 360 },
@@ -348,6 +366,89 @@ function SpotAvailableActionPopover({
   );
 }
 
+function OrderTypeInfoContent({
+  description,
+  helpUrl,
+}: {
+  description: string;
+  helpUrl?: string;
+}) {
+  const intl = useIntl();
+  const handleOpenHelp = useCallback(() => {
+    if (helpUrl) {
+      openUrlExternal(helpUrl);
+    }
+  }, [helpUrl]);
+
+  return (
+    <YStack maxWidth={260}>
+      <SizableText size="$bodySm" color="$textSubdued">
+        {description}
+        {helpUrl ? ' ' : null}
+        {helpUrl ? (
+          <SizableText
+            size="$bodySm"
+            color="$textSuccess"
+            textDecorationLine="underline"
+            cursor="pointer"
+            onPress={handleOpenHelp}
+          >
+            {intl.formatMessage({ id: ETranslations.global_learn_more })}
+          </SizableText>
+        ) : null}
+      </SizableText>
+    </YStack>
+  );
+}
+
+function OrderTypeInfoButton({
+  description,
+  helpUrl,
+  isMobile,
+}: {
+  description: string;
+  helpUrl?: string;
+  isMobile: boolean;
+}) {
+  const trigger = (
+    <IconButton
+      testID={PerpTestIDs.OrderTypeInfoButton}
+      variant="tertiary"
+      size="small"
+      icon="InfoCircleOutline"
+      iconSize="$4"
+      iconProps={{ color: '$iconSubdued' }}
+      cursor="pointer"
+    />
+  );
+  const content = (
+    <OrderTypeInfoContent description={description} helpUrl={helpUrl} />
+  );
+
+  if (isMobile) {
+    return (
+      <Popover
+        title=""
+        showHeader={false}
+        placement="bottom-end"
+        floatingPanelProps={{ width: 360 }}
+        renderTrigger={trigger}
+        renderContent={<YStack p="$4">{content}</YStack>}
+      />
+    );
+  }
+
+  return (
+    <Tooltip
+      hovering
+      placement="bottom-end"
+      renderTrigger={trigger}
+      renderContent={<YStack p="$1">{content}</YStack>}
+      contentProps={{ maxWidth: 280 }}
+    />
+  );
+}
+
 function PerpTradingForm({
   isSubmitting = false,
   isMobile = false,
@@ -358,6 +459,7 @@ function PerpTradingForm({
   const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [perpsAbstractionMode] = usePerpsAbstractionModeAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [displayReady] = usePerpsAccountDisplayReadyAtom();
   const [displaySnapshot] = usePerpsAccountDisplaySnapshotAtom();
   const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
@@ -368,6 +470,9 @@ function PerpTradingForm({
   const [, setTradingFormEnv] = useTradingFormEnvAtom();
   const tradingComputed = useTradingFormSizeInputComputed();
   const advancedComputedSizeBN = useTradingFormComputedSize();
+  const [sizeInputDraft, setSizeInputDraft] = useState<
+    ISizeInputDraft | undefined
+  >();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const isSpot = activeTradeInstrument.mode === 'spot';
   const shouldUseLiveTradingPrice = Boolean(
@@ -466,6 +571,27 @@ function PerpTradingForm({
   const isSelectedTradeAssetCtxReady = isSpot
     ? isSpotActiveAssetCtxReady
     : isPerpsActiveAssetCtxReady;
+  const handleSizeInputDisplayValueChange = useCallback(
+    (payload: ISizeInputDraft) => {
+      setSizeInputDraft(payload.displayValue.trim() ? payload : undefined);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    setSizeInputDraft(undefined);
+  }, [
+    activeTradeInstrument.assetId,
+    activeTradeInstrument.mode,
+    formData.side,
+    selectedTradeAsset?.coin,
+  ]);
+
+  useEffect(() => {
+    if (formData.sizeInputMode === EPerpsSizeInputMode.SLIDER) {
+      setSizeInputDraft(undefined);
+    }
+  }, [formData.sizeInputMode]);
 
   const spotAvailableBaseBN = useMemo(() => {
     if (!spotUniverse?.baseName) {
@@ -895,6 +1021,7 @@ function PerpTradingForm({
     });
     const validation = validateScaleOrderLegs({ legs });
     if (!validation.isValid) {
+      const primaryIssue = validation.issues[0];
       return {
         text: getScaleOrderValidationErrorMessage({
           intl,
@@ -903,7 +1030,10 @@ function PerpTradingForm({
             id: ETranslations.perp_invalid_scale_order__msg,
           }),
         }),
-        tone: 'error' as const,
+        tone:
+          primaryIssue?.code === 'minNotionalTooSmall'
+            ? ('info' as const)
+            : ('error' as const),
       };
     }
 
@@ -955,6 +1085,45 @@ function PerpTradingForm({
     }
   }, [formData.twapDurationMinutes, intl, isTwapMode]);
 
+  const twapEstimatedOrderNotional = useMemo(() => {
+    if (!isTwapMode) {
+      return undefined;
+    }
+    if (!midPriceBN.isFinite() || midPriceBN.lte(0)) {
+      return undefined;
+    }
+
+    const draft = sizeInputDraft;
+    const draftDisplayValue = draft?.displayValue?.trim();
+    if (draft && draftDisplayValue) {
+      const draftDisplayValueBN = new BigNumber(draftDisplayValue);
+      if (draftDisplayValueBN.isFinite() && draftDisplayValueBN.gt(0)) {
+        if (draft.inputMode === 'usd') {
+          return draftDisplayValueBN;
+        }
+        if (draft.inputMode === 'margin') {
+          const leverageBN = new BigNumber(formData.leverage ?? 1);
+          return draftDisplayValueBN.multipliedBy(
+            leverageBN.isFinite() && leverageBN.gt(0) ? leverageBN : 1,
+          );
+        }
+        return draftDisplayValueBN.multipliedBy(midPriceBN);
+      }
+    }
+
+    if (!advancedComputedSizeBN.isFinite() || advancedComputedSizeBN.lte(0)) {
+      return undefined;
+    }
+
+    return advancedComputedSizeBN.multipliedBy(midPriceBN);
+  }, [
+    advancedComputedSizeBN,
+    formData.leverage,
+    isTwapMode,
+    midPriceBN,
+    sizeInputDraft,
+  ]);
+
   const twapEstimatedSliceNotional = useMemo(() => {
     if (!isTwapMode) {
       return undefined;
@@ -964,10 +1133,9 @@ function PerpTradingForm({
       !Number.isInteger(duration) ||
       duration < TWAP_MIN_DURATION_MINUTES ||
       duration > TWAP_MAX_DURATION_MINUTES ||
-      !advancedComputedSizeBN.isFinite() ||
-      advancedComputedSizeBN.lte(0) ||
-      !midPriceBN.isFinite() ||
-      midPriceBN.lte(0)
+      !twapEstimatedOrderNotional ||
+      !twapEstimatedOrderNotional.isFinite() ||
+      twapEstimatedOrderNotional.lte(0)
     ) {
       return undefined;
     }
@@ -976,20 +1144,14 @@ function PerpTradingForm({
       1,
       Math.ceil(duration / TWAP_ESTIMATED_SLICE_INTERVAL_MINUTES),
     );
-    const estimatedSliceNotional = advancedComputedSizeBN
-      .multipliedBy(midPriceBN)
-      .dividedBy(estimatedSlices);
+    const estimatedSliceNotional =
+      twapEstimatedOrderNotional.dividedBy(estimatedSlices);
     if (!estimatedSliceNotional.isFinite() || estimatedSliceNotional.lte(0)) {
       return undefined;
     }
 
     return estimatedSliceNotional;
-  }, [
-    formData.twapDurationMinutes,
-    isTwapMode,
-    midPriceBN,
-    advancedComputedSizeBN,
-  ]);
+  }, [formData.twapDurationMinutes, isTwapMode, twapEstimatedOrderNotional]);
 
   const twapEstimatedSliceNotionalDisplay = useMemo(() => {
     if (!twapEstimatedSliceNotional) {
@@ -1208,6 +1370,7 @@ function PerpTradingForm({
       !perpsAccountStatus.canTrade &&
       !perpsAccountStatus.accountNotSupport &&
       !perpsAccountStatus.canCreateAddress &&
+      !perpConfigCommon?.ipDisablePerp &&
       enableTradingMode.requiresExplicitEnableTrading,
     [
       displayReady.statusReady,
@@ -1216,8 +1379,14 @@ function PerpTradingForm({
       perpsAccountStatus.accountNotSupport,
       perpsAccountStatus.canCreateAddress,
       perpsAccountStatus.canTrade,
+      perpConfigCommon?.ipDisablePerp,
     ],
   );
+  const shouldShowIpRestrictionNotice = useMemo(
+    () => perpConfigCommon?.ipDisablePerp === true,
+    [perpConfigCommon?.ipDisablePerp],
+  );
+  const shouldHideMobileTpsl = isMobile && shouldShowIpRestrictionNotice;
 
   const spotMaxTradeLabel = useMemo(
     () =>
@@ -1572,6 +1741,87 @@ function PerpTradingForm({
       ...algoOrderOptions,
     ];
   }, [intl, isSpot]);
+  const orderTypeInfoItems = useMemo(
+    () =>
+      [
+        {
+          description: intl.formatMessage({
+            id: ETranslations.perp_order_type_market_desc__desc,
+          }),
+          helpUrl: ORDER_TYPE_HELP_CENTER_URL,
+          label: intl.formatMessage({ id: ETranslations.perp_trade_market }),
+          value: 'market',
+        },
+        {
+          description: intl.formatMessage({
+            id: ETranslations.perp_order_type_limit_desc__desc,
+          }),
+          helpUrl: ORDER_TYPE_HELP_CENTER_URL,
+          label: intl.formatMessage({ id: ETranslations.perp_trade_limit }),
+          value: 'limit',
+        },
+        {
+          description: intl.formatMessage({
+            id: ETranslations.perp_order_type_trigger_market_desc__desc,
+          }),
+          helpUrl: ORDER_TYPE_HELP_CENTER_URL,
+          label: intl.formatMessage({
+            id: ETranslations.perp_order_trigger_market,
+          }),
+          value: ETriggerOrderType.TRIGGER_MARKET,
+        },
+        {
+          description: intl.formatMessage({
+            id: ETranslations.perp_order_type_trigger_limit_desc__desc,
+          }),
+          helpUrl: ORDER_TYPE_HELP_CENTER_URL,
+          label: intl.formatMessage({
+            id: ETranslations.perp_order_trigger_limit,
+          }),
+          value: ETriggerOrderType.TRIGGER_LIMIT,
+        },
+        {
+          description: intl.formatMessage({
+            id: ETranslations.perp_order_type_scale_desc__desc,
+          }),
+          helpUrl: ORDER_TYPE_HELP_CENTER_URL,
+          label: intl.formatMessage({
+            id: ETranslations.perp_scale_order__title,
+          }),
+          value: 'scale',
+        },
+        {
+          description: intl.formatMessage({
+            id: ETranslations.perp_order_type_twap_desc__desc,
+          }),
+          helpUrl: ORDER_TYPE_HELP_CENTER_URL,
+          label: intl.formatMessage({
+            id: ETranslations.perp_twap_order__title,
+          }),
+          value: 'twap',
+        },
+      ] as const satisfies readonly IOrderTypeInfoItem[],
+    [intl],
+  );
+  const selectedOrderTypeInfo = useMemo(() => {
+    if (isScaleMode) {
+      return orderTypeInfoItems.find((item) => item.value === 'scale');
+    }
+    if (isTwapMode) {
+      return orderTypeInfoItems.find((item) => item.value === 'twap');
+    }
+    if (formData.orderMode === 'trigger') {
+      return orderTypeInfoItems.find((item) => item.value === triggerOrderType);
+    }
+    return orderTypeInfoItems.find((item) => item.value === formData.type);
+  }, [
+    formData.orderMode,
+    formData.type,
+    isScaleMode,
+    isTwapMode,
+    orderTypeInfoItems,
+    triggerOrderType,
+  ]);
 
   const lastAdvancedOrderType = useMemo(
     () =>
@@ -2227,6 +2477,9 @@ function PerpTradingForm({
   const reduceOnlyLabel = intl.formatMessage({
     id: ETranslations.perps_reduce_only,
   });
+  const reduceOnlyTooltip = intl.formatMessage({
+    id: ETranslations.perp_reduce_only__desc,
+  });
 
   const renderReduceOnlyCheckbox = ({
     testID,
@@ -2237,26 +2490,33 @@ function PerpTradingForm({
     value: boolean;
     onChange: (checked: boolean) => void;
   }) => (
-    <Checkbox
-      testID={testID}
-      value={value}
-      onChange={(checked) => onChange(!!checked)}
-      disabled={isSubmitting}
-      label={reduceOnlyLabel}
-      containerProps={{
-        p: 0,
-        alignItems: 'center',
-        cursor: isSubmitting ? 'default' : 'pointer',
-      }}
-      labelProps={{
-        fontSize: isMobile ? '$bodySm' : '$bodyMdMedium',
-        fontWeight: isMobile ? '400' : '500',
-        color: '$text',
-      }}
-      width={checkboxSizeVal}
-      height={checkboxSizeVal}
-      {...(isMobile && { p: '$0' })}
-    />
+    <XStack alignItems="center" gap="$2">
+      <Checkbox
+        testID={testID}
+        value={value}
+        onChange={(checked) => onChange(!!checked)}
+        disabled={isSubmitting}
+        shouldStopPropagation
+        containerProps={{
+          p: 0,
+          alignItems: 'center',
+          cursor: isSubmitting ? 'default' : 'pointer',
+        }}
+        width={checkboxSizeVal}
+        height={checkboxSizeVal}
+        {...(isMobile && { p: '$0' })}
+      />
+      <DashText
+        size={isMobile ? '$bodySm' : '$bodyMdMedium'}
+        color="$text"
+        dashColor="$textDisabled"
+        dashThickness={0.5}
+        tooltip={reduceOnlyTooltip}
+        tooltipTitle={reduceOnlyLabel}
+      >
+        {reduceOnlyLabel}
+      </DashText>
+    </XStack>
   );
 
   const renderBottomSection = () => {
@@ -2385,52 +2645,63 @@ function PerpTradingForm({
 
     return (
       <YStack gap="$1" {...(isMobile && { mt: '$1' })} p="$0">
-        <XStack
-          width="100%"
-          alignItems="center"
-          justifyContent="space-between"
-          gap="$3"
-        >
-          <XStack alignItems="center" gap="$2">
-            <Checkbox
-              testID={PerpTestIDs.TpslCheckbox}
-              value={formData.hasTpsl}
-              onChange={handleTpslCheckboxChange}
-              disabled={isSubmitting}
-              containerProps={{
-                p: 0,
-                alignItems: 'center',
-                ...(!isMobile && { cursor: 'pointer' }),
-              }}
-              width={checkboxSizeVal}
-              height={checkboxSizeVal}
-              {...(isMobile && { p: '$0' })}
-            />
-
-            <XStack alignItems="center" pt="$0.5">
-              <DashText
-                size={isMobile ? '$bodySm' : '$bodyMd'}
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-                tooltip={intl.formatMessage({
-                  id: ETranslations.perp_tp_sl_tooltip,
-                })}
-                tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
-                tooltipTitle={intl.formatMessage({
-                  id: ETranslations.perp_position_tp_sl,
-                })}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_position_tp_sl,
-                })}
-              </DashText>
-            </XStack>
+        {shouldHideMobileTpsl ? null : (
+          <XStack alignItems="center">
+            {renderReduceOnlyCheckbox({
+              testID: PerpTestIDs.StandardReduceOnlyCheckbox,
+              value: formData.reduceOnly ?? false,
+              onChange: (checked) => updateForm({ reduceOnly: checked }),
+            })}
           </XStack>
+        )}
+        {shouldHideMobileTpsl ? null : (
+          <XStack
+            width="100%"
+            alignItems="center"
+            justifyContent="space-between"
+            gap="$3"
+          >
+            <XStack alignItems="center" gap="$2">
+              <Checkbox
+                testID={PerpTestIDs.TpslCheckbox}
+                value={formData.hasTpsl}
+                onChange={handleTpslCheckboxChange}
+                disabled={isSubmitting}
+                containerProps={{
+                  p: 0,
+                  alignItems: 'center',
+                  ...(!isMobile && { cursor: 'pointer' }),
+                }}
+                width={checkboxSizeVal}
+                height={checkboxSizeVal}
+                {...(isMobile && { p: '$0' })}
+              />
 
-          {standardLimitTifSelector}
-        </XStack>
+              <XStack alignItems="center" pt="$0.5">
+                <DashText
+                  size={isMobile ? '$bodySm' : '$bodyMd'}
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
+                  tooltip={intl.formatMessage({
+                    id: ETranslations.perp_tp_sl_tooltip,
+                  })}
+                  tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+                  tooltipTitle={intl.formatMessage({
+                    id: ETranslations.perp_position_tp_sl,
+                  })}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_position_tp_sl,
+                  })}
+                </DashText>
+              </XStack>
+            </XStack>
 
-        {formData.hasTpsl ? (
+            {standardLimitTifSelector}
+          </XStack>
+        )}
+
+        {!shouldHideMobileTpsl && formData.hasTpsl ? (
           <YStack gap="$2">
             <TpSlFormInput
               type="tp"
@@ -2570,17 +2841,29 @@ function PerpTradingForm({
       pt={isMobile || isSpot ? '$0' : '$2.5'}
       flex={isSpot && isMobile ? 1 : undefined}
     >
+      {shouldShowIpRestrictionNotice ? (
+        <PerpIpRestrictionNotice isMobile={isMobile} isSpot={isSpot} />
+      ) : null}
+
       {isMobile ? (
         <YStack gap="$2.5" flexShrink={0}>
           {isSpot ? null : (
-            <XStack alignItems="center" gap="$2.5">
-              <YStack flex={1}>
+            <XStack alignItems="center" gap="$2.5" width="100%">
+              <YStack flex={1} flexBasis={0} minWidth={0}>
                 <MarginModeSelector
                   disabled={isSubmitting}
                   isMobile={isMobile}
                 />
               </YStack>
-              <LeverageAdjustModal isMobile={isMobile} />
+              <YStack flex={1} flexBasis={0} minWidth={0}>
+                <LeverageAdjustModal isMobile={isMobile} />
+              </YStack>
+              <YStack flex={1} flexBasis={0} minWidth={0}>
+                <AccountModeSelector
+                  disabled={isSubmitting}
+                  isMobile={isMobile}
+                />
+              </YStack>
             </XStack>
           )}
 
@@ -2616,14 +2899,22 @@ function PerpTradingForm({
         <>
           <YStack gap="$2">
             {isSpot ? null : (
-              <XStack alignItems="center" flex={1} gap="$3">
-                <YStack flex={1}>
+              <XStack alignItems="center" flex={1} gap="$3" width="100%">
+                <YStack flex={1} flexBasis={0} minWidth={0}>
                   <MarginModeSelector
                     disabled={isSubmitting}
                     isMobile={isMobile}
                   />
                 </YStack>
-                <LeverageAdjustModal isMobile={isMobile} />
+                <YStack flex={1} flexBasis={0} minWidth={0}>
+                  <LeverageAdjustModal isMobile={isMobile} />
+                </YStack>
+                <YStack flex={1} flexBasis={0} minWidth={0}>
+                  <AccountModeSelector
+                    disabled={isSubmitting}
+                    isMobile={isMobile}
+                  />
+                </YStack>
               </XStack>
             )}
 
@@ -2728,6 +3019,15 @@ function PerpTradingForm({
                   </XStack>
                 )}
               />
+              {selectedOrderTypeInfo ? (
+                <XStack ml="auto" alignItems="center">
+                  <OrderTypeInfoButton
+                    description={selectedOrderTypeInfo.description}
+                    helpUrl={selectedOrderTypeInfo.helpUrl}
+                    isMobile={isMobile}
+                  />
+                </XStack>
+              ) : null}
             </XStack>
           </YStack>
         </>
@@ -2832,6 +3132,7 @@ function PerpTradingForm({
         symbol={activeBaseName || perpsSelectedDisplayName}
         value={formData.size}
         onChange={handleManualSizeChange}
+        onDisplayValueChange={handleSizeInputDisplayValueChange}
         sizeInputMode={tradingComputed.sizeInputMode}
         sliderPercent={tradingComputed.sizePercent}
         onRequestManualMode={switchToManual}

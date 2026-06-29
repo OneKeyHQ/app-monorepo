@@ -724,6 +724,13 @@ export function flattenAggregateTokensMap(aggregateTokensMap: {
       fiatValue: '0',
       price: firstEntry.price,
       price24h: firstEntry.price24h,
+      // Inherit the currency basis from the source entries (all network
+      // entries are normalized to the same basis, 'usd', before aggregation).
+      // Without it the flattened entry has `currency: undefined`, so
+      // <Currency sourceCurrency> falls back to the display currency and skips
+      // the USD -> display conversion — leaving aggregated tokens (ETH, USDT,
+      // USDC) showing raw USD numbers under a non-USD symbol.
+      currency: firstEntry.currency,
     };
 
     networkEntries.forEach((tokenFiat) => {

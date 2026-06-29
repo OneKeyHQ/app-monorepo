@@ -118,7 +118,11 @@ function PerpDesktopLayout() {
         >
           <PerpTickerBar />
 
-          <XStack alignItems="stretch" overflow="visible">
+          <XStack
+            flex={chartExpanded ? 1 : undefined}
+            alignItems="stretch"
+            overflow="visible"
+          >
             <YStack flex={1} minWidth={PERP_LAYOUT_CONFIG.main.marketMinWidth}>
               <XStack
                 h={chartExpanded ? undefined : layout.marketContentHeight}

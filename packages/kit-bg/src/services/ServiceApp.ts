@@ -369,8 +369,10 @@ class ServiceApp extends ServiceBase {
     network: string;
     isNative?: boolean;
     from?: EEnterWay;
+    showFavoriteButton?: boolean;
   }) {
-    const { tokenAddress, network, isNative, from } = params;
+    const { tokenAddress, network, isNative, from, showFavoriteButton } =
+      params;
     const routeParams: IOpenUrlRouteInfo['params'] = {};
 
     if (typeof isNative === 'boolean') {
@@ -378,6 +380,9 @@ class ServiceApp extends ServiceBase {
     }
     if (from) {
       routeParams.from = from;
+    }
+    if (typeof showFavoriteButton === 'boolean') {
+      routeParams.showFavoriteButton = showFavoriteButton;
     }
 
     return extUtils.openExpandTab({

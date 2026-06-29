@@ -1,6 +1,32 @@
+import { ETokenDappType } from '../../types/token';
+
 import type { IServerNetwork } from '../../types';
+import type { ITokenDappType } from '../../types/token';
 
 export const TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED = true;
+
+const TOKEN_SELECTOR_WALLET_DAPP_NAMES = new Set(['wallet', 'unknown']);
+
+type ITokenSelectorDappTokenLike = {
+  dappName?: string | null;
+  dappType?: ITokenDappType;
+  defiMarked?: boolean;
+};
+
+type ITokenSelectorDappTokenFilterParams = {
+  withoutDappToken?: boolean;
+  withoutWalletToken?: boolean;
+};
+
+export function isTokenSelectorDappTokenFilterSupportedNetworkBase({
+  backendIndex,
+  isDeFiEnabled,
+}: {
+  backendIndex?: boolean;
+  isDeFiEnabled?: boolean;
+}) {
+  return backendIndex === true && isDeFiEnabled === true;
+}
 
 export function isTokenSelectorDappTokenFilterSupportedNetwork({
   network,
@@ -18,7 +44,10 @@ export function isTokenSelectorDappTokenFilterSupportedNetwork({
   if (network.isAllNetworks) {
     return true;
   }
-  return network.backendIndex === true && isDeFiEnabled === true;
+  return isTokenSelectorDappTokenFilterSupportedNetworkBase({
+    backendIndex: network.backendIndex,
+    isDeFiEnabled,
+  });
 }
 
 export function filterTokenSelectorTokensByBackendIndexedNetworks<
@@ -60,20 +89,65 @@ export function buildTokenSelectorDappTokenFilterParams({
 
 export function isTokenSelectorDappToken({
   dappName,
+  dappType,
+  defiMarked,
+}: ITokenSelectorDappTokenLike) {
+  if (dappType === ETokenDappType.WalletToken) {
+    return false;
+  }
+  if (dappType) {
+    return true;
+  }
+  if (defiMarked) {
+    return true;
+  }
+
+  const normalizedDappName = dappName
+    ?.trim()
+    .toLowerCase()
+    .replace(/\s*\/\s*/g, '/');
+  if (!normalizedDappName) {
+    return false;
+  }
+
+  return !TOKEN_SELECTOR_WALLET_DAPP_NAMES.has(normalizedDappName);
+}
+
+export function filterTokenSelectorTokensByDappTokenFilterParams<
+  T extends ITokenSelectorDappTokenLike,
+>({
+  tokens,
+  tokenSelectorFilterParams,
 }: {
-  dappName?: string | null;
+  tokens: T[];
+  tokenSelectorFilterParams: ITokenSelectorDappTokenFilterParams;
 }) {
-  return Boolean(dappName?.trim());
+  if (
+    tokenSelectorFilterParams.withoutDappToken &&
+    tokenSelectorFilterParams.withoutWalletToken
+  ) {
+    return [];
+  }
+  if (tokenSelectorFilterParams.withoutDappToken) {
+    return tokens.filter((token) => !isTokenSelectorDappToken(token));
+  }
+  if (tokenSelectorFilterParams.withoutWalletToken) {
+    return tokens.filter((token) => isTokenSelectorDappToken(token));
+  }
+  return tokens;
 }
 
 export function buildSwapAllNetworkTokenListCacheKey({
   accountId,
   lpToken,
+  currency,
 }: {
   accountId: string;
   lpToken?: boolean;
+  currency?: string;
 }) {
-  return lpToken ? `${accountId}__lpToken` : accountId;
+  const currencyKey = currency ? `__${currency}` : '';
+  return `${accountId}${lpToken ? '__lpToken' : ''}${currencyKey}`;
 }
 
 export const SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED =

@@ -4,6 +4,7 @@ import {
 } from '@onekeyhq/components/src/primitives/Image/cache';
 import { preloadImages } from '@onekeyhq/components/src/primitives/Image/preload';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   getHyperliquidTokenImageUrl,
@@ -147,22 +148,21 @@ function collectWalletTokenImageUris({
   uris: Set<string>;
   snapshot: IColdStartSnapshot;
 }) {
+  // TokenList cells §7: the cold-start persisted token-list role moved from the
+  // OLD `renderedTokenListCacheAtom` (byOwner[].tokens) to the slim bundle
+  // (`tokenListSlimColdCache`, single-owner). Prewarm logos from the slim
+  // bundle's `compactMeta` values instead of the retired byOwner shape.
   for (const value of getSnapshotValuesByColdStartKey({
     snapshot,
     coldStartCacheKey:
-      CONTEXT_ATOM_COLD_START_CACHE_KEYS.renderedTokenListCacheAtom,
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.tokenListSlimColdCacheAtom,
   })) {
-    if (isRecord(value) && isRecord(value.byOwner)) {
-      const entries = Object.values(value.byOwner)
+    if (isRecord(value) && isRecord(value.compactMeta)) {
+      const metas = Object.values(value.compactMeta)
         .filter(isRecord)
-        .toSorted((a, b) => getUpdatedAt(b) - getUpdatedAt(a))
-        .slice(0, WALLET_TOKEN_OWNER_LIMIT);
-
-      for (const entry of entries) {
-        const tokens = Array.isArray(entry.tokens) ? entry.tokens : [];
-        for (const token of tokens.slice(0, WALLET_TOKEN_LIMIT_PER_OWNER)) {
-          addTokenLikeImageUris(uris, token);
-        }
+        .slice(0, WALLET_TOKEN_OWNER_LIMIT * WALLET_TOKEN_LIMIT_PER_OWNER);
+      for (const tokenMeta of metas) {
+        addTokenLikeImageUris(uris, tokenMeta);
       }
     }
   }
@@ -354,10 +354,16 @@ export async function prewarmImageUris(
   }
   await primeCachedImagePaths({ uris, timeoutMs: primeTimeoutMs });
   const tasks: Array<Promise<unknown>> = [];
-  if (preload) {
+  // The decoded ImageRef cache is iOS-only (see Image/cache.ts). On Android,
+  // fall back to Image.prefetch so Glide's native cache is still warmed for
+  // decode-only callers (e.g. Perps token-selector critical logos that pass
+  // preload:false), without decoding unconsumed — and crash-prone — SharedRefs.
+  const shouldPreload = preload || (platformEnv.isNativeAndroid && decode);
+  const shouldDecode = decode && !platformEnv.isNativeAndroid;
+  if (shouldPreload) {
     tasks.push(preloadImages(uris.map((uri) => ({ uri }))));
   }
-  if (decode) {
+  if (shouldDecode) {
     tasks.push(primeCachedImageRefs({ uris, timeoutMs: decodeTimeoutMs }));
   }
   if (awaitPreload) {

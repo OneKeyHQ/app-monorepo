@@ -65,6 +65,11 @@ const PageDevUnitTests = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Setting/pages/DevUnitTests/PageDevUnitTests'),
 );
 
+const DevSesHardenRuntimeCheck = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/DevSesHardenRuntimeCheck'),
+);
+
 const DesktopApiProxyTestDevSettings = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/Tab/DevSettingsSection/DesktopApiProxyTestDevSettings'),
@@ -98,6 +103,11 @@ const KeylessWalletGallery = LazyLoadPage(
 const StorageGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/StorageGallery'),
+);
+
+const LocalSecretEnvelopeSelfTest = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/LocalSecretEnvelopeSelfTest'),
 );
 
 const ExportCustomNetworkConfig = LazyLoadPage(
@@ -241,6 +251,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
     component: PageDevUnitTests,
   },
   {
+    name: EModalSettingRoutes.SettingDevSesHardenRuntimeCheckModal,
+    component: DevSesHardenRuntimeCheck,
+  },
+  {
     name: EModalSettingRoutes.SettingDevDesktopApiProxyTestModal,
     component: DesktopApiProxyTestDevSettings,
   },
@@ -267,6 +281,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevStorageGalleryModal,
     component: StorageGallery,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevLocalSecretEnvelopeSelfTestModal,
+    component: LocalSecretEnvelopeSelfTest,
   },
   {
     name: EModalSettingRoutes.SettingExportCustomNetworkConfig,

@@ -256,16 +256,19 @@ function WebModalNavigator({
             // @ts-expect-error
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             element.style.opacity = isHidden ? '0' : '1';
+            const depth = newIndex - index;
+            const peekTransform = `translateY(${-30 * depth}px) scale(${1 - 0.05 * depth})`;
             let nextTransform: string;
             if (noScale) {
-              // Skip the bouncy scale; only translateY for stacked modals.
-              nextTransform = isHidden
-                ? ''
-                : `translateY(${-30 * (newIndex - index)}px)`;
+              // `disableEnterScaleAnimation` only suppresses THIS modal's own
+              // enter/exit scale bounce (depth 0). Once it is pushed into the
+              // background (depth > 0) it must still shrink with the standard
+              // peek scale, otherwise the stacked card looks inconsistent with
+              // every other modal (full-width flush peek instead of an inset
+              // card).
+              nextTransform = isHidden || depth === 0 ? '' : peekTransform;
             } else {
-              nextTransform = isHidden
-                ? 'scale(0.95)'
-                : `translateY(${-30 * (newIndex - index)}px) scale(${1 - 0.05 * (newIndex - index)})`;
+              nextTransform = isHidden ? 'scale(0.95)' : peekTransform;
             }
             // @ts-expect-error
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

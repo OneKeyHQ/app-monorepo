@@ -19,6 +19,7 @@ import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
+import { MARKET_PERPS_DEFAULT_CATEGORY_ID } from './constants';
 import { useMarketPerpsTokenList } from './hooks/useMarketPerpsTokenList';
 import { usePerpsColumns } from './hooks/usePerpsColumns';
 import { MarketPerpsCategorySelector } from './MarketPerpsCategorySelector';
@@ -45,7 +46,7 @@ function MarketPerpsTokenListImpl({
   const { perpsCategories } = useMarketBasicConfig();
 
   const initialCategoryId = useMemo(
-    () => perpsCategories[0]?.categoryId ?? '',
+    () => perpsCategories[0]?.categoryId ?? MARKET_PERPS_DEFAULT_CATEGORY_ID,
     [perpsCategories],
   );
   const [selectedCategoryId, setSelectedCategoryId] =
@@ -53,10 +54,17 @@ function MarketPerpsTokenListImpl({
 
   // Sync when categories load asynchronously after initial render
   useEffect(() => {
-    if (!selectedCategoryId && initialCategoryId) {
+    const shouldSyncSelectedCategory =
+      !selectedCategoryId ||
+      (perpsCategories.length > 0 &&
+        !perpsCategories.some(
+          (category) => category.categoryId === selectedCategoryId,
+        ));
+
+    if (shouldSyncSelectedCategory && initialCategoryId) {
       setSelectedCategoryId(initialCategoryId);
     }
-  }, [initialCategoryId, selectedCategoryId]);
+  }, [initialCategoryId, perpsCategories, selectedCategoryId]);
 
   const { tokens, isLoading, hasRealTimeData } = useMarketPerpsTokenList({
     selectedCategoryId,

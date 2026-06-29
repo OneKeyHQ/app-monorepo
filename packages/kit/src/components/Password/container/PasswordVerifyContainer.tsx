@@ -16,6 +16,8 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -40,6 +42,13 @@ import usePasswordProtection from '../hooks/usePasswordProtection';
 
 import type { IPasswordVerifyForm } from '../components/PasswordVerify';
 import type { LayoutChangeEvent } from 'react-native';
+
+// Fixed (non-i18n) message shown when the local secret envelope platform layer
+// (keychain / secure storage / IndexedDB CryptoKey) cannot decrypt the
+// verifyString. The password may be correct, so this is intentionally NOT
+// treated as a wrong-password attempt.
+const SECURE_KEY_UNAVAILABLE_MESSAGE =
+  'Local secure key is corrupted or unavailable. Please restart the app.';
 
 interface IPasswordVerifyProps {
   onVerifyRes: (password: string) => void | Promise<void>;
@@ -342,9 +351,15 @@ const PasswordVerifyContainer = ({
           name?: string;
         } & { isCallbackError?: boolean };
         const isCallbackError = error?.isCallbackError === true;
+        const isSecureStorageUnavailable = errorUtils.isErrorByClassName({
+          error: e,
+          className: EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable,
+        });
         let message = error?.message;
-        // For callback errors in pageMode, use the original error message directly
-        if (isCallbackError && message) {
+        // A secure-storage / keychain outage is not a wrong password.
+        if (isSecureStorageUnavailable) {
+          message = SECURE_KEY_UNAVAILABLE_MESSAGE;
+        } else if (isCallbackError && message) {
           // Use the callback error message as-is
         } else if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
           message = intl.formatMessage(
@@ -369,8 +384,9 @@ const PasswordVerifyContainer = ({
           );
         }
         // Skip biology auth protection logic for callback errors in pageMode
-        // because biology auth verification was successful, only the callback failed
-        if (!isCallbackError) {
+        // (verification succeeded, only the callback failed) and for a
+        // secure-storage outage (the password may be correct).
+        if (!isCallbackError && !isSecureStorageUnavailable) {
           if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
             setVerifyPeriodBiologyEnable(false);
           } else {
@@ -474,18 +490,39 @@ const PasswordVerifyContainer = ({
       } catch (e) {
         const errorWithFlag = e as Error & { isCallbackError?: boolean };
         const isCallbackError = errorWithFlag?.isCallbackError === true;
-        let message = isCallbackError
-          ? errorWithFlag?.message ||
+        const isSecureStorageUnavailable = errorUtils.isErrorByClassName({
+          error: e,
+          className: EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable,
+        });
+        // Only a genuine wrong-password error may drive the wrong-password
+        // protection counter / silent app reset. Any other failure (secure-key
+        // unavailable, callback failure, or an unexpected/system error such as
+        // a corrupted envelope) must never be counted as a password attempt.
+        const isGenuineWrongPassword =
+          errorUtils.isErrorByClassName({
+            error: e,
+            className: EOneKeyErrorClassNames.WrongPassword,
+          }) ||
+          errorUtils.isErrorByClassName({
+            error: e,
+            className: EOneKeyErrorClassNames.IncorrectPassword,
+          });
+        let message: string;
+        if (isCallbackError) {
+          message =
+            errorWithFlag?.message ||
             intl.formatMessage({
               id: ETranslations.global_unknown_error,
-            })
-          : intl.formatMessage({
-              id: ETranslations.auth_error_password_incorrect,
             });
+        } else if (isSecureStorageUnavailable) {
+          message = SECURE_KEY_UNAVAILABLE_MESSAGE;
+        } else {
+          message = intl.formatMessage({
+            id: ETranslations.auth_error_password_incorrect,
+          });
+        }
         let skipProtection = false;
-        // Skip password protection logic for callback errors in pageMode
-        // because password verification was successful, only the callback failed
-        if (!isCallbackError && isLock && enablePasswordErrorProtection) {
+        if (isGenuineWrongPassword && isLock && enablePasswordErrorProtection) {
           let nextAttempts = passwordErrorAttempts + 1;
           if (!unlockPeriodPasswordArray.includes(finalPassword)) {
             setPasswordPersist((v) => ({

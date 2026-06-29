@@ -65,13 +65,13 @@ jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
     getCredential: jest.fn(),
+    getCredentialInner: jest.fn(),
     updateKeylessWalletDetailsInfo: jest.fn(),
   },
 }));
 
 jest.mock('../../states/jotai/atoms', () => ({
   keylessBackendShareV2MigrationPersistAtom: mockMigrationAtom,
-  keylessDialogAtom: {},
   keylessPinConfirmStatusAtom: {
     get: jest.fn(),
     set: jest.fn(),
@@ -113,16 +113,6 @@ jest.mock('./utils/keylessMnemonicPasswordStorage', () => ({
     saveMnemonicPasswordToStorage: jest.fn(),
     removeMnemonicPasswordFromStorage: jest.fn(),
   },
-}));
-
-jest.mock('./utils/keylessAuthPackCache', () => ({
-  __esModule: true,
-  default: {},
-}));
-
-jest.mock('./utils/keylessDeviceKeyStorage', () => ({
-  __esModule: true,
-  default: {},
 }));
 
 jest.mock('./utils/keylessSyncCredentialStorage', () => ({
@@ -305,6 +295,7 @@ function mockResetPinHappyPath(
   );
   serviceAny.decryptKeylessMnemonic = jest.fn(async () => 'mnemonic');
   localDb.getCredential.mockResolvedValue({ credential: 'credential' });
+  localDb.getCredentialInner.mockResolvedValue({ credential: 'credential' });
   localDb.updateKeylessWalletDetailsInfo.mockResolvedValue(undefined);
   decryptRevealableSeed.mockResolvedValue({
     entropyWithLangPrefixed: 'entropy',

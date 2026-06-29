@@ -1,6 +1,6 @@
 ---
 name: 1k-trade-swap-market
-description: App-side OneKey Trade/Swap/Market guide for Swap core, Swap Pro, Market speed-swap, K-line/chart, token selectors, cold-start frame-by-frame validation, quote/build/send flows, history/status, provider channels, PrivateSend-like channels, stock-trading channels, limit/order flows, fees, slippage, ETA, and cross-module funding handoffs.
+description: App-side OneKey Trade/Swap/Market guide for Swap core, Swap Pro, Market speed-swap, Home Token and Send handoffs, K-line/chart, token selectors, cold-start frame-by-frame validation, quote/build/send flows, history/status, provider channels, PrivateSend-like channels, stock-trading channels, limit/order flows, fees, slippage, ETA, and cross-module funding handoffs.
 ---
 
 # Trade, Swap, Market
@@ -19,6 +19,25 @@ Treat Swap as the execution spine below visible surfaces. Market speed-swap,
 Bridge, Limit, PrivateSend-like flows, stock/order channels, and funding
 handoffs can adapt entry, asset, and settlement semantics, but they must still
 declare quote, review, execution, history, status, and repair ownership.
+
+When a visible entry is merged into another surface, keep visible tab state
+separate from internal execution and channel type. For example, Bridge can
+render under the `Swap & Bridge` tab while `BRIDGE` still owns cross-chain
+defaults, support checks, history labels, status, analytics, and provider
+semantics.
+
+For broad Swap or Trade bugs, analyze in this order before changing code:
+
+1. Framework: entry surface, route/modal host, provider/context boundary, and
+   source/target ownership.
+2. State machine: tab type, route params, selected-token atoms, cold-start
+   cache, quote progress, review snapshot, build/send, history/status, and
+   replay/repair transitions.
+3. Hooks: business hooks, component hooks, listeners, side effects, and derived
+   data owners.
+
+This order applies to Swap page work and to Home Token, Send, Market, Earn, or
+Buy entries that launch or prefill Swap.
 
 ## Protocol Channel Model
 
@@ -39,14 +58,16 @@ PrivateSend-like channels and future stock-trading channels should be evaluated 
 
 1. Classify the surface: Swap, Swap Pro, Market speed-swap, K-line/chart, token selector, review/confirm, history, or new provider channel.
 2. Classify the integration style: standard swap provider, order-backed privacy channel, stock/order channel, limit order, or cross-module funding handoff.
-3. Read [app-architecture.md](references/app-architecture.md) and [code-map.md](references/code-map.md) before editing.
-4. Fill the provider/channel contract in [provider-contracts.md](references/provider-contracts.md).
-5. For any non-standard channel, fill [channel-state-model.md](references/channel-state-model.md) before touching history, status polling, or local replay.
-6. Run the durable checklist in [checklists.md](references/checklists.md),
+3. Map framework, state machine, and hooks before editing when the change spans
+   route, modal, Home Token, Send, Market, Earn, Buy, or shared Swap state.
+4. Read [app-architecture.md](references/app-architecture.md) and [code-map.md](references/code-map.md) before editing.
+5. Fill the provider/channel contract in [provider-contracts.md](references/provider-contracts.md).
+6. For any non-standard channel, fill [channel-state-model.md](references/channel-state-model.md) before touching history, status polling, or local replay.
+7. Run the durable checklist in [checklists.md](references/checklists.md),
    especially async identity, token/account identity, frozen review data, and
    history/status.
-7. Validate with [validation.md](references/validation.md), including a readiness drill when the change is a new channel.
-8. For cold start, token selector flicker, default-token bring-in, tab stability,
+8. Validate with [validation.md](references/validation.md), including a readiness drill when the change is a new channel.
+9. For cold start, token selector flicker, default-token bring-in, tab stability,
    or Wallet handoff regressions, run
    [swap-cold-start-frame-checklist.md](references/swap-cold-start-frame-checklist.md).
 
@@ -72,9 +93,10 @@ Use these drills to judge whether the skill is complete enough for a new require
 - Stock-trading channel: can you model non-token asset identity, market hours
   or unavailable states, settlement currency, order status, review/risk
   display, and history rows through the same provider/channel contract?
-- Bridge/Limit channel merge: can you preserve channel semantics,
-  default-token rules, status source, analytics/history identity, and
-  pending-row filters while sharing Swap infrastructure?
+- Bridge/Limit visible-entry merge: can you preserve visible tab
+  normalization, channel semantics, default-token rules, status source,
+  analytics/history identity, and pending-row filters while sharing Swap
+  infrastructure?
 - Funding handoff: can an Earn/Market/Buy entry land in Swap with the correct network, account, token, amount, preset, and reset behavior?
 
 If a drill cannot be completed from the references, update the abstraction instead of adding another one-off case.
@@ -89,6 +111,9 @@ If a drill cannot be completed from the references, update the abstraction inste
 - Do not reuse token-list state from another surface as proof for Swap selection.
 - Do not treat Wallet/Receive DeFi-token list regressions as Swap selector bugs unless the failing owner is the Swap/Market selector or handoff state.
 - Do not collapse account, network, provider, token, and receiver resets into one path without checking dependents.
+- Do not use the visible tab atom as proof of execution type after entry
+  consolidation; trace route params, support-check type, quote/review
+  execution type, cache context, and history/status separately.
 - Do not mark transaction behavior validated from static diff alone; inspect the actual App path, payload, pending row, or visible state.
 - Do not validate cold-start or flicker fixes from the final settled screenshot only; inspect the first frames and tab/token transitions.
 - Do not edit generated locale files directly; use the repository i18n workflow.

@@ -5,6 +5,7 @@ export type IMarketSelectedTab = 'watchlist' | 'trending' | 'perps';
 
 export interface IMarketSelectedTabAtom {
   tab: IMarketSelectedTab;
+  selectedSpotCategory?: string;
   spotCategoryToSelect?: string;
 }
 
@@ -49,27 +50,6 @@ export const {
 } = globalAtom<IMarketCurrentTokenLiveData | undefined>({
   persist: false,
   name: EAtomNames.marketCurrentTokenLiveDataAtom,
-  initialValue: undefined,
-});
-
-// Predicted next chart symbol — set the moment a market token is tapped (before
-// navigation finishes) so the market-home prewarm can switch the shared chart
-// WebView to it during the navigation transition, triggering its kline fetch
-// early (cached by ServiceMarketV2) so the detail page opens instantly.
-export interface IChartPredictedSymbolAtom {
-  source: 'market' | 'hyperliquid';
-  symbol: string;
-  networkId?: string;
-  address?: string;
-  decimal?: number;
-}
-
-export const {
-  target: chartPredictedSymbolAtom,
-  use: useChartPredictedSymbolAtom,
-} = globalAtom<IChartPredictedSymbolAtom | undefined>({
-  persist: false,
-  name: EAtomNames.chartPredictedSymbolAtom,
   initialValue: undefined,
 });
 

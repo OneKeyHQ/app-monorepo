@@ -36,7 +36,6 @@ interface ISwapProTradingPanelProps {
   balanceLoading: boolean;
   configLoading: boolean;
   supportSpeedSwap: boolean;
-  onlySupportCrossChain: boolean;
   isMev: boolean;
   onSwapProActionClick: () => void;
   hasEnoughBalance: boolean;
@@ -50,7 +49,6 @@ interface ISwapProTradingPanelProps {
 
 const SwapProTradingPanel = ({
   supportSpeedSwap,
-  onlySupportCrossChain,
   swapProConfig,
   balanceLoading,
   isMev,
@@ -219,7 +217,6 @@ const SwapProTradingPanel = ({
         hasEnoughBalance={hasEnoughBalance}
         balanceLoading={balanceLoading}
         supportSpeedSwap={supportSpeedSwap}
-        onlySupportCrossChain={onlySupportCrossChain}
         isActionDisabled={isMarketPresetActionDisabled}
       />
     </YStack>

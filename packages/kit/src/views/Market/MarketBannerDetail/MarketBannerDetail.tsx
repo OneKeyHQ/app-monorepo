@@ -1,11 +1,10 @@
 import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
-import { FlatList } from 'react-native';
 
 import {
-  ListEndIndicator,
   NavBackButton,
   Page,
   SizableText,
@@ -15,7 +14,6 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { HeaderNotificationIconButton } from '@onekeyhq/kit/src/components/TabPageHeader/components/HeaderNotificationIconButton';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -36,14 +34,12 @@ import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useMarketDetailBackNavigation } from '../MarketDetailV2/hooks/useMarketDetailBackNavigation';
-import { MarketListColumnHeader } from '../MarketHomeV2/components/MarketListColumnHeader';
-import { TokenListItem } from '../MarketHomeV2/components/MarketTokenList/components/TokenListItem';
-import { TokenListSkeleton } from '../MarketHomeV2/components/MarketTokenList/components/TokenListSkeleton';
 import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { MarketTokenListBase } from '../MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
 
+import { BannerDetailTokenFlatList } from './BannerDetailTokenFlatList';
 import { PerpsTokenListSection } from './PerpsTokenListSection';
 import { useMarketBannerDetail } from './useMarketBannerDetail';
 
@@ -65,7 +61,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const toDetailPage = useToDetailPage({ from: EEnterWay.BannerList });
   const { handleBackPress } = useMarketDetailBackNavigation();
   const { top } = useSafeAreaInsets();
-  const tabBarHeight = useTabBarHeight();
+  const headerHeight = useHeaderHeight();
   const { gtMd } = useMedia();
 
   const isWebDesktop = (platformEnv.isWeb || platformEnv.isDesktop) && gtMd;
@@ -73,7 +69,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     changeSortType,
     handleChangeSortPress,
     listResult,
-    mobileSortedData,
+    mobileData,
     tickerIsLoading,
   } = useMarketBannerDetail({ tokenListId, isPerps });
 
@@ -114,15 +110,6 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     [toDetailPage],
   );
 
-  const renderBannerItem = useCallback(
-    ({ item }: { item: IMarketToken }) => (
-      <TokenListItem item={item} onPress={() => handleItemPress(item)} />
-    ),
-    [handleItemPress],
-  );
-
-  const bannerKeyExtractor = useCallback((item: IMarketToken) => item.id, []);
-
   const renderPageHeader = useMemo(() => {
     if (isWebDesktop) {
       return (
@@ -141,6 +128,18 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         />
       );
     }
+    // iOS 26 mobile uses the native UINavigationBar so the header gets
+    // Liquid Glass material and the system back chevron. Don't pass
+    // headerLeft — HeaderScreenOptions wires the system back button.
+    // headerShown is set explicitly because this route can also be
+    // reached as a modal (EModalMarketRoutes.MarketBannerDetail) where
+    // the modal-stack's screenOptions default to headerShown:false; the
+    // explicit prop ensures the bar renders in both navigation contexts.
+    // Notification icon is intentionally omitted — it belongs to the
+    // tab-level chrome (Market tab home), not to a banner detail page.
+    if (platformEnv.isNativeIOS26Plus) {
+      return <Page.Header headerShown headerTitle={renderHeaderTitle} />;
+    }
     return <Page.Header headerShown={false} />;
   }, [
     isWebDesktop,
@@ -158,7 +157,8 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         </XStack>
       );
     }
-    if (!gtMd) {
+    // On iOS 26 mobile the title is in the native bar already.
+    if (!gtMd && !platformEnv.isNativeIOS26Plus) {
       return (
         <XStack ai="center" gap="$4" px="$4">
           {renderHeaderLeft()}
@@ -170,56 +170,30 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   }, [isWebDesktop, gtMd, renderHeaderTitle, renderHeaderLeft]);
 
   const renderTokenList = useMemo(() => {
+    const change24hColumnTitle = intl.formatMessage({
+      id: ETranslations.dexmarket_banner_token_24hchange,
+    });
     if (isPerps) {
-      return <PerpsTokenListSection tokenListId={tokenListId} />;
+      return (
+        <PerpsTokenListSection
+          tokenListId={tokenListId}
+          changeSortType={changeSortType}
+          change24hColumnTitle={change24hColumnTitle}
+          onChangeSortPress={handleChangeSortPress}
+        />
+      );
     }
     // Native mobile: use FlatList + TokenListItem to match watchlist layout
     if (platformEnv.isNative && !gtMd) {
-      if (tickerIsLoading && mobileSortedData.length === 0) {
-        return (
-          <Stack flex={1}>
-            <MarketListColumnHeader
-              changeSortType={changeSortType}
-              changeSortTestID={MarketTestIDs.sortByChange}
-              onChangeSortPress={handleChangeSortPress}
-            />
-            <TokenListSkeleton count={15} />
-          </Stack>
-        );
-      }
       return (
-        <Stack flex={1}>
-          <MarketListColumnHeader
-            changeSortType={changeSortType}
-            changeSortTestID={MarketTestIDs.sortByChange}
-            onChangeSortPress={handleChangeSortPress}
-          />
-          <FlatList<IMarketToken>
-            style={{ flex: 1 }}
-            data={mobileSortedData}
-            renderItem={renderBannerItem}
-            keyExtractor={bannerKeyExtractor}
-            showsVerticalScrollIndicator={false}
-            initialNumToRender={15}
-            maxToRenderPerBatch={20}
-            contentContainerStyle={{ paddingBottom: tabBarHeight }}
-            ListEmptyComponent={
-              <Stack
-                flex={1}
-                alignItems="center"
-                justifyContent="center"
-                p="$8"
-              >
-                <SizableText size="$bodyLg" color="$textSubdued">
-                  {intl.formatMessage({ id: ETranslations.global_no_data })}
-                </SizableText>
-              </Stack>
-            }
-            ListFooterComponent={
-              mobileSortedData.length > 0 ? <ListEndIndicator /> : null
-            }
-          />
-        </Stack>
+        <BannerDetailTokenFlatList
+          data={mobileData}
+          isLoading={tickerIsLoading}
+          changeSortType={changeSortType}
+          change24hColumnTitle={change24hColumnTitle}
+          onChangeSortPress={handleChangeSortPress}
+          onItemPress={handleItemPress}
+        />
       );
     }
 
@@ -232,9 +206,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         watchlistFrom={EWatchlistFrom.BannerList}
         copyFrom={ECopyFrom.BannerList}
         showEndReachedIndicator
-        change24hColumnTitle={intl.formatMessage({
-          id: ETranslations.dexmarket_banner_token_24hchange,
-        })}
+        change24hColumnTitle={change24hColumnTitle}
       />
     );
     if (platformEnv.isNative) {
@@ -258,20 +230,26 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     handleItemPress,
     gtMd,
     tickerIsLoading,
-    mobileSortedData,
+    mobileData,
     changeSortType,
     handleChangeSortPress,
-    renderBannerItem,
-    bannerKeyExtractor,
-    tabBarHeight,
     intl,
   ]);
+
+  let bodyTopInset: number;
+  if (gtMd) {
+    bodyTopInset = 0;
+  } else if (platformEnv.isNativeIOS26Plus) {
+    bodyTopInset = headerHeight;
+  } else {
+    bodyTopInset = top;
+  }
 
   return (
     <Page>
       {renderPageHeader}
       <Page.Body>
-        <Stack flex={1} pt={gtMd ? 0 : top} px={gtMd ? '$4' : 0} gap="$4">
+        <Stack flex={1} pt={bodyTopInset} px={gtMd ? '$4' : 0} gap="$4">
           {renderTitleSection}
           {renderTokenList}
         </Stack>

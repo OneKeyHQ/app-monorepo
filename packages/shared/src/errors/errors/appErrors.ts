@@ -61,6 +61,28 @@ export class KeylessDataCorruptedError extends OneKeyAppError {
   override name = EOneKeyErrorClassNames.KeylessDataCorruptedError;
 }
 
+// Thrown when a speed-up / cancel (replace) transaction targets a nonce that
+// has already been consumed on-chain (original tx confirmed or replaced).
+// Carries a user-friendly, already-localized message and auto-toasts so the
+// raw backend error (e.g. server code 40024) is not surfaced to the user.
+export class ReplaceTxNonceConsumedError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage:
+          'The transaction has been confirmed or replaced and can no longer be sped up or canceled.',
+        defaultKey: ETranslations.global_nonce_error_lower,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.ReplaceTxNonceConsumed;
+
+  override name = EOneKeyErrorClassNames.ReplaceTxNonceConsumed;
+
+  override autoToast?: boolean | undefined = true;
+}
+
 export class IncorrectMasterPassword extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(
@@ -85,6 +107,19 @@ export class LocalDBRecordNotFoundError extends OneKeyAppError {
   }
 
   override className = EOneKeyErrorClassNames.LocalDBRecordNotFoundError;
+}
+
+export class LocalDBIndexedAccountIndexConflictError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'LocalDBIndexedAccountIndexConflictError',
+      }),
+    );
+  }
+
+  override className =
+    EOneKeyErrorClassNames.LocalDBIndexedAccountIndexConflictError;
 }
 
 export class TransferInvalidCodeError extends OneKeyAppError {
@@ -381,6 +416,29 @@ export class WrongPassword extends OneKeyAppError {
       }),
     );
   }
+
+  override className: EOneKeyErrorClassNames =
+    EOneKeyErrorClassNames.WrongPassword;
+}
+
+// Thrown when a local secret envelope (LSE) cannot be unwrapped because its
+// required platform layer (secureStorage/keychain, IndexedDB CryptoKey) is
+// transiently unavailable (e.g. keychain busy at cold start). This is NOT a
+// wrong-password condition: the password may be correct, so callers must
+// surface a retryable error instead of masking it as WrongPassword.
+export class LocalSecretEnvelopeUnavailable extends OneKeyAppError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'LocalSecretEnvelopeUnavailable',
+        defaultKey: ETranslations.global_try_again,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override className: EOneKeyErrorClassNames =
+    EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable;
 }
 
 export class SecureQRCodeDialogCancel extends OneKeyAppError {

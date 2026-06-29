@@ -69,7 +69,11 @@ function useIframeWheelPassthrough(scrollRef: RefObject<HTMLElement | null>) {
   }, [scrollRef]);
 }
 
-export function DesktopLayout() {
+export function DesktopLayout({
+  showFavoriteButton = true,
+}: {
+  showFavoriteButton?: boolean;
+}) {
   const {
     tokenAddress,
     networkId,
@@ -77,8 +81,6 @@ export function DesktopLayout() {
     isNative,
     websocketConfig,
     isStockToken,
-    chartSymbol,
-    chartDecimal,
   } = useTokenDetail();
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
@@ -131,15 +133,14 @@ export function DesktopLayout() {
           borderRightWidth="$px"
           borderRightColor="$borderSubdued"
         >
-          <TokenDetailHeader />
+          <TokenDetailHeader showFavoriteButton={showFavoriteButton} />
 
           <Stack h={MARKET_DETAIL_LAYOUT.chartHeight} overflow="hidden">
-            {networkId && chartSymbol ? (
+            {networkId && tokenDetail?.symbol ? (
               <MarketTradingView
                 tokenAddress={tokenAddress}
                 networkId={networkId}
-                tokenSymbol={chartSymbol}
-                decimal={chartDecimal}
+                tokenSymbol={tokenDetail?.symbol}
                 isNative={isNative}
                 dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
                 onTouchScroll={handleTradingViewTouchScroll}

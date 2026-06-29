@@ -3,6 +3,7 @@ export {
   usePerpsAllMidsAtom,
   usePerpsMidByCoin,
   useL2BookAtom,
+  usePerpsL2BookColdCacheAtom,
   useBboAtom,
   useBboForOrderPrice,
   useConnectionStateAtom,
@@ -12,7 +13,6 @@ export {
   usePerpsActiveTwapOrdersLengthAtom,
   usePerpsTwapHistoryAtom,
   usePerpsTwapSliceFillsAtom,
-  usePerpsOpenOrdersByCoin,
   useActiveTradeInstrumentAtom,
   useTradeRouteViewStateAtom,
   useTradingFormAtom,
@@ -44,6 +44,7 @@ export type {
   IPerpsActiveTwapOrdersAtom,
   IPerpsTwapHistoryAtom,
   IPerpsTwapSliceFillsAtom,
+  IPerpsL2BookColdCacheAtom,
 } from './atoms';
 
 export { useHyperliquidActions } from './actions';

@@ -104,6 +104,7 @@ coverage/
 /packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.text-js
 /packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.js.LICENSE.txt
 /packages/kit/src/components/WebView/translateInject.text-js
+/packages/kit/src/components/LightweightChart/utils/lightweightChartsStandalone.text-js
 /packages/shared/src/web/index.html
 /mobile/android/build-logic/privacy-security-plugins/bin/main/onekey/privacy/jpush
 apps/mobile/android/.kotlin/
@@ -157,10 +158,3 @@ apps/mobile/android/app/src/main/assets/modules.json
 /_bmad/
 /_bmad-output/
 /.skillshare/skills/bmad-*
-
-# Offline TradingView chart bundle (fetched by
-# development/scripts/fetch-tradingview-assets.mjs, bundled into the native
-# apps + desktop asar at build time, never committed).
-apps/mobile/tradingview-assets/
-apps/mobile/android/app/src/main/assets/tradingview-assets/
-apps/desktop/app/tradingview-assets/

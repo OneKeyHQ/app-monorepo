@@ -88,49 +88,59 @@ function BaseHomeHeaderContainer() {
   }, [wallet?.id, wallet?.type, isWalletNotBackedUp, homeBalanceState]);
 
   return (
-    <HomeTokenListProviderMirror>
-      <YStack
-        pb="$8"
+    <YStack
+      pb="$8"
+      gap="$5"
+      minHeight={nativeMinHeight}
+      $gtMd={{ gap: '$8' }}
+      bg="$bgApp"
+      pointerEvents="box-none"
+    >
+      <Stack
+        testID={HomeTestIDs.headerContainer}
         gap="$5"
-        minHeight={nativeMinHeight}
-        $gtMd={{ gap: '$8' }}
+        pt="$5"
+        $gtMd={{
+          pt: '$8',
+        }}
+        px="$pagePadding"
         bg="$bgApp"
         pointerEvents="box-none"
       >
-        <Stack
-          testID={HomeTestIDs.headerContainer}
-          gap="$5"
-          pt="$5"
-          $gtMd={{
-            pt: '$8',
-          }}
-          px="$pagePadding"
-          bg="$bgApp"
-          pointerEvents="box-none"
-        >
+        <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
+          <Stack gap="$2.5">
+            <HomeOverviewContainer />
+          </Stack>
+        </HeaderScrollGestureWrapper>
+        {isWalletNotBackedUp ? null : (
           <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
-            <Stack gap="$2.5">
-              <HomeOverviewContainer />
-            </Stack>
+            <WalletActions />
           </HeaderScrollGestureWrapper>
-          {isWalletNotBackedUp ? null : (
-            <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
-              <WalletActions />
-            </HeaderScrollGestureWrapper>
-          )}
-        </Stack>
-        {/* Always mount so initLocalBanners + remote fetch effects run.
-            Without this, gating on `shouldShowBanner` (which requires
-            banners.length > 0) creates a deadlock — banner data is only
-            written to the atom from WalletBanner's own useEffect, so the
-            atom would stay empty and the banner would never appear after
-            a fresh install + first import. The visual hide on
-            zero-balance / not-backed-up still works via the `hidden`
-            prop. */}
-        <WalletBanner hidden={!shouldShowBanner} />
-      </YStack>
-    </HomeTokenListProviderMirror>
+        )}
+      </Stack>
+      {/* Always mount so initLocalBanners + remote fetch effects run.
+          Without this, gating on `shouldShowBanner` (which requires
+          banners.length > 0) creates a deadlock — banner data is only
+          written to the atom from WalletBanner's own useEffect, so the
+          atom would stay empty and the banner would never appear after
+          a fresh install + first import. The visual hide on
+          zero-balance / not-backed-up still works via the `hidden`
+          prop. */}
+      <WalletBanner hidden={!shouldShowBanner} />
+    </YStack>
   );
 }
 
-export const HomeHeaderContainer = memo(BaseHomeHeaderContainer);
+// The provider mirror must wrap the component (not live inside its return):
+// `useHomeBalanceState` reads tokenList context atoms, so the hook call in
+// `BaseHomeHeaderContainer`'s body has to sit inside the provider.
+// Note: on the URL-account page (which reuses HomePageView) the token list is
+// written to the separate urlAccountHomeTokenList store, not this mirror's
+// homeTokenList store — the hook's owner-stamp guard absorbs the mismatch and
+// the holdings override simply stays inactive there (worth-only behavior).
+export const HomeHeaderContainer = memo(() => (
+  <HomeTokenListProviderMirror>
+    <BaseHomeHeaderContainer />
+  </HomeTokenListProviderMirror>
+));
+HomeHeaderContainer.displayName = 'HomeHeaderContainer';
