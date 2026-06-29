@@ -74,6 +74,7 @@
     "i18n:add:keychain": "yarn keychain yarn workspace @onekeyhq/shared i18n:add",
     "i18n:add:oenv": "yarn oenv yarn workspace @onekeyhq/shared i18n:add",
     "i18n:search": "yarn workspace @onekeyhq/shared i18n:search",
+    "i18n:unused": "yarn workspace @onekeyhq/shared i18n:unused",
     "clean": "yarn workspaces foreach -A  -p run clean && node ./development/scripts/clean_workspace.js",
     "clean:cache": "yarn workspaces foreach -A run clean:build",
     "patch:fix": "node development/patch-fix.js",
