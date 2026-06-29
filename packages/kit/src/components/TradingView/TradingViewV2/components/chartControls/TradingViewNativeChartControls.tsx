@@ -2,7 +2,13 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, IconButton, Stack, XStack } from '@onekeyhq/components';
+import {
+  Dialog,
+  IconButton,
+  ScrollView,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { CalendarPanelPopover } from '../calendarControls/CalendarPanelPopover';
@@ -101,7 +107,9 @@ export const TradingViewNativeChartControls = memo(
     const intl = useIntl();
     const { updateActiveIndicatorValue } = nativeIndicatorState;
     const isDesktopLayout = layoutMode === 'desktop';
-    const hasCalendarControl = Boolean(onCalendarPanelSubmit);
+    const hasCalendarControl = Boolean(
+      isDesktopLayout && onCalendarPanelSubmit,
+    );
     const hasFullscreenControl = Boolean(onFullscreenChange);
     const hasHistoryControls = Boolean(isDesktopLayout && onUndo && onRedo);
     const {
@@ -308,9 +316,10 @@ export const TradingViewNativeChartControls = memo(
       );
     }, [onPriceMarketCapModeChange, priceMarketCap, showPriceMarketCapSelect]);
 
-    const calendarControl = onCalendarPanelSubmit ? (
-      <CalendarPanelPopover onSubmit={onCalendarPanelSubmit} />
-    ) : null;
+    const calendarControl =
+      hasCalendarControl && onCalendarPanelSubmit ? (
+        <CalendarPanelPopover onSubmit={onCalendarPanelSubmit} />
+      ) : null;
 
     const settingsControl = settingsEnabled ? (
       <IconButton
@@ -395,34 +404,35 @@ export const TradingViewNativeChartControls = memo(
       return (
         <Stack bg="$bgApp" px="$4" py="$1" zIndex={3}>
           <XStack alignItems="center" width="100%" gap="$2">
-            <XStack
+            <ScrollView
+              horizontal
               flex={1}
               minWidth={0}
-              alignItems="center"
-              gap="$2"
-              overflow="hidden"
+              showsHorizontalScrollIndicator={false}
             >
-              {intervalSelector}
+              <XStack alignItems="center" gap="$2" flexShrink={0}>
+                {intervalSelector}
 
-              {intervalSelector && hasLeftChartTools ? (
-                <ToolbarSeparator />
-              ) : null}
+                {intervalSelector && hasLeftChartTools ? (
+                  <ToolbarSeparator />
+                ) : null}
 
-              {hasLeftChartTools ? (
-                <XStack gap="$0.5" alignItems="center" flexShrink={0}>
-                  {chartTypeControl}
-                  {indicatorControl}
-                  {calendarControl}
-                  {settingsControl}
-                </XStack>
-              ) : null}
+                {hasLeftChartTools ? (
+                  <XStack gap="$0.5" alignItems="center" flexShrink={0}>
+                    {chartTypeControl}
+                    {indicatorControl}
+                    {calendarControl}
+                    {settingsControl}
+                  </XStack>
+                ) : null}
 
-              {(intervalSelector || hasLeftChartTools) && undoRedoControls ? (
-                <ToolbarSeparator />
-              ) : null}
+                {(intervalSelector || hasLeftChartTools) && undoRedoControls ? (
+                  <ToolbarSeparator />
+                ) : null}
 
-              {undoRedoControls}
-            </XStack>
+                {undoRedoControls}
+              </XStack>
+            </ScrollView>
 
             <XStack gap="$2" alignItems="center" flexShrink={0}>
               {priceMarketCapControl}
