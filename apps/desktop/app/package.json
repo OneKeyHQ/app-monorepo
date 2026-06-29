@@ -14,7 +14,7 @@
     "@stoprocent/noble": "2.3.16",
     "adm-zip": "0.5.17",
     "electron-check-biometric-auth-changed": "1.0.0",
-    "electron-updater": "6.7.3",
+    "electron-updater": "6.8.9",
     "iconv-lite": "0.6.3",
     "mime-db": "1.52.0",
     "passport-desktop": "0.1.2",
