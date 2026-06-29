@@ -83,7 +83,17 @@ import { destroyTrayWindow, getTrayWindow } from './tray/trayWindow';
 
 import type { IpcMainLike } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
 
-initSentry();
+// Perf: defer Sentry init off the synchronous module-init path. `@sentry/electron`
+// is external (~5MB); requiring + initializing it on the next tick keeps the
+// require()/parse out of the cold-start eval window.
+//
+// Use process.nextTick (not setImmediate): it fires before any timer/IO callback,
+// so Sentry's global error handlers are installed at the earliest possible point
+// after synchronous eval — and always before the first window (created in
+// app.whenReady()). This minimizes the window in which an early async error would
+// go unreported. (Synchronous top-level errors during app.js eval remain
+// pre-Sentry by construction; native crashes are still covered out-of-band.)
+process.nextTick(initSentry);
 
 const isPerfCiMode = process.env.PERF_CI_MODE === '1';
 const isDesktopE2EMode = process.env.DESKTOP_E2E_MODE === 'true';
