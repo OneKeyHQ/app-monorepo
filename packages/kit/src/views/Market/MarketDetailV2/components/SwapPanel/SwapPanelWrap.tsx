@@ -11,6 +11,7 @@ import {
   useIsOverlayPage,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -57,6 +58,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     isReady,
   } = useTokenDetail();
   const intl = useIntl();
+  const currencyInfo = useCurrency();
   const isModalPage = useIsOverlayPage();
   const inPageDialog = useInPageDialog(
     isModalPage ? EInPageDialogType.inModalPage : EInPageDialogType.inTabPages,
@@ -211,6 +213,14 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   const effectiveCustomPriorityFee = marketPresetSettings.enabled
     ? marketPresetSettings.selectedPriorityFeeOverride
     : undefined;
+  const shouldUseConvertedMarketPrice =
+    currencyInfo.id !== 'usd' && Boolean(tokenDetail?.priceConverted);
+  const marketTokenPrice = shouldUseConvertedMarketPrice
+    ? tokenDetail?.priceConverted
+    : tokenDetail?.price;
+  const marketTokenCurrency = shouldUseConvertedMarketPrice
+    ? currencyInfo.id
+    : 'usd';
   const currentFromTokenAmount =
     tradeType === ESwapDirection.BUY
       ? paymentAmount.toFixed()
@@ -224,7 +234,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       symbol: tokenDetail?.symbol || '',
       decimals: tokenDetail?.decimals || 0,
       logoURI: tokenDetail?.logoUrl || '',
-      price: tokenDetail?.priceConverted || tokenDetail?.price || '',
+      price: marketTokenPrice || '',
+      currency: marketTokenCurrency,
       isNative: !!tokenDetail?.isNative,
     },
     tradeToken: {
@@ -234,6 +245,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       decimals: paymentToken?.decimals || 0,
       logoURI: paymentToken?.logoURI || '',
       price: paymentToken?.price || '',
+      currency: paymentToken?.currency,
       isNative: paymentToken?.isNative || false,
     },
     provider,
