@@ -24,8 +24,11 @@ import type {
   IFeeSui,
   IFeeTron,
   IFeeUTXO,
+  IGasAccountQuote,
+  IGasAccountUiState,
   IGasEIP1559,
   IGasLegacy,
+  IGasPayer,
   ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
@@ -144,6 +147,9 @@ function buildGasInfo(
     feeAlgo?: IFeeAlgo[];
     feeDot?: IFeeDot[];
     feeBudget?: IFeeSui[];
+    payer?: IGasPayer;
+    gasAccountEligible?: boolean;
+    gasAccountQuote?: IGasAccountQuote;
   },
   gasCommon: {
     baseFee?: string;
@@ -157,7 +163,7 @@ function buildGasInfo(
   customPriorityFee?: IMarketPresetPriorityFeeOverride,
   estimateFeeParams?: IEstimateFeeParams,
 ): ISwapGasInfo {
-  return applyCustomPriorityFeeToGasInfo({
+  const gasInfo = applyCustomPriorityFeeToGasInfo({
     gasInfo: {
       common: gasCommon,
       gas: pickFeeLevelValue(gasRes.gas, networkFeeLevel),
@@ -173,6 +179,14 @@ function buildGasInfo(
     customPriorityFee,
     estimateFeeParams,
   });
+  // Carry Gas Account sponsorship result from estimate-fee so the send path can
+  // attach the broadcast quoteId for sponsored Market Pro swaps.
+  return {
+    ...gasInfo,
+    payer: gasRes.payer,
+    gasAccountEligible: gasRes.gasAccountEligible,
+    gasAccountQuote: gasRes.gasAccountQuote,
+  };
 }
 
 function buildNativeTokenPrice(price?: string | number) {
@@ -242,11 +256,17 @@ async function estimateUnsignedTxGasInfo({
       accountId,
       encodedTx: unsignedTxItem.encodedTx,
     });
+  // Gas Account sponsorship pre-check from the build-tx response carried on the
+  // unsigned tx; forwarded so estimate-fee can return real eligibility/quote.
+  const gasAccountEnabled =
+    !!unsignedTxItem.swapInfo?.swapBuildResData?.result?.gasAccountEnabled;
   const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
     ...estimateFeeParamsResult,
     accountAddress,
     networkId,
     accountId,
+    scenario: 'swap',
+    gasAccountEnabled,
   });
 
   return {
@@ -1034,6 +1054,19 @@ async function updateUnsignedTxAndSendTx({
     encodedTx: updatedUnsignedTxItem.encodedTx,
   });
 
+  // When estimate-fee confirmed Gas Account sponsorship, attach the quote so the
+  // broadcast pays via the sponsor. Mirrors the transaction-confirm page.
+  const gasAccountUiState: IGasAccountUiState | undefined =
+    gasInfo.gasAccountEligible && gasInfo.gasAccountQuote?.quoteId
+      ? {
+          payer: gasInfo.payer,
+          gasAccountEligible: true,
+          gasAccountQuote: gasInfo.gasAccountQuote,
+          selectedPayer: 'gasAccount',
+          idempotencyKey: `gas-account:${gasInfo.gasAccountQuote.quoteId}`,
+        }
+      : undefined;
+
   const signedTx = await backgroundApiProxy.serviceSend.signAndSendTransaction({
     networkId,
     accountId,
@@ -1041,6 +1074,7 @@ async function updateUnsignedTxAndSendTx({
     signOnly: false,
     tronResourceRentalInfo,
     useDefaultRpc,
+    gasAccountUiState,
   });
 
   const decodedTx = await backgroundApiProxy.serviceSend.buildDecodedTx({
@@ -1127,7 +1161,17 @@ export async function sendMarketDirectUnsignedTxs({
   });
   let gasInfosFinal = gasInfos;
 
-  if (!unsignedTxArr.every((tx) => findGasInfo(gasInfosFinal, tx.encodedTx))) {
+  // For sponsored swaps, never reuse the preview gasInfos: re-run estimate-fee
+  // right before sending so the broadcast uses a fresh, non-expired
+  // gasAccountQuote.quoteId.
+  const needFreshGasForSponsor = unsignedTxArr.some(
+    (tx) => tx.swapInfo?.swapBuildResData?.result?.gasAccountEnabled,
+  );
+
+  if (
+    needFreshGasForSponsor ||
+    !unsignedTxArr.every((tx) => findGasInfo(gasInfosFinal, tx.encodedTx))
+  ) {
     gasInfosFinal = await resolveMarketGasInfos({
       accountAddress,
       accountId,

@@ -65,8 +65,11 @@ import type {
   IFeeSui,
   IFeeTron,
   IFeeUTXO,
+  IGasAccountQuote,
+  IGasAccountUiState,
   IGasEIP1559,
   IGasLegacy,
+  IGasPayer,
 } from '@onekeyhq/shared/types/fee';
 import {
   EMessageTypesEth,
@@ -847,11 +850,25 @@ export function useSwapBuildTx() {
         },
         encodedTx: updatedUnsignedTxItem.encodedTx,
       });
+      // When estimate-fee confirmed Gas Account sponsorship, attach the quote so
+      // broadcast pays via the sponsor. Mirrors the transaction-confirm page
+      // (TxFeeInfo): selectedPayer 'gasAccount' + `gas-account:${quoteId}` key.
+      const gasAccountUiState: IGasAccountUiState | undefined =
+        gasInfo.gasAccountEligible && gasInfo.gasAccountQuote?.quoteId
+          ? {
+              payer: gasInfo.payer,
+              gasAccountEligible: true,
+              gasAccountQuote: gasInfo.gasAccountQuote,
+              selectedPayer: 'gasAccount',
+              idempotencyKey: `gas-account:${gasInfo.gasAccountQuote.quoteId}`,
+            }
+          : undefined;
       const res = await backgroundApiProxy.serviceSend.signAndSendTransaction({
         networkId,
         accountId,
         unsignedTx: updatedUnsignedTxItem,
         signOnly: false,
+        gasAccountUiState,
       });
       const decodedTx = await backgroundApiProxy.serviceSend.buildDecodedTx({
         networkId,
@@ -1158,6 +1175,9 @@ export function useSwapBuildTx() {
         feeAlgo?: IFeeAlgo[];
         feeDot?: IFeeDot[];
         feeBudget?: IFeeSui[];
+        payer?: IGasPayer;
+        gasAccountEligible?: boolean;
+        gasAccountQuote?: IGasAccountQuote;
       },
       gasCommon: {
         baseFee?: string;
@@ -1210,7 +1230,7 @@ export function useSwapBuildTx() {
         feeBudgetLet = gasRes.feeBudget?.[0];
       }
 
-      return applyCustomPriorityFeeToGasInfo({
+      const gasInfo = applyCustomPriorityFeeToGasInfo({
         gasInfo: {
           common: gasCommon,
           gas: gasLet,
@@ -1226,6 +1246,14 @@ export function useSwapBuildTx() {
         customPriorityFee: swapNetWorkFeeLevel?.customPriorityFee,
         estimateFeeParams,
       });
+      // Carry Gas Account sponsorship result from estimate-fee so it flows into
+      // both the preview (sponsored badge) and the send path (broadcast quoteId).
+      return {
+        ...gasInfo,
+        payer: gasRes.payer,
+        gasAccountEligible: gasRes.gasAccountEligible,
+        gasAccountQuote: gasRes.gasAccountQuote,
+      };
     },
     [
       swapNetWorkFeeLevel?.networkFeeLevel,
@@ -1250,6 +1278,12 @@ export function useSwapBuildTx() {
       const stepGasInfos =
         swapStepsRef.current.preSwapData.netWorkFee?.gasInfos;
       const swapInfo = buildUnsignedParams?.swapInfo;
+      // Backend Gas Account pre-check from the build-tx response. When the
+      // sponsorship candidate flag is on we must re-run estimate-fee right
+      // before sending to obtain a fresh, non-expired gasAccountQuote.quoteId,
+      // so we skip the cached-gas fast path below for sponsored swaps.
+      const isGasAccountEnabled =
+        !!swapInfo?.swapBuildResData?.result?.gasAccountEnabled;
       const buildUnsignedParamsCheckNonce = { ...buildUnsignedParams };
       if (approveUnsignedTxArr?.length && approveUnsignedTxArr.length > 0) {
         buildUnsignedParamsCheckNonce.prevNonce =
@@ -1604,7 +1638,8 @@ export function useSwapBuildTx() {
         }
       } else if (
         findGasInfo(stepGasInfos ?? [], unsignedTx.encodedTx) &&
-        !needFetchGas
+        !needFetchGas &&
+        !isGasAccountEnabled
       ) {
         const gasInfoFinal = findGasInfo(
           stepGasInfos ?? [],
@@ -1649,6 +1684,7 @@ export function useSwapBuildTx() {
             networkId,
             accountId,
             scenario: 'swap',
+            gasAccountEnabled: isGasAccountEnabled,
           });
           if (!isApprove) {
             void swapEstimateFeeEvent(
@@ -2870,6 +2906,11 @@ export function useSwapBuildTx() {
         throw new OneKeyError('account error');
       }
       const swapInfo = buildUnsignedParams?.swapInfo;
+      // Gas Account sponsorship pre-check from the build-tx response; forwarded
+      // to estimate-fee so the preview can decide whether to show the sponsored
+      // badge based on the real `gasAccountEligible` response.
+      const isGasAccountEnabled =
+        !!swapInfo?.swapBuildResData?.result?.gasAccountEnabled;
       const buildUnsignedParamsCheckNonce = { ...buildUnsignedParams };
       if (approveUnsignedTxArr?.length && approveUnsignedTxArr.length > 0) {
         buildUnsignedParamsCheckNonce.prevNonce =
@@ -3082,6 +3123,7 @@ export function useSwapBuildTx() {
               networkId,
               accountId,
               scenario: 'swap',
+              gasAccountEnabled: isGasAccountEnabled,
             });
             void swapEstimateFeeEvent(
               ESwapEventAPIStatus.SUCCESS,
