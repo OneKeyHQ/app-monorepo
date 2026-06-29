@@ -2303,12 +2303,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             updateMeta,
           })
         ) {
-          // Keep the recent cold-start selection, but fill any num that is
-          // EMPTY in it from the (home-merged) DB map. Otherwise a sibling
-          // scene auto-mounted on the same route (e.g. swap on the Perps route)
-          // whose cold-start kept a non-default num1 but an empty num0 leaves
-          // num0 empty, then auto-selects index 0 and clobbers home's restored
-          // num0 via the home<->swap sync. Non-empty current slots are untouched.
+          // Keep the cold-start selection but fill EMPTY nums from the
+          // (home-merged) DB; else a sibling scene (e.g. swap on the Perps
+          // route) leaves num0 empty, auto-selects index 0, and clobbers home's
+          // restored num0 via the home<->swap sync. Non-empty slots untouched.
           const mergedSelectedAccountsMap = cloneDeep(selectedAccountsMap);
           Object.entries(selectedAccountsMapInDB ?? {}).forEach(
             ([numKey, dbAccount]) => {

@@ -372,8 +372,7 @@ export function LimitOrderForm({
     [perpsPositions, activeAsset?.coin],
   );
 
-  // Available-to-trade / current-position values for the summary card, mirroring
-  // the main trading panel.
+  // Available-to-trade / current-position values for the summary card.
   const perpsAvailableToTrade = useMemo(() => {
     const available = activeAssetData?.availableToTrade;
     if (!available) {
@@ -746,9 +745,8 @@ export function LimitOrderForm({
 
       const computedSizeBN = computeSizeBN(pressedSide, resolvedPriceBN);
       if (!computedSizeBN.isFinite() || computedSizeBN.lte(0)) {
-        // A slider percentage of the available balance only resolves to 0 when
-        // there is no available margin/balance, so surface that instead of the
-        // misleading "enter amount" hint (mirrors the main panel's behavior).
+        // A slider % resolving to 0 means no funds, so show that rather than the
+        // misleading "enter amount" hint.
         const pickedPercentButNoFunds =
           sizeInputMode === EPerpsSizeInputMode.SLIDER && sizePercent > 0;
         let emptySizeMessageId = ETranslations.perp_trade_amount_place_holder;
@@ -1348,9 +1346,7 @@ export function LimitOrderForm({
 // symbol/price are snapshotted at open; LimitOrderForm closes and the confirm
 // step re-asserts the live coin still matches, so a later active-asset switch
 // cannot submit a stale ticket against another coin.
-// Custom dialog title that appends the order-type info icon to the right of the
-// title text, reusing the trading panel's OrderTypeInfoButton (hover/tap shows
-// the limit-order explanation + "Learn more").
+// Dialog title with the order-type info icon (reuses the panel's OrderTypeInfoButton).
 function LimitOrderDialogTitle({ title }: { title: string }) {
   const intl = useIntl();
   const media = useMedia();

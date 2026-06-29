@@ -291,12 +291,9 @@ export function TradingViewPerpsV2(
   const intl = useIntl();
   const { restoreNonce } = useNetworkRestore();
 
-  // Source szDecimals from the background symbol-meta service, keyed by the
-  // chart's own `symbol`. The global perps/spot active-asset atoms are unusable
-  // here: this component renders under PerpsProviderMirror (so those globals
-  // read null/stale), and the chart symbol can differ from the trading panel's
-  // active asset. A wrong/empty szDecimals truncated chart-line quantities to a
-  // fallback (e.g. BTC position 0.00407 shown as "0") (OK-56902, OK-56903).
+  // Fetch szDecimals by the chart's own `symbol`: the global active-asset atoms
+  // read null/stale under PerpsProviderMirror and can lag the chart symbol,
+  // which truncated line quantities to a fallback (OK-56902, OK-56903).
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const tradeMode = activeTradeInstrument.mode;
   const szDecimalsKey = `${tradeMode}:${symbol}`;
@@ -327,9 +324,8 @@ export function TradingViewPerpsV2(
       cancelled = true;
     };
   }, [symbol, tradeMode]);
-  // Use the fetched precision only when it belongs to the current symbol/mode,
-  // so a switch can't briefly format the new coin's lines with the previous
-  // symbol's szDecimals; until the new fetch resolves it falls back below.
+  // Use the fetched precision only if it's for the current symbol/mode, so a
+  // switch can't briefly format the new coin's lines with the old precision.
   const szDecimals =
     szDecimalsEntry?.key === szDecimalsKey ? szDecimalsEntry.value : undefined;
   const _webviewKey = useMemo(() => {
