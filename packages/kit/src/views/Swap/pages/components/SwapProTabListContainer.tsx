@@ -23,6 +23,7 @@ import { ETabName, TabBarItem } from '../../../Perp/layouts/PerpMobileLayout';
 import { useSwapProSupportNetworksTokenList } from '../../hooks/useSwapPro';
 
 import LimitOrderList from './LimitOrderList';
+import SwapHistoryClearButton from './SwapHistoryClearButton';
 import SwapMarketHistoryList from './SwapMarketHistoryList';
 import SwapProCurrentSymbolEnable from './SwapProCurrentSymbolEnable';
 import SwapProPositionsList from './SwapProPositionsList';
@@ -206,10 +207,22 @@ const SwapProTabListContainer = memo(
             display={activeTab === ETabName.SwapOrderHistory ? 'flex' : 'none'}
             flex={1}
           >
-            <SwapProCurrentSymbolEnable />
+            {/* Order history is not scoped to the current token: no
+                "Current tokens" toggle here, and the list shows every order
+                regardless of the shared current-symbol filter. Swap & Bridge
+                and Pro share this surface, so they clear the same (non-stock)
+                dataset. */}
             {shouldRenderListContent ? (
               <XStack mx="$-6">
-                <SwapMarketHistoryList filterToken={filterToken} isPushModal />
+                <SwapMarketHistoryList
+                  isPushModal
+                  firstSectionRightAction={
+                    <SwapHistoryClearButton
+                      scope="swap"
+                      triggerVariant="icon"
+                    />
+                  }
+                />
               </XStack>
             ) : (
               <SwapProTabListSkeleton />

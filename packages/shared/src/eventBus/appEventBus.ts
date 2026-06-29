@@ -374,6 +374,7 @@ export interface IAppEventBusPayload {
     fromToken?: ISwapToken;
     toToken?: ISwapToken;
   };
+  [EAppEventBusNames.RefreshSwapHistoryList]: undefined;
   // De-facto "network list changed, refresh" signal. Emitted not only when a
   // custom network is added/removed, but also after a server-network sync that
   // changes the set (e.g. a network delisted to TRASH). All network selectors
