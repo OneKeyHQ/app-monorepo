@@ -61,6 +61,28 @@ export class KeylessDataCorruptedError extends OneKeyAppError {
   override name = EOneKeyErrorClassNames.KeylessDataCorruptedError;
 }
 
+// Thrown when a speed-up / cancel (replace) transaction targets a nonce that
+// has already been consumed on-chain (original tx confirmed or replaced).
+// Carries a user-friendly, already-localized message and auto-toasts so the
+// raw backend error (e.g. server code 40024) is not surfaced to the user.
+export class ReplaceTxNonceConsumedError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage:
+          'The transaction has been confirmed or replaced and can no longer be sped up or canceled.',
+        defaultKey: ETranslations.global_nonce_error_lower,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.ReplaceTxNonceConsumed;
+
+  override name = EOneKeyErrorClassNames.ReplaceTxNonceConsumed;
+
+  override autoToast?: boolean | undefined = true;
+}
+
 export class IncorrectMasterPassword extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(

@@ -239,7 +239,7 @@ export const TradingFormInput = memo(
           ifOnDialog
             ? undefined
             : {
-                borderColor: '$border',
+                borderColor: '$borderHover',
               }
         }
         borderWidth="$px"

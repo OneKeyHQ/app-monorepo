@@ -21,12 +21,12 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { LazyHeaderTitle } from '@onekeyhq/kit/src/components/LazyHeaderTitle';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -41,8 +41,10 @@ import {
 
 import {
   filterSwapMarketHistoryItems,
-  getSwapMarketPendingHistoryCount,
+  getSwapHistoryListTitleId,
   getSwapMarketPendingHistoryKey,
+  getSwapMarketPendingHistoryList,
+  isStockSwapHistoryItem,
 } from '../../utils/swapMarketHistory';
 import SwapMarketHistoryList from '../components/SwapMarketHistoryList';
 import { SwapProviderMirror } from '../SwapProviderMirror';
@@ -64,7 +66,9 @@ const SwapHistoryListModal = ({
     >();
   const { type } = route.params;
   const initialHistoryType =
-    type === EProtocolOfExchange.LIMIT ? type : EProtocolOfExchange.SWAP;
+    type === EProtocolOfExchange.LIMIT || type === EProtocolOfExchange.STOCK
+      ? type
+      : EProtocolOfExchange.SWAP;
   const [historyType, setHistoryType] =
     useState<EProtocolOfExchange>(initialHistoryType);
   const [{ swapHistoryPendingList, swapLimitOrders }] =
@@ -143,13 +147,23 @@ const SwapHistoryListModal = ({
     });
   }, [historyType, swapMarketTxHistoryList]);
 
-  const swapMarketPendingHistoryCount = useMemo(
+  const marketPendingHistoryItems = useMemo(
     () =>
-      getSwapMarketPendingHistoryCount(
+      getSwapMarketPendingHistoryList(
         swapHistoryPendingList,
         EProtocolOfExchange.SWAP,
       ),
     [swapHistoryPendingList],
+  );
+  const swapMarketPendingHistoryCount = useMemo(
+    () =>
+      marketPendingHistoryItems.filter((item) => !isStockSwapHistoryItem(item))
+        .length,
+    [marketPendingHistoryItems],
+  );
+  const stockPendingHistoryCount = useMemo(
+    () => marketPendingHistoryItems.filter(isStockSwapHistoryItem).length,
+    [marketPendingHistoryItems],
   );
   const limitPendingHistoryCount = useMemo(
     () =>
@@ -162,18 +176,23 @@ const SwapHistoryListModal = ({
   );
 
   const showHistoryInfoDot =
-    swapMarketPendingHistoryCount + limitPendingHistoryCount > 0;
+    swapMarketPendingHistoryCount +
+      stockPendingHistoryCount +
+      limitPendingHistoryCount >
+    0;
 
-  const historyTypeTitle = useMemo(() => {
-    if (historyType === EProtocolOfExchange.LIMIT) {
-      return intl.formatMessage({
-        id: ETranslations.swap_page_limit_dialog_title,
-      });
-    }
-    return intl.formatMessage({
-      id: ETranslations.perp_trade_market,
-    });
-  }, [historyType, intl]);
+  // Same key the route uses as its default header title, so opening the modal
+  // from the Swap & Bridge entry shows an identical title and does not flash
+  // from the route default to the dropdown title.
+  const swapBridgeLabel = useMemo(
+    () => intl.formatMessage({ id: ETranslations.swap_history_title }),
+    [intl],
+  );
+
+  const historyTypeTitle = useMemo(
+    () => intl.formatMessage({ id: getSwapHistoryListTitleId(historyType) }),
+    [historyType, intl],
+  );
 
   const cleanExcludeProtocols = useMemo(
     () => [EProtocolOfExchange.LIMIT, EProtocolOfExchange.PRIVATE_SEND],
@@ -208,6 +227,10 @@ const SwapHistoryListModal = ({
     setHistoryType(EProtocolOfExchange.SWAP);
   }, []);
 
+  const handleSelectStockHistoryType = useCallback(() => {
+    setHistoryType(EProtocolOfExchange.STOCK);
+  }, []);
+
   const handleSelectLimitHistoryType = useCallback(() => {
     setHistoryType(EProtocolOfExchange.LIMIT);
   }, []);
@@ -216,14 +239,26 @@ const SwapHistoryListModal = ({
     () => (
       <XStack alignItems="center" gap="$2" flex={1}>
         <SizableText size="$bodyMd" $gtMd={{ size: '$bodyLg' }}>
-          {intl.formatMessage({
-            id: ETranslations.perp_trade_market,
-          })}
+          {swapBridgeLabel}
         </SizableText>
         {renderHistoryTypeBadge(swapMarketPendingHistoryCount)}
       </XStack>
     ),
-    [intl, renderHistoryTypeBadge, swapMarketPendingHistoryCount],
+    [renderHistoryTypeBadge, swapBridgeLabel, swapMarketPendingHistoryCount],
+  );
+
+  const renderStockHistoryTypeLabel = useCallback(
+    () => (
+      <XStack alignItems="center" gap="$2" flex={1}>
+        <SizableText size="$bodyMd" $gtMd={{ size: '$bodyLg' }}>
+          {intl.formatMessage({
+            id: ETranslations.perps_token_selector_stocks,
+          })}
+        </SizableText>
+        {renderHistoryTypeBadge(stockPendingHistoryCount)}
+      </XStack>
+    ),
+    [intl, renderHistoryTypeBadge, stockPendingHistoryCount],
   );
 
   const renderLimitHistoryTypeLabel = useCallback(
@@ -243,9 +278,7 @@ const SwapHistoryListModal = ({
   const historyTypeItems = useMemo(
     () => [
       {
-        label: intl.formatMessage({
-          id: ETranslations.perp_trade_market,
-        }),
+        label: swapBridgeLabel,
         renderLabel: renderSwapHistoryTypeLabel,
         extra:
           historyType === EProtocolOfExchange.SWAP ? (
@@ -255,23 +288,47 @@ const SwapHistoryListModal = ({
       },
       {
         label: intl.formatMessage({
-          id: ETranslations.swap_page_limit_dialog_title,
+          id: ETranslations.perps_token_selector_stocks,
         }),
-        renderLabel: renderLimitHistoryTypeLabel,
+        renderLabel: renderStockHistoryTypeLabel,
         extra:
-          historyType === EProtocolOfExchange.LIMIT ? (
+          historyType === EProtocolOfExchange.STOCK ? (
             <Icon name="CheckLargeOutline" size="$4" color="$iconActive" />
           ) : undefined,
-        onPress: handleSelectLimitHistoryType,
+        onPress: handleSelectStockHistoryType,
       },
+      // Limit is not a history category on mobile (it lives in the Pro flow);
+      // only offer the Limit tab in the dropdown on desktop/web.
+      ...(platformEnv.isNative
+        ? []
+        : [
+            {
+              label: intl.formatMessage({
+                id: ETranslations.swap_page_limit_dialog_title,
+              }),
+              renderLabel: renderLimitHistoryTypeLabel,
+              extra:
+                historyType === EProtocolOfExchange.LIMIT ? (
+                  <Icon
+                    name="CheckLargeOutline"
+                    size="$4"
+                    color="$iconActive"
+                  />
+                ) : undefined,
+              onPress: handleSelectLimitHistoryType,
+            },
+          ]),
     ],
     [
       handleSelectLimitHistoryType,
+      handleSelectStockHistoryType,
       handleSelectSwapHistoryType,
       historyType,
       intl,
       renderLimitHistoryTypeLabel,
+      renderStockHistoryTypeLabel,
       renderSwapHistoryTypeLabel,
+      swapBridgeLabel,
     ],
   );
 
@@ -313,6 +370,9 @@ const SwapHistoryListModal = ({
       onConfirm: async () => {
         await backgroundApiProxy.serviceSwap.cleanSwapHistoryItems(undefined, {
           excludeProtocols: cleanExcludeProtocols,
+          // The Swap & Bridge tab hides stock trades, so its Clear must not
+          // delete stock history the user can't see here.
+          excludeStock: true,
         });
         void backgroundApiProxy.serviceApp.showToast({
           method: 'success',
@@ -350,7 +410,7 @@ const SwapHistoryListModal = ({
       onConfirm: () => {
         void backgroundApiProxy.serviceSwap.cleanSwapHistoryItems(
           [ESwapTxHistoryStatus.PENDING],
-          { excludeProtocols: cleanExcludeProtocols },
+          { excludeProtocols: cleanExcludeProtocols, excludeStock: true },
         );
         defaultLogger.swap.cleanSwapOrder.cleanSwapOrder({
           cleanFrom: ESwapCleanHistorySource.LIST,
@@ -529,13 +589,15 @@ const SwapHistoryListModal = ({
 
   const headerSelectType = useCallback(
     () => (
-      <LazyHeaderTitle>
-        <ActionList
-          title={historyTypeTitle}
-          items={historyTypeItems}
-          renderTrigger={historyTypeTrigger}
-        />
-      </LazyHeaderTitle>
+      // Render the ActionList directly (not via LazyHeaderTitle): on iOS the
+      // lazy wrapper returns null for ~380ms and the native header does not
+      // reliably re-render a headerTitle that started as null, leaving the
+      // title/dropdown blank.
+      <ActionList
+        title={historyTypeTitle}
+        items={historyTypeItems}
+        renderTrigger={historyTypeTrigger}
+      />
     ),
     [historyTypeItems, historyTypeTitle, historyTypeTrigger],
   );
@@ -611,7 +673,10 @@ const SwapHistoryListModal = ({
     <Page>
       <Page.Header
         headerRight={
-          historyType === EProtocolOfExchange.LIMIT ? undefined : deleteButton
+          historyType === EProtocolOfExchange.LIMIT ||
+          historyType === EProtocolOfExchange.STOCK
+            ? undefined
+            : deleteButton
         }
         headerRightNoGlass
         headerTitleAlign={gtMd ? 'left' : 'center'}
@@ -620,7 +685,7 @@ const SwapHistoryListModal = ({
       {historyType !== EProtocolOfExchange.LIMIT ? (
         <YStack flex={1}>
           {savingsBanner}
-          <SwapMarketHistoryList protocol={EProtocolOfExchange.SWAP} />
+          <SwapMarketHistoryList protocol={historyType} />
         </YStack>
       ) : (
         <LimitOrderListModalWithAllProvider storeName={storeName} />

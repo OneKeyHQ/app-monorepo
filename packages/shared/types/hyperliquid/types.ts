@@ -412,6 +412,8 @@ export interface IPerpTokenSelectorConfig {
   field: IPerpTokenSortField;
   direction: IPerpTokenSortDirection;
   activeTab: IPerpTokenSelectorTab | string; // string for dynamic tabs
+  sortSource?: 'default' | 'user';
+  sortSourceTab?: IPerpTokenSelectorTab | string;
 }
 
 // Deprecated: Use IPerpTokenSelectorConfig instead

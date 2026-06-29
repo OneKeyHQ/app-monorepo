@@ -11,6 +11,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { getSwapHistoryPreviewBadgeKind } from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapExtraStatus,
@@ -20,9 +21,12 @@ import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 
 import { Token } from '../../../components/Token';
 
+import { SwapHistoryPendingDot } from './SwapHistoryPendingDot';
+
 interface ISwapTxHistoryListCellProps {
   item: ISwapTxHistory;
   onClickCell: () => void;
+  previewMode?: boolean;
 }
 
 export const SwapTxHistoryAvatar = ({
@@ -56,9 +60,15 @@ export const SwapTxHistoryAvatar = ({
 const SwapTxHistoryListCell = ({
   item,
   onClickCell,
+  previewMode,
 }: ISwapTxHistoryListCellProps) => {
   const intl = useIntl();
   const statusBadge = useMemo(() => {
+    // The preview cell renders previewBadge instead, so skip building this badge
+    // in preview mode.
+    if (previewMode) {
+      return null;
+    }
     if (item.extraStatus === ESwapExtraStatus.HOLD) {
       return (
         <Badge badgeType="warning" badgeSize="lg">
@@ -98,7 +108,51 @@ const SwapTxHistoryListCell = ({
       );
     }
     return null;
-  }, [intl, item.extraStatus, item.status]);
+  }, [intl, item.extraStatus, item.status, previewMode]);
+
+  const previewBadge = useMemo(() => {
+    if (!previewMode) {
+      return null;
+    }
+    const kind = getSwapHistoryPreviewBadgeKind(item);
+    if (kind === 'none') {
+      return null;
+    }
+    if (kind === 'hold') {
+      return (
+        <Badge badgeType="warning" badgeSize="sm">
+          {intl.formatMessage({ id: ETranslations.swap_ch_status_hold })}
+        </Badge>
+      );
+    }
+    if (kind === 'pending') {
+      return (
+        <Badge badgeType="info" badgeSize="sm">
+          <XStack alignItems="center" gap="$1">
+            <SwapHistoryPendingDot />
+            <Badge.Text>
+              {intl.formatMessage({
+                id: ETranslations.swap_history_status_pending,
+              })}
+            </Badge.Text>
+          </XStack>
+        </Badge>
+      );
+    }
+    if (kind === 'failed') {
+      return (
+        <Badge badgeType="critical" badgeSize="sm">
+          {intl.formatMessage({ id: ETranslations.swap_history_status_failed })}
+        </Badge>
+      );
+    }
+    return (
+      <Badge badgeType="default" badgeSize="sm">
+        {intl.formatMessage({ id: ETranslations.swap_history_status_canceled })}
+      </Badge>
+    );
+  }, [previewMode, item, intl]);
+
   const subContent = useMemo(() => {
     const isBridge =
       item.baseInfo?.fromNetwork?.networkId !==
@@ -120,20 +174,31 @@ const SwapTxHistoryListCell = ({
   ]);
 
   const title = useMemo(() => {
+    // Stock trades are labelled Buy/Sell instead of Swap/Bridge: receiving the
+    // stock token (toToken.isStock) is a Buy, paying with it (fromToken.isStock)
+    // is a Sell.
+    const fromStock = Boolean(item.baseInfo?.fromToken?.isStock);
+    const toStock = Boolean(item.baseInfo?.toToken?.isStock);
+    if (fromStock || toStock) {
+      return intl.formatMessage({
+        id: toStock ? ETranslations.global_buy : ETranslations.global_sell,
+      });
+    }
+
     // Determine if this is a bridge or swap transaction
     const isBridge =
       item.baseInfo?.fromNetwork?.networkId !==
       item.baseInfo?.toNetwork?.networkId;
 
-    const displayText = intl.formatMessage({
+    return intl.formatMessage({
       id: isBridge
         ? ETranslations.swap_page_bridge
         : ETranslations.swap_page_swap,
     });
-
-    return displayText;
   }, [
     intl,
+    item.baseInfo?.fromToken?.isStock,
+    item.baseInfo?.toToken?.isStock,
     item.baseInfo.fromNetwork?.networkId,
     item.baseInfo.toNetwork?.networkId,
   ]);
@@ -186,7 +251,7 @@ const SwapTxHistoryListCell = ({
               >
                 {title}
               </SizableText>
-              {statusBadge}
+              {previewMode ? previewBadge : statusBadge}
             </XStack>
             <SizableText
               size="$bodySm"

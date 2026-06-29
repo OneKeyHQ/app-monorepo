@@ -371,7 +371,7 @@ const TokenInfoCellDesktop = memo(() => {
             minWidth={0}
           >
             <Token
-              size="xs"
+              size="sm"
               borderRadius="$full"
               tokenImageUri={getHyperliquidTokenImageUrl(
                 isSpot ? token.name : token.displayName,
@@ -415,7 +415,7 @@ const TokenInfoCellDesktop = memo(() => {
                 ) : null}
               </XStack>
               {token.subtitle ? (
-                <SubtitleText subtitle={token.subtitle} maxWidth={66} />
+                <SubtitleText subtitle={token.subtitle} maxWidth={120} />
               ) : null}
             </YStack>
           </XStack>
@@ -930,7 +930,7 @@ const TokenVolumeMobile = memo(() => {
       >
         <XStack gap="$1" alignItems="center" minWidth={0}>
           {token.subtitle ? (
-            <SubtitleText subtitle={token.subtitle} maxWidth={80} />
+            <SubtitleText subtitle={token.subtitle} maxWidth={120} />
           ) : null}
           <SkeletonContainer isLoading={isLoading} width={80} height={16}>
             <SizableText size="$bodySm" color="$textSubdued">

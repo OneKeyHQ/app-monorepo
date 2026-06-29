@@ -5,7 +5,7 @@ import { useIsFocused } from '@react-navigation/core';
 import { rootNavigationRef } from '@onekeyhq/components';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-const getRootRoutersLength = () =>
+export const getRootRoutersLength = () =>
   rootNavigationRef.current?.getRootState()?.routes?.length || 1;
 
 export const useRouteIsFocused = ({
