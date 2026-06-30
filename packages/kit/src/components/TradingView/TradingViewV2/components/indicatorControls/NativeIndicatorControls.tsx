@@ -1,7 +1,6 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { ScrollView as GestureHandlerScrollView } from 'react-native-gesture-handler';
 
 import {
   Button,
@@ -15,7 +14,6 @@ import {
   useDialogInstance,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { HEADER_ICON_BUTTON_STYLE_PROPS } from '../utils/NativeChartControlsShared';
 
@@ -276,19 +274,9 @@ export const TradingViewNativeIndicatorQuickBar = memo(
         bg="$bgApp"
         zIndex={3}
       >
-        {platformEnv.isNativeAndroid ? (
-          <GestureHandlerScrollView
-            horizontal
-            nestedScrollEnabled
-            showsHorizontalScrollIndicator={false}
-          >
-            {quickBarContent}
-          </GestureHandlerScrollView>
-        ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {quickBarContent}
-          </ScrollView>
-        )}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {quickBarContent}
+        </ScrollView>
       </Stack>
     );
   },

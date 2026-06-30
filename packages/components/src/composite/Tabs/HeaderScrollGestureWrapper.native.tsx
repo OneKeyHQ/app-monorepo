@@ -1,7 +1,12 @@
 import type { PropsWithChildren } from 'react';
 import { useCallback, useContext, useMemo, useState } from 'react';
 
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import {
+  Gesture,
+  GestureDetector,
+  type GestureStateManager,
+  type GestureTouchEvent,
+} from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
   runOnJS,
@@ -84,6 +89,8 @@ export function HeaderScrollGestureWrapper({
         ? measuredWidth * safeExcludeRightEdgeRatio
         : 0;
     const safeExcludeBottomEdgeHeight = Math.max(0, excludeBottomEdgeHeight);
+    const shouldFailExcludedTouches =
+      safeExcludeRightEdgeRatio > 0 || safeExcludeBottomEdgeHeight > 0;
     const gestureHitSlop =
       excludedRightEdgeWidth > 0 || safeExcludeBottomEdgeHeight > 0
         ? {
@@ -115,6 +122,18 @@ export function HeaderScrollGestureWrapper({
 
       return false;
     };
+    const failIfStartPointExcluded = (
+      event: GestureTouchEvent,
+      stateManager: GestureStateManager,
+    ) => {
+      'worklet';
+
+      const touch = event.changedTouches[0] ?? event.allTouches[0];
+      if (touch && shouldIgnoreByStartPoint(touch.x, touch.y)) {
+        isGestureEnabled.value = false;
+        stateManager.fail();
+      }
+    };
 
     let verticalPanGesture = Gesture.Pan()
       .enabled(!disabled)
@@ -125,8 +144,14 @@ export function HeaderScrollGestureWrapper({
       verticalPanGesture = verticalPanGesture.hitSlop(gestureHitSlop);
     }
 
+    verticalPanGesture =
+      verticalPanGesture.cancelsTouchesInView(cancelChildTouches);
+    if (shouldFailExcludedTouches) {
+      verticalPanGesture = verticalPanGesture.onTouchesDown(
+        failIfStartPointExcluded,
+      );
+    }
     verticalPanGesture = verticalPanGesture
-      .cancelsTouchesInView(cancelChildTouches)
       .onStart((e) => {
         'worklet';
 
@@ -192,8 +217,14 @@ export function HeaderScrollGestureWrapper({
       horizontalPanGesture = horizontalPanGesture.hitSlop(gestureHitSlop);
     }
 
+    horizontalPanGesture =
+      horizontalPanGesture.cancelsTouchesInView(cancelChildTouches);
+    if (shouldFailExcludedTouches) {
+      horizontalPanGesture = horizontalPanGesture.onTouchesDown(
+        failIfStartPointExcluded,
+      );
+    }
     horizontalPanGesture = horizontalPanGesture
-      .cancelsTouchesInView(cancelChildTouches)
       .onStart((e) => {
         'worklet';
 
