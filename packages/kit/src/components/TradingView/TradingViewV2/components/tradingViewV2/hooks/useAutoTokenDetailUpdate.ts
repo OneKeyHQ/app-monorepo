@@ -1,8 +1,7 @@
 import { type RefObject, useCallback, useEffect, useRef } from 'react';
 
+import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
 import { useTokenDetailAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
-
-import type { IWebViewRef } from '../../../WebView/types';
 
 interface IAutoTokenDetailUpdateParams {
   tokenAddress: string;
