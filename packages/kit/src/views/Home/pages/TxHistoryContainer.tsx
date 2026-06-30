@@ -51,6 +51,7 @@ import { maybeOpenPrivateSendHistoryDetail } from '../../Swap/utils/privateSendH
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 
+import { useFrozenTopHistoryData } from './hooks/useFrozenTopHistoryData';
 import { useHistoryListLoadMore } from './hooks/useHistoryListLoadMore';
 
 function TxHistoryListContainer(
@@ -567,6 +568,16 @@ function TxHistoryListContainer(
     [historyData, appendedTxs],
   );
 
+  // OK-57070: freeze top-of-list growth while the user is scrolled away from
+  // the top. A background refresh that prepends new rows would otherwise shift
+  // the viewport and make the native SectionList jitter (it has no exact
+  // item layout). Held rows merge in automatically once the user scrolls back
+  // near the top. Pass-through on web/desktop and for preview / plain lists.
+  const displayedHistoryData = useFrozenTopHistoryData(
+    combinedHistoryData,
+    isFocused && isRouteFocused && !plainMode && !limit,
+  );
+
   const lastVisibilityRefreshAtRef = useRef(0);
   const handleRefreshOnVisibilityActive = useCallback(() => {
     const now = Date.now();
@@ -651,7 +662,7 @@ function TxHistoryListContainer(
       inTabList
       hideValue
       onRefresh={onHomePageRefresh}
-      data={combinedHistoryData}
+      data={displayedHistoryData}
       onPressHistory={handleHistoryItemPress}
       showHeader
       showFooter

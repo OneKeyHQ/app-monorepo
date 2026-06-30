@@ -12,6 +12,7 @@ import {
   useHistoryListActions,
   withHistoryListProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
+import { useFrozenTopHistoryData } from '@onekeyhq/kit/src/views/Home/pages/hooks/useFrozenTopHistoryData';
 import { useHistoryListLoadMore } from '@onekeyhq/kit/src/views/Home/pages/hooks/useHistoryListLoadMore';
 import { maybeOpenPrivateSendHistoryDetail } from '@onekeyhq/kit/src/views/Swap/utils/privateSendHistory';
 import {
@@ -207,6 +208,14 @@ function TokenDetailsHistoryContent({
       ? unionBy([...firstPageHistory, ...appendedTxs], (tx) => tx.id)
       : firstPageHistory;
   }, [tokenHistory, cachedHistory, appendedTxs]);
+
+  // OK-57070: same native top-insertion jitter fix as the wallet history tab.
+  // Only engages inside the collapsible tab (where the scroll position is
+  // meaningful and the user can be scrolled deep); a pass-through otherwise.
+  const displayedHistory = useFrozenTopHistoryData(
+    resolvedHistory,
+    !!inTabList && focusParam,
+  );
   // Derive initialized synchronously to avoid one-frame flash of empty history
   // when historyCacheKey changes and cachedHistory becomes undefined
   const effectiveInit = historyInit || cachedHistory !== undefined;
@@ -279,7 +288,7 @@ function TokenDetailsHistoryContent({
       indexedAccountId={indexedAccountId}
       inTabList={inTabList}
       initialized={effectiveInit}
-      data={resolvedHistory}
+      data={displayedHistory}
       onPressHistory={handleHistoryItemPress}
       ListHeaderComponent={ListHeaderComponent as React.ReactElement}
       isSingleAccount
