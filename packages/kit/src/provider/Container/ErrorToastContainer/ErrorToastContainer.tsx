@@ -6,10 +6,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import {
-  buildToastTracePayload,
-  logToastTrace,
-} from '@onekeyhq/shared/src/utils/debug/toastTrace';
 
 import { getErrorAction } from './ErrorToasts';
 import { shouldSuppressNetworkErrorToast } from './offlineNetworkToastGuard';
@@ -49,13 +45,6 @@ export function ErrorToastContainer() {
         isInternetReachable,
         payload: p,
       });
-      logToastTrace(
-        'container-decision',
-        buildToastTracePayload(p, {
-          isInternetReachable,
-          shouldSuppress,
-        }),
-      );
       if (shouldSuppress) {
         return;
       }

@@ -9,11 +9,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError'
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  getToastTraceStack,
-  logToastTrace,
-  shouldLogToastTracePayload,
-} from '@onekeyhq/shared/src/utils/debug/toastTrace';
 
 import { Portal } from '../../hocs';
 import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
@@ -430,46 +425,23 @@ export type IToastShowResult = {
   close: (extra?: { flag?: string }) => void | Promise<void>;
 };
 
-function traceToastCall(method: string, props: Partial<IToastProps>) {
-  const tracePayload = {
-    method,
-    title: props.title,
-    message: props.message,
-    toastId: props.toastId,
-  };
-  if (!shouldLogToastTracePayload(tracePayload)) {
-    return;
-  }
-
-  logToastTrace('toast-call', {
-    ...tracePayload,
-    stack: getToastTraceStack(),
-  });
-}
-
 export const Toast = {
   success: (props: IToastProps) => {
-    traceToastCall('success', props);
     return toastMessage({ haptic: 'success', ...props });
   },
   error: (props: IToastProps) => {
-    traceToastCall('error', props);
     return toastMessage({ haptic: 'error', ...props });
   },
   warning: (props: IToastProps) => {
-    traceToastCall('warning', props);
     return toastMessage({ haptic: 'warning', ...props });
   },
   message: (props: IToastProps) => {
-    traceToastCall('message', props);
     return toastMessage({ haptic: 'info', preset: 'none', ...props });
   },
   loading: (props: IToastProps) => {
-    traceToastCall('loading', props);
     return toastMessage({ haptic: 'loading', ...props });
   },
   notification: (props: IToastNotificationProps) => {
-    traceToastCall('notification', props);
     return toastNotification({ haptic: 'info', preset: 'none', ...props });
   },
   /* show custom view on Toast */

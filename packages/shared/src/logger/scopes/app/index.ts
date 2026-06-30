@@ -15,7 +15,6 @@ import { NetworkScene } from './scenes/network';
 import { PageScene } from './scenes/page';
 import { AppPerfScene } from './scenes/perf';
 import { RouterScene } from './scenes/router';
-import { ToastTraceScene } from './scenes/toastTrace';
 import { WebembedScene } from './scenes/webembed';
 
 export class AppScope extends BaseScope {
@@ -50,6 +49,4 @@ export class AppScope extends BaseScope {
   jsBundleDev = this.createScene('jsBundleDev', JsBundleDevScene);
 
   customUA = this.createScene('customUA', CustomUAScene);
-
-  toastTrace = this.createScene('toastTrace', ToastTraceScene);
 }
