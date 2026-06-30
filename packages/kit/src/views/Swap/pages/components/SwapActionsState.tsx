@@ -361,7 +361,10 @@ const SwapActionsState = ({
   );
 
   const showRecipientInMetaRow = useMemo(
-    () => !md && swapTypeSwitch !== ESwapTabSwitchType.LIMIT,
+    () =>
+      !md &&
+      swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+      swapTypeSwitch !== ESwapTabSwitchType.STOCK,
     [md, swapTypeSwitch],
   );
 

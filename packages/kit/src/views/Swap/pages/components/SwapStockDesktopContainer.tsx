@@ -127,6 +127,7 @@ import {
 } from '../modal/swapKLineChartUtils';
 
 import SwapActionsState from './SwapActionsState';
+import { SwapSettingsHeaderButton } from './SwapHeaderRightActionContainer';
 import SwapHistoryClearButton from './SwapHistoryClearButton';
 import SwapInputActions from './SwapInputActions';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
@@ -2041,44 +2042,51 @@ function SwapStockDesktopContent({
                       id: ETranslations.perps_token_selector_stocks,
                     })}
                   </SizableText>
-                  {historyBadgeCount > 0 ? (
-                    <Stack
-                      testID="swap-stock-history-button"
-                      w="$5"
-                      h="$5"
-                      userSelect="none"
-                      borderRadius="$full"
-                      borderColor="$icon"
-                      borderWidth={1.2}
-                      alignItems="center"
-                      justifyContent="center"
-                      hoverStyle={{
-                        bg: '$bgHover',
-                      }}
-                      pressStyle={{
-                        bg: '$bgActive',
-                      }}
-                      focusVisibleStyle={{
-                        outlineColor: '$focusRing',
-                        outlineWidth: 2,
-                        outlineStyle: 'solid',
-                        outlineOffset: 0,
-                      }}
-                      onPress={onOpenHistoryListModal}
-                    >
-                      <SizableText color="$text" size="$bodySm">
-                        {`${historyBadgeCount}`}
-                      </SizableText>
-                    </Stack>
-                  ) : (
-                    <HeaderIconButton
-                      testID="swap-stock-history-button"
-                      icon="ClockTimeHistoryOutline"
-                      size="small"
-                      iconProps={{ color: '$iconStrong' }}
-                      onPress={onOpenHistoryListModal}
+                  <XStack alignItems="center" gap="$2">
+                    <SwapSettingsHeaderButton
+                      iconSize="$5"
+                      iconColor="$iconStrong"
+                      compact
                     />
-                  )}
+                    {historyBadgeCount > 0 ? (
+                      <Stack
+                        testID="swap-stock-history-button"
+                        w="$5"
+                        h="$5"
+                        userSelect="none"
+                        borderRadius="$full"
+                        borderColor="$icon"
+                        borderWidth={1.2}
+                        alignItems="center"
+                        justifyContent="center"
+                        hoverStyle={{
+                          bg: '$bgHover',
+                        }}
+                        pressStyle={{
+                          bg: '$bgActive',
+                        }}
+                        focusVisibleStyle={{
+                          outlineColor: '$focusRing',
+                          outlineWidth: 2,
+                          outlineStyle: 'solid',
+                          outlineOffset: 0,
+                        }}
+                        onPress={onOpenHistoryListModal}
+                      >
+                        <SizableText color="$text" size="$bodySm">
+                          {`${historyBadgeCount}`}
+                        </SizableText>
+                      </Stack>
+                    ) : (
+                      <HeaderIconButton
+                        testID="swap-stock-history-button"
+                        icon="ClockTimeHistoryOutline"
+                        size="small"
+                        iconProps={{ color: '$iconStrong' }}
+                        onPress={onOpenHistoryListModal}
+                      />
+                    )}
+                  </XStack>
                 </XStack>
                 <StockTradeTicket
                   onSelectToken={onSelectToken}
