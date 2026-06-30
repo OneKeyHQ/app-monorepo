@@ -1,7 +1,10 @@
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
-import { buildBasicOptions } from '@onekeyhq/shared/src/modules3rdParty/sentry/basicOptions';
+import {
+  buildBasicOptions,
+  buildSentryReleaseName,
+} from '@onekeyhq/shared/src/modules3rdParty/sentry/basicOptions';
 
 // Perf: `@sentry/electron` is marked external (see scripts/build.js) so its ~5MB
 // (Sentry Node SDK + OpenTelemetry backend instrumentations) is NOT parsed as part
@@ -25,6 +28,7 @@ export const initSentry = () => {
   }
   Sentry.init({
     dsn,
+    release: buildSentryReleaseName(),
     enableRendererProfiling: true,
     ...buildBasicOptions({
       onError: (errorMessage, stacktrace) => {

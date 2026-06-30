@@ -18,6 +18,8 @@ const FILES_TO_DELETE_AFTER_UPLOAD = [
 module.exports = ({ platform, basePath }) => {
   const isExt = platform === babelTools.developmentConsts.platforms.ext;
   const isWeb = platform === babelTools.developmentConsts.platforms.web;
+  const shouldUploadSourcemapsByCli =
+    process.env.SENTRY_UPLOAD_BY_CLI === 'true';
   const rootPath = isExt
     ? path.join(basePath, 'build', utils.getOutputFolder())
     : path.join(basePath, 'web-build');
@@ -51,6 +53,7 @@ module.exports = ({ platform, basePath }) => {
           // lastResortScript: "window.location.href='/500.html';",
         }),
       !isExt &&
+        !shouldUploadSourcemapsByCli &&
         sentryWebpackPlugin({
           org: 'onekey-bb',
           debug: false,

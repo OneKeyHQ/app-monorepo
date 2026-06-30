@@ -4,16 +4,11 @@ name: release-desktop-all
 #   1. Build renderer once on ubuntu (fastest)
 #   2. Fan out to 3 platform jobs (mac, win, linux) — each packages multiple variants
 #
-# Triggered by daily-build / daily-build-dev completion, or manually via workflow_dispatch.
+# Triggered by daily-build / daily-build-dev dispatching an immutable CI tag,
+# or manually via workflow_dispatch.
 # This is the single source of truth for all desktop packaging.
 
 on:
-  workflow_run:
-    workflows:
-      - daily-build
-      - daily-build-dev
-    types:
-      - completed
   workflow_dispatch:
     inputs:
       build_number:
@@ -26,8 +21,33 @@ on:
         required: false
         type: string
         default: ''
+      source_ref_name:
+        description: "Original source ref name to use for build metadata when running from a temporary CI tag."
+        required: false
+        type: string
+        default: ''
       ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
         description: "Allow skipping GPG verification for bundle updates (default: false)"
+        required: false
+        type: boolean
+        default: false
+      notify_release:
+        description: "Notify Slack after packaging artifacts"
+        required: false
+        type: boolean
+        default: false
+      upload_mas_to_testflight:
+        description: "Validate and upload MAS package to TestFlight"
+        required: false
+        type: boolean
+        default: true
+      upload_snap_to_store:
+        description: "Upload Snap package to Snap Store edge"
+        required: false
+        type: boolean
+        default: false
+      cleanup_release_ref:
+        description: "Delete the temporary CI release tag after completion"
         required: false
         type: boolean
         default: false
@@ -37,17 +57,21 @@ permissions:
 
 env:
   ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
+  NOTIFY_RELEASE: ${{ github.event.inputs.notify_release || 'false' }}
+  UPLOAD_MAS_TO_TESTFLIGHT: ${{ github.event.inputs.upload_mas_to_testflight || 'true' }}
+  UPLOAD_SNAP_TO_STORE: ${{ github.event.inputs.upload_snap_to_store || 'false' }}
+  SOURCE_REF_NAME: ${{ github.event.inputs.source_ref_name || github.ref_name }}
 
 jobs:
   # ──────────────────────────────────────────────────
   # Stage 1: Build renderer once on ubuntu
   # ──────────────────────────────────────────────────
   renderer:
-    if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     uses: ./.github/workflows/build-desktop-renderer.yml
     with:
       build_number: ${{ github.event.inputs.build_number || '' }}
       build_bundle_version: ${{ github.event.inputs.build_bundle_version || '' }}
+      source_ref_name: ${{ github.event.inputs.source_ref_name || github.ref_name }}
       ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
     secrets:
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
@@ -86,6 +110,7 @@ jobs:
         uses: ./.github/actions/shared-env
         with:
           env_file_name: '.env'
+          source_ref_name: ${{ env.SOURCE_REF_NAME }}
           sentry_project: 'desktop'
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
@@ -236,7 +261,7 @@ jobs:
             ./apps/desktop/build-electron/*.zip
 
       - name: 'Notify to Slack - Mac DMG'
-        if: always() && github.event_name == 'workflow_run' && steps.phase1_dmg.outcome == 'success'
+        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase1_dmg.outcome == 'success'
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
@@ -314,7 +339,7 @@ jobs:
             ./apps/desktop/build-electron/mas-universal/*.pkg
 
       - name: Validate MAS for Testflight
-        if: always() && steps.build_main.outcome == 'success' && steps.phase2_mas.outcome == 'success' && (github.event_name != 'workflow_run' || github.event.workflow_run.name == 'daily-build')
+        if: always() && steps.build_main.outcome == 'success' && steps.phase2_mas.outcome == 'success' && env.UPLOAD_MAS_TO_TESTFLIGHT == 'true'
         env:
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
@@ -324,7 +349,7 @@ jobs:
           xcrun altool --validate-app --file "$PKG_FILE" -t macOS -u "$APPLEID" -p "$APPLEIDPASS" --show-progress
 
       - name: Upload MAS to Testflight
-        if: always() && steps.build_main.outcome == 'success' && steps.phase2_mas.outcome == 'success' && (github.event_name != 'workflow_run' || github.event.workflow_run.name == 'daily-build')
+        if: always() && steps.build_main.outcome == 'success' && steps.phase2_mas.outcome == 'success' && env.UPLOAD_MAS_TO_TESTFLIGHT == 'true'
         continue-on-error: true
         env:
           APPLEID: ${{ secrets.APPLEID }}
@@ -335,7 +360,7 @@ jobs:
           xcrun altool --upload-app --file "$PKG_FILE" -t macOS -u "$APPLEID" -p "$APPLEIDPASS" --show-progress
 
       - name: 'Notify to Slack - MAS'
-        if: always() && github.event_name == 'workflow_run' && steps.phase2_mas.outcome == 'success'
+        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase2_mas.outcome == 'success'
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
@@ -383,6 +408,7 @@ jobs:
         uses: ./.github/actions/shared-env
         with:
           env_file_name: '.env'
+          source_ref_name: ${{ env.SOURCE_REF_NAME }}
           sentry_project: 'desktop'
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
@@ -511,7 +537,7 @@ jobs:
             ./apps/desktop/build-electron/*.yml
 
       - name: 'Notify to Slack - Win NSIS'
-        if: always() && github.event_name == 'workflow_run' && steps.phase1_nsis.outcome == 'success'
+        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase1_nsis.outcome == 'success'
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
@@ -568,7 +594,7 @@ jobs:
             !./apps/desktop/build-electron/*-arm64.exe
 
       - name: 'Notify to Slack - WinMS'
-        if: always() && github.event_name == 'workflow_run' && steps.phase2_winms.outcome == 'success'
+        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase2_winms.outcome == 'success'
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
@@ -625,6 +651,7 @@ jobs:
         uses: ./.github/actions/shared-env
         with:
           env_file_name: '.env'
+          source_ref_name: ${{ env.SOURCE_REF_NAME }}
           sentry_project: 'desktop'
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
@@ -739,7 +766,7 @@ jobs:
             ./apps/desktop/build-electron/*.yml
 
       - name: 'Notify to Slack - Linux AppImage'
-        if: always() && github.event_name == 'workflow_run' && steps.phase1_appimage.outcome == 'success' && matrix.arch == 'amd64'
+        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase1_appimage.outcome == 'success' && matrix.arch == 'amd64'
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
@@ -788,7 +815,7 @@ jobs:
             ./apps/desktop/build-electron/*.snap
 
       - name: Upload Snap to Snap Store
-        if: always() && steps.phase2_snap.outcome == 'success' && github.event_name == 'workflow_run' && github.event.workflow_run.name == 'daily-build'
+        if: always() && steps.phase2_snap.outcome == 'success' && env.UPLOAD_SNAP_TO_STORE == 'true'
         continue-on-error: true
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
@@ -796,7 +823,7 @@ jobs:
           snapcraft push ./apps/desktop/build-electron/*.snap --release edge
 
       - name: 'Notify to Slack - Linux Snap'
-        if: always() && github.event_name == 'workflow_run' && steps.phase2_snap.outcome == 'success' && matrix.arch == 'amd64'
+        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase2_snap.outcome == 'success' && matrix.arch == 'amd64'
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
@@ -817,3 +844,23 @@ jobs:
           [[ "${{ steps.phase1_appimage.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase2_snap.outcome }}" == "failure" ]] && exit 1
           exit 0
+
+  cleanup-release-ref:
+    if: ${{ always() && github.event.inputs.cleanup_release_ref == 'true' && startsWith(github.ref, 'refs/tags/ci/desktop-release/') }}
+    needs:
+      - renderer
+      - package-mac
+      - package-win
+      - package-linux
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Delete temporary CI release tag
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${RELEASE_REF_NAME}"
