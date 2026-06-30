@@ -78,3 +78,32 @@ export function isSameIdSequence(
   }
   return true;
 }
+
+// Reference equality of the visible rows, used by the freeze hook to decide
+// whether a re-render can be skipped. Comparing ids alone (isSameIdSequence) is
+// too loose here: a poll can return the SAME tx ids whose objects were rebuilt
+// with updated content (pending -> confirmed / replaced, or backend-backfilled
+// fields). Skipping on id equality would keep the old object references on
+// screen, freezing stale content until a row is added/removed or the list
+// refocuses. Object identity changes whenever the upstream rebuilds a tx, so a
+// reference check lets genuine in-place updates flow through while still
+// skipping true no-op polls that reuse the same row objects. Re-rendering the
+// same ids in place never re-inserts at the top, so it cannot reintroduce the
+// OK-57070 jitter (which only the held-back leading rows can cause).
+export function isSameRowsByReference(
+  a: IAccountHistoryTx[],
+  b: IAccountHistoryTx[],
+): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (a.length !== b.length) {
+    return false;
+  }
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) {
+      return false;
+    }
+  }
+  return true;
+}

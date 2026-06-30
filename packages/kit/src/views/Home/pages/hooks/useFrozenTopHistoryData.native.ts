@@ -12,7 +12,7 @@ import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import {
   FREEZE_ENGAGE_OFFSET,
   FREEZE_RELEASE_OFFSET,
-  isSameIdSequence,
+  isSameRowsByReference,
   selectVisibleHistoryRows,
 } from './historyTopFreezeUtils';
 
@@ -44,7 +44,7 @@ export function useFrozenTopHistoryData(
       isAwayFromTop: isAwayFromTopRef.current,
       enabled,
     });
-    if (isSameIdSequence(next, displayedRef.current)) {
+    if (isSameRowsByReference(next, displayedRef.current)) {
       return;
     }
     displayedRef.current = next;
