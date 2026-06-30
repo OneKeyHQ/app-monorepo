@@ -1,11 +1,7 @@
 import { useCallback, useState } from 'react';
 
-import {
-  Button,
-  Page,
-  SortableListView,
-  SwipeableCell,
-} from '@onekeyhq/components';
+import { Button, Page, SwipeableCell } from '@onekeyhq/components';
+import { SortableListView } from '@onekeyhq/components/src/layouts/SortableListView';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 export const mapIndexToData = (_d: any, index: number, array: any[]) => {

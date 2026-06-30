@@ -1,4 +1,3 @@
-import { addBreadcrumb } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import type { ENotificationPushTopicTypes } from '@onekeyhq/shared/types/notification';
 
 import { BaseScene } from '../../../base/baseScene';
@@ -9,11 +8,15 @@ export class PageScene extends BaseScene {
   @LogToLocal()
   public pageView(pageName: string) {
     setTimeout(() => {
-      addBreadcrumb({
-        category: 'page',
-        message: pageName,
-        level: 'info',
-      });
+      void import('@onekeyhq/shared/src/modules3rdParty/sentry').then(
+        ({ addBreadcrumb }) => {
+          addBreadcrumb({
+            category: 'page',
+            message: pageName,
+            level: 'info',
+          });
+        },
+      );
     });
     return { pageName };
   }

@@ -19,32 +19,91 @@ import '@onekeyhq/kit-bg/src/hydration/hydrate';
 import '@onekeyhq/shared/src/security/sesHarden/installWeb';
 
 import { registerRootComponent } from 'expo';
+import React from 'react';
 
-import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
-import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
-import {
-  initSentry,
-  withSentryHOC,
-} from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import App from './App';
+
+const DEFERRED_SENTRY_INIT_DELAY_MS = 6000;
+
+class WebRootErrorBoundary extends React.PureComponent {
+  state = { error: null };
+
+  componentDidCatch(error) {
+    this.setState({ error });
+    void import('@onekeyhq/shared/src/modules3rdParty/sentry').then(
+      ({ captureException, initSentry }) => {
+        initSentry();
+        captureException(error);
+      },
+    );
+  }
+
+  render() {
+    if (this.state.error) {
+      return React.createElement(
+        'div',
+        {
+          style: {
+            alignItems: 'center',
+            display: 'flex',
+            height: '100vh',
+            justifyContent: 'center',
+            padding: 24,
+          },
+        },
+        this.state.error?.message || 'unknown error by error boundary',
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+function RootApp() {
+  return React.createElement(
+    WebRootErrorBoundary,
+    null,
+    React.createElement(App),
+  );
+}
+
+function initSentryAfterStartup() {
+  const start = () => {
+    setTimeout(() => {
+      void import('@onekeyhq/shared/src/modules3rdParty/sentry').then(
+        ({ initSentry }) => initSentry(),
+      );
+    }, DEFERRED_SENTRY_INIT_DELAY_MS);
+  };
+
+  if (document.readyState === 'complete') {
+    start();
+  } else {
+    window.addEventListener('load', start, { once: true });
+  }
+}
 
 if (process.env.NODE_ENV !== 'production') {
   const { debugLandingLog } = require('@onekeyhq/shared/src/performance/init');
   debugLandingLog('imports done');
 }
 
-initSentry();
-
-void initIntercom();
+if (process.env.NODE_ENV === 'production') {
+  initSentryAfterStartup();
+} else {
+  void import('@onekeyhq/shared/src/modules3rdParty/sentry').then(
+    ({ initSentry }) => initSentry(),
+  );
+}
 
 if (process.env.NODE_ENV !== 'production') {
   const { debugLandingLog } = require('@onekeyhq/shared/src/performance/init');
-  debugLandingLog('sentry+intercom init done');
+  debugLandingLog('sentry init done');
 }
 
-registerRootComponent(withSentryHOC(App, SentryErrorBoundaryFallback));
+registerRootComponent(RootApp);
 
 if (process.env.NODE_ENV !== 'production') {
   const { debugLandingLog } = require('@onekeyhq/shared/src/performance/init');

@@ -391,20 +391,33 @@ function getToastLabel(
   }
 }
 
-function getLedgerActionAnimation(
+function resolveLottieModule(module: unknown): ILottieViewProps['source'] {
+  const lottieModule = module as { default?: ILottieViewProps['source'] };
+  return lottieModule.default ?? module;
+}
+
+async function getLedgerActionAnimation(
   action: string | undefined,
   themeVariant: 'light' | 'dark',
-): ILottieViewProps['source'] | null {
+): Promise<ILottieViewProps['source'] | null> {
   switch (action) {
     case EThirdPartyHardwareUiAction.confirmOnDevice:
     case EThirdPartyHardwareUiAction.openApp:
       return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/animations/confirm-on-ledger-dark.json') as ILottieViewProps['source'])
-        : (require('@onekeyhq/kit/assets/animations/confirm-on-ledger-light.json') as ILottieViewProps['source']);
+        ? resolveLottieModule(
+            await import('@onekeyhq/kit/assets/animations/confirm-on-ledger-dark.json'),
+          )
+        : resolveLottieModule(
+            await import('@onekeyhq/kit/assets/animations/confirm-on-ledger-light.json'),
+          );
     case EThirdPartyHardwareUiAction.unlockDevice:
       return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-dark.json') as ILottieViewProps['source'])
-        : (require('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-light.json') as ILottieViewProps['source']);
+        ? resolveLottieModule(
+            await import('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-dark.json'),
+          )
+        : resolveLottieModule(
+            await import('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-light.json'),
+          );
     default:
       return null;
   }
@@ -421,6 +434,9 @@ function DeviceActionToast({
 }) {
   const intl = useIntl();
   const [showCloseButton, setShowCloseButton] = useState(false);
+  const [animationSource, setAnimationSource] = useState<
+    ILottieViewProps['source'] | null
+  >(null);
   const themeVariant = useThemeVariant();
 
   useEffect(() => {
@@ -434,9 +450,21 @@ function DeviceActionToast({
 
   const label = getToastLabel(action, vendor, intl);
 
-  const animationSource = useMemo(() => {
-    if (vendor !== EHardwareVendor.ledger) return null;
-    return getLedgerActionAnimation(action, themeVariant);
+  useEffect(() => {
+    let cancelled = false;
+    setAnimationSource(null);
+    if (vendor !== EHardwareVendor.ledger) {
+      return undefined;
+    }
+    void getLedgerActionAnimation(action, themeVariant).then((source) => {
+      if (cancelled) {
+        return;
+      }
+      setAnimationSource(source);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [action, vendor, themeVariant]);
 
   return (

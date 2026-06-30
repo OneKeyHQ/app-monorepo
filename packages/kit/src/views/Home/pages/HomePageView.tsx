@@ -546,6 +546,9 @@ export function HomePageView({
   const [activeTabId, setActiveTabId] = useState<EHomeWalletTab | undefined>(
     initialTabId,
   );
+  const [mountedHomeTabIds, setMountedHomeTabIds] = useState<
+    Set<EHomeWalletTab>
+  >(() => (initialTabId ? new Set([initialTabId]) : new Set()));
 
   useEffect(() => {
     setActiveTabName((prev) =>
@@ -557,6 +560,20 @@ export function HomePageView({
       tabConfigs.some((tab) => tab.id === prev) ? prev : tabConfigs[0]?.id,
     );
   }, [tabConfigs]);
+
+  useEffect(() => {
+    if (!activeTabId) {
+      return;
+    }
+    setMountedHomeTabIds((prev) => {
+      if (prev.has(activeTabId)) {
+        return prev;
+      }
+      const next = new Set(prev);
+      next.add(activeTabId);
+      return next;
+    });
+  }, [activeTabId]);
 
   const renderToolbar = useCallback(
     ({ focusedTab }: { focusedTab: string }) => (
@@ -745,7 +762,13 @@ export function HomePageView({
         {tabConfigs.map((tab) => (
           <Tabs.Tab key={tab.name} name={tab.name}>
             <FreezeInactiveHomeTab tabName={tab.name}>
-              {tab.component}
+              {platformEnv.isNative ||
+              activeTabId === tab.id ||
+              mountedHomeTabIds.has(tab.id) ? (
+                tab.component
+              ) : (
+                <Stack flex={1} />
+              )}
             </FreezeInactiveHomeTab>
           </Tabs.Tab>
         ))}
@@ -763,6 +786,8 @@ export function HomePageView({
     handleTabChange,
     renderSubHeader,
     tabConfigs,
+    activeTabId,
+    mountedHomeTabIds,
   ]);
 
   const handleSwitchWalletHomeTab = useCallback(

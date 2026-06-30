@@ -3,16 +3,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { debounce, noop } from 'lodash';
 import { StyleSheet } from 'react-native';
 
-import type { ISortableListViewRef } from '@onekeyhq/components';
 import {
   Page,
-  SortableListView,
   Stack,
   XStack,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { SortableListView } from '@onekeyhq/components/src/layouts/SortableListView';
+import type { ISortableListViewRef } from '@onekeyhq/components/src/layouts/SortableListView';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHardwareWalletConnectStatus } from '@onekeyhq/kit/src/hooks/useHardwareWalletConnectStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';

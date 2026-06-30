@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StatusBar } from 'react-native';
-import zxcvbn from 'zxcvbn';
 
 import {
   Button,
@@ -21,6 +20,18 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IPrimeLoginDialogAtomPasswordData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+type IZxcvbn = typeof import('zxcvbn');
+
+let zxcvbnPromise: Promise<IZxcvbn> | undefined;
+
+async function loadZxcvbn(): Promise<IZxcvbn> {
+  zxcvbnPromise ??= import('zxcvbn').then((module) => {
+    const zxcvbnModule = module as { default?: IZxcvbn };
+    return zxcvbnModule.default ?? (module as unknown as IZxcvbn);
+  });
+  return zxcvbnPromise;
+}
 
 function PasswordStrengthBar({ score }: { score: number }) {
   const intl = useIntl();
@@ -118,19 +129,18 @@ export function PrimeLoginPasswordDialog({
     minSpecialCharacter: false,
     score: 0, // 0-4
   });
+  const passwordValidateRequestIdRef = useRef(0);
 
   const isValidPassword = useCallback(
-    (password: string) => {
+    async (password: string) => {
+      const requestId = passwordValidateRequestIdRef.current + 1;
+      passwordValidateRequestIdRef.current = requestId;
+
       let minLength = true;
       let minNumberCharacter = true;
       let minLetterCharacter = true;
       let minSpecialCharacter = true;
       let score = 0;
-
-      const zxcvbnUserInputs = [email.split('@')?.[0]].filter(Boolean);
-      // const zxcvbnUserInputs: string[] = [];
-      const result = zxcvbn(password, zxcvbnUserInputs);
-      score = result.score;
 
       if (password.length < 12) {
         minLength = false;
@@ -146,13 +156,23 @@ export function PrimeLoginPasswordDialog({
         minSpecialCharacter = false;
       }
 
-      setPasswordVerifyState({
+      const zxcvbn = await loadZxcvbn();
+      const zxcvbnUserInputs = [email.split('@')?.[0]].filter(Boolean);
+      // const zxcvbnUserInputs: string[] = [];
+      const result = zxcvbn(password, zxcvbnUserInputs);
+      score = result.score;
+
+      const nextPasswordVerifyState = {
         minLength,
         minNumberCharacter,
         minLetterCharacter,
         minSpecialCharacter,
         score,
-      });
+      };
+
+      if (requestId === passwordValidateRequestIdRef.current) {
+        setPasswordVerifyState(nextPasswordVerifyState);
+      }
 
       return (
         minLength &&
@@ -299,8 +319,8 @@ export function PrimeLoginPasswordDialog({
               }
               rules={{
                 validate: isRegister
-                  ? (value) => {
-                      if (!isValidPassword(value)) {
+                  ? async (value) => {
+                      if (!(await isValidPassword(value))) {
                         return false;
                       }
                       return true;

@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "main": "src/index.tsx",
+  "sideEffects": [
+    "**/*.css"
+  ],
   "dependencies": {
     "@onekeyfe/react-native-scroll-guard": "3.0.70",
     "@onekeyfe/react-native-segment-slider": "3.0.70",

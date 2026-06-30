@@ -2,17 +2,10 @@ import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type {
-  IDialogInstance,
-  IDragEndParamsWithItem,
-} from '@onekeyhq/components';
-import {
-  Dialog,
-  SortableListView,
-  Toast,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
+import { Dialog, Toast, XStack, YStack } from '@onekeyhq/components';
+import { SortableListView } from '@onekeyhq/components/src/layouts/SortableListView';
+import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   useMarketWatchListV2Atom,

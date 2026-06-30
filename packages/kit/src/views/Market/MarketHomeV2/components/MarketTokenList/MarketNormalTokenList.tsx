@@ -1,6 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { useMarketTokenList } from './hooks/useMarketTokenList';
 import { type IMarketToken } from './MarketTokenData';
 import { MarketTokenListBase } from './MarketTokenListBase';
@@ -69,8 +71,21 @@ function MarketNormalTokenList({
     }
   }, [isStockData, onStockDataChange, selectedCategory]);
 
+  useEffect(() => {
+    if (!platformEnv.isWeb || normalResult.data.length === 0) {
+      return;
+    }
+    const perfGlobal = globalThis as typeof globalThis & {
+      __onekeyMarketListReadyAt?: number;
+      __onekeyMarketListReadyCount?: number;
+    };
+    perfGlobal.__onekeyMarketListReadyAt ??= performance.now();
+    perfGlobal.__onekeyMarketListReadyCount = normalResult.data.length;
+  }, [normalResult.data.length]);
+
   return (
     <MarketTokenListBase
+      testID="market-normal-token-list"
       networkId={networkId}
       onItemPress={onItemPress}
       toolbar={toolbar}

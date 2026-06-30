@@ -78,7 +78,9 @@ async function migrateToMMKVIfNeeded() {
   ).migrateFromAsyncStorage(allKeys, probeKey);
 }
 
-export async function jotaiInit() {
+let jotaiInitPromise: ReturnType<typeof jotaiInitImpl> | undefined;
+
+async function jotaiInitImpl() {
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('jotaiInit start');
   }
@@ -222,4 +224,12 @@ export async function jotaiInit() {
   }
 
   return atoms;
+}
+
+export async function jotaiInit() {
+  jotaiInitPromise ??= jotaiInitImpl().catch((error: unknown) => {
+    jotaiInitPromise = undefined;
+    throw error;
+  });
+  return jotaiInitPromise;
 }

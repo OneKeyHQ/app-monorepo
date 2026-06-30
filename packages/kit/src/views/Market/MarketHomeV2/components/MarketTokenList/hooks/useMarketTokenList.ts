@@ -1,19 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useNetworkLoadingAnalytics } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/hooks/useNetworkLoadingAnalytics';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IMarketTokenListResponse } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketTokenListItem,
+  IMarketTokenListResponse,
+} from '@onekeyhq/shared/types/marketV2';
 
 import { TIME_RANGE_TO_API_MAP } from '../../../types';
 import {
+  getNativeTokenInfo,
   getNetworkLogoUri,
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
 
+import { fetchMarketTokenListForPlatform } from './marketTokenListPlatformApi';
+
+import type { IMarketTokenListResponseWithSource } from './marketTokenListPlatformApiTypes';
 import type { IMarketTimeRangeValue } from '../../../types';
 import type { IMarketToken } from '../MarketTokenData';
 
@@ -25,6 +32,130 @@ interface IUseMarketTokenListParams {
   type?: string;
   timeRange?: IMarketTimeRangeValue;
   pollingInterval?: number;
+}
+
+const MARKET_HOME_STABLE_REMOTE_MERGE_ROW_COUNT = 12;
+
+const MARKET_HOME_STABLE_REMOTE_PATCH_FIELDS: readonly (keyof IMarketTokenListItem)[] =
+  [
+    'price',
+    'marketCap',
+    'fdv',
+    'tvl',
+    'holders',
+    'priceChange1mPercent',
+    'priceChange5mPercent',
+    'priceChange30mPercent',
+    'priceChange1hPercent',
+    'priceChange2hPercent',
+    'priceChange4hPercent',
+    'priceChange8hPercent',
+    'priceChange24hPercent',
+    'trade1mCount',
+    'trade5mCount',
+    'trade30mCount',
+    'trade1hCount',
+    'trade2hCount',
+    'trade4hCount',
+    'trade8hCount',
+    'trade24hCount',
+    'buy1mCount',
+    'buy5mCount',
+    'buy30mCount',
+    'buy1hCount',
+    'buy2hCount',
+    'buy4hCount',
+    'buy8hCount',
+    'buy24hCount',
+    'sell1mCount',
+    'sell5mCount',
+    'sell30mCount',
+    'sell1hCount',
+    'sell2hCount',
+    'sell4hCount',
+    'sell8hCount',
+    'sell24hCount',
+    'uniqueWallet1m',
+    'uniqueWallet5m',
+    'uniqueWallet30m',
+    'uniqueWallet1h',
+    'uniqueWallet2h',
+    'uniqueWallet4h',
+    'uniqueWallet8h',
+    'uniqueWallet24h',
+    'volume1m',
+    'volume5m',
+    'volume30m',
+    'volume1h',
+    'volume2h',
+    'volume4h',
+    'volume8h',
+    'volume24h',
+    'volume1hChangePercent',
+    'volume2hChangePercent',
+    'volume4hChangePercent',
+    'volume8hChangePercent',
+    'volume24hChangePercent',
+    'liquidity',
+    'communityRecognized',
+  ];
+
+function getMarketTokenListItemStableKey(item: IMarketTokenListItem) {
+  const { isNative, normalizedAddress } = getNativeTokenInfo(
+    item.isNative,
+    item.address,
+  );
+  const tokenNetworkId = item.networkId || item.chainId || '';
+  return `${tokenNetworkId}:${isNative ? 'native' : normalizedAddress}`;
+}
+
+function patchMarketTokenListItemVolatileFields(
+  seedItem: IMarketTokenListItem,
+  remoteItem: IMarketTokenListItem,
+): IMarketTokenListItem {
+  const volatilePatch = Object.fromEntries(
+    MARKET_HOME_STABLE_REMOTE_PATCH_FIELDS.map((field) => [
+      field,
+      remoteItem[field],
+    ]),
+  ) as Partial<IMarketTokenListItem>;
+  return {
+    ...seedItem,
+    ...volatilePatch,
+  };
+}
+
+function mergeSeedFirstRowsWithRemote({
+  seedResponse,
+  remoteResponse,
+}: {
+  seedResponse: IMarketTokenListResponse;
+  remoteResponse: IMarketTokenListResponse;
+}): IMarketTokenListResponse {
+  const remoteByKey = new Map(
+    remoteResponse.list.map((item) => [
+      getMarketTokenListItemStableKey(item),
+      item,
+    ]),
+  );
+  const stableKeys = new Set<string>();
+  const stableSeedRows = seedResponse.list
+    .slice(0, MARKET_HOME_STABLE_REMOTE_MERGE_ROW_COUNT)
+    .map((seedItem) => {
+      const key = getMarketTokenListItemStableKey(seedItem);
+      stableKeys.add(key);
+      const remoteItem = remoteByKey.get(key);
+      return remoteItem
+        ? patchMarketTokenListItemVolatileFields(seedItem, remoteItem)
+        : seedItem;
+    });
+  const remoteRows = remoteResponse.list.filter(
+    (item) => !stableKeys.has(getMarketTokenListItemStableKey(item)),
+  );
+  return {
+    list: [...stableSeedRows, ...remoteRows],
+    total: remoteResponse.total,
+  };
 }
 
 export function useMarketTokenList({
@@ -95,18 +226,28 @@ export function useMarketTokenList({
   );
   const currentQueryKeyRef = useRef(currentQueryKey);
   currentQueryKeyRef.current = currentQueryKey;
+  const forceRemoteOnceRef = useRef(false);
+  const seedApiResultRef = useRef<
+    | {
+        queryKey: string;
+        response: IMarketTokenListResponse;
+      }
+    | undefined
+  >(undefined);
 
   const {
     result: apiResult,
     isLoading,
     run: fetchMarketTokenList,
-  } = usePromiseResult<IMarketTokenListResponse | undefined>(
+  } = usePromiseResult<IMarketTokenListResponseWithSource | undefined>(
     async () => {
       if (!hasNetworkId) {
         return undefined;
       }
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
+      const forceRemote = forceRemoteOnceRef.current;
+      forceRemoteOnceRef.current = false;
+      const response = await fetchMarketTokenListForPlatform(
+        {
           networkId: apiNetworkId,
           sortBy,
           sortType,
@@ -115,10 +256,34 @@ export function useMarketTokenList({
           minLiquidity,
           type,
           timeFrame,
-        });
+        },
+        { forceRemote },
+      );
+      const responseWithSource = response as IMarketTokenListResponseWithSource;
+      const seedApiResult = seedApiResultRef.current;
+      const shouldStableMergeRemote =
+        platformEnv.isWeb &&
+        forceRemote &&
+        !responseWithSource.__fromSeed &&
+        seedApiResult?.queryKey === currentQueryKeyRef.current;
+      const displayResponse = shouldStableMergeRemote
+        ? mergeSeedFirstRowsWithRemote({
+            seedResponse: seedApiResult.response,
+            remoteResponse: response,
+          })
+        : response;
+      if (responseWithSource.__fromSeed) {
+        seedApiResultRef.current = {
+          queryKey: currentQueryKeyRef.current,
+          response,
+        };
+      } else if (shouldStableMergeRemote) {
+        seedApiResultRef.current = undefined;
+      }
       return {
-        list: response.list,
-        total: response.total,
+        list: displayResponse.list,
+        total: displayResponse.total,
+        __fromSeed: responseWithSource.__fromSeed,
       };
     },
     [
@@ -132,6 +297,7 @@ export function useMarketTokenList({
       timeFrame,
     ],
     {
+      checkIsFocused: !platformEnv.isWeb,
       watchLoading: hasNetworkId,
       pollingInterval,
       revalidateOnFocus: true,
@@ -140,6 +306,23 @@ export function useMarketTokenList({
   );
 
   const effectiveIsLoading = hasNetworkId ? isLoading : false;
+  const isSeedResult = Boolean(apiResult?.__fromSeed);
+
+  useEffect(() => {
+    if (!platformEnv.isWeb || !isSeedResult || !hasNetworkId) {
+      return undefined;
+    }
+
+    const requestQueryKey = currentQueryKeyRef.current;
+    const timer = setTimeout(() => {
+      if (currentQueryKeyRef.current !== requestQueryKey) {
+        return;
+      }
+      forceRemoteOnceRef.current = true;
+      void fetchMarketTokenList();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchMarketTokenList, hasNetworkId, isSeedResult]);
 
   useEffect(() => {
     if (!hasNetworkId || !apiResult || !apiResult.list) {
@@ -195,8 +378,11 @@ export function useMarketTokenList({
 
   const refresh = useCallback(() => {
     // Don't clear data immediately - let new data load first
+    if (platformEnv.isWeb && isSeedResult) {
+      forceRemoteOnceRef.current = true;
+    }
     void fetchMarketTokenList();
-  }, [fetchMarketTokenList]);
+  }, [fetchMarketTokenList, isSeedResult]);
 
   const loadMore = useCallback(async () => {
     // Check if we can load more pages
@@ -219,17 +405,16 @@ export function useMarketTokenList({
 
     try {
       // Load the next page
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
-          networkId: apiNetworkId,
-          sortBy,
-          sortType,
-          page: nextPage,
-          limit: pageSize,
-          minLiquidity,
-          type,
-          timeFrame,
-        });
+      const response = await fetchMarketTokenListForPlatform({
+        networkId: apiNetworkId,
+        sortBy,
+        sortType,
+        page: nextPage,
+        limit: pageSize,
+        minLiquidity,
+        type,
+        timeFrame,
+      });
 
       if (currentQueryKeyRef.current !== requestQueryKey) {
         return;

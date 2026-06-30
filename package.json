@@ -56,6 +56,7 @@
     "perf:android:release:daemon": "node development/perf-ci/run-android-perf-detox-release-daemon.js",
     "perf:web:release": "node development/perf-ci/run-web-perf-release.js",
     "perf:web:release:daemon": "node development/perf-ci/run-web-perf-release-daemon.js",
+    "perf:web:cold": "node development/perf-ci/run-web-cold.js",
     "perf:web:prepare": "node development/perf-ci/run-web-perf-prepare.js",
     "perf:desktop:release": "node development/perf-ci/run-desktop-perf-release.js",
     "perf:desktop:release:daemon": "node development/perf-ci/run-desktop-perf-release-daemon.js",

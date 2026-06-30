@@ -87,6 +87,20 @@ const COMMIT_SHA = resolveCommitSha();
 
 const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
+const ICON_MODULE_TEST =
+  /[\\/]packages[\\/]components[\\/]src[\\/]primitives[\\/]Icon[\\/]react[\\/]/;
+
+function getIconChunkName(module: Module): string {
+  const resource = module.nameForCondition?.() || '';
+  const normalizedResource = resource.replaceAll(path.sep, '/');
+  const match = normalizedResource.match(
+    /\/Icon\/react\/([^/]+)\/([^/.]+)\.[jt]sx?$/,
+  );
+  const category = match?.[1] || 'misc';
+  const fileName = match?.[2] || 'misc';
+  const prefix = fileName.slice(0, 1).toLowerCase() || 'misc';
+  return `icons-${category}-${prefix}`;
+}
 
 class BuildDoneNotifyPlugin implements RspackPluginInstance {
   apply(compiler: Compiler) {
@@ -694,12 +708,10 @@ export function createBaseConfig({
         cacheGroups: {
           icons: {
             test: (module: Module): boolean => {
-              const iconTestRegex =
-                /[\\/]packages[\\/]components[\\/]src[\\/]primitives[\\/]Icon[\\/]react[\\/]/;
               const resource = module.nameForCondition?.();
-              return Boolean(resource && iconTestRegex.test(resource));
+              return Boolean(resource && ICON_MODULE_TEST.test(resource));
             },
-            name: 'icons',
+            name: getIconChunkName,
             chunks: 'async',
             enforce: true,
             priority: 30,

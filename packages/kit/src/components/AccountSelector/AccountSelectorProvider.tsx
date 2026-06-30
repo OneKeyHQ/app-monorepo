@@ -32,11 +32,13 @@ export function AccountSelectorProviderMirror({
   config,
   enabledNum,
   availableNetworksMap,
+  waitForStorageReady,
 }: {
   children?: any;
   config: IAccountSelectorContextData;
   enabledNum: number[];
   availableNetworksMap?: IAccountSelectorAvailableNetworksMap;
+  waitForStorageReady?: boolean;
 }) {
   if (!enabledNum || enabledNum.length <= 0) {
     throw new OneKeyLocalError(
@@ -61,7 +63,7 @@ export function AccountSelectorProviderMirror({
     <>
       <JotaiContextStoreMirrorTracker {...data} />
       <AccountSelectorJotaiProvider store={store} config={config}>
-        <AccountSelectorStorageReady>
+        <AccountSelectorStorageReady waitForStorageReady={waitForStorageReady}>
           <AccountSelectorAvailableNetworksInit
             availableNetworksMap={availableNetworksMap}
           />

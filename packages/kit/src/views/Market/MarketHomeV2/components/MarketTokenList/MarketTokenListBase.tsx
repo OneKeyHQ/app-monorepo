@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -20,9 +20,14 @@ import {
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
-import type { ETableSortType, ITableColumn } from '@onekeyhq/components';
+import type {
+  ETableSortType,
+  ITableColumn,
+  IXStackProps,
+} from '@onekeyhq/components';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
+import { useMarketWebDeferredFeaturesReady } from '@onekeyhq/kit/src/views/Market/utils/useMarketWebDeferredFeaturesReady';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   EAppEventBusNames,
@@ -60,6 +65,12 @@ const MARKET_HOME_WS_OVERSCAN_ROWS = 5;
 const MARKET_HOME_WS_MAX_SUBSCRIPTIONS = 80;
 const MARKET_HOME_WS_SCROLL_SYNC_DELAY_MS = 120;
 const MARKET_HOME_WS_DEBUG_SUBSCRIPTION_ROW_BG = 'rgba(255, 72, 72, 0.12)';
+const MARKET_HOME_WEB_EAGER_RICH_ROW_COUNT = 8;
+const MARKET_HOME_WEB_INITIAL_RENDER_ROW_COUNT = 16;
+const MARKET_HOME_WEB_ROW_CONTENT_VISIBILITY_STYLE = {
+  contentVisibility: 'auto',
+  containIntrinsicSize: '60px',
+} satisfies CSSProperties;
 // Watchlist mode: only these 3 columns are sortable (server-side sort)
 const SORTABLE_COLUMNS = {
   liquidity: 'liquidity',
@@ -281,6 +292,9 @@ function MarketTokenListBase({
   const isTabFocused = !tabName || stickyHeaderCtx?.activeTabName === tabName;
   const listRootRef = useRef<HTMLElement | null>(null);
   const [devSettings] = useDevSettingsPersistAtom();
+  const webTabIntegrated = tabIntegrated && !platformEnv.isNative;
+  const enableDeferredWebFeatures =
+    useMarketWebDeferredFeaturesReady(webTabIntegrated);
 
   const {
     data: rawData,
@@ -297,7 +311,11 @@ function MarketTokenListBase({
     currentSortType,
   } = result;
   const webSocketEnabled = Boolean(
-    enableWebSocket && isTabFocused && !platformEnv.isNative && !md,
+    enableWebSocket &&
+    isTabFocused &&
+    !platformEnv.isNative &&
+    !md &&
+    (!platformEnv.isWeb || !webTabIntegrated || enableDeferredWebFeatures),
   );
   const orderedData = useMemo(() => {
     if (!clientSort || !currentSortBy || !currentSortType) {
@@ -427,6 +445,14 @@ function MarketTokenListBase({
       shouldUseStockMetadataColumnsForTokens(rawData),
     [isWatchlistMode, rawData, showStockSubtitle],
   );
+  // Web tab integration gives the inner FlatList the full tab height so the
+  // outer Tabs.Container can own vertical scroll. During cold start, keep the
+  // visible rows rich and defer below-the-fold media/interactive decoration
+  // until after the measured startup window.
+  const deferRichRowAfterIndex =
+    platformEnv.isWeb && webTabIntegrated && !enableDeferredWebFeatures
+      ? MARKET_HOME_WEB_EAGER_RICH_ROW_COUNT
+      : undefined;
 
   const marketTokenColumns = useMarketTokenColumns(
     networkId,
@@ -439,6 +465,7 @@ function MarketTokenListBase({
     hiddenDesktopColumns,
     change24hColumnTitle,
     useStockMetadataColumns,
+    deferRichRowAfterIndex,
   );
 
   const data = useMemo(() => {
@@ -451,6 +478,21 @@ function MarketTokenListBase({
       liveTokenOverrides: [liveTokenOverride],
     });
   }, [websocketData, liveTokenOverride]);
+  const limitInitialWebRows =
+    platformEnv.isWeb &&
+    webTabIntegrated &&
+    !enableDeferredWebFeatures &&
+    data.length > MARKET_HOME_WEB_INITIAL_RENDER_ROW_COUNT;
+  const tableData = useMemo(
+    () =>
+      limitInitialWebRows
+        ? data.slice(0, MARKET_HOME_WEB_INITIAL_RENDER_ROW_COUNT)
+        : data,
+    [data, limitInitialWebRows],
+  );
+  const estimatedTableDataLength = limitInitialWebRows
+    ? data.length
+    : undefined;
 
   // Listen to MarketWatchlistOnlyChanged event to update sort settings
   // Skip for clientSort mode — banner detail pages manage their own sort state
@@ -585,6 +627,13 @@ function MarketTokenListBase({
 
   const stableOnRow = useCallback(
     (item: IMarketToken, index: number) => {
+      if (
+        deferRichRowAfterIndex !== undefined &&
+        index >= deferRichRowAfterIndex
+      ) {
+        return undefined;
+      }
+
       return {
         onPress: onItemPressRef.current
           ? () => onItemPressRef.current!(item)
@@ -621,6 +670,7 @@ function MarketTokenListBase({
     [
       debugSubscriptionRangeEnd,
       debugSubscriptionRangeStart,
+      deferRichRowAfterIndex,
       navigateToPerps,
       showWebSocketDebugRows,
       toMarketDetailPage,
@@ -649,7 +699,6 @@ function MarketTokenListBase({
   // On web with tabIntegrated, disable FlatList's own scroll so the outer
   // Tabs.Container handles scrolling (allows header to scroll away naturally).
   // Use IntersectionObserver as a replacement for onEndReached.
-  const webTabIntegrated = tabIntegrated && !platformEnv.isNative;
   const endSentinelRef = useRef<HTMLDivElement>(null);
 
   const TableFooterComponent = useMemo(() => {
@@ -763,6 +812,18 @@ function MarketTokenListBase({
     }),
     [],
   );
+  const tableRowProps = useMemo<IXStackProps | undefined>(() => {
+    const hasWebRowStyle = platformEnv.isWeb && webTabIntegrated;
+    if (!rowBg && !hasWebRowStyle) {
+      return undefined;
+    }
+    return {
+      ...(rowBg ? { bg: rowBg } : undefined),
+      ...(hasWebRowStyle
+        ? { style: MARKET_HOME_WEB_ROW_CONTENT_VISIBILITY_STYLE }
+        : undefined),
+    };
+  }, [rowBg, webTabIntegrated]);
 
   return (
     <Stack ref={listRootRef as any} flex={1} width="100%" testID={testID}>
@@ -812,15 +873,18 @@ function MarketTokenListBase({
               onDragEnd={onDragEnd}
               columns={marketTokenColumns}
               onEndReached={webTabIntegrated ? undefined : handleEndReached}
-              dataSource={data}
+              dataSource={tableData}
+              estimatedDataLength={estimatedTableDataLength}
               keyExtractor={(item) => item.id}
               extraData={networkId}
               onHeaderRow={stableHandleHeaderRow}
               TableEmptyComponent={TableEmptyComponent}
-              TableFooterComponent={TableFooterComponent}
+              TableFooterComponent={
+                limitInitialWebRows ? null : TableFooterComponent
+              }
               estimatedItemSize={60}
               onRow={stableOnRow}
-              {...(rowBg ? { rowProps: { bg: rowBg } } : undefined)}
+              rowProps={tableRowProps}
             />
           )}
           {/* Render end indicator outside the Table for draggable lists

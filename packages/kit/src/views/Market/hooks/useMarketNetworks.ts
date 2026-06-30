@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
+import { fetchMarketAllNetworksForPlatform } from './fetchMarketAllNetworksForPlatform';
 import { useMarketBasicConfig } from './useMarketBasicConfig';
 
 export function useMarketNetworks() {
@@ -27,9 +27,7 @@ export function useMarketNetworks() {
   const { result: allNetworks = [], isLoading: isServerNetworksLoading } =
     usePromiseResult(
       async () => {
-        const { networks } =
-          await backgroundApiProxy.serviceNetwork.getAllNetworks();
-        return networks;
+        return fetchMarketAllNetworksForPlatform();
       },
       [],
       {

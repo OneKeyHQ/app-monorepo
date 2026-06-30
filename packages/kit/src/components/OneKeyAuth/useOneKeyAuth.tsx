@@ -14,7 +14,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import supabaseStorageInstance from '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance';
-import { getSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
@@ -53,6 +52,7 @@ export function useOneKeyAuthMethods() {
     supabaseUser,
     signInWithOtp: supabaseSignInWithOtp,
     verifyOtp: supabaseVerifyOtp,
+    getSupabaseClient,
   } = useSupabaseAuth();
 
   const apiLogout = useCallback(async () => {
@@ -148,6 +148,7 @@ export function useOneKeyAuthMethods() {
     supabaseVerifyOtp,
     supabaseSignOut,
     signInWithSocialLogin,
+    getSupabaseClient,
   ]);
 }
 

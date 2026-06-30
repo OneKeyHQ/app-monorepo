@@ -6,14 +6,14 @@ Linting file xxx.tsx took 14762ms. Please check the ESLint rules for performance
 */
 import '@onekeyhq/shared/src/platformEnv';
 
-import { LOCALES as _LOCALES } from './localeJsonMap';
+import { LOCALE_KEYS, LOCALE_LOADERS } from './localeLoaders';
 
 import type { ETranslations } from './enum/translations';
 import type { ILocaleSymbol } from './type';
 
-export const LOCALES = _LOCALES as unknown as Record<
+export const LOCALES = LOCALE_LOADERS as unknown as Record<
   ILocaleSymbol,
-  Record<ETranslations, string> | (() => Promise<Record<ETranslations, string>>)
+  () => Promise<Record<ETranslations, string>>
 >;
 
 const defaultLanguage: Record<string, string> = {
@@ -50,13 +50,13 @@ const PRIORITY_LOCALE_KEYS: ILocaleSymbol[] = [
 
 const LOCALES_KEYS = [
   ...PRIORITY_LOCALE_KEYS,
-  ...Object.keys(LOCALES).filter(
+  ...LOCALE_KEYS.filter(
     (o) => !PRIORITY_LOCALE_KEYS.includes(o as ILocaleSymbol),
   ),
 ];
 
 const LOCALES_OPTION = LOCALES_KEYS.map((key) => ({
-  value: key as ILocaleSymbol,
+  value: key,
   label: getLanguage(key),
 }));
 

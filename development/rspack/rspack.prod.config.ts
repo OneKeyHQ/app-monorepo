@@ -75,11 +75,11 @@ export function createProductionConfig({
       splitChunks: {
         chunks: 'all',
         minSize: 102_400,
-        maxSize: 4_194_304,
+        maxSize: isWeb ? 614_400 : 4_194_304,
         hidePathInfo: true,
         automaticNameDelimiter: '.',
         name: false,
-        maxInitialRequests: 20,
+        maxInitialRequests: isWeb ? 60 : 20,
         maxAsyncRequests: 50_000,
         // Vendor cache groups for long-term caching (web/desktop only).
         // Extension uses its own code splitting via HtmlWebpackPlugin chunks,
@@ -102,8 +102,15 @@ export function createProductionConfig({
                 priority: 30,
                 reuseExistingChunk: true,
               },
+              supabaseVendor: {
+                test: /[\\/]node_modules[\\/]@supabase[\\/]/,
+                name: 'vendor-supabase',
+                chunks: 'async' as const,
+                priority: 35,
+                reuseExistingChunk: true,
+              },
               networkVendor: {
-                test: /[\\/]node_modules[\\/](axios|@supabase)[\\/]/,
+                test: /[\\/]node_modules[\\/]axios[\\/]/,
                 name: 'vendor-network',
                 chunks: 'all' as const,
                 priority: 30,

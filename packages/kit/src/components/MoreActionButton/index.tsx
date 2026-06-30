@@ -57,6 +57,7 @@ import {
   EModalRoutes,
   EModalSettingRoutes,
   ERootRoutes,
+  ESettingsTabNames,
 } from '@onekeyhq/shared/src/routes';
 import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
@@ -86,7 +87,6 @@ import { PrimeUserBadge } from '../../views/Prime/components/PrimeUserBadge';
 import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
 import { showRedemptionCenterDialog } from '../../views/Redemption/components/RedemptionCenterDialog';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
-import { ESettingsTabNames } from '../../views/Setting/pages/Tab/config';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 import {
   isShowAppUpdateUIWhenUpdating,

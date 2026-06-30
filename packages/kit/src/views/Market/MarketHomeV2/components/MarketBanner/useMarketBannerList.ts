@@ -1,7 +1,9 @@
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
+
+import { fetchMarketBannerListForPlatform } from './marketBannerListPlatformApi';
 
 export function useMarketBannerList(): {
   bannerList: IMarketBannerItem[];
@@ -16,13 +18,12 @@ export function useMarketBannerList(): {
     IMarketBannerItem[]
   >(
     async () => {
-      const data: IMarketBannerItem[] =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketBannerList();
-      return data;
+      return fetchMarketBannerListForPlatform({ enableMockMarketBanner });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [enableMockMarketBanner], // Used to trigger refetch when dev setting changes
     {
+      checkIsFocused: !platformEnv.isWeb,
       watchLoading: true,
       revalidateOnReconnect: true,
     },
