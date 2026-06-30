@@ -122,6 +122,30 @@ export class LocalDBIndexedAccountIndexConflictError extends OneKeyAppError {
     EOneKeyErrorClassNames.LocalDBIndexedAccountIndexConflictError;
 }
 
+// Thrown when the on-disk local database (Realm / IndexedDB) fails to open, for
+// ANY reason. A schema/version downgrade (on-disk DB newer than this build) is
+// only one possible cause — disk corruption, I/O failures, locking, low storage
+// etc. all surface here too. We do NOT try to classify the underlying cause (it
+// is brittle and easy to misclassify), so this is a generic "DB open failed"
+// error. The DB layer passes in the ORIGINAL underlying message as this error's
+// `message`, so logs / Sentry / the lock screen keep the real reason instead of
+// a masked one. We intentionally do NOT set an i18n `defaultKey`: the only
+// fallback (used when the underlying error carried no message) is the fixed
+// English `defaultMessage` below. (OK-56874)
+export class LocalDbOpenError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DB open unknown error',
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override className: EOneKeyErrorClassNames =
+    EOneKeyErrorClassNames.LocalDbOpenError;
+}
+
 export class TransferInvalidCodeError extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(

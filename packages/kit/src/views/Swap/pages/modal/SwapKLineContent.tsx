@@ -30,10 +30,10 @@ import {
   type ITradingViewKLineLoadErrorData,
   type ITradingViewKLinePeriodChangeData,
   type ITradingViewPriceUpdateData,
+  type ITradingViewV2KLineDataFallback,
   TRADING_VIEW_DISABLED_FEATURES,
   TradingViewV2,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
-import type { ITradingViewV2KLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/hooks/useTradingViewV2';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ProviderJotaiContextMarketV2 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import {

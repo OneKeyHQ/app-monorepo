@@ -1149,7 +1149,10 @@ const icons = {
   TouchId2Outline: () => import("./react/outline/TouchId2"),
   TpslOutline: () => import("./react/outline/Tpsl"),
   TradeOutline: () => import("./react/outline/Trade"),
+  TradingViewBarsOutline: () => import("./react/outline/TradingViewBars"),
   TradingViewCandlesOutline: () => import("./react/outline/TradingViewCandles"),
+  TradingViewCandlesHlcOutline: () =>
+    import("./react/outline/TradingViewCandlesHlc"),
   TradingViewLineOutline: () => import("./react/outline/TradingViewLine"),
   TrailingStopOutline: () => import("./react/outline/TrailingStop"),
   TranscriptionOutline: () => import("./react/outline/Transcription"),

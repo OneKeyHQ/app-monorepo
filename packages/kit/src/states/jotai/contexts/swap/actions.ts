@@ -6,6 +6,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { buildSwapDefaultSelectedTokensForNetwork } from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
+import {
+  removeSwapNoConnectWalletAlerts,
+  shouldShowSwapAccountUnsupportedAlert,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapNoWalletWarningGuard';
 import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
 import {
   isUSMarketStatusStockTokenSource,
@@ -131,6 +135,7 @@ import {
   swapSpeedQuoteResultAtom,
   swapStockExecutionTokenSyncIdAtom,
   swapStockExecutionTokensAtom,
+  swapStockSelectedTokenAtom,
   swapToTokenAmountAtom,
   swapTokenFetchingAtom,
   swapTokenMapAtom,
@@ -623,6 +628,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       if (toToken) {
         set(swapSelectToTokenAtom(), toToken);
+      }
+      let stockSelectedToken: ISwapToken | undefined;
+      if (fromToken?.isStock) {
+        stockSelectedToken = fromToken;
+      } else if (toToken?.isStock) {
+        stockSelectedToken = toToken;
+      }
+      if (stockSelectedToken) {
+        set(swapStockSelectedTokenAtom(), stockSelectedToken);
       }
       if (fromToken && toToken) {
         set(swapStockExecutionTokensAtom(), {
@@ -1520,6 +1534,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set,
       swapFromAddressInfo: ReturnType<typeof useSwapAddressInfo>,
       swapToAddressInfo: ReturnType<typeof useSwapAddressInfo>,
+      options?: {
+        allowNoConnectWallet?: boolean;
+      },
     ) => {
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
@@ -1605,11 +1622,35 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             states: alertsRes,
             quoteId: '',
           });
+        } else {
+          const alerts = get(swapAlertsAtom());
+          const nextAlerts = removeSwapNoConnectWalletAlerts(alerts.states);
+          if (nextAlerts.length !== alerts.states.length) {
+            set(swapAlertsAtom(), {
+              states: nextAlerts,
+              quoteId: alerts.quoteId,
+            });
+          }
         }
         return;
       }
+      const hasFromAccountWallet = Boolean(
+        swapFromAddressInfo.accountInfo?.wallet,
+      );
+      const hasFromAccount = Boolean(swapFromAddressInfo.accountInfo?.account);
       // check account
-      if (!swapFromAddressInfo.accountInfo?.wallet) {
+      if (
+        !hasFromAccountWallet ||
+        (!hasFromAccount && options?.allowNoConnectWallet)
+      ) {
+        if (!options?.allowNoConnectWallet) {
+          const alerts = get(swapAlertsAtom());
+          set(swapAlertsAtom(), {
+            states: removeSwapNoConnectWalletAlerts(alerts.states),
+            quoteId: alerts.quoteId,
+          });
+          return;
+        }
         // Set noConnectWallet flag without showing alert message
         set(swapAlertsAtom(), {
           states: [...alertsRes, { noConnectWallet: true }],
@@ -1658,16 +1699,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         id: ETranslations.swap_page_alert_account_does_not_support_swap,
       });
       if (
-        fromToken &&
-        !swapFromAddressInfo.address &&
-        !accountUtils.isHdWallet({
+        shouldShowSwapAccountUnsupportedAlert({
+          hasFromToken: Boolean(fromToken),
+          fromAddress: swapFromAddressInfo.address,
           walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-        }) &&
-        !accountUtils.isHwWallet({
-          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-        }) &&
-        !accountUtils.isQrWallet({
-          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+          accountId: swapFromAddressInfo.accountInfo?.account?.id,
         })
       ) {
         alertsRes = [
@@ -2306,6 +2342,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         accountId: accountIdKey,
         lpToken,
         currency,
+        protocol: swapTypeSwitchValue,
       });
       if (swapAllNetworkActionLock[tokenListCacheKey]) {
         return;

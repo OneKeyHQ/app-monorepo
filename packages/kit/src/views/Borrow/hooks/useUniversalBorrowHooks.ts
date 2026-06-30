@@ -5,14 +5,17 @@ import { useIntl } from 'react-intl';
 import { Toast } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { showDeFiActionTxConfirmDialog } from '@onekeyhq/kit/src/components/DeFi/DeFiActionTxConfirmResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type {
-  IRepayWithCollateralQuote,
-  IStakingInfo,
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
+import {
+  EEarnLabels,
+  type IRepayWithCollateralQuote,
+  type IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
@@ -146,26 +149,54 @@ const handleBorrowSuccess = async ({
   data,
   orderId,
   networkId,
+  accountId,
   stakingInfo,
   onSuccess,
 }: {
   data: ISendTxOnSuccessData[];
   orderId?: string;
   networkId: string;
+  accountId?: string;
   stakingInfo?: IStakingInfo;
   onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
 }) => {
   const latestTxId =
     Array.isArray(data) && data.length > 0 ? getLatestTxId(data) : undefined;
 
+  // Aave withdraw / repay get the shared confirming sheet before the caller's
+  // refresh; supply / borrow keep the existing pending-badge flow.
+  const label = stakingInfo?.label;
+  const shouldShowConfirmSheet =
+    !!accountId &&
+    (label === EEarnLabels.Withdraw || label === EEarnLabels.Repay);
+
   if (orderId && latestTxId) {
-    await backgroundApiProxy.serviceStaking.addEarnOrder({
+    const addEarnOrderPromise = backgroundApiProxy.serviceStaking.addEarnOrder({
       orderId,
       networkId,
       txId: latestTxId,
       status: data[data.length - 1]?.decodedTx.status,
       ...getEarnOrderTrackingInfo(stakingInfo),
     });
+    // Don't block the confirming sheet on order tagging: showing the sheet in
+    // the same tick the confirm modal pops is what keeps the handoff smooth.
+    // Non-sheet flows keep awaiting so their pending badge is ready on return.
+    if (shouldShowConfirmSheet) {
+      void addEarnOrderPromise.catch(() => undefined);
+    } else {
+      await addEarnOrderPromise;
+    }
+  }
+
+  if (shouldShowConfirmSheet && accountId) {
+    const finalStatus = await showDeFiActionTxConfirmDialog({
+      accountId,
+      networkId,
+      data,
+    });
+    if (finalStatus === EOnChainHistoryTxStatus.Failed) {
+      return;
+    }
   }
   onSuccess?.(data);
 };
@@ -235,6 +266,7 @@ export function useUniversalBorrowSupply({
             data,
             orderId: resp.orderId,
             networkId,
+            accountId,
             stakingInfo: stakingInfoWithOrderId,
             onSuccess,
           });
@@ -293,6 +325,7 @@ export function useUniversalBorrowWithdraw({
             data,
             orderId: resp.orderId,
             networkId,
+            accountId,
             stakingInfo: stakingInfoWithOrderId,
             onSuccess,
           });
@@ -349,6 +382,7 @@ export function useUniversalBorrowBorrow({
             data,
             orderId: resp.orderId,
             networkId,
+            accountId,
             stakingInfo: stakingInfoWithOrderId,
             onSuccess,
           });
@@ -407,6 +441,7 @@ export function useUniversalBorrowRepay({
             data,
             orderId: resp.orderId,
             networkId,
+            accountId,
             stakingInfo: stakingInfoWithOrderId,
             onSuccess,
           });
@@ -637,6 +672,7 @@ export function useUniversalBorrowRepayWithCollateral({
           data: repayConfirmResult.data,
           orderId: resp.orderId,
           networkId,
+          accountId,
           stakingInfo: stakingInfoWithOrderId,
           onSuccess,
         });
@@ -710,6 +746,7 @@ export function useUniversalBorrowClaim({
             data,
             orderId: resp.orderId,
             networkId,
+            accountId,
             stakingInfo: stakingInfoWithOrderId,
             onSuccess,
           });

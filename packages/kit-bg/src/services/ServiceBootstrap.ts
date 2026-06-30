@@ -1,5 +1,6 @@
 import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import '@onekeyhq/shared/src/storage/appStorage';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
@@ -127,6 +128,17 @@ class ServiceBootstrap extends ServiceBase {
       timedDeferred('serviceDevSetting.initAnalytics', () =>
         this.backgroundApi.serviceDevSetting.initAnalytics(),
       ),
+      // ext MV3 only: re-warm providers of already-connected dapps after a
+      // service-worker restart so notifyDApp* can reach them. Native/desktop
+      // rebuild their webviews on restart (dapp reconnects), so no warmup
+      // is needed there and it would just cost startup work.
+      ...(platformEnv.isExtension
+        ? [
+            timedDeferred('serviceDApp.warmupConnectedDappProviders', () =>
+              this.backgroundApi.serviceDApp.warmupConnectedDappProviders(),
+            ),
+          ]
+        : []),
       timedDeferred('serviceDevSetting.saveDevModeToSyncStorage', () =>
         this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage(),
       ),

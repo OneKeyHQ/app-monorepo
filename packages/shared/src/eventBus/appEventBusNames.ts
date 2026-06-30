@@ -61,7 +61,15 @@ export enum EAppEventBusNames {
   EstimateTxFeeRetry = 'estimateTxFeeRetry',
   GasAccountSubmitRetryScheduled = 'gasAccountSubmitRetryScheduled',
   GasAccountSubmitRetryCleared = 'gasAccountSubmitRetryCleared',
-  TokenListUpdate = 'TokenListUpdate',
+  // TokenList cells Phase-2 BG frame transport (D2=A hybrid push + PULL). The two
+  // events are kept separate so the structure (low-frequency, generation-guard)
+  // and valuation (per-tick, version-gap) channels can be guarded independently.
+  TokenListStructureFrame = 'TokenListStructureFrame',
+  TokenListValuationFrame = 'TokenListValuationFrame',
+  // TokenList cells Phase-2 risky frame (design 2026-06-16 §R0). Full idempotent
+  // risky-token snapshot for an owner with its OWN monotonic version (independent
+  // of structure/valuation). Small + low-frequency -> PUSH; never diffed.
+  TokenListRiskyFrame = 'TokenListRiskyFrame',
   TabListStateUpdate = 'TabListStateUpdate',
   RefreshTokenList = 'RefreshTokenList',
   RefreshHistoryList = 'RefreshHistoryList',
@@ -77,6 +85,10 @@ export enum EAppEventBusNames {
   SwapQuoteEvent = 'SwapQuoteEvent',
   ShowSystemDiskFullWarning = 'ShowSystemDiskFullWarning',
   SwapTxHistoryStatusUpdate = 'SwapTxHistoryStatusUpdate',
+  // Fired after the swap history store is mutated in a way the pending-status
+  // refresh key cannot detect (e.g. clearing finished orders), so list views
+  // re-fetch instead of showing stale rows.
+  RefreshSwapHistoryList = 'RefreshSwapHistoryList',
   SwapApprovingSuccess = 'SwapApprovingSuccess',
   SwapSpeedApprovingReset = 'SwapSpeedApprovingReset',
   SwapSpeedBalanceUpdate = 'SwapSpeedBalanceUpdate',

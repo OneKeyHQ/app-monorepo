@@ -552,7 +552,11 @@ export interface ISwapPreSwapData {
   supportPreBuild?: boolean;
   allowanceResult?: IAllowanceResult;
   netWorkFee?: {
-    gasInfos?: { encodeTx: IEncodedTx; gasInfo: ISwapGasInfo }[];
+    gasInfos?: {
+      encodeTx: IEncodedTx;
+      gasInfo: ISwapGasInfo;
+      txSize?: number;
+    }[];
     gasFeeFiatValue?: string;
   };
 }

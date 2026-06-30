@@ -2,7 +2,6 @@ import type { MutableRefObject, RefObject } from 'react';
 import {
   createContext,
   createRef,
-  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -21,7 +20,6 @@ import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { updateRootViewBackgroundColor } from '@onekeyhq/shared/src/modules3rdParty/rootview-background';
-import { navigationIntegration } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
@@ -107,11 +105,6 @@ const useNativeDevTools =
 
 export function NavigationContainer(props: IBasicNavigationContainerProps) {
   const isTabletMainView = useSplitMainView();
-  const handleReady = useCallback(() => {
-    navigationIntegration.registerNavigationContainer(
-      isTabletMainView ? tabletMainViewNavigationRef : rootNavigationRef,
-    );
-  }, [isTabletMainView]);
   const { theme: themeName, themeSetting } = useSettingConfig();
   const theme = useTheme();
 
@@ -139,7 +132,6 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
       {...props}
       theme={themeOptions}
       ref={isTabletMainView ? tabletMainViewNavigationRef : rootNavigationRef}
-      onReady={handleReady}
     />
   );
 }

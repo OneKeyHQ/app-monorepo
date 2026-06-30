@@ -64,7 +64,6 @@ export * from './bip39';
 export * from './botWallet';
 export * from './curves';
 export * from './encryptors/aes256';
-export * from './encryptors/rsa';
 
 export * from '@onekeyhq/shared/src/appCrypto/modules/hash';
 export * from './ton-mnemonic';

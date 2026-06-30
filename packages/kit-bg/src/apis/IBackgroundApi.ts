@@ -85,6 +85,7 @@ import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 import type ServiceToken from '../services/ServiceToken';
+import type ServiceTokenViewModel from '../services/ServiceTokenViewModel';
 import type ServiceTransaction from '../services/ServiceTransaction';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
@@ -140,7 +141,10 @@ export interface IBackgroundApiBridge {
   bridgeReceiveHandler: IJsBridgeReceiveHandler;
 
   // **** dapp provider api
-  providers: Record<IInjectedProviderNames, ProviderApiBase>;
+  // Only $private is eagerly present; per-chain providers are loaded lazily via
+  // getProviderApi(scope) so their chain SDKs stay out of the startup bundle.
+  providers: Partial<Record<IInjectedProviderNames, ProviderApiBase>>;
+  getProviderApi(scope: IInjectedProviderNames): Promise<ProviderApiBase>;
   sendForProvider(providerName: IInjectedProviderNamesStrings): any;
   handleProviderMethods<T>(
     payload: IJsBridgeMessagePayload,
@@ -171,6 +175,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceBatchCreateAccount: ServiceBatchCreateAccount;
   serviceAllNetwork: ServiceAllNetwork;
   serviceToken: ServiceToken;
+  serviceTokenViewModel: ServiceTokenViewModel;
   serviceNFT: ServiceNFT;
   serviceAppCleanup: ServiceAppCleanup;
   serviceHistory: ServiceHistory;

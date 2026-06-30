@@ -105,6 +105,67 @@ jobs:
         run: |
           yarn install --immutable
 
+      - name: Build Renderer
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          SENTRY_UPLOAD_BY_CLI: 'true'
+        run: |
+          cd apps/desktop
+          npx cross-env NODE_ENV=production yarn clean:build
+          npx cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 webpack build
+
+      - name: Upload Desktop Snap Sourcemaps to Sentry
+        id: upload_desktop_snap_sourcemaps
+        continue-on-error: true
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+          SENTRY_ORG: onekey-bb
+          SENTRY_PROJECT: desktop-snap
+          BUILD_APP_VERSION: ${{ env.BUILD_APP_VERSION }}
+          BUILD_NUMBER: ${{ env.BUILD_NUMBER }}
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "No SENTRY_AUTH_TOKEN - skipping desktop snap sourcemap upload."
+            echo "uploaded=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          RELEASE="$BUILD_APP_VERSION ($BUILD_NUMBER)"
+          npx sentry-cli releases new "$RELEASE" || true
+          if npx sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "~/" ./apps/desktop/web-build; then
+            npx sentry-cli releases finalize "$RELEASE" || true
+            echo "uploaded=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Desktop snap Sentry sourcemap upload failed; archiving sourcemaps before stripping them from renderer artifact."
+            echo "uploaded=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload Desktop Snap Sourcemap Diagnostic Artifact
+        if: always() && steps.upload_desktop_snap_sourcemaps.outputs.uploaded != 'true'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-snap-sourcemaps-${{ matrix.arch }}-${{ github.sha }}
+          path: |
+            ./apps/desktop/web-build/**/*.js.map
+            ./apps/desktop/web-build/**/*.css.map
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Cleanup Desktop Snap Sourcemaps and License Files
+        if: always()
+        continue-on-error: true
+        run: |
+          if [ ! -d ./apps/desktop/web-build ]; then
+            echo "Desktop web-build directory does not exist - skipping sourcemap cleanup."
+            exit 0
+          fi
+
+          find ./apps/desktop/web-build -name '*.LICENSE.txt' -type f -delete
+          find ./apps/desktop/web-build \
+            \( -name '*.js.map' -o -name '*.css.map' \) \
+            -type f -delete
+
       - name: Build and Sign Snap Linux
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
@@ -115,7 +176,20 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           CSC_LINK: './sign.p12'
           SNAP: true
-        run: cd apps/desktop && npx cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && npx electron-builder build -l --config electron-builder-snap.config.js ${{ matrix.build-flag }} --publish never
+        run: |
+          cd apps/desktop
+          node scripts/finalize-renderer-assets.js
+          remaining_maps="$(find ./app/build \
+            \( -name '*.js.map' -o -name '*.css.map' \) \
+            -type f -print)"
+          if [ -n "$remaining_maps" ]; then
+            echo "::error::Desktop snap package still contains sourcemaps:"
+            echo "$remaining_maps"
+            exit 1
+          fi
+          yarn build:main
+          yarn install-app-deps
+          npx electron-builder build -l --config electron-builder-snap.config.js ${{ matrix.build-flag }} --publish never
 
       - name: Upload Artifacts Release
         uses: actions/upload-artifact@v4

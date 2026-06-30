@@ -10,6 +10,8 @@ import {
   getJotaiContextTrackerMap,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IJotaiSetAtom } from '@onekeyhq/kit-bg/src/states/jotai/types';
+import { contextAtomBase } from '@onekeyhq/kit-bg/src/states/jotai/utils';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -338,5 +340,46 @@ describe('jotaiContextStore reset flow', () => {
     );
 
     expect(queryAllByTestId('perps-root-provider')).toHaveLength(1);
+  });
+
+  it('removes runtime snapshot values when a cold-start atom is cleared through the normal setter path', () => {
+    const coldStartScopeKey = 'test:runtime-snapshot';
+    const scopedKey = `${coldStartScopeKey}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom}`;
+    let currentAtomValue: Record<string, string> | undefined = {
+      symbol: 'AAPL',
+    };
+    const globalCache = globalThis as IGlobalColdStartSnapshot;
+    globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      [scopedKey]: currentAtomValue,
+    };
+    const setAtom = jest.fn() as unknown as IJotaiSetAtom<unknown[], unknown>;
+    const coldStartAtom = contextAtomBase<Record<string, string> | undefined>({
+      initialValue: undefined,
+      coldStartCache: true,
+      coldStartCacheKey:
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
+      useColdStartScopeKey: () => coldStartScopeKey,
+      useContextAtom: <Value2, Args extends unknown[], Result>() => [
+        currentAtomValue as Awaited<Value2>,
+        setAtom as unknown as IJotaiSetAtom<Args, Result>,
+      ],
+    });
+    function ColdStartAtomConsumer() {
+      coldStartAtom.use();
+      return null;
+    }
+
+    const { rerender } = render(createElement(ColdStartAtomConsumer));
+
+    expect(globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__?.[scopedKey]).toEqual({
+      symbol: 'AAPL',
+    });
+
+    currentAtomValue = undefined;
+    rerender(createElement(ColdStartAtomConsumer));
+
+    expect(
+      globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__?.[scopedKey],
+    ).toBeUndefined();
   });
 });

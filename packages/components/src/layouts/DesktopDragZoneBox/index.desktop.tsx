@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -11,12 +11,47 @@ const dragZoneStyle = {
   cursor: 'default',
 } as const;
 
-// Selectors for descendants that should remain clickable inside an
-// app-region:drag container. Chromium's region calculator unreliably honours
-// such descendants once they live deep inside Tamagui-generated trees (see
-// electron/electron#41695, #27149, #20926), so for every match we mirror a
-// fresh fixed-position no-drag ghost element at body level. Ghosts are
-// pointer-events:none so real clicks still reach the underlying control.
+// =============================================================================
+// macOS title-bar draggable region: imperative synthesized approach
+//
+// Problem: on macOS (Electron, upstream electron#21034) the native NSWindow
+// draggable region is NOT recomputed after the `-webkit-app-region: drag`
+// layout changes — window resize, monitor/DPI change, tab switch (the header
+// subtree is swapped), modal open/close, docked DevTools. The DOM stays correct
+// but the top bar can no longer drag the window. Any fix that pulls the
+// *visible* header node out of the DOM and back to force a recompute flickers a
+// frame; toggling the app-region value in place (or adding a throwaway probe
+// element) does not refresh the native region at all; the only reliable levers
+// (window focus/reorder) live in the main process and are not hot-updatable.
+//
+// Approach (renderer-only, hot-updatable, flicker-free):
+//   1. Header elements keep `app-region-drag` purely as a MARKER. Their real
+//      app-region (and that of everything inside them) is neutralized by the
+//      injected style below, so they never produce a stale native region.
+//   2. A single global imperative manager reads those markers and synthesizes,
+//      from the current geometry, fresh invisible overlays:
+//        - a `drag` overlay covering each visible marker zone;
+//        - `no-drag` holes covering the clickable controls inside it.
+//      All overlays are body-level, position:fixed, opacity:0,
+//      pointer-events:none.
+//   3. On resize / DPI change / aria-hidden (tab, modal) flips and zone
+//      mount/unmount the overlays are cleared, recomputed and re-attached
+//      (debounced, with a max-wait guard).
+//   Fresh overlays => never stale; invisible => no flicker; one central place
+//   => replaces (and removes) the previous per-instance ghost-mirror.
+// =============================================================================
+
+const MARKER_CLASS = 'app-region-drag';
+const SYN_ATTR = 'data-onekey-syn-region';
+const NEUTRALIZE_STYLE_ID = 'onekey-drag-region-neutralize';
+const RECOMPUTE_DEBOUNCE = 200;
+// A continuous stream of triggers (e.g. live window resizing fires `resize`
+// rapidly) keeps resetting the debounce timer. MAX_WAIT guarantees a recompute
+// fires at least this often so the draggable region is never starved while the
+// events keep coming.
+const RECOMPUTE_MAX_WAIT = 600;
+
+// Descendants of a drag zone that must stay clickable → punched as no-drag holes.
 const NO_DRAG_SELECTOR = [
   '.app-region-no-drag',
   'input',
@@ -29,203 +64,211 @@ const NO_DRAG_SELECTOR = [
   '[class*="is_GroupFrame"]',
 ].join(',');
 
-const GHOST_ATTR = 'data-onekey-drag-mask-ghost';
+// The manager is a process-wide singleton: it starts once (on the first
+// DesktopDragZoneBox mount) and intentionally never stops. A desktop window
+// always has a title bar, so there is nothing to tear down; keeping it as a
+// plain singleton avoids ref-counting that is fragile under React StrictMode's
+// double-invoked effects and the ~11 simultaneously-mounted tab headers.
+let started = false;
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingSince = 0;
 
-function useDragMaskMirror(
-  rootRef: React.MutableRefObject<HTMLElement | null>,
-  enabled: boolean,
-) {
-  useEffect(() => {
+// Neutralize the real app-region of every marker zone AND everything inside it
+// (drag, no-drag controls, `.app-region-no-drag`, is_GroupFrame, …). Inside a
+// drag zone no element keeps a real native region — drag and no-drag are both
+// provided by the synthesized overlays, so nothing can go stale. The shared CSS
+// rules in index.css are intentionally left untouched: they still apply to
+// app-region elements OUTSIDE any drag zone (e.g. desktop menus).
+function ensureNeutralizeStyle() {
+  if (document.getElementById(NEUTRALIZE_STYLE_ID)) {
+    return;
+  }
+  const style = document.createElement('style');
+  style.id = NEUTRALIZE_STYLE_ID;
+  style.textContent = `
+.${MARKER_CLASS},
+.${MARKER_CLASS} * {
+  -webkit-app-region: none !important;
+}
+[${SYN_ATTR}] { pointer-events: none; }
+`;
+  document.head.appendChild(style);
+}
+
+// Whether a marker zone is actually visible. LOAD-BEARING — do not drop this
+// filter (see OK-55535, the inactive-tab drag-region leak / cross-monitor bug):
+// react-navigation keeps inactive tab screens mounted via react-freeze and only
+// marks them `aria-hidden="true"` (NOT display:none), so a frozen header keeps
+// its layout. If we synthesized a drag overlay for such a hidden zone, its stale
+// (e.g. narrow two-row) rect would overlap and swallow clicks on controls in the
+// ACTIVE screen — which surfaced especially on external monitors (dpr=1). Only
+// visible zones get overlays; hidden ones contribute nothing.
+function isZoneShown(el: Element): boolean {
+  let cur: Element | null = el;
+  while (cur && cur !== document.body) {
+    const cs = globalThis.getComputedStyle(cur);
     if (
-      !enabled ||
-      // SSR guard: this hook never runs server-side, but be defensive in
-      // case the bundle is imported from a non-DOM context.
-      // eslint-disable-next-line unicorn/prefer-global-this
-      typeof window === 'undefined'
+      cs.display === 'none' ||
+      cs.visibility === 'hidden' ||
+      cs.visibility === 'collapse'
     ) {
-      return undefined;
+      return false;
     }
-    const root = rootRef.current;
-    if (!root) {
-      return undefined;
+    if (cur.getAttribute('aria-hidden') === 'true') {
+      return false;
     }
+    cur = cur.parentElement;
+  }
+  return true;
+}
 
-    const ghosts = new Map<Element, HTMLDivElement>();
-    let rafId = 0;
-    let scheduled = false;
+function makeRegionEl(
+  rect: DOMRect,
+  region: 'drag' | 'no-drag',
+): HTMLDivElement {
+  const el = document.createElement('div');
+  el.setAttribute(SYN_ATTR, region);
+  el.style.cssText =
+    `position:fixed;pointer-events:none;opacity:0;z-index:0;` +
+    `left:${Math.round(rect.left)}px;top:${Math.round(rect.top)}px;` +
+    `width:${Math.round(rect.width)}px;height:${Math.round(rect.height)}px;` +
+    `-webkit-app-region:${region};`;
+  return el;
+}
 
-    const applyRect = (el: Element, ghost: HTMLDivElement) => {
-      const r = (el as HTMLElement).getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) {
-        // hidden / collapsed → contribute nothing to the mask
-        ghost.style.width = '0px';
-        ghost.style.height = '0px';
-        return;
+function clearSynRegions() {
+  document.querySelectorAll(`[${SYN_ATTR}]`).forEach((el) => el.remove());
+}
+
+// Imperative recompute: drop the old overlays → rebuild the drag overlay +
+// no-drag holes from the current geometry → re-attach. The drag overlays are
+// appended first and the no-drag holes after: the native region is built in DOM
+// order (drag = union, no-drag = difference), so the later no-drag holes carve
+// the clickable controls back out of the drag overlay.
+function recompute() {
+  if (!document.body || !document.body.isConnected) {
+    return;
+  }
+  clearSynRegions();
+  const zones = Array.from(
+    document.querySelectorAll(`.${MARKER_CLASS}`),
+  ).filter((z) => {
+    const r = z.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 && isZoneShown(z);
+  });
+  const drags: HTMLDivElement[] = [];
+  const holes: HTMLDivElement[] = [];
+  for (const zone of zones) {
+    drags.push(makeRegionEl(zone.getBoundingClientRect(), 'drag'));
+    zone.querySelectorAll(NO_DRAG_SELECTOR).forEach((nd) => {
+      const r = (nd as HTMLElement).getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        holes.push(makeRegionEl(r, 'no-drag'));
       }
-      ghost.style.left = `${r.left}px`;
-      ghost.style.top = `${r.top}px`;
-      ghost.style.width = `${r.width}px`;
-      ghost.style.height = `${r.height}px`;
-    };
-
-    const ensureGhost = (el: Element) => {
-      let ghost = ghosts.get(el);
-      if (!ghost) {
-        ghost = document.createElement('div');
-        ghost.className = 'app-region-no-drag';
-        ghost.setAttribute(GHOST_ATTR, '');
-        ghost.style.cssText =
-          'position:fixed;pointer-events:none;z-index:2147483647;left:0;top:0;width:0;height:0;';
-        document.body.appendChild(ghost);
-        ghosts.set(el, ghost);
-      }
-      applyRect(el, ghost);
-    };
-
-    const clearGhosts = () => {
-      ghosts.forEach((ghost) => ghost.remove());
-      ghosts.clear();
-    };
-
-    // react-navigation on web marks inactive tab containers with
-    // `aria-hidden="true"` (often paired with `z-index: -1` to push them
-    // behind the active screen). The hidden container still has layout, so
-    // width/height/visibility/display alone do not detect it. Walk up the
-    // ancestor chain and treat any of those signals as "this root lives in
-    // a stale background tab" — skip the entire sync and clear ghosts.
-    const isRootShown = () => {
-      let cur: Element | null = root;
-      while (cur && cur !== document.body) {
-        const cs = globalThis.getComputedStyle(cur);
-        if (
-          cs.display === 'none' ||
-          cs.visibility === 'hidden' ||
-          cs.visibility === 'collapse'
-        ) {
-          return false;
-        }
-        if (cur.getAttribute('aria-hidden') === 'true') {
-          return false;
-        }
-        cur = cur.parentElement;
-      }
-      return true;
-    };
-
-    // Toggle whether this drag zone contributes to the window's native
-    // draggable region, by adding/removing the `app-region-drag` class.
-    //
-    // Why the class and not an inline `-webkit-app-region` value: Chromium
-    // computes the region as `union(drag rects) − union(no-drag rects)`, where a
-    // `no-drag` rect subtracts from EVERY overlapping drag rect, not just its
-    // own zone. The inactive tab headers sit at the SAME full-width position as
-    // the active header, so the inactive zone must contribute *nothing* — not
-    // `drag` (it would overlap and swallow active controls; the original bug),
-    // and not `no-drag` (it would carve a full-width hole out of the active
-    // header, leaving only the sidebar draggable). The only neutral state is the
-    // ABSENCE of any `-webkit-app-region` declaration: an explicit
-    // `-webkit-app-region: none` is coerced to `no-drag` by Chromium, so it is
-    // NOT neutral. Removing the `app-region-drag` class drops both the root's
-    // `drag` and the CSS-driven `no-drag` on its descendants
-    // (`.app-region-drag button`, …), making the whole inactive subtree neutral.
-    //
-    // React won't fight this: the `className` prop value is the constant
-    // `'app-region-drag'` (when enabled), so React only writes className when
-    // that value changes — never on a plain re-render — leaving our classList
-    // edits intact (the same contract the body-level ghosts rely on).
-    const setRootDraggable = (draggable: boolean) => {
-      root.classList.toggle('app-region-drag', draggable);
-    };
-
-    const sync = () => {
-      scheduled = false;
-      if (!document.body.isConnected) return;
-      if (!isRootShown()) {
-        // ---- Inactive-tab drag-region leak fix (OK-55535) ----
-        // react-navigation keeps inactive tab/screen containers mounted (via
-        // react-freeze) and marks them `aria-hidden="true"`. That is NOT
-        // `display:none`, so a frozen header keeps its layout and Chromium
-        // still unions its `-webkit-app-region: drag` rect into the window's
-        // native draggable region. A header frozen in its narrow two-row form
-        // (104px tall) then overlaps controls in the ACTIVE screen — e.g. the
-        // account selector — that are NOT this zone's DOM descendants, so the
-        // body-level ghost mask (which mirrors descendants only) can't protect
-        // them and their clicks get eaten as window drags. This surfaces on
-        // displays where the active layout doesn't also cover them (typically
-        // devicePixelRatio = 1, i.e. an external monitor at native/high
-        // resolution). Drop the drag region while hidden so the frozen zone
-        // stops swallowing clicks; the active zone keeps its drag region, so
-        // window dragging is unaffected.
-        setRootDraggable(false);
-        clearGhosts();
-        return;
-      }
-      setRootDraggable(true);
-      const rootRect = root.getBoundingClientRect();
-      if (rootRect.width === 0 || rootRect.height === 0) {
-        clearGhosts();
-        return;
-      }
-      const matches = root.querySelectorAll(NO_DRAG_SELECTOR);
-      const seen = new Set<Element>();
-      matches.forEach((el) => {
-        const rect = (el as HTMLElement).getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0) return;
-        seen.add(el);
-        ensureGhost(el);
-      });
-      // Drop ghosts whose source vanished or was removed from the subtree.
-      ghosts.forEach((ghost, el) => {
-        if (!seen.has(el)) {
-          ghost.remove();
-          ghosts.delete(el);
-        }
-      });
-    };
-
-    const schedule = () => {
-      if (scheduled) return;
-      scheduled = true;
-      rafId = globalThis.requestAnimationFrame(sync);
-    };
-
-    // Initial pass — handles the common case where children are already in
-    // the tree at mount time. The follow-up observers cover later mutations.
-    sync();
-
-    const subtreeObserver = new MutationObserver(schedule);
-    subtreeObserver.observe(root, { childList: true, subtree: true });
-
-    // react-navigation toggles aria-hidden on ancestor tab containers when
-    // the user switches tabs. Those mutations live OUTSIDE this root subtree
-    // so the subtree observer above won't see them. Watch document-wide for
-    // aria-hidden attribute flips so each instance can re-evaluate whether
-    // it still belongs to the active tab and clear its ghosts when not.
-    const ancestorObserver = new MutationObserver(schedule);
-    ancestorObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['aria-hidden'],
-      subtree: true,
     });
+  }
+  drags.forEach((d) => document.body.appendChild(d));
+  holes.forEach((h) => document.body.appendChild(h));
+}
 
-    const resizeObserver = new ResizeObserver(schedule);
-    resizeObserver.observe(root);
+function runRecompute() {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
+  }
+  pendingSince = 0;
+  // Call recompute directly (no requestAnimationFrame): rAF is paused by
+  // Electron's backgroundThrottling whenever the window is occluded/backgrounded,
+  // which would leave the draggable region stale until the window is frontmost
+  // again. The debounce already lets layout settle, and recompute's
+  // getBoundingClientRect forces a synchronous layout anyway.
+  recompute();
+}
 
-    globalThis.addEventListener('resize', schedule);
-    // Use capture so inner scroll containers also trigger a resync.
-    globalThis.addEventListener('scroll', schedule, true);
+function scheduleRecompute() {
+  const now = Date.now();
+  if (pendingSince === 0) {
+    pendingSince = now;
+  }
+  // Continuous churn reached MAX_WAIT: recompute now instead of waiting more.
+  if (now - pendingSince >= RECOMPUTE_MAX_WAIT) {
+    runRecompute();
+    return;
+  }
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+  }
+  debounceTimer = setTimeout(runRecompute, RECOMPUTE_DEBOUNCE);
+}
 
+// Start the singleton manager once. Idempotent: the `started` guard makes every
+// call after the first a no-op, so it is safe to call from every mount.
+function startManager() {
+  if (started || typeof document === 'undefined') {
+    return;
+  }
+  started = true;
+  ensureNeutralizeStyle();
+
+  // Window geometry: resize, maximize, fullscreen toggle and docked-DevTools
+  // open/close (all change the renderer's CSS-pixel viewport).
+  globalThis.addEventListener('resize', scheduleRecompute);
+
+  // devicePixelRatio change — i.e. the window moved to a monitor with a
+  // different scale factor. A pure dpr change does NOT reliably fire `resize`
+  // (the CSS-pixel size is unchanged), so watch the output resolution
+  // explicitly. `matchMedia('(resolution: <dpr>dppx)')` flips when the dpr
+  // changes; re-arm it each time against the new dpr.
+  let dprQuery: MediaQueryList | null = null;
+  let onDprChange: () => void = () => undefined;
+  const armDprQuery = () => {
+    dprQuery?.removeEventListener('change', onDprChange);
+    dprQuery = globalThis.matchMedia(
+      `(resolution: ${globalThis.devicePixelRatio}dppx)`,
+    );
+    dprQuery.addEventListener('change', onDprChange);
+  };
+  onDprChange = () => {
+    scheduleRecompute();
+    armDprQuery();
+  };
+  armDprQuery();
+
+  // react-navigation keeps inactive tab screens mounted and only flips
+  // aria-hidden on their ancestors when switching tabs / opening a modal — that
+  // does NOT mount/unmount the zones, so it must be observed explicitly. The
+  // filter keeps this cheap: the callback only runs on aria-hidden changes
+  // (rare), not on general DOM churn. (Other layout changes are covered by the
+  // resize listener and by per-instance mount/unmount in the hook below.)
+  const mo = new MutationObserver(scheduleRecompute);
+  mo.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['aria-hidden'],
+    subtree: true,
+  });
+
+  // Initial pass — run it synchronously (not debounced) so the draggable region
+  // exists on the first commit instead of ~200ms later, otherwise the title bar
+  // is briefly non-draggable right after app load.
+  recompute();
+}
+
+function useDesktopDragRegionManager(enabled: boolean) {
+  useEffect(() => {
+    if (!enabled || typeof document === 'undefined') {
+      return undefined;
+    }
+    // Ensure the singleton is running, then resync — a drag zone (re)mounted,
+    // e.g. in-tab navigation pushed a screen with a different header. This is
+    // the targeted replacement for a document-wide childList observer.
+    startManager();
+    scheduleRecompute();
     return () => {
-      subtreeObserver.disconnect();
-      ancestorObserver.disconnect();
-      resizeObserver.disconnect();
-      globalThis.removeEventListener('resize', schedule);
-      globalThis.removeEventListener('scroll', schedule, true);
-      if (rafId) globalThis.cancelAnimationFrame(rafId);
-      ghosts.forEach((ghost) => ghost.remove());
-      ghosts.clear();
+      // A drag zone unmounted — resync the remaining ones. The manager itself
+      // is never torn down (singleton for the window's lifetime).
+      scheduleRecompute();
     };
-  }, [enabled, rootRef]);
+  }, [enabled]);
 }
 
 function BaseDesktopDragZoneBox({
@@ -245,21 +288,16 @@ function DesktopDragZoneBoxMac({
   disabled,
   ...rest
 }: IDesktopDragZoneBoxProps) {
-  const rootRef = useRef<HTMLElement | null>(null);
-  useDragMaskMirror(rootRef, !disabled);
+  // Start the global imperative drag-region manager (idempotent + ref-counted).
+  useDesktopDragRegionManager(!disabled);
 
-  // Toggle className/style instead of swapping keys so Chromium can
-  // incrementally update its non-client drag mask without tearing down the
-  // subtree mid-drag. The mirror hook above creates body-level no-drag
-  // ghosts to compensate for Chromium's unreliable in-tree mask calculation.
-  // Tamagui's Stack types its ref as TamaguiElement which on web resolves to
-  // the underlying HTMLDivElement; cast through `any` to bridge the gap.
+  // Only carry the marker class (its real app-region is neutralized by the
+  // injected style); the actual drag / no-drag regions are synthesized by the
+  // manager.
   return (
     <Stack
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ref={rootRef as any}
       {...rest}
-      className={disabled ? undefined : 'app-region-drag'}
+      className={disabled ? undefined : MARKER_CLASS}
       style={disabled ? style : dragZoneStyle}
     >
       {children}

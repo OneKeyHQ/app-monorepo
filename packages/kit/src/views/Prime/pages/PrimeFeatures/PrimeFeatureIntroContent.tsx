@@ -26,7 +26,6 @@ import {
   XStack,
   YStack,
   useMedia,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IVideoRef } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -96,6 +95,7 @@ const DIALOG_FOOTER_BOTTOM_PADDING = 20;
 const MOBILE_DIALOG_VIDEO_LOAD_DELAY_MS = 300;
 const VIDEO_END_PAUSE_MS = 1000;
 const VIDEO_POSTER_FADE_DURATION_MS = 220;
+const ANDROID_VIDEO_ACTIVATE_DELAY_MS = 120;
 const DIALOG_CONTENT_SWIPE_THRESHOLD = 32;
 const primeFeatureOverlayButtonIconProps = { color: '$whiteA10' } as const;
 const primeFeatureOverlayButtonHoverStyle = { bg: '$whiteA4' } as const;
@@ -189,251 +189,276 @@ function PrimeFeaturePaginationButton({
   );
 }
 
-const PrimeFeatureMedia = memo(function PrimeFeatureMedia({
-  feature,
-  isActive,
-  canLoadVideo = true,
-}: {
-  feature: IPrimeFeatureIntro;
-  isActive: boolean;
-  canLoadVideo?: boolean;
-}) {
-  const intl = useIntl();
-  const [shouldLoadVideo, setShouldLoadVideo] = useState(
-    canLoadVideo && isActive,
-  );
-  const [shouldPlayVideo, setShouldPlayVideo] = useState(false);
-  const posterOpacity = useRef(new Animated.Value(1)).current;
-  const videoRef = useRef<IVideoRef>(null);
-  const videoLoopControllerRef = useRef<{
-    endTimer: ReturnType<typeof setTimeout> | null;
-    hasHandledEnd: boolean;
+const PrimeFeatureMedia = memo(
+  ({
+    feature,
+    isActive,
+    canLoadVideo = true,
+  }: {
+    feature: IPrimeFeatureIntro;
     isActive: boolean;
-  }>({
-    endTimer: null,
-    hasHandledEnd: false,
-    isActive,
-  });
+    canLoadVideo?: boolean;
+  }) => {
+    const intl = useIntl();
+    const [shouldLoadVideo, setShouldLoadVideo] = useState(
+      canLoadVideo && isActive,
+    );
+    const [shouldPlayVideo, setShouldPlayVideo] = useState(false);
+    const posterOpacity = useRef(new Animated.Value(1)).current;
+    const videoRef = useRef<IVideoRef>(null);
+    const videoLoopControllerRef = useRef<{
+      endTimer: ReturnType<typeof setTimeout> | null;
+      hasHandledEnd: boolean;
+      isActive: boolean;
+    }>({
+      endTimer: null,
+      hasHandledEnd: false,
+      isActive,
+    });
 
-  const clearVideoEndTimer = useCallback(() => {
-    const controller = videoLoopControllerRef.current;
-    if (controller.endTimer) {
-      clearTimeout(controller.endTimer);
-      controller.endTimer = null;
-    }
-  }, []);
-
-  const resetVideoToPoster = useCallback(() => {
-    posterOpacity.stopAnimation();
-    posterOpacity.setValue(1);
-    setShouldPlayVideo(false);
-  }, [posterOpacity]);
-
-  const showVideo = useCallback(() => {
-    if (!videoLoopControllerRef.current.isActive) {
-      return;
-    }
-
-    setShouldPlayVideo(true);
-    posterOpacity.stopAnimation();
-    Animated.timing(posterOpacity, {
-      toValue: 0,
-      duration: VIDEO_POSTER_FADE_DURATION_MS,
-      useNativeDriver: true,
-    }).start();
-  }, [posterOpacity]);
-
-  useEffect(() => {
-    if (feature.media.type !== 'video') {
-      return;
-    }
-
-    const controller = videoLoopControllerRef.current;
-    const wasActive = controller.isActive;
-    controller.isActive = isActive;
-    clearVideoEndTimer();
-    resetVideoToPoster();
-    controller.hasHandledEnd = false;
-
-    if (isActive && canLoadVideo) {
-      setShouldLoadVideo(true);
-      if (!wasActive && videoRef.current) {
-        videoRef.current.seek(0);
-        videoRef.current.resume();
-        showVideo();
+    const clearVideoEndTimer = useCallback(() => {
+      const controller = videoLoopControllerRef.current;
+      if (controller.endTimer) {
+        clearTimeout(controller.endTimer);
+        controller.endTimer = null;
       }
-    } else if (!canLoadVideo) {
-      setShouldLoadVideo(false);
-    }
+    }, []);
 
-    return clearVideoEndTimer;
-  }, [
-    canLoadVideo,
-    clearVideoEndTimer,
-    feature.media.type,
-    isActive,
-    resetVideoToPoster,
-    showVideo,
-  ]);
+    const resetVideoToPoster = useCallback(() => {
+      posterOpacity.stopAnimation();
+      posterOpacity.setValue(1);
+      setShouldPlayVideo(false);
+    }, [posterOpacity]);
 
-  const handleVideoReadyForDisplay = useCallback(() => {
-    showVideo();
-  }, [showVideo]);
-
-  const handleVideoEnded = useCallback(() => {
-    const controller = videoLoopControllerRef.current;
-    if (!controller.isActive || controller.hasHandledEnd) {
-      return;
-    }
-
-    controller.hasHandledEnd = true;
-    clearVideoEndTimer();
-    controller.endTimer = setTimeout(() => {
-      controller.endTimer = null;
-      if (!controller.isActive) {
+    const showVideo = useCallback(() => {
+      if (!videoLoopControllerRef.current.isActive) {
         return;
       }
 
-      videoRef.current?.seek(0);
-      videoRef.current?.resume();
+      setShouldPlayVideo(true);
+      posterOpacity.stopAnimation();
+      if (platformEnv.isNativeAndroid) {
+        posterOpacity.setValue(0);
+        return;
+      }
+      Animated.timing(posterOpacity, {
+        toValue: 0,
+        duration: VIDEO_POSTER_FADE_DURATION_MS,
+        useNativeDriver: true,
+      }).start();
+    }, [posterOpacity]);
+
+    useEffect(() => {
+      if (feature.media.type !== 'video') {
+        return;
+      }
+
+      let loadVideoTimer: ReturnType<typeof setTimeout> | undefined;
+      const controller = videoLoopControllerRef.current;
+      const wasActive = controller.isActive;
+      controller.isActive = isActive;
+      clearVideoEndTimer();
+      resetVideoToPoster();
       controller.hasHandledEnd = false;
-    }, VIDEO_END_PAUSE_MS);
-  }, [clearVideoEndTimer]);
 
-  if (feature.media.type === 'video') {
-    const posterSource = feature.media.getPosterSource();
-    const posterImageSource = getPosterImageSource(posterSource);
-    const shouldUseNativePosterOverlay = platformEnv.isNative;
+      const loadActiveVideo = () => {
+        setShouldLoadVideo(true);
+        if (!wasActive && videoRef.current) {
+          videoRef.current.seek(0);
+          videoRef.current.resume();
+          showVideo();
+        }
+      };
 
-    return (
-      <>
-        {shouldLoadVideo ? (
-          <Video
-            ref={videoRef}
-            source={feature.media.getSource()}
-            style={styles.featureMediaFill}
-            resizeMode={EVideoResizeMode.COVER}
-            repeat={false}
-            muted
-            paused={
-              !isActive || (shouldUseNativePosterOverlay && !shouldPlayVideo)
-            }
-            poster={
-              shouldUseNativePosterOverlay
-                ? undefined
-                : getVideoPoster(posterSource)
-            }
-            onReadyForDisplay={
-              shouldUseNativePosterOverlay
-                ? handleVideoReadyForDisplay
-                : undefined
-            }
-            onEnd={handleVideoEnded}
-          />
-        ) : null}
-        {shouldUseNativePosterOverlay ? (
-          <Animated.Image
-            style={[styles.featureMediaFill, { opacity: posterOpacity }]}
-            resizeMode="cover"
-            source={posterImageSource}
-          />
-        ) : null}
-        {!shouldUseNativePosterOverlay && !shouldLoadVideo ? (
-          <RNImage
-            style={styles.featureMediaFill}
-            resizeMode="cover"
-            source={posterImageSource}
-          />
-        ) : null}
-      </>
-    );
-  }
+      if (isActive && canLoadVideo) {
+        if (platformEnv.isNativeAndroid && !wasActive) {
+          setShouldLoadVideo(false);
+          loadVideoTimer = setTimeout(
+            loadActiveVideo,
+            ANDROID_VIDEO_ACTIVATE_DELAY_MS,
+          );
+        } else {
+          loadActiveVideo();
+        }
+      } else if (!canLoadVideo || platformEnv.isNativeAndroid) {
+        setShouldLoadVideo(false);
+      }
 
-  if (feature.media.type === 'icon') {
-    return (
-      <YStack
-        w="100%"
-        h="100%"
-        px="$6"
-        pt={72}
-        pb="$6"
-        gap="$8"
-        alignItems="center"
-        justifyContent="flex-start"
-      >
-        <LinearGradient
-          colors={ICON_MEDIA_HERO_GRADIENT_COLORS}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          w={ICON_MEDIA_HERO_BOX_SIZE}
-          h={ICON_MEDIA_HERO_BOX_SIZE}
-          borderRadius="$4"
+      return () => {
+        if (loadVideoTimer) {
+          clearTimeout(loadVideoTimer);
+        }
+        clearVideoEndTimer();
+      };
+    }, [
+      canLoadVideo,
+      clearVideoEndTimer,
+      feature.media.type,
+      isActive,
+      resetVideoToPoster,
+      showVideo,
+    ]);
+
+    const handleVideoReadyForDisplay = useCallback(() => {
+      showVideo();
+    }, [showVideo]);
+
+    const handleVideoEnded = useCallback(() => {
+      const controller = videoLoopControllerRef.current;
+      if (!controller.isActive || controller.hasHandledEnd) {
+        return;
+      }
+
+      controller.hasHandledEnd = true;
+      clearVideoEndTimer();
+      controller.endTimer = setTimeout(() => {
+        controller.endTimer = null;
+        if (!controller.isActive) {
+          return;
+        }
+
+        videoRef.current?.seek(0);
+        videoRef.current?.resume();
+        controller.hasHandledEnd = false;
+      }, VIDEO_END_PAUSE_MS);
+    }, [clearVideoEndTimer]);
+
+    if (feature.media.type === 'video') {
+      const posterSource = feature.media.getPosterSource();
+      const posterImageSource = getPosterImageSource(posterSource);
+      const shouldUseNativePosterOverlay = platformEnv.isNative;
+
+      return (
+        <>
+          {shouldLoadVideo ? (
+            <Video
+              ref={videoRef}
+              source={feature.media.getSource()}
+              style={styles.featureMediaFill}
+              resizeMode={EVideoResizeMode.COVER}
+              repeat={false}
+              muted
+              paused={
+                !isActive || (shouldUseNativePosterOverlay && !shouldPlayVideo)
+              }
+              poster={
+                shouldUseNativePosterOverlay
+                  ? undefined
+                  : getVideoPoster(posterSource)
+              }
+              onReadyForDisplay={
+                shouldUseNativePosterOverlay
+                  ? handleVideoReadyForDisplay
+                  : undefined
+              }
+              onEnd={handleVideoEnded}
+            />
+          ) : null}
+          {shouldUseNativePosterOverlay ? (
+            <Animated.Image
+              style={[styles.featureMediaFill, { opacity: posterOpacity }]}
+              resizeMode="cover"
+              source={posterImageSource}
+            />
+          ) : null}
+          {!shouldUseNativePosterOverlay && !shouldLoadVideo ? (
+            <RNImage
+              style={styles.featureMediaFill}
+              resizeMode="cover"
+              source={posterImageSource}
+            />
+          ) : null}
+        </>
+      );
+    }
+
+    if (feature.media.type === 'icon') {
+      return (
+        <YStack
+          w="100%"
+          h="100%"
+          px="$6"
+          pt={72}
+          pb="$6"
+          gap="$8"
           alignItems="center"
-          justifyContent="center"
-          flexShrink={0}
+          justifyContent="flex-start"
         >
-          <Icon
-            name={feature.media.icon}
-            size={ICON_MEDIA_HERO_ICON_SIZE}
-            color="$whiteA12"
-          />
-        </LinearGradient>
-        {feature.details.length > 0 ? (
-          <YStack w="100%" maxWidth={DETAIL_ROW_MAX_WIDTH}>
-            {feature.details.map((detail, index) => (
-              <XStack
-                key={`${feature.id}-${detail.title}`}
-                w="100%"
-                gap="$3"
-                alignItems="flex-start"
-                pt={index === 0 ? '$0' : '$4'}
-                mt={index === 0 ? '$0' : '$4'}
-                borderTopWidth={index === 0 ? 0 : StyleSheet.hairlineWidth}
-                borderTopColor={ICON_MEDIA_DETAIL_SEPARATOR_COLOR}
-              >
-                <Stack
-                  w={ICON_DETAIL_ICON_SLOT_SIZE}
-                  h={ICON_DETAIL_ICON_SLOT_SIZE}
-                  alignItems="center"
-                  justifyContent="center"
-                  flexShrink={0}
+          <LinearGradient
+            colors={ICON_MEDIA_HERO_GRADIENT_COLORS}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            w={ICON_MEDIA_HERO_BOX_SIZE}
+            h={ICON_MEDIA_HERO_BOX_SIZE}
+            borderRadius="$4"
+            alignItems="center"
+            justifyContent="center"
+            flexShrink={0}
+          >
+            <Icon
+              name={feature.media.icon}
+              size={ICON_MEDIA_HERO_ICON_SIZE}
+              color="$whiteA12"
+            />
+          </LinearGradient>
+          {feature.details.length > 0 ? (
+            <YStack w="100%" maxWidth={DETAIL_ROW_MAX_WIDTH}>
+              {feature.details.map((detail, index) => (
+                <XStack
+                  key={`${feature.id}-${detail.title}`}
+                  w="100%"
+                  gap="$3"
+                  alignItems="flex-start"
+                  pt={index === 0 ? '$0' : '$4'}
+                  mt={index === 0 ? '$0' : '$4'}
+                  borderTopWidth={index === 0 ? 0 : StyleSheet.hairlineWidth}
+                  borderTopColor={ICON_MEDIA_DETAIL_SEPARATOR_COLOR}
                 >
-                  <Icon
-                    name={detail.icon}
-                    size={ICON_DETAIL_ICON_SIZE}
-                    color="$brand9"
-                  />
-                </Stack>
-                <YStack flex={1} minWidth={0} gap="$1">
-                  <SizableText
-                    size="$bodyLgMedium"
-                    color="$whiteA12"
-                    textAlign="left"
+                  <Stack
+                    w={ICON_DETAIL_ICON_SLOT_SIZE}
+                    h={ICON_DETAIL_ICON_SLOT_SIZE}
+                    alignItems="center"
+                    justifyContent="center"
+                    flexShrink={0}
                   >
-                    {intl.formatMessage({
-                      id: detail.title,
-                    })}
-                  </SizableText>
-                  <SizableText
-                    size="$bodyMd"
-                    color={ICON_MEDIA_DETAIL_DESC_COLOR}
-                    textAlign="left"
-                  >
-                    {intl.formatMessage({
-                      id: detail.description,
-                    })}
-                  </SizableText>
-                </YStack>
-              </XStack>
-            ))}
-          </YStack>
-        ) : null}
-      </YStack>
-    );
-  }
+                    <Icon
+                      name={detail.icon}
+                      size={ICON_DETAIL_ICON_SIZE}
+                      color="$brand9"
+                    />
+                  </Stack>
+                  <YStack flex={1} minWidth={0} gap="$1">
+                    <SizableText
+                      size="$bodyLgMedium"
+                      color="$whiteA12"
+                      textAlign="left"
+                    >
+                      {intl.formatMessage({
+                        id: detail.title,
+                      })}
+                    </SizableText>
+                    <SizableText
+                      size="$bodyMd"
+                      color={ICON_MEDIA_DETAIL_DESC_COLOR}
+                      textAlign="left"
+                    >
+                      {intl.formatMessage({
+                        id: detail.description,
+                      })}
+                    </SizableText>
+                  </YStack>
+                </XStack>
+              ))}
+            </YStack>
+          ) : null}
+        </YStack>
+      );
+    }
 
-  return null;
-});
+    return null;
+  },
+);
+PrimeFeatureMedia.displayName = 'PrimeFeatureMedia';
 
 export function PrimeFeatureIntroContent({
   selectedFeature,
@@ -445,7 +470,6 @@ export function PrimeFeatureIntroContent({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
-  const { bottom: safeAreaBottom } = useSafeAreaInsets();
   const {
     isReady: isAuthReady,
     isLoggedIn,
@@ -849,10 +873,10 @@ export function PrimeFeatureIntroContent({
   }
   const contentMaxWidth = usePageFooter || !gtMd ? undefined : 640;
   const shouldSquareBottomContentCorners = useDialogFooter && !gtMd;
-  const dialogFooterBottomPadding =
-    useDialogFooter && !gtMd && safeAreaBottom
-      ? safeAreaBottom + DIALOG_FOOTER_BOTTOM_PADDING
-      : DIALOG_FOOTER_BOTTOM_PADDING;
+  // The Dialog frame applies the bottom safe-area inset itself, so the footer
+  // only needs its design padding — adding safeAreaBottom here too would
+  // double-stack the inset on notched iOS.
+  const dialogFooterBottomPadding = DIALOG_FOOTER_BOTTOM_PADDING;
   const shouldShowFooterAction = ctaKind !== 'none';
   const isFooterActionDisabled =
     shouldUseComingSoonCta ||

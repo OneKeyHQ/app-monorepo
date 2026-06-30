@@ -21,6 +21,11 @@ on:
         required: false
         type: string
         default: ''
+      source_ref_name:
+        description: "Original source ref name to use for build metadata when running from a temporary CI tag."
+        required: false
+        type: string
+        default: ''
     outputs:
       build_number:
         description: "Build number generated during renderer build"
@@ -83,6 +88,7 @@ jobs:
         uses: ./.github/actions/shared-env
         with:
           env_file_name: '.env'
+          source_ref_name: ${{ inputs.source_ref_name }}
           sentry_project: 'desktop'
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
@@ -128,11 +134,88 @@ jobs:
       - name: Build Renderer
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
+          SENTRY_UPLOAD_BY_CLI: 'true'
         run: |
           cd apps/desktop
           npx cross-env NODE_ENV=production yarn clean:build
           npx cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 webpack build
+
+      # Desktop webpack builds with SRI enabled, so upload sourcemaps after the
+      # build without mutating emitted JS files. Sentry failures should not block
+      # renderer artifact creation; failed uploads are archived separately before
+      # sourcemaps are stripped from the packaged renderer artifact.
+      - name: Upload Desktop Sourcemaps to Sentry
+        id: upload_desktop_sourcemaps
+        continue-on-error: true
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+          SENTRY_ORG: onekey-bb
+          SENTRY_PROJECT: desktop
+          BUILD_APP_VERSION: ${{ env.BUILD_APP_VERSION }}
+          BUILD_NUMBER: ${{ env.BUILD_NUMBER }}
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "No SENTRY_AUTH_TOKEN - skipping desktop sourcemap upload."
+            echo "uploaded=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          RELEASE="$BUILD_APP_VERSION ($BUILD_NUMBER)"
+          npx sentry-cli releases new "$RELEASE" || true
+          if npx sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "~/" ./apps/desktop/web-build; then
+            npx sentry-cli releases finalize "$RELEASE" || true
+            echo "uploaded=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Desktop Sentry sourcemap upload failed; archiving sourcemaps before stripping them from renderer artifact."
+            echo "uploaded=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload Desktop Sourcemap Diagnostic Artifact
+        if: always() && steps.upload_desktop_sourcemaps.outputs.uploaded != 'true'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-sourcemaps-${{ github.sha }}
+          path: |
+            ./apps/desktop/web-build/**/*.js.map
+            ./apps/desktop/web-build/**/*.css.map
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Cleanup Desktop Sourcemaps and License Files
+        if: always()
+        continue-on-error: true
+        run: |
+          if [ ! -d ./apps/desktop/web-build ]; then
+            echo "Desktop web-build directory does not exist - skipping sourcemap cleanup."
+            exit 0
+          fi
+
+          find ./apps/desktop/web-build -name '*.LICENSE.txt' -type f -delete
+          find ./apps/desktop/web-build \
+            \( -name '*.js.map' -o -name '*.css.map' \) \
+            -type f -delete
+
+      - name: Finalize Renderer Assets
+        run: |
+          cd apps/desktop
           node scripts/finalize-renderer-assets.js
+
+      - name: Assert Desktop Sourcemaps Are Stripped
+        run: |
+          if [ ! -d ./apps/desktop/app/build ]; then
+            echo "::error::Desktop renderer build directory does not exist."
+            exit 1
+          fi
+
+          remaining_maps="$(find ./apps/desktop/app/build \
+            \( -name '*.js.map' -o -name '*.css.map' \) \
+            -type f -print)"
+          if [ -n "$remaining_maps" ]; then
+            echo "::error::Desktop renderer artifact still contains sourcemaps:"
+            echo "$remaining_maps"
+            exit 1
+          fi
 
       - name: Export build metadata
         id: export-metadata

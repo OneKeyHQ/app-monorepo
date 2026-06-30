@@ -7,11 +7,13 @@ import {
   buildTokenSearchKeywordQueries,
   calculateAccountTokensValue,
   calculateAccountTotalValue,
+  flattenAggregateTokensMap,
   getFilteredTokenBySearchKey,
   mergeDeriveTokenListMap,
+  nestAggregateTokensMap,
 } from './tokenUtils';
 
-import type { IAccountToken } from '../../types/token';
+import type { IAccountToken, ITokenFiat } from '../../types/token';
 
 describe('buildTokenSearchKeywordQueries', () => {
   test('adds ether fallback for multi-word eth network searches', () => {
@@ -466,5 +468,50 @@ describe('mergeDeriveTokenListMap — fiatValue unavailable handling', () => {
     });
 
     expect(merged['acct-1_evm--1'].fiatValue).toBe('12.5');
+  });
+});
+
+describe('nest+flatten aggregateTokenMap — token selector seam (PR-6)', () => {
+  // The token-selector self-fetch returns a FLAT per-network `aggregateTokenMap`
+  // ($key -> ITokenFiat). The selector reproduces the home semantics by nesting
+  // the response (keyed by networkId) then re-flattening, so the aggregate
+  // ($key) row resolves the SAME summed fiat the home
+  // `flattenAggregateTokensMapAtom` leaf reads.
+  it('single-network response yields the aggregate $key fiat the leaf reads', () => {
+    const responseAggregateTokenMap: Record<string, ITokenFiat> = {
+      'eth-agg': {
+        balance: '1000000000000000000',
+        balanceParsed: '1',
+        fiatValue: '3000',
+        price: 3000,
+        price24h: 1.5,
+        currency: 'usd',
+      },
+    };
+
+    const flattened = flattenAggregateTokensMap(
+      nestAggregateTokensMap({
+        aggregateTokenMap: responseAggregateTokenMap,
+        networkId: 'evm--1',
+      }),
+    );
+
+    expect(flattened['eth-agg']).toBeDefined();
+    expect(flattened['eth-agg'].balanceParsed).toBe('1');
+    expect(flattened['eth-agg'].fiatValue).toBe('3000');
+    expect(flattened['eth-agg'].price).toBe(3000);
+    expect(flattened['eth-agg'].price24h).toBe(1.5);
+    expect(flattened['eth-agg'].currency).toBe('usd');
+  });
+
+  it('empty response flattens to an empty map (selector reset path)', () => {
+    expect(
+      flattenAggregateTokensMap(
+        nestAggregateTokensMap({
+          aggregateTokenMap: {},
+          networkId: 'evm--1',
+        }),
+      ),
+    ).toEqual({});
   });
 });
