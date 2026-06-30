@@ -138,6 +138,8 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
 
       appEventBus.emit(EAppEventBusNames.ShowToast, {
         errorCode: err?.code,
+        errorClassName: err?.className,
+        errorName: err?.name,
         httpStatusCode,
         method: 'error' as const,
         title: err?.message ?? 'Error',

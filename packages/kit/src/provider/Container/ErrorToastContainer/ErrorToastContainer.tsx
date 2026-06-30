@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { Toast } from '@onekeyhq/components';
+import { Toast, globalNetInfo } from '@onekeyhq/components';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import { getErrorAction } from './ErrorToasts';
+import { shouldSuppressOfflineNetworkErrorToast } from './offlineNetworkToastGuard';
 
 // Get deduplication ID for HTTP status codes to prevent toast spam
 // @param httpStatusCode - HTTP status code (e.g., 403, 429, 503)
@@ -38,6 +39,15 @@ export function ErrorToastContainer() {
       if (!p.title) {
         return;
       }
+      if (
+        shouldSuppressOfflineNetworkErrorToast({
+          isInternetReachable: globalNetInfo.currentState().isInternetReachable,
+          payload: p,
+        })
+      ) {
+        return;
+      }
+
       const statusCodeForDeduplicate =
         p.httpStatusCode ??
         (typeof p.errorCode === 'number' ? p.errorCode : undefined);
