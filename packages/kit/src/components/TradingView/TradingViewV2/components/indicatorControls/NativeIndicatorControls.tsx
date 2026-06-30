@@ -199,13 +199,11 @@ function IndicatorQuickBarItem({
   indicator,
   isActive,
   onPress,
-  onPressIn,
   onLayout,
 }: {
   indicator: ITradingViewIndicatorOption;
   isActive: boolean;
   onPress: () => void;
-  onPressIn?: () => void;
   onLayout?: (event: LayoutChangeEvent) => void;
 }) {
   const content = (
@@ -232,7 +230,6 @@ function IndicatorQuickBarItem({
       accessibilityState={{ selected: isActive }}
       onLayout={onLayout}
       onPress={onPress}
-      onPressIn={onPressIn}
     >
       {content}
     </XStack>
@@ -285,38 +282,32 @@ export const TradingViewNativeIndicatorQuickBar = memo(
       [],
     );
 
-    const resetQuickBarPressState = useCallback((sequence: number) => {
-      quickBarPressStateRef.current = {
-        sequence,
-        source: null,
-      };
-    }, []);
-
-    const resetQuickBarPressSource = useCallback(() => {
-      quickBarPressStateRef.current = {
-        ...quickBarPressStateRef.current,
-        source: null,
-      };
-    }, []);
-
     const handleQuickBarIndicatorPress = useCallback(
       (
         indicator: ITradingViewIndicatorOption,
         source: IQuickBarPressSource,
-        sequence?: number,
+        sequence: number,
       ) => {
         if (platformEnv.isNativeAndroid) {
           const state = quickBarPressStateRef.current;
-          if (typeof sequence === 'number' && sequence !== state.sequence) {
+          if (sequence < state.sequence) {
             return;
           }
 
-          if (state.source) {
+          const nextState =
+            sequence > state.sequence
+              ? {
+                  sequence,
+                  source: null,
+                }
+              : state;
+
+          if (nextState.source) {
             return;
           }
 
           quickBarPressStateRef.current = {
-            ...state,
+            sequence,
             source,
           };
         }
@@ -355,7 +346,6 @@ export const TradingViewNativeIndicatorQuickBar = memo(
               'worklet';
 
               quickBarGestureSequence.value += 1;
-              runOnJS(resetQuickBarPressState)(quickBarGestureSequence.value);
             })
             .onEnd((event, success) => {
               'worklet';
@@ -368,7 +358,7 @@ export const TradingViewNativeIndicatorQuickBar = memo(
               }
             }),
         ),
-      [handleQuickBarTap, quickBarGestureSequence, resetQuickBarPressState],
+      [handleQuickBarTap, quickBarGestureSequence],
     );
 
     if (!hasVisibleIndicators) {
@@ -387,8 +377,13 @@ export const TradingViewNativeIndicatorQuickBar = memo(
             key={indicator.value}
             indicator={indicator}
             isActive={activeIndicatorValues.has(indicator.value)}
-            onPress={() => handleQuickBarIndicatorPress(indicator, 'item')}
-            onPressIn={resetQuickBarPressSource}
+            onPress={() =>
+              handleQuickBarIndicatorPress(
+                indicator,
+                'item',
+                quickBarGestureSequence.value,
+              )
+            }
             onLayout={(event) =>
               handleQuickBarItemLayout(indicator.value, event)
             }
@@ -402,8 +397,13 @@ export const TradingViewNativeIndicatorQuickBar = memo(
             key={indicator.value}
             indicator={indicator}
             isActive={activeIndicatorValues.has(indicator.value)}
-            onPress={() => handleQuickBarIndicatorPress(indicator, 'item')}
-            onPressIn={resetQuickBarPressSource}
+            onPress={() =>
+              handleQuickBarIndicatorPress(
+                indicator,
+                'item',
+                quickBarGestureSequence.value,
+              )
+            }
             onLayout={(event) =>
               handleQuickBarItemLayout(indicator.value, event)
             }
