@@ -1,6 +1,8 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 
 import {
   Button,
@@ -14,6 +16,7 @@ import {
   useDialogInstance,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { HEADER_ICON_BUTTON_STYLE_PROPS } from '../utils/NativeChartControlsShared';
 
@@ -27,6 +30,11 @@ import type {
   ITradingViewIndicatorOption,
   ITradingViewNativeChartControlsConfigData,
 } from '../../types';
+import type {
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+} from 'react-native';
 
 const INDICATOR_GRID_COLUMN_COUNT = 4;
 const INDICATOR_GRID_ITEM_LAYOUT_PROPS = {
@@ -38,6 +46,18 @@ const INDICATOR_GRID_ITEM_LAYOUT_PROPS = {
   borderWidth: 1,
 } as const;
 export const TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT = 31;
+const QUICK_BAR_TAP_MOVE_THRESHOLD = 8;
+const QUICK_BAR_DUPLICATE_PRESS_THRESHOLD_MS = 120;
+
+type IQuickBarItemLayout = {
+  x: number;
+  width: number;
+};
+
+type IQuickBarLastPress = {
+  indicatorValue: string;
+  timestamp: number;
+};
 
 function buildIndicatorItemTestID(value: string): string {
   return `trading-view-native-indicator-item-${value
@@ -178,11 +198,25 @@ function IndicatorQuickBarItem({
   indicator,
   isActive,
   onPress,
+  onLayout,
 }: {
   indicator: ITradingViewIndicatorOption;
   isActive: boolean;
   onPress: () => void;
+  onLayout?: (event: LayoutChangeEvent) => void;
 }) {
+  const content = (
+    <SizableText
+      size={isActive ? '$bodySmMedium' : '$bodySm'}
+      numberOfLines={1}
+      adjustsFontSizeToFit
+      minimumFontScale={0.82}
+      color={isActive ? '$text' : '$textSubdued'}
+    >
+      {indicator.label}
+    </SizableText>
+  );
+
   return (
     <XStack
       testID={buildIndicatorQuickBarItemTestID(indicator.value)}
@@ -191,17 +225,12 @@ function IndicatorQuickBarItem({
       justifyContent="center"
       cursor="pointer"
       userSelect="none"
+      accessibilityRole="button"
+      accessibilityState={{ selected: isActive }}
+      onLayout={onLayout}
       onPress={onPress}
     >
-      <SizableText
-        size={isActive ? '$bodySmMedium' : '$bodySm'}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.82}
-        color={isActive ? '$text' : '$textSubdued'}
-      >
-        {indicator.label}
-      </SizableText>
+      {content}
     </XStack>
   );
 }
@@ -227,10 +256,122 @@ export const TradingViewNativeIndicatorQuickBar = memo(
       nativeIndicatorState,
       onIndicatorSelect,
     });
+    const quickBarScrollXRef = useRef(0);
+    const quickBarItemLayoutsRef = useRef(
+      new Map<string, IQuickBarItemLayout>(),
+    );
+    const lastQuickBarPressRef = useRef<IQuickBarLastPress | null>(null);
+
+    const handleQuickBarScroll = useCallback(
+      (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        quickBarScrollXRef.current = event.nativeEvent.contentOffset.x;
+      },
+      [],
+    );
+
+    const handleQuickBarItemLayout = useCallback(
+      (indicatorValue: string, event: LayoutChangeEvent) => {
+        const { x, width } = event.nativeEvent.layout;
+        quickBarItemLayoutsRef.current.set(indicatorValue, { x, width });
+      },
+      [],
+    );
+
+    const handleQuickBarIndicatorPress = useCallback(
+      (indicator: ITradingViewIndicatorOption) => {
+        const timestamp = Date.now();
+        const lastPress = lastQuickBarPressRef.current;
+        if (
+          lastPress?.indicatorValue === indicator.value &&
+          timestamp - lastPress.timestamp <
+            QUICK_BAR_DUPLICATE_PRESS_THRESHOLD_MS
+        ) {
+          return;
+        }
+
+        lastQuickBarPressRef.current = {
+          indicatorValue: indicator.value,
+          timestamp,
+        };
+        handleIndicatorPress(indicator);
+      },
+      [handleIndicatorPress],
+    );
+
+    const handleQuickBarTap = useCallback(
+      (locationX: number) => {
+        const touchContentX = locationX + quickBarScrollXRef.current;
+        const indicator = [...mainIndicators, ...subIndicators].find((item) => {
+          const layout = quickBarItemLayoutsRef.current.get(item.value);
+          return (
+            layout &&
+            touchContentX >= layout.x &&
+            touchContentX <= layout.x + layout.width
+          );
+        });
+
+        if (indicator) {
+          handleQuickBarIndicatorPress(indicator);
+        }
+      },
+      [handleQuickBarIndicatorPress, mainIndicators, subIndicators],
+    );
+
+    const quickBarGesture = useMemo(
+      () =>
+        Gesture.Simultaneous(
+          Gesture.Native().shouldActivateOnStart(true),
+          Gesture.Tap()
+            .maxDistance(QUICK_BAR_TAP_MOVE_THRESHOLD)
+            .onEnd((event, success) => {
+              'worklet';
+
+              if (success) {
+                runOnJS(handleQuickBarTap)(event.x);
+              }
+            }),
+        ),
+      [handleQuickBarTap],
+    );
 
     if (!hasVisibleIndicators) {
       return null;
     }
+
+    const quickBarContent = (
+      <XStack
+        h={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
+        px="$5"
+        gap="$4"
+        alignItems="center"
+      >
+        {mainIndicators.map((indicator) => (
+          <IndicatorQuickBarItem
+            key={indicator.value}
+            indicator={indicator}
+            isActive={activeIndicatorValues.has(indicator.value)}
+            onPress={() => handleQuickBarIndicatorPress(indicator)}
+            onLayout={(event) =>
+              handleQuickBarItemLayout(indicator.value, event)
+            }
+          />
+        ))}
+        {subIndicators.length ? (
+          <Stack h="$4" w="$px" bg="$borderSubdued" />
+        ) : null}
+        {subIndicators.map((indicator) => (
+          <IndicatorQuickBarItem
+            key={indicator.value}
+            indicator={indicator}
+            isActive={activeIndicatorValues.has(indicator.value)}
+            onPress={() => handleQuickBarIndicatorPress(indicator)}
+            onLayout={(event) =>
+              handleQuickBarItemLayout(indicator.value, event)
+            }
+          />
+        ))}
+      </XStack>
+    );
 
     return (
       <Stack
@@ -239,34 +380,23 @@ export const TradingViewNativeIndicatorQuickBar = memo(
         bg="$bgApp"
         zIndex={3}
       >
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <XStack
-            h={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
-            px="$5"
-            gap="$4"
-            alignItems="center"
-          >
-            {mainIndicators.map((indicator) => (
-              <IndicatorQuickBarItem
-                key={indicator.value}
-                indicator={indicator}
-                isActive={activeIndicatorValues.has(indicator.value)}
-                onPress={() => handleIndicatorPress(indicator)}
-              />
-            ))}
-            {subIndicators.length ? (
-              <Stack h="$4" w="$px" bg="$borderSubdued" />
-            ) : null}
-            {subIndicators.map((indicator) => (
-              <IndicatorQuickBarItem
-                key={indicator.value}
-                indicator={indicator}
-                isActive={activeIndicatorValues.has(indicator.value)}
-                onPress={() => handleIndicatorPress(indicator)}
-              />
-            ))}
-          </XStack>
-        </ScrollView>
+        {platformEnv.isNativeAndroid ? (
+          <GestureDetector gesture={quickBarGesture}>
+            <ScrollView
+              horizontal
+              nestedScrollEnabled
+              scrollEventThrottle={16}
+              onScroll={handleQuickBarScroll}
+              showsHorizontalScrollIndicator={false}
+            >
+              {quickBarContent}
+            </ScrollView>
+          </GestureDetector>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {quickBarContent}
+          </ScrollView>
+        )}
       </Stack>
     );
   },
