@@ -1243,6 +1243,7 @@
   "earn_claim_redemption__action": "Klaim penebusan",
   "earn_claim_rewards__action": "Klaim hadiah",
   "earn_no_assets_deposited": "Belum ada aset yang disetorkan",
+  "earn_remove_and_claim_rewards__action": "Remove & Claim rewards",
   "earn_reward_distribution_schedule": "Hadiah akan didistribusikan ke dompet Arbitrum Anda (alamat yang sama dengan Ethereum) paling lambat tanggal 10 bulan depan.",
   "edit_fee_custom_set_as_default_description": "Tetapkan sebagai default untuk semua transaksi di masa mendatang pada {network}",
   "email_verification_rate_limit": "Harap tunggu {rest} detik sebelum meminta kode verifikasi baru",
