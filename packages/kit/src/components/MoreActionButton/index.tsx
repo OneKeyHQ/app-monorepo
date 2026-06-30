@@ -40,7 +40,7 @@ import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-li
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
 import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import {
@@ -84,7 +84,7 @@ import { useDeviceManagerNavigation } from '../../views/DeviceManagement/hooks/u
 import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
 import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
 import useScanQrCodeLazy from '../../views/ScanQrCode/hooks/useScanQrCodeLazy';
-import { AccountSelectorProviderMirror } from '../AccountSelector';
+import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 import {
   isShowAppUpdateUIWhenUpdating,
   isToolboxUpdateIndicatorRedundant,

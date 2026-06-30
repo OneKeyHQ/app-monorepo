@@ -1,4 +1,4 @@
-import { useAccountSelectorStorageReadyAtom } from '../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorStorageReadyAtom } from '../../states/jotai/contexts/accountSelector/atoms';
 
 export function AccountSelectorStorageReady({
   children,

@@ -37,11 +37,11 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useDebouncedCallback } from '../../../hooks/useDebounce';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { handleSwapNavigation } from '../../../views/Swap/hooks/useSwapNavigation';
 

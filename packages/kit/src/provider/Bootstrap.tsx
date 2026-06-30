@@ -75,7 +75,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '../components/AccountSelector';
+import { AccountSelectorProviderMirror } from '../components/AccountSelector/AccountSelectorProvider';
 import {
   AppUpdateForeground,
   isAutoUpdateStrategy,

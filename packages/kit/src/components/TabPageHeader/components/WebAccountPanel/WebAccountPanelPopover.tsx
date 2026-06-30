@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 import { Suspense, lazy, useCallback } from 'react';
 
 import { Popover } from '@onekeyhq/components';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorProvider';
+import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
 
 import type { IWebAccountPanelView } from './WebAccountPanelPopoverContent';
 

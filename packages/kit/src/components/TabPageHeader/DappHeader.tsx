@@ -41,10 +41,10 @@ import { KeylessWebConnectAlertContainer } from '../../provider/Container/Keyles
 import {
   useAccountSelectorContextData,
   useActiveAccount,
-} from '../../states/jotai/contexts/accountSelector';
+} from '../../states/jotai/contexts/accountSelector/atoms';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { useLanguageSelector } from '../../views/Setting/hooks/useLanguageSelector';
-import { AccountSelectorProviderMirror } from '../AccountSelector';
+import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 import { ListItem } from '../ListItem';
 
 import {

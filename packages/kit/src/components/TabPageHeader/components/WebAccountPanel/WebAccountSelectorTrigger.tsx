@@ -2,7 +2,7 @@ import { Suspense, lazy } from 'react';
 
 import { SizableText, XStack } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 

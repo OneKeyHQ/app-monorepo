@@ -8,7 +8,6 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { setSplitViewLayoutDisabled } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 
-import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useShouldUseSplitView } from '../../hooks/useShouldUseSplitView';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
@@ -34,11 +33,12 @@ import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeGlobalEffectLazy } from './PrimeGlobalEffectLazy';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
-import { RookieShareContainer } from './RookieShareContainer';
+import { RookieShareContainerLazy } from './RookieShareContainer/Lazy';
 import { SplitViewPerpTabSync } from './SplitViewPerpTabSync';
 import { TableSplitViewContainer } from './TableSplitViewContainer';
 import { ThirdPartyHardwareUiStateContainerLazy } from './ThirdPartyHardwareUiStateContainer/Lazy';
 import { VerifyTxContainer } from './VerifyTxContainer';
+import { WalletBackupPreCheckContainerLazy } from './WalletBackupPreCheckContainerLazy';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
 
 const PageTrackerContainer = LazyLoad(
@@ -63,7 +63,7 @@ function DetailRouter() {
       <AirGapQrcodeDialogContainer />
       <CreateAddressContainer />
       <PrevCheckBeforeSendingContainer />
-      <WalletBackupPreCheckContainer />
+      <WalletBackupPreCheckContainerLazy />
       <VerifyTxContainer />
       <HardwareUiStateContainerLazy />
       <ThirdPartyHardwareUiStateContainerLazy />
@@ -82,7 +82,7 @@ function DetailRouter() {
       <PrimeGlobalEffectLazy />
       <WebPerformanceMonitorContainer />
       <PasswordVerifyPortalContainer />
-      <RookieShareContainer />
+      <RookieShareContainerLazy />
     </NavigationContainer>
   );
 }
