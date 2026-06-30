@@ -3915,7 +3915,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - ReactNativeNetworkThrottle (3.0.69):
+  - ReactNativeNetworkThrottle (3.0.73):
     - boost
     - DoubleConversion
     - fast_float
@@ -5563,7 +5563,7 @@ SPEC CHECKSUMS:
   ReactNativeGetRandomValues: e9db8f697acd5f63b00a85d3dda3f8493a20c807
   ReactNativeLiteCard: aa55383e97792a8ac4269ca32b89e5f0ad2b7608
   ReactNativeNativeLogger: c040c3f71be4e6faca24daf9b1cfe6670b2e9505
-  ReactNativeNetworkThrottle: a2cb7665766ba9be5c0c6506b8733eeb40f775df
+  ReactNativeNetworkThrottle: 9517d4e29e73287afd0df527c97fc7e66b3077da
   ReactNativePasskeys: 4ca7fc35132705665742daf94ed1e779a20229f5
   ReactNativePerfMemory: 94e714c416cfa653e2e34868eaad8b9bf478c21e
   ReactNativePerfStats: 76f69d31fbeb2d23ccd8d8630d994704a5d5e4c8
