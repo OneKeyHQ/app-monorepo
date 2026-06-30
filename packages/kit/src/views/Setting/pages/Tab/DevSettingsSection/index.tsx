@@ -132,6 +132,22 @@ const LazyNavigationDiagnosticsSection = LazyLoad(async () => {
 
 export { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
 
+type ILocalSecretEnvelopeSimulatedKeyLossResult = {
+  credentialCount: number;
+  deletedLayers: Array<{
+    kind: string;
+    keyRef: string;
+    recordCount: number;
+  }>;
+  lseCredentialCount: number;
+};
+
+type IServiceE2EWithLocalSecretEnvelopeDevTools = {
+  simulateLocalSecretEnvelopeCredentialKeyLoss: (
+    params: IBackgroundMethodWithDevOnlyPassword,
+  ) => Promise<ILocalSecretEnvelopeSimulatedKeyLossResult>;
+};
+
 const DevSettingsAccordionTrigger = ({
   title,
   description,
@@ -516,6 +532,37 @@ const BaseDevSettingsSection = () => {
       { testKind: 'diagnostic' },
     );
   }, [navigation]);
+
+  const handleSimulateLocalSecretEnvelopeCredentialKeyLoss = useCallback(() => {
+    showDevOnlyPasswordDialog({
+      title: 'Danger Zone: Simulate LSE Credential Key Loss',
+      description:
+        'Deletes only local Keychain / CryptoKey layer keys referenced by current LSE credentials. This simulates a migrated device missing local LSE material and may make affected wallets inaccessible until restored again.',
+      confirmButtonProps: {
+        testID: SettingTestIDs.localSecretEnvelopeSimulateKeyLossConfirm,
+      },
+      onConfirm: async (params) => {
+        const serviceE2E =
+          backgroundApiProxy.serviceE2E as unknown as IServiceE2EWithLocalSecretEnvelopeDevTools;
+        const result =
+          await serviceE2E.simulateLocalSecretEnvelopeCredentialKeyLoss(params);
+        if (result.deletedLayers.length) {
+          Toast.success({
+            title: 'LSE local keys deleted',
+            message: `${result.deletedLayers.length} key(s), ${result.lseCredentialCount} LSE credential(s) affected`,
+          });
+        } else {
+          Toast.message({
+            title: 'No LSE credential local keys found',
+            message: `${result.credentialCount} credential(s) scanned`,
+          });
+        }
+        Dialog.debugMessage({
+          debugMessage: result,
+        });
+      },
+    });
+  }, []);
 
   const handleTriggerReferralBindGuardIn10s = useCallback(() => {
     Toast.message({
@@ -1139,6 +1186,19 @@ const BaseDevSettingsSection = () => {
                         searchKeywords="Local Secret Envelope LSE migration diagnostic encryption method KDF iterations scan inventory"
                         onPress={
                           handleOpenLocalSecretEnvelopeMigrationDiagnostic
+                        }
+                      />
+
+                      <SectionPressItem
+                        icon="DeleteOutline"
+                        title="Simulate LSE Credential Key Loss"
+                        subtitle="Delete Keychain / CryptoKey layer keys referenced by current LSE credentials to simulate migrated-device local key loss"
+                        testID={
+                          SettingTestIDs.localSecretEnvelopeSimulateKeyLossButton
+                        }
+                        searchKeywords="Local Secret Envelope LSE simulate migration new device key loss delete Keychain CryptoKey secureStorage IndexedDB credential"
+                        onPress={
+                          handleSimulateLocalSecretEnvelopeCredentialKeyLoss
                         }
                       />
 

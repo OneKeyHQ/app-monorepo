@@ -49,6 +49,7 @@ import {
   isIndexedDbCryptoKeyLocalSecretEnvelopeLayerAvailable,
   isLocalSecretEnvelopeString,
   isSecureStorageLocalSecretEnvelopeLayerAvailable,
+  localSecretEnvelopeService,
   parseLocalSecretEnvelopeV1,
   resetSecureStorageLocalSecretEnvelopeProbeCache,
   stripLocalSecretPrefix,
@@ -103,6 +104,20 @@ type ILocalSecretEnvelopeE2ESelfTestOptions = {
   expectedCredentialLayerKinds?: ILocalSecretEnvelopeLayerKind[];
   expectedRuntimePlatform?: ILocalSecretEnvelopeRuntimePlatform;
   expectedStrength?: ILocalSecretEnvelopeStrength;
+};
+
+export type ILocalSecretEnvelopeSimulatedKeyLossLayer = {
+  kind: ILocalSecretEnvelopeLayerKind;
+  keyRef: string;
+  recordCount: number;
+};
+
+export type ILocalSecretEnvelopeSimulatedKeyLossResult = {
+  credentialCount: number;
+  deletedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[];
+  lseCredentialCount: number;
+  runtimePlatform: ILocalSecretEnvelopeRuntimePlatform;
+  skippedUnsupportedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[];
 };
 
 export type ILocalSecretEnvelopeE2ECheckpointStatus =
@@ -473,14 +488,24 @@ type ILocalSecretEnvelopeE2EReporter = ReturnType<
   typeof createLocalSecretEnvelopeE2EReporter
 >;
 
+type ILocalSecretEnvelopeLayerKeyRef = Pick<
+  ILocalSecretEnvelopeV1['wrappingLayers'][number],
+  'keyRef' | 'kind'
+>;
+
 async function removeLocalSecretEnvelopeLayerKey({
   keyRef,
   kind,
-}: ILocalSecretEnvelopeV1['wrappingLayers'][number]) {
+}: ILocalSecretEnvelopeLayerKeyRef) {
   if (kind === 'indexeddb-cryptokey') {
     await deleteIndexedDbCryptoKeyForLocalSecretEnvelope({
       keyRef,
     });
+    return;
+  }
+  if (kind === 'secure-storage') {
+    await secureStorageInstance.removeSecureItem(keyRef);
+    resetSecureStorageLocalSecretEnvelopeProbeCache();
   }
 }
 
@@ -685,6 +710,70 @@ class ServiceE2E extends ServiceBase {
     await localDb.clearRecords({
       name: ELocalDBStoreNames.ConnectedSite,
     });
+  }
+
+  @backgroundMethodForDev()
+  async simulateLocalSecretEnvelopeCredentialKeyLoss(
+    params: IBackgroundMethodWithDevOnlyPassword,
+  ): Promise<ILocalSecretEnvelopeSimulatedKeyLossResult> {
+    checkDevOnlyPassword(params);
+    const credentials = await localDb.getAllCredentials();
+    const layersByKey = new Map<
+      string,
+      ILocalSecretEnvelopeSimulatedKeyLossLayer
+    >();
+    let lseCredentialCount = 0;
+
+    for (const credential of credentials) {
+      if (isLocalSecretEnvelopeString(credential.credential)) {
+        let envelope: ILocalSecretEnvelopeV1 | undefined;
+        try {
+          envelope = parseLocalSecretEnvelopeV1(credential.credential);
+        } catch {
+          envelope = undefined;
+        }
+        if (envelope?.dataType === 'credential') {
+          lseCredentialCount += 1;
+          for (const layer of envelope.wrappingLayers) {
+            const key = `${layer.kind}:${layer.keyRef}`;
+            const existing = layersByKey.get(key);
+            if (existing) {
+              existing.recordCount += 1;
+            } else {
+              layersByKey.set(key, {
+                keyRef: layer.keyRef,
+                kind: layer.kind,
+                recordCount: 1,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    const deletedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[] = [];
+    const skippedUnsupportedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[] =
+      [];
+    for (const layer of layersByKey.values()) {
+      if (
+        layer.kind === 'indexeddb-cryptokey' ||
+        layer.kind === 'secure-storage'
+      ) {
+        await removeLocalSecretEnvelopeLayerKey(layer);
+        deletedLayers.push(layer);
+      } else {
+        skippedUnsupportedLayers.push(layer);
+      }
+    }
+    localSecretEnvelopeService.clearCredentialMigrationConfigCache();
+
+    return {
+      credentialCount: credentials.length,
+      deletedLayers,
+      lseCredentialCount,
+      runtimePlatform: detectLocalSecretEnvelopeRuntimePlatform(),
+      skippedUnsupportedLayers,
+    };
   }
 
   async resetLocalSecretEnvelopeE2ESelfTestState(
