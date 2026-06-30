@@ -4,6 +4,9 @@ import { defaultLogger } from '../../logger/logger';
 
 import type { ISniRequestConfig, ISniResponse } from '../types/ipTable';
 
+type NativeSniConnectRequest = Parameters<typeof nativeSniConnect.request>[0];
+type NativeSniConnectMethod = NativeSniConnectRequest['method'];
+
 /**
  * SNI Request - Native implementation for iOS/Android
  * Uses @onekeyfe/react-native-sni-connect to perform direct IP connection with SNI
@@ -11,16 +14,9 @@ import type { ISniRequestConfig, ISniResponse } from '../types/ipTable';
 export async function sniRequest(
   config: ISniRequestConfig,
 ): Promise<ISniResponse | null> {
-  const response = await nativeSniConnect.request({
-    requestId: config.requestId,
-    ip: config.ip,
-    hostname: config.hostname,
-    path: config.path,
-    headers: config.headers,
-    method: config.method,
-    body: config.body,
-    timeout: config.timeout,
-  });
+  const response = await nativeSniConnect.request(
+    buildNativeSniRequest(config),
+  );
   const multiValueHeaders = (
     response as typeof response & {
       multiValueHeaders?: Record<string, string[]>;
@@ -36,6 +32,71 @@ export async function sniRequest(
     multiValueHeaders,
     body: response.data,
   };
+}
+
+class SniInvalidConfigError extends Error {
+  code = 'SNI_INVALID_CONFIG' as const;
+
+  constructor(message: string) {
+    super(message);
+    this.name = 'SniInvalidConfigError';
+  }
+}
+
+function buildNativeSniRequest(
+  config: ISniRequestConfig,
+): NativeSniConnectRequest {
+  const method = normalizeSniMethod(config.method);
+  const base = {
+    requestId: config.requestId,
+    ip: config.ip,
+    hostname: config.hostname,
+    path: config.path,
+    headers: config.headers,
+    timeout: config.timeout,
+  };
+
+  if (method === 'GET' || method === 'HEAD') {
+    return {
+      ...base,
+      method,
+    };
+  }
+
+  if (method === 'POST' || method === 'PUT' || method === 'PATCH') {
+    return {
+      ...base,
+      method,
+      body: config.body ?? '',
+    };
+  }
+
+  return {
+    ...base,
+    method,
+    body: config.body,
+  };
+}
+
+function normalizeSniMethod(method: string): NativeSniConnectMethod {
+  switch (method.trim().toUpperCase()) {
+    case 'GET':
+      return 'GET';
+    case 'HEAD':
+      return 'HEAD';
+    case 'POST':
+      return 'POST';
+    case 'PUT':
+      return 'PUT';
+    case 'PATCH':
+      return 'PATCH';
+    case 'DELETE':
+      return 'DELETE';
+    case 'OPTIONS':
+      return 'OPTIONS';
+    default:
+      throw new SniInvalidConfigError(`Invalid SNI request method: ${method}`);
+  }
 }
 
 /**
@@ -86,7 +147,7 @@ export async function isProxyActiveForUrl(
 }
 
 function safeLogValue(value: unknown): string {
-  if (value == null) return 'none';
+  if (value === null || value === undefined) return 'none';
   return String(value).replace(/[\r\n\s]+/g, '_');
 }
 
