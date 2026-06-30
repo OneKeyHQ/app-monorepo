@@ -6,7 +6,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { buildSwapDefaultSelectedTokensForNetwork } from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
-import { removeSwapNoConnectWalletAlerts } from '@onekeyhq/kit/src/views/Swap/utils/swapNoWalletWarningGuard';
+import {
+  removeSwapNoConnectWalletAlerts,
+  shouldShowSwapAccountUnsupportedAlert,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapNoWalletWarningGuard';
 import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
 import {
   isUSMarketStatusStockTokenSource,
@@ -1631,8 +1634,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
         return;
       }
+      const hasFromAccountWallet = Boolean(
+        swapFromAddressInfo.accountInfo?.wallet,
+      );
+      const hasFromAccount = Boolean(swapFromAddressInfo.accountInfo?.account);
       // check account
-      if (!swapFromAddressInfo.accountInfo?.wallet) {
+      if (
+        !hasFromAccountWallet ||
+        (!hasFromAccount && options?.allowNoConnectWallet)
+      ) {
         if (!options?.allowNoConnectWallet) {
           const alerts = get(swapAlertsAtom());
           set(swapAlertsAtom(), {
@@ -1689,16 +1699,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         id: ETranslations.swap_page_alert_account_does_not_support_swap,
       });
       if (
-        fromToken &&
-        !swapFromAddressInfo.address &&
-        !accountUtils.isHdWallet({
+        shouldShowSwapAccountUnsupportedAlert({
+          hasFromToken: Boolean(fromToken),
+          fromAddress: swapFromAddressInfo.address,
           walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-        }) &&
-        !accountUtils.isHwWallet({
-          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-        }) &&
-        !accountUtils.isQrWallet({
-          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+          accountId: swapFromAddressInfo.accountInfo?.account?.id,
         })
       ) {
         alertsRes = [
