@@ -835,12 +835,7 @@ class ServiceHardware extends ServiceBase {
     return this.linuxUdevRulesReadyPromise;
   }
 
-  private async recoverLinuxWebUsbAccessDeniedError(
-    error: unknown,
-    options?: {
-      forceManualGuideOnFailure?: boolean;
-    },
-  ) {
+  private async recoverLinuxWebUsbAccessDeniedError(error: unknown) {
     if (!this.isDesktopLinuxRuntime()) {
       return false;
     }
@@ -852,14 +847,7 @@ class ServiceHardware extends ServiceBase {
       return true;
     }
 
-    this.notifyLinuxUdevManualInstallIfNeeded(
-      options?.forceManualGuideOnFailure
-        ? {
-            force: true,
-            reason: this.getLinuxUdevManualInstallReason(),
-          }
-        : undefined,
-    );
+    this.notifyLinuxUdevManualInstallIfNeeded();
     return false;
   }
 
@@ -867,11 +855,7 @@ class ServiceHardware extends ServiceBase {
   async handleLinuxWebUsbAccessDeniedError(
     params?: IHandleLinuxWebUsbAccessDeniedErrorParams,
   ) {
-    if (
-      await this.recoverLinuxWebUsbAccessDeniedError(params?.error, {
-        forceManualGuideOnFailure: true,
-      })
-    ) {
+    if (await this.recoverLinuxWebUsbAccessDeniedError(params?.error)) {
       defaultLogger.hardware.sdkLog.log(
         '[LinuxWebUSB] OneKey udev rules installed after WebUSB access denied',
       );
@@ -2135,11 +2119,7 @@ class ServiceHardware extends ServiceBase {
         hardwareSDK?.promptWebDeviceAccess(params),
       );
     } catch (error) {
-      if (
-        await this.recoverLinuxWebUsbAccessDeniedError(error, {
-          forceManualGuideOnFailure: true,
-        })
-      ) {
+      if (await this.recoverLinuxWebUsbAccessDeniedError(error)) {
         return convertDeviceResponse(() =>
           hardwareSDK?.promptWebDeviceAccess(params),
         );
