@@ -1,5 +1,6 @@
 import type { RefObject } from 'react';
 
+import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
 import type { IMarketTokenKLineResponse } from '@onekeyhq/shared/types/marketV2';
 
 import { fetchTradingViewV2DataWithSlicing } from '../hooks';
@@ -7,8 +8,7 @@ import { fetchTradingViewV2DataWithSlicing } from '../hooks';
 import { handleKLineDataRequest } from './klineDataHandler';
 
 import type { IMessageHandlerContext } from './types';
-import type { IWebViewRef } from '../../../WebView/types';
-import type { ICustomReceiveHandlerData } from '../types';
+import type { ICustomReceiveHandlerData } from '../../../types';
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
