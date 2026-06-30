@@ -2,7 +2,7 @@ import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS } from 'react-native-reanimated';
+import { runOnJS, useSharedValue } from 'react-native-reanimated';
 
 import {
   Button,
@@ -47,16 +47,17 @@ const INDICATOR_GRID_ITEM_LAYOUT_PROPS = {
 } as const;
 export const TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT = 31;
 const QUICK_BAR_TAP_MOVE_THRESHOLD = 8;
-const QUICK_BAR_DUPLICATE_PRESS_THRESHOLD_MS = 120;
 
 type IQuickBarItemLayout = {
   x: number;
   width: number;
 };
 
-type IQuickBarLastPress = {
-  indicatorValue: string;
-  timestamp: number;
+type IQuickBarPressSource = 'item' | 'fallback';
+
+type IQuickBarPressState = {
+  sequence: number;
+  source: IQuickBarPressSource | null;
 };
 
 function buildIndicatorItemTestID(value: string): string {
@@ -198,11 +199,13 @@ function IndicatorQuickBarItem({
   indicator,
   isActive,
   onPress,
+  onPressIn,
   onLayout,
 }: {
   indicator: ITradingViewIndicatorOption;
   isActive: boolean;
   onPress: () => void;
+  onPressIn?: () => void;
   onLayout?: (event: LayoutChangeEvent) => void;
 }) {
   const content = (
@@ -229,6 +232,7 @@ function IndicatorQuickBarItem({
       accessibilityState={{ selected: isActive }}
       onLayout={onLayout}
       onPress={onPress}
+      onPressIn={onPressIn}
     >
       {content}
     </XStack>
@@ -257,10 +261,14 @@ export const TradingViewNativeIndicatorQuickBar = memo(
       onIndicatorSelect,
     });
     const quickBarScrollXRef = useRef(0);
+    const quickBarGestureSequence = useSharedValue(0);
     const quickBarItemLayoutsRef = useRef(
       new Map<string, IQuickBarItemLayout>(),
     );
-    const lastQuickBarPressRef = useRef<IQuickBarLastPress | null>(null);
+    const quickBarPressStateRef = useRef<IQuickBarPressState>({
+      sequence: 0,
+      source: null,
+    });
 
     const handleQuickBarScroll = useCallback(
       (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -277,29 +285,49 @@ export const TradingViewNativeIndicatorQuickBar = memo(
       [],
     );
 
+    const resetQuickBarPressState = useCallback((sequence: number) => {
+      quickBarPressStateRef.current = {
+        sequence,
+        source: null,
+      };
+    }, []);
+
+    const resetQuickBarPressSource = useCallback(() => {
+      quickBarPressStateRef.current = {
+        ...quickBarPressStateRef.current,
+        source: null,
+      };
+    }, []);
+
     const handleQuickBarIndicatorPress = useCallback(
-      (indicator: ITradingViewIndicatorOption) => {
-        const timestamp = Date.now();
-        const lastPress = lastQuickBarPressRef.current;
-        if (
-          lastPress?.indicatorValue === indicator.value &&
-          timestamp - lastPress.timestamp <
-            QUICK_BAR_DUPLICATE_PRESS_THRESHOLD_MS
-        ) {
-          return;
+      (
+        indicator: ITradingViewIndicatorOption,
+        source: IQuickBarPressSource,
+        sequence?: number,
+      ) => {
+        if (platformEnv.isNativeAndroid) {
+          const state = quickBarPressStateRef.current;
+          if (typeof sequence === 'number' && sequence !== state.sequence) {
+            return;
+          }
+
+          if (state.source) {
+            return;
+          }
+
+          quickBarPressStateRef.current = {
+            ...state,
+            source,
+          };
         }
 
-        lastQuickBarPressRef.current = {
-          indicatorValue: indicator.value,
-          timestamp,
-        };
         handleIndicatorPress(indicator);
       },
       [handleIndicatorPress],
     );
 
     const handleQuickBarTap = useCallback(
-      (locationX: number) => {
+      (locationX: number, sequence: number) => {
         const touchContentX = locationX + quickBarScrollXRef.current;
         const indicator = [...mainIndicators, ...subIndicators].find((item) => {
           const layout = quickBarItemLayoutsRef.current.get(item.value);
@@ -311,7 +339,7 @@ export const TradingViewNativeIndicatorQuickBar = memo(
         });
 
         if (indicator) {
-          handleQuickBarIndicatorPress(indicator);
+          handleQuickBarIndicatorPress(indicator, 'fallback', sequence);
         }
       },
       [handleQuickBarIndicatorPress, mainIndicators, subIndicators],
@@ -323,15 +351,24 @@ export const TradingViewNativeIndicatorQuickBar = memo(
           Gesture.Native().shouldActivateOnStart(true),
           Gesture.Tap()
             .maxDistance(QUICK_BAR_TAP_MOVE_THRESHOLD)
+            .onBegin(() => {
+              'worklet';
+
+              quickBarGestureSequence.value += 1;
+              runOnJS(resetQuickBarPressState)(quickBarGestureSequence.value);
+            })
             .onEnd((event, success) => {
               'worklet';
 
               if (success) {
-                runOnJS(handleQuickBarTap)(event.x);
+                runOnJS(handleQuickBarTap)(
+                  event.x,
+                  quickBarGestureSequence.value,
+                );
               }
             }),
         ),
-      [handleQuickBarTap],
+      [handleQuickBarTap, quickBarGestureSequence, resetQuickBarPressState],
     );
 
     if (!hasVisibleIndicators) {
@@ -350,7 +387,8 @@ export const TradingViewNativeIndicatorQuickBar = memo(
             key={indicator.value}
             indicator={indicator}
             isActive={activeIndicatorValues.has(indicator.value)}
-            onPress={() => handleQuickBarIndicatorPress(indicator)}
+            onPress={() => handleQuickBarIndicatorPress(indicator, 'item')}
+            onPressIn={resetQuickBarPressSource}
             onLayout={(event) =>
               handleQuickBarItemLayout(indicator.value, event)
             }
@@ -364,7 +402,8 @@ export const TradingViewNativeIndicatorQuickBar = memo(
             key={indicator.value}
             indicator={indicator}
             isActive={activeIndicatorValues.has(indicator.value)}
-            onPress={() => handleQuickBarIndicatorPress(indicator)}
+            onPress={() => handleQuickBarIndicatorPress(indicator, 'item')}
+            onPressIn={resetQuickBarPressSource}
             onLayout={(event) =>
               handleQuickBarItemLayout(indicator.value, event)
             }
