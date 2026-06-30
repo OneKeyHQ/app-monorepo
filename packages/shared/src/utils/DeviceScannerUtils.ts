@@ -4,11 +4,13 @@ import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type { SearchDevice, Success, Unsuccessful } from '@onekeyfe/hd-core';
 
-const MAX_SEARCH_TRY_COUNT = 15;
+// Scan polls before auto-stop (all vendors); ~85s window for third-party.
+const MAX_SEARCH_TRY_COUNT = 20;
 const POLL_INTERVAL = 1000;
 const POLL_INTERVAL_RATE = 1.5;
 // Third-party (Trezor/Ledger) backoff cap; OneKey keeps its unbounded backoff.
-const MAX_POLL_INTERVAL = 8000;
+// 5s, not lower: Ledger re-scans via DMK each poll (Trezor is a cheap snapshot).
+const MAX_POLL_INTERVAL = 5000;
 
 type ISearchResponse = Unsuccessful | Success<SearchDevice[]>;
 type IPollFn<T> = (time?: number, index?: number, rate?: number) => T;
