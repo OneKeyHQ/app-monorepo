@@ -48,12 +48,13 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import perpsUtils, {
   calculateSpotBalancesTotalUsd,
+  isHyperLiquidAbstractionModeEnabled,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
+import type { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 import {
   CACHE_TIME_QUANTIZE_MS,
   SPOT_ASSET_ID_OFFSET,
@@ -2536,6 +2537,18 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
   }
 
+  // Bust the cache before re-fetching, else the read returns the pre-switch mode.
+  @backgroundMethod()
+  async refreshUserAbstractionMode(
+    userAddress: IHex,
+  ): Promise<string | undefined> {
+    invalidateUserAbstractionRawCache(
+      this.fetchUserAbstractionRawWithCache,
+      userAddress,
+    );
+    return this.fetchUserAbstraction(userAddress);
+  }
+
   @backgroundMethod()
   async checkPerpsAccountStatus({
     isEnableTradingTrigger = false,
@@ -2652,8 +2665,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           // Placed after referralCodeOk so a signature rejection doesn't block other status
           const currentMode = await this.fetchUserAbstraction(accountAddress);
           const isAbstractionCorrect =
-            currentMode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
-            currentMode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
+            isHyperLiquidAbstractionModeEnabled(currentMode);
           if (isAbstractionCorrect) {
             statusDetails.abstractionOk = true;
           } else if (isEnableTradingTrigger && selectedAccount.accountId) {
@@ -2671,8 +2683,7 @@ export default class ServiceHyperliquid extends ServiceBase {
             const verifiedMode =
               await this.fetchUserAbstraction(accountAddress);
             statusDetails.abstractionOk =
-              verifiedMode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
-              verifiedMode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
+              isHyperLiquidAbstractionModeEnabled(verifiedMode);
           }
         }
       }
