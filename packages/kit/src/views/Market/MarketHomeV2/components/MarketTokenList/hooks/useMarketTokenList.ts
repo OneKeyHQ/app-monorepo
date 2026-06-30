@@ -100,6 +100,36 @@ const MARKET_HOME_STABLE_REMOTE_PATCH_FIELDS: readonly (keyof IMarketTokenListIt
     'communityRecognized',
   ];
 
+const MARKET_TOKEN_PRIMITIVE_REUSE_FIELDS = [
+  'id',
+  'name',
+  'symbol',
+  'address',
+  'decimals',
+  'price',
+  'change24h',
+  'marketCap',
+  'liquidity',
+  'transactions',
+  'uniqueTraders',
+  'holders',
+  'turnover',
+  'tokenImageUri',
+  'networkLogoUri',
+  'networkId',
+  'firstTradeTime',
+  'chainId',
+  'sortIndex',
+  'isNative',
+  'communityRecognized',
+  'perpsCoin',
+  'maxLeverage',
+  'perpsSubtitle',
+] satisfies readonly (keyof Omit<
+  IMarketToken,
+  'tokenImageUris' | 'walletInfo' | 'stock'
+>)[];
+
 function getMarketTokenListItemStableKey(item: IMarketTokenListItem) {
   const { isNative, normalizedAddress } = getNativeTokenInfo(
     item.isNative,
@@ -156,6 +186,63 @@ function mergeSeedFirstRowsWithRemote({
     list: [...stableSeedRows, ...remoteRows],
     total: remoteResponse.total,
   };
+}
+
+function isSameStringArray(a?: string[], b?: string[]) {
+  if (a === b) {
+    return true;
+  }
+  if (!a || !b || a.length !== b.length) {
+    return false;
+  }
+  return a.every((value, index) => value === b[index]);
+}
+
+function canReuseMarketToken(prev: IMarketToken, next: IMarketToken) {
+  for (const field of MARKET_TOKEN_PRIMITIVE_REUSE_FIELDS) {
+    if (prev[field] !== next[field]) {
+      return false;
+    }
+  }
+
+  if (!isSameStringArray(prev.tokenImageUris, next.tokenImageUris)) {
+    return false;
+  }
+
+  if (
+    prev.walletInfo?.buy !== next.walletInfo?.buy ||
+    prev.walletInfo?.sell !== next.walletInfo?.sell
+  ) {
+    return false;
+  }
+
+  return prev.stock === next.stock;
+}
+
+function reuseStableMarketTokenRows({
+  prev,
+  next,
+}: {
+  prev: IMarketToken[];
+  next: IMarketToken[];
+}) {
+  if (prev.length === 0 || next.length === 0) {
+    return next;
+  }
+
+  const prevById = new Map(prev.map((item) => [item.id, item]));
+  let changed = prev.length !== next.length;
+  const reused = next.map((item, index) => {
+    const prevItem = prevById.get(item.id);
+    const nextItem =
+      prevItem && canReuseMarketToken(prevItem, item) ? prevItem : item;
+    if (prev[index] !== nextItem) {
+      changed = true;
+    }
+    return nextItem;
+  });
+
+  return changed ? reused : prev;
 }
 
 export function useMarketTokenList({
@@ -337,8 +424,11 @@ export function useMarketTokenList({
       }),
     );
 
-    // Update data only after successful fetch (preserve existing data during loading)
-    setTransformedData(transformed);
+    // Update only rows whose visible fields changed so Table row memoization can
+    // survive seed -> remote refresh and polling updates.
+    setTransformedData((prev) =>
+      reuseStableMarketTokenRows({ prev, next: transformed }),
+    );
 
     // Track network loading analytics
     trackNetworkLoading(networkId, apiResult.list.length);

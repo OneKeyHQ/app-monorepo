@@ -25,6 +25,7 @@ import {
   ECopyFrom,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { TokenIdentityItem } from '../../components/TokenIdentityItem';
@@ -71,7 +72,29 @@ function formatLightweightMarketValue(value: unknown) {
     return EMPTY_MARKET_VALUE;
   }
 
-  return String(value);
+  const numericValue =
+    typeof value === 'number' ? value : Number.parseFloat(String(value));
+  if (!Number.isFinite(numericValue)) {
+    return String(value);
+  }
+
+  const absValue = Math.abs(numericValue);
+  if (absValue >= 1_000_000_000) {
+    return `${(numericValue / 1_000_000_000).toFixed(absValue >= 10_000_000_000 ? 0 : 1)}B`;
+  }
+  if (absValue >= 1_000_000) {
+    return `${(numericValue / 1_000_000).toFixed(absValue >= 10_000_000 ? 0 : 1)}M`;
+  }
+  if (absValue >= 1000) {
+    return `${(numericValue / 1000).toFixed(absValue >= 10_000 ? 0 : 1)}K`;
+  }
+  if (absValue > 0 && absValue < 0.01) {
+    return numericValue.toPrecision(3);
+  }
+  if (absValue % 1 === 0) {
+    return String(numericValue);
+  }
+  return numericValue.toFixed(absValue >= 100 ? 1 : 2);
 }
 
 function renderLightweightText(value: unknown) {
@@ -83,6 +106,14 @@ function renderLightweightText(value: unknown) {
 }
 
 function renderLightweightTokenIdentity(record: IMarketToken) {
+  const subtitle = record.address
+    ? accountUtils.shortenAddress({
+        address: record.address,
+        leadingLength: 6,
+        trailingLength: 4,
+      })
+    : record.name;
+
   return (
     <XStack
       alignItems="center"
@@ -108,7 +139,7 @@ function renderLightweightTokenIdentity(record: IMarketToken) {
           numberOfLines={1}
           ellipsizeMode="tail"
         >
-          {record.stock?.subtitle || record.name || record.address}
+          {subtitle}
         </SizableText>
       </Stack>
     </XStack>

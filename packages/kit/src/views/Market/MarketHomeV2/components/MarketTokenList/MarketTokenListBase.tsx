@@ -65,7 +65,7 @@ const MARKET_HOME_WS_OVERSCAN_ROWS = 5;
 const MARKET_HOME_WS_MAX_SUBSCRIPTIONS = 80;
 const MARKET_HOME_WS_SCROLL_SYNC_DELAY_MS = 120;
 const MARKET_HOME_WS_DEBUG_SUBSCRIPTION_ROW_BG = 'rgba(255, 72, 72, 0.12)';
-const MARKET_HOME_WEB_EAGER_RICH_ROW_COUNT = 8;
+const MARKET_HOME_WEB_EAGER_RICH_ROW_COUNT = 4;
 const MARKET_HOME_WEB_INITIAL_RENDER_ROW_COUNT = 12;
 const MARKET_HOME_WEB_ROW_CONTENT_VISIBILITY_STYLE = {
   contentVisibility: 'auto',
@@ -446,9 +446,9 @@ function MarketTokenListBase({
     [isWatchlistMode, rawData, showStockSubtitle],
   );
   // Web tab integration gives the inner FlatList the full tab height so the
-  // outer Tabs.Container can own vertical scroll. During cold start, keep the
-  // visible rows rich and defer below-the-fold media/interactive decoration
-  // until after the measured startup window.
+  // outer Tabs.Container can own vertical scroll. During cold start, keep only
+  // the first rows rich and defer extra media/interactive decoration until
+  // after the measured startup window.
   const deferRichRowAfterIndex =
     platformEnv.isWeb && webTabIntegrated && !enableDeferredWebFeatures
       ? MARKET_HOME_WEB_EAGER_RICH_ROW_COUNT
