@@ -18,7 +18,7 @@ import {
   parseContentPList,
 } from '@onekeyhq/desktop/app/libs/utils';
 import { restartBridge } from '@onekeyhq/desktop/app/process';
-import { getStaticPath } from '@onekeyhq/desktop/app/resoucePath';
+import { getAppStaticResourcesPath } from '@onekeyhq/desktop/app/resoucePath';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
 
@@ -48,8 +48,18 @@ const isFlatpakRuntime = () =>
     process.env.container === 'flatpak',
   );
 
+const getNativeStaticResourcesPath = () => {
+  const appStaticResourcesPath = getAppStaticResourcesPath();
+  return app.isPackaged
+    ? path.join(appStaticResourcesPath, 'static')
+    : appStaticResourcesPath;
+};
+
 const getOneKeyLinuxUdevRulesSourcePath = () =>
-  path.join(getStaticPath(), ONEKEY_LINUX_UDEV_RULES_STATIC_PATH);
+  path.join(
+    getNativeStaticResourcesPath(),
+    ONEKEY_LINUX_UDEV_RULES_STATIC_PATH,
+  );
 
 const readOneKeyLinuxUdevRules = memoizee(
   async () =>
@@ -429,6 +439,7 @@ if command -v udevadm >/dev/null 2>&1; then
   udevadm trigger --subsystem-match=hidraw --attr-match=idVendor=1209 || true
   udevadm trigger --subsystem-match=usb --attr-match=idVendor=534c || true
   udevadm trigger --subsystem-match=hidraw --attr-match=idVendor=534c || true
+  udevadm settle --timeout=10 || true
 fi
 `;
 
