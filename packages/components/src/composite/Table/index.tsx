@@ -3,6 +3,7 @@ import {
   Suspense,
   forwardRef,
   lazy,
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -298,6 +299,8 @@ function TableRow<T>({
   return content;
 }
 
+const MemoTableRow = memo(TableRow) as typeof TableRow;
+
 function TableHeaderRow<T>({
   columns,
   onHeaderRow,
@@ -418,7 +421,7 @@ function BasicTable<T>({
 
   const handleRenderItem = useCallback(
     ({ item, index }: ListRenderItemInfo<T>) => (
-      <TableRow
+      <MemoTableRow
         pressStyle={!showSkeleton}
         showSkeleton={showSkeleton}
         scrollAtRef={scrollAtRef}
@@ -592,7 +595,7 @@ function BasicTable<T>({
   const renderSortableItem = useCallback(
     ({ item, drag, dragProps, index, isActive }: IRenderItemParams<T>) => {
       const row = (
-        <TableRow
+        <MemoTableRow
           pressStyle={!showSkeleton}
           isActive={isActive}
           draggable={draggable}

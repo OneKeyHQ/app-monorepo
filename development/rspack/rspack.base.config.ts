@@ -261,12 +261,25 @@ function buildDefineMap(
 
 const buildBasePlugins: (
   platform: string,
-) => (RspackPluginInstance | false | null | undefined)[] = (platform) => [
+  basePath: string,
+) => (RspackPluginInstance | false | null | undefined)[] = (
+  platform,
+  basePath,
+) => [
   new rspack.DefinePlugin(buildDefineMap(platform)),
   new rspack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],
     process: require.resolve('process/browser'),
   }),
+  !isDev &&
+    platform === 'web' &&
+    new rspack.NormalModuleReplacementPlugin(
+      /views[\\/]Developer[\\/]router$/,
+      path.join(
+        basePath,
+        '../../packages/kit/src/views/Developer/router.empty.ts',
+      ),
+    ),
   isDev && new BuildDoneNotifyPlugin(),
 ];
 
@@ -385,7 +398,7 @@ export function createBaseConfig({
           ROOT_ID: 'root',
         },
       }) as unknown as RspackPluginInstance,
-      ...buildBasePlugins(platform).filter(Boolean),
+      ...buildBasePlugins(platform, basePath).filter(Boolean),
     ],
     module: {
       rules: [

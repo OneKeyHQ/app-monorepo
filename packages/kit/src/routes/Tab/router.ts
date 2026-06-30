@@ -66,6 +66,10 @@ type IGetTabRouterParams = {
 };
 
 const getDeveloperRouters = (): ITabSubNavigatorConfig<any, any>[] => {
+  if (process.env.NODE_ENV === 'production') {
+    return [];
+  }
+
   if (!platformEnv.isDev) {
     return [];
   }

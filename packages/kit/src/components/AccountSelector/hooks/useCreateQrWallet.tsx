@@ -33,7 +33,7 @@ import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
-import useScanQrCode from '../../../views/ScanQrCode/hooks/useScanQrCode';
+import useScanQrCodeLazy from '../../../views/ScanQrCode/hooks/useScanQrCodeLazy';
 
 type ICreateQrWalletByScanParams = {
   isOnboarding?: boolean;
@@ -47,7 +47,7 @@ export function useCreateQrWallet() {
   const {
     start: startScan,
     // close,
-  } = useScanQrCode();
+  } = useScanQrCodeLazy();
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
 

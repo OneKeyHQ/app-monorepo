@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -81,12 +81,9 @@ import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { useBulkSendModeDialog } from '../../views/BulkSend/hooks/useBulkSendModeDialog';
 import { useNavigateToBulkSend } from '../../views/BulkSend/hooks/useNavigateToBulkSend';
 import { useDeviceManagerNavigation } from '../../views/DeviceManagement/hooks/useDeviceManagerNavigation';
-import { HomeFirmwareUpdateReminder } from '../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
-import { PrimeUserBadge } from '../../views/Prime/components/PrimeUserBadge';
 import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
-import { showRedemptionCenterDialog } from '../../views/Redemption/components/RedemptionCenterDialog';
-import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
+import useScanQrCodeLazy from '../../views/ScanQrCode/hooks/useScanQrCodeLazy';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 import {
   isShowAppUpdateUIWhenUpdating,
@@ -100,6 +97,18 @@ import { WalletAvatar } from '../WalletAvatar';
 
 import type { IDeviceManagementListItem } from '../../views/DeviceManagement/pages/DeviceManagementListModal';
 import type { GestureResponderEvent } from 'react-native';
+
+const LazyHomeFirmwareUpdateReminder = lazy(async () => {
+  const { HomeFirmwareUpdateReminder } =
+    await import('../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder');
+  return { default: HomeFirmwareUpdateReminder };
+});
+
+const LazyPrimeUserBadge = lazy(async () => {
+  const { PrimeUserBadge } =
+    await import('../../views/Prime/components/PrimeUserBadge');
+  return { default: PrimeUserBadge };
+});
 
 function MoreActionProvider({ children }: PropsWithChildren) {
   return (
@@ -154,7 +163,7 @@ function MoreActionContentHeader({
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
   const { tokens, keys, map } = useHomeTokenListSnapshot();
-  const scanQrCode = useScanQrCode();
+  const scanQrCode = useScanQrCodeLazy();
   const { closePopover } = usePopoverContext();
 
   const handleScan = useCallback(async () => {
@@ -690,7 +699,11 @@ function MoreActionOneKeyId() {
             >
               {displayName}
             </SizableText>
-            {isPrimeUser ? <PrimeUserBadge showFreeStatus={false} /> : null}
+            {isPrimeUser ? (
+              <Suspense fallback={null}>
+                <LazyPrimeUserBadge showFreeStatus={false} />
+              </Suspense>
+            ) : null}
           </XStack>
           <SizableText
             size="$bodyMd"
@@ -809,7 +822,9 @@ function UpdateReminders() {
   return isShowUpgradeComponents ? (
     <YStack gap="$2">
       <UpdateReminder />
-      <HomeFirmwareUpdateReminder />
+      <Suspense fallback={null}>
+        <LazyHomeFirmwareUpdateReminder />
+      </Suspense>
       <WalletXfpStatusReminder />
     </YStack>
   ) : null;
@@ -899,7 +914,7 @@ function MoreActionGeneralGrid() {
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
-  const scanQrCode = useScanQrCode();
+  const scanQrCode = useScanQrCodeLazy();
 
   const { tokens, keys, map } = useHomeTokenListSnapshot();
 
@@ -1225,6 +1240,8 @@ const MoreActionMoreGrid = () => {
 
   const handleRedeem = useCallback(async () => {
     await closePopover?.();
+    const { showRedemptionCenterDialog } =
+      await import('../../views/Redemption/components/RedemptionCenterDialog');
     showRedemptionCenterDialog({ source: 'more_action' });
   }, [closePopover]);
 

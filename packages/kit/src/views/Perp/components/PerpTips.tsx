@@ -11,13 +11,13 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
-import useParseQRCode from '../../ScanQrCode/hooks/useParseQRCode';
+import useParseQRCodeLazy from '../../ScanQrCode/hooks/useParseQRCodeLazy';
 
 export function PerpTips() {
   const intl = useIntl();
   const [{ perpConfigCommon }, setPerpsCommonConfigPersistAtom] =
     usePerpsCommonConfigPersistAtom();
-  const parseQRCode = useParseQRCode();
+  const parseQRCode = useParseQRCodeLazy();
 
   const action = useMemo(() => {
     const { href, hrefType, useSystemBrowser } =

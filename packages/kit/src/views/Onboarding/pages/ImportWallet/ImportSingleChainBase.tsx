@@ -22,7 +22,7 @@ import { DeriveTypeSelectorFormInput } from '@onekeyhq/kit/src/components/Accoun
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { MAX_LENGTH_ACCOUNT_NAME } from '@onekeyhq/kit/src/components/RenameDialog/renameConsts';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
-import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
+import useScanQrCodeLazy from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCodeLazy';
 import type {
   IAccountDeriveTypes,
   IValidateGeneralInputParams,
@@ -175,7 +175,7 @@ export function ImportSingleChainBase({
     }
   }, [networkIdText, setValue]);
 
-  const { start } = useScanQrCode();
+  const { start } = useScanQrCodeLazy();
 
   return (
     <Page scrollEnabled>
