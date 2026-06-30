@@ -220,12 +220,6 @@ function AccountModeContent({
   const [loading, setLoading] = useState(false);
   const activeAccountAddressRef = useRef(perpsActiveAccount?.accountAddress);
   activeAccountAddressRef.current = perpsActiveAccount?.accountAddress;
-  const portfolioMarginRequirementMessage = intl
-    .formatMessage({
-      id: ETranslations.perp_portfolio_margin_requirement__msg,
-    })
-    .replace('$10000', `$${intl.formatNumber(10_000)}`)
-    .replace('$5000000', `$${intl.formatNumber(5_000_000)}`);
 
   const handleConfirm = useCallback(async () => {
     const accountId = perpsActiveAccount?.accountId;
@@ -303,7 +297,9 @@ function AccountModeContent({
             </SizableText>
           </XStack>
           <SizableText size="$bodySm" color="$textSubdued" flex={1}>
-            {portfolioMarginRequirementMessage}
+            {intl.formatMessage({
+              id: ETranslations.perp_portfolio_margin_requirement__msg,
+            })}
           </SizableText>
         </XStack>
       ) : null}

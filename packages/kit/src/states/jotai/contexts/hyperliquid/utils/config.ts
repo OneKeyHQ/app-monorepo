@@ -80,18 +80,8 @@ export const TOAST_CONFIGS: Record<EActionType, IToastConfig> = {
   },
 
   [EActionType.SET_ACCOUNT_MODE]: {
-    loading: () =>
-      appLocale.intl
-        .formatMessage(
-          { id: ETranslations.global_updating_type },
-          {
-            type: appLocale.intl.formatMessage({
-              id: ETranslations.perp_account_mode__title,
-            }),
-          },
-        )
-        .replace(/([\u4e00-\u9fff]) ([\u4e00-\u9fff])/g, '$1$2'),
-    successTitle: t(ETranslations.perp_account_mode_ui_updated__msg),
+    loading: t(ETranslations.perp_account_mode_updating__msg),
+    successTitle: t(ETranslations.perp_account_mode_updated__msg),
   },
 
   [EActionType.SET_POSITION_TPSL]: {
