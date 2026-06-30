@@ -7,6 +7,9 @@ import { safeSniLogValue } from './sniLogRedaction';
 
 import type { ISniRequestConfig, ISniResponse } from '../types/ipTable';
 
+const DESKTOP_SNI_PREFLIGHT_NOT_FOUND_RE =
+  /callRemoteApiMethod not found:\s*desktopApi\.sniRequest\.isProxyActiveForUrl\(\)/;
+
 /**
  * SNI Request - Desktop implementation for Electron
  * Calls main process via desktopApiProxy for actual SNI request
@@ -85,7 +88,8 @@ export async function isProxyActiveForUrl(
   }
 
   const desktopApiProxy = globalThis.desktopApiProxy;
-  if (typeof desktopApiProxy?.sniRequest?.isProxyActiveForUrl !== 'function') {
+  const sniRequestProxy = desktopApiProxy?.sniRequest;
+  if (typeof sniRequestProxy?.isProxyActiveForUrl !== 'function') {
     logAdapterCapability('warn', {
       adapter: 'desktop',
       capability: 'preflight',
@@ -97,8 +101,20 @@ export async function isProxyActiveForUrl(
   }
 
   try {
-    return await desktopApiProxy.sniRequest.isProxyActiveForUrl(url);
+    return await sniRequestProxy.isProxyActiveForUrl(url);
   } catch (error) {
+    if (isDesktopSniPreflightCapabilityMissing(error)) {
+      logAdapterCapability('warn', {
+        adapter: 'desktop',
+        capability: 'preflight',
+        available: false,
+        decision: 'legacy_sni',
+        hostname: getHostnameForLog(url),
+        errorMessage: getErrorMessage(error),
+      });
+      return null;
+    }
+
     logAdapterCapability('error', {
       adapter: 'desktop',
       capability: 'preflight',
@@ -109,6 +125,10 @@ export async function isProxyActiveForUrl(
     });
     throw error;
   }
+}
+
+function isDesktopSniPreflightCapabilityMissing(error: unknown): boolean {
+  return DESKTOP_SNI_PREFLIGHT_NOT_FOUND_RE.test(getErrorMessage(error));
 }
 
 function hashForLog(value: string | null | undefined): string {
