@@ -54,9 +54,35 @@ let lastToastErrorInstance: IOneKeyError | undefined;
 let lastToastErrorCode: number | string | undefined;
 let lastToastTimestamp = 0;
 const TOAST_DEDUPLICATE_WINDOW_MS = 5000;
+
+function isCredentialLocalSecretEnvelopeUnavailableError(
+  err: IOneKeyError | undefined,
+) {
+  const isLocalSecretEnvelopeUnavailable =
+    err?.className === EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable ||
+    err?.name === EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable;
+  return (
+    isLocalSecretEnvelopeUnavailable &&
+    (err.data as { localSecretEnvelopeDataType?: string } | undefined)
+      ?.localSecretEnvelopeDataType === 'credential'
+  );
+}
+
 function showToastOfError(error: IOneKeyError | unknown | undefined) {
   fixAxiosAbortCancelError(error);
   const err = error as IOneKeyError | undefined;
+  if (
+    err?.autoToast &&
+    !err?.$$autoToastErrorTriggered &&
+    isCredentialLocalSecretEnvelopeUnavailableError(err)
+  ) {
+    appEventBus.emit(EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog, {
+      technicalMessage:
+        err.message ||
+        err.className ||
+        EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable,
+    });
+  }
   if (
     err?.className &&
     [

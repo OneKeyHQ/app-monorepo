@@ -257,11 +257,11 @@ async function runLocalSecretEnvelopeFlow(page, rendererUrl) {
   );
 
   assert.equal(result.runtimePlatform, 'web');
-  assert.equal(result.verifyStringIsLse, true);
+  assert.equal(result.verifyStringIsLse, false);
   assert.deepEqual(result.credentialLayerKinds, ['indexeddb-cryptokey']);
-  assert.deepEqual(result.verifyStringLayerKinds, ['indexeddb-cryptokey']);
+  assert.deepEqual(result.verifyStringLayerKinds, []);
   assert.equal(result.credentialStrength, 'profile-bound');
-  assert.equal(result.verifyStringStrength, 'profile-bound');
+  assert.equal(result.verifyStringStrength, 'unavailable');
   assert.equal(result.cryptoKeyDeletionBlocksUnwrap, true);
   assert.equal(result.secureStorageDeletionBlocksUnwrap, false);
   assert.equal(result.layerDeletionBlocksUnwrap['indexeddb-cryptokey'], true);

@@ -97,6 +97,7 @@ export type IBackgroundThreadResponseErrorPayload = {
   requestId?: string;
   httpStatusCode?: number;
   constructorName?: string;
+  data?: unknown;
   payload?: unknown;
 };
 

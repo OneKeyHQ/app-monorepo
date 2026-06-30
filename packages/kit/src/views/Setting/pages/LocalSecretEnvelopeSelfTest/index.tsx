@@ -48,7 +48,7 @@ export default function LocalSecretEnvelopeSelfTest() {
   }
 
   let pageDescription =
-    'Non-destructive verification of LSE wrap/unwrap and per-layer key-deletion guards. Runs against the current platform configuration.';
+    'Non-destructive verification of credential LSE wrap/unwrap, legacy verify-string LSE compatibility, and per-layer key-deletion guards. Runs against the current platform configuration.';
   if (isRestore) {
     pageDescription =
       'Non-destructive verification of restore/export guards for Cloud Backup and Prime Transfer. Runs against the current platform configuration.';
@@ -123,7 +123,7 @@ export default function LocalSecretEnvelopeSelfTest() {
 
   const handleRun = useCallback(() => {
     let description =
-      'Creates temporary LSE records and keys, verifies unwrap and key deletion behavior, then cleans up test data.';
+      'Creates temporary credential LSE records and keys, verifies legacy verify-string LSE compatibility plus unwrap and key deletion behavior, then cleans up test data.';
     let confirmTestID: string =
       SettingTestIDs.localSecretEnvelopeSelfTestConfirm;
     if (isRestore) {

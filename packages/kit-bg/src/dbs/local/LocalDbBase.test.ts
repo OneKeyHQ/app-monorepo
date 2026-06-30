@@ -33,6 +33,7 @@ import {
   isLocalSecretEnvelopeString,
   parseLocalSecretEnvelopeV1,
   readIndexedDbCryptoKeyForLocalSecretEnvelope,
+  wrapLocalSecretEnvelopeV1,
 } from './localSecretEnvelope';
 
 import type {
@@ -468,6 +469,22 @@ function buildMockLocalSecretEnvelopeLayerAdapter({
   };
 }
 
+async function buildLegacyLocalSecretEnvelopeVerifyString({
+  adapter,
+  verifyString,
+}: {
+  adapter: ILocalSecretEnvelopeLayerAdapter;
+  verifyString: string;
+}): Promise<string> {
+  return wrapLocalSecretEnvelopeV1({
+    dataType: 'verify-string',
+    layerAdapters: [adapter],
+    plaintext: verifyString,
+    recordId: DB_MAIN_CONTEXT_ID,
+    strength: 'profile-bound',
+  });
+}
+
 describe('LocalDbBase.createHDWallet', () => {
   it('keeps nextHD stable while preserving unique walletNo for override wallet ids', async () => {
     const db = new TestLocalDb();
@@ -785,17 +802,61 @@ describe('LocalDbBase local secret envelope credentials', () => {
     // The instance has already established the LSE boundary, so a transient
     // layer outage must fail fast with a retryable error rather than silently
     // persisting a non-LSE credential that bypasses the boundary.
-    await expect(
-      db.wrapNewCredentialWithLocalSecretEnvelopeIfNeeded({
-        credentialId: 'imported--60--public-key',
-        credential: importedCredential,
-      }),
-    ).rejects.toBeInstanceOf(LocalSecretEnvelopeUnavailable);
+    const promise = db.wrapNewCredentialWithLocalSecretEnvelopeIfNeeded({
+      credentialId: 'imported--60--public-key',
+      credential: importedCredential,
+    });
+    await expect(promise).rejects.toBeInstanceOf(
+      LocalSecretEnvelopeUnavailable,
+    );
+    await expect(promise).rejects.toMatchObject({
+      autoToast: true,
+      data: {
+        localSecretEnvelopeDataType: 'credential',
+      },
+    });
     // Nothing was persisted raw, so the completed marker stays intact.
     expect(db.context.localSecretEnvelopeCredentialMigrated).toBe(true);
     expect(db.context.localSecretEnvelopeCredentialMigratedTargetVersion).toBe(
       1,
     );
+  });
+
+  it('marks a new credential LSE wrap failure for auto-toast and dialog', async () => {
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    db.context.localPasswordKdfUpgraded = true;
+    db.context.localPasswordKdfUpgradedTargetIterations =
+      PBKDF2_CURRENT_NUM_OF_ITERATIONS;
+    db.context.localSecretEnvelopeCredentialMigrated = true;
+    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 1;
+    const importedCredential = await encryptImportedCredential({
+      credential: { privateKey: 'private-key-hex' },
+      password,
+    });
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [
+          buildMockLocalSecretEnvelopeLayerAdapter({ failEncrypt: true }),
+        ],
+        strength: 'profile-bound',
+      });
+
+    const promise = db.wrapNewCredentialWithLocalSecretEnvelopeIfNeeded({
+      credentialId: 'imported--60--public-key',
+      credential: importedCredential,
+    });
+
+    await expect(promise).rejects.toBeInstanceOf(
+      LocalSecretEnvelopeUnavailable,
+    );
+    await expect(promise).rejects.toMatchObject({
+      autoToast: true,
+      data: {
+        localSecretEnvelopeDataType: 'credential',
+      },
+    });
   });
 
   it('returns the raw credential when LSE is unavailable before migration completes', async () => {
@@ -1026,6 +1087,18 @@ describe('LocalDbBase local secret envelope credentials', () => {
       .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
       .mockResolvedValue(undefined);
 
+    const promise = db.getCredentialInner({
+      credentialId: 'hd-1',
+    });
+
+    await expect(promise).rejects.toMatchObject({
+      autoToast: true,
+      data: {
+        localSecretEnvelopeDataType: 'credential',
+      },
+      message:
+        'Local secret envelope layer adapter is required: requiredLayers=indexeddb-cryptokey@0',
+    });
     await expect(
       db.getCredentialInner({
         credentialId: 'hd-1',
@@ -1082,7 +1155,7 @@ describe('LocalDbBase local secret envelope credentials', () => {
     expect(db.context.localSecretEnvelopeCredentialMigrated).toBe(false);
   });
 
-  it('migrates verifyString to LSE and still verifies the password', async () => {
+  it('keeps verifyString portable during LSE migration and still verifies the password', async () => {
     const db = new TestLocalDb();
     const password = await encodePasswordAsync({ password: 'test-password' });
     db.context.verifyString = await encryptVerifyString({ password });
@@ -1099,21 +1172,28 @@ describe('LocalDbBase local secret envelope credentials', () => {
 
     await db.lazyMigrateLocalSecretEnvelopeCredentialsAfterUnlock();
 
-    expect(isLocalSecretEnvelopeString(db.context.verifyString)).toBe(true);
+    expect(isLocalSecretEnvelopeString(db.context.verifyString)).toBe(false);
     await expect(
       db.verifyPassword({ password, skipLazyUpgrade: true }),
     ).resolves.toBeUndefined();
   });
 
-  it('does not report WrongPassword when the LSE verifyString layer cannot decrypt', async () => {
+  it('removes a legacy LSE verifyString when its local layer is available', async () => {
     const db = new TestLocalDb();
     const password = await encodePasswordAsync({ password: 'test-password' });
-    db.context.verifyString = await encryptVerifyString({ password });
+    const originalVerifyString = await encryptVerifyString({ password });
     db.context.localPasswordKdfUpgraded = true;
     db.context.localPasswordKdfUpgradedTargetIterations =
       PBKDF2_CURRENT_NUM_OF_ITERATIONS;
-    const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
-    const configSpy = jest
+    const deleteLayerKey = jest.fn();
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter({
+      deleteLayerKey,
+    });
+    db.context.verifyString = await buildLegacyLocalSecretEnvelopeVerifyString({
+      adapter,
+      verifyString: originalVerifyString,
+    });
+    jest
       .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
       .mockResolvedValue({
         layerAdapters: [adapter],
@@ -1122,13 +1202,30 @@ describe('LocalDbBase local secret envelope credentials', () => {
 
     await db.lazyMigrateLocalSecretEnvelopeCredentialsAfterUnlock();
 
-    expect(isLocalSecretEnvelopeString(db.context.verifyString)).toBe(true);
-    configSpy.mockResolvedValue({
-      layerAdapters: [
-        buildMockLocalSecretEnvelopeLayerAdapter({ failDecrypt: true }),
-      ],
-      strength: 'profile-bound',
+    expect(db.context.verifyString).toBe(originalVerifyString);
+    expect(isLocalSecretEnvelopeString(db.context.verifyString)).toBe(false);
+    expect(deleteLayerKey).toHaveBeenCalledTimes(1);
+    await expect(
+      db.verifyPassword({ password, skipLazyUpgrade: true }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('does not report WrongPassword when the LSE verifyString layer cannot decrypt', async () => {
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    db.context.verifyString = await buildLegacyLocalSecretEnvelopeVerifyString({
+      adapter,
+      verifyString: await encryptVerifyString({ password }),
     });
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [
+          buildMockLocalSecretEnvelopeLayerAdapter({ failDecrypt: true }),
+        ],
+        strength: 'profile-bound',
+      });
 
     await expect(
       db.verifyPassword({ password, skipLazyUpgrade: true }),
@@ -1158,7 +1255,10 @@ describe('LocalDbBase local secret envelope credentials', () => {
         strength: 'profile-bound',
       });
 
-    await db.lazyMigrateLocalSecretEnvelopeCredentialsAfterUnlock();
+    db.context.verifyString = await buildLegacyLocalSecretEnvelopeVerifyString({
+      adapter,
+      verifyString: originalVerifyString,
+    });
     expect(isLocalSecretEnvelopeString(db.context.verifyString)).toBe(true);
 
     // First probe transiently yields no config (e.g. keychain busy at cold
@@ -1182,19 +1282,17 @@ describe('LocalDbBase local secret envelope credentials', () => {
   it('throws a retryable LocalSecretEnvelopeUnavailable (not WrongPassword) when the LSE layer stays unavailable', async () => {
     const db = new TestLocalDb();
     const password = await encodePasswordAsync({ password: 'test-password' });
-    db.context.verifyString = await encryptVerifyString({ password });
-    db.context.localPasswordKdfUpgraded = true;
-    db.context.localPasswordKdfUpgradedTargetIterations =
-      PBKDF2_CURRENT_NUM_OF_ITERATIONS;
     const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    db.context.verifyString = await buildLegacyLocalSecretEnvelopeVerifyString({
+      adapter,
+      verifyString: await encryptVerifyString({ password }),
+    });
     const configSpy = jest
       .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
       .mockResolvedValue({
         layerAdapters: [adapter],
         strength: 'profile-bound',
       });
-
-    await db.lazyMigrateLocalSecretEnvelopeCredentialsAfterUnlock();
     expect(isLocalSecretEnvelopeString(db.context.verifyString)).toBe(true);
 
     // Capability stays unavailable even after the re-probe: the correct password
@@ -1205,6 +1303,33 @@ describe('LocalDbBase local secret envelope credentials', () => {
     await expect(
       db.verifyPassword({ password, skipLazyUpgrade: true }),
     ).rejects.toBeInstanceOf(LocalSecretEnvelopeUnavailable);
+  });
+
+  it('does not mark the session complete if legacy LSE verifyString removal fails', async () => {
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    db.context.verifyString = await buildLegacyLocalSecretEnvelopeVerifyString({
+      adapter,
+      verifyString: await encryptVerifyString({ password }),
+    });
+    db.context.localPasswordKdfUpgraded = true;
+    db.context.localPasswordKdfUpgradedTargetIterations =
+      PBKDF2_CURRENT_NUM_OF_ITERATIONS;
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [
+          buildMockLocalSecretEnvelopeLayerAdapter({ failDecrypt: true }),
+        ],
+        strength: 'profile-bound',
+      });
+
+    await db.lazyMigrateLocalSecretEnvelopeCredentialsAfterUnlock();
+
+    expect(isLocalSecretEnvelopeString(db.context.verifyString)).toBe(true);
+    expect(db.context.localSecretEnvelopeCredentialMigrated).toBe(true);
+    expect(db._localSecretEnvelopeCredentialMigrationExecuted).toBe(false);
   });
 
   it('migrates LSE credentials in checkpointed batches after KDF migration is complete', async () => {
@@ -1663,7 +1788,7 @@ describe('LocalDbBase.lazyUpgradeLocalPasswordEncryptedRecords', () => {
 });
 
 describe('LocalDbBase.setPassword', () => {
-  it('wraps verifyString on initial password setup and marks KDF completed for an empty DB', async () => {
+  it('keeps verifyString portable on initial password setup and marks KDF completed for an empty DB', async () => {
     const db = new TestLocalDb();
     const password = await encodePasswordAsync({ password: 'new-password' });
     const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
@@ -1676,18 +1801,15 @@ describe('LocalDbBase.setPassword', () => {
 
     await db.setPassword({ password });
 
-    expect(isLocalSecretEnvelopeString(db.context.verifyString)).toBe(true);
+    expect(isLocalSecretEnvelopeString(db.context.verifyString)).toBe(false);
     expect(db.context.localPasswordKdfUpgraded).toBe(true);
     expect(db.context.localPasswordKdfUpgradedTargetIterations).toBe(
       PBKDF2_CURRENT_NUM_OF_ITERATIONS,
     );
 
-    const verifyString = await db.getContextVerifyStringInner({
-      context: db.context,
-    });
     const verifyStringResult = await decryptVerifyStringWithMetadata({
       password,
-      verifyString,
+      verifyString: db.context.verifyString,
     });
     expect(verifyStringResult.plaintext).toBe(DEFAULT_VERIFY_STRING);
 
@@ -1923,13 +2045,10 @@ describe('LocalDbBase.updatePassword', () => {
     expect(nextCredentialEnvelope.wrappingLayers[0].iv).not.toBe(
       originalCredentialEnvelope.wrappingLayers[0].iv,
     );
-    expect(isLocalSecretEnvelopeString(db.context.verifyString)).toBe(true);
-    const verifyString = await db.getContextVerifyStringInner({
-      context: db.context,
-    });
+    expect(isLocalSecretEnvelopeString(db.context.verifyString)).toBe(false);
     const verifyStringResult = await decryptVerifyStringWithMetadata({
       password: newPassword,
-      verifyString,
+      verifyString: db.context.verifyString,
     });
     expect(verifyStringResult.plaintext).toBe(DEFAULT_VERIFY_STRING);
 
@@ -1943,46 +2062,106 @@ describe('LocalDbBase.updatePassword', () => {
     expect(hdCredentialResult.plaintext).toEqual(revealableSeed);
   });
 
-  it('keeps LSE verifyString wrapped when changing password', async () => {
+  it('marks an LSE credential unwrap failure during password update for auto-toast and dialog', async () => {
     const db = new TestLocalDb();
     const oldPassword = await encodePasswordAsync({ password: 'old-password' });
     const newPassword = await encodePasswordAsync({ password: 'new-password' });
-    const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
-    jest
-      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
-      .mockResolvedValue({
-        layerAdapters: [adapter],
-        strength: 'profile-bound',
-      });
     db.context.verifyString = await encryptVerifyString({
       password: oldPassword,
     });
-    await db.migrateContextVerifyStringToLocalSecretEnvelopeIfNeeded({
+    db.credentials = [
+      {
+        id: 'hd-1',
+        credential: await encryptRevealableSeed({
+          rs: {
+            entropyWithLangPrefixed: 'english:00010203',
+            seed: 'seed-hex',
+          },
+          password: oldPassword,
+        }),
+      },
+    ];
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    await db.migrateCredentialToLocalSecretEnvelopeIfNeeded({
+      credential: { ...db.credentials[0] },
       layerAdapters: [adapter],
       strength: 'profile-bound',
+    });
+    expect(isLocalSecretEnvelopeString(db.credentials[0].credential)).toBe(
+      true,
+    );
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue(undefined);
+
+    const promise = db.updatePassword({ oldPassword, newPassword });
+
+    await expect(promise).rejects.toBeInstanceOf(
+      LocalSecretEnvelopeUnavailable,
+    );
+    await expect(promise).rejects.toMatchObject({
+      autoToast: true,
+      data: {
+        localSecretEnvelopeDataType: 'credential',
+      },
+    });
+  });
+
+  it('removes legacy LSE verifyString when changing password', async () => {
+    const db = new TestLocalDb();
+    const oldPassword = await encodePasswordAsync({ password: 'old-password' });
+    const newPassword = await encodePasswordAsync({ password: 'new-password' });
+    const deleteLayerKey = jest.fn();
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    const cleanupAdapter = buildMockLocalSecretEnvelopeLayerAdapter({
+      deleteLayerKey,
+    });
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [cleanupAdapter],
+        strength: 'profile-bound',
+      });
+    const originalVerifyString = await encryptVerifyString({
+      password: oldPassword,
+    });
+    db.context.verifyString = await buildLegacyLocalSecretEnvelopeVerifyString({
+      adapter,
+      verifyString: originalVerifyString,
     });
     const originalVerifyStringEnvelope = parseLocalSecretEnvelopeV1(
       db.context.verifyString,
     );
+    expect(originalVerifyStringEnvelope.dataType).toBe('verify-string');
 
     await db.updatePassword({ oldPassword, newPassword });
 
-    expect(isLocalSecretEnvelopeString(db.context.verifyString)).toBe(true);
-    const nextVerifyStringEnvelope = parseLocalSecretEnvelopeV1(
-      db.context.verifyString,
-    );
-    expect(nextVerifyStringEnvelope.wrappingLayers[0].keyRef).toBe(
-      originalVerifyStringEnvelope.wrappingLayers[0].keyRef,
-    );
-    expect(nextVerifyStringEnvelope.wrappingLayers[0].iv).not.toBe(
-      originalVerifyStringEnvelope.wrappingLayers[0].iv,
-    );
-    const verifyString = await db.getContextVerifyStringInner({
-      context: db.context,
-    });
+    expect(isLocalSecretEnvelopeString(db.context.verifyString)).toBe(false);
+    expect(deleteLayerKey).toHaveBeenCalledTimes(1);
     const verifyStringResult = await decryptVerifyStringWithMetadata({
       password: newPassword,
-      verifyString,
+      verifyString: db.context.verifyString,
+    });
+    expect(verifyStringResult.plaintext).toBe(DEFAULT_VERIFY_STRING);
+  });
+
+  it('does not wrap verifyString through the legacy migration shim', async () => {
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    db.context.verifyString = await encryptVerifyString({
+      password,
+    });
+
+    await db.migrateContextVerifyStringToLocalSecretEnvelopeIfNeeded({
+      layerAdapters: [adapter],
+      strength: 'profile-bound',
+    });
+
+    expect(isLocalSecretEnvelopeString(db.context.verifyString)).toBe(false);
+    const verifyStringResult = await decryptVerifyStringWithMetadata({
+      password,
+      verifyString: db.context.verifyString,
     });
     expect(verifyStringResult.plaintext).toBe(DEFAULT_VERIFY_STRING);
   });
@@ -2007,10 +2186,6 @@ describe('LocalDbBase.updatePassword', () => {
       });
     db.context.verifyString = await encryptVerifyString({
       password: oldPassword,
-    });
-    await db.migrateContextVerifyStringToLocalSecretEnvelopeIfNeeded({
-      layerAdapters: [adapter],
-      strength: 'profile-bound',
     });
     db.credentials = [
       {
@@ -2052,10 +2227,6 @@ describe('LocalDbBase.updatePassword', () => {
       });
     db.context.verifyString = await encryptVerifyString({
       password: oldPassword,
-    });
-    await db.migrateContextVerifyStringToLocalSecretEnvelopeIfNeeded({
-      layerAdapters: [adapter],
-      strength: 'profile-bound',
     });
     db.credentials = [
       {
