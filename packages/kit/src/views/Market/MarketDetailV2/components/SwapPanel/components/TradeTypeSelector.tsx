@@ -2,6 +2,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  type ColorTokens,
   type IButtonProps,
   SegmentControl,
   SizableText,
@@ -57,12 +58,12 @@ export function TradeTypeSelector({
   const { gtMd } = useMedia();
   const isBuyActive = value === 'buy';
   const isSellActive = value === 'sell';
-  const buyTextColor: IButtonProps['color'] = isBuyActive
+  const buyTextColor: ColorTokens = isBuyActive
     ? '$textOnBrightColor'
     : '$textSubdued';
 
   const buttonSize = size ?? (gtMd ? 'small' : 'medium');
-  const renderButtonText = (text: string, color: IButtonProps['color']) =>
+  const renderButtonText = (text: string, color: ColorTokens) =>
     preventTextWrap ? (
       <SizableText
         size={getButtonTextSize(buttonSize)}
