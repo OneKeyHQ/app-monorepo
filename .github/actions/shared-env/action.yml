@@ -6,6 +6,10 @@ inputs:
     required: false
     default: ''
     description: "Deprecated: callers must checkout the desired ref before invoking this local action."
+  source_ref_name:
+    required: false
+    default: ''
+    description: "Source ref name to use for release metadata when checkout uses a temporary CI ref."
   additional_env:
     required: false
     description: "Additional environment variables to inject"
@@ -135,6 +139,8 @@ runs:
 
     - name: Setup ENV 
       shell: bash
+      env:
+        SOURCE_REF_NAME: ${{ inputs.source_ref_name }}
       run: |
         # Generate app version ------- start
         app_version=${{ steps.dotenv.outputs.version }}
@@ -163,11 +169,14 @@ runs:
         # Generate github sha ------- end
 
         # Generate github tag ------- start
+        source_ref_name="${SOURCE_REF_NAME:-}"
         github_ref="${GITHUB_REF:-${{ github.ref }}}"
         github_ref="${github_ref////-}"
         github_ref="${github_ref/refs-heads-/}"
         github_ref="${github_ref/refs-tags-/}"
-        if [ ! -z "${WORKFLOW_GITHUB_REF_NAME:-}" ]; then
+        if [ ! -z "$source_ref_name" ]; then
+          github_ref="$source_ref_name"
+        elif [ ! -z "${WORKFLOW_GITHUB_REF_NAME:-}" ]; then
           github_ref="$WORKFLOW_GITHUB_REF_NAME"
         fi
         echo '$github_ref='$github_ref

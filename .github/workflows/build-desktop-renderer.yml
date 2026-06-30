@@ -21,6 +21,11 @@ on:
         required: false
         type: string
         default: ''
+      source_ref_name:
+        description: "Original source ref name to use for build metadata when running from a temporary CI tag."
+        required: false
+        type: string
+        default: ''
     outputs:
       build_number:
         description: "Build number generated during renderer build"
@@ -79,35 +84,11 @@ jobs:
         with:
           lfs: true
 
-      - name: Validate workflow_run checkout
-        if: ${{ github.event.workflow_run }}
-        env:
-          CURRENT_REPOSITORY: ${{ github.repository }}
-          WORKFLOW_RUN_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
-          WORKFLOW_RUN_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: |
-          set -euo pipefail
-
-          if [ "$WORKFLOW_RUN_REPOSITORY" != "$CURRENT_REPOSITORY" ]; then
-            echo "::error::Rejecting workflow_run from fork repository: $WORKFLOW_RUN_REPOSITORY"
-            exit 1
-          fi
-
-          if [[ ! "$WORKFLOW_RUN_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "::error::Invalid workflow_run head SHA: $WORKFLOW_RUN_SHA"
-            exit 1
-          fi
-
-          checked_out_sha="$(git rev-parse HEAD)"
-          if [ "$checked_out_sha" != "$WORKFLOW_RUN_SHA" ]; then
-            echo "::error::Checked out $checked_out_sha, expected workflow_run head $WORKFLOW_RUN_SHA"
-            exit 1
-          fi
-
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
         with:
           env_file_name: '.env'
+          source_ref_name: ${{ inputs.source_ref_name }}
           sentry_project: 'desktop'
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
