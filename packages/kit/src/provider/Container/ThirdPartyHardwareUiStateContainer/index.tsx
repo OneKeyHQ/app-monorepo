@@ -781,9 +781,10 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       mode: trezorBleBindingMode ?? 'auto-fallback',
       onBound: callbacks.onBound,
       onClose: callbacks.onClose,
+      intl,
     });
     bleBindingDialogInstanceRef.current = instance;
-  }, [clearCurrentUiState, isTrezorBleBinding, uiState?.payload]);
+  }, [clearCurrentUiState, isTrezorBleBinding, uiState?.payload, intl]);
 
   useEffect(() => {
     const callback = async ({

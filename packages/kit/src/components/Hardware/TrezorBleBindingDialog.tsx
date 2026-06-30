@@ -43,6 +43,7 @@ import type {
   ITrezorBleBindingMode,
   ITrezorBleBindingScannedDevice,
 } from './trezorBleBindingUtils';
+import type { IntlShape } from 'react-intl';
 
 export interface ITrezorBleBindingParams {
   // USB-side identity of the already-known device (read from its IDBDevice).
@@ -396,10 +397,13 @@ function TrezorBleBindingContent({
 
 export function showTrezorBleBindingDialog({
   onClose,
+  intl,
   ...params
-}: ITrezorBleBindingParams) {
+}: ITrezorBleBindingParams & { intl: IntlShape }) {
   return Dialog.show({
-    title: ETranslations.trezor_ble_binding__title,
+    title: intl.formatMessage({
+      id: ETranslations.trezor_ble_binding__title,
+    }),
     showFooter: false,
     renderContent: <TrezorBleBindingContent {...params} />,
     onClose,
