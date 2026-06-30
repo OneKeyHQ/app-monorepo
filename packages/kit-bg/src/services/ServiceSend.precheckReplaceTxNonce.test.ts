@@ -60,6 +60,9 @@ function makeService(overrides: {
   nonceRequired?: boolean;
   onChainNextNonce?: number | null | undefined;
   fetchAccountDetails?: jest.Mock;
+  // backend-indexed flag of the network (defaults to indexed -> wallet API)
+  backendIndex?: boolean;
+  getNetworkSafe?: jest.Mock;
   // custom RPC path
   customRpcInfo?: { rpc?: string; enabled?: boolean };
   getCustomRpcForNetwork?: jest.Mock;
@@ -77,6 +80,11 @@ function makeService(overrides: {
   const getCustomRpcForNetwork =
     overrides.getCustomRpcForNetwork ??
     jest.fn().mockResolvedValue(overrides.customRpcInfo);
+  const getNetworkSafe =
+    overrides.getNetworkSafe ??
+    jest
+      .fn()
+      .mockResolvedValue({ backendIndex: overrides.backendIndex ?? true });
 
   (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue({
     fetchAccountDetailsByRpc,
@@ -87,6 +95,7 @@ function makeService(overrides: {
       getVaultSettings: jest.fn().mockResolvedValue({
         nonceRequired: overrides.nonceRequired ?? true,
       }),
+      getNetworkSafe,
     },
     serviceAccountProfile: {
       fetchAccountDetails,
@@ -105,11 +114,12 @@ function makeService(overrides: {
     return new Ctor({ backgroundApi });
   })();
   return Object.assign(svc, {
-    __mocks: { fetchAccountDetails, fetchAccountDetailsByRpc },
+    __mocks: { fetchAccountDetails, fetchAccountDetailsByRpc, getNetworkSafe },
   }) as ServiceSend & {
     __mocks: {
       fetchAccountDetails: jest.Mock;
       fetchAccountDetailsByRpc: jest.Mock;
+      getNetworkSafe: jest.Mock;
     };
   };
 }
@@ -234,6 +244,74 @@ describe('ServiceSend.precheckReplaceTxNonceConsumed', () => {
     const svc = makeService({
       onChainNextNonce: 9,
       getCustomRpcForNetwork: jest.fn().mockRejectedValue(new Error('boom')),
+    });
+    const result = await svc.precheckReplaceTxNonceConsumed({
+      accountId: 'hd-1--0',
+      networkId: 'evm--1',
+      targetNonce: 5,
+    });
+    expect(result).toEqual({ consumed: true, onChainNextNonce: 9 });
+    expect(svc.__mocks.fetchAccountDetails).toHaveBeenCalledTimes(1);
+  });
+
+  // OK-57049: on backend non-indexed networks the wallet API proxies the node
+  // with the `pending` tag and returns the still-pending tx's own nonce + 1,
+  // which previously made a replaceable tx look consumed and got it dropped.
+  // The precheck must read the confirmed (latest) nonce from the RPC for these
+  // networks instead.
+  test('non-indexed network → reads confirmed nonce from RPC, wallet API pending nonce ignored', async () => {
+    const svc = makeService({
+      backendIndex: false,
+      // wallet API would report N+1 (pending) -> would falsely flag consumed
+      onChainNextNonce: 6,
+      // RPC reports the confirmed (latest) count == target -> still pending
+      rpcNextNonce: 5,
+    });
+    const result = await svc.precheckReplaceTxNonceConsumed({
+      accountId: 'hd-1--0',
+      networkId: 'evm--800001',
+      targetNonce: 5,
+    });
+    expect(result).toEqual({ consumed: false, onChainNextNonce: 5 });
+    expect(svc.__mocks.fetchAccountDetailsByRpc).toHaveBeenCalledTimes(1);
+    expect(svc.__mocks.fetchAccountDetails).not.toHaveBeenCalled();
+  });
+
+  test('non-indexed network → confirmed nonce past target still detected consumed', async () => {
+    const svc = makeService({
+      backendIndex: false,
+      rpcNextNonce: 6,
+    });
+    const result = await svc.precheckReplaceTxNonceConsumed({
+      accountId: 'hd-1--0',
+      networkId: 'evm--800001',
+      targetNonce: 5,
+    });
+    expect(result).toEqual({ consumed: true, onChainNextNonce: 6 });
+    expect(svc.__mocks.fetchAccountDetailsByRpc).toHaveBeenCalledTimes(1);
+    expect(svc.__mocks.fetchAccountDetails).not.toHaveBeenCalled();
+  });
+
+  test('indexed network → reads from the wallet API (RPC untouched)', async () => {
+    const svc = makeService({
+      backendIndex: true,
+      onChainNextNonce: 5,
+      rpcNextNonce: 6,
+    });
+    const result = await svc.precheckReplaceTxNonceConsumed({
+      accountId: 'hd-1--0',
+      networkId: 'evm--1',
+      targetNonce: 5,
+    });
+    expect(result).toEqual({ consumed: false, onChainNextNonce: 5 });
+    expect(svc.__mocks.fetchAccountDetails).toHaveBeenCalledTimes(1);
+    expect(svc.__mocks.fetchAccountDetailsByRpc).not.toHaveBeenCalled();
+  });
+
+  test('network lookup throws → falls back to the wallet API (does not fail-open)', async () => {
+    const svc = makeService({
+      onChainNextNonce: 9,
+      getNetworkSafe: jest.fn().mockRejectedValue(new Error('boom')),
     });
     const result = await svc.precheckReplaceTxNonceConsumed({
       accountId: 'hd-1--0',

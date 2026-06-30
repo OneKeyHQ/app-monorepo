@@ -921,13 +921,26 @@ class ServiceSend extends ServiceBase {
     }
   }
 
-  // Read the on-chain "next nonce" from the SAME source the broadcast will use
-  // (see precheckReplaceTxNonceConsumed). Custom RPC enabled on a built-in
-  // network -> read from that node so precheck and broadcast share one nonce
-  // view; otherwise fall back to the wallet API (which already routes fully
-  // custom networks to their RPC via vault.fetchAccountDetails). The custom-RPC
-  // detection is defensive: if it cannot be resolved, fall back to the wallet
-  // API rather than failing the whole precheck.
+  // Read the on-chain nonce for the replace-tx precheck. This precheck needs the
+  // CONFIRMED (latest) on-chain transaction count, NOT a "next usable" nonce:
+  // the replace tx reuses the original pending tx's nonce, so it is only truly
+  // consumed once the chain has confirmed that nonce.
+  //
+  // Source selection:
+  // - Custom RPC enabled on a built-in network -> read from that node so the
+  //   precheck and the broadcast share one nonce view.
+  // - Backend non-indexed networks (backendIndex === false) -> read directly
+  //   from the chain RPC. The wallet API has no index for these chains and
+  //   proxies the node with the `pending` block tag, which counts the very
+  //   pending tx being replaced (off-by-one). That made the precheck report a
+  //   still-pending nonce as consumed and wrongly drop the pending tx
+  //   (OK-57049). The EVM RPC reads eth_getTransactionCount with `latest`, the
+  //   authoritative confirmed count.
+  // - Otherwise (backend-indexed networks) -> wallet API, whose indexed nonce
+  //   reflects the confirmed count.
+  //
+  // Custom-RPC / network detection is defensive: if it cannot be resolved, fall
+  // back to the wallet API rather than failing the whole precheck.
   private async fetchReplaceTxOnChainNextNonce({
     accountId,
     networkId,
@@ -950,7 +963,23 @@ class ServiceSend extends ServiceBase {
       broadcastViaCustomRpc = false;
     }
 
-    if (broadcastViaCustomRpc) {
+    let readFromRpc = broadcastViaCustomRpc;
+    if (!readFromRpc) {
+      try {
+        const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({
+          networkId,
+        });
+        // Only positively non-indexed networks switch to the RPC path; missing
+        // config falls back to the wallet API (existing behavior).
+        if (network?.backendIndex === false) {
+          readFromRpc = true;
+        }
+      } catch {
+        readFromRpc = false;
+      }
+    }
+
+    if (readFromRpc) {
       const vault = await vaultFactory.getVault({ networkId, accountId });
       const accountAddress =
         await this.backgroundApi.serviceAccount.getAccountAddressForApi({
