@@ -2,6 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { SizableText, Stack, useTheme } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
+import type { ITradingViewDisabledFeature } from '@onekeyhq/kit/src/components/TradingView/constants';
+import {
+  useNavigationHandler,
+  useTradingViewUrl,
+} from '@onekeyhq/kit/src/components/TradingView/hooks';
+import WebView from '@onekeyhq/kit/src/components/WebView';
+import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
@@ -11,10 +20,17 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
-import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
-import { useThemeVariant } from '../../../hooks/useThemeVariant';
-import WebView from '../../WebView';
-import { useNavigationHandler, useTradingViewUrl } from '../hooks';
+import {
+  type ICalendarPanelSubmitPayload,
+  type ITradingViewNativeChartTypeControlMode,
+  type ITradingViewNativeControlsLayoutMode,
+  type ITradingViewNativeIndicatorControlMode,
+  type ITradingViewNativeIntervalControlMode,
+  type ITradingViewNativePriceMarketCapControlMode,
+  TradingViewNativeChartControls,
+  TradingViewNativeIndicatorQuickBar,
+  useNativeIndicatorActiveValues,
+} from '../TradingViewNativeChartControls';
 
 import {
   useAutoKLineUpdate,
@@ -28,11 +44,6 @@ import {
   normalizeTradingViewKLineInterval,
   useTradingViewMessageHandler,
 } from './messageHandlers';
-import {
-  TradingViewNativeChartControls,
-  TradingViewNativeIndicatorQuickBar,
-  useNativeIndicatorActiveValues,
-} from './TradingViewNativeChartControls';
 
 import type { ITradingViewV2KLineDataFallback } from './hooks/useTradingViewV2';
 import type { IMarksTimeRange } from './messageHandlers';
@@ -46,9 +57,7 @@ import type {
   ITradingViewPriceMarketCapMode,
   ITradingViewPriceScaleMode,
   ITradingViewPriceUpdateData,
-} from './types';
-import type { IWebViewRef } from '../../WebView/types';
-import type { ITradingViewDisabledFeature } from '../hooks';
+} from '../../types';
 import type { WebViewProps } from 'react-native-webview';
 import type {
   WebViewNavigation,
@@ -68,6 +77,10 @@ const TRADINGVIEW_RESET_LAYOUT_MESSAGE = 'TRADINGVIEW_RESET_LAYOUT';
 const TRADINGVIEW_PRICE_SCALE_CHANGE_MESSAGE = 'TRADINGVIEW_PRICE_SCALE_CHANGE';
 const TRADINGVIEW_PRICE_MARKET_CAP_CHANGE_MESSAGE =
   'TRADINGVIEW_PRICE_MARKET_CAP_CHANGE';
+const TRADINGVIEW_CALENDAR_PANEL_SUBMIT_MESSAGE =
+  'TRADINGVIEW_CALENDAR_PANEL_SUBMIT';
+const TRADINGVIEW_UNDO_MESSAGE = 'TRADINGVIEW_UNDO';
+const TRADINGVIEW_REDO_MESSAGE = 'TRADINGVIEW_REDO';
 
 function formatMockEmptyKLineIntervals(
   intervals: ITradingViewKLineMockEmptyInterval[] | undefined,
@@ -99,6 +112,14 @@ interface IBaseTradingViewV2Props {
   onPriceUpdate?: (data: ITradingViewPriceUpdateData) => void;
   enableNativeChartControls?: boolean;
   enableNativeIntervalSelector?: boolean;
+  nativeChartTypeControlMode?: ITradingViewNativeChartTypeControlMode;
+  nativeIndicatorControlMode?: ITradingViewNativeIndicatorControlMode;
+  nativeIntervalControlMode?: ITradingViewNativeIntervalControlMode;
+  nativePriceMarketCapControlMode?: ITradingViewNativePriceMarketCapControlMode;
+  nativeControlsLayoutMode?: ITradingViewNativeControlsLayoutMode;
+  isNativeChartFullscreen?: boolean;
+  showNativeIndicatorQuickBar?: boolean;
+  onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
   onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
   onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
   onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
@@ -151,6 +172,14 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onPriceUpdate,
     enableNativeChartControls: enableNativeChartControlsProp,
     enableNativeIntervalSelector: enableNativeIntervalSelectorProp = false,
+    nativeChartTypeControlMode,
+    nativeIndicatorControlMode,
+    nativeIntervalControlMode,
+    nativePriceMarketCapControlMode,
+    nativeControlsLayoutMode,
+    isNativeChartFullscreen,
+    showNativeIndicatorQuickBar = true,
+    onNativeChartFullscreenChange,
     onKLineDataReady,
     onKLineLoadError,
     onKLinePeriodChange,
@@ -292,6 +321,28 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     },
     [],
   );
+  const handleNativeCalendarPanelSubmit = useCallback(
+    (payload: ICalendarPanelSubmitPayload) => {
+      webRef.current?.sendMessageViaInjectedScript({
+        type: TRADINGVIEW_CALENDAR_PANEL_SUBMIT_MESSAGE,
+        payload,
+      });
+    },
+    [],
+  );
+  const handleNativeUndo = useCallback(() => {
+    webRef.current?.sendMessageViaInjectedScript({
+      type: TRADINGVIEW_UNDO_MESSAGE,
+      payload: {},
+    });
+  }, []);
+  const handleNativeRedo = useCallback(() => {
+    webRef.current?.sendMessageViaInjectedScript({
+      type: TRADINGVIEW_REDO_MESSAGE,
+      payload: {},
+    });
+  }, []);
+
   const { customReceiveHandler } = useTradingViewMessageHandler({
     tokenAddress,
     networkId,
@@ -366,10 +417,11 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     useHyperLiquid,
   ]);
 
-  const { finalUrl: tradingViewUrlWithParams } = useTradingViewUrl({
-    additionalParams,
-    disabledFeatures,
-  });
+  const { finalUrl: tradingViewUrlWithParams, timezone: tradingViewTimezone } =
+    useTradingViewUrl({
+      additionalParams,
+      disabledFeatures,
+    });
   const tradingViewWebViewStyleProps = useMemo(
     () => ({
       containerStyle: { backgroundColor: tradingViewBackgroundColor },
@@ -597,12 +649,23 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           intervalConfig={intervalConfig}
           nativeChartControlsConfig={nativeChartControlsConfig}
           nativeIndicatorState={nativeIndicatorState}
+          chartTypeControlMode={nativeChartTypeControlMode}
+          indicatorControlMode={nativeIndicatorControlMode}
+          intervalControlMode={nativeIntervalControlMode}
+          priceMarketCapControlMode={nativePriceMarketCapControlMode}
+          layoutMode={nativeControlsLayoutMode}
+          chartTimezone={tradingViewTimezone}
+          isFullscreen={isNativeChartFullscreen}
           onIntervalChange={handleNativeIntervalChange}
           onIndicatorSelect={handleNativeIndicatorSelect}
           onChartTypeChange={handleNativeChartTypeChange}
           onResetLayout={handleNativeResetLayout}
           onPriceScaleModeChange={handleNativePriceScaleModeChange}
           onPriceMarketCapModeChange={handleNativePriceMarketCapModeChange}
+          onCalendarPanelSubmit={handleNativeCalendarPanelSubmit}
+          onUndo={handleNativeUndo}
+          onRedo={handleNativeRedo}
+          onFullscreenChange={onNativeChartFullscreenChange}
         />
       ) : null}
 
@@ -643,7 +706,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         ) : null}
       </Stack>
 
-      {enableNativeChartControls ? (
+      {enableNativeChartControls && showNativeIndicatorQuickBar ? (
         <TradingViewNativeIndicatorQuickBar
           nativeChartControlsConfig={nativeChartControlsConfig}
           nativeIndicatorState={nativeIndicatorState}

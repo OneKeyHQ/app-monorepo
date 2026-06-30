@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useFocusEffect } from '@react-navigation/native';
@@ -39,11 +39,16 @@ function normalizeRouteBooleanParam(
 }
 
 function MarketDetail({
+  isChartFullscreen,
+  onChartFullscreenChange,
   route,
 }: IPageScreenProps<
   ITabMarketParamList,
   ETabMarketRoutes.MarketDetailV2 | ETabMarketRoutes.MarketNativeDetail
->) {
+> & {
+  isChartFullscreen: boolean;
+  onChartFullscreenChange: (isFullscreen: boolean) => void;
+}) {
   const params = route.params as
     | ITabMarketParamList[ETabMarketRoutes.MarketDetailV2]
     | ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail];
@@ -91,11 +96,22 @@ function MarketDetail({
   return (
     <BtcMetadataProvider>
       <Page>
-        <MarketDetailHeader showFavoriteButton={showFavoriteButton} />
+        {isChartFullscreen ? (
+          <Page.Header headerShown={false} />
+        ) : (
+          <MarketDetailHeader showFavoriteButton={showFavoriteButton} />
+        )}
 
-        <Page.Body pt={bodyPaddingTop} testID={MarketTestIDs.detailPage}>
+        <Page.Body
+          pt={isChartFullscreen ? 0 : bodyPaddingTop}
+          testID={MarketTestIDs.detailPage}
+        >
           {media.gtLg && !platformEnv.isNative ? (
-            <DesktopLayout showFavoriteButton={showFavoriteButton} />
+            <DesktopLayout
+              isChartFullscreen={isChartFullscreen}
+              onChartFullscreenChange={onChartFullscreenChange}
+              showFavoriteButton={showFavoriteButton}
+            />
           ) : (
             <MobileLayout disableTrade={disableTrade} />
           )}
@@ -113,6 +129,18 @@ function MarketDetailV2(
 ) {
   const { navigation } = props;
   const media = useMedia();
+  const [isChartFullscreen, setIsChartFullscreen] = useState(false);
+  const isDesktopChartLayout = media.gtLg && !platformEnv.isNative;
+  const effectiveIsChartFullscreen = isDesktopChartLayout && isChartFullscreen;
+  const handleChartFullscreenChange = useCallback((isFullscreen: boolean) => {
+    setIsChartFullscreen(isFullscreen);
+  }, []);
+
+  useEffect(() => {
+    if (!isDesktopChartLayout && isChartFullscreen) {
+      setIsChartFullscreen(false);
+    }
+  }, [isChartFullscreen, isDesktopChartLayout]);
 
   useLayoutEffect(() => {
     if (!platformEnv.isNativeIOS) {
@@ -130,7 +158,9 @@ function MarketDetailV2(
   useFocusEffect(
     useCallback(() => {
       const shouldHideTabBar =
-        platformEnv.isNative || (!platformEnv.isExtension && media.md);
+        effectiveIsChartFullscreen ||
+        platformEnv.isNative ||
+        (!platformEnv.isExtension && media.md);
 
       if (!shouldHideTabBar) {
         return;
@@ -141,7 +171,7 @@ function MarketDetailV2(
       return () => {
         appEventBus.emit(EAppEventBusNames.HideTabBar, false);
       };
-    }, [media.md]),
+    }, [effectiveIsChartFullscreen, media.md]),
   );
 
   return (
@@ -155,7 +185,11 @@ function MarketDetailV2(
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
-        <MarketDetail {...props} />
+        <MarketDetail
+          {...props}
+          isChartFullscreen={effectiveIsChartFullscreen}
+          onChartFullscreenChange={handleChartFullscreenChange}
+        />
       </MarketWatchListProviderMirrorV2>
     </AccountSelectorProviderMirror>
   );

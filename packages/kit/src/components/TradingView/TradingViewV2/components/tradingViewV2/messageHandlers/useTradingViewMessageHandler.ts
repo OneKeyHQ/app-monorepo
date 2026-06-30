@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
 import { calculateDisplayPriceScale } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -14,8 +15,6 @@ import {
 import { handleLayoutUpdate } from './layoutUpdateHandler';
 
 import type { IMarksTimeRange, IMessageHandlerContext } from './types';
-import type { IWebViewRef } from '../../../WebView/types';
-import type { ITradingViewV2KLineDataFallback } from '../hooks/useTradingViewV2';
 import type {
   ICustomReceiveHandlerData,
   ITradingViewIndicatorsDialogData,
@@ -28,7 +27,8 @@ import type {
   ITradingViewNativeChartControlsConfigData,
   ITradingViewPriceUpdateData,
   ITradingViewTouchScrollData,
-} from '../types';
+} from '../../../types';
+import type { ITradingViewV2KLineDataFallback } from '../hooks/useTradingViewV2';
 
 const DEFAULT_HYPERLIQUID_PRICE_SCALE = 100;
 const TRADINGVIEW_PRICE_UPDATE = 'tradingview_priceUpdate';
