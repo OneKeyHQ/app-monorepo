@@ -267,12 +267,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         return categories;
       }
 
-      const [firstCategory, ...restCategories] = categories;
-      if (firstCategory?.id === FAVORITES_CATEGORY_ID) {
-        return [firstCategory, homePerpsHotCategory, ...restCategories];
-      }
-
-      return [homePerpsHotCategory, ...categories];
+      return [...categories, homePerpsHotCategory];
     };
 
     if (apiHomeTabs.length > 0) {
