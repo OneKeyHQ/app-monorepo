@@ -77,4 +77,22 @@ describe('ErrorToastContainer', () => {
     expect(mockedToast.error).not.toHaveBeenCalled();
     unmount();
   });
+
+  it('shows generic timeout text when it is not a transport timeout', () => {
+    const { unmount } = render(<ErrorToastContainer />);
+
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'error',
+        title: 'Device method call timeout',
+      });
+    });
+
+    expect(mockedToast.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Device method call timeout',
+      }),
+    );
+    unmount();
+  });
 });

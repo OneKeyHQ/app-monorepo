@@ -9,7 +9,8 @@ type IShowToastPayload = IAppEventBusPayload[EAppEventBusNames.ShowToast];
 const OFFLINE_NETWORK_ERROR_TEXT_REGEXP =
   /network\s+(error|request\s+failed)|failed\s+to\s+fetch|网络错误/i;
 
-const OFFLINE_NETWORK_TIMEOUT_TEXT_REGEXP = /timeout|timed\s+out|请求超时/i;
+const OFFLINE_NETWORK_TIMEOUT_TEXT_REGEXP =
+  /\btimeout\b|\btimed\s+out\b|请求超时/i;
 
 const OFFLINE_NETWORK_ERROR_CODES = new Set([
   'ECONNRESET',
@@ -41,18 +42,26 @@ function hasTimeoutText(payload: IShowToastPayload) {
 function hasTimeoutCode(payload: IShowToastPayload) {
   return (
     typeof payload.errorCode === 'string' &&
-    TIMEOUT_ERROR_CODES.has(payload.errorCode)
+    TIMEOUT_ERROR_CODES.has(payload.errorCode.toUpperCase())
   );
 }
 
 function hasOfflineNetworkErrorCode(payload: IShowToastPayload) {
   return (
     typeof payload.errorCode === 'string' &&
-    OFFLINE_NETWORK_ERROR_CODES.has(payload.errorCode)
+    OFFLINE_NETWORK_ERROR_CODES.has(payload.errorCode.toUpperCase())
   );
 }
 
-export function shouldSuppressOfflineNetworkErrorToast({
+function isAxiosNetworkTimeout(payload: IShowToastPayload) {
+  const isAxiosOrNetworkError =
+    payload.errorName === 'AxiosError' ||
+    payload.errorClassName === EOneKeyErrorClassNames.AxiosNetworkError;
+
+  return isAxiosOrNetworkError && hasTimeoutText(payload);
+}
+
+export function shouldSuppressNetworkErrorToast({
   isInternetReachable,
   payload,
 }: {
@@ -63,15 +72,19 @@ export function shouldSuppressOfflineNetworkErrorToast({
     return false;
   }
 
-  if (hasTimeoutText(payload) || hasTimeoutCode(payload)) {
+  if (hasTimeoutCode(payload)) {
+    return true;
+  }
+
+  if (typeof payload.httpStatusCode === 'number') {
+    return false;
+  }
+
+  if (isAxiosNetworkTimeout(payload)) {
     return true;
   }
 
   if (isInternetReachable !== false) {
-    return false;
-  }
-
-  if (typeof payload.httpStatusCode === 'number') {
     return false;
   }
 

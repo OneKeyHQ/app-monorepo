@@ -4,7 +4,7 @@ import type {
   IAppEventBusPayload,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
-import { shouldSuppressOfflineNetworkErrorToast } from './offlineNetworkToastGuard';
+import { shouldSuppressNetworkErrorToast } from './offlineNetworkToastGuard';
 
 type IShowToastPayload = IAppEventBusPayload[EAppEventBusNames.ShowToast];
 
@@ -19,7 +19,7 @@ const createErrorToastPayload = (
 describe('offlineNetworkToastGuard', () => {
   it('suppresses axios network error toast when offline is already confirmed', () => {
     expect(
-      shouldSuppressOfflineNetworkErrorToast({
+      shouldSuppressNetworkErrorToast({
         isInternetReachable: false,
         payload: createErrorToastPayload({
           errorClassName: EOneKeyErrorClassNames.AxiosNetworkError,
@@ -29,7 +29,7 @@ describe('offlineNetworkToastGuard', () => {
     ).toBe(true);
   });
 
-  it('suppresses timeout toast regardless of network status', () => {
+  it('suppresses transport timeout code regardless of network status', () => {
     const payload = createErrorToastPayload({
       errorCode: 'ECONNABORTED',
       errorName: 'AxiosError',
@@ -37,43 +37,70 @@ describe('offlineNetworkToastGuard', () => {
     });
 
     expect(
-      shouldSuppressOfflineNetworkErrorToast({
+      shouldSuppressNetworkErrorToast({
         isInternetReachable: false,
         payload,
       }),
     ).toBe(true);
 
     expect(
-      shouldSuppressOfflineNetworkErrorToast({
+      shouldSuppressNetworkErrorToast({
         isInternetReachable: true,
         payload,
       }),
     ).toBe(true);
 
     expect(
-      shouldSuppressOfflineNetworkErrorToast({
+      shouldSuppressNetworkErrorToast({
         isInternetReachable: null,
         payload,
       }),
     ).toBe(true);
   });
 
-  it('suppresses generic timeout errors globally', () => {
+  it('suppresses axios timeout text without an HTTP status code', () => {
     expect(
-      shouldSuppressOfflineNetworkErrorToast({
+      shouldSuppressNetworkErrorToast({
         isInternetReachable: true,
         payload: createErrorToastPayload({
-          title: 'Device method call timeout',
+          errorName: 'AxiosError',
+          title: 'timeout of 30000ms exceeded',
         }),
       }),
     ).toBe(true);
   });
 
-  it('suppresses timeout text even when an HTTP status code exists', () => {
+  it('keeps generic timeout errors visible', () => {
     expect(
-      shouldSuppressOfflineNetworkErrorToast({
+      shouldSuppressNetworkErrorToast({
         isInternetReachable: true,
         payload: createErrorToastPayload({
+          title: 'Device method call timeout',
+        }),
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps server timeout responses visible without a transport timeout code', () => {
+    expect(
+      shouldSuppressNetworkErrorToast({
+        isInternetReachable: true,
+        payload: createErrorToastPayload({
+          errorName: 'AxiosError',
+          httpStatusCode: 504,
+          title: 'Gateway Timeout',
+        }),
+      }),
+    ).toBe(false);
+  });
+
+  it('suppresses server timeout responses with a transport timeout code', () => {
+    expect(
+      shouldSuppressNetworkErrorToast({
+        isInternetReachable: true,
+        payload: createErrorToastPayload({
+          errorCode: 'ETIMEDOUT',
+          errorName: 'AxiosError',
           httpStatusCode: 408,
           title: 'Request timeout',
         }),
@@ -83,7 +110,7 @@ describe('offlineNetworkToastGuard', () => {
 
   it('keeps server and business errors visible while offline', () => {
     expect(
-      shouldSuppressOfflineNetworkErrorToast({
+      shouldSuppressNetworkErrorToast({
         isInternetReachable: false,
         payload: createErrorToastPayload({
           errorClassName: EOneKeyErrorClassNames.OneKeyServerApiError,
@@ -96,7 +123,7 @@ describe('offlineNetworkToastGuard', () => {
 
   it('keeps non-error toast methods visible while offline', () => {
     expect(
-      shouldSuppressOfflineNetworkErrorToast({
+      shouldSuppressNetworkErrorToast({
         isInternetReachable: false,
         payload: {
           method: 'warning',

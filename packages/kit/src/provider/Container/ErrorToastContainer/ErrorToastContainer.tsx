@@ -8,7 +8,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import { getErrorAction } from './ErrorToasts';
-import { shouldSuppressOfflineNetworkErrorToast } from './offlineNetworkToastGuard';
+import { shouldSuppressNetworkErrorToast } from './offlineNetworkToastGuard';
 
 // Get deduplication ID for HTTP status codes to prevent toast spam
 // @param httpStatusCode - HTTP status code (e.g., 403, 429, 503)
@@ -40,7 +40,7 @@ export function ErrorToastContainer() {
         return;
       }
       if (
-        shouldSuppressOfflineNetworkErrorToast({
+        shouldSuppressNetworkErrorToast({
           isInternetReachable: globalNetInfo.currentState().isInternetReachable,
           payload: p,
         })
