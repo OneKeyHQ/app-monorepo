@@ -21,6 +21,8 @@ import '@onekeyhq/shared/src/security/sesHarden/installWeb';
 import { registerRootComponent } from 'expo';
 import React from 'react';
 
+import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
+import { loadLocaleMessages } from '@onekeyhq/shared/src/locale/localeLoaders';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import App from './App';
@@ -91,6 +93,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 if (process.env.NODE_ENV === 'production') {
+  void loadLocaleMessages(getDefaultLocale());
   initSentryAfterStartup();
 } else {
   void import('@onekeyhq/shared/src/modules3rdParty/sentry').then(

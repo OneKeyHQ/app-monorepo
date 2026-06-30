@@ -56,6 +56,10 @@ function numberEnv(name, fallback) {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
+function booleanEnv(name) {
+  return process.env[name] === '1' || process.env[name] === 'true';
+}
+
 function formatBytes(value) {
   if (!Number.isFinite(value)) return 'n/a';
   if (value >= MB) return `${(value / MB).toFixed(2)} MiB`;
@@ -69,7 +73,7 @@ function formatMs(value) {
 function median(values) {
   const sorted = values
     .filter((value) => Number.isFinite(value))
-    .sort((a, b) => a - b);
+    .toSorted((a, b) => a - b);
   if (!sorted.length) return Number.NaN;
   return sorted[Math.floor(sorted.length / 2)];
 }
@@ -88,7 +92,7 @@ function normalizeBudgetConfig(raw) {
     return {
       defaults: {
         ...DEFAULT_BUDGETS,
-        ...(raw.defaults || {}),
+        ...raw.defaults,
       },
       scenarios: raw.scenarios || {},
     };
@@ -97,7 +101,7 @@ function normalizeBudgetConfig(raw) {
   return {
     defaults: {
       ...DEFAULT_BUDGETS,
-      ...(raw || {}),
+      ...raw,
     },
     scenarios: {},
   };
@@ -119,7 +123,7 @@ function loadBudgetConfig(repoRoot) {
 function getScenarioBudgets(budgetConfig, scenario) {
   return {
     ...budgetConfig.defaults,
-    ...(budgetConfig.scenarios?.[scenario.name] || {}),
+    ...budgetConfig.scenarios?.[scenario.name],
   };
 }
 
@@ -200,7 +204,7 @@ async function buildWeb({ repoRoot, log }) {
 }
 
 function installMetricObservers() {
-  window.__onekeyColdStartMetrics = {
+  globalThis.__onekeyColdStartMetrics = {
     firstContentfulPaint: null,
     largestContentfulPaint: null,
     largestContentfulPaintEntries: [],
@@ -208,10 +212,10 @@ function installMetricObservers() {
     longTasks: [],
   };
 
-  const metrics = window.__onekeyColdStartMetrics;
+  const metrics = globalThis.__onekeyColdStartMetrics;
 
   const observe = (type, callback) => {
-    if (!('PerformanceObserver' in window)) return;
+    if (!('PerformanceObserver' in globalThis)) return;
     try {
       const observer = new PerformanceObserver((list) => {
         callback(list.getEntries());
@@ -270,7 +274,7 @@ function installMetricObservers() {
   });
 
   const checkText = () => {
-    if (metrics.firstText != null) return;
+    if (metrics.firstText !== null && metrics.firstText !== undefined) return;
     const text = document.body?.innerText?.trim();
     if (text) {
       metrics.firstText = performance.now();
@@ -292,7 +296,7 @@ async function waitForMarketListReady(page, timeoutMs) {
   await page
     .waitForFunction(
       () => {
-        const perfGlobal = window;
+        const perfGlobal = globalThis;
         const readyAt = Number(perfGlobal.__onekeyMarketListReadyAt);
         const readyCount = Number(perfGlobal.__onekeyMarketListReadyCount);
         if (
@@ -313,7 +317,7 @@ async function waitForMarketListReady(page, timeoutMs) {
     .catch(() => {});
 
   return page.evaluate(() => {
-    const perfGlobal = window;
+    const perfGlobal = globalThis;
     const readyAt = Number(perfGlobal.__onekeyMarketListReadyAt);
     const readyCount = Number(perfGlobal.__onekeyMarketListReadyCount);
     const domTokenItemCount = document.querySelectorAll(
@@ -353,6 +357,7 @@ async function runOne({
   url,
   scenario,
   runIndex,
+  profileDir,
   waitAfterLoadMs,
   businessTimeoutMs,
   navigationTimeoutMs,
@@ -371,14 +376,26 @@ async function runOne({
   const badResponses = [];
   const pageErrors = [];
   const consoleErrors = [];
+  const enableCpuProfile = booleanEnv('PERF_WEB_COLD_CPU_PROFILE');
+  const enableReactProbe = booleanEnv('PERF_WEB_COLD_REACT_PROBE');
+  let cpuProfilePath = null;
 
   try {
+    await context.addInitScript((enabled) => {
+      if (!enabled) return;
+      globalThis.__onekeyMarketReactPerfProbe = true;
+      globalThis.__onekeyMarketReactPerf = [];
+    }, enableReactProbe);
     await context.addInitScript(installMetricObservers);
 
     const page = await context.newPage();
     const cdp = await context.newCDPSession(page);
     await cdp.send('Network.enable');
     await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
+    if (enableCpuProfile) {
+      await cdp.send('Profiler.enable');
+      await cdp.send('Profiler.start');
+    }
 
     page.on('pageerror', (error) => {
       pageErrors.push({
@@ -428,7 +445,9 @@ async function runOne({
 
     await page
       .waitForFunction(
-        () => window.__onekeyColdStartMetrics?.firstText != null,
+        () =>
+          globalThis.__onekeyColdStartMetrics?.firstText !== null &&
+          globalThis.__onekeyColdStartMetrics?.firstText !== undefined,
         { timeout: navigationTimeoutMs },
       )
       .catch(() => {});
@@ -445,7 +464,7 @@ async function runOne({
     const metrics = await page.evaluate(() => {
       const navigation = performance.getEntriesByType('navigation')[0];
       const resources = performance.getEntriesByType('resource');
-      const observerMetrics = window.__onekeyColdStartMetrics || {};
+      const observerMetrics = globalThis.__onekeyColdStartMetrics || {};
       return {
         navigation: navigation
           ? {
@@ -468,11 +487,24 @@ async function runOne({
           decodedBodySize: entry.decodedBodySize,
         })),
         bodyTextLength: document.body?.innerText?.trim()?.length || 0,
-        marketPerf: Array.isArray(window.__onekeyMarketPerf)
-          ? window.__onekeyMarketPerf
+        marketPerf: Array.isArray(globalThis.__onekeyMarketPerf)
+          ? globalThis.__onekeyMarketPerf
+          : [],
+        marketReactPerf: Array.isArray(globalThis.__onekeyMarketReactPerf)
+          ? globalThis.__onekeyMarketReactPerf
           : [],
       };
     });
+
+    if (enableCpuProfile) {
+      const { profile } = await cdp.send('Profiler.stop');
+      fs.mkdirSync(profileDir, { recursive: true });
+      cpuProfilePath = path.join(
+        profileDir,
+        `${scenario.name}-run${runIndex}.cpuprofile`,
+      );
+      fs.writeFileSync(cpuProfilePath, JSON.stringify(profile));
+    }
 
     const resources = metrics.resources || [];
     const scripts = resources.filter(
@@ -505,6 +537,8 @@ async function runOne({
       businessReady: businessReady?.readyAt ?? Number.NaN,
       businessReadyDetails: businessReady,
       marketPerf: metrics.marketPerf || businessReady?.marketPerf || [],
+      marketReactPerf: metrics.marketReactPerf || [],
+      cpuProfilePath,
       marketListReady:
         scenario.businessReady === 'marketList'
           ? (businessReady?.readyAt ?? Number.NaN)
@@ -541,8 +575,7 @@ async function runOne({
         largestPreLcpScript?.decodedBodySize || 0,
       largestPreLcpScriptUrl: largestPreLcpScript?.name || null,
       topScripts: scripts
-        .slice()
-        .sort((a, b) => (b.decodedBodySize || 0) - (a.decodedBodySize || 0))
+        .toSorted((a, b) => (b.decodedBodySize || 0) - (a.decodedBodySize || 0))
         .slice(0, 12)
         .map((entry) => ({
           url: entry.name,
@@ -661,7 +694,7 @@ function checkBudgets(summary, budgets) {
       budget: budgets[name],
       pass: Number.isFinite(actual) && actual <= budgets[name],
     }))
-    .filter((check) => check.budget != null);
+    .filter((check) => check.budget !== null && check.budget !== undefined);
 }
 
 function printReport({
@@ -778,6 +811,34 @@ function printReport({
     }
   }
 
+  if (topRun?.marketReactPerf?.length) {
+    // eslint-disable-next-line no-console
+    console.log(`\n[perf:web:cold] ${scenario.name} market react/commit probe`);
+    for (const item of topRun.marketReactPerf.slice(0, 30)) {
+      // eslint-disable-next-line no-console
+      console.log(
+        [
+          formatMs(item.time),
+          item.phase,
+          item.duration !== null && item.duration !== undefined
+            ? `+${formatMs(item.duration)}`
+            : '',
+          item.name,
+          item.detail ? JSON.stringify(item.detail) : '',
+        ]
+          .filter(Boolean)
+          .join(' '),
+      );
+    }
+  }
+
+  if (topRun?.cpuProfilePath) {
+    // eslint-disable-next-line no-console
+    console.log(
+      `\n[perf:web:cold] ${scenario.name} cpu profile: ${topRun.cpuProfilePath}`,
+    );
+  }
+
   if (topRun?.longTasks?.length) {
     // eslint-disable-next-line no-console
     console.log(`\n[perf:web:cold] ${scenario.name} long tasks`);
@@ -793,8 +854,7 @@ function printReport({
     // eslint-disable-next-line no-console
     console.log('\n[perf:web:cold] initial scripts by raw file size');
     for (const item of initialScripts
-      .slice()
-      .sort((a, b) => b.bytes - a.bytes)
+      .toSorted((a, b) => b.bytes - a.bytes)
       .slice(0, 8)) {
       // eslint-disable-next-line no-console
       console.log(`${formatBytes(item.bytes)} ${item.src}`);
@@ -837,6 +897,9 @@ async function main() {
   const outputPath =
     process.env.PERF_WEB_COLD_OUT ||
     path.join(os.tmpdir(), `onekey-web-cold-${Date.now()}.json`);
+  const profileDir =
+    process.env.PERF_WEB_COLD_PROFILE_DIR ||
+    path.join(os.tmpdir(), `onekey-web-cold-profiles-${Date.now()}`);
   const log = (...args) => {
     // eslint-disable-next-line no-console
     console.log('[perf:web:cold]', ...args);
@@ -881,6 +944,7 @@ async function main() {
             url,
             scenario,
             runIndex: i + 1,
+            profileDir,
             waitAfterLoadMs: numberEnv(
               'PERF_WEB_COLD_WAIT_AFTER_LOAD_MS',
               5000,
@@ -929,6 +993,7 @@ async function main() {
       createdAt: new Date().toISOString(),
       repoRoot,
       buildDir,
+      profileDir: booleanEnv('PERF_WEB_COLD_CPU_PROFILE') ? profileDir : null,
       budgetConfig,
       scenarios: scenarioOutputs,
       url: firstScenario?.url,

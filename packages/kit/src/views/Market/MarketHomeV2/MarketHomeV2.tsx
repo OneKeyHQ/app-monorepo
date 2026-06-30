@@ -29,6 +29,7 @@ import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirro
 import { MarketTestIDs } from '../testIDs';
 import { preloadMarketHomeTokenListSeed } from '../utils/marketHomeTokenListSeed';
 import { markMarketPerf } from '../utils/marketPerf';
+import { useMarketRenderCommitProbe } from '../utils/marketReactPerf';
 
 import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
@@ -265,6 +266,7 @@ const useMarketHomeLayoutProps = () => {
 
 function BaseMarketHomeLayout() {
   markMarketPerf('market-home-base-layout-render');
+  useMarketRenderCommitProbe('MarketHome.BaseLayout');
   const { md, layoutProps, shouldWaitForSpotCategoryReady } =
     useMarketHomeLayoutProps();
   const isFocused = useRouteIsFocused();
@@ -303,6 +305,7 @@ function BaseMarketHome() {
 
 export function MarketHomeV2() {
   markMarketPerf('market-home-render');
+  useMarketRenderCommitProbe('MarketHomeV2');
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('MarketHomeV2 render');
   }

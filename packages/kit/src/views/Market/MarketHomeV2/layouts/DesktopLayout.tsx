@@ -13,6 +13,7 @@ import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { markMarketPerf } from '../../utils/marketPerf';
+import { useMarketRenderCommitProbe } from '../../utils/marketReactPerf';
 import { CompactNetworkSelector } from '../components/CompactNetworkSelector';
 import { MarketBannerList } from '../components/MarketBanner';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
@@ -79,6 +80,9 @@ export function DesktopLayout({
   onTabChange,
 }: IDesktopLayoutProps) {
   markMarketPerf('market-home-desktop-layout-render', { selectedNetworkId });
+  useMarketRenderCommitProbe('MarketHome.DesktopLayout', {
+    selectedNetworkId,
+  });
   const {
     watchlistTabName,
     spotTabItems,

@@ -27,6 +27,7 @@ import type {
 } from '@onekeyhq/components';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
+import { useMarketRenderCommitProbe } from '@onekeyhq/kit/src/views/Market/utils/marketReactPerf';
 import { useMarketWebDeferredFeaturesReady } from '@onekeyhq/kit/src/views/Market/utils/useMarketWebDeferredFeaturesReady';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
@@ -284,6 +285,11 @@ function MarketTokenListBase({
   rowBg,
   testID,
 }: IMarketTokenListBaseProps) {
+  useMarketRenderCommitProbe('MarketTokenListBase', {
+    tabName,
+    isWatchlistMode,
+    tabIntegrated: Boolean(tabIntegrated),
+  });
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
   const { navigateToPerps } = usePerpsNavigation();

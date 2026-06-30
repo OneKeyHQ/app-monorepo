@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useNetworkLoadingAnalytics } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/hooks/useNetworkLoadingAnalytics';
+import { markMarketReactPerf } from '@onekeyhq/kit/src/views/Market/utils/marketReactPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -416,6 +417,10 @@ export function useMarketTokenList({
       return;
     }
 
+    const transformStart =
+      platformEnv.isWeb && typeof performance !== 'undefined'
+        ? performance.now()
+        : 0;
     const transformed = apiResult.list.map((item) =>
       transformApiItemToToken(item, {
         chainId: networkId,
@@ -423,6 +428,20 @@ export function useMarketTokenList({
         timeRange: timeRangeRef.current,
       }),
     );
+    const transformDuration =
+      transformStart > 0 ? performance.now() - transformStart : undefined;
+    markMarketReactPerf({
+      name: 'useMarketTokenList.transform',
+      phase: 'measure',
+      duration: transformDuration,
+      detail: {
+        count: apiResult.list.length,
+        source: apiResult.__fromSeed ? 'seed' : 'remote',
+        networkId,
+        type,
+        timeFrame,
+      },
+    });
 
     // Update only rows whose visible fields changed so Table row memoization can
     // survive seed -> remote refresh and polling updates.
@@ -435,7 +454,15 @@ export function useMarketTokenList({
 
     // Reset network switching state when new data arrives
     setIsNetworkSwitching(false);
-  }, [apiResult, hasNetworkId, networkId, networkLogoUri, trackNetworkLoading]);
+  }, [
+    apiResult,
+    hasNetworkId,
+    networkId,
+    networkLogoUri,
+    timeFrame,
+    trackNetworkLoading,
+    type,
+  ]);
 
   // Reset pagination when networkId, sortBy, or sortType changes
   useEffect(() => {
