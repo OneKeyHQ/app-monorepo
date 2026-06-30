@@ -6,6 +6,11 @@ import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import { getInstanceId } from '../../modules3rdParty/intercom/utils';
+import {
+  buildToastTracePayload,
+  getToastTraceStack,
+  logToastTrace,
+} from '../../utils/debug/toastTrace';
 import { EOneKeyErrorClassNames, type IOneKeyError } from '../types/errorTypes';
 
 async function buildDiagnosticText(err: IOneKeyError): Promise<string> {
@@ -40,6 +45,19 @@ async function buildDiagnosticText(err: IOneKeyError): Promise<string> {
   parts.push(`Timestamp: ${new Date().toISOString()}`);
 
   return parts.join('\n');
+}
+
+function buildSafeRequestPath(requestUrl: string | undefined) {
+  if (!requestUrl) {
+    return undefined;
+  }
+
+  try {
+    const url = new URL(requestUrl);
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return requestUrl.split('?')[0];
+  }
 }
 
 function fixAxiosAbortCancelError(error: unknown) {
@@ -136,7 +154,7 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
         }
       }
 
-      appEventBus.emit(EAppEventBusNames.ShowToast, {
+      const toastPayload = {
         errorCode: err?.code,
         errorClassName: err?.className,
         errorName: err?.name,
@@ -146,7 +164,20 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
         requestId: err?.requestId,
         diagnosticText,
         i18nKey: err?.key as ETranslations | undefined,
-      });
+      };
+
+      logToastTrace(
+        'auto-toast-emit',
+        buildToastTracePayload(toastPayload, {
+          errorStack: err?.stack,
+          requestPath: buildSafeRequestPath(
+            (err?.data as { requestUrl?: string } | undefined)?.requestUrl,
+          ),
+          stack: getToastTraceStack(),
+        }),
+      );
+
+      appEventBus.emit(EAppEventBusNames.ShowToast, toastPayload);
     })();
   }
 }

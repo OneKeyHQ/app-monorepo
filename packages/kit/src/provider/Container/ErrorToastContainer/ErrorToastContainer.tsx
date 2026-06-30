@@ -6,6 +6,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  buildToastTracePayload,
+  logToastTrace,
+} from '@onekeyhq/shared/src/utils/debug/toastTrace';
 
 import { getErrorAction } from './ErrorToasts';
 import { shouldSuppressNetworkErrorToast } from './offlineNetworkToastGuard';
@@ -39,12 +43,20 @@ export function ErrorToastContainer() {
       if (!p.title) {
         return;
       }
-      if (
-        shouldSuppressNetworkErrorToast({
-          isInternetReachable: globalNetInfo.currentState().isInternetReachable,
-          payload: p,
-        })
-      ) {
+      const isInternetReachable =
+        globalNetInfo.currentState().isInternetReachable;
+      const shouldSuppress = shouldSuppressNetworkErrorToast({
+        isInternetReachable,
+        payload: p,
+      });
+      logToastTrace(
+        'container-decision',
+        buildToastTracePayload(p, {
+          isInternetReachable,
+          shouldSuppress,
+        }),
+      );
+      if (shouldSuppress) {
         return;
       }
 

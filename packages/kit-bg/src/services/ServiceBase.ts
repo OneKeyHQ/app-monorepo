@@ -17,6 +17,11 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import {
+  buildToastTracePayload,
+  getToastTraceStack,
+  logToastTrace,
+} from '@onekeyhq/shared/src/utils/debug/toastTrace';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -278,6 +283,12 @@ export default class ServiceBase {
 
   @backgroundMethod()
   async showToast(params: IAppEventBusPayload[EAppEventBusNames.ShowToast]) {
+    logToastTrace(
+      'service-show-toast',
+      buildToastTracePayload(params, {
+        stack: getToastTraceStack(),
+      }),
+    );
     appEventBus.emit(EAppEventBusNames.ShowToast, params);
   }
 
