@@ -192,7 +192,15 @@ export const useColumnsDesktop = (
         })}(%)`,
       dataIndex: 'change24h',
       columnProps: { flex: 1 },
-      render: (text: number) => {
+      render: (text: number, record: IMarketToken) => {
+        if (record.priceChangeRaw === '-') {
+          return (
+            <SizableText size="$bodyMd" color="$textSubdued">
+              --
+            </SizableText>
+          );
+        }
+
         const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
           priceChange: text,
         });
