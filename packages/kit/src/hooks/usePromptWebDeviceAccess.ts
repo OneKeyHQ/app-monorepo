@@ -6,6 +6,23 @@ import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { getWebUsbDeviceFilters } from './usePromptWebDeviceAccessUtils';
 
+function serializeWebDeviceAccessError(error: unknown) {
+  if (error && typeof error === 'object') {
+    const errorRecord = error as Record<string, unknown>;
+    return {
+      name: typeof errorRecord.name === 'string' ? errorRecord.name : undefined,
+      message:
+        typeof errorRecord.message === 'string'
+          ? errorRecord.message
+          : undefined,
+      error: String(error),
+    };
+  }
+  return {
+    error: String(error),
+  };
+}
+
 export function usePromptWebDeviceAccess() {
   /**
    * web-usb and web-ble requestDevice function must be called in the ui thread
@@ -14,13 +31,26 @@ export function usePromptWebDeviceAccess() {
   const promptWebUsbDeviceAccess = useCallback(
     async (vendor?: EHardwareVendor) => {
       try {
-        await backgroundApiProxy.serviceHardware.ensureLinuxUdevRules();
         const device = await navigator.usb.requestDevice({
           filters: getWebUsbDeviceFilters(vendor),
         });
         console.log('USB device permission granted:', device);
         return device;
       } catch (error) {
+        if (platformEnv.isDesktop) {
+          try {
+            await backgroundApiProxy.serviceHardware.handleLinuxWebUsbAccessDeniedError(
+              {
+                error: serializeWebDeviceAccessError(error),
+              },
+            );
+          } catch (handleError) {
+            console.error(
+              'Failed to handle Linux WebUSB access error:',
+              handleError,
+            );
+          }
+        }
         console.error('Failed to request USB device permission:', error);
         throw error;
       }

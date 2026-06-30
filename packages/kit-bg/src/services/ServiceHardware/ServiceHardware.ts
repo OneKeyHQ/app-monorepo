@@ -136,6 +136,14 @@ export type IDeviceGetFeaturesOptions = {
   hardwareCallContext?: IHardwareCallContext;
 };
 
+type IEnsureLinuxUdevRulesParams = {
+  skipTransportTypeCheck?: boolean;
+};
+
+type IHandleLinuxWebUsbAccessDeniedErrorParams = {
+  error?: unknown;
+};
+
 // skip events
 const SKIPPED_EVENTS = new Set([
   EHardwareUiStateAction.CLOSE_UI_WINDOW,
@@ -794,7 +802,7 @@ class ServiceHardware extends ServiceBase {
     ) {
       // Normal Linux desktop (AppImage/.deb): install the rules via PolicyKit
       // and retry once, so the user doesn't have to restart the app.
-      if (await this.ensureLinuxUdevRules()) {
+      if (await this.ensureLinuxUdevRules({ skipTransportTypeCheck: true })) {
         const retryResponse = await hardwareSDK?.searchDevices();
         defaultLogger.hardware.sdkLog.log(
           'searchDevices response after udev rules: ',
@@ -810,23 +818,28 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async ensureLinuxUdevRules() {
-    if (!platformEnv.isDesktopLinux) {
+  async ensureLinuxUdevRules(params?: IEnsureLinuxUdevRulesParams) {
+    if (!this.isDesktopLinuxRuntime()) {
       return false;
     }
     // Sandboxed builds cannot reach the host PolicyKit/udev to auto-install the
     // rules; the missing-rules case is surfaced to the user via
     // notifyLinuxUdevManualInstallIfNeeded() instead.
-    if (platformEnv.isDesktopLinuxSnap || platformEnv.isDesktopLinuxFlatpak) {
+    if (
+      this.isDesktopLinuxSnapRuntime() ||
+      this.isDesktopLinuxFlatpakRuntime()
+    ) {
       return false;
     }
 
-    const { forceTransportType } = await hardwareForceTransportAtom.get();
-    const hardwareTransportType =
-      forceTransportType ??
-      (await this.backgroundApi.serviceSetting.getHardwareTransportType());
-    if (hardwareTransportType !== EHardwareTransportType.WEBUSB) {
-      return false;
+    if (!params?.skipTransportTypeCheck) {
+      const { forceTransportType } = await hardwareForceTransportAtom.get();
+      const hardwareTransportType =
+        forceTransportType ??
+        (await this.backgroundApi.serviceSetting.getHardwareTransportType());
+      if (hardwareTransportType !== EHardwareTransportType.WEBUSB) {
+        return false;
+      }
     }
 
     if (!this.linuxUdevRulesReadyPromise) {
@@ -841,6 +854,65 @@ class ServiceHardware extends ServiceBase {
     }
 
     return this.linuxUdevRulesReadyPromise;
+  }
+
+  @backgroundMethod()
+  async handleLinuxWebUsbAccessDeniedError(
+    params?: IHandleLinuxWebUsbAccessDeniedErrorParams,
+  ) {
+    if (!this.isDesktopLinuxRuntime()) {
+      return false;
+    }
+    if (!this.isLinuxWebUsbAccessDeniedError(params?.error)) {
+      return false;
+    }
+    if (await this.ensureLinuxUdevRules({ skipTransportTypeCheck: true })) {
+      defaultLogger.hardware.sdkLog.log(
+        '[LinuxWebUSB] OneKey udev rules installed after WebUSB access denied',
+      );
+      return true;
+    }
+    this.notifyLinuxUdevManualInstallIfNeeded({
+      force: true,
+      reason: this.getLinuxUdevManualInstallReason(),
+    });
+    return false;
+  }
+
+  private isDesktopLinuxRuntime() {
+    return (
+      platformEnv.isDesktopLinux || globalThis.desktopApi?.platform === 'linux'
+    );
+  }
+
+  private getDesktopLinuxRuntimeChannel() {
+    return globalThis.desktopApi?.channel || '';
+  }
+
+  private isDesktopLinuxSnapRuntime() {
+    return (
+      platformEnv.isDesktopLinuxSnap ||
+      (this.isDesktopLinuxRuntime() &&
+        this.getDesktopLinuxRuntimeChannel() === 'snap')
+    );
+  }
+
+  private isDesktopLinuxFlatpakRuntime() {
+    return (
+      platformEnv.isDesktopLinuxFlatpak ||
+      (this.isDesktopLinuxRuntime() &&
+        this.getDesktopLinuxRuntimeChannel() === 'flatpak')
+    );
+  }
+
+  private getLinuxUdevManualInstallReason() {
+    if (this.isDesktopLinuxFlatpakRuntime()) {
+      return 'flatpak';
+    }
+    if (this.isDesktopLinuxSnapRuntime()) {
+      return 'snap';
+    }
+    return 'webusb-access-denied';
   }
 
   private getErrorText(error: unknown) {
@@ -934,17 +1006,17 @@ class ServiceHardware extends ServiceBase {
     // are unavailable on the host.
     if (
       !options?.force &&
-      !platformEnv.isDesktopLinuxFlatpak &&
-      !platformEnv.isDesktopLinuxSnap
+      !this.isDesktopLinuxFlatpakRuntime() &&
+      !this.isDesktopLinuxSnapRuntime()
     ) {
       return;
     }
     this.linuxUdevGuideShown = true;
     let reason = options?.reason ?? 'unknown';
     if (!options?.reason) {
-      if (platformEnv.isDesktopLinuxFlatpak) {
+      if (this.isDesktopLinuxFlatpakRuntime()) {
         reason = 'flatpak';
-      } else if (platformEnv.isDesktopLinuxSnap) {
+      } else if (this.isDesktopLinuxSnapRuntime()) {
         reason = 'snap';
       }
     }
@@ -2063,12 +2135,12 @@ class ServiceHardware extends ServiceBase {
       );
     } catch (error) {
       if (this.isLinuxWebUsbAccessDeniedError(error)) {
-        if (await this.ensureLinuxUdevRules()) {
+        if (await this.ensureLinuxUdevRules({ skipTransportTypeCheck: true })) {
           return convertDeviceResponse(() =>
             hardwareSDK?.promptWebDeviceAccess(params),
           );
         }
-        if (platformEnv.isDesktopLinux) {
+        if (this.isDesktopLinuxRuntime()) {
           this.notifyLinuxUdevManualInstallIfNeeded({
             force: true,
             reason: 'webusb-access-denied',
