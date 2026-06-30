@@ -1677,19 +1677,26 @@ class ServicePrimeTransfer extends ServiceBase {
 
     // Cloud backup must never silently produce a partial backup: a partial
     // backup can overwrite a previous complete one and lose the only
-    // recoverable copy of the skipped wallet. Fail fast with a clear, retryable
-    // message (the @toastIfError-wrapped caller surfaces it). Interactive
-    // transfer instead keeps unavailableCredentials and lets the user confirm.
+    // recoverable copy of the skipped wallet. Fail fast with a clear,
+    // retryable message. Interactive transfer instead keeps
+    // unavailableCredentials and lets the user confirm.
+    //
+    // Surface it as a normal toast: set autoToast explicitly because
+    // LocalSecretEnvelopeUnavailable defaults autoToast=false, and the
+    // @toastIfError-wrapped caller only fills autoToast when it is unset
+    // (never overriding an explicit false) — so without this the failure
+    // would be silent (no toast, no dialog).
+    //
     // Do NOT mark this with the credential migration marker: this is a
     // transient, retryable secure-storage hiccup, not a permanent
     // device-migration key loss. Tagging it would trigger the
     // "wallet key unavailable / re-migrate from the original device" Dialog
-    // and mislead the user. The @toastIfError-wrapped caller still surfaces
-    // the retryable message as a normal toast.
+    // and mislead the user.
     if (isForCloudBackup && unavailableCredentials.length > 0) {
       throw new LocalSecretEnvelopeUnavailable({
         message:
           "Secure storage is temporarily unavailable, so some wallets can't be backed up right now. Please try again.",
+        autoToast: true,
       });
     }
 
