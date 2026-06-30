@@ -98,7 +98,6 @@ import {
   EPrimeTransferStatus,
   primeTransferAtom,
 } from '../../states/jotai/atoms/prime';
-import { markCredentialLocalSecretEnvelopeUnavailableError } from '../../utils/localSecretEnvelopeErrorUtils';
 import {
   EAppCryptoSharedEncryptScene,
   encryptAsyncWithFormat,
@@ -1681,13 +1680,17 @@ class ServicePrimeTransfer extends ServiceBase {
     // recoverable copy of the skipped wallet. Fail fast with a clear, retryable
     // message (the @toastIfError-wrapped caller surfaces it). Interactive
     // transfer instead keeps unavailableCredentials and lets the user confirm.
+    // Do NOT mark this with the credential migration marker: this is a
+    // transient, retryable secure-storage hiccup, not a permanent
+    // device-migration key loss. Tagging it would trigger the
+    // "wallet key unavailable / re-migrate from the original device" Dialog
+    // and mislead the user. The @toastIfError-wrapped caller still surfaces
+    // the retryable message as a normal toast.
     if (isForCloudBackup && unavailableCredentials.length > 0) {
-      const error = new LocalSecretEnvelopeUnavailable({
+      throw new LocalSecretEnvelopeUnavailable({
         message:
           "Secure storage is temporarily unavailable, so some wallets can't be backed up right now. Please try again.",
       });
-      markCredentialLocalSecretEnvelopeUnavailableError(error);
-      throw error;
     }
 
     // fill publicData summary by aggregating from privateBackupData
