@@ -14,6 +14,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -388,6 +389,83 @@ class ServiceThirdPartyHardware extends ServiceBase {
       )} deviceId=${deviceId}`,
     );
     await adapter?.flushThpCredentials?.(deviceId, { connectId });
+  }
+
+  /**
+   * Tear down the cached Trezor adapter so the next `getAdapterForVendor`
+   * rebuilds it and warm-loads THP credentials fresh from the DB (credentials
+   * are seeded into the connector once at adapter creation, so a DB mutation
+   * only takes effect after recreation). Awaits the adapter's own `dispose()`
+   * first so the connector releases the USB handle (close + releaseInterface) —
+   * dropping the Map reference alone would leak the open device and break the
+   * next connect. Connection lifecycle stays inside the SDK; we only ask it to
+   * dispose. DEV-only helper for the THP debug tools.
+   */
+  private async disposeTrezorAdapterCache() {
+    const vendor = EHardwareVendor.trezor;
+    if (!this.isRegisteredThirdPartyVendor(vendor)) return;
+    const adapter = this.thirdPartyAdapters.get(vendor);
+    this.thirdPartyAdapters.delete(vendor);
+    this.thirdPartyAdapterInitPromises.delete(vendor);
+    try {
+      await adapter?.hw?.dispose?.();
+    } catch (error) {
+      defaultLogger.hardware.sdkLog.log(
+        `[ServiceThirdPartyHardware] trezor adapter dispose failed: ${
+          (error as Error)?.message ?? String(error)
+        }`,
+      );
+    }
+  }
+
+  /**
+   * DEV-ONLY. Corrupt this Trezor's stored THP pairing credentials so the device
+   * rejects them on the next handshake — used to reproduce/inspect pairing-loss
+   * recovery. Keeps the credential shape valid (still shipped to the device) but
+   * fills the `credential` blob with random hex. No-op when nothing is stored.
+   * Trezor-only. Gated behind developer mode in the UI.
+   */
+  @backgroundMethod()
+  async devCorruptTrezorThpCredentials({
+    dbDeviceId,
+  }: {
+    dbDeviceId: string;
+  }): Promise<{ corrupted: number }> {
+    const device = await localDb.getDevice(dbDeviceId);
+    const credentials = device.settings?.thpCredentials ?? [];
+    if (!credentials.length) {
+      return { corrupted: 0 };
+    }
+    const corrupted = credentials.map((cred) => {
+      const next = { ...cred };
+      if (typeof next.credential === 'string' && next.credential.length > 0) {
+        next.credential = stringUtils.randomString(next.credential.length, {
+          chars: '0123456789abcdef',
+        });
+      }
+      return next;
+    });
+    await localDb.updateDeviceThpCredentials({
+      dbDeviceId,
+      credentials: corrupted,
+    });
+    await this.disposeTrezorAdapterCache();
+    return { corrupted: corrupted.length };
+  }
+
+  /**
+   * DEV-ONLY. Clear this Trezor's stored THP credentials + bleConnectId so the
+   * next connect forces a fresh pairing. Trezor-only. Gated behind developer
+   * mode in the UI.
+   */
+  @backgroundMethod()
+  async devClearTrezorThpState({
+    dbDeviceId,
+  }: {
+    dbDeviceId: string;
+  }): Promise<void> {
+    await localDb.clearTrezorDeviceThpState({ dbDeviceId });
+    await this.disposeTrezorAdapterCache();
   }
 
   /**
