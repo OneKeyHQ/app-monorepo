@@ -688,6 +688,10 @@ function MarketTokenListBase({
   // until new data arrives — avoids unnecessary skeleton flash.
   const showSkeleton =
     (Boolean(isLoading) || Boolean(isNetworkSwitching)) && data.length === 0;
+  const skeletonRowCount =
+    platformEnv.isWeb && webTabIntegrated
+      ? MARKET_HOME_WEB_INITIAL_RENDER_ROW_COUNT
+      : 30;
 
   const TableEmptyComponent = useMemo(() => {
     if (isLoading) return null;
@@ -863,7 +867,7 @@ function MarketTokenListBase({
           {showSkeleton ? (
             <Table.Skeleton
               columns={marketTokenColumns}
-              count={30}
+              count={skeletonRowCount}
               rowProps={{
                 minHeight: '$14',
               }}
