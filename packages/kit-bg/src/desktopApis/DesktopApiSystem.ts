@@ -88,6 +88,7 @@ export type IInstallOneKeyUdevRulesResult = {
     | 'flatpak'
     | 'missing-pkexec'
     | 'cancelled'
+    | 'not-authorized'
     | 'failed';
   message?: string;
   stdout?: string;
@@ -467,11 +468,19 @@ fi
       // pkexec exit codes are a stable contract: 126 = user dismissed the
       // authentication dialog, 127 = authorization failed (e.g. not allowed).
       // Prefer the numeric exit code over fragile message-string matching.
-      const exitCode = (error as { code?: number | string }).code;
+      const exitCode = String((error as { code?: number | string }).code);
+      let skippedReason: IInstallOneKeyUdevRulesResult['skippedReason'] =
+        'failed';
+      if (exitCode === '126') {
+        skippedReason = 'cancelled';
+      } else if (exitCode === '127') {
+        skippedReason = 'not-authorized';
+      }
       return {
         supported: true,
         installed: false,
-        skippedReason: exitCode === 126 ? 'cancelled' : 'failed',
+        skippedReason,
+        needsManualInstall: exitCode === '127',
         message,
       };
     }
