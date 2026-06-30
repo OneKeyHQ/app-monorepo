@@ -1243,6 +1243,7 @@
   "earn_claim_redemption__action": "Richiedi riscatto",
   "earn_claim_rewards__action": "Richiedi ricompense",
   "earn_no_assets_deposited": "Nessun bene depositato ancora",
+  "earn_remove_and_claim_rewards__action": "Remove & Claim rewards",
   "earn_reward_distribution_schedule": "Le ricompense verranno distribuite sul tuo portafoglio Arbitrum (stesso indirizzo di Ethereum) entro il 10 del mese prossimo.",
   "edit_fee_custom_set_as_default_description": "Imposta come predefinito per tutte le future transazioni su {network}",
   "email_verification_rate_limit": "Attendi {rest} secondi prima di richiedere un nuovo codice di verifica",
