@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -218,6 +218,8 @@ function AccountModeContent({
   const [selectedMode, setSelectedMode] =
     useState<IPerpsAccountModeOption>(initialMode);
   const [loading, setLoading] = useState(false);
+  const activeAccountAddressRef = useRef(perpsActiveAccount?.accountAddress);
+  activeAccountAddressRef.current = perpsActiveAccount?.accountAddress;
 
   const handleConfirm = useCallback(async () => {
     const accountId = perpsActiveAccount?.accountId;
@@ -238,8 +240,11 @@ function AccountModeContent({
         userAddress: accountAddress,
         abstraction,
       });
-      // Optimistic hint until the re-fetched live mode lands.
-      onSelect?.(selectedMode);
+      // Optimistic hint until the re-fetched live mode lands. Skip if the active
+      // account changed during signing, so the draft can't land on another account.
+      if (activeAccountAddressRef.current === accountAddress) {
+        onSelect?.(selectedMode);
+      }
       void onClose?.();
     } catch {
       // withToast already showed the error; stay open so the user can retry.
