@@ -1,4 +1,5 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { MESSAGE_TYPES } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/constants/messageTypes';
 import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -11,7 +12,6 @@ import type {
   IMarketTokenKLineResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
-import { MESSAGE_TYPES } from '../../TradingViewPerpsV2/constants/messageTypes';
 import { fetchTradingViewV2DataWithSlicing } from '../hooks';
 
 import { sendVolumeVisibilityUpdate } from './volumeVisibilityHandler';
