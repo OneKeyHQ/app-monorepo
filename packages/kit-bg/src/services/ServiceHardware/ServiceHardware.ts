@@ -136,10 +136,6 @@ export type IDeviceGetFeaturesOptions = {
   hardwareCallContext?: IHardwareCallContext;
 };
 
-type IEnsureLinuxUdevRulesParams = {
-  skipTransportTypeCheck?: boolean;
-};
-
 type IHandleLinuxWebUsbAccessDeniedErrorParams = {
   error?: unknown;
 };
@@ -796,13 +792,10 @@ class ServiceHardware extends ServiceBase {
 
     // Linux may surface missing udev rules either through libusb or Chromium
     // WebUSB errors, depending on the active transport path.
-    if (
-      response?.success === false &&
-      this.isLinuxWebUsbAccessDeniedError(response.payload)
-    ) {
+    if (response?.success === false) {
       // Normal Linux desktop (AppImage/.deb): install the rules via PolicyKit
       // and retry once, so the user doesn't have to restart the app.
-      if (await this.ensureLinuxUdevRules({ skipTransportTypeCheck: true })) {
+      if (await this.recoverLinuxWebUsbAccessDeniedError(response.payload)) {
         const retryResponse = await hardwareSDK?.searchDevices();
         defaultLogger.hardware.sdkLog.log(
           'searchDevices response after udev rules: ',
@@ -810,15 +803,11 @@ class ServiceHardware extends ServiceBase {
         );
         return retryResponse;
       }
-      // Sandboxed builds (flatpak/snap) cannot install host udev rules from
-      // inside the sandbox; guide the user to install them manually instead.
-      this.notifyLinuxUdevManualInstallIfNeeded();
     }
     return response;
   }
 
-  @backgroundMethod()
-  async ensureLinuxUdevRules(params?: IEnsureLinuxUdevRulesParams) {
+  private async ensureLinuxUdevRules() {
     if (!this.isDesktopLinuxRuntime()) {
       return false;
     }
@@ -830,16 +819,6 @@ class ServiceHardware extends ServiceBase {
       this.isDesktopLinuxFlatpakRuntime()
     ) {
       return false;
-    }
-
-    if (!params?.skipTransportTypeCheck) {
-      const { forceTransportType } = await hardwareForceTransportAtom.get();
-      const hardwareTransportType =
-        forceTransportType ??
-        (await this.backgroundApi.serviceSetting.getHardwareTransportType());
-      if (hardwareTransportType !== EHardwareTransportType.WEBUSB) {
-        return false;
-      }
     }
 
     if (!this.linuxUdevRulesReadyPromise) {
@@ -856,26 +835,48 @@ class ServiceHardware extends ServiceBase {
     return this.linuxUdevRulesReadyPromise;
   }
 
-  @backgroundMethod()
-  async handleLinuxWebUsbAccessDeniedError(
-    params?: IHandleLinuxWebUsbAccessDeniedErrorParams,
+  private async recoverLinuxWebUsbAccessDeniedError(
+    error: unknown,
+    options?: {
+      forceManualGuideOnFailure?: boolean;
+    },
   ) {
     if (!this.isDesktopLinuxRuntime()) {
       return false;
     }
-    if (!this.isLinuxWebUsbAccessDeniedError(params?.error)) {
+    if (!this.isLinuxWebUsbAccessDeniedError(error)) {
       return false;
     }
-    if (await this.ensureLinuxUdevRules({ skipTransportTypeCheck: true })) {
+
+    if (await this.ensureLinuxUdevRules()) {
+      return true;
+    }
+
+    this.notifyLinuxUdevManualInstallIfNeeded(
+      options?.forceManualGuideOnFailure
+        ? {
+            force: true,
+            reason: this.getLinuxUdevManualInstallReason(),
+          }
+        : undefined,
+    );
+    return false;
+  }
+
+  @backgroundMethod()
+  async handleLinuxWebUsbAccessDeniedError(
+    params?: IHandleLinuxWebUsbAccessDeniedErrorParams,
+  ) {
+    if (
+      await this.recoverLinuxWebUsbAccessDeniedError(params?.error, {
+        forceManualGuideOnFailure: true,
+      })
+    ) {
       defaultLogger.hardware.sdkLog.log(
         '[LinuxWebUSB] OneKey udev rules installed after WebUSB access denied',
       );
       return true;
     }
-    this.notifyLinuxUdevManualInstallIfNeeded({
-      force: true,
-      reason: this.getLinuxUdevManualInstallReason(),
-    });
     return false;
   }
 
@@ -946,7 +947,7 @@ class ServiceHardware extends ServiceBase {
     const message = this.getErrorText(error);
     const lowerMessage = message.toLowerCase();
     return (
-      message.includes('LIBUSB_ERROR_ACCESS') ||
+      lowerMessage.includes('libusb_error_access') ||
       (lowerMessage.includes('access denied') &&
         (lowerMessage.includes('usbdevice') ||
           lowerMessage.includes('acquire error') ||
@@ -2134,18 +2135,14 @@ class ServiceHardware extends ServiceBase {
         hardwareSDK?.promptWebDeviceAccess(params),
       );
     } catch (error) {
-      if (this.isLinuxWebUsbAccessDeniedError(error)) {
-        if (await this.ensureLinuxUdevRules({ skipTransportTypeCheck: true })) {
-          return convertDeviceResponse(() =>
-            hardwareSDK?.promptWebDeviceAccess(params),
-          );
-        }
-        if (this.isDesktopLinuxRuntime()) {
-          this.notifyLinuxUdevManualInstallIfNeeded({
-            force: true,
-            reason: 'webusb-access-denied',
-          });
-        }
+      if (
+        await this.recoverLinuxWebUsbAccessDeniedError(error, {
+          forceManualGuideOnFailure: true,
+        })
+      ) {
+        return convertDeviceResponse(() =>
+          hardwareSDK?.promptWebDeviceAccess(params),
+        );
       }
       throw error;
     }

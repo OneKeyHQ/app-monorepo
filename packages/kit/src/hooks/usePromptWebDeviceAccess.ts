@@ -39,6 +39,8 @@ export function usePromptWebDeviceAccess() {
       } catch (error) {
         if (platformEnv.isDesktop) {
           try {
+            // Installing udev rules here prepares the next browser prompt; the
+            // current requestDevice() rejection still needs to propagate.
             await backgroundApiProxy.serviceHardware.handleLinuxWebUsbAccessDeniedError(
               {
                 error: serializeWebDeviceAccessError(error),
