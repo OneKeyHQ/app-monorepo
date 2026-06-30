@@ -111,7 +111,8 @@ export function isSniSupported(): boolean {
 
 /**
  * Check if Native will route the target URL through a proxy.
- * null means the installed native module does not expose the preflight yet.
+ * null means the installed native module does not expose the preflight yet,
+ * so OTA JS must preserve the legacy SNI path for older binaries.
  */
 export async function isProxyActiveForUrl(
   url: string,
@@ -127,7 +128,7 @@ export async function isProxyActiveForUrl(
       adapter: 'native',
       capability: 'preflight',
       available: false,
-      decision: 'fallback',
+      decision: 'legacy_sni',
       hostname: getHostnameForLog(url),
     });
     return null;
@@ -136,7 +137,7 @@ export async function isProxyActiveForUrl(
   try {
     return await preflight(url);
   } catch (error) {
-    logAdapterCapability('warn', {
+    logAdapterCapability('error', {
       adapter: 'native',
       capability: 'preflight',
       available: true,
@@ -144,7 +145,7 @@ export async function isProxyActiveForUrl(
       hostname: getHostnameForLog(url),
       errorMessage: getErrorMessage(error),
     });
-    return null;
+    throw error;
   }
 }
 

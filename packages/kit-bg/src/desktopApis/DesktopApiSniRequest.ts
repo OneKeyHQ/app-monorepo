@@ -4,6 +4,7 @@ import { session } from 'electron';
 import logger from 'electron-log/main';
 import ipaddr from 'ipaddr.js';
 
+import { isSniFailClosedError } from '@onekeyhq/shared/src/request/helpers/sniFailClosedError';
 import { safeSniLogValue } from '@onekeyhq/shared/src/request/helpers/sniLogRedaction';
 import type {
   ISniRequestConfig,
@@ -88,24 +89,7 @@ export class SniRequestError extends Error {
   }
 }
 
-export function isSniFailClosedError(error: unknown): boolean {
-  const code = getErrorCode(error);
-  if (
-    code === 'SNI_INVALID_CONFIG' ||
-    code === 'SNI_SECURITY_POLICY_FAILED' ||
-    code === 'SNI_TLS_FAILED' ||
-    code === 'SNI_CERT_FAILED' ||
-    code === 'SNI_RESPONSE_FAILED' ||
-    code === 'SNI_RESOURCE_LIMIT' ||
-    code === 'SNI_CANCELLED'
-  ) {
-    return true;
-  }
-  const message = error instanceof Error ? error.message : String(error);
-  return /SNI_(INVALID_CONFIG|SECURITY_POLICY_FAILED|TLS_FAILED|CERT_FAILED|RESPONSE_FAILED|RESOURCE_LIMIT|CANCELLED)/.test(
-    message,
-  );
-}
+export { isSniFailClosedError };
 
 function getErrorCode(error: unknown): string | undefined {
   if (error && typeof error === 'object' && 'code' in error) {

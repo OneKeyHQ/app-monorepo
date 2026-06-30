@@ -273,6 +273,9 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     expect(isSniFailClosedError(new Error('SNI_RESOURCE_LIMIT'))).toBe(true);
     expect(isSniFailClosedError(new Error('SNI_CANCELLED'))).toBe(true);
     expect(isSniFailClosedError(new Error('SNI_TLS_FAILED'))).toBe(true);
+    expect(
+      isSniFailClosedError(new Error('connect ssl.example.com failed')),
+    ).toBe(false);
     expect(isSniFailClosedError(new Error('ECONNRESET'))).toBe(false);
   });
 

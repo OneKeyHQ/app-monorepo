@@ -7,6 +7,7 @@ import { memoizee } from '../../utils/cacheUtils';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
+import { isSniFailClosedError } from './sniFailClosedError';
 import { redactIpLiterals, safeSniLogValue } from './sniLogRedaction';
 import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
 
@@ -85,31 +86,6 @@ function logIpTableEvent(
   } else {
     defaultLogger.ipTable.request.info({ info });
   }
-}
-
-function isSniFailClosedError(error: unknown): boolean {
-  const code =
-    error && typeof error === 'object' && 'code' in error
-      ? String((error as { code?: unknown }).code)
-      : '';
-  const message = error instanceof Error ? error.message : String(error);
-  return (
-    [
-      'SNI_INVALID_CONFIG',
-      'SNI_SECURITY_POLICY_FAILED',
-      'SNI_TLS_FAILED',
-      'SNI_CERT_FAILED',
-      'SNI_RESPONSE_FAILED',
-      'SNI_RESOURCE_LIMIT',
-      'SNI_CANCELLED',
-    ].includes(code) ||
-    /SNI_(INVALID_CONFIG|SECURITY_POLICY_FAILED|TLS_FAILED|CERT_FAILED|RESPONSE_FAILED|RESOURCE_LIMIT|CANCELLED)/.test(
-      message,
-    ) ||
-    /certificate|tls|ssl|unsafe header|forbidden ip|invalid config|response body too large/i.test(
-      message,
-    )
-  );
 }
 
 /**
@@ -680,35 +656,42 @@ export function createIpTableAdapter(
       preflightError = error;
       proxyActive = null;
     }
+    const shouldUseSni = proxyActive !== true && !preflightError;
     let fallbackReason = 'none';
+    let preflightReason = 'confirmed_direct';
     if (proxyActive === true) {
       fallbackReason = 'proxy_active';
+      preflightReason = 'proxy_active';
     } else if (proxyActive === null) {
-      fallbackReason = preflightError
-        ? 'preflight_error'
-        : 'preflight_unsupported';
+      if (preflightError) {
+        fallbackReason = 'preflight_error';
+        preflightReason = 'preflight_error';
+      } else {
+        preflightReason = 'preflight_unsupported_legacy';
+      }
     }
-    logIpTableEvent(
-      proxyActive === false ? 'info' : 'warn',
-      'sni_preflight_decision',
-      {
-        platform: getSniLogPlatform(),
-        hostname,
-        rootDomain,
-        method: (config.method || 'GET').toUpperCase(),
-        sniSupported,
-        proxyActive: proxyActive === null ? 'null' : proxyActive,
-        decision: proxyActive === false ? 'sni' : 'fallback',
-        fallbackReason,
-        errorCode: preflightError ? getErrorCode(preflightError) : 'none',
-        errorMessage: preflightError ? getErrorMessage(preflightError) : 'none',
-      },
-    );
-    if (proxyActive !== false) {
+    logIpTableEvent(shouldUseSni ? 'info' : 'warn', 'sni_preflight_decision', {
+      platform: getSniLogPlatform(),
+      hostname,
+      rootDomain,
+      method: (config.method || 'GET').toUpperCase(),
+      sniSupported,
+      proxyActive: proxyActive === null ? 'null' : proxyActive,
+      decision: shouldUseSni ? 'sni' : 'fallback',
+      fallbackReason,
+      preflightReason,
+      errorCode: preflightError ? getErrorCode(preflightError) : 'none',
+      errorMessage: preflightError ? getErrorMessage(preflightError) : 'none',
+    });
+    if (!shouldUseSni) {
+      let debugReason = 'unsupported';
+      if (proxyActive) {
+        debugReason = 'active';
+      } else if (preflightError) {
+        debugReason = 'error';
+      }
       debugLog(
-        `[IpTableAdapter] Proxy preflight ${
-          proxyActive ? 'active' : 'unsupported'
-        } for ${targetUrl}, using fallback`,
+        `[IpTableAdapter] Proxy preflight ${debugReason} for ${targetUrl}, using fallback`,
       );
       return callOriginalAdapter({
         config,
@@ -1001,6 +984,48 @@ export async function testIpSpeed(
 
     // SNI hostname should be: wallet.{domain}
     const sniHostname = `wallet.${domain}`;
+    const targetUrl = `https://${sniHostname}${path}`;
+
+    let proxyActive: boolean | null;
+    try {
+      proxyActive = await isProxyActiveForUrl(targetUrl);
+    } catch (error) {
+      logIpTableEvent('warn', 'sni_speed_preflight_decision', {
+        platform: getSniLogPlatform(),
+        hostname: sniHostname,
+        ipHash: hashForLog(ip),
+        proxyActive: 'null',
+        decision: 'skip_ip_speed',
+        reason: 'preflight_error',
+        errorCode: getErrorCode(error),
+        errorMessage: getErrorMessage(error),
+      });
+      return Infinity;
+    }
+
+    if (proxyActive === true) {
+      logIpTableEvent('warn', 'sni_speed_preflight_decision', {
+        platform: getSniLogPlatform(),
+        hostname: sniHostname,
+        ipHash: hashForLog(ip),
+        proxyActive,
+        decision: 'skip_ip_speed',
+        reason: 'proxy_active',
+      });
+      return Infinity;
+    }
+
+    logIpTableEvent('info', 'sni_speed_preflight_decision', {
+      platform: getSniLogPlatform(),
+      hostname: sniHostname,
+      ipHash: hashForLog(ip),
+      proxyActive: proxyActive === null ? 'null' : proxyActive,
+      decision: 'test_ip_speed',
+      reason:
+        proxyActive === null
+          ? 'preflight_unsupported_legacy'
+          : 'confirmed_direct',
+    });
 
     const response = await sniRequest({
       ip,

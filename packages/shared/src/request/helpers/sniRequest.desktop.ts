@@ -2,6 +2,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { defaultLogger } from '../../logger/logger';
 
+import { isSniFailClosedError } from './sniFailClosedError';
 import { safeSniLogValue } from './sniLogRedaction';
 
 import type { ISniRequestConfig, ISniResponse } from '../types/ipTable';
@@ -73,7 +74,8 @@ export function isSniSupported(): boolean {
 
 /**
  * Check if Electron will route the target URL through a proxy.
- * null means the desktop API is unavailable or too old for this preflight.
+ * null means the desktop API is unavailable or too old for this preflight,
+ * so callers can preserve the legacy SNI path instead of silently disabling it.
  */
 export async function isProxyActiveForUrl(
   url: string,
@@ -88,7 +90,7 @@ export async function isProxyActiveForUrl(
       adapter: 'desktop',
       capability: 'preflight',
       available: false,
-      decision: 'fallback',
+      decision: 'legacy_sni',
       hostname: getHostnameForLog(url),
     });
     return null;
@@ -97,7 +99,7 @@ export async function isProxyActiveForUrl(
   try {
     return await desktopApiProxy.sniRequest.isProxyActiveForUrl(url);
   } catch (error) {
-    logAdapterCapability('warn', {
+    logAdapterCapability('error', {
       adapter: 'desktop',
       capability: 'preflight',
       available: true,
@@ -105,7 +107,7 @@ export async function isProxyActiveForUrl(
       hostname: getHostnameForLog(url),
       errorMessage: getErrorMessage(error),
     });
-    return null;
+    throw error;
   }
 }
 
@@ -148,29 +150,4 @@ function logAdapterCapability(
   } else {
     defaultLogger.ipTable.request.info({ info });
   }
-}
-
-function isSniFailClosedError(error: unknown): boolean {
-  const code =
-    error && typeof error === 'object' && 'code' in error
-      ? String((error as { code?: unknown }).code)
-      : '';
-  const message = error instanceof Error ? error.message : String(error);
-  return (
-    [
-      'SNI_INVALID_CONFIG',
-      'SNI_SECURITY_POLICY_FAILED',
-      'SNI_TLS_FAILED',
-      'SNI_CERT_FAILED',
-      'SNI_RESPONSE_FAILED',
-      'SNI_RESOURCE_LIMIT',
-      'SNI_CANCELLED',
-    ].includes(code) ||
-    /SNI_(INVALID_CONFIG|SECURITY_POLICY_FAILED|TLS_FAILED|CERT_FAILED|RESPONSE_FAILED|RESOURCE_LIMIT|CANCELLED)/.test(
-      message,
-    ) ||
-    /certificate|tls|ssl|unsafe header|forbidden ip|invalid config|response body too large/i.test(
-      message,
-    )
-  );
 }

@@ -10,6 +10,7 @@ import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
 
 import { getSelectedIpForHost } from './ipTableAdapter';
+import { isSniFailClosedError } from './sniFailClosedError';
 import { safeSniLogValue } from './sniLogRedaction';
 import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
 
@@ -55,31 +56,6 @@ function extractHostname(url: string): string | null {
   } catch {
     return null;
   }
-}
-
-function isSniFailClosedError(error: unknown): boolean {
-  const code =
-    error && typeof error === 'object' && 'code' in error
-      ? String((error as { code?: unknown }).code)
-      : '';
-  const message = error instanceof Error ? error.message : String(error);
-  return (
-    [
-      'SNI_INVALID_CONFIG',
-      'SNI_SECURITY_POLICY_FAILED',
-      'SNI_TLS_FAILED',
-      'SNI_CERT_FAILED',
-      'SNI_RESPONSE_FAILED',
-      'SNI_RESOURCE_LIMIT',
-      'SNI_CANCELLED',
-    ].includes(code) ||
-    /SNI_(INVALID_CONFIG|SECURITY_POLICY_FAILED|TLS_FAILED|CERT_FAILED|RESPONSE_FAILED|RESOURCE_LIMIT|CANCELLED)/.test(
-      message,
-    ) ||
-    /certificate|tls|ssl|unsafe header|forbidden ip|invalid config|response body too large/i.test(
-      message,
-    )
-  );
 }
 
 function hashForLog(value: string | null | undefined): string {
@@ -166,7 +142,7 @@ export async function healthCheckRequest(
     preflightError = error;
     proxyActive = null;
   }
-  if (proxyActive !== false) {
+  if (proxyActive === true || preflightError) {
     logHealthCheckSniDecision('warn', {
       hostname,
       method,
@@ -174,7 +150,7 @@ export async function healthCheckRequest(
       proxyActive: proxyActive === null ? 'null' : proxyActive,
       hasSelectedIp: false,
       decision: 'fetch',
-      reason: proxyActive === true ? 'proxy_active' : 'preflight_unavailable',
+      reason: proxyActive === true ? 'proxy_active' : 'preflight_error',
       errorCode: preflightError ? getErrorCode(preflightError) : 'none',
       errorMessage: preflightError ? getErrorMessage(preflightError) : 'none',
       durationMs: Date.now() - startedAt,
@@ -190,7 +166,11 @@ export async function healthCheckRequest(
       hostname,
       method,
       sniSupported,
-      proxyActive,
+      proxyActive: proxyActive === null ? 'null' : proxyActive,
+      preflightReason:
+        proxyActive === null
+          ? 'preflight_unsupported_legacy'
+          : 'confirmed_direct',
       hasSelectedIp: false,
       decision: 'fetch',
       reason: 'no_selected_ip',
@@ -204,7 +184,11 @@ export async function healthCheckRequest(
     hostname,
     method,
     sniSupported,
-    proxyActive,
+    proxyActive: proxyActive === null ? 'null' : proxyActive,
+    preflightReason:
+      proxyActive === null
+        ? 'preflight_unsupported_legacy'
+        : 'confirmed_direct',
     hasSelectedIp: true,
     selectedIpHash: hashForLog(selectedIp),
     decision: 'sni',
@@ -231,7 +215,11 @@ export async function healthCheckRequest(
         hostname,
         method,
         sniSupported,
-        proxyActive,
+        proxyActive: proxyActive === null ? 'null' : proxyActive,
+        preflightReason:
+          proxyActive === null
+            ? 'preflight_unsupported_legacy'
+            : 'confirmed_direct',
         hasSelectedIp: true,
         selectedIpHash: hashForLog(selectedIp),
         decision: 'fetch',
@@ -245,7 +233,11 @@ export async function healthCheckRequest(
       hostname,
       method,
       sniSupported,
-      proxyActive,
+      proxyActive: proxyActive === null ? 'null' : proxyActive,
+      preflightReason:
+        proxyActive === null
+          ? 'preflight_unsupported_legacy'
+          : 'confirmed_direct',
       hasSelectedIp: true,
       selectedIpHash: hashForLog(selectedIp),
       decision: 'sni',
@@ -263,7 +255,11 @@ export async function healthCheckRequest(
         hostname,
         method,
         sniSupported,
-        proxyActive,
+        proxyActive: proxyActive === null ? 'null' : proxyActive,
+        preflightReason:
+          proxyActive === null
+            ? 'preflight_unsupported_legacy'
+            : 'confirmed_direct',
         hasSelectedIp: true,
         selectedIpHash: hashForLog(selectedIp),
         decision: 'throw',
@@ -279,7 +275,11 @@ export async function healthCheckRequest(
       hostname,
       method,
       sniSupported,
-      proxyActive,
+      proxyActive: proxyActive === null ? 'null' : proxyActive,
+      preflightReason:
+        proxyActive === null
+          ? 'preflight_unsupported_legacy'
+          : 'confirmed_direct',
       hasSelectedIp: true,
       selectedIpHash: hashForLog(selectedIp),
       decision: 'fetch',
