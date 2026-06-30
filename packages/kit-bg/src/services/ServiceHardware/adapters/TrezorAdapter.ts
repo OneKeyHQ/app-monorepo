@@ -828,6 +828,17 @@ export class TrezorAdapter
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Trezor] connectDevice result success=${String(result.success)}`,
       );
+      if (!result.success) {
+        let payloadStr = '';
+        try {
+          payloadStr = JSON.stringify(result.payload);
+        } catch {
+          payloadStr = String(result.payload);
+        }
+        defaultLogger.hardware.sdkLog.log(
+          `[3rdPartyHW][Trezor] connectDevice FAILURE payload=${payloadStr}`,
+        );
+      }
       if (result.success) {
         const info = await this.hw.getDeviceInfo(connectId, result.payload);
         if (info.success) {

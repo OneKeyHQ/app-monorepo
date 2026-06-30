@@ -2094,7 +2094,11 @@ class ServiceHardware extends ServiceBase {
         );
       } catch (error) {
         // Never block wallet creation on third-party XFP; fall back to XFP-less.
-        console.error('getHwWalletXfp third-party ERROR: ', error);
+        defaultLogger.hardware.sdkLog.log(
+          `[ServiceHardware] getHwWalletXfp third-party failed: ${
+            (error as Error)?.message ?? String(error)
+          }`,
+        );
         return undefined;
       }
     }
