@@ -27,7 +27,7 @@ export function WebConnectButton() {
       role="button"
       testID="web-connect-button"
     >
-      <SizableText size="$bodyLgMedium" color="#000000">
+      <SizableText size="$bodyLgMedium" color="black">
         {intl.formatMessage({ id: ETranslations.global_connect })}
       </SizableText>
     </XStack>
