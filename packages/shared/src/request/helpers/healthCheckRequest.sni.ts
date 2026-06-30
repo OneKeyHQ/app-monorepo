@@ -10,6 +10,7 @@ import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
 
 import { getSelectedIpForHost } from './ipTableAdapter';
+import { safeSniLogValue } from './sniLogRedaction';
 import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
 
 import type {
@@ -83,17 +84,12 @@ function isSniFailClosedError(error: unknown): boolean {
 
 function hashForLog(value: string | null | undefined): string {
   if (!value) return 'none';
-  let hash = 0x811c9dc5;
+  let hash = 0x81_1c_9d_c5;
   for (let i = 0; i < value.length; i += 1) {
     hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
+    hash = Math.imul(hash, 0x01_00_01_93) >>> 0;
   }
   return hash.toString(16).padStart(8, '0');
-}
-
-function safeLogValue(value: unknown): string {
-  if (value == null) return 'none';
-  return String(value).replace(/[\r\n\s]+/g, '_');
 }
 
 function getErrorCode(error: unknown): string {
@@ -116,7 +112,7 @@ function logHealthCheckSniDecision(
     event: 'healthcheck_sni_decision',
     ...fields,
   })
-    .map(([key, value]) => `${key}=${safeLogValue(value)}`)
+    .map(([key, value]) => `${key}=${safeSniLogValue(value)}`)
     .join(' ')}`;
 
   if (level === 'error') {

@@ -7,6 +7,7 @@ import { memoizee } from '../../utils/cacheUtils';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
+import { redactIpLiterals, safeSniLogValue } from './sniLogRedaction';
 import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
 
 import type {
@@ -19,7 +20,6 @@ import type {
 /**
  * Debug logging helper - only logs in development mode
  */
-const DEBUG = false;
 const debugLog = (..._args: any[]) => {
   // Intentionally no-op. Production diagnostics must go through defaultLogger.
 };
@@ -32,17 +32,12 @@ const debugError = (..._args: any[]) => {
 
 type IpTableLogLevel = 'info' | 'warn' | 'error';
 
-function safeLogValue(value: unknown): string {
-  if (value == null) return 'none';
-  return String(value).replace(/[\r\n\s]+/g, '_');
-}
-
 function hashForLog(value: string | null | undefined): string {
   if (!value) return 'none';
-  let hash = 0x811c9dc5;
+  let hash = 0x81_1c_9d_c5;
   for (let i = 0; i < value.length; i += 1) {
     hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
+    hash = Math.imul(hash, 0x01_00_01_93) >>> 0;
   }
   return hash.toString(16).padStart(8, '0');
 }
@@ -73,7 +68,7 @@ function formatLogEvent(
   fields: Record<string, unknown> = {},
 ): string {
   return Object.entries({ event, ...fields })
-    .map(([key, value]) => `${key}=${safeLogValue(value)}`)
+    .map(([key, value]) => `${key}=${safeSniLogValue(value)}`)
     .join(' ');
 }
 
@@ -199,9 +194,11 @@ async function shouldUseIpTable(): Promise<boolean> {
   } catch (error) {
     debugWarn('[IpTableAdapter] Failed to check IP Table permission:', error);
     defaultLogger.ipTable.request.warn({
-      info: `[IpTableAdapter] Failed to check IP Table permission: ${
-        error instanceof Error ? error.message : 'Unknown error'
-      }`,
+      info: redactIpLiterals(
+        `[IpTableAdapter] Failed to check IP Table permission: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      ),
     });
     return defaultEnabled;
   }
@@ -361,9 +358,11 @@ async function getSelectedIpForHostInternal(
       errorMessage: getErrorMessage(error),
     });
     defaultLogger.ipTable.request.warn({
-      info: `[IpTableAdapter] Failed to get IP table config: ${
-        error instanceof Error ? error.message : 'Unknown error'
-      }`,
+      info: redactIpLiterals(
+        `[IpTableAdapter] Failed to get IP table config: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      ),
     });
     return null;
   }
@@ -674,30 +673,37 @@ export function createIpTableAdapter(
     try {
       proxyActive = await isProxyActiveForUrl(targetUrl);
     } catch (error) {
-      debugWarn('[IpTableAdapter] Proxy preflight failed, using fallback:', error);
+      debugWarn(
+        '[IpTableAdapter] Proxy preflight failed, using fallback:',
+        error,
+      );
       preflightError = error;
       proxyActive = null;
     }
-    const fallbackReason =
-      proxyActive === true
-        ? 'proxy_active'
-        : proxyActive === null
-          ? preflightError
-            ? 'preflight_error'
-            : 'preflight_unsupported'
-          : 'none';
-    logIpTableEvent(proxyActive === false ? 'info' : 'warn', 'sni_preflight_decision', {
-      platform: getSniLogPlatform(),
-      hostname,
-      rootDomain,
-      method: (config.method || 'GET').toUpperCase(),
-      sniSupported,
-      proxyActive: proxyActive === null ? 'null' : proxyActive,
-      decision: proxyActive === false ? 'sni' : 'fallback',
-      fallbackReason,
-      errorCode: preflightError ? getErrorCode(preflightError) : 'none',
-      errorMessage: preflightError ? getErrorMessage(preflightError) : 'none',
-    });
+    let fallbackReason = 'none';
+    if (proxyActive === true) {
+      fallbackReason = 'proxy_active';
+    } else if (proxyActive === null) {
+      fallbackReason = preflightError
+        ? 'preflight_error'
+        : 'preflight_unsupported';
+    }
+    logIpTableEvent(
+      proxyActive === false ? 'info' : 'warn',
+      'sni_preflight_decision',
+      {
+        platform: getSniLogPlatform(),
+        hostname,
+        rootDomain,
+        method: (config.method || 'GET').toUpperCase(),
+        sniSupported,
+        proxyActive: proxyActive === null ? 'null' : proxyActive,
+        decision: proxyActive === false ? 'sni' : 'fallback',
+        fallbackReason,
+        errorCode: preflightError ? getErrorCode(preflightError) : 'none',
+        errorMessage: preflightError ? getErrorMessage(preflightError) : 'none',
+      },
+    );
     if (proxyActive !== false) {
       debugLog(
         `[IpTableAdapter] Proxy preflight ${
@@ -896,9 +902,11 @@ export function createIpTableAdapter(
         error,
       );
       defaultLogger.ipTable.request.error({
-        info: `[IpTableAdapter] SNI request failed for ${hostname} (ipHash=${hashForLog(selectedIp)}), falling back: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
+        info: redactIpLiterals(
+          `[IpTableAdapter] SNI request failed for ${hostname} (ipHash=${hashForLog(selectedIp)}), falling back: ${
+            error instanceof Error ? error.message : 'Unknown error'
+          }`,
+        ),
       });
       // Fallback to domain (isFallback = true, so domain failure won't be counted)
       return callOriginalAdapter({
@@ -952,15 +960,19 @@ export async function testDomainSpeed(
     const latency = Date.now() - startTime;
     debugLog(`[IpTableAdapter] Domain test: ${fullUrl} -> ${latency}ms`);
     defaultLogger.ipTable.request.info({
-      info: `[IpTable] Domain speed test successful: ${fullUrl} : ${latency} ms`,
+      info: redactIpLiterals(
+        `[IpTable] Domain speed test successful: ${fullUrl} : ${latency} ms`,
+      ),
     });
     return latency;
   } catch (error) {
     debugWarn(`[IpTableAdapter] Domain test failed for ${domain}:`, error);
     defaultLogger.ipTable.request.warn({
-      info: `[IpTable] Domain speed test failed for ${domain}: ${
-        error instanceof Error ? error.message : 'Unknown error'
-      }`,
+      info: redactIpLiterals(
+        `[IpTable] Domain speed test failed for ${domain}: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      ),
     });
     return Infinity;
   }
@@ -1003,7 +1015,9 @@ export async function testIpSpeed(
     if (!response) {
       debugWarn(`[IpTableAdapter] IP test returned null for ${ip}`);
       defaultLogger.ipTable.request.warn({
-        info: `[IpTable] IP speed test returned null for ${ip}`,
+        info: redactIpLiterals(
+          `[IpTable] IP speed test returned null for ${ip}`,
+        ),
       });
       return Infinity;
     }
@@ -1013,15 +1027,19 @@ export async function testIpSpeed(
       `[IpTableAdapter] IP test: ${ip} -> ${sniHostname}${path} -> ${latency}ms`,
     );
     defaultLogger.ipTable.request.info({
-      info: `[IpTable] IP speed test successful: ${ip} -> ${sniHostname}${path} : ${latency} ms`,
+      info: redactIpLiterals(
+        `[IpTable] IP speed test successful: ${ip} -> ${sniHostname}${path} : ${latency} ms`,
+      ),
     });
     return latency;
   } catch (error) {
     debugWarn(`[IpTableAdapter] IP test failed for ${ip}:`, error);
     defaultLogger.ipTable.request.warn({
-      info: `[IpTable] IP speed test failed for ${ip}: ${
-        error instanceof Error ? error.message : 'Unknown error'
-      }`,
+      info: redactIpLiterals(
+        `[IpTable] IP speed test failed for ${ip}: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      ),
     });
     return Infinity;
   }

@@ -2,6 +2,8 @@ import * as nativeSniConnect from '@onekeyfe/react-native-sni-connect';
 
 import { defaultLogger } from '../../logger/logger';
 
+import { safeSniLogValue } from './sniLogRedaction';
+
 import type { ISniRequestConfig, ISniResponse } from '../types/ipTable';
 
 type NativeSniConnectRequest = Parameters<typeof nativeSniConnect.request>[0];
@@ -146,11 +148,6 @@ export async function isProxyActiveForUrl(
   }
 }
 
-function safeLogValue(value: unknown): string {
-  if (value === null || value === undefined) return 'none';
-  return String(value).replace(/[\r\n\s]+/g, '_');
-}
-
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -171,7 +168,7 @@ function logAdapterCapability(
     event: 'sni_adapter_capability',
     ...fields,
   })
-    .map(([key, value]) => `${key}=${safeLogValue(value)}`)
+    .map(([key, value]) => `${key}=${safeSniLogValue(value)}`)
     .join(' ')}`;
   if (level === 'error') {
     defaultLogger.ipTable.request.error({ info });

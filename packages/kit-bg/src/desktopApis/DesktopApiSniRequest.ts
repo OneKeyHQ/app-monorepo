@@ -1,9 +1,10 @@
 import https from 'https';
 
-import ipaddr from 'ipaddr.js';
 import { session } from 'electron';
 import logger from 'electron-log/main';
+import ipaddr from 'ipaddr.js';
 
+import { safeSniLogValue } from '@onekeyhq/shared/src/request/helpers/sniLogRedaction';
 import type {
   ISniRequestConfig,
   ISniResponse,
@@ -116,17 +117,12 @@ function getErrorCode(error: unknown): string | undefined {
 
 function shortHashForLog(value: string | undefined | null): string {
   if (!value) return 'none';
-  let hash = 0x811c9dc5;
+  let hash = 0x81_1c_9d_c5;
   for (let index = 0; index < value.length; index += 1) {
     hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
+    hash = Math.imul(hash, 0x01_00_01_93) >>> 0;
   }
   return hash.toString(16).padStart(8, '0');
-}
-
-function safeLogValue(value: unknown): string {
-  if (value == null) return 'none';
-  return String(value).replace(/[\r\n\s]+/g, '_');
 }
 
 function formatNativeLogEvent(
@@ -134,7 +130,7 @@ function formatNativeLogEvent(
   fields: Record<string, unknown>,
 ): string {
   return Object.entries({ event, ...fields })
-    .map(([key, value]) => `${key}=${safeLogValue(value)}`)
+    .map(([key, value]) => `${key}=${safeSniLogValue(value)}`)
     .join(' ');
 }
 
@@ -191,10 +187,6 @@ function invalidConfig(message: string): never {
   throw new SniRequestError('SNI_INVALID_CONFIG', message, true);
 }
 
-function responseFailed(message: string): never {
-  throw new SniRequestError('SNI_RESPONSE_FAILED', message, true);
-}
-
 export function classifyTransportError(error: Error): Error {
   if (error instanceof SniRequestError) {
     return error;
@@ -222,8 +214,16 @@ function byteSize(value: string): number {
   return Buffer.byteLength(value, 'utf8');
 }
 
+function hasControlChar(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code <= 0x1f || code === 0x7f) return true;
+  }
+  return false;
+}
+
 function normalizeMethod(method: string): string {
-  if (/[\x00-\x1F\x7F]/.test(method)) {
+  if (hasControlChar(method)) {
     invalidConfig(`Invalid method: ${method}`);
   }
   const normalized = method.trim().toUpperCase();
@@ -239,7 +239,7 @@ function normalizePath(path: string): string {
     invalidConfig('Path too large');
   }
   if (
-    /[\x00-\x1F\x7F]/.test(trimmed) ||
+    hasControlChar(trimmed) ||
     trimmed.startsWith('//') ||
     trimmed.includes('://') ||
     SCHEME_RE.test(trimmed.split('/')[0] ?? '')
@@ -257,10 +257,10 @@ function validateHostname(hostname: string): void {
 }
 
 function validateRequestId(requestId: string | undefined): void {
-  if (requestId == null) return;
+  if (requestId === undefined) return;
   if (
     !requestId ||
-    /[\x00-\x1F\x7F]/.test(requestId) ||
+    hasControlChar(requestId) ||
     byteSize(requestId) > MAX_REQUEST_ID_BYTES
   ) {
     invalidConfig('Invalid requestId');
@@ -274,7 +274,7 @@ function validateTimeout(timeout: number): void {
 }
 
 function validateBody(body: string | null): void {
-  if (body != null && byteSize(body) > MAX_REQUEST_BODY_BYTES) {
+  if (body !== null && byteSize(body) > MAX_REQUEST_BODY_BYTES) {
     invalidConfig('Request body too large');
   }
 }
@@ -307,7 +307,12 @@ function isForbiddenIpv4(octets: number[]): boolean {
 }
 
 function embeddedIpv4(bytes: number[], offset: number): number[] {
-  return [bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]];
+  return [
+    bytes[offset],
+    bytes[offset + 1],
+    bytes[offset + 2],
+    bytes[offset + 3],
+  ];
 }
 
 function isForbiddenIpv6(address: ipaddr.IPv6): boolean {
@@ -340,10 +345,7 @@ function isForbiddenIpv6(address: ipaddr.IPv6): boolean {
     bytes[2] === 0xff &&
     bytes[3] === 0x9b
   ) {
-    if (
-      bytes[4] === 0x00 &&
-      bytes[5] === 0x01
-    ) {
+    if (bytes[4] === 0x00 && bytes[5] === 0x01) {
       return true;
     }
     if (bytes.slice(4, 12).every((b) => b === 0)) {
@@ -383,7 +385,9 @@ function validatePublicIp(ip: string): void {
   }
 }
 
-function normalizeHeaders(headers: Record<string, string>): Record<string, string> {
+function normalizeHeaders(
+  headers: Record<string, string>,
+): Record<string, string> {
   const entries = Object.entries(headers ?? {});
   if (entries.length > MAX_HEADER_COUNT) {
     invalidConfig('Too many headers');
@@ -399,8 +403,8 @@ function normalizeHeaders(headers: Record<string, string>): Record<string, strin
 
     if (
       !name ||
-      /[\x00-\x1F\x7F]/.test(name) ||
-      /[\x00-\x1F\x7F]/.test(value) ||
+      hasControlChar(name) ||
+      hasControlChar(value) ||
       nameBytes > MAX_HEADER_NAME_BYTES ||
       valueBytes > MAX_HEADER_VALUE_BYTES ||
       !HEADER_TOKEN_RE.test(name)
@@ -416,10 +420,9 @@ function normalizeHeaders(headers: Record<string, string>): Record<string, strin
     ) {
       invalidConfig(`Unsafe header: ${name}`);
     }
-    if (MODULE_OWNED_HEADERS.has(lowerName)) {
-      continue;
+    if (!MODULE_OWNED_HEADERS.has(lowerName)) {
+      normalizedHeaders[name] = value;
     }
-    normalizedHeaders[name] = value;
   }
 
   if (totalBytes > MAX_TOTAL_HEADER_BYTES) {
@@ -438,7 +441,7 @@ export function validateSniRequestConfig(
   const body = config.body ?? null;
   validateBody(body);
 
-  if (config.port != null) {
+  if (config.port !== null && config.port !== undefined) {
     invalidConfig('Caller-controlled ports are not allowed');
   }
 
@@ -501,7 +504,7 @@ export function buildSniRequestOptions(
     Host: config.hostname,
     'Accept-Encoding': 'identity',
   };
-  if (config.body != null) {
+  if (config.body !== null) {
     headers['Content-Length'] = String(Buffer.byteLength(config.body, 'utf8'));
   }
 
@@ -526,13 +529,15 @@ export function headersToMaps(rawHeaders: string[]): {
   for (let index = 0; index < rawHeaders.length; index += 2) {
     const name = String(rawHeaders[index] ?? '').toLowerCase();
     const value = String(rawHeaders[index + 1] ?? '');
-    if (!name) continue;
-    headers[name] = value;
-    multiValueHeaders[name] = [...(multiValueHeaders[name] ?? []), value];
+    if (name) {
+      headers[name] = value;
+      multiValueHeaders[name] = [...(multiValueHeaders[name] ?? []), value];
+    }
   }
   return { headers, multiValueHeaders };
 }
 
+// eslint-disable-next-line max-classes-per-file
 export class SniRequestLimiter {
   constructor(
     private maxActiveRequests = MAX_ACTIVE_REQUESTS,
@@ -543,7 +548,10 @@ export class SniRequestLimiter {
 
   private activeRequestsByPair = new Map<string, number>();
 
-  snapshot(hostname?: string, ip?: string): {
+  snapshot(
+    hostname?: string,
+    ip?: string,
+  ): {
     activeRequests: number;
     activeRequestsForPair: number;
   } {
@@ -551,7 +559,7 @@ export class SniRequestLimiter {
     return {
       activeRequests: this.activeRequests,
       activeRequestsForPair: key
-        ? this.activeRequestsByPair.get(key) ?? 0
+        ? (this.activeRequestsByPair.get(key) ?? 0)
         : 0,
     };
   }
@@ -644,7 +652,12 @@ class DesktopApiSniRequest {
     request: ClientRequest | undefined,
     agentState: SniAgentState | undefined,
   ): void {
-    if (requestId && request && this.activeRequests.get(requestId) === request) {
+    let cleanupAgentState = agentState;
+    if (
+      requestId &&
+      request &&
+      this.activeRequests.get(requestId) === request
+    ) {
       this.activeRequests.delete(requestId);
     }
     if (request) {
@@ -652,10 +665,10 @@ class DesktopApiSniRequest {
       this.allActiveRequests.delete(request);
       state?.activeRequests.delete(request);
       this.requestAgentStates.delete(request);
-      agentState = state;
+      cleanupAgentState = state;
     }
-    if (agentState) {
-      this.maybeDestroyIdleAgentState(agentState);
+    if (cleanupAgentState) {
+      this.maybeDestroyIdleAgentState(cleanupAgentState);
     }
   }
 
@@ -772,7 +785,9 @@ class DesktopApiSniRequest {
           method: normalizedConfig.method,
           timeout: normalizedConfig.timeout,
           pathBytes: byteSize(normalizedConfig.path),
-          bodyBytes: normalizedConfig.body ? byteSize(normalizedConfig.body) : 0,
+          bodyBytes: normalizedConfig.body
+            ? byteSize(normalizedConfig.body)
+            : 0,
           headerCount: Object.keys(normalizedConfig.headers).length,
           activeRequests: stats.activeRequests,
           activeRequestsForPair: stats.activeRequestsForPair,
@@ -890,7 +905,9 @@ class DesktopApiSniRequest {
           method: normalizedConfig.method,
           timeout: normalizedConfig.timeout,
           pathBytes: byteSize(normalizedConfig.path),
-          bodyBytes: normalizedConfig.body ? byteSize(normalizedConfig.body) : 0,
+          bodyBytes: normalizedConfig.body
+            ? byteSize(normalizedConfig.body)
+            : 0,
           headerCount: Object.keys(normalizedConfig.headers).length,
           activeRequests: stats.activeRequests,
           activeRequestsForPair: stats.activeRequestsForPair,
@@ -948,7 +965,9 @@ class DesktopApiSniRequest {
       return { success: false };
     }
     this.removeActiveRequest(requestId, request, undefined);
-    request.destroy(new SniRequestError('SNI_CANCELLED', 'Request cancelled', true));
+    request.destroy(
+      new SniRequestError('SNI_CANCELLED', 'Request cancelled', true),
+    );
     writeNativeLog('info', 'desktop_sni_lifecycle', {
       action: 'cancel_request',
       requestIdHash: shortHashForLog(requestId),
@@ -963,7 +982,9 @@ class DesktopApiSniRequest {
     this.activeRequests.clear();
     this.allActiveRequests.clear();
     for (const request of requests) {
-      request.destroy(new SniRequestError('SNI_CANCELLED', 'Request cancelled', true));
+      request.destroy(
+        new SniRequestError('SNI_CANCELLED', 'Request cancelled', true),
+      );
     }
     writeNativeLog('info', 'desktop_sni_lifecycle', {
       action: 'cancel_all_requests',

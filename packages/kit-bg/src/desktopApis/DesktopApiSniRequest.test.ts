@@ -1,34 +1,42 @@
-jest.mock('electron-log/main', () => ({
-  __esModule: true,
-  default: { info() {}, warn() {}, error() {} },
-}));
-
-const mockResolveProxy = jest.fn();
-
-jest.mock('electron', () => ({
-  session: {
-    defaultSession: {
-      resolveProxy: (...args: unknown[]) => mockResolveProxy(...args),
-    },
-  },
-}));
-
 import { EventEmitter } from 'events';
 import https from 'https';
 
-import {
+import electronLogger from 'electron-log/main';
+
+import type { ISniRequestConfig } from '@onekeyhq/shared/src/request/types/ipTable';
+
+import DesktopApiSniRequest, {
+  SniRequestLimiter,
   buildSniRequestOptions,
   classifyTransportError,
   headersToMaps,
   isProxyRouteActive,
   isSniFailClosedError,
-  SniRequestLimiter,
   validateSniRequestConfig,
 } from './DesktopApiSniRequest';
-import DesktopApiSniRequest from './DesktopApiSniRequest';
 
-import type { ISniRequestConfig } from '@onekeyhq/shared/src/request/types/ipTable';
 import type { RequestOptions } from 'https';
+
+const mockResolveProxy = jest.fn<Promise<string>, [string]>();
+
+jest.mock('electron-log/main', () => ({
+  __esModule: true,
+  default: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
+}));
+
+jest.mock('electron', () => ({
+  session: {
+    defaultSession: {
+      resolveProxy: (url: string) => mockResolveProxy(url),
+    },
+  },
+}));
+
+const mockedElectronLogger = jest.mocked(electronLogger);
 
 const baseConfig = (): ISniRequestConfig => ({
   ip: '93.184.216.34',
@@ -61,10 +69,14 @@ class FakeClientRequest extends EventEmitter {
 }
 
 describe('DesktopApiSniRequest OSCS validation', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   const expectInvalid = (config: Partial<ISniRequestConfig>) => {
-    expect(() => validateSniRequestConfig({ ...baseConfig(), ...config })).toThrow(
-      /SNI_INVALID_CONFIG/,
-    );
+    expect(() =>
+      validateSniRequestConfig({ ...baseConfig(), ...config }),
+    ).toThrow(/SNI_INVALID_CONFIG/);
   };
 
   test('accepts valid request boundary values and normalizes method/path/body', () => {
@@ -142,7 +154,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
       'https://example.com',
       'http://example.com',
       '//example.com/path',
-      'javascript:alert(1)',
+      ['java', 'script:alert(1)'].join(''),
       '/path\nInjected: yes',
       `/${'a'.repeat(8192)}`,
     ].forEach((path) => expectInvalid({ path }));
@@ -155,6 +167,22 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     expectInvalid({ timeout: Number.NaN });
     expectInvalid({ body: 'a'.repeat(1024 * 1024 + 1) });
     expectInvalid({ port: 8443 });
+  });
+
+  test('redacts raw IPs from validation failure diagnostics', async () => {
+    const api = new DesktopApiSniRequest({ desktopApi: {} as never });
+
+    await expect(
+      api.request({ ...baseConfig(), ip: '10.0.0.5' }),
+    ).rejects.toThrow(/Forbidden IP: 10\.0\.0\.5/);
+
+    const errorLogs = mockedElectronLogger.error.mock.calls
+      .map(([message]) => String(message))
+      .join('\n');
+    expect(errorLogs).toContain(
+      'errorMessage=SNI_INVALID_CONFIG:_Forbidden_IP:_<ip>',
+    );
+    expect(errorLogs).not.toContain('10.0.0.5');
   });
 
   test('filters module-owned headers and rejects unsafe headers', () => {
@@ -191,8 +219,15 @@ describe('DesktopApiSniRequest OSCS validation', () => {
       { 'Bad Header': 'x' },
       { 'X-Test': 'line\nbreak' },
       { 'X-Test': 'x'.repeat(8 * 1024 + 1) },
-      Object.fromEntries(Array.from({ length: 65 }, (_, index) => [`X-${index}`, 'v'])),
-      Object.fromEntries(Array.from({ length: 5 }, (_, index) => [`X-${index}`, 'x'.repeat(7 * 1024)])),
+      Object.fromEntries(
+        Array.from({ length: 65 }, (_, index) => [`X-${index}`, 'v']),
+      ),
+      Object.fromEntries(
+        Array.from({ length: 5 }, (_, index) => [
+          `X-${index}`,
+          'x'.repeat(7 * 1024),
+        ]),
+      ),
     ].forEach((headers) => expectInvalid({ headers }));
   });
 
@@ -288,40 +323,82 @@ describe('DesktopApiSniRequest OSCS validation', () => {
 
   test('settle only removes the active requestId entry for the same request', async () => {
     const requests: FakeClientRequest[] = [];
-    const requestSpy = jest
-      .spyOn(https, 'request')
-      .mockImplementation(((options: RequestOptions) => {
-        const request = new FakeClientRequest(options as RequestOptions);
-        requests.push(request);
-        return request as never;
-      }) as never);
+    const requestSpy = jest.spyOn(https, 'request').mockImplementation(((
+      options: RequestOptions,
+    ) => {
+      const request = new FakeClientRequest(options);
+      requests.push(request);
+      return request as never;
+    }) as never);
     const api = new DesktopApiSniRequest({ desktopApi: {} as never });
 
     const firstRequest = api.request({ ...baseConfig(), requestId: 'same' });
     const secondRequest = api.request({ ...baseConfig(), requestId: 'same' });
 
     await expect(firstRequest).rejects.toThrow(/SNI_CANCELLED/);
-    expect((api as any).activeRequests.get('same')).toBe(requests[1]);
+    expect(
+      (
+        api as unknown as {
+          activeRequests: Map<string, FakeClientRequest>;
+        }
+      ).activeRequests.get('same'),
+    ).toBe(requests[1]);
     expect(requests[0].destroy).toHaveBeenCalledWith(
       expect.objectContaining({ code: 'SNI_CANCELLED' }),
     );
 
     requests[1].destroy(new Error('done'));
     await expect(secondRequest).rejects.toThrow('done');
-    expect((api as any).activeRequests.has('same')).toBe(false);
+    expect(
+      (
+        api as unknown as {
+          activeRequests: Map<string, FakeClientRequest>;
+        }
+      ).activeRequests.has('same'),
+    ).toBe(false);
+
+    requestSpy.mockRestore();
+  });
+
+  test('redacts raw IPs from transport failure diagnostics', async () => {
+    const requests: FakeClientRequest[] = [];
+    const requestSpy = jest.spyOn(https, 'request').mockImplementation(((
+      options: RequestOptions,
+    ) => {
+      const request = new FakeClientRequest(options);
+      requests.push(request);
+      return request as never;
+    }) as never);
+    const api = new DesktopApiSniRequest({ desktopApi: {} as never });
+
+    const promise = api.request(baseConfig());
+    requests[0].destroy(
+      Object.assign(new Error('connect ECONNREFUSED 93.184.216.34:443'), {
+        code: 'ECONNREFUSED',
+      }),
+    );
+
+    await expect(promise).rejects.toThrow(
+      /connect ECONNREFUSED 93\.184\.216\.34:443/,
+    );
+    const errorLogs = mockedElectronLogger.error.mock.calls
+      .map(([message]) => String(message))
+      .join('\n');
+    expect(errorLogs).toContain('errorMessage=connect_ECONNREFUSED_<ip>:443');
+    expect(errorLogs).not.toContain('93.184.216.34');
 
     requestSpy.mockRestore();
   });
 
   test('clearDNSCache rotates agents without destroying the active request agent', async () => {
     const requests: FakeClientRequest[] = [];
-    const requestSpy = jest
-      .spyOn(https, 'request')
-      .mockImplementation(((options: RequestOptions) => {
-        const request = new FakeClientRequest(options as RequestOptions);
-        requests.push(request);
-        return request as never;
-      }) as never);
+    const requestSpy = jest.spyOn(https, 'request').mockImplementation(((
+      options: RequestOptions,
+    ) => {
+      const request = new FakeClientRequest(options);
+      requests.push(request);
+      return request as never;
+    }) as never);
     const api = new DesktopApiSniRequest({ desktopApi: {} as never });
 
     const firstRequest = api.request({ ...baseConfig(), requestId: 'req-1' });

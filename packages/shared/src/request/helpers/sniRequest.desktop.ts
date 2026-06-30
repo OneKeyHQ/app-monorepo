@@ -2,6 +2,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { defaultLogger } from '../../logger/logger';
 
+import { safeSniLogValue } from './sniLogRedaction';
+
 import type { ISniRequestConfig, ISniResponse } from '../types/ipTable';
 
 /**
@@ -81,8 +83,7 @@ export async function isProxyActiveForUrl(
   }
 
   const desktopApiProxy = globalThis.desktopApiProxy;
-  const preflight = desktopApiProxy?.sniRequest?.isProxyActiveForUrl;
-  if (typeof preflight !== 'function') {
+  if (typeof desktopApiProxy?.sniRequest?.isProxyActiveForUrl !== 'function') {
     logAdapterCapability('warn', {
       adapter: 'desktop',
       capability: 'preflight',
@@ -94,7 +95,7 @@ export async function isProxyActiveForUrl(
   }
 
   try {
-    return await preflight.call(desktopApiProxy.sniRequest, url);
+    return await desktopApiProxy.sniRequest.isProxyActiveForUrl(url);
   } catch (error) {
     logAdapterCapability('warn', {
       adapter: 'desktop',
@@ -110,17 +111,12 @@ export async function isProxyActiveForUrl(
 
 function hashForLog(value: string | null | undefined): string {
   if (!value) return 'none';
-  let hash = 0x811c9dc5;
+  let hash = 0x81_1c_9d_c5;
   for (let i = 0; i < value.length; i += 1) {
     hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
+    hash = Math.imul(hash, 0x01_00_01_93) >>> 0;
   }
   return hash.toString(16).padStart(8, '0');
-}
-
-function safeLogValue(value: unknown): string {
-  if (value == null) return 'none';
-  return String(value).replace(/[\r\n\s]+/g, '_');
 }
 
 function getErrorMessage(error: unknown): string {
@@ -143,7 +139,7 @@ function logAdapterCapability(
     event: 'sni_adapter_capability',
     ...fields,
   })
-    .map(([key, value]) => `${key}=${safeLogValue(value)}`)
+    .map(([key, value]) => `${key}=${safeSniLogValue(value)}`)
     .join(' ')}`;
   if (level === 'error') {
     defaultLogger.ipTable.request.error({ info });
