@@ -164,23 +164,35 @@ export const useColumnsMobile = (
       dataIndex: 'change24h',
       columnWidth: '50%',
       align: 'right',
-      render: (_, record: IMarketToken) => (
-        <XStack justifyContent="flex-end" alignItems="center" gap="$2" mr="$5">
-          <NumberSizeableText
-            userSelect="none"
-            flexShrink={1}
-            numberOfLines={1}
-            size="$bodyLgMedium"
-            formatter="price"
-            formatterOptions={{
-              currency: '$',
-            }}
+      render: (_, record: IMarketToken) => {
+        const priceChange =
+          record.priceChangeRaw === '-'
+            ? record.priceChangeRaw
+            : record.change24h;
+
+        return (
+          <XStack
+            justifyContent="flex-end"
+            alignItems="center"
+            gap="$2"
+            mr="$5"
           >
-            {record.price}
-          </NumberSizeableText>
-          <PriceChangeBadge change={record.change24h} />
-        </XStack>
-      ),
+            <NumberSizeableText
+              userSelect="none"
+              flexShrink={1}
+              numberOfLines={1}
+              size="$bodyLgMedium"
+              formatter="price"
+              formatterOptions={{
+                currency: '$',
+              }}
+            >
+              {record.price}
+            </NumberSizeableText>
+            <PriceChangeBadge change={priceChange} />
+          </XStack>
+        );
+      },
       renderSkeleton: () => (
         <XStack
           justifyContent="flex-end"
