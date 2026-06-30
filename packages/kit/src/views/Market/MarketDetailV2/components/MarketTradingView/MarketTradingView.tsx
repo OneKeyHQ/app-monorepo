@@ -9,12 +9,10 @@ import type {
   ITradingViewPriceUpdateData,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketTestIDs } from '../../../testIDs';
 import { useNetworkAccountAddress } from '../InformationTabs/hooks/useNetworkAccountAddress';
 
-const ENABLE_NATIVE_MARKET_CHART_CONTROLS = platformEnv.isNative;
 const MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES: readonly ITradingViewDisabledFeature[] =
   [
     TRADING_VIEW_DISABLED_FEATURES.TIMEFRAME_SELECTOR,
@@ -84,7 +82,15 @@ interface IMarketTradingViewProps {
   isNative?: boolean;
   dataSource: 'websocket' | 'polling';
   pageWidth?: number;
+  nativeChartTypeControlMode?: 'toggle' | 'select';
+  nativeIndicatorControlMode?: 'dialog' | 'popover';
+  nativeIntervalControlMode?: 'dialog' | 'popover';
+  nativePriceMarketCapControlMode?: 'settings' | 'select';
+  nativeControlsLayoutMode?: 'mobile' | 'desktop';
+  isNativeChartFullscreen?: boolean;
+  showNativeIndicatorQuickBar?: boolean;
   onTouchScroll?: (deltaY: number) => void;
+  onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
   onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
 }
@@ -97,7 +103,15 @@ export const MarketTradingView = memo(
     decimal = 8,
     dataSource,
     pageWidth,
+    nativeChartTypeControlMode,
+    nativeIndicatorControlMode,
+    nativeIntervalControlMode,
+    nativePriceMarketCapControlMode,
+    nativeControlsLayoutMode,
+    isNativeChartFullscreen,
+    showNativeIndicatorQuickBar,
     onTouchScroll,
+    onNativeChartFullscreenChange,
     onIndicatorsDialogOpenChange,
     onInteractionOverlayOpenChange,
   }: IMarketTradingViewProps) => {
@@ -149,12 +163,16 @@ export const MarketTradingView = memo(
         onIndicatorsDialogOpenChange={onIndicatorsDialogOpenChange}
         onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
         onPriceUpdate={handlePriceUpdate}
-        disabledFeatures={
-          ENABLE_NATIVE_MARKET_CHART_CONTROLS
-            ? MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES
-            : undefined
-        }
-        enableNativeChartControls={ENABLE_NATIVE_MARKET_CHART_CONTROLS}
+        disabledFeatures={MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES}
+        enableNativeChartControls
+        nativeChartTypeControlMode={nativeChartTypeControlMode}
+        nativeIndicatorControlMode={nativeIndicatorControlMode}
+        nativeIntervalControlMode={nativeIntervalControlMode}
+        nativePriceMarketCapControlMode={nativePriceMarketCapControlMode}
+        nativeControlsLayoutMode={nativeControlsLayoutMode}
+        isNativeChartFullscreen={isNativeChartFullscreen}
+        showNativeIndicatorQuickBar={showNativeIndicatorQuickBar}
+        onNativeChartFullscreenChange={onNativeChartFullscreenChange}
       />
     );
   },

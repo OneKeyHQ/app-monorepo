@@ -78,41 +78,9 @@ const ProtocolPositionSection = memo(
             {amountLabel}
           </SizableText>
         </XStack>
-        {section.assets.map((asset, assetIndex) => (
-          <YStack
-            key={`${itemKeyPrefix}-${section.key}-${asset.address}-${assetIndex}`}
-            gap="$1"
-          >
-            <XStack alignItems="center" gap="$3" minHeight={44}>
-              <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
-                <Token
-                  size={tokenSize}
-                  tokenImageUri={asset.meta?.logoUrl}
-                  bg="$bgStrong"
-                />
-                <SizableText size="$bodyMdMedium" numberOfLines={1} flex={1}>
-                  {asset.symbol}
-                </SizableText>
-              </XStack>
-              <YStack alignItems="flex-end" minWidth={0} flexShrink={1}>
-                <ProtocolValueCell
-                  value={asset.value}
-                  currencySymbol={currencySymbol}
-                  priceUnavailableLabel={priceUnavailableLabel}
-                  isUnavailable={isProtocolAssetValueUnavailable(asset)}
-                />
-                <NumberSizeableTextWrapper
-                  hideValue
-                  size="$bodyMd"
-                  color="$textSubdued"
-                  formatter="balance"
-                  textAlign="right"
-                >
-                  {asset.amount}
-                </NumberSizeableTextWrapper>
-              </YStack>
-            </XStack>
-            {showAssetActions && actionProps ? (
+        {section.assets.map((asset, assetIndex) => {
+          const actionNode =
+            showAssetActions && actionProps ? (
               <ProtocolPositionActionButton
                 accountId={actionProps.accountId}
                 indexedAccountId={actionProps.indexedAccountId}
@@ -123,12 +91,77 @@ const ProtocolPositionSection = memo(
                 manageAsset={asset}
                 visualVariant="info"
                 actionMinWidth={PER_ASSET_ACTION_MIN_WIDTH}
-                containerProps={{ width: '100%', justifyContent: 'flex-end' }}
+                containerProps={{ justifyContent: 'flex-start' }}
                 onSuccess={actionProps.onActionSuccess}
               />
-            ) : null}
-          </YStack>
-        ))}
+            ) : null;
+          const tokenLabel = (
+            <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
+              <Token
+                size={tokenSize}
+                tokenImageUri={asset.meta?.logoUrl}
+                bg="$bgStrong"
+              />
+              <SizableText size="$bodyMdMedium" numberOfLines={1} flex={1}>
+                {asset.symbol}
+              </SizableText>
+            </XStack>
+          );
+          const valueCell = (
+            <ProtocolValueCell
+              value={asset.value}
+              currencySymbol={currencySymbol}
+              priceUnavailableLabel={priceUnavailableLabel}
+              isUnavailable={isProtocolAssetValueUnavailable(asset)}
+            />
+          );
+          const amountText = (
+            <NumberSizeableTextWrapper
+              hideValue
+              size="$bodyMd"
+              color="$textSubdued"
+              formatter="balance"
+              textAlign="right"
+            >
+              {asset.amount}
+            </NumberSizeableTextWrapper>
+          );
+          return (
+            <YStack
+              key={`${itemKeyPrefix}-${section.key}-${asset.address}-${assetIndex}`}
+              gap="$1"
+            >
+              {actionNode ? (
+                // Per-asset action sits on the left of the second line, level
+                // with the amount on the right: it reuses the value/amount
+                // column's two-line height instead of adding a third
+                // full-width row, and balances visual weight left↔right.
+                <>
+                  <XStack alignItems="center" gap="$3">
+                    {tokenLabel}
+                    {valueCell}
+                  </XStack>
+                  <XStack
+                    alignItems="center"
+                    gap="$3"
+                    justifyContent="space-between"
+                  >
+                    {actionNode}
+                    {amountText}
+                  </XStack>
+                </>
+              ) : (
+                <XStack alignItems="center" gap="$3" minHeight={44}>
+                  {tokenLabel}
+                  <YStack alignItems="flex-end" minWidth={0} flexShrink={1}>
+                    {valueCell}
+                    {amountText}
+                  </YStack>
+                </XStack>
+              )}
+            </YStack>
+          );
+        })}
       </YStack>
     );
   },

@@ -1,11 +1,12 @@
-import type { IWebViewRef } from '../../../WebView/types';
-import type { ITradingViewV2KLineDataFallback } from '../hooks/useTradingViewV2';
+import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
+
 import type {
   ICustomReceiveHandlerData,
   ITradingViewKLineDataReadyData,
   ITradingViewKLineLoadErrorData,
   ITradingViewKLinePeriodChangeData,
-} from '../types';
+} from '../../../types';
+import type { ITradingViewV2KLineDataFallback } from '../hooks/useTradingViewV2';
 
 export interface IKLineDataRequest {
   method: string;
