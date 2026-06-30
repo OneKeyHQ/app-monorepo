@@ -191,15 +191,35 @@ jobs:
             exit 0
           fi
 
-          find ./apps/desktop/web-build -name '*.LICENSE.txt' -type f -delete
+          find ./apps/desktop/web-build -name '*.LICENSE.txt' -type f -exec rm -f {} +
           find ./apps/desktop/web-build \
-            \( -name '*.js.map' -o -name '*.css.map' \) \
-            -type f -delete
+            -type f \( -name '*.js.map' -o -name '*.css.map' \) \
+            -exec rm -f {} +
 
       - name: Finalize Renderer Assets
         run: |
           cd apps/desktop
           node scripts/finalize-renderer-assets.js
+
+      - name: Cleanup Desktop Sourcemaps from Artifact
+        if: always()
+        continue-on-error: true
+        run: |
+          if [ ! -d ./apps/desktop/app/build ]; then
+            echo "Desktop app/build directory does not exist - skipping sourcemap cleanup."
+            exit 0
+          fi
+
+          artifact_maps="$(find ./apps/desktop/app/build \
+            -type f \( -name '*.js.map' -o -name '*.css.map' \) \
+            -print)"
+          if [ -n "$artifact_maps" ]; then
+            echo "::warning::Desktop renderer artifact still contains sourcemaps after finalize; removing before upload:"
+            echo "$artifact_maps"
+            find ./apps/desktop/app/build \
+              -type f \( -name '*.js.map' -o -name '*.css.map' \) \
+              -exec rm -f {} +
+          fi
 
       - name: Assert Desktop Sourcemaps Are Stripped
         run: |
@@ -209,8 +229,8 @@ jobs:
           fi
 
           remaining_maps="$(find ./apps/desktop/app/build \
-            \( -name '*.js.map' -o -name '*.css.map' \) \
-            -type f -print)"
+            -type f \( -name '*.js.map' -o -name '*.css.map' \) \
+            -print)"
           if [ -n "$remaining_maps" ]; then
             echo "::error::Desktop renderer artifact still contains sourcemaps:"
             echo "$remaining_maps"
