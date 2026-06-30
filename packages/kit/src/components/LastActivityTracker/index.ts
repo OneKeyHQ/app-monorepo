@@ -8,7 +8,7 @@ import {
   usePasswordAtom,
   usePasswordPersistAtom,
   useSystemIdleLockSupport,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { analytics } from '@onekeyhq/shared/src/analytics';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';

@@ -12,7 +12,6 @@ import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useShouldUseSplitView } from '../../hooks/useShouldUseSplitView';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
-import { PrimeGlobalEffect } from '../../views/Prime/hooks/PrimeGlobalEffect';
 import { Bootstrap } from '../Bootstrap';
 
 import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
@@ -27,17 +26,18 @@ import { ForceFirmwareUpdateContainer } from './ForceFirmwareUpdateContainer';
 import { FullWindowOverlayContainer } from './FullWindowOverlayContainer';
 import { GlobalErrorHandlerContainer } from './GlobalErrorHandlerContainer';
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
-import { HardwareUiStateContainer } from './HardwareUiStateContainer';
+import { HardwareUiStateContainerLazy } from './HardwareUiStateContainer/Lazy';
 import InAppNotification from './InAppNotification';
 import { KeylessWebAutoConnectHashCleanupContainer } from './KeylessWebAutoConnectHashCleanupContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
+import { PrimeGlobalEffectLazy } from './PrimeGlobalEffectLazy';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
 import { RookieShareContainer } from './RookieShareContainer';
 import { SplitViewPerpTabSync } from './SplitViewPerpTabSync';
 import { TableSplitViewContainer } from './TableSplitViewContainer';
-import { ThirdPartyHardwareUiStateContainer } from './ThirdPartyHardwareUiStateContainer';
+import { ThirdPartyHardwareUiStateContainerLazy } from './ThirdPartyHardwareUiStateContainer/Lazy';
 import { VerifyTxContainer } from './VerifyTxContainer';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
 
@@ -65,8 +65,8 @@ function DetailRouter() {
       <PrevCheckBeforeSendingContainer />
       <WalletBackupPreCheckContainer />
       <VerifyTxContainer />
-      <HardwareUiStateContainer />
-      <ThirdPartyHardwareUiStateContainer />
+      <HardwareUiStateContainerLazy />
+      <ThirdPartyHardwareUiStateContainerLazy />
       <PrimeLoginContainerLazy />
       <KeylessWebAutoConnectHashCleanupContainer />
       <DialogLoadingContainer />
@@ -79,7 +79,7 @@ function DetailRouter() {
       <GlobalErrorHandlerContainer />
       <ForceFirmwareUpdateContainer />
       <ColdStartByNotification />
-      <PrimeGlobalEffect />
+      <PrimeGlobalEffectLazy />
       <WebPerformanceMonitorContainer />
       <PasswordVerifyPortalContainer />
       <RookieShareContainer />
