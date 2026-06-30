@@ -73,7 +73,7 @@ runs:
           exit 0
         fi
 
-        while IFS='=' read -r key value; do
+        while IFS='=' read -r key value || [ -n "${key:-}" ]; do
           case "$key" in
             WORKFLOW_BUILD_NUMBER|WORKFLOW_BUNDLE_VERSION)
               if [[ ! "$value" =~ ^[0-9]+$ ]]; then
