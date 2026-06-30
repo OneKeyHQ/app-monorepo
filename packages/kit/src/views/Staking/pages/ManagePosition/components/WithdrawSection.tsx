@@ -11,6 +11,7 @@ import {
   type IRepayWithCollateralConfirmParams,
 } from '@onekeyhq/kit/src/views/Borrow/components/BorrowRepayPosition';
 import { ManagePosition } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
+import { resolveBorrowRepayAllBalance } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/utils';
 import {
   useUniversalBorrowRepay,
   useUniversalBorrowRepayWithCollateral,
@@ -45,26 +46,6 @@ import {
 } from '../../../utils/utils';
 
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
-
-function normalizeBorrowAssetAddress(address?: string) {
-  return (address ?? '').toLowerCase();
-}
-
-function isWrappedNativeDebtToken({
-  debtReserveAddress,
-  debtTokenAddress,
-  debtTokenSymbol,
-  repayTokenSymbol,
-}: {
-  debtReserveAddress: string;
-  debtTokenAddress: string;
-  debtTokenSymbol: string;
-  repayTokenSymbol: string;
-}) {
-  if (debtReserveAddress || debtTokenAddress) return false;
-  if (!debtTokenSymbol || !repayTokenSymbol) return false;
-  return repayTokenSymbol === `W${debtTokenSymbol}`;
-}
 
 export const WithdrawSection = ({
   accountId,
@@ -862,42 +843,14 @@ export const WithdrawSection = ({
     if (borrowAction !== 'repay') {
       return undefined;
     }
-    const selectedDebtBalance =
-      selectedAsset?.borrowed?.amount ?? selectedAsset?.borrowed?.title?.text;
-    if (selectedDebtBalance) {
-      return selectedDebtBalance;
-    }
-    if (protocolInfo?.debtBalance) {
-      return protocolInfo.debtBalance;
-    }
-
-    const reserveAddress = normalizeBorrowAssetAddress(effectiveReserveAddress);
-    const tokenAddress = normalizeBorrowAssetAddress(token?.address);
-    const repayTokenSymbol = effectiveTokenSymbol.toUpperCase();
-    const borrowedAsset = freshBorrowReserves?.borrowed?.assets.find((item) => {
-      const debtReserveAddress = normalizeBorrowAssetAddress(
-        item.reserveAddress,
-      );
-      const debtTokenAddress = normalizeBorrowAssetAddress(item.token.address);
-      if (
-        (reserveAddress &&
-          (debtReserveAddress === reserveAddress ||
-            debtTokenAddress === reserveAddress)) ||
-        (tokenAddress &&
-          (debtReserveAddress === tokenAddress ||
-            debtTokenAddress === tokenAddress))
-      ) {
-        return true;
-      }
-
-      return isWrappedNativeDebtToken({
-        debtReserveAddress,
-        debtTokenAddress,
-        debtTokenSymbol: item.token.symbol.toUpperCase(),
-        repayTokenSymbol,
-      });
+    return resolveBorrowRepayAllBalance({
+      selectedDebtBalance: selectedAsset?.borrowed?.amount,
+      protocolDebtBalance: protocolInfo?.debtBalance,
+      reserveAddress: effectiveReserveAddress,
+      tokenAddress: token?.address,
+      repayTokenSymbol: effectiveTokenSymbol,
+      borrowedAssets: freshBorrowReserves?.borrowed?.assets,
     });
-    return borrowedAsset?.borrowedAmount.amount;
   }, [
     borrowAction,
     effectiveReserveAddress,
@@ -905,7 +858,6 @@ export const WithdrawSection = ({
     freshBorrowReserves?.borrowed?.assets,
     protocolInfo?.debtBalance,
     selectedAsset?.borrowed?.amount,
-    selectedAsset?.borrowed?.title?.text,
     token?.address,
   ]);
 
@@ -1052,7 +1004,7 @@ export const WithdrawSection = ({
           decimals={effectiveDecimals}
           balance={effectiveBalance}
           maxBalance={effectiveMaxBalance}
-          repayAllBalance={effectiveRepayAllBalance ?? '0'}
+          repayAllBalance={effectiveRepayAllBalance}
           tokenSymbol={effectiveTokenSymbol}
           tokenImageUri={effectiveTokenImageUri}
           onWalletConfirm={onBorrowConfirm}
