@@ -25,6 +25,8 @@ import type {
   IBtcRewardError,
   IBtcRewardHistoryParams,
   IBtcRewardHistoryResponse,
+  IBtcRewardRecoverData,
+  IBtcRewardRecoverParams,
   IBtcRewardResult,
   IBtcRewardVerifyCodeData,
   IBtcRewardVerifyCodeParams,
@@ -1237,6 +1239,17 @@ class ServiceReferralCode extends ServiceBase {
     return this.btcRewardRequest<IBtcRewardCommitData>(
       'post',
       '/rebate/v1/btc-reward/commit',
+      params,
+    );
+  }
+
+  @backgroundMethod()
+  async btcRewardRecoverRecord(
+    params: IBtcRewardRecoverParams,
+  ): Promise<IBtcRewardResult<IBtcRewardRecoverData>> {
+    return this.btcRewardRequest<IBtcRewardRecoverData>(
+      'post',
+      '/rebate/v1/btc-reward/recover',
       params,
     );
   }

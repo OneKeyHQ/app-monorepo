@@ -26,7 +26,6 @@ import {
   XStack,
   YStack,
   useMedia,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IVideoRef } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -96,6 +95,7 @@ const DIALOG_FOOTER_BOTTOM_PADDING = 20;
 const MOBILE_DIALOG_VIDEO_LOAD_DELAY_MS = 300;
 const VIDEO_END_PAUSE_MS = 1000;
 const VIDEO_POSTER_FADE_DURATION_MS = 220;
+const ANDROID_VIDEO_ACTIVATE_DELAY_MS = 120;
 const DIALOG_CONTENT_SWIPE_THRESHOLD = 32;
 const primeFeatureOverlayButtonIconProps = { color: '$whiteA10' } as const;
 const primeFeatureOverlayButtonHoverStyle = { bg: '$whiteA4' } as const;
@@ -237,6 +237,10 @@ const PrimeFeatureMedia = memo(
 
       setShouldPlayVideo(true);
       posterOpacity.stopAnimation();
+      if (platformEnv.isNativeAndroid) {
+        posterOpacity.setValue(0);
+        return;
+      }
       Animated.timing(posterOpacity, {
         toValue: 0,
         duration: VIDEO_POSTER_FADE_DURATION_MS,
@@ -249,6 +253,7 @@ const PrimeFeatureMedia = memo(
         return;
       }
 
+      let loadVideoTimer: ReturnType<typeof setTimeout> | undefined;
       const controller = videoLoopControllerRef.current;
       const wasActive = controller.isActive;
       controller.isActive = isActive;
@@ -256,18 +261,35 @@ const PrimeFeatureMedia = memo(
       resetVideoToPoster();
       controller.hasHandledEnd = false;
 
-      if (isActive && canLoadVideo) {
+      const loadActiveVideo = () => {
         setShouldLoadVideo(true);
         if (!wasActive && videoRef.current) {
           videoRef.current.seek(0);
           videoRef.current.resume();
           showVideo();
         }
-      } else if (!canLoadVideo) {
+      };
+
+      if (isActive && canLoadVideo) {
+        if (platformEnv.isNativeAndroid && !wasActive) {
+          setShouldLoadVideo(false);
+          loadVideoTimer = setTimeout(
+            loadActiveVideo,
+            ANDROID_VIDEO_ACTIVATE_DELAY_MS,
+          );
+        } else {
+          loadActiveVideo();
+        }
+      } else if (!canLoadVideo || platformEnv.isNativeAndroid) {
         setShouldLoadVideo(false);
       }
 
-      return clearVideoEndTimer;
+      return () => {
+        if (loadVideoTimer) {
+          clearTimeout(loadVideoTimer);
+        }
+        clearVideoEndTimer();
+      };
     }, [
       canLoadVideo,
       clearVideoEndTimer,
@@ -448,7 +470,6 @@ export function PrimeFeatureIntroContent({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
-  const { bottom: safeAreaBottom } = useSafeAreaInsets();
   const {
     isReady: isAuthReady,
     isLoggedIn,
@@ -852,10 +873,10 @@ export function PrimeFeatureIntroContent({
   }
   const contentMaxWidth = usePageFooter || !gtMd ? undefined : 640;
   const shouldSquareBottomContentCorners = useDialogFooter && !gtMd;
-  const dialogFooterBottomPadding =
-    useDialogFooter && !gtMd && safeAreaBottom
-      ? safeAreaBottom + DIALOG_FOOTER_BOTTOM_PADDING
-      : DIALOG_FOOTER_BOTTOM_PADDING;
+  // The Dialog frame applies the bottom safe-area inset itself, so the footer
+  // only needs its design padding — adding safeAreaBottom here too would
+  // double-stack the inset on notched iOS.
+  const dialogFooterBottomPadding = DIALOG_FOOTER_BOTTOM_PADDING;
   const shouldShowFooterAction = ctaKind !== 'none';
   const isFooterActionDisabled =
     shouldUseComingSoonCta ||

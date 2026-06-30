@@ -50,6 +50,7 @@ export interface IManagePositionProps {
   // Token info
   balance: string;
   maxBalance?: string;
+  repayAllBalance?: string;
   tokenSymbol?: string;
   tokenImageUri?: string;
   decimals?: number;

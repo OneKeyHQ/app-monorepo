@@ -48,12 +48,13 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import perpsUtils, {
   calculateSpotBalancesTotalUsd,
+  isHyperLiquidAbstractionModeEnabled,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
+import type { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 import {
   CACHE_TIME_QUANTIZE_MS,
   SPOT_ASSET_ID_OFFSET,
@@ -137,11 +138,13 @@ import {
   createFetchUserAbstractionRawWithCache,
   invalidateUserAbstractionRawCache,
 } from './userAbstractionCache';
+import { shouldPreserveConfirmedUserAbstractionMode } from './userAbstractionMode';
 
 import type ServiceHyperliquidCache from './ServiceHyperliquidCache';
 import type { IPerpsActiveAssetCtxSnapshotCacheHydration } from './ServiceHyperliquidCache';
 import type ServiceHyperliquidExchange from './ServiceHyperliquidExchange';
 import type ServiceHyperliquidWallet from './ServiceHyperliquidWallet';
+import type { IConfirmedUserAbstractionMode } from './userAbstractionMode';
 import type { ISimpleDbPerpData } from '../../dbs/simple/entity/SimpleDbEntityPerp';
 import type {
   IPerpsAccountLoadingInfo,
@@ -2536,6 +2539,69 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
   }
 
+  private async persistConfirmedUserAbstractionMode(
+    userAddress: IHex,
+    confirmedMode: IConfirmedUserAbstractionMode,
+  ): Promise<boolean> {
+    const lowerUserAddress = userAddress.toLowerCase() as IHex;
+    const activeAccount = await perpsActiveAccountAtom.get();
+    if (activeAccount?.accountAddress?.toLowerCase() !== lowerUserAddress) {
+      return false;
+    }
+
+    await this.backgroundApi.simpleDb.perp.setUserAbstractionMode(
+      lowerUserAddress,
+      confirmedMode,
+    );
+    await perpsAbstractionModeAtom.set({
+      accountAddress: lowerUserAddress,
+      mode: confirmedMode as EHyperLiquidAbstractionMode,
+      source: 'live',
+    });
+    return true;
+  }
+
+  // Bust the cache before re-fetching, else the read returns the pre-switch mode.
+  // `confirmedMode` is the mode just switched to on-chain (the switch already
+  // succeeded): persist it first so a failed or eventually-consistent refetch —
+  // whose error path falls back to SimpleDb, or whose success path still returns
+  // the pre-switch mode — can't revert the displayed/cold-start mode. WS
+  // (WEB_DATA3) still reconciles afterwards.
+  @backgroundMethod()
+  async refreshUserAbstractionMode(
+    userAddress: IHex,
+    confirmedMode?: IConfirmedUserAbstractionMode,
+  ): Promise<string | undefined> {
+    if (confirmedMode) {
+      await this.persistConfirmedUserAbstractionMode(
+        userAddress,
+        confirmedMode,
+      );
+    }
+    invalidateUserAbstractionRawCache(
+      this.fetchUserAbstractionRawWithCache,
+      userAddress,
+    );
+    const refreshedMode = await this.fetchUserAbstraction(userAddress);
+    if (
+      confirmedMode &&
+      shouldPreserveConfirmedUserAbstractionMode({
+        confirmedMode,
+        refreshedMode,
+      })
+    ) {
+      const didPersistConfirmedMode =
+        await this.persistConfirmedUserAbstractionMode(
+          userAddress,
+          confirmedMode,
+        );
+      if (didPersistConfirmedMode) {
+        return confirmedMode;
+      }
+    }
+    return refreshedMode;
+  }
+
   @backgroundMethod()
   async checkPerpsAccountStatus({
     isEnableTradingTrigger = false,
@@ -2652,8 +2718,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           // Placed after referralCodeOk so a signature rejection doesn't block other status
           const currentMode = await this.fetchUserAbstraction(accountAddress);
           const isAbstractionCorrect =
-            currentMode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
-            currentMode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
+            isHyperLiquidAbstractionModeEnabled(currentMode);
           if (isAbstractionCorrect) {
             statusDetails.abstractionOk = true;
           } else if (isEnableTradingTrigger && selectedAccount.accountId) {
@@ -2671,8 +2736,7 @@ export default class ServiceHyperliquid extends ServiceBase {
             const verifiedMode =
               await this.fetchUserAbstraction(accountAddress);
             statusDetails.abstractionOk =
-              verifiedMode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
-              verifiedMode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
+              isHyperLiquidAbstractionModeEnabled(verifiedMode);
           }
         }
       }

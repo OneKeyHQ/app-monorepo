@@ -479,6 +479,12 @@ const ProtocolPositionActionButton = memo(
       () => isAaveProtocol(protocol.protocol) && hasDebt(position),
       [position, protocol.protocol],
     );
+    // Removing an LP that holds rewards also claims them — drives the
+    // "Remove" vs "Remove & Claim rewards" label.
+    const hasRewards = useMemo(
+      () => defiActionUtils.positionHasRewards(position),
+      [position],
+    );
     const borrowManageParams = useMemo(
       () => getAaveBorrowManageParams({ protocol, position, manageAsset }),
       [manageAsset, position, protocol],
@@ -587,10 +593,17 @@ const ProtocolPositionActionButton = memo(
           accountId,
           networkId: protocol.networkId,
           action,
+          hasRewards,
           onSuccess,
         });
       },
-      [accountId, onSuccess, protocol.networkId, submitProtocolPositionAction],
+      [
+        accountId,
+        hasRewards,
+        onSuccess,
+        protocol.networkId,
+        submitProtocolPositionAction,
+      ],
     );
     const handleManagePress = useCallback(
       (type: EManagePositionType) => {
@@ -670,7 +683,11 @@ const ProtocolPositionActionButton = memo(
               {renderActionButtonLabel({
                 isInfo,
                 isBlock,
-                label: getActionLabel({ action: action.action, intl }),
+                label: getActionLabel({
+                  action: action.action,
+                  intl,
+                  hasRewards,
+                }),
               })}
             </Button>
           );

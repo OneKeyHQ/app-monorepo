@@ -3,11 +3,14 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack } from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { biologyAuthUtils } from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useLocalDbOpenErrorAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePasswordAtom,
   usePasswordBiologyAuthInfoAtom,
@@ -50,6 +53,11 @@ import type { LayoutChangeEvent } from 'react-native';
 const SECURE_KEY_UNAVAILABLE_MESSAGE =
   'Local secure key is corrupted or unavailable. Please restart the app.';
 
+// Fixed (non-i18n) fallback shown when a local DB open failure carries no
+// underlying message. The original DB error message is preferred whenever
+// available. (OK-56874)
+const DB_OPEN_ERROR_FALLBACK_MESSAGE = 'DB open unknown error';
+
 interface IPasswordVerifyProps {
   onVerifyRes: (password: string) => void | Promise<void>;
   onLayout?: (e: LayoutChangeEvent) => void;
@@ -88,6 +96,11 @@ const PasswordVerifyContainer = ({
     platformEnv.isExtension && isLock && !hasCachedPassword,
   );
   const [{ passwordVerifyStatus }, setPasswordAtom] = usePasswordAtom();
+  // OK-56874: the background DB layer publishes a local-database open failure
+  // message here. When set, the lock screen surfaces it under the password
+  // input immediately (see the effect below), without waiting for a verify
+  // attempt.
+  const [{ errorMessage: localDbOpenErrorMessage }] = useLocalDbOpenErrorAtom();
   const resetPasswordStatus = useCallback(() => {
     void backgroundApiProxy.servicePassword.resetPasswordStatus();
   }, []);
@@ -118,6 +131,11 @@ const PasswordVerifyContainer = ({
   }, [isEnable, isBiologyAuthSwitchOn, webAuthCredentialId]);
 
   const passwordVerifyStatusRef = useRef(passwordVerifyStatus);
+  // Synchronous guard against concurrent biometric verifications. The VERIFYING
+  // status atom is synced from the bg runtime with a delay, so the mount and
+  // onActive auto-triggers could otherwise both kick off a verification at the
+  // same time. (OK-56875)
+  const biologyAuthInProgressRef = useRef(false);
   useEffect(() => {
     if (
       passwordVerifyStatusRef.current.value === EPasswordVerifyStatus.VERIFYING
@@ -285,6 +303,13 @@ const PasswordVerifyContainer = ({
       ) {
         return;
       }
+      // Avoid the mount + onActive auto-triggers racing into two concurrent
+      // verifications while the VERIFYING atom is still syncing from bg.
+      // (OK-56875)
+      if (biologyAuthInProgressRef.current) {
+        return;
+      }
+      biologyAuthInProgressRef.current = true;
       setPasswordAtom((v) => ({
         ...v,
         passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFYING },
@@ -355,38 +380,71 @@ const PasswordVerifyContainer = ({
           error: e,
           className: EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable,
         });
-        let message = error?.message;
-        // A secure-storage / keychain outage is not a wrong password.
-        if (isSecureStorageUnavailable) {
+        // OK-56874: a local DB open failure (a version downgrade is only one
+        // possible cause) preserves its original error message; only fall back
+        // to a generic update hint when no underlying message is available.
+        const isDbOpenError = errorUtils.isErrorByClassName({
+          error: e,
+          className: EOneKeyErrorClassNames.LocalDbOpenError,
+        });
+        // OK-56875: only a genuine wrong password may be shown as "incorrect
+        // password". Any other failure (slow KDF / encryptor not ready / system
+        // error) must not be mislabeled as a wrong password.
+        const isGenuineWrongPassword =
+          errorUtils.isErrorByClassName({
+            error: e,
+            className: EOneKeyErrorClassNames.WrongPassword,
+          }) ||
+          errorUtils.isErrorByClassName({
+            error: e,
+            className: EOneKeyErrorClassNames.IncorrectPassword,
+          });
+        const isCancel = error?.name === BIOLOGY_AUTH_CANCEL_ERROR;
+        const isNativeBiometricError = error?.cause === biologyAuthNativeError;
+        // `undefined` means "no user-facing error": keep the lock screen in a
+        // neutral state and let the flow retry, instead of showing a wrong-
+        // password message for a transient failure. (OK-56875)
+        let message: string | undefined = error?.message || undefined;
+        if (isCancel) {
+          message = intl.formatMessage(
+            { id: ETranslations.auth_biometric_cancel },
+            { biometric: title },
+          );
+        } else if (isSecureStorageUnavailable) {
+          // A secure-storage / keychain outage is not a wrong password.
           message = SECURE_KEY_UNAVAILABLE_MESSAGE;
+        } else if (isDbOpenError) {
+          // Preserve the original DB open error message instead of masking it;
+          // fall back to a fixed English string only when it carries none.
+          message = error?.message || DB_OPEN_ERROR_FALLBACK_MESSAGE;
         } else if (isCallbackError && message) {
           // Use the callback error message as-is
         } else if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
           message = intl.formatMessage(
-            {
-              id: ETranslations.auth_biometric_failed,
-            },
-            {
-              biometric: title,
-            },
+            { id: ETranslations.auth_biometric_failed },
+            { biometric: title },
           );
-        } else if (!message || error?.cause !== biologyAuthNativeError) {
+        } else if (isGenuineWrongPassword) {
           message = intl.formatMessage({
             id: ETranslations.prime_incorrect_password,
           });
+        } else if (isNativeBiometricError) {
+          // Native biometric failure (e.g. face not recognized): keep its own
+          // message.
+        } else {
+          // Transient / unexpected failure (e.g. encryptor not ready, slow KDF):
+          // do not surface a wrong-password error. (OK-56875)
+          message = undefined;
         }
-        if (error?.name === BIOLOGY_AUTH_CANCEL_ERROR) {
-          message = intl.formatMessage(
-            {
-              id: ETranslations.auth_biometric_cancel,
-            },
-            { biometric: title },
-          );
-        }
-        // Skip biology auth protection logic for callback errors in pageMode
-        // (verification succeeded, only the callback failed) and for a
-        // secure-storage outage (the password may be correct).
-        if (!isCallbackError && !isSecureStorageUnavailable) {
+        // Skip biology auth protection for callback errors, secure-storage
+        // outages, DB open failures, and transient failures (message
+        // undefined): none of these is a real biometric/password attempt.
+        if (
+          !isCallbackError &&
+          !isSecureStorageUnavailable &&
+          !isDbOpenError &&
+          message !== undefined
+        ) {
           if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
             setVerifyPeriodBiologyEnable(false);
           } else {
@@ -395,11 +453,13 @@ const PasswordVerifyContainer = ({
         }
         setPasswordAtom((v) => ({
           ...v,
-          passwordVerifyStatus: {
-            value: EPasswordVerifyStatus.ERROR,
-            message,
-          },
+          passwordVerifyStatus:
+            message === undefined
+              ? { value: EPasswordVerifyStatus.DEFAULT }
+              : { value: EPasswordVerifyStatus.ERROR, message },
         }));
+      } finally {
+        biologyAuthInProgressRef.current = false;
       }
     },
     [
@@ -507,6 +567,14 @@ const PasswordVerifyContainer = ({
             error: e,
             className: EOneKeyErrorClassNames.IncorrectPassword,
           });
+        // OK-56874: a local DB open failure (a version downgrade is only one
+        // possible cause) preserves its original error message rather than
+        // masking it, and is not a wrong-password attempt (already excluded from
+        // the counter via isGenuineWrongPassword).
+        const isDbOpenError = errorUtils.isErrorByClassName({
+          error: e,
+          className: EOneKeyErrorClassNames.LocalDbOpenError,
+        });
         let message: string;
         if (isCallbackError) {
           message =
@@ -516,6 +584,10 @@ const PasswordVerifyContainer = ({
             });
         } else if (isSecureStorageUnavailable) {
           message = SECURE_KEY_UNAVAILABLE_MESSAGE;
+        } else if (isDbOpenError) {
+          // Preserve the original DB open error message instead of masking it;
+          // fall back to a fixed English string only when it carries none.
+          message = errorWithFlag?.message || DB_OPEN_ERROR_FALLBACK_MESSAGE;
         } else {
           message = intl.formatMessage({
             id: ETranslations.auth_error_password_incorrect,
@@ -596,33 +668,37 @@ const PasswordVerifyContainer = ({
     ],
   );
 
-  const [_, setIsPasswordEncryptorReady] = useState(false);
-  const [passwordEncryptorInitError, setPasswordEncryptorInitError] =
-    useState('');
   useEffect(() => {
     void (async () => {
       try {
-        setPasswordEncryptorInitError('');
         await timerUtils.wait(600);
-        const isReady =
-          await backgroundApiProxy.servicePassword.waitPasswordEncryptorReady();
-        if (isReady) {
-          setIsPasswordEncryptorReady(isReady);
-        }
+        // Warm up the password encryptor early so the first verification on
+        // low-end devices does not race against an unready encryptor. (OK-56875)
+        await backgroundApiProxy.servicePassword.waitPasswordEncryptorReady();
       } catch (e) {
+        // Do not rethrow: this previously produced an unhandled promise
+        // rejection, and the raw error must never surface on the lock screen.
+        // The verify flow awaits readiness again before use. (OK-56874)
         console.error('failed to waitPasswordEncryptorReady with error', e);
-        const errorMessage = (e as Error)?.message || '';
-        if (errorMessage) {
-          // setPasswordEncryptorInitError(errorMessage);
-          // Toast.error({
-          //   title: errorMessage,
-          //   message: 'Please restart the app and try again later',
-          // });
-        }
-        throw e;
       }
     })();
   }, []);
+
+  // OK-56874: surface a local DB open failure under the password input as soon
+  // as the lock screen mounts (the message is published to the global atom by
+  // the background DB layer when `_openDb()` throws), instead of only after the
+  // user submits a password / triggers biometric.
+  useEffect(() => {
+    if (localDbOpenErrorMessage) {
+      setPasswordAtom((v) => ({
+        ...v,
+        passwordVerifyStatus: {
+          value: EPasswordVerifyStatus.ERROR,
+          message: localDbOpenErrorMessage,
+        },
+      }));
+    }
+  }, [localDbOpenErrorMessage, setPasswordAtom]);
 
   return (
     <Stack>
@@ -634,7 +710,15 @@ const PasswordVerifyContainer = ({
         onPasswordChange={() => {
           setPasswordAtom((v) => ({
             ...v,
-            passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
+            // Keep showing a local DB open failure while the user types: it is a
+            // terminal error (unlock cannot succeed), so it must not be cleared
+            // like a normal wrong-password message. (OK-56874)
+            passwordVerifyStatus: localDbOpenErrorMessage
+              ? {
+                  value: EPasswordVerifyStatus.ERROR,
+                  message: localDbOpenErrorMessage,
+                }
+              : { value: EPasswordVerifyStatus.DEFAULT },
           }));
         }}
         status={passwordVerifyStatus}
@@ -643,16 +727,6 @@ const PasswordVerifyContainer = ({
         isEnable={isBiologyAuthEnable}
         authType={isEnable ? authType : [AuthenticationType.FINGERPRINT]}
       />
-      {passwordEncryptorInitError ? (
-        <SizableText
-          size="$bodyMd"
-          color="$textCritical"
-          textAlign="center"
-          mt="$2"
-        >
-          {passwordEncryptorInitError}
-        </SizableText>
-      ) : null}
     </Stack>
   );
 };

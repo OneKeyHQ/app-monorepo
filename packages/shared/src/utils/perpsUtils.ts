@@ -24,7 +24,10 @@ import type {
   ISpotUniverse,
   IWsActiveAssetCtx,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
-import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
+import {
+  EHyperLiquidAbstractionMode,
+  ETriggerOrderType,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 import type {
   IPerpTokenSortDirection,
   IPerpTokenSortField,
@@ -1593,6 +1596,17 @@ export function parseSignatureToRSV(signatureHex: string): {
 
 export function normalizePerpsAccountAddress(address?: string | null) {
   return address?.toLowerCase() ?? null;
+}
+
+// Accepted modes — enable-trading force-switches only accounts outside this set.
+// PORTFOLIO_MARGIN must stay, or PM accounts get force-reverted to unified.
+export function isHyperLiquidAbstractionModeEnabled(
+  mode: EHyperLiquidAbstractionMode | string | undefined,
+): boolean {
+  return (
+    mode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
+    mode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN
+  );
 }
 
 // Parse coin with dex prefix, e.g., "xyz:NVDA" -> { displayName: "NVDA", dexLabel: "xyz" }

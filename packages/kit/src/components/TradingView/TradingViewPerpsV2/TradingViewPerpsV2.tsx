@@ -7,8 +7,8 @@ import type { IStackStyle } from '@onekeyhq/components';
 import TradingViewChartLoadingAnimation from '@onekeyhq/kit/assets/animations/swap_order_pending.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  useActiveTradeInstrumentAtom,
   useHyperliquidActions,
-  useTradingFormEnvAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { showSetTpslDialog } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/SetTpslModal';
 import { showLimitOrderDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/panels/LimitOrderForm';
@@ -291,7 +291,15 @@ export function TradingViewPerpsV2(
   const intl = useIntl();
   const { restoreNonce } = useNetworkRestore();
 
-  const [{ szDecimals }] = useTradingFormEnvAtom();
+  // szDecimals comes from the active instrument's universe — the same scoped
+  // atom that drives `symbol`, so coin and precision update together (no chart-
+  // symbol divergence) and reactively once meta loads. getSymbolMeta(symbol)
+  // can't resolve spot, whose coin is a plain base name (OK-56902/56903).
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const szDecimals =
+    activeTradeInstrument.mode === 'spot'
+      ? activeTradeInstrument.universe?.baseSzDecimals
+      : activeTradeInstrument.universe?.szDecimals;
   const _webviewKey = useMemo(() => {
     return `${theme}-${webviewKey || ''}${
       reloadOnSymbolChange ? `-${symbol}` : ''
@@ -583,7 +591,7 @@ export function TradingViewPerpsV2(
   // Chart lines management (liquidation, position, orders)
   useChartLines({
     symbol,
-    szDecimals: szDecimals ?? 3,
+    szDecimals: szDecimals ?? 2,
     userAddress,
     webRef,
     isReady: isChartLinesReady,

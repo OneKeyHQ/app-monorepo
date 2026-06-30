@@ -79,8 +79,18 @@ const SwapProPositionsList = ({
       });
     const list = response.list ?? [];
     // response.list is index-aligned with tokenAddressList: keep only the
-    // holdings whose server entry has a truthy .stock field.
-    return finallyTokenList.filter((_, i) => Boolean(list[i]?.stock));
+    // holdings whose server entry has a truthy .stock field, and mark the
+    // selected row as Stock-owned before it reaches downstream swap handlers.
+    return finallyTokenList.flatMap((token, i) =>
+      list[i]?.stock
+        ? [
+            {
+              ...token,
+              isStock: true,
+            },
+          ]
+        : [],
+    );
   }, [finallyTokenList, settings.locale, stockOnly]);
 
   // The stock list is undefined until the first batch resolves; treat that as a
