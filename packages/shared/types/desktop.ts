@@ -159,6 +159,7 @@ export enum EDesktopStoreKeys {
   // Boot Recovery
   ConsecutiveBootFailCount = 'consecutiveBootFailCount',
   BootFailAppVersion = 'bootFailAppVersion',
+  NetworkThrottle = 'networkThrottle',
 }
 
 export type IDesktopStoreUpdateSettings = {
@@ -173,6 +174,13 @@ export type IDesktopStoreUpdateBundleData = {
 
 export type IDesktopStoreFallbackUpdateBundleData =
   IDesktopStoreUpdateBundleData[];
+
+export type IDesktopStoreNetworkThrottleProfile = 'slow4g';
+
+export type IDesktopStoreNetworkThrottle = {
+  enabled: boolean;
+  profile: IDesktopStoreNetworkThrottleProfile;
+};
 
 export type IDesktopStoreMap = {
   [EDesktopStoreKeys.WinBounds]: Electron.Rectangle;
@@ -196,4 +204,5 @@ export type IDesktopStoreMap = {
   // Boot Recovery
   [EDesktopStoreKeys.ConsecutiveBootFailCount]: number;
   [EDesktopStoreKeys.BootFailAppVersion]: string;
+  [EDesktopStoreKeys.NetworkThrottle]: IDesktopStoreNetworkThrottle;
 };

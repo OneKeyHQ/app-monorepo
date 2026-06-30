@@ -9652,6 +9652,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/react-native-network-throttle@npm:3.0.73":
+  version: 3.0.73
+  resolution: "@onekeyfe/react-native-network-throttle@npm:3.0.73"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/9cb3b3119a02ca71aec4eecf45c63e0e6633405c6b608bb55926a47d1f46fab77f72f23b3266a0f3cd0f577ba8efd6ece35470bdc292baccd96ba882203e4b25
+  languageName: node
+  linkType: hard
+
 "@onekeyfe/react-native-perf-memory@npm:3.0.70":
   version: 3.0.70
   resolution: "@onekeyfe/react-native-perf-memory@npm:3.0.70"
@@ -10235,6 +10245,7 @@ __metadata:
     "@onekeyfe/react-native-keychain-module": "npm:3.0.70"
     "@onekeyfe/react-native-lite-card": "npm:3.0.70"
     "@onekeyfe/react-native-native-logger": "npm:3.0.70"
+    "@onekeyfe/react-native-network-throttle": "npm:3.0.73"
     "@onekeyfe/react-native-perf-memory": "npm:3.0.70"
     "@onekeyfe/react-native-perf-stats": "npm:3.0.70"
     "@onekeyfe/react-native-perp-depth-bar": "npm:3.0.70"
