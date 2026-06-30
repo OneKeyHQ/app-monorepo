@@ -209,7 +209,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     IMarketWatchListItemV2[]
   >([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState(
-    DEFAULT_MARKET_CATEGORY_ID,
+    FAVORITES_CATEGORY_ID,
   );
 
   const initializedRef = useRef(false);
