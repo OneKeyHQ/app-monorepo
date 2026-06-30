@@ -98,6 +98,7 @@ import {
   EPrimeTransferStatus,
   primeTransferAtom,
 } from '../../states/jotai/atoms/prime';
+import { markCredentialLocalSecretEnvelopeUnavailableError } from '../../utils/localSecretEnvelopeErrorUtils';
 import {
   EAppCryptoSharedEncryptScene,
   encryptAsyncWithFormat,
@@ -1681,10 +1682,12 @@ class ServicePrimeTransfer extends ServiceBase {
     // message (the @toastIfError-wrapped caller surfaces it). Interactive
     // transfer instead keeps unavailableCredentials and lets the user confirm.
     if (isForCloudBackup && unavailableCredentials.length > 0) {
-      throw new LocalSecretEnvelopeUnavailable({
+      const error = new LocalSecretEnvelopeUnavailable({
         message:
           "Secure storage is temporarily unavailable, so some wallets can't be backed up right now. Please try again.",
       });
+      markCredentialLocalSecretEnvelopeUnavailableError(error);
+      throw error;
     }
 
     // fill publicData summary by aggregating from privateBackupData

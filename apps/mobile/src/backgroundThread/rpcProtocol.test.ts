@@ -21,6 +21,9 @@ describe('background thread RPC protocol', () => {
       message: 'Please enable Passphrase',
       className: 'DeviceNotOpenedPassphrase',
       code: 801,
+      data: {
+        localSecretEnvelopeDataType: 'credential',
+      },
       payload,
     };
 
@@ -32,6 +35,9 @@ describe('background thread RPC protocol', () => {
     );
 
     expect(response?.error?.payload).toEqual(payload);
+    expect(response?.error?.data).toEqual({
+      localSecretEnvelopeDataType: 'credential',
+    });
   });
 
   describe('jotai batch broadcast payload', () => {
