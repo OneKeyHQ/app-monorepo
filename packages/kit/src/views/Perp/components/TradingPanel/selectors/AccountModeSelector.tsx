@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,6 +6,7 @@ import { SizableText, XStack, useInPageDialog } from '@onekeyhq/components';
 import {
   usePerpsAbstractionModeAtom,
   usePerpsActiveAccountAtom,
+  usePerpsActiveAccountIsAgentReadyAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
@@ -56,7 +57,13 @@ const AccountModeSelector = memo(
     const dialog = useInPageDialog();
     const [abstractionMode] = usePerpsAbstractionModeAtom();
     const [perpsActiveAccount] = usePerpsActiveAccountAtom();
+    const [{ isAgentReady }] = usePerpsActiveAccountIsAgentReadyAtom();
     const [draftMode, setDraftMode] = useState<IPerpsAccountModeOption>();
+
+    // Before trading is enabled the confirm button is replaced by an "Enable
+    // Trading" CTA whose flow force-sets unifiedAccount — so a PM pick here would
+    // be silently dropped. Gate the selector until the account is ready.
+    const isDisabled = disabled || !isAgentReady;
 
     const liveMode = useMemo(
       () =>
@@ -68,8 +75,20 @@ const AccountModeSelector = memo(
     );
     const displayMode = draftMode ?? liveMode;
 
+    // Drafts are per-account; reset when the account changes.
+    useEffect(() => {
+      setDraftMode(undefined);
+    }, [perpsActiveAccount.accountAddress]);
+
+    // Drop the draft once live mode catches up, so live stays the source of truth.
+    useEffect(() => {
+      setDraftMode((prev) =>
+        prev !== undefined && prev === liveMode ? undefined : prev,
+      );
+    }, [liveMode]);
+
     const handlePress = useCallback(() => {
-      if (disabled) return;
+      if (isDisabled) return;
       showAccountModeDialog({
         dialog,
         initialMode: displayMode,
@@ -78,12 +97,12 @@ const AccountModeSelector = memo(
           id: ETranslations.perp_account_mode__title,
         }),
       });
-    }, [dialog, disabled, displayMode, intl]);
+    }, [dialog, isDisabled, displayMode, intl]);
 
     return (
       <XStack
         onPress={handlePress}
-        disabled={disabled}
+        disabled={isDisabled}
         width="100%"
         height={isMobile ? 32 : 30}
         bg={isMobile ? '$bgSubdued' : '$bgStrong'}

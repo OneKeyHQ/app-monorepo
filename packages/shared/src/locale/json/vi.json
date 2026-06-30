@@ -1243,6 +1243,7 @@
   "earn_claim_redemption__action": "Nhận quy đổi",
   "earn_claim_rewards__action": "Nhận phần thưởng",
   "earn_no_assets_deposited": "Chưa có tài sản nào được gửi",
+  "earn_remove_and_claim_rewards__action": "Remove & Claim rewards",
   "earn_reward_distribution_schedule": "Phần thưởng sẽ được phân phối vào ví Arbitrum của bạn (cùng địa chỉ với Ethereum) vào ngày 10 tháng sau.",
   "edit_fee_custom_set_as_default_description": "Đặt làm mặc định cho tất cả các giao dịch trong tương lai trên {network}",
   "email_verification_rate_limit": "Vui lòng đợi {rest} giây trước khi yêu cầu mã xác minh mới",

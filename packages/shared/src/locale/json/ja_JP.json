@@ -1243,6 +1243,7 @@
   "earn_claim_redemption__action": "償還を受け取る",
   "earn_claim_rewards__action": "報酬を受け取る",
   "earn_no_assets_deposited": "まだ資産は預けられていません",
+  "earn_remove_and_claim_rewards__action": "Remove & Claim rewards",
   "earn_reward_distribution_schedule": "報酬は来月10日までにArbitrumウォレット（Ethereumと同じアドレス）に配布されます。",
   "edit_fee_custom_set_as_default_description": "{network}での今後すべてのトランザクションのデフォルトとして設定",
   "email_verification_rate_limit": "新しい確認コードをリクエストする前に{rest}秒お待ちください",

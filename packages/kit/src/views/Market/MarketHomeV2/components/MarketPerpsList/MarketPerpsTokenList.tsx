@@ -1,4 +1,4 @@
-import { memo, useContext, useEffect, useMemo, useState } from 'react';
+import { memo, useContext, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,14 +14,13 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useMarketBasicConfig } from '../../../hooks/useMarketBasicConfig';
 import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
-import { MARKET_PERPS_DEFAULT_CATEGORY_ID } from './constants';
 import { useMarketPerpsTokenList } from './hooks/useMarketPerpsTokenList';
 import { usePerpsColumns } from './hooks/usePerpsColumns';
+import { useSyncedMarketPerpsCategory } from './hooks/useSyncedMarketPerpsCategory';
 import { MarketPerpsCategorySelector } from './MarketPerpsCategorySelector';
 
 import type { IMarketPerpsToken } from './hooks/useMarketPerpsTokenList';
@@ -43,28 +42,11 @@ function MarketPerpsTokenListImpl({
   const intl = useIntl();
   const { md } = useMedia();
 
-  const { perpsCategories } = useMarketBasicConfig();
-
-  const initialCategoryId = useMemo(
-    () => perpsCategories[0]?.categoryId ?? MARKET_PERPS_DEFAULT_CATEGORY_ID,
-    [perpsCategories],
-  );
-  const [selectedCategoryId, setSelectedCategoryId] =
-    useState(initialCategoryId);
-
-  // Sync when categories load asynchronously after initial render
-  useEffect(() => {
-    const shouldSyncSelectedCategory =
-      !selectedCategoryId ||
-      (perpsCategories.length > 0 &&
-        !perpsCategories.some(
-          (category) => category.categoryId === selectedCategoryId,
-        ));
-
-    if (shouldSyncSelectedCategory && initialCategoryId) {
-      setSelectedCategoryId(initialCategoryId);
-    }
-  }, [initialCategoryId, perpsCategories, selectedCategoryId]);
+  const {
+    perpsCategories: categoryTabs,
+    selectedCategoryId,
+    handleSelectCategory,
+  } = useSyncedMarketPerpsCategory();
 
   const { tokens, isLoading, hasRealTimeData } = useMarketPerpsTokenList({
     selectedCategoryId,
@@ -74,21 +56,12 @@ function MarketPerpsTokenListImpl({
 
   const handleTokenPress = navigateToPerps;
 
-  const categoryTabs = useMemo(
-    () =>
-      perpsCategories.map((c) => ({
-        tabId: c.categoryId,
-        name: c.name,
-      })),
-    [perpsCategories],
-  );
-
   const CategorySelector = useMemo(
     () => (
       <MarketPerpsCategorySelector
         categories={categoryTabs}
         selectedCategoryId={selectedCategoryId}
-        onSelectCategory={setSelectedCategoryId}
+        onSelectCategory={handleSelectCategory}
         containerStyle={{
           px: '$4',
           pt: '$3',
@@ -96,7 +69,7 @@ function MarketPerpsTokenListImpl({
         }}
       />
     ),
-    [categoryTabs, selectedCategoryId],
+    [categoryTabs, handleSelectCategory, selectedCategoryId],
   );
 
   const showSkeleton = Boolean(isLoading) && tokens.length === 0;

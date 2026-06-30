@@ -1248,6 +1248,7 @@ export enum ETranslations {
   earn_claim_redemption__action = 'earn_claim_redemption__action',
   earn_claim_rewards__action = 'earn_claim_rewards__action',
   earn_no_assets_deposited = 'earn_no_assets_deposited',
+  earn_remove_and_claim_rewards__action = 'earn_remove_and_claim_rewards__action',
   earn_reward_distribution_schedule = 'earn_reward_distribution_schedule',
   edit_fee_custom_set_as_default_description = 'edit_fee_custom_set_as_default_description',
   email_verification_rate_limit = 'email_verification_rate_limit',

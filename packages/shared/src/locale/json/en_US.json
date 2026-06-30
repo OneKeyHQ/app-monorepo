@@ -1243,6 +1243,7 @@
   "earn_claim_redemption__action": "Claim redemption",
   "earn_claim_rewards__action": "Claim rewards",
   "earn_no_assets_deposited": "No assets deposited yet",
+  "earn_remove_and_claim_rewards__action": "Remove & Claim rewards",
   "earn_reward_distribution_schedule": "Rewards will be distributed to your Arbitrum wallet (same address as Ethereum) by the 10th of next month.",
   "edit_fee_custom_set_as_default_description": "Set as default for all future transactions on {network}",
   "email_verification_rate_limit": "Please wait {rest} seconds before requesting a new verification code",
