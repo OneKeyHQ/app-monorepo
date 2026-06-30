@@ -19,7 +19,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/TradingViewNativeChartControls';
+import { TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/TradingViewNativeChartControls';
 import { useMobileTabTouchScrollBridge } from '@onekeyhq/kit/src/hooks/useMobileTabTouchScrollBridge';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
