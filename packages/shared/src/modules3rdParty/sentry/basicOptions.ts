@@ -134,6 +134,9 @@ const sanitizeStacktrace = (stacktrace?: Stacktrace): void => {
 
 export const SENTRY_IPC = 'sentry-ipc://';
 
+export const buildSentryReleaseName = () =>
+  `${process.env.VERSION ?? ''} (${process.env.BUILD_NUMBER ?? ''})`;
+
 const FILTERED_ERROR_TYPES = new Set([
   'AxiosError',
   'HTTPClientError',

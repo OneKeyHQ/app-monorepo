@@ -17,12 +17,11 @@ import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWid
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useMarketBasicConfig } from '../../hooks/useMarketBasicConfig';
 import { MarketBannerList } from '../components/MarketBanner';
 import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketListColumnHeader } from '../components/MarketListColumnHeader';
 import { MobileMarketPerpsFlatList } from '../components/MarketPerpsList';
-import { MARKET_PERPS_DEFAULT_CATEGORY_ID } from '../components/MarketPerpsList/constants';
+import { useSyncedMarketPerpsCategory } from '../components/MarketPerpsList/hooks/useSyncedMarketPerpsCategory';
 import { MarketPerpsCategorySelector } from '../components/MarketPerpsList/MarketPerpsCategorySelector';
 import { useIsWatchlistTokenCacheReady } from '../components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import {
@@ -328,37 +327,8 @@ function MobileLayoutComponent({
     [],
   );
 
-  // Perps category state (lifted from MobileMarketPerpsFlatList)
-  const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
-
-  const perpsCategories = useMemo(
-    () =>
-      rawPerpsCategories.map((c) => ({
-        tabId: c.categoryId,
-        name: c.name,
-      })),
-    [rawPerpsCategories],
-  );
-
-  const initialCategoryId = useMemo(
-    () => perpsCategories[0]?.tabId ?? MARKET_PERPS_DEFAULT_CATEGORY_ID,
-    [perpsCategories],
-  );
-  const [selectedCategoryId, setSelectedCategoryId] =
-    useState(initialCategoryId);
-
-  useEffect(() => {
-    const shouldSyncSelectedCategory =
-      !selectedCategoryId ||
-      (perpsCategories.length > 0 &&
-        !perpsCategories.some(
-          (category) => category.tabId === selectedCategoryId,
-        ));
-
-    if (shouldSyncSelectedCategory && initialCategoryId) {
-      setSelectedCategoryId(initialCategoryId);
-    }
-  }, [initialCategoryId, perpsCategories, selectedCategoryId]);
+  const { perpsCategories, selectedCategoryId, handleSelectCategory } =
+    useSyncedMarketPerpsCategory();
 
   const expectedTabChangeTargetRef = useRef<string | undefined>(undefined);
   const expectedTabChangeTargetStartedAtRef = useRef(0);
@@ -709,7 +679,7 @@ function MobileLayoutComponent({
       stockDataCategoryMap,
       perpsCategories,
       selectedCategoryId,
-      onSelectCategory: setSelectedCategoryId,
+      onSelectCategory: handleSelectCategory,
       activeTabName,
     }),
     [
@@ -722,6 +692,7 @@ function MobileLayoutComponent({
       stockDataCategoryMap,
       perpsCategories,
       selectedCategoryId,
+      handleSelectCategory,
       activeTabName,
     ],
   );

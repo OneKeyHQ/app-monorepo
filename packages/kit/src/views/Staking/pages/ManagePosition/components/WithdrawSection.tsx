@@ -11,6 +11,7 @@ import {
   type IRepayWithCollateralConfirmParams,
 } from '@onekeyhq/kit/src/views/Borrow/components/BorrowRepayPosition';
 import { ManagePosition } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
+import { resolveBorrowRepayAllBalance } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/utils';
 import {
   useUniversalBorrowRepay,
   useUniversalBorrowRepayWithCollateral,
@@ -838,6 +839,28 @@ export const WithdrawSection = ({
       { watchLoading: true },
     );
 
+  const effectiveRepayAllBalance = useMemo(() => {
+    if (borrowAction !== 'repay') {
+      return undefined;
+    }
+    return resolveBorrowRepayAllBalance({
+      selectedDebtBalance: selectedAsset?.borrowed?.amount,
+      protocolDebtBalance: protocolInfo?.debtBalance,
+      reserveAddress: effectiveReserveAddress,
+      tokenAddress: token?.address,
+      repayTokenSymbol: effectiveTokenSymbol,
+      borrowedAssets: freshBorrowReserves?.borrowed?.assets,
+    });
+  }, [
+    borrowAction,
+    effectiveReserveAddress,
+    effectiveTokenSymbol,
+    freshBorrowReserves?.borrowed?.assets,
+    protocolInfo?.debtBalance,
+    selectedAsset?.borrowed?.amount,
+    token?.address,
+  ]);
+
   const collateralAssets = useMemo(() => {
     const suppliedAssets = freshBorrowReserves?.supplied?.assets ?? [];
     return suppliedAssets
@@ -981,6 +1004,7 @@ export const WithdrawSection = ({
           decimals={effectiveDecimals}
           balance={effectiveBalance}
           maxBalance={effectiveMaxBalance}
+          repayAllBalance={effectiveRepayAllBalance}
           tokenSymbol={effectiveTokenSymbol}
           tokenImageUri={effectiveTokenImageUri}
           onWalletConfirm={onBorrowConfirm}

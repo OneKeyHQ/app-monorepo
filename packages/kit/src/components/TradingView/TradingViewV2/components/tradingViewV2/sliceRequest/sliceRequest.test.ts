@@ -3,7 +3,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { sliceRequest } from './sliceRequest';
 
 /*
-yarn jest packages/kit/src/components/TradingView/TradingViewV2/sliceRequest.test.ts
+yarn jest packages/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/sliceRequest/sliceRequest.test.ts
 */
 
 // Time constants for better readability and maintainability

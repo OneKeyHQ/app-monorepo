@@ -1,12 +1,11 @@
 import { type RefObject, useCallback, useRef } from 'react';
 
+import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 
 import { sendVolumeVisibilityUpdate } from '../messageHandlers/volumeVisibilityHandler';
 
 import { fetchTradingViewV2Data } from './useTradingViewV2';
-
-import type { IWebViewRef } from '../../../WebView/types';
 
 interface IAutoKLineUpdateParams {
   tokenAddress: string;

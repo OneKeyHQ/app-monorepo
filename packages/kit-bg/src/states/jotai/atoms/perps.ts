@@ -351,8 +351,11 @@ export const {
       mode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
 
     if (isUnified) {
-      // Unified/portfolio: all values from spotState
-      // Per HL docs: "Individual perp dex user states are not meaningful"
+      // Unified/portfolio: account value + withdrawable come from spotState. The
+      // per-dex perp clearinghouse summaries (incl. the summed summary.withdrawable)
+      // are not meaningful when collateral is shared, and HL's true PM withdrawable
+      // is health-factor-capped — a value absent from every feed we fetch. So both
+      // modes fall back to the spot-side USDC proxy; do not swap in summary.withdrawable.
       if (activeSpotData?.spotTotalUsd === undefined) {
         // Spot data not yet loaded: return undefined for skeleton screen
         return {
@@ -361,7 +364,6 @@ export const {
           isLoading: true,
         };
       }
-      // Withdrawable = USDC available (total - hold)
       const usdcBalance = activeSpotData.balances?.find((b) => b.token === 0);
       const usdcWithdrawable = usdcBalance
         ? new BigNumber(usdcBalance.total).minus(usdcBalance.hold).toFixed()

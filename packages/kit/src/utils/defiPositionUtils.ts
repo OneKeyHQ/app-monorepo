@@ -2,9 +2,12 @@ import BigNumber from 'bignumber.js';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import defiActionUtils from '@onekeyhq/shared/src/utils/defiActionUtils';
 import {
   EDeFiAssetType,
+  EDeFiPositionAction,
   type IDeFiProtocol,
+  type IDeFiSupportedProtocolAction,
   type IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
@@ -798,6 +801,72 @@ function collectDeFiImageUrls({
   return Array.from(urls);
 }
 
+// Badge label id for a resolved action, in the same wording the detail page
+// uses. `Permit` is an internal approval step (omitted → undefined); Claim and
+// ClaimWithdrawal collapse to one "Claim". RemoveLiquidity reads "Remove &
+// Claim rewards" only when the position holds rewards, otherwise plain "Remove".
+function getProtocolActionBadgeLabelId(
+  action: EDeFiPositionAction,
+  hasRewards: boolean,
+): ETranslations | undefined {
+  switch (action) {
+    case EDeFiPositionAction.Withdraw:
+      return ETranslations.global_withdraw;
+    case EDeFiPositionAction.Repay:
+      return ETranslations.defi_repay;
+    case EDeFiPositionAction.Claim:
+    case EDeFiPositionAction.ClaimWithdrawal:
+      return ETranslations.earn_claim;
+    case EDeFiPositionAction.RemoveLiquidity:
+      return hasRewards
+        ? ETranslations.earn_remove_and_claim_rewards__action
+        : ETranslations.dexmarket_details_liquidity_change_remove;
+    default:
+      return undefined;
+  }
+}
+
+// Badge display order, deduped by label id. A protocol with both a reward LP
+// and a plain LP can surface both Remove variants, hence both are listed.
+const DEFI_ACTION_BADGE_LABEL_ORDER: ETranslations[] = [
+  ETranslations.global_withdraw,
+  ETranslations.defi_repay,
+  ETranslations.earn_claim,
+  ETranslations.earn_remove_and_claim_rewards__action,
+  ETranslations.dexmarket_details_liquidity_change_remove,
+];
+
+// Distinct, ordered i18n label ids for the actions a protocol's positions can
+// perform (union across positions). Empty when nothing is actionable or the
+// supported-actions config hasn't loaded yet.
+function getProtocolActionBadgeLabelIds({
+  protocol,
+  supportedActions,
+}: {
+  protocol: IDeFiProtocol;
+  supportedActions: IDeFiSupportedProtocolAction[];
+}): ETranslations[] {
+  if (!supportedActions.length) return [];
+  const available = new Set<ETranslations>();
+  for (const position of protocol.positions) {
+    const hasRewards = defiActionUtils.positionHasRewards(position);
+    for (const resolved of defiActionUtils.resolveDeFiPositionActions({
+      protocol,
+      position,
+      supportedActions,
+    })) {
+      const labelId = getProtocolActionBadgeLabelId(
+        resolved.action,
+        hasRewards,
+      );
+      if (labelId) available.add(labelId);
+    }
+  }
+  return DEFI_ACTION_BADGE_LABEL_ORDER.filter((labelId) =>
+    available.has(labelId),
+  );
+}
+
 export {
   buildLocalizedProtocolCategoryGroups,
   buildLocalizedProtocolPositionItems,
@@ -805,6 +874,7 @@ export {
   buildProtocolDisplayInfo,
   buildProtocolPositionItems,
   collectDeFiImageUrls,
+  getProtocolActionBadgeLabelIds,
   getProtocolPositionDisplayName,
   getPositionModuleLabel,
   isSectionedPosition,
