@@ -786,11 +786,11 @@ class ServiceHardware extends ServiceBase {
       JSON.stringify(response),
     );
 
-    // SDK wraps LIBUSB_ERROR_ACCESS in { success: false } when the OS denies
-    // USB access because the OneKey udev rules are missing on the Linux host.
+    // Linux may surface missing udev rules either through libusb or Chromium
+    // WebUSB errors, depending on the active transport path.
     if (
       response?.success === false &&
-      String(response.payload?.error ?? '').includes('LIBUSB_ERROR_ACCESS')
+      this.isLinuxWebUsbAccessDeniedError(response.payload)
     ) {
       // Normal Linux desktop (AppImage/.deb): install the rules via PolicyKit
       // and retry once, so the user doesn't have to restart the app.
@@ -821,8 +821,10 @@ class ServiceHardware extends ServiceBase {
       return false;
     }
 
+    const { forceTransportType } = await hardwareForceTransportAtom.get();
     const hardwareTransportType =
-      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+      forceTransportType ??
+      (await this.backgroundApi.serviceSetting.getHardwareTransportType());
     if (hardwareTransportType !== EHardwareTransportType.WEBUSB) {
       return false;
     }
@@ -841,6 +843,46 @@ class ServiceHardware extends ServiceBase {
     return this.linuxUdevRulesReadyPromise;
   }
 
+  private getErrorText(error: unknown) {
+    const parts: string[] = [];
+    const append = (value: unknown) => {
+      if (typeof value === 'string') {
+        parts.push(value);
+      } else if (value instanceof Error) {
+        parts.push(value.message);
+      }
+    };
+
+    append(error);
+    if (error && typeof error === 'object') {
+      const errorRecord = error as Record<string, unknown>;
+      append(errorRecord.message);
+      append(errorRecord.error);
+
+      const payload = errorRecord.payload;
+      if (payload && typeof payload === 'object') {
+        const payloadRecord = payload as Record<string, unknown>;
+        append(payloadRecord.message);
+        append(payloadRecord.error);
+      }
+    }
+
+    return parts.join(' ');
+  }
+
+  private isLinuxWebUsbAccessDeniedError(error: unknown) {
+    const message = this.getErrorText(error);
+    const lowerMessage = message.toLowerCase();
+    return (
+      message.includes('LIBUSB_ERROR_ACCESS') ||
+      (lowerMessage.includes('access denied') &&
+        (lowerMessage.includes('usbdevice') ||
+          lowerMessage.includes('acquire error') ||
+          (lowerMessage.includes('failed to execute') &&
+            lowerMessage.includes('open'))))
+    );
+  }
+
   private async installLinuxUdevRules() {
     try {
       const result =
@@ -857,6 +899,15 @@ class ServiceHardware extends ServiceBase {
           '[LinuxWebUSB] OneKey udev rules not installed',
           JSON.stringify(result),
         );
+        if (
+          result.needsManualInstall ||
+          result.skippedReason === 'missing-pkexec'
+        ) {
+          this.notifyLinuxUdevManualInstallIfNeeded({
+            force: true,
+            reason: result.skippedReason,
+          });
+        }
       }
     } catch (error) {
       defaultLogger.hardware.sdkLog.log(
@@ -871,18 +922,34 @@ class ServiceHardware extends ServiceBase {
   // guide dialog.
   private linuxUdevGuideShown = false;
 
-  private notifyLinuxUdevManualInstallIfNeeded() {
+  private notifyLinuxUdevManualInstallIfNeeded(options?: {
+    force?: boolean;
+    reason?: string;
+  }) {
     if (this.linuxUdevGuideShown) {
       return;
     }
     // Only sandboxed builds need the manual-install guide; normal Linux desktop
-    // installs the rules automatically via PolicyKit.
-    if (!platformEnv.isDesktopLinuxFlatpak && !platformEnv.isDesktopLinuxSnap) {
+    // installs the rules automatically via PolicyKit unless PolicyKit helpers
+    // are unavailable on the host.
+    if (
+      !options?.force &&
+      !platformEnv.isDesktopLinuxFlatpak &&
+      !platformEnv.isDesktopLinuxSnap
+    ) {
       return;
     }
     this.linuxUdevGuideShown = true;
+    let reason = options?.reason ?? 'unknown';
+    if (!options?.reason) {
+      if (platformEnv.isDesktopLinuxFlatpak) {
+        reason = 'flatpak';
+      } else if (platformEnv.isDesktopLinuxSnap) {
+        reason = 'snap';
+      }
+    }
     defaultLogger.hardware.sdkLog.log(
-      '[LinuxWebUSB] host udev rules missing in sandbox; showing manual install guide',
+      `[LinuxWebUSB] host udev rules need manual install (${reason}); showing manual install guide`,
     );
     appEventBus.emit(EAppEventBusNames.ShowLinuxBundleUdevGuide, undefined);
   }
@@ -1990,9 +2057,26 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance({
       connectId: undefined,
     });
-    return convertDeviceResponse(() =>
-      hardwareSDK?.promptWebDeviceAccess(params),
-    );
+    try {
+      return await convertDeviceResponse(() =>
+        hardwareSDK?.promptWebDeviceAccess(params),
+      );
+    } catch (error) {
+      if (this.isLinuxWebUsbAccessDeniedError(error)) {
+        if (await this.ensureLinuxUdevRules()) {
+          return convertDeviceResponse(() =>
+            hardwareSDK?.promptWebDeviceAccess(params),
+          );
+        }
+        if (platformEnv.isDesktopLinux) {
+          this.notifyLinuxUdevManualInstallIfNeeded({
+            force: true,
+            reason: 'webusb-access-denied',
+          });
+        }
+      }
+      throw error;
+    }
   }
 
   private async _needCheckBridgeStatus() {
