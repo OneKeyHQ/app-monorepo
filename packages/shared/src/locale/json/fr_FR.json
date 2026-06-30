@@ -1243,6 +1243,7 @@
   "earn_claim_redemption__action": "Réclamer le remboursement",
   "earn_claim_rewards__action": "Réclamer les récompenses",
   "earn_no_assets_deposited": "Aucun actif déposé pour le moment",
+  "earn_remove_and_claim_rewards__action": "Remove & Claim rewards",
   "earn_reward_distribution_schedule": "Les récompenses seront distribuées sur votre portefeuille Arbitrum (même adresse qu'Ethereum) d'ici le 10 du mois prochain.",
   "edit_fee_custom_set_as_default_description": "Définir comme valeur par défaut pour toutes les transactions futures sur {network}",
   "email_verification_rate_limit": "Veuillez patienter {rest} secondes avant de demander un nouveau code de vérification",

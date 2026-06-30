@@ -1243,6 +1243,7 @@
   "earn_claim_redemption__action": "รับสิทธิ์แลกรางวัล",
   "earn_claim_rewards__action": "รับรางวัล",
   "earn_no_assets_deposited": "ยังไม่มีการฝากทรัพย์สิน",
+  "earn_remove_and_claim_rewards__action": "Remove & Claim rewards",
   "earn_reward_distribution_schedule": "รางวัลจะถูกแจกจ่ายไปยังกระเป๋าเงิน Arbitrum ของคุณ (ที่อยู่เดียวกับ Ethereum) ภายในวันที่ 10 ของเดือนหน้า",
   "edit_fee_custom_set_as_default_description": "ตั้งเป็นค่าเริ่มต้นสำหรับธุรกรรมทั้งหมดในอนาคตบน {network}",
   "email_verification_rate_limit": "โปรดรอ {rest} วินาทีก่อนที่จะขอรหัสยืนยันใหม่",

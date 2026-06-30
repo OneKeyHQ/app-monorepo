@@ -1243,6 +1243,7 @@
   "earn_claim_redemption__action": "Reclamar canje",
   "earn_claim_rewards__action": "Reclamar recompensas",
   "earn_no_assets_deposited": "Aún no se han depositado activos.",
+  "earn_remove_and_claim_rewards__action": "Remove & Claim rewards",
   "earn_reward_distribution_schedule": "Las recompensas se distribuirán a su billetera Arbitrum (la misma dirección que Ethereum) el día 10 del próximo mes.",
   "edit_fee_custom_set_as_default_description": "Establecer como predeterminado para todas las transacciones futuras en {network}",
   "email_verification_rate_limit": "Espera {rest} segundos antes de solicitar un nuevo código de verificación",
