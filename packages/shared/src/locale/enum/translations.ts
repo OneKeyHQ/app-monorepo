@@ -2429,6 +2429,7 @@ export enum ETranslations {
   hardware_third_party_install_app__title = 'hardware_third_party_install_app__title',
   hardware_third_party_install_app_in_progress__title = 'hardware_third_party_install_app_in_progress__title',
   hardware_third_party_method_not_supported = 'hardware_third_party_method_not_supported',
+  hardware_third_party_path_not_supported__msg = 'hardware_third_party_path_not_supported__msg',
   hardware_third_party_no_app_installed_on_device = 'hardware_third_party_no_app_installed_on_device',
   hardware_third_party_operation_timeout = 'hardware_third_party_operation_timeout',
   hardware_third_party_transport_error = 'hardware_third_party_transport_error',

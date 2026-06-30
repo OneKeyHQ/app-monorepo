@@ -15,6 +15,8 @@ import { OneKeyHardwareError } from './hardwareErrors';
 import type { IOneKeyErrorHardwareProps } from './hardwareErrors';
 
 export const THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE = 10_504;
+export const THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE =
+  10_110 as ThirdPartyHwErrorCode;
 
 // ---------------------------------------------------------------------------
 // Base class for third-party hardware errors
@@ -336,7 +338,7 @@ export class ThirdPartyThpPairingFailed extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslations.global_connet_error_try_again,
+        defaultKey: ETranslations.trezor_thp_pairing_failed__msg,
         defaultAutoToast: true,
       }),
     );
@@ -386,6 +388,20 @@ export class ThirdPartyMethodNotSupported extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.MethodNotSupported;
+}
+
+/** Device rejected the derivation path (index outside its supported range) */
+export class ThirdPartyPathForbidden extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_third_party_path_not_supported__msg,
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override code = THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE;
 }
 
 /**
