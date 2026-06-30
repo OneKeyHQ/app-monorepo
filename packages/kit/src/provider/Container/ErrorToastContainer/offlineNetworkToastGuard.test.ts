@@ -70,12 +70,34 @@ describe('offlineNetworkToastGuard', () => {
     ).toBe(true);
   });
 
+  it('suppresses exact 30000ms timeout text without transport metadata', () => {
+    expect(
+      shouldSuppressNetworkErrorToast({
+        isInternetReachable: false,
+        payload: createErrorToastPayload({
+          title: 'timeout of 30000ms exceeded',
+        }),
+      }),
+    ).toBe(true);
+  });
+
   it('keeps generic timeout errors visible', () => {
     expect(
       shouldSuppressNetworkErrorToast({
         isInternetReachable: true,
         payload: createErrorToastPayload({
           title: 'Device method call timeout',
+        }),
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps other timeout durations visible without transport metadata', () => {
+    expect(
+      shouldSuppressNetworkErrorToast({
+        isInternetReachable: false,
+        payload: createErrorToastPayload({
+          title: 'timeout of 5000ms exceeded',
         }),
       }),
     ).toBe(false);

@@ -9,8 +9,7 @@ type IShowToastPayload = IAppEventBusPayload[EAppEventBusNames.ShowToast];
 const OFFLINE_NETWORK_ERROR_TEXT_REGEXP =
   /network\s+(error|request\s+failed)|failed\s+to\s+fetch|网络错误/i;
 
-const OFFLINE_NETWORK_TIMEOUT_TEXT_REGEXP =
-  /\btimeout\b|\btimed\s+out\b|请求超时/i;
+const EXACT_30000MS_TIMEOUT_TEXT = 'timeout of 30000ms exceeded';
 
 const OFFLINE_NETWORK_ERROR_CODES = new Set([
   'ECONNRESET',
@@ -30,13 +29,13 @@ function hasOfflineNetworkErrorText(payload: IShowToastPayload) {
   return OFFLINE_NETWORK_ERROR_TEXT_REGEXP.test(text);
 }
 
-function hasTimeoutText(payload: IShowToastPayload) {
-  const text = [payload.title, payload.message, payload.errorCode]
+function hasExact30000MsTimeoutText(payload: IShowToastPayload) {
+  return [payload.title, payload.message, payload.errorCode]
     .filter(Boolean)
-    .map(String)
-    .join('\n');
-
-  return OFFLINE_NETWORK_TIMEOUT_TEXT_REGEXP.test(text);
+    .some(
+      (value) =>
+        String(value).trim().toLowerCase() === EXACT_30000MS_TIMEOUT_TEXT,
+    );
 }
 
 function hasTimeoutCode(payload: IShowToastPayload) {
@@ -58,7 +57,7 @@ function isAxiosNetworkTimeout(payload: IShowToastPayload) {
     payload.errorName === 'AxiosError' ||
     payload.errorClassName === EOneKeyErrorClassNames.AxiosNetworkError;
 
-  return isAxiosOrNetworkError && hasTimeoutText(payload);
+  return isAxiosOrNetworkError && hasExact30000MsTimeoutText(payload);
 }
 
 export function shouldSuppressNetworkErrorToast({
@@ -73,6 +72,10 @@ export function shouldSuppressNetworkErrorToast({
   }
 
   if (hasTimeoutCode(payload)) {
+    return true;
+  }
+
+  if (hasExact30000MsTimeoutText(payload)) {
     return true;
   }
 
