@@ -154,6 +154,7 @@ jobs:
 
       - name: Cleanup Desktop Snap Sourcemaps and License Files
         if: always()
+        continue-on-error: true
         run: |
           if [ ! -d ./apps/desktop/web-build ]; then
             echo "Desktop web-build directory does not exist - skipping sourcemap cleanup."
@@ -178,6 +179,14 @@ jobs:
         run: |
           cd apps/desktop
           node scripts/finalize-renderer-assets.js
+          remaining_maps="$(find ./app/build \
+            \( -name '*.js.map' -o -name '*.css.map' \) \
+            -type f -print)"
+          if [ -n "$remaining_maps" ]; then
+            echo "::error::Desktop snap package still contains sourcemaps:"
+            echo "$remaining_maps"
+            exit 1
+          fi
           yarn build:main
           yarn install-app-deps
           npx electron-builder build -l --config electron-builder-snap.config.js ${{ matrix.build-flag }} --publish never

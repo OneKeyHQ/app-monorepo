@@ -203,6 +203,7 @@ jobs:
 
       - name: Cleanup Desktop Sourcemaps and License Files
         if: always()
+        continue-on-error: true
         run: |
           if [ ! -d ./apps/desktop/web-build ]; then
             echo "Desktop web-build directory does not exist - skipping sourcemap cleanup."
@@ -218,6 +219,22 @@ jobs:
         run: |
           cd apps/desktop
           node scripts/finalize-renderer-assets.js
+
+      - name: Assert Desktop Sourcemaps Are Stripped
+        run: |
+          if [ ! -d ./apps/desktop/app/build ]; then
+            echo "::error::Desktop renderer build directory does not exist."
+            exit 1
+          fi
+
+          remaining_maps="$(find ./apps/desktop/app/build \
+            \( -name '*.js.map' -o -name '*.css.map' \) \
+            -type f -print)"
+          if [ -n "$remaining_maps" ]; then
+            echo "::error::Desktop renderer artifact still contains sourcemaps:"
+            echo "$remaining_maps"
+            exit 1
+          fi
 
       - name: Export build metadata
         id: export-metadata
