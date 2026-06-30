@@ -846,7 +846,7 @@ jobs:
           exit 0
 
   cleanup-release-ref:
-    if: ${{ success() && github.event.inputs.cleanup_release_ref == 'true' && startsWith(github.ref, 'refs/tags/ci/desktop-release/') }}
+    if: ${{ always() && github.event.inputs.cleanup_release_ref == 'true' && startsWith(github.ref, 'refs/tags/ci/desktop-release/') }}
     needs:
       - renderer
       - package-mac
