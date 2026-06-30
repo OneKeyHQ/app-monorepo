@@ -267,6 +267,13 @@ async function estimateUnsignedTxGasInfo({
     accountId,
     scenario: 'swap',
     gasAccountEnabled,
+    transfersInfo: unsignedTxItem.transfersInfo,
+    // Bind the sponsor quote to the nonce that will actually broadcast (same
+    // unsignedTx is signed later), mirroring the transaction-confirm page.
+    lockedUserNonce:
+      typeof unsignedTxItem.nonce === 'number'
+        ? unsignedTxItem.nonce
+        : undefined,
   });
 
   return {
@@ -1057,12 +1064,19 @@ async function updateUnsignedTxAndSendTx({
   // When estimate-fee confirmed Gas Account sponsorship, attach the quote so the
   // broadcast pays via the sponsor. Mirrors the transaction-confirm page.
   const gasAccountUiState: IGasAccountUiState | undefined =
-    gasInfo.gasAccountEligible && gasInfo.gasAccountQuote?.quoteId
+    gasInfo.gasAccountEligible &&
+    gasInfo.payer === 'gasAccount' &&
+    gasInfo.gasAccountQuote?.quoteId
       ? {
           payer: gasInfo.payer,
           gasAccountEligible: true,
           gasAccountQuote: gasInfo.gasAccountQuote,
           selectedPayer: 'gasAccount',
+          // Same nonce the quote was bound to at estimate-fee time.
+          lockedUserNonce:
+            typeof updatedUnsignedTxItem.nonce === 'number'
+              ? updatedUnsignedTxItem.nonce
+              : undefined,
           idempotencyKey: `gas-account:${gasInfo.gasAccountQuote.quoteId}`,
         }
       : undefined;

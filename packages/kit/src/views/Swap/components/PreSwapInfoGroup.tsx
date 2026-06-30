@@ -146,9 +146,11 @@ const PreSwapInfoGroup = ({
   );
 
   const networkFeeSelect = useMemo(() => {
-    return (
-      <XStack alignItems="center" gap="$2">
-        {isGasSponsored ? (
+    // OneKey sponsors the network fee: the estimated amount and the fee-level
+    // selector are meaningless to the user, so show only the sponsored badge.
+    if (isGasSponsored) {
+      return (
+        <XStack alignItems="center" gap="$2">
           <Badge badgeType="success" badgeSize="sm">
             <Badge.Text>
               {intl.formatMessage({
@@ -156,7 +158,11 @@ const PreSwapInfoGroup = ({
               })}
             </Badge.Text>
           </Badge>
-        ) : null}
+        </XStack>
+      );
+    }
+    return (
+      <XStack alignItems="center" gap="$2">
         <Select
           testID="swap-network-fee-select-select"
           onChange={(value) =>

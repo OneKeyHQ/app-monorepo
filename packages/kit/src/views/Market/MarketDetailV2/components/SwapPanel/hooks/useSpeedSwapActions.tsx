@@ -11,12 +11,14 @@ import { ethers } from 'ethers';
 import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
+import { getGasAccountErrorEntry } from '@onekeyhq/kit/src/views/SignatureConfirm/constants/gasAccountErrorCodes';
 import { type ISwapReviewStepTexts } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
 import { checkSwapLatestBalanceSufficient } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
 import type {
@@ -38,6 +40,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -2164,6 +2167,17 @@ export function useSpeedSwapActions(props: {
           onCancel?.();
           return;
         }
+        // Sponsored broadcast failed at the gas-account layer: show the mapped
+        // sponsor message (sponsor unavailable / daily limit / quote expired …)
+        // before surfacing the failure. Plain errors fall through unchanged.
+        const gasAccountEntry = getGasAccountErrorEntry(
+          getGasAccountErrorCode(error),
+        );
+        if (gasAccountEntry) {
+          Toast.error({
+            title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+          });
+        }
         throw error;
       }
     },
@@ -2172,6 +2186,7 @@ export function useSpeedSwapActions(props: {
       assertLatestFromTokenBalanceSufficient,
       cancelSpeedSwapBuildTx,
       handleMarketSwapBuildTxSuccess,
+      intl,
       isUserCancelledError,
       logMarketCreateOrder,
       openMarketFallbackTxConfirm,
