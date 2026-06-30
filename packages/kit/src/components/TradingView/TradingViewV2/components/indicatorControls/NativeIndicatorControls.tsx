@@ -31,6 +31,7 @@ import type {
   ITradingViewNativeChartControlsConfigData,
 } from '../../types';
 import type {
+  GestureResponderEvent,
   LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -52,6 +53,20 @@ type IQuickBarItemLayout = {
   x: number;
   width: number;
 };
+
+function isQuickBarTouchPressEvent(event?: GestureResponderEvent): boolean {
+  const nativeEvent = event?.nativeEvent;
+  if (!nativeEvent) {
+    return false;
+  }
+  const hasTouchIdentifier =
+    nativeEvent.identifier !== null && nativeEvent.identifier !== undefined;
+  return Boolean(
+    hasTouchIdentifier ||
+    nativeEvent.touches?.length ||
+    nativeEvent.changedTouches?.length,
+  );
+}
 
 function buildIndicatorItemTestID(value: string): string {
   return `trading-view-native-indicator-item-${value
@@ -196,7 +211,7 @@ function IndicatorQuickBarItem({
 }: {
   indicator: ITradingViewIndicatorOption;
   isActive: boolean;
-  onPress: () => void;
+  onPress: (event?: GestureResponderEvent) => void;
   onLayout?: (event: LayoutChangeEvent) => void;
 }) {
   const content = (
@@ -276,8 +291,11 @@ export const TradingViewNativeIndicatorQuickBar = memo(
     }, []);
 
     const handleQuickBarIndicatorPress = useCallback(
-      (indicator: ITradingViewIndicatorOption) => {
-        if (platformEnv.isNativeAndroid) {
+      (
+        indicator: ITradingViewIndicatorOption,
+        shouldUseTouchGuard: boolean,
+      ) => {
+        if (platformEnv.isNativeAndroid && shouldUseTouchGuard) {
           if (quickBarPressHandledRef.current) {
             return;
           }
@@ -302,7 +320,7 @@ export const TradingViewNativeIndicatorQuickBar = memo(
         });
 
         if (indicator) {
-          handleQuickBarIndicatorPress(indicator);
+          handleQuickBarIndicatorPress(indicator, true);
         }
       },
       [handleQuickBarIndicatorPress, mainIndicators, subIndicators],
@@ -341,7 +359,12 @@ export const TradingViewNativeIndicatorQuickBar = memo(
             key={indicator.value}
             indicator={indicator}
             isActive={activeIndicatorValues.has(indicator.value)}
-            onPress={() => handleQuickBarIndicatorPress(indicator)}
+            onPress={(event) =>
+              handleQuickBarIndicatorPress(
+                indicator,
+                isQuickBarTouchPressEvent(event),
+              )
+            }
             onLayout={(event) =>
               handleQuickBarItemLayout(indicator.value, event)
             }
@@ -355,7 +378,12 @@ export const TradingViewNativeIndicatorQuickBar = memo(
             key={indicator.value}
             indicator={indicator}
             isActive={activeIndicatorValues.has(indicator.value)}
-            onPress={() => handleQuickBarIndicatorPress(indicator)}
+            onPress={(event) =>
+              handleQuickBarIndicatorPress(
+                indicator,
+                isQuickBarTouchPressEvent(event),
+              )
+            }
             onLayout={(event) =>
               handleQuickBarItemLayout(indicator.value, event)
             }
