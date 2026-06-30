@@ -3272,6 +3272,8 @@ export enum ETranslations {
   perp_account_mode_logic_pending__msg = 'perp_account_mode_logic_pending__msg',
   perp_account_mode_recommended__title = 'perp_account_mode_recommended__title',
   perp_account_mode_ui_updated__msg = 'perp_account_mode_ui_updated__msg',
+  perp_account_mode_updated__msg = 'perp_account_mode_updated__msg',
+  perp_account_mode_updating__msg = 'perp_account_mode_updating__msg',
   perp_average_price__title = 'perp_average_price__title',
   perp_backstop_liquidation__title = 'perp_backstop_liquidation__title',
   perp_basic_order__title = 'perp_basic_order__title',

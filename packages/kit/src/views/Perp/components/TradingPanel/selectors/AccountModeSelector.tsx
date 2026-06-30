@@ -6,7 +6,6 @@ import { SizableText, XStack, useInPageDialog } from '@onekeyhq/components';
 import {
   usePerpsAbstractionModeAtom,
   usePerpsActiveAccountAtom,
-  usePerpsActiveAccountIsAgentReadyAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
@@ -57,13 +56,7 @@ const AccountModeSelector = memo(
     const dialog = useInPageDialog();
     const [abstractionMode] = usePerpsAbstractionModeAtom();
     const [perpsActiveAccount] = usePerpsActiveAccountAtom();
-    const [{ isAgentReady }] = usePerpsActiveAccountIsAgentReadyAtom();
     const [draftMode, setDraftMode] = useState<IPerpsAccountModeOption>();
-
-    // Before trading is enabled the confirm button is replaced by an "Enable
-    // Trading" CTA whose flow force-sets unifiedAccount — so a PM pick here would
-    // be silently dropped. Gate the selector until the account is ready.
-    const isDisabled = disabled || !isAgentReady;
 
     const liveMode = useMemo(
       () =>
@@ -88,7 +81,7 @@ const AccountModeSelector = memo(
     }, [liveMode]);
 
     const handlePress = useCallback(() => {
-      if (isDisabled) return;
+      if (disabled) return;
       showAccountModeDialog({
         dialog,
         initialMode: displayMode,
@@ -97,12 +90,12 @@ const AccountModeSelector = memo(
           id: ETranslations.perp_account_mode__title,
         }),
       });
-    }, [dialog, isDisabled, displayMode, intl]);
+    }, [dialog, disabled, displayMode, intl]);
 
     return (
       <XStack
         onPress={handlePress}
-        disabled={isDisabled}
+        disabled={disabled}
         width="100%"
         height={isMobile ? 32 : 30}
         bg={isMobile ? '$bgSubdued' : '$bgStrong'}
