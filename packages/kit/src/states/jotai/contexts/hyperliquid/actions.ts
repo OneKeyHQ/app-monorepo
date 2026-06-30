@@ -3088,6 +3088,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           );
           await backgroundApiProxy.serviceHyperliquid.refreshUserAbstractionMode(
             params.userAddress as HL.IHex,
+            params.abstraction,
           );
         },
         actionType: EActionType.SET_ACCOUNT_MODE,

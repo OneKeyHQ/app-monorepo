@@ -2538,10 +2538,30 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   // Bust the cache before re-fetching, else the read returns the pre-switch mode.
+  // `confirmedMode` is the mode just switched to on-chain (the switch already
+  // succeeded): persist it first so a failed or eventually-consistent refetch —
+  // whose error path falls back to the stale SimpleDb value — can't revert the
+  // displayed/cold-start mode. WS (WEB_DATA3) still reconciles afterwards.
   @backgroundMethod()
   async refreshUserAbstractionMode(
     userAddress: IHex,
+    confirmedMode?: 'unifiedAccount' | 'portfolioMargin',
   ): Promise<string | undefined> {
+    const lowerUserAddress = userAddress.toLowerCase() as IHex;
+    if (confirmedMode) {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      if (activeAccount?.accountAddress?.toLowerCase() === lowerUserAddress) {
+        await this.backgroundApi.simpleDb.perp.setUserAbstractionMode(
+          lowerUserAddress,
+          confirmedMode,
+        );
+        await perpsAbstractionModeAtom.set({
+          accountAddress: lowerUserAddress,
+          mode: confirmedMode as EHyperLiquidAbstractionMode,
+          source: 'live',
+        });
+      }
+    }
     invalidateUserAbstractionRawCache(
       this.fetchUserAbstractionRawWithCache,
       userAddress,
