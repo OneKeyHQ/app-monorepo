@@ -1,10 +1,6 @@
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
-import {
-  isSameIdSequence,
-  isSameRowsByReference,
-  selectVisibleHistoryRows,
-} from './historyTopFreezeUtils';
+import { selectVisibleHistoryRows } from './historyTopFreezeUtils';
 
 function tx(id: string): IAccountHistoryTx {
   return { id } as unknown as IAccountHistoryTx;
@@ -106,55 +102,5 @@ describe('selectVisibleHistoryRows', () => {
         enabled: true,
       }),
     ).toBe(replaced);
-  });
-});
-
-describe('isSameIdSequence', () => {
-  it('is true for the same reference', () => {
-    const a = [tx('A'), tx('B')];
-    expect(isSameIdSequence(a, a)).toBe(true);
-  });
-
-  it('is true for equal id sequences', () => {
-    expect(isSameIdSequence([tx('A'), tx('B')], [tx('A'), tx('B')])).toBe(true);
-  });
-
-  it('is false for different lengths', () => {
-    expect(isSameIdSequence([tx('A')], [tx('A'), tx('B')])).toBe(false);
-  });
-
-  it('is false for different ids or order', () => {
-    expect(isSameIdSequence([tx('A'), tx('B')], [tx('B'), tx('A')])).toBe(
-      false,
-    );
-  });
-});
-
-describe('isSameRowsByReference', () => {
-  it('is true for the same reference', () => {
-    const a = [tx('A'), tx('B')];
-    expect(isSameRowsByReference(a, a)).toBe(true);
-  });
-
-  it('is true when every row is the same object reference', () => {
-    const a = tx('A');
-    const b = tx('B');
-    expect(isSameRowsByReference([a, b], [a, b])).toBe(true);
-  });
-
-  it('is false when a row object was rebuilt even though ids match', () => {
-    // Same ids/order, but the second list rebuilt the 'A' row (e.g. a poll that
-    // flipped it pending -> confirmed). Id equality would wrongly skip the
-    // update; reference equality forces a re-render so the new content shows.
-    const shared = tx('B');
-    const before = [tx('A'), shared];
-    const after = [tx('A'), shared];
-    expect(isSameIdSequence(before, after)).toBe(true);
-    expect(isSameRowsByReference(before, after)).toBe(false);
-  });
-
-  it('is false for different lengths', () => {
-    const a = tx('A');
-    expect(isSameRowsByReference([a], [a, tx('B')])).toBe(false);
   });
 });

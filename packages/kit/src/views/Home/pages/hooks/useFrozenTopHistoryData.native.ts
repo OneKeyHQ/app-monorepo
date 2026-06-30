@@ -12,7 +12,6 @@ import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import {
   FREEZE_ENGAGE_OFFSET,
   FREEZE_RELEASE_OFFSET,
-  isSameRowsByReference,
   selectVisibleHistoryRows,
 } from './historyTopFreezeUtils';
 
@@ -44,9 +43,17 @@ export function useFrozenTopHistoryData(
       isAwayFromTop: isAwayFromTopRef.current,
       enabled,
     });
-    if (isSameRowsByReference(next, displayedRef.current)) {
-      return;
-    }
+    // Always sync the freeze-selected rows; no content-equality short-circuit.
+    // `combined` is delivered from the background runtime via backgroundApiProxy
+    // (ServiceHistory.fetchAccountHistory is a @backgroundMethod), so it is
+    // re-serialized into brand-new objects on every poll — row identity never
+    // survives the bg -> main hop, making any per-row reference/id skip a no-op
+    // in production that would only mask legitimate in-place updates
+    // (pending -> confirmed/replaced, backfilled fields). When the list is not
+    // frozen `next === combinedRef.current`, so React still bails out of the
+    // re-render when the upstream list reference is unchanged. Re-rendering the
+    // same ids in place never re-inserts at the top, so it cannot reintroduce
+    // the OK-57070 jitter (only the held-back leading rows can cause that).
     displayedRef.current = next;
     setDisplayed(next);
   }, [enabled]);
