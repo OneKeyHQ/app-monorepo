@@ -1243,6 +1243,7 @@
   "earn_claim_redemption__action": "領取贖回",
   "earn_claim_rewards__action": "領取收益",
   "earn_no_assets_deposited": "目前尚未認購任何資產",
+  "earn_remove_and_claim_rewards__action": "Remove & Claim rewards",
   "earn_reward_distribution_schedule": "獎勵將於下個月 10 號之前發放到您的 Arbitrum 錢包（與以太坊相同的地址）。",
   "edit_fee_custom_set_as_default_description": "設為 {network} 網絡今後所有交易的預設值",
   "email_verification_rate_limit": "請等待 {rest} 秒後再請求新的驗證碼",
