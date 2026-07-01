@@ -1,4 +1,5 @@
 import {
+  calculateMarketTokenLivePriceChange,
   getStockMarketCapValue,
   getStockPeRatioValue,
   getStockVolume24hValue,
@@ -91,6 +92,8 @@ describe('stock metadata values', () => {
         decimals: 18,
         priceChange1hPercent: '12.34',
         priceChange24hPercent: '-0.62',
+        price1hAgo: '88',
+        price24hAgo: '100',
         stock: {
           subtitle: 'Stock Token Inc.',
           sourceLogoUri: '',
@@ -104,6 +107,132 @@ describe('stock metadata values', () => {
     );
 
     expect(token.change24h).toBe(-0.62);
+    expect(token.priceChangeBasePrice).toBe(100);
+  });
+});
+
+describe('market home live price change', () => {
+  test('stores the selected time range base price for websocket recalculation', () => {
+    const token = transformApiItemToToken(
+      {
+        address: '0x390a684ef9cade28a7ad0dfa61ab1eb3842618c4',
+        name: 'Token',
+        symbol: 'TOKEN',
+        decimals: 18,
+        priceChange1hPercent: '20',
+        priceChange24hPercent: '50',
+        price1hAgo: '10',
+        price24hAgo: '8',
+      },
+      {
+        chainId: 'evm--1',
+        networkLogoUri: '',
+        timeRange: '1h',
+      },
+    );
+
+    expect(token.change24h).toBe(20);
+    expect(token.priceChangeBasePrice).toBe(10);
+  });
+
+  test('falls back to 24h base price when selected time range base is missing', () => {
+    const token = transformApiItemToToken(
+      {
+        address: '0x390a684ef9cade28a7ad0dfa61ab1eb3842618c4',
+        name: 'Token',
+        symbol: 'TOKEN',
+        decimals: 18,
+        priceChange1hPercent: '20',
+        priceChange24hPercent: '50',
+        price24hAgo: '8',
+      },
+      {
+        chainId: 'evm--1',
+        networkLogoUri: '',
+        timeRange: '1h',
+      },
+    );
+
+    expect(token.priceChangeBasePrice).toBe(8);
+  });
+
+  test('falls back to 24h base price when selected time range base is a placeholder', () => {
+    const token = transformApiItemToToken(
+      {
+        address: '0x390a684ef9cade28a7ad0dfa61ab1eb3842618c4',
+        name: 'Token',
+        symbol: 'TOKEN',
+        decimals: 18,
+        priceChange1hPercent: '20',
+        priceChange24hPercent: '50',
+        price1hAgo: '-',
+        price24hAgo: '8',
+      },
+      {
+        chainId: 'evm--1',
+        networkLogoUri: '',
+        timeRange: '1h',
+      },
+    );
+
+    expect(token.priceChangeBasePrice).toBe(8);
+  });
+
+  test('ignores backend placeholder base prices', () => {
+    const token = transformApiItemToToken(
+      {
+        address: '0x390a684ef9cade28a7ad0dfa61ab1eb3842618c4',
+        name: 'Token',
+        symbol: 'TOKEN',
+        decimals: 18,
+        priceChange24hPercent: '50',
+        price24hAgo: '-',
+      },
+      {
+        chainId: 'evm--1',
+        networkLogoUri: '',
+        timeRange: '24h',
+      },
+    );
+
+    expect(token.priceChangeBasePrice).toBeUndefined();
+  });
+
+  test('calculates live price change from websocket price and base price', () => {
+    expect(
+      calculateMarketTokenLivePriceChange({
+        price: 12,
+        priceChangeBasePrice: 10,
+      }),
+    ).toBe(20);
+
+    expect(
+      calculateMarketTokenLivePriceChange({
+        price: 8,
+        priceChangeBasePrice: 10,
+      }),
+    ).toBe(-20);
+  });
+
+  test('skips live price change when price or base price is invalid', () => {
+    expect(
+      calculateMarketTokenLivePriceChange({
+        price: 12,
+        priceChangeBasePrice: undefined,
+      }),
+    ).toBeUndefined();
+    expect(
+      calculateMarketTokenLivePriceChange({
+        price: 0,
+        priceChangeBasePrice: 10,
+      }),
+    ).toBeUndefined();
+    expect(
+      calculateMarketTokenLivePriceChange({
+        price: 12,
+        priceChangeBasePrice: 0,
+      }),
+    ).toBeUndefined();
   });
 });
 
