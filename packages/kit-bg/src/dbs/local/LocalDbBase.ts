@@ -7110,10 +7110,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                       'importedCredential is required for imported account',
                     );
                   }
-                  if (
-                    existingImportedCredential &&
-                    hasExistingImportedAccount
-                  ) {
+                  if (existingImportedCredential) {
                     await this.txUpdateRecords({
                       tx,
                       name: ELocalDBStoreNames.Credential,

@@ -269,6 +269,22 @@ export function serializeBackgroundThreadResponse(
   return JSON.stringify(payload);
 }
 
+export function buildSafeBackgroundThreadErrorData(data: unknown) {
+  if (
+    data &&
+    typeof data === 'object' &&
+    !Array.isArray(data) &&
+    (data as { localSecretEnvelopeDataType?: unknown })
+      .localSecretEnvelopeDataType === 'credential'
+  ) {
+    return {
+      localSecretEnvelopeDataType: 'credential',
+    };
+  }
+
+  return undefined;
+}
+
 export function parseBackgroundThreadResponse(
   value: string | number | boolean | undefined,
 ): IBackgroundThreadResponsePayload | undefined {

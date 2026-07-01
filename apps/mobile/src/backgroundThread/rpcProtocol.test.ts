@@ -1,4 +1,5 @@
 import {
+  buildSafeBackgroundThreadErrorData,
   parseBackgroundThreadJotaiStateBroadcastBatchPayload,
   parseBackgroundThreadMainCapabilitiesPayload,
   parseBackgroundThreadResponse,
@@ -38,6 +39,27 @@ describe('background thread RPC protocol', () => {
     expect(response?.error?.data).toEqual({
       localSecretEnvelopeDataType: 'credential',
     });
+  });
+
+  it('keeps only the LSE marker from background error data', () => {
+    const data = buildSafeBackgroundThreadErrorData({
+      localSecretEnvelopeDataType: 'credential',
+      detail: { localOnly: true },
+    });
+
+    expect(data).toEqual({
+      localSecretEnvelopeDataType: 'credential',
+    });
+  });
+
+  it('drops non-LSE background error data before serialization', () => {
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+
+    expect(buildSafeBackgroundThreadErrorData(circular)).toBeUndefined();
+    expect(
+      buildSafeBackgroundThreadErrorData({ reason: 'network' }),
+    ).toBeUndefined();
   });
 
   describe('jotai batch broadcast payload', () => {

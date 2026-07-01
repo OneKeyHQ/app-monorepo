@@ -830,6 +830,79 @@ describe('LocalDbBase local secret envelope credentials', () => {
     expect(deleteLayerKey).toHaveBeenCalledTimes(1);
   });
 
+  it('refreshes an orphan imported credential during restore', async () => {
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    db.context.localPasswordKdfUpgraded = true;
+    db.context.localPasswordKdfUpgradedTargetIterations =
+      PBKDF2_CURRENT_NUM_OF_ITERATIONS;
+    db.context.localSecretEnvelopeCredentialMigrated = true;
+    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 1;
+    db.wallets = [
+      db.buildSingletonWalletRecord({ walletId: WALLET_TYPE_IMPORTED }),
+    ];
+    const accountId = 'imported--60--public-key';
+    const restoredAccount: IDBAccount = {
+      id: accountId,
+      name: 'Imported Account',
+      type: EDBAccountType.SIMPLE,
+      path: '',
+      coinType: '60',
+      impl: 'evm',
+      createAtNetwork: 'evm--1',
+      pub: 'public-key',
+      address: '0x0000000000000000000000000000000000000001',
+    };
+    const oldImportedCredential = await encryptImportedCredential({
+      credential: { privateKey: 'old-private-key-hex' },
+      password,
+    });
+    const nextImportedCredential = await encryptImportedCredential({
+      credential: { privateKey: 'next-private-key-hex' },
+      password,
+    });
+    const deleteLayerKey = jest.fn();
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter({
+      deleteLayerKey,
+    });
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [adapter],
+        strength: 'profile-bound',
+      });
+    db.credentials = [
+      {
+        id: accountId,
+        credential: await wrapLocalSecretEnvelopeV1({
+          dataType: 'credential',
+          layerAdapters: [adapter],
+          plaintext: oldImportedCredential,
+          recordId: accountId,
+          strength: 'profile-bound',
+        }),
+      },
+    ];
+
+    await db.addAccountsToWallet({
+      walletId: WALLET_TYPE_IMPORTED,
+      importedCredential: nextImportedCredential,
+      applyRestoreSyncPolicy: true,
+      skipEventEmit: true,
+      accounts: [restoredAccount],
+    });
+
+    expect(db.accounts).toEqual([restoredAccount]);
+    expect(db.wallets[0].accounts).toEqual([accountId]);
+    const innerCredential = await db.getCredentialInner({
+      credentialId: accountId,
+      resolveLayerAdapter: (layer) =>
+        layer.kind === adapter.kind ? adapter : undefined,
+    });
+    expect(innerCredential.credential).toBe(nextImportedCredential);
+    expect(deleteLayerKey).toHaveBeenCalledTimes(1);
+  });
+
   it('does not wrap a new credential as LSE before KDF lazy upgrade is complete', async () => {
     const db = new TestLocalDb();
     const password = await encodePasswordAsync({ password: 'test-password' });
