@@ -203,6 +203,46 @@ async function buildWeb({ repoRoot, log }) {
   }
 }
 
+async function checkWebStartupGraphBudget({ repoRoot, buildDir, log }) {
+  if (process.env.PERF_WEB_COLD_SKIP_STARTUP_GRAPH_BUDGET === '1') {
+    log('skip web startup graph budget');
+    return null;
+  }
+
+  const outputPath =
+    process.env.PERF_WEB_STARTUP_GRAPH_OUT ||
+    path.join(os.tmpdir(), `onekey-web-startup-graph-${Date.now()}.json`);
+  const result = await execCmd(
+    'node',
+    ['apps/web/scripts/check-startup-graph-budget.js', buildDir],
+    {
+      cwd: repoRoot,
+      env: withRepoNodeBin(repoRoot, {
+        WEB_STARTUP_BUILD_DIR: buildDir,
+        WEB_STARTUP_REPORT_PATH: outputPath,
+        WEB_STARTUP_BUDGET_PATH:
+          process.env.PERF_WEB_COLD_BUDGET_PATH ||
+          path.join(
+            repoRoot,
+            'development',
+            'perf-ci',
+            'thresholds',
+            'web.cold.json',
+          ),
+        WEB_STARTUP_BUDGET_FAIL: process.env.PERF_WEB_COLD_BUDGET_FAIL,
+      }),
+      timeoutMs: numberEnv('PERF_WEB_STARTUP_GRAPH_TIMEOUT_MS', 5 * 60 * 1000),
+      killProcessGroup: true,
+      stdout: (d) => process.stdout.write(d),
+      stderr: (d) => process.stderr.write(d),
+    },
+  );
+  if (result.code !== 0) {
+    throw new Error(formatExecResultError('web startup graph budget', result));
+  }
+  return readJsonIfExists(outputPath);
+}
+
 function installMetricObservers() {
   globalThis.__onekeyColdStartMetrics = {
     firstContentfulPaint: null,
@@ -913,6 +953,11 @@ async function main() {
     );
   }
 
+  const startupGraphBudget = await checkWebStartupGraphBudget({
+    repoRoot,
+    buildDir,
+    log,
+  });
   const budgetConfig = loadBudgetConfig(repoRoot);
   const scenarios = parseScenarios();
   const initialScripts = parseInitialScriptFiles(buildDir);
@@ -995,6 +1040,7 @@ async function main() {
       buildDir,
       profileDir: booleanEnv('PERF_WEB_COLD_CPU_PROFILE') ? profileDir : null,
       budgetConfig,
+      startupGraphBudget,
       scenarios: scenarioOutputs,
       url: firstScenario?.url,
       budgets: firstScenario?.budgets,
