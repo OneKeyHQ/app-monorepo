@@ -29,9 +29,9 @@ import {
   resolveDeFiActionTxAmount,
 } from '@onekeyhq/shared/src/utils/defiActionUtils';
 import defiPermitUtils from '@onekeyhq/shared/src/utils/defiPermitUtils';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
+  DEFI_PORTFOLIO_ACTION_STAKING_TAG,
   EDeFiPositionAction,
   type IDeFiActionExtraParams,
   type IDeFiActionTxConfirmInfo,
@@ -570,27 +570,36 @@ async function addDeFiActionEarnOrders({
   action,
   networkId,
   data,
+  orderIdByTxIndex,
 }: {
   action: IResolvedDeFiPositionAction;
   networkId: string;
   data: ISendTxOnSuccessData[];
+  orderIdByTxIndex: Map<number, string>;
 }) {
-  for (const orderTx of data) {
-    if (orderTx?.signedTx?.txid) {
-      await backgroundApiProxy.serviceStaking.addEarnOrder({
-        orderId: generateUUID(),
-        networkId,
-        txId: orderTx.signedTx.txid,
-        status: orderTx.decodedTx.status,
-        stakingLabel: getDeFiActionEarnLabel(action.action),
-        stakingProtocol: action.protocolId,
-        stakingTags: [
-          'defi-portfolio-action',
-          action.protocolId,
-          action.action,
-        ],
-      });
+  for (const [txIndex, orderId] of orderIdByTxIndex.entries()) {
+    const orderTx = data[txIndex];
+    if (!orderTx) {
+      throw new OneKeyLocalError('DeFi transaction result is missing');
     }
+    const txId = orderTx?.signedTx?.txid ?? orderTx?.decodedTx?.txid;
+    if (!txId) {
+      throw new OneKeyLocalError('DeFi transaction hash is missing');
+    }
+
+    await backgroundApiProxy.serviceStaking.addEarnOrder({
+      orderId,
+      networkId,
+      txId,
+      status: orderTx.decodedTx.status,
+      stakingLabel: getDeFiActionEarnLabel(action.action),
+      stakingProtocol: action.protocolId,
+      stakingTags: [
+        DEFI_PORTFOLIO_ACTION_STAKING_TAG,
+        action.protocolId,
+        action.action,
+      ],
+    });
   }
 }
 
@@ -696,6 +705,7 @@ function useProtocolPositionActionSubmit({
 
       try {
         const unsignedTxs: IUnsignedTxPro[] = [];
+        const orderIdByTxIndex = new Map<number, string>();
         let prevNonce: number | undefined;
 
         for (const selectedAsset of selectedAssets) {
@@ -768,6 +778,9 @@ function useProtocolPositionActionSubmit({
           if (!resp.tx) {
             throw new OneKeyLocalError('DeFi transaction is missing');
           }
+          if (!resp.orderId) {
+            throw new OneKeyLocalError('DeFi order id is missing');
+          }
 
           const withUuid =
             selectedAssets.length > 1 || Boolean(resp.approvalTx);
@@ -800,6 +813,7 @@ function useProtocolPositionActionSubmit({
           // confirm info scale by percent.
           const displayAmount =
             amountForApi ?? (isMaxAmount ? selectedAsset.amount : undefined);
+          orderIdByTxIndex.set(unsignedTxs.length, resp.orderId);
           unsignedTxs.push(
             attachDeFiActionTxConfirmInfo({
               unsignedTx,
@@ -825,13 +839,12 @@ function useProtocolPositionActionSubmit({
             // not request Gas Account sponsorship.
             gasAccountScenario: 'defi',
             onSuccess: async (data: ISendTxOnSuccessData[]) => {
-              // Tag the tx for pending tracking, but don't block the confirming
-              // sheet on it: showing the sheet in the same tick the confirm
-              // modal pops keeps the handoff smooth instead of flashing the page
-              // underneath while the earn-order call resolves.
-              void addDeFiActionEarnOrders({ action, networkId, data }).catch(
-                () => undefined,
-              );
+              await addDeFiActionEarnOrders({
+                action,
+                networkId,
+                data,
+                orderIdByTxIndex,
+              });
               // Block on the confirming sheet until the tx settles, then run
               // the caller's refresh so the position reflects the result.
               const finalStatus = await showDeFiActionTxConfirmDialog({

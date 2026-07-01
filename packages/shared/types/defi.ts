@@ -186,6 +186,8 @@ export enum EDeFiPositionAction {
   RemoveLiquidity = 'removeLiquidity',
 }
 
+export const DEFI_PORTFOLIO_ACTION_STAKING_TAG = 'defi-portfolio-action';
+
 export type IDeFiSupportedProtocolAction = {
   protocolId: string;
   networkId: string;
@@ -221,6 +223,7 @@ export type IDeFiBuildTransactionParams = {
 export type IDeFiBuildTransactionResp = {
   tx?: IDeFiEvmTransaction;
   approvalTx?: IDeFiEvmTransaction;
+  orderId?: string;
   permit?: {
     message: unknown;
     deadline: number;
