@@ -17,16 +17,21 @@ const minTokenCount = Number(
 
 class MarketHomeTokenSeedError extends Error {}
 
-function requireSeedUrl() {
+function warnAndSkip(message) {
+  console.warn(`[fetch-market-home-token-seed] skipped: ${message}`);
+}
+
+function hasSeedUrl() {
   if (!seedUrl) {
-    throw new MarketHomeTokenSeedError(
+    warnAndSkip(
       [
-        'MARKET_HOME_TOKEN_SEED_URL is required.',
-        'Upload the generated market-home-token-seed-v1.json to a static URL,',
-        'then pass that URL when building @onekeyhq/web.',
+        'MARKET_HOME_TOKEN_SEED_URL is not set.',
+        'Market home will fall back to the remote token list at runtime.',
       ].join(' '),
     );
+    return false;
   }
+  return true;
 }
 
 function getSeedData(payload) {
@@ -85,7 +90,9 @@ async function fetchJson(url) {
 }
 
 async function main() {
-  requireSeedUrl();
+  if (!hasSeedUrl()) {
+    return;
+  }
 
   console.log(`Fetching market token seed: ${seedUrl}`);
   const payload = await fetchJson(seedUrl);
@@ -100,6 +107,5 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error('[fetch-market-home-token-seed] failed:', error);
-  process.exit(1);
+  warnAndSkip(error instanceof Error ? error.message : String(error));
 });
