@@ -5,6 +5,7 @@ import {
 import { sha256 as sha256ByNoble } from '@noble/hashes/sha256';
 
 import { OneKeyLocalError } from '../../errors';
+import platformEnv from '../../platformEnv';
 import bufferUtils from '../../utils/bufferUtils';
 import { PBKDF2_CURRENT_NUM_OF_ITERATIONS, PBKDF2_KEY_LENGTH } from '../consts';
 import { runAppCryptoTestTask } from '../utils';
@@ -146,10 +147,7 @@ function prunePbkdf2Cache(now = Date.now()) {
 }
 
 function getPbkdf2CacheBackend(params: IPbkdf2DispatchParams): IPbkdf2Backend {
-  if (
-    (params.backend === 'webcrypto' || params.backend === 'native') &&
-    isWebCryptoPbkdf2Supported()
-  ) {
+  if (shouldUseWebCryptoPbkdf2(params)) {
     return 'webcrypto';
   }
   return 'noble';
@@ -360,6 +358,15 @@ async function pbkdf2ByWebCrypto({
   return Buffer.from(derivedBits);
 }
 
+function shouldUseWebCryptoPbkdf2(params: IPbkdf2DispatchParams): boolean {
+  return (
+    (params.backend === 'webcrypto' ||
+      params.backend === 'native' ||
+      (platformEnv.isJest && !params.backend)) &&
+    isWebCryptoPbkdf2Supported()
+  );
+}
+
 function getPbkdf2KdfParamsForNonDbTx(): IPbkdf2KdfParams {
   if (isWebCryptoPbkdf2Supported()) {
     return {
@@ -374,10 +381,7 @@ function getPbkdf2KdfParamsForNonDbTx(): IPbkdf2KdfParams {
 
 async function pbkdf2(params: IPbkdf2DispatchParams): Promise<Buffer> {
   return runPbkdf2WithCache(params, () => {
-    if (
-      (params.backend === 'webcrypto' || params.backend === 'native') &&
-      isWebCryptoPbkdf2Supported()
-    ) {
+    if (shouldUseWebCryptoPbkdf2(params)) {
       return pbkdf2ByWebCrypto(params);
     }
     return pbkdf2ByNoble(params);
