@@ -24,6 +24,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   buildDeFiActionBps,
   resolveDeFiActionTxAmount,
@@ -566,40 +567,61 @@ function getDeFiActionEarnLabel(action: EDeFiPositionAction) {
   return EEarnLabels.Unknown;
 }
 
+function logDeFiActionEarnOrderError(error: unknown) {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  defaultLogger.app.error.log(
+    `DeFi action earn order registration failed: ${errorMessage}`,
+  );
+}
+
 async function addDeFiActionEarnOrders({
   action,
   networkId,
   data,
-  orderIdByTxIndex,
+  orderIdsByBusinessTxIndex,
 }: {
   action: IResolvedDeFiPositionAction;
   networkId: string;
   data: ISendTxOnSuccessData[];
-  orderIdByTxIndex: Map<number, string>;
+  orderIdsByBusinessTxIndex: string[];
 }) {
-  for (const [txIndex, orderId] of orderIdByTxIndex.entries()) {
+  for (
+    let txIndex = 0;
+    txIndex < orderIdsByBusinessTxIndex.length;
+    txIndex += 1
+  ) {
+    const orderId = orderIdsByBusinessTxIndex[txIndex];
     const orderTx = data[txIndex];
     if (!orderTx) {
-      throw new OneKeyLocalError('DeFi transaction result is missing');
+      logDeFiActionEarnOrderError(
+        new OneKeyLocalError('DeFi transaction result is missing'),
+      );
+    } else {
+      const txId = orderTx?.signedTx?.txid ?? orderTx?.decodedTx?.txid;
+      if (!txId) {
+        logDeFiActionEarnOrderError(
+          new OneKeyLocalError('DeFi transaction hash is missing'),
+        );
+      } else {
+        try {
+          await backgroundApiProxy.serviceStaking.addEarnOrder({
+            orderId,
+            networkId,
+            txId,
+            status: orderTx.decodedTx.status,
+            stakingLabel: getDeFiActionEarnLabel(action.action),
+            stakingProtocol: action.protocolId,
+            stakingTags: [
+              DEFI_PORTFOLIO_ACTION_STAKING_TAG,
+              action.protocolId,
+              action.action,
+            ],
+          });
+        } catch (error) {
+          logDeFiActionEarnOrderError(error);
+        }
+      }
     }
-    const txId = orderTx?.signedTx?.txid ?? orderTx?.decodedTx?.txid;
-    if (!txId) {
-      throw new OneKeyLocalError('DeFi transaction hash is missing');
-    }
-
-    await backgroundApiProxy.serviceStaking.addEarnOrder({
-      orderId,
-      networkId,
-      txId,
-      status: orderTx.decodedTx.status,
-      stakingLabel: getDeFiActionEarnLabel(action.action),
-      stakingProtocol: action.protocolId,
-      stakingTags: [
-        DEFI_PORTFOLIO_ACTION_STAKING_TAG,
-        action.protocolId,
-        action.action,
-      ],
-    });
   }
 }
 
@@ -705,7 +727,7 @@ function useProtocolPositionActionSubmit({
 
       try {
         const unsignedTxs: IUnsignedTxPro[] = [];
-        const orderIdByTxIndex = new Map<number, string>();
+        const orderIdsByBusinessTxIndex: string[] = [];
         let prevNonce: number | undefined;
 
         for (const selectedAsset of selectedAssets) {
@@ -813,7 +835,7 @@ function useProtocolPositionActionSubmit({
           // confirm info scale by percent.
           const displayAmount =
             amountForApi ?? (isMaxAmount ? selectedAsset.amount : undefined);
-          orderIdByTxIndex.set(unsignedTxs.length, resp.orderId);
+          orderIdsByBusinessTxIndex.push(resp.orderId);
           unsignedTxs.push(
             attachDeFiActionTxConfirmInfo({
               unsignedTx,
@@ -839,12 +861,12 @@ function useProtocolPositionActionSubmit({
             // not request Gas Account sponsorship.
             gasAccountScenario: 'defi',
             onSuccess: async (data: ISendTxOnSuccessData[]) => {
-              await addDeFiActionEarnOrders({
+              void addDeFiActionEarnOrders({
                 action,
                 networkId,
                 data,
-                orderIdByTxIndex,
-              });
+                orderIdsByBusinessTxIndex,
+              }).catch(logDeFiActionEarnOrderError);
               // Block on the confirming sheet until the tx settles, then run
               // the caller's refresh so the position reflects the result.
               const finalStatus = await showDeFiActionTxConfirmDialog({
