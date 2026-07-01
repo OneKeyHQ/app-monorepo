@@ -7106,11 +7106,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                     );
                   }
                   if (!importedCredentialToAdd) {
-                    throw new OneKeyLocalError(
-                      'importedCredential is required for imported account',
-                    );
-                  }
-                  if (existingImportedCredential) {
+                    if (
+                      !existingImportedCredential ||
+                      !hasExistingImportedAccount
+                    ) {
+                      throw new OneKeyLocalError(
+                        'importedCredential is required for imported account',
+                      );
+                    }
+                  } else if (existingImportedCredential) {
                     await this.txUpdateRecords({
                       tx,
                       name: ELocalDBStoreNames.Credential,

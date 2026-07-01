@@ -830,6 +830,70 @@ describe('LocalDbBase local secret envelope credentials', () => {
     expect(deleteLayerKey).toHaveBeenCalledTimes(1);
   });
 
+  it('reuses an existing imported account credential during restore when no new credential is provided', async () => {
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    db.context.localPasswordKdfUpgraded = true;
+    db.context.localPasswordKdfUpgradedTargetIterations =
+      PBKDF2_CURRENT_NUM_OF_ITERATIONS;
+    db.context.localSecretEnvelopeCredentialMigrated = true;
+    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 1;
+    db.wallets = [
+      db.buildSingletonWalletRecord({ walletId: WALLET_TYPE_IMPORTED }),
+    ];
+    const accountId = 'imported--60--public-key';
+    const restoredAccount: IDBAccount = {
+      id: accountId,
+      name: 'Imported Account',
+      type: EDBAccountType.SIMPLE,
+      path: '',
+      coinType: '60',
+      impl: 'evm',
+      createAtNetwork: 'evm--1',
+      pub: 'public-key',
+      address: '0x0000000000000000000000000000000000000001',
+    };
+    db.accounts = [restoredAccount];
+    db.wallets[0].accounts = [accountId];
+    const existingImportedCredential = await encryptImportedCredential({
+      credential: { privateKey: 'existing-private-key-hex' },
+      password,
+    });
+    const deleteLayerKey = jest.fn();
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter({
+      deleteLayerKey,
+    });
+    const existingEnvelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [adapter],
+      plaintext: existingImportedCredential,
+      recordId: accountId,
+      strength: 'profile-bound',
+    });
+    db.credentials = [
+      {
+        id: accountId,
+        credential: existingEnvelope,
+      },
+    ];
+
+    await db.addAccountsToWallet({
+      walletId: WALLET_TYPE_IMPORTED,
+      applyRestoreSyncPolicy: true,
+      skipEventEmit: true,
+      accounts: [restoredAccount],
+    });
+
+    expect(db.credentials[0].credential).toBe(existingEnvelope);
+    const innerCredential = await db.getCredentialInner({
+      credentialId: accountId,
+      resolveLayerAdapter: (layer) =>
+        layer.kind === adapter.kind ? adapter : undefined,
+    });
+    expect(innerCredential.credential).toBe(existingImportedCredential);
+    expect(deleteLayerKey).not.toHaveBeenCalled();
+  });
+
   it('refreshes an orphan imported credential during restore', async () => {
     const db = new TestLocalDb();
     const password = await encodePasswordAsync({ password: 'test-password' });
