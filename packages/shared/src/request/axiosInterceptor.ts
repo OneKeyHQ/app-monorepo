@@ -33,6 +33,15 @@ const refreshNetInfo = debounce(() => {
   appEventBus.emit(EAppEventBusNames.RefreshNetInfo, undefined);
 }, 2500);
 
+const getToastTracePath = (url: unknown) => {
+  if (!url) {
+    return undefined;
+  }
+  const text = String(url);
+  const path = text.split('?')[0] || text;
+  return path.length > 180 ? `${path.slice(0, 180)}...` : path;
+};
+
 axios.interceptors.request.use(async (config) => {
   if (config.timeout === undefined) {
     config.timeout = 30_000;
@@ -217,6 +226,16 @@ axios.interceptors.response.use(
       error.code === AxiosError.ERR_NETWORK &&
       error.name === 'AxiosError'
     ) {
+      defaultLogger.app.toastTrace.axiosNetworkError({
+        code: error.code,
+        name: error.name,
+        message: error.message,
+        method: error.config?.method,
+        path: getToastTracePath(error.config?.url),
+        timeout: error.config?.timeout,
+        hasResponse: Boolean(error.response),
+        hasBaseURL: Boolean(error.config?.baseURL),
+      });
       refreshNetInfo();
       const title = appLocale.intl.formatMessage({
         id: ETranslations.global_network_error,

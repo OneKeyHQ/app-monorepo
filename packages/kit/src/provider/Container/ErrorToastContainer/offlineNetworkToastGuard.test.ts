@@ -29,6 +29,79 @@ describe('offlineNetworkToastGuard', () => {
     ).toBe(true);
   });
 
+  it('suppresses axios network error toast before offline status is confirmed', () => {
+    const payload = createErrorToastPayload({
+      errorClassName: EOneKeyErrorClassNames.AxiosNetworkError,
+      title: '网络错误',
+    });
+
+    expect(
+      shouldSuppressNetworkErrorToast({
+        isInternetReachable: true,
+        payload,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldSuppressNetworkErrorToast({
+        isInternetReachable: null,
+        payload,
+      }),
+    ).toBe(true);
+  });
+
+  it('suppresses exact network error text before offline status is confirmed', () => {
+    expect(
+      shouldSuppressNetworkErrorToast({
+        isInternetReachable: true,
+        payload: createErrorToastPayload({
+          title: '网络错误',
+        }),
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldSuppressNetworkErrorToast({
+        isInternetReachable: true,
+        payload: createErrorToastPayload({
+          title: 'Network Error',
+        }),
+      }),
+    ).toBe(true);
+  });
+
+  it('suppresses ERR_NETWORK before offline status is confirmed', () => {
+    expect(
+      shouldSuppressNetworkErrorToast({
+        isInternetReachable: true,
+        payload: createErrorToastPayload({
+          errorCode: 'ERR_NETWORK',
+          title: 'Request failed',
+        }),
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps broader network failure text tied to the offline state', () => {
+    const payload = createErrorToastPayload({
+      title: 'Network request failed',
+    });
+
+    expect(
+      shouldSuppressNetworkErrorToast({
+        isInternetReachable: true,
+        payload,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldSuppressNetworkErrorToast({
+        isInternetReachable: false,
+        payload,
+      }),
+    ).toBe(true);
+  });
+
   it('suppresses transport timeout code regardless of network status', () => {
     const payload = createErrorToastPayload({
       errorCode: 'ECONNABORTED',
@@ -138,6 +211,19 @@ describe('offlineNetworkToastGuard', () => {
           errorClassName: EOneKeyErrorClassNames.OneKeyServerApiError,
           httpStatusCode: 400,
           title: 'Invalid request',
+        }),
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps HTTP status responses visible even with network error metadata', () => {
+    expect(
+      shouldSuppressNetworkErrorToast({
+        isInternetReachable: true,
+        payload: createErrorToastPayload({
+          errorClassName: EOneKeyErrorClassNames.AxiosNetworkError,
+          httpStatusCode: 503,
+          title: '网络错误',
         }),
       }),
     ).toBe(false);
