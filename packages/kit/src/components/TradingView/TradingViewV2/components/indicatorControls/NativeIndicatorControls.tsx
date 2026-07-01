@@ -183,6 +183,18 @@ function IndicatorQuickBarItem({
   isActive: boolean;
   onPress: () => void;
 }) {
+  const content = (
+    <SizableText
+      size={isActive ? '$bodySmMedium' : '$bodySm'}
+      numberOfLines={1}
+      adjustsFontSizeToFit
+      minimumFontScale={0.82}
+      color={isActive ? '$text' : '$textSubdued'}
+    >
+      {indicator.label}
+    </SizableText>
+  );
+
   return (
     <XStack
       testID={buildIndicatorQuickBarItemTestID(indicator.value)}
@@ -191,17 +203,11 @@ function IndicatorQuickBarItem({
       justifyContent="center"
       cursor="pointer"
       userSelect="none"
+      accessibilityRole="button"
+      accessibilityState={{ selected: isActive }}
       onPress={onPress}
     >
-      <SizableText
-        size={isActive ? '$bodySmMedium' : '$bodySm'}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.82}
-        color={isActive ? '$text' : '$textSubdued'}
-      >
-        {indicator.label}
-      </SizableText>
+      {content}
     </XStack>
   );
 }
@@ -232,6 +238,35 @@ export const TradingViewNativeIndicatorQuickBar = memo(
       return null;
     }
 
+    const quickBarContent = (
+      <XStack
+        h={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
+        px="$5"
+        gap="$4"
+        alignItems="center"
+      >
+        {mainIndicators.map((indicator) => (
+          <IndicatorQuickBarItem
+            key={indicator.value}
+            indicator={indicator}
+            isActive={activeIndicatorValues.has(indicator.value)}
+            onPress={() => handleIndicatorPress(indicator)}
+          />
+        ))}
+        {subIndicators.length ? (
+          <Stack h="$4" w="$px" bg="$borderSubdued" />
+        ) : null}
+        {subIndicators.map((indicator) => (
+          <IndicatorQuickBarItem
+            key={indicator.value}
+            indicator={indicator}
+            isActive={activeIndicatorValues.has(indicator.value)}
+            onPress={() => handleIndicatorPress(indicator)}
+          />
+        ))}
+      </XStack>
+    );
+
     return (
       <Stack
         testID="trading-view-native-indicator-quick-bar"
@@ -240,32 +275,7 @@ export const TradingViewNativeIndicatorQuickBar = memo(
         zIndex={3}
       >
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <XStack
-            h={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
-            px="$5"
-            gap="$4"
-            alignItems="center"
-          >
-            {mainIndicators.map((indicator) => (
-              <IndicatorQuickBarItem
-                key={indicator.value}
-                indicator={indicator}
-                isActive={activeIndicatorValues.has(indicator.value)}
-                onPress={() => handleIndicatorPress(indicator)}
-              />
-            ))}
-            {subIndicators.length ? (
-              <Stack h="$4" w="$px" bg="$borderSubdued" />
-            ) : null}
-            {subIndicators.map((indicator) => (
-              <IndicatorQuickBarItem
-                key={indicator.value}
-                indicator={indicator}
-                isActive={activeIndicatorValues.has(indicator.value)}
-                onPress={() => handleIndicatorPress(indicator)}
-              />
-            ))}
-          </XStack>
+          {quickBarContent}
         </ScrollView>
       </Stack>
     );
