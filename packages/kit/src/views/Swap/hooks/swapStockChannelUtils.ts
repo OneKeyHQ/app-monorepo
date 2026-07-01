@@ -198,6 +198,18 @@ export function isStockPayTokenReadyForTradeInput({
   );
 }
 
+export function shouldRenderStockTradeInputSkeleton({
+  inputTokenReady,
+  inputTokenVisible,
+  isBuySide,
+}: {
+  inputTokenReady: boolean;
+  inputTokenVisible: boolean;
+  isBuySide: boolean;
+}) {
+  return isBuySide ? !inputTokenVisible : !inputTokenReady;
+}
+
 function getStockDefaultPayTokenCandidates(candidates: IToken[]) {
   return filterStockPayTokenCandidates(candidates);
 }
