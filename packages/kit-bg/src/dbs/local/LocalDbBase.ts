@@ -94,7 +94,10 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import { getDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
+import {
+  AllWalletAvatarImages,
+  getDeviceAvatarImage,
+} from '@onekeyhq/shared/src/utils/avatarUtils';
 import type { IAllWalletAvatarImageNamesWithoutDividers } from '@onekeyhq/shared/src/utils/avatarUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import perfUtils, {
@@ -326,6 +329,9 @@ function getExtraDeviceFieldString(
   field:
     | 'raw.firmwareVersion'
     | 'raw.serialNumber'
+    | 'raw.modelName'
+    | 'raw.productName'
+    | 'raw.provider_product'
     | 'vendorModel'
     | 'vendorModelName',
 ) {
@@ -334,15 +340,13 @@ function getExtraDeviceFieldString(
     vendorModel?: unknown;
     vendorModelName?: unknown;
   };
-  if (field === 'raw.firmwareVersion') {
-    const value = extraDevice.raw?.firmwareVersion;
+  // Top-level fields are read directly; every `raw.*` field is read from the
+  // nested `raw` object (NOT a flat `raw.xxx` key on the device).
+  if (field === 'vendorModel' || field === 'vendorModelName') {
+    const value = extraDevice[field];
     return isString(value) ? value : undefined;
   }
-  if (field === 'raw.serialNumber') {
-    const value = extraDevice.raw?.serialNumber;
-    return isString(value) ? value : undefined;
-  }
-  const value = extraDevice[field];
+  const value = extraDevice.raw?.[field.slice('raw.'.length)];
   return isString(value) ? value : undefined;
 }
 
@@ -477,6 +481,45 @@ export function buildThirdPartyDeviceSettingsFromDevice({
     ...(vendorModelName ? { vendorModelName } : undefined),
     ...(vendorFirmwareVersion ? { vendorFirmwareVersion } : undefined),
   };
+}
+
+export function getThirdPartyDeviceModelName({
+  device,
+  features,
+}: {
+  device: IDBCreateHwWalletParams['device'];
+  features: IOneKeyDeviceFeatures;
+}): string | undefined {
+  const featureRecord = features as IOneKeyDeviceFeatures & {
+    model?: string;
+    provider_product?: string;
+  };
+  const vendorModelName =
+    getExtraDeviceFieldString(device, 'vendorModelName') ||
+    featureRecord.model ||
+    getExtraDeviceFieldString(device, 'raw.modelName') ||
+    getExtraDeviceFieldString(device, 'raw.productName') ||
+    getExtraDeviceFieldString(device, 'raw.provider_product') ||
+    featureRecord.provider_product;
+
+  return vendorModelName;
+}
+
+export function getThirdPartyDeviceAvatarImage({
+  profile,
+  modelName,
+}: {
+  profile: ReturnType<typeof getVendorProfile>;
+  modelName?: string;
+}): IAllWalletAvatarImageNamesWithoutDividers {
+  if (
+    profile.vendor === EHardwareVendor.trezor &&
+    modelName &&
+    modelName in AllWalletAvatarImages
+  ) {
+    return modelName as IAllWalletAvatarImageNamesWithoutDividers;
+  }
+  return profile.avatarKey as IAllWalletAvatarImageNamesWithoutDividers;
 }
 
 function parseDeviceSettingsRaw(settingsRaw?: string): IDBDeviceSettings {
@@ -5542,13 +5585,22 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     deviceName: string;
     featuresInfo: IOneKeyDeviceFeatures;
   } {
+    const modelName = getThirdPartyDeviceModelName({
+      device,
+      features,
+    });
+    const deviceLabel = isString(features.label) ? features.label : undefined;
     return {
       deviceType: EDeviceType.Unknown,
       firmwareType: thirdPartyDeviceUtils.getFirmwareType({ features }),
       avatar: {
-        img: profile.avatarKey as IAllWalletAvatarImageNamesWithoutDividers,
+        img: getThirdPartyDeviceAvatarImage({ profile, modelName }),
       },
-      deviceName: device.name || `${profile.defaultDeviceName} Device`,
+      deviceName:
+        deviceLabel ||
+        modelName ||
+        device.name ||
+        `${profile.defaultDeviceName} Device`,
       featuresInfo: buildThirdPartyFeaturesInfoFromDevice({
         device,
         features,
