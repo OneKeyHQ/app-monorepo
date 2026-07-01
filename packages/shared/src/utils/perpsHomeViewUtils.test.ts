@@ -1,0 +1,115 @@
+import { mapSnapshotToPerpsHomeView } from './perpsHomeViewUtils';
+
+const snap: any = {
+  address: '0xabc',
+  isEmpty: false,
+  accountValue: '146.65',
+  withdrawable: '110',
+  totalMarginUsed: '10',
+  totalUnrealizedPnl: '10.12',
+  perpPositions: [
+    {
+      coin: 'ETH',
+      szi: '1.2',
+      entryPx: '1600.12',
+      positionValue: '1920.14',
+      unrealizedPnl: '10.12',
+      returnOnEquity: '0.1',
+      liquidationPx: '1500.00',
+      marginUsed: '100.12',
+      leverageType: 'isolated',
+      leverageValue: 1,
+      cumFundingSinceOpen: '0.01',
+    },
+    {
+      coin: 'BTC',
+      szi: '-0.1',
+      entryPx: '60000',
+      positionValue: '6000',
+      unrealizedPnl: '-50',
+      returnOnEquity: '-0.1',
+      liquidationPx: null,
+      marginUsed: '600',
+      leverageType: 'cross',
+      leverageValue: 10,
+      cumFundingSinceOpen: '-0.5',
+    },
+  ],
+  spotBalances: [
+    {
+      coin: 'USDC',
+      token: 0,
+      total: '82.45',
+      hold: '0',
+      entryNtl: '82.45',
+      priceUsd: '1',
+      valueUsd: '82.45',
+    },
+    {
+      coin: 'HYPE',
+      token: 2,
+      total: '1.24',
+      hold: '0',
+      entryNtl: '27.0',
+      priceUsd: '22.71',
+      valueUsd: '28.16',
+    },
+    {
+      coin: 'WEIRD',
+      token: 9,
+      total: '5',
+      hold: '0',
+      entryNtl: '5',
+      priceUsd: undefined,
+      valueUsd: undefined,
+    },
+  ],
+  spotTotalUsd: '110.61',
+  netWorthUsd: '257.26',
+  source: 'rest',
+  isDegraded: true,
+  summaryUpdatedAt: 1,
+  spotUpdatedAt: 1,
+  priceCachedAt: 1,
+  fetchedAt: 1,
+};
+
+describe('mapSnapshotToPerpsHomeView', () => {
+  it('maps account value + positions with derived markPx + side + abs size', () => {
+    const v = mapSnapshotToPerpsHomeView(snap);
+    expect(v.isEmpty).toBe(false);
+    expect(v.accountValueUsd).toBeCloseTo(146.65);
+    const eth = v.positions.find((p) => p.coin === 'ETH');
+    expect(eth?.side).toBe('long');
+    expect(eth?.sizeCoin).toBe('1.2');
+    expect(Number(eth?.markPx)).toBeCloseTo(1600.117); // 1920.14 / 1.2
+    expect(eth?.pnlUsd).toBeCloseTo(10.12);
+    expect(eth?.roi).toBeCloseTo(0.1);
+    const btc = v.positions.find((p) => p.coin === 'BTC');
+    expect(btc?.side).toBe('short');
+    expect(btc?.sizeCoin).toBe('0.1');
+    expect(btc?.liqPx).toBeNull();
+  });
+  it('maps holdings with spot pnl = value - entryNtl, undefined when price missing', () => {
+    const v = mapSnapshotToPerpsHomeView(snap);
+    const hype = v.holdings.find((h) => h.symbol === 'HYPE');
+    expect(hype?.valueUsd).toBeCloseTo(28.16);
+    expect(hype?.pnlUsd).toBeCloseTo(1.16); // 28.16 - 27.0
+    const usdc = v.holdings.find((h) => h.symbol === 'USDC');
+    expect(usdc?.pnlUsd).toBeCloseTo(0);
+    const weird = v.holdings.find((h) => h.symbol === 'WEIRD');
+    expect(weird?.valueUsd).toBeUndefined();
+    expect(weird?.pnlUsd).toBeUndefined();
+  });
+  it('empty snapshot → empty view', () => {
+    const v = mapSnapshotToPerpsHomeView({
+      ...snap,
+      isEmpty: true,
+      perpPositions: [],
+      spotBalances: [],
+    });
+    expect(v.isEmpty).toBe(true);
+    expect(v.positions).toHaveLength(0);
+    expect(v.holdings).toHaveLength(0);
+  });
+});
