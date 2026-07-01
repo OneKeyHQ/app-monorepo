@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Empty, Skeleton, XStack, YStack } from '@onekeyhq/components';
+import { Empty, Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -17,6 +17,45 @@ import SwapProPositionListFooter from '../../components/SwapProPositionListFoote
 import SwapProPositionListHeader from '../../components/SwapProPositionListHeader';
 import { useSwapProPositionsListFilter } from '../../hooks/useSwapPro';
 import { useSwapProPositionsPnl } from '../../hooks/useSwapProPositionsPnl';
+
+function SwapProPositionItemSkeleton() {
+  return (
+    <Stack
+      flexDirection="row"
+      alignItems="center"
+      minHeight="$11"
+      gap="$3"
+      py="$2"
+      px="$2"
+      mx="$-2"
+      borderRadius="$3"
+    >
+      <XStack alignItems="center" gap="$2" flexGrow={1} flexBasis={0}>
+        <Skeleton w="$8" h="$8" radius="round" />
+        <YStack gap="$1">
+          <Skeleton h="$5" w="$24" />
+          <Skeleton h="$4" w="$16" />
+        </YStack>
+      </XStack>
+
+      <YStack alignItems="flex-end" flexShrink={0} gap="$1">
+        <Skeleton h="$5" w="$16" />
+        <Skeleton h="$4" w="$20" />
+      </YStack>
+    </Stack>
+  );
+}
+
+function SwapProPositionsListSkeleton({ rowCount }: { rowCount: number }) {
+  return (
+    <YStack>
+      <SwapProPositionListHeader />
+      {Array.from({ length: rowCount }).map((_, index) => (
+        <SwapProPositionItemSkeleton key={`position-skeleton-${index}`} />
+      ))}
+    </YStack>
+  );
+}
 
 interface ISwapProPositionsListProps {
   onTokenPress: (token: ISwapToken) => void;
@@ -109,17 +148,7 @@ const SwapProPositionsList = ({
     (swapProSupportNetworksTokenListLoading && !shouldUseCachedTokenList) ||
     isStockListLoading
   ) {
-    return (
-      <YStack gap="$2" p="$2">
-        <XStack>
-          <Skeleton w="$20" h="$8" radius="round" />
-        </XStack>
-        <XStack justifyContent="space-between">
-          <Skeleton w="$20" h="$5" radius="round" />
-          <Skeleton w="$10" h="$5" radius="round" />
-        </XStack>
-      </YStack>
-    );
+    return <SwapProPositionsListSkeleton rowCount={stockOnly ? 3 : 2} />;
   }
   return (
     <YStack>

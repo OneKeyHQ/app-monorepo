@@ -107,8 +107,8 @@ const BUTTON_VARIANTS: Record<
     focusRingColor: '$focusRing',
   },
   accent: {
-    color: '$textOnBrightColor',
-    iconColor: '$iconOnBrightColor',
+    color: '$textInverse',
+    iconColor: '$iconInverse',
     bg: '$bgAccent',
     hoverBg: '$bgAccentHover',
     activeBg: '$bgAccentActive',

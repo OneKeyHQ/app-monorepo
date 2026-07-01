@@ -33,7 +33,6 @@ import {
   useInPageDialog,
 } from '@onekeyhq/components';
 import type { ICheckedState } from '@onekeyhq/components';
-import type { IDialogButtonProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
@@ -49,16 +48,18 @@ import { navigateToReferralLanding } from '@onekeyhq/kit/src/routes/config/deepl
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WebEmbedDevConfig } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import {
+  getDevSettingsNetworkThrottleEnabled,
+  useDevSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import appDeviceInfo from '@onekeyhq/shared/src/appDeviceInfo/appDeviceInfo';
-import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { isCorrectDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   ONEKEY_API_HOST,
   ONEKEY_TEST_API_HOST,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   isDualScreenDevice,
@@ -95,11 +96,6 @@ import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 
 import { showApiEndpointDialog } from '../../../components/ApiEndpointDialog';
 import { SettingTestIDs } from '../../../testIDs';
-import {
-  cacheDevOnlyPassword,
-  clearCachedDevOnlyPassword,
-  getCachedDevOnlyPassword,
-} from '../../../utils/devOnlyPassword';
 
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
@@ -125,63 +121,16 @@ import { ResetInstanceId } from './ResetInstanceId';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
+import { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
 import { TestAccountsDevSetting } from './TestAccountsDevSetting';
 
-export function showDevOnlyPasswordDialog({
-  title,
-  description,
-  onConfirm,
-  confirmButtonProps,
-}: {
-  title: string;
-  description?: string;
-  onConfirm: (params: IBackgroundMethodWithDevOnlyPassword) => Promise<void>;
-  confirmButtonProps?: IDialogButtonProps;
-}) {
-  Dialog.show({
-    title,
-    description,
-    confirmButtonProps: {
-      variant: 'destructive',
-      ...confirmButtonProps,
-    },
-    renderContent: (
-      <Dialog.Form
-        formProps={{ values: { password: getCachedDevOnlyPassword() } }}
-      >
-        <Dialog.FormField
-          name="password"
-          rules={{
-            required: { value: true, message: 'password is required.' },
-          }}
-        >
-          <Input
-            testID={SettingTestIDs.devOnlyPassword}
-            placeholder="devOnlyPassword"
-          />
-        </Dialog.FormField>
-      </Dialog.Form>
-    ),
-    onConfirm: async ({ getForm }) => {
-      const form = getForm();
-      if (form) {
-        await form.trigger();
-        const { password } = (form.getValues() || {}) as {
-          password: string;
-        };
-        if (!isCorrectDevOnlyPassword(password)) {
-          clearCachedDevOnlyPassword(password);
-          return;
-        }
-        cacheDevOnlyPassword(password);
-        const params: IBackgroundMethodWithDevOnlyPassword = {
-          $$devOnlyPassword: password,
-        };
-        await onConfirm(params);
-      }
-    },
-  });
-}
+const LazyNavigationDiagnosticsSection = LazyLoad(async () => {
+  const { NavigationDiagnosticsSection } =
+    await import('./NavigationDiagnosticsSection');
+  return { default: NavigationDiagnosticsSection };
+});
+
+export { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
 
 const DevSettingsAccordionTrigger = ({
   title,
@@ -459,10 +408,10 @@ const BaseDevSettingsSection = () => {
   const mockTradingViewKLineEmptySubtitle = mockTradingViewKLineEmptyEnabled
     ? mockTradingViewKLineEmptyIntervalsText
     : '已关闭';
-  const desktopNetworkThrottleEnabled =
-    devSettings.settings?.desktopNetworkThrottleEnabled ?? false;
-  const nativeNetworkThrottleEnabled =
-    devSettings.settings?.nativeNetworkThrottleEnabled ?? false;
+  const networkThrottleEnabled = getDevSettingsNetworkThrottleEnabled(
+    devSettings,
+    Boolean(platformEnv.isDesktop || platformEnv.isNative),
+  );
 
   useEffect(() => {
     if (!platformEnv.isDesktop) {
@@ -473,14 +422,14 @@ const BaseDevSettingsSection = () => {
       .then((config) => {
         const enabled = !!config.enabled;
         setDevSettings((prev) => {
-          if (prev.settings?.desktopNetworkThrottleEnabled === enabled) {
+          if (prev.settings?.networkThrottleEnabled === enabled) {
             return prev;
           }
           return {
             ...prev,
             settings: {
               ...prev.settings,
-              desktopNetworkThrottleEnabled: enabled,
+              networkThrottleEnabled: enabled,
             },
           };
         });
@@ -488,50 +437,33 @@ const BaseDevSettingsSection = () => {
       .catch(() => undefined);
   }, [setDevSettings]);
 
-  const handleDesktopNetworkThrottleChange = useCallback(
+  const handleNetworkThrottleChange = useCallback(
     async (enabled: boolean) => {
+      if (!devSettings.enabled) {
+        Toast.error({
+          title: 'Enable developer mode first',
+        });
+        return;
+      }
       try {
         const actualEnabled = Boolean(
           await backgroundApiProxy.serviceDevSetting.updateDevSetting(
-            'desktopNetworkThrottleEnabled',
+            'networkThrottleEnabled',
             enabled,
           ),
         );
         Toast.success({
           title: actualEnabled
-            ? 'Desktop Slow 4G enabled'
-            : 'Desktop network throttle disabled',
+            ? 'Slow 4G enabled'
+            : 'Network throttle disabled',
         });
       } catch {
         Toast.error({
-          title: 'Failed to update desktop network throttle',
+          title: 'Failed to update network throttle',
         });
       }
     },
-    [],
-  );
-
-  const handleNativeNetworkThrottleChange = useCallback(
-    async (enabled: boolean) => {
-      try {
-        const actualEnabled = Boolean(
-          await backgroundApiProxy.serviceDevSetting.updateDevSetting(
-            'nativeNetworkThrottleEnabled',
-            enabled,
-          ),
-        );
-        Toast.success({
-          title: actualEnabled
-            ? 'Native Slow 4G latency enabled'
-            : 'Native network throttle disabled',
-        });
-      } catch {
-        Toast.error({
-          title: 'Failed to update native network throttle',
-        });
-      }
-    },
-    [],
+    [devSettings.enabled],
   );
 
   const handleDevModeOnChange = useCallback(() => {
@@ -755,6 +687,13 @@ const BaseDevSettingsSection = () => {
           'Performance Monitor UI FPS JS FPS 性能监控 DebugRenderTracker 组件渲染高亮 Perps渲染统计 Bg Api 可序列化检测 Analytics Dev Unit Tests Show Recovery Page crash counter CPU Watchdog Burn long task unresponsive severe mild',
       },
       {
+        key: 'navigation',
+        title: 'Navigation Diagnostics',
+        description: 'Navigation rootState tabNavigator 排查',
+        keywords:
+          'navigation rootstate rootnavigationref tabletmainviewnavigationref tabnavigator router',
+      },
+      {
         key: 'data',
         title: 'Data Management',
         description: '数据重置 清理 导出',
@@ -957,8 +896,11 @@ const BaseDevSettingsSection = () => {
                             typeof __BUNDLE_START_TIME__ !== 'undefined'
                               ? __BUNDLE_START_TIME__
                               : 0;
+                          const { getDevicePerformanceTier } =
+                            await import('@onekeyhq/shared/src/performance/devicePerformanceTier');
                           Dialog.debugMessage({
                             debugMessage: {
+                              devicePerformanceTier: getDevicePerformanceTier(),
                               startupTimeAt:
                                 await LaunchOptionsManager.getStartupTimeAt(),
                               jsReadyTimeAt:
@@ -1130,7 +1072,7 @@ const BaseDevSettingsSection = () => {
                           icon="SpeedLowOutline"
                           title="Desktop Slow 4G Network Throttle"
                           subtitle={
-                            desktopNetworkThrottleEnabled
+                            networkThrottleEnabled
                               ? 'Slow 4G latency enabled: 562.5ms'
                               : 'Disabled'
                           }
@@ -1139,8 +1081,8 @@ const BaseDevSettingsSection = () => {
                         >
                           <Switch
                             size={ESwitchSize.small}
-                            value={desktopNetworkThrottleEnabled}
-                            onChange={handleDesktopNetworkThrottleChange}
+                            value={networkThrottleEnabled}
+                            onChange={handleNetworkThrottleChange}
                           />
                         </SectionPressItem>
                       ) : null}
@@ -1150,7 +1092,7 @@ const BaseDevSettingsSection = () => {
                           icon="SpeedLowOutline"
                           title="Native Slow 4G Network Throttle"
                           subtitle={
-                            nativeNetworkThrottleEnabled
+                            networkThrottleEnabled
                               ? `Slow 4G latency enabled: ${NATIVE_SLOW_4G_LATENCY_MS}ms`
                               : 'Disabled'
                           }
@@ -1159,8 +1101,8 @@ const BaseDevSettingsSection = () => {
                         >
                           <Switch
                             size={ESwitchSize.small}
-                            value={nativeNetworkThrottleEnabled}
-                            onChange={handleNativeNetworkThrottleChange}
+                            value={networkThrottleEnabled}
+                            onChange={handleNetworkThrottleChange}
                           />
                         </SectionPressItem>
                       ) : null}
@@ -1633,6 +1575,25 @@ const BaseDevSettingsSection = () => {
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
                 </Accordion.Item>,
+              );
+            case 'navigation':
+              return (
+                <Accordion.Item value="navigation" key="navigation">
+                  <DevSettingsAccordionTrigger
+                    title="Navigation Diagnostics"
+                    description="Navigation rootState / tabNavigator 排查"
+                    icon="LayoutWindowOutline"
+                    {...pinProps}
+                  />
+                  <Accordion.HeightAnimator animation="quick">
+                    <Accordion.Content
+                      animation="quick"
+                      exitStyle={{ opacity: 0 }}
+                    >
+                      <LazyNavigationDiagnosticsSection />
+                    </Accordion.Content>
+                  </Accordion.HeightAnimator>
+                </Accordion.Item>
               );
             case 'data':
               return wrapWithSearch(

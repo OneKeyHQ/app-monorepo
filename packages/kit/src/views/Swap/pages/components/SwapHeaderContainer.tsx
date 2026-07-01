@@ -14,7 +14,10 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
-import { ScrollableFilterBar } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
+import {
+  ScrollableFilterBar,
+  useScrollableFilterBar,
+} from '@onekeyhq/kit/src/components/ScrollableFilterBar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -40,6 +43,7 @@ import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
 
 type ICustomTabItemProps = IStackProps & {
+  itemId: ESwapTabSwitchType;
   isSelected?: boolean;
   compact?: boolean;
   onPress?: IStackProps['onPress'];
@@ -57,12 +61,14 @@ function getRouteTabParamFromSwapType(type: ESwapTabSwitchType) {
 }
 
 function CustomTabItem({
+  itemId,
   children,
   isSelected,
   compact,
   onPress,
   ...rest
 }: ICustomTabItemProps) {
+  const { handleItemLayout } = useScrollableFilterBar();
   return (
     <Stack
       py="$1"
@@ -86,8 +92,11 @@ function CustomTabItem({
               bg: '$bgActive',
             },
           })}
-      onPress={onPress}
       {...rest}
+      onPress={onPress}
+      onLayout={(event) => {
+        handleItemLayout(itemId, event);
+      }}
     >
       <SizableText
         size="$headingMd"
@@ -295,6 +304,7 @@ const SwapHeaderContainer = ({
   const tabs = (
     <>
       <CustomTabItem
+        itemId={ESwapTabSwitchType.SWAP}
         compact={isCompactLayout}
         isSelected={swapTypeSwitch === ESwapTabSwitchType.SWAP}
         onPress={() => {
@@ -304,6 +314,7 @@ const SwapHeaderContainer = ({
         {swapBridgeLabel}
       </CustomTabItem>
       <CustomTabItem
+        itemId={ESwapTabSwitchType.STOCK}
         compact={isCompactLayout}
         isSelected={swapTypeSwitch === ESwapTabSwitchType.STOCK}
         onPress={() => {
@@ -313,6 +324,7 @@ const SwapHeaderContainer = ({
         {stockLabel}
       </CustomTabItem>
       <CustomTabItem
+        itemId={ESwapTabSwitchType.LIMIT}
         compact={isCompactLayout}
         isSelected={swapTypeSwitch === ESwapTabSwitchType.LIMIT}
         onPress={() => {
@@ -343,7 +355,11 @@ const SwapHeaderContainer = ({
       {...(platformEnv.isNativeIOS && { height: 56, zIndex: 1 })}
     >
       <Stack flex={1} minWidth={0}>
-        <ScrollableFilterBar itemGap="$1.5" itemPr="$5">
+        <ScrollableFilterBar
+          selectedItemId={swapTypeSwitch}
+          itemGap="$1.5"
+          itemPr="$5"
+        >
           {tabs}
         </ScrollableFilterBar>
       </Stack>
