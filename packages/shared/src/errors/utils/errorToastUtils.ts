@@ -91,6 +91,9 @@ function showLocalSecretEnvelopeErrorDialogIfNeeded(
 
 function showToastOfError(error: IOneKeyError | unknown | undefined) {
   fixAxiosAbortCancelError(error);
+  // Product requirement: keep the existing auto-toast path after showing the
+  // LSE recovery dialog, so credential key loss surfaces both the detailed
+  // recovery guidance and the original operation-level error.
   showLocalSecretEnvelopeErrorDialogIfNeeded(error);
   const err = error as IOneKeyError | undefined;
   if (
