@@ -1797,7 +1797,7 @@ function StockMobilePositionsSection({
   const handlePositionPress = useCallback(
     (token: ISwapToken) => {
       if (token.isStock) {
-        selectStockSwapToken(token, { resetAmounts: true });
+        selectStockSwapToken(token, { resetReceiveAmount: true });
         return;
       }
       void setSwapTypeSwitch(ESwapTabSwitchType.SWAP);

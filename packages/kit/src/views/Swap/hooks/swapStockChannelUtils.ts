@@ -54,6 +54,25 @@ export function getTokenIdentityKey(token?: Partial<ISwapTokenBase>) {
   }`;
 }
 
+export function shouldResetStockTradeReceiveAmount({
+  nextStockToken,
+  previousStockToken,
+  resetReceiveAmount,
+}: {
+  nextStockToken?: Partial<ISwapTokenBase>;
+  previousStockToken?: Partial<ISwapTokenBase>;
+  resetReceiveAmount?: boolean;
+}) {
+  const previousStockTokenKey = getTokenIdentityKey(previousStockToken);
+  const nextStockTokenKey = getTokenIdentityKey(nextStockToken);
+  return Boolean(
+    resetReceiveAmount &&
+    previousStockTokenKey &&
+    nextStockTokenKey &&
+    previousStockTokenKey !== nextStockTokenKey,
+  );
+}
+
 export function shouldLoadDefaultStockToken({
   selectedStockTokenKey,
 }: {

@@ -6,6 +6,7 @@ import {
   filterStockPayTokenCandidates,
   resolveStockChannelSwapPair,
   shouldLoadDefaultStockToken,
+  shouldResetStockTradeReceiveAmount,
 } from './swapStockChannelUtils';
 
 const usdcToken: ISwapToken = {
@@ -34,6 +35,14 @@ const appleStockToken: ISwapToken = {
   networkId: 'evm--56',
   contractAddress: '0xaapl',
   symbol: 'AAPL',
+  decimals: 18,
+  isStock: true,
+};
+
+const micronStockToken: ISwapToken = {
+  networkId: 'evm--56',
+  contractAddress: '0xmu',
+  symbol: 'MU',
   decimals: 18,
   isStock: true,
 };
@@ -100,6 +109,41 @@ describe('swapStockChannelUtils', () => {
         toToken: usdcToken,
       }),
     ).toEqual({});
+  });
+
+  it('resets only the derived receive amount when selecting another stock token', () => {
+    expect(
+      shouldResetStockTradeReceiveAmount({
+        previousStockToken: appleStockToken,
+        nextStockToken: micronStockToken,
+        resetReceiveAmount: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps stock trade amounts when the selected stock token is unchanged', () => {
+    expect(
+      shouldResetStockTradeReceiveAmount({
+        previousStockToken: appleStockToken,
+        nextStockToken: appleStockToken,
+        resetReceiveAmount: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps stock trade amounts for initial stock selection or non-reset paths', () => {
+    expect(
+      shouldResetStockTradeReceiveAmount({
+        nextStockToken: appleStockToken,
+        resetReceiveAmount: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldResetStockTradeReceiveAmount({
+        previousStockToken: appleStockToken,
+        nextStockToken: micronStockToken,
+      }),
+    ).toBe(false);
   });
 
   it('marks only stock market tokens as stock swap tokens', () => {
