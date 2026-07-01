@@ -15,7 +15,6 @@ export interface IHeaderScrollGestureWrapperProps {
   cancelChildTouches?: boolean;
   onGestureActiveChange?: (active: boolean) => void;
   excludeBottomEdgeHeight?: number;
-  failExcludedBottomEdgeTouchesOnTouchDown?: boolean;
 }
 
 export function HeaderScrollGestureWrapper({

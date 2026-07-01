@@ -1,12 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { useCallback, useContext, useMemo, useState } from 'react';
 
-import {
-  Gesture,
-  GestureDetector,
-  type GestureStateManager,
-  type GestureTouchEvent,
-} from 'react-native-gesture-handler';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
   runOnJS,
@@ -39,7 +34,6 @@ export function HeaderScrollGestureWrapper({
   cancelChildTouches = true,
   onGestureActiveChange,
   excludeBottomEdgeHeight = 0,
-  failExcludedBottomEdgeTouchesOnTouchDown = false,
 }: PropsWithChildren<IHeaderScrollGestureWrapperProps>) {
   const tabsContext = useContext(CollapsibleTabContext);
   const refMap = tabsContext?.refMap;
@@ -90,9 +84,6 @@ export function HeaderScrollGestureWrapper({
         ? measuredWidth * safeExcludeRightEdgeRatio
         : 0;
     const safeExcludeBottomEdgeHeight = Math.max(0, excludeBottomEdgeHeight);
-    const shouldFailExcludedBottomEdgeTouches =
-      failExcludedBottomEdgeTouchesOnTouchDown &&
-      safeExcludeBottomEdgeHeight > 0;
     const gestureHitSlop =
       excludedRightEdgeWidth > 0 || safeExcludeBottomEdgeHeight > 0
         ? {
@@ -104,18 +95,6 @@ export function HeaderScrollGestureWrapper({
               : {}),
           }
         : undefined;
-    const shouldIgnoreByBottomEdgeStartPoint = (y: number) => {
-      'worklet';
-
-      if (
-        safeExcludeBottomEdgeHeight > 0 &&
-        containerHeight.value > safeExcludeBottomEdgeHeight
-      ) {
-        return y >= containerHeight.value - safeExcludeBottomEdgeHeight;
-      }
-
-      return false;
-    };
     const shouldIgnoreByStartPoint = (x: number, y: number) => {
       'worklet';
 
@@ -127,19 +106,14 @@ export function HeaderScrollGestureWrapper({
         }
       }
 
-      return shouldIgnoreByBottomEdgeStartPoint(y);
-    };
-    const failIfStartPointExcluded = (
-      event: GestureTouchEvent,
-      stateManager: GestureStateManager,
-    ) => {
-      'worklet';
-
-      const touch = event.changedTouches[0] ?? event.allTouches[0];
-      if (touch && shouldIgnoreByBottomEdgeStartPoint(touch.y)) {
-        isGestureEnabled.value = false;
-        stateManager.fail();
+      if (
+        safeExcludeBottomEdgeHeight > 0 &&
+        containerHeight.value > safeExcludeBottomEdgeHeight
+      ) {
+        return y >= containerHeight.value - safeExcludeBottomEdgeHeight;
       }
+
+      return false;
     };
 
     let verticalPanGesture = Gesture.Pan()
@@ -153,11 +127,6 @@ export function HeaderScrollGestureWrapper({
 
     verticalPanGesture =
       verticalPanGesture.cancelsTouchesInView(cancelChildTouches);
-    if (shouldFailExcludedBottomEdgeTouches) {
-      verticalPanGesture = verticalPanGesture.onTouchesDown(
-        failIfStartPointExcluded,
-      );
-    }
     verticalPanGesture = verticalPanGesture
       .onStart((e) => {
         'worklet';
@@ -226,11 +195,6 @@ export function HeaderScrollGestureWrapper({
 
     horizontalPanGesture =
       horizontalPanGesture.cancelsTouchesInView(cancelChildTouches);
-    if (shouldFailExcludedBottomEdgeTouches) {
-      horizontalPanGesture = horizontalPanGesture.onTouchesDown(
-        failIfStartPointExcluded,
-      );
-    }
     horizontalPanGesture = horizontalPanGesture
       .onStart((e) => {
         'worklet';
@@ -278,7 +242,6 @@ export function HeaderScrollGestureWrapper({
     panFailOffsetX,
     excludeRightEdgeRatio,
     excludeBottomEdgeHeight,
-    failExcludedBottomEdgeTouchesOnTouchDown,
     scrollScale,
     onHorizontalSwipe,
     horizontalSwipeThreshold,
