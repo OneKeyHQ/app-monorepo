@@ -4,7 +4,7 @@ import appGlobals from '@onekeyhq/shared/src/appGlobals';
 
 let backgroundApiPromise: Promise<IBackgroundApi> | undefined;
 
-const WEB_BACKGROUND_API_START_DELAY_MS = 6000;
+const WEB_BACKGROUND_API_START_DELAY_MS = 2000;
 const WEB_BACKGROUND_API_IMMEDIATE_PATH_PREFIXES = ['/swap', '/perp', '/perps'];
 
 const getNow = () =>

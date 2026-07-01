@@ -16,9 +16,20 @@ const { shim: shimArrayFlatMap } = require('array.prototype.flatmap');
 
 shimArrayFlatMap();
 
-const { shim: shimArrayToSorted } = require('array.prototype.tosorted');
-
-shimArrayToSorted();
+if (typeof Array.prototype.toSorted !== 'function') {
+  Object.defineProperty(Array.prototype, 'toSorted', {
+    value(compareFn) {
+      if (this == null) {
+        throw new TypeError(
+          'Array.prototype.toSorted called on null or undefined',
+        );
+      }
+      return Array.prototype.slice.call(this).sort(compareFn);
+    },
+    configurable: true,
+    writable: true,
+  });
+}
 
 const { shim: shimArrayToReversed } = require('array.prototype.toreversed');
 
