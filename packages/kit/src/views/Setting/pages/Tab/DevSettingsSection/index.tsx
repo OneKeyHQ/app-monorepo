@@ -33,7 +33,6 @@ import {
   useInPageDialog,
 } from '@onekeyhq/components';
 import type { ICheckedState } from '@onekeyhq/components';
-import type { IDialogButtonProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
@@ -55,8 +54,6 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import appDeviceInfo from '@onekeyhq/shared/src/appDeviceInfo/appDeviceInfo';
-import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { isCorrectDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   ONEKEY_API_HOST,
   ONEKEY_TEST_API_HOST,
@@ -81,7 +78,6 @@ import {
   isGooglePlayServicesAvailable,
   openWebViewInGooglePlay,
 } from '@onekeyhq/shared/src/modules3rdParty/webview-checker';
-import { getDevicePerformanceTier } from '@onekeyhq/shared/src/performance/devicePerformanceTier';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -100,11 +96,6 @@ import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 
 import { showApiEndpointDialog } from '../../../components/ApiEndpointDialog';
 import { SettingTestIDs } from '../../../testIDs';
-import {
-  cacheDevOnlyPassword,
-  clearCachedDevOnlyPassword,
-  getCachedDevOnlyPassword,
-} from '../../../utils/devOnlyPassword';
 
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
@@ -130,6 +121,7 @@ import { ResetInstanceId } from './ResetInstanceId';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
+import { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
 import { TestAccountsDevSetting } from './TestAccountsDevSetting';
 
 const LazyNavigationDiagnosticsSection = LazyLoad(async () => {
@@ -138,61 +130,7 @@ const LazyNavigationDiagnosticsSection = LazyLoad(async () => {
   return { default: NavigationDiagnosticsSection };
 });
 
-export function showDevOnlyPasswordDialog({
-  title,
-  description,
-  onConfirm,
-  confirmButtonProps,
-}: {
-  title: string;
-  description?: string;
-  onConfirm: (params: IBackgroundMethodWithDevOnlyPassword) => Promise<void>;
-  confirmButtonProps?: IDialogButtonProps;
-}) {
-  Dialog.show({
-    title,
-    description,
-    confirmButtonProps: {
-      variant: 'destructive',
-      ...confirmButtonProps,
-    },
-    renderContent: (
-      <Dialog.Form
-        formProps={{ values: { password: getCachedDevOnlyPassword() } }}
-      >
-        <Dialog.FormField
-          name="password"
-          rules={{
-            required: { value: true, message: 'password is required.' },
-          }}
-        >
-          <Input
-            testID={SettingTestIDs.devOnlyPassword}
-            placeholder="devOnlyPassword"
-          />
-        </Dialog.FormField>
-      </Dialog.Form>
-    ),
-    onConfirm: async ({ getForm }) => {
-      const form = getForm();
-      if (form) {
-        await form.trigger();
-        const { password } = (form.getValues() || {}) as {
-          password: string;
-        };
-        if (!isCorrectDevOnlyPassword(password)) {
-          clearCachedDevOnlyPassword(password);
-          return;
-        }
-        cacheDevOnlyPassword(password);
-        const params: IBackgroundMethodWithDevOnlyPassword = {
-          $$devOnlyPassword: password,
-        };
-        await onConfirm(params);
-      }
-    },
-  });
-}
+export { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
 
 const DevSettingsAccordionTrigger = ({
   title,
@@ -958,6 +896,8 @@ const BaseDevSettingsSection = () => {
                             typeof __BUNDLE_START_TIME__ !== 'undefined'
                               ? __BUNDLE_START_TIME__
                               : 0;
+                          const { getDevicePerformanceTier } =
+                            await import('@onekeyhq/shared/src/performance/devicePerformanceTier');
                           Dialog.debugMessage({
                             debugMessage: {
                               devicePerformanceTier: getDevicePerformanceTier(),
