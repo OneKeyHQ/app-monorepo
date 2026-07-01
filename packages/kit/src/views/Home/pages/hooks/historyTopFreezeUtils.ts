@@ -18,12 +18,18 @@ export const FREEZE_RELEASE_OFFSET = 48;
 // which, fed back through collapsible-tab-view's content-size-driven scroll
 // clamp, makes the list jitter up and down.
 //
-// The fix freezes top growth while the user is away from the top: we anchor on
-// the first already-displayed row that still exists in `combined` and render
-// from there downward, holding back the newly prepended leading rows. Crucially
-// this still renders bottom growth from load-more (those rows sit AFTER the
-// anchor), so pagination keeps working — only the new top rows wait until the
-// user returns near the top (where re-inserting them is jitter-free).
+// The fix freezes top growth while the user is away from the top: we keep the
+// rows that were already displayed and render bottom growth from load-more
+// (rows AFTER the last displayed row), while holding back every row a refresh
+// inserted at or above the last displayed row — until the user returns near the
+// top (where re-inserting them is jitter-free).
+//
+// A strict leading-prefix anchor is NOT enough: if a row stays put at the top
+// (e.g. a long-lived local pending that keeps its position across refreshes),
+// newer rows inserted BELOW it but still above the viewport would slip through
+// and grow the content above the viewport — which is exactly the OK-57070
+// jitter. So we hold back any newly inserted row within the displayed block,
+// not just a contiguous leading run.
 export function selectVisibleHistoryRows({
   combined,
   displayedIds,
@@ -39,21 +45,41 @@ export function selectVisibleHistoryRows({
     return combined;
   }
 
-  let anchorIndex = 0;
-  while (
-    anchorIndex < combined.length &&
-    !displayedIds.has(combined[anchorIndex].id)
-  ) {
-    anchorIndex += 1;
+  // The last row that was already displayed marks the boundary: everything
+  // after it is bottom growth (load-more) that extends below the viewport and
+  // is jitter-free, so it renders live.
+  let lastDisplayedIndex = -1;
+  for (let i = combined.length - 1; i >= 0; i -= 1) {
+    if (displayedIds.has(combined[i].id)) {
+      lastDisplayedIndex = i;
+      break;
+    }
   }
 
   // No previously-displayed row survives in `combined` — this is a wholesale
   // replacement (identity switch / hard pagination reset), not a top prepend.
   // Render it live; freezing here would blank the list.
-  if (anchorIndex >= combined.length) {
+  if (lastDisplayedIndex === -1) {
     return combined;
   }
 
-  // combined[0..anchorIndex) are the freshly prepended rows to hold back.
-  return anchorIndex === 0 ? combined : combined.slice(anchorIndex);
+  // Keep only rows that were already displayed within [0..lastDisplayedIndex]
+  // (dropping any newly inserted rows in that range), then append everything
+  // after it (bottom growth).
+  const head: IAccountHistoryTx[] = [];
+  for (let i = 0; i <= lastDisplayedIndex; i += 1) {
+    if (displayedIds.has(combined[i].id)) {
+      head.push(combined[i]);
+    }
+  }
+
+  // Nothing new was inserted within the displayed block, so `combined` already
+  // equals head + bottom growth. Return the original reference so React can bail
+  // out of the re-render.
+  if (head.length === lastDisplayedIndex + 1) {
+    return combined;
+  }
+
+  const tail = combined.slice(lastDisplayedIndex + 1);
+  return tail.length === 0 ? head : head.concat(tail);
 }

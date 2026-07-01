@@ -92,6 +92,46 @@ describe('selectVisibleHistoryRows', () => {
     expect(result).toBe(grown);
   });
 
+  it('holds back a new row inserted below a row that stays at the top', () => {
+    // 'P' is a long-lived local pending that keeps index 0 across refreshes;
+    // 'N' is a new tx a refresh inserted right below it (still above the
+    // viewport). A strict-prefix anchor would stop at 'P' and leak 'N' through.
+    const grown = [tx('P'), tx('N'), tx('A'), tx('B'), tx('C')];
+    const result = selectVisibleHistoryRows({
+      combined: grown,
+      displayedIds: idSet('P', 'A', 'B', 'C'),
+      isAwayFromTop: true,
+      enabled: true,
+    });
+    expect(result.map((t) => t.id)).toEqual(['P', 'A', 'B', 'C']);
+  });
+
+  it('holds back a mid-block insertion while keeping bottom growth', () => {
+    // 'N' inserted between displayed rows (above viewport) must be held back;
+    // 'D' appended at the bottom by load-more must still render.
+    const grown = [tx('P'), tx('N'), tx('A'), tx('B'), tx('C'), tx('D')];
+    const result = selectVisibleHistoryRows({
+      combined: grown,
+      displayedIds: idSet('P', 'A', 'B', 'C'),
+      isAwayFromTop: true,
+      enabled: true,
+    });
+    expect(result.map((t) => t.id)).toEqual(['P', 'A', 'B', 'C', 'D']);
+  });
+
+  it('refreshes displayed rows in place when ids are unchanged (bg re-serialization)', () => {
+    // Same ids, brand-new objects (bg -> main hop): must reflect the new
+    // objects, not stale references, without inserting anything at the top.
+    const refreshed = [tx('A'), tx('B'), tx('C')];
+    const result = selectVisibleHistoryRows({
+      combined: refreshed,
+      displayedIds: idSet('A', 'B', 'C'),
+      isAwayFromTop: true,
+      enabled: true,
+    });
+    expect(result).toBe(refreshed);
+  });
+
   it('renders live on a wholesale replacement (no displayed row survives)', () => {
     const replaced = [tx('P'), tx('Q')];
     expect(
