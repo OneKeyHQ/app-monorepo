@@ -202,6 +202,9 @@ type ISendAmountAutoSizeInputProps = {
   reversible?: boolean;
   tokenSymbol?: string;
   inlineTextAlignMode?: 'auto' | 'center';
+  // Cap the display font (in px). Defaults to the full 56*scale ramp; pass a
+  // smaller value to line the amount up with a sibling hero.
+  maxFontSize?: number;
   inputProps?: Omit<IInputProps, 'value' | 'onChangeText' | 'onChange'> & {
     loading?: boolean;
   };
@@ -228,6 +231,7 @@ function SendAutoSizeAmountInputComponent(
     valueProps,
     tokenSymbol,
     inlineTextAlignMode,
+    maxFontSize: maxFontSizeProp,
     extraContent,
     onLayout,
     ...rest
@@ -349,9 +353,11 @@ function SendAutoSizeAmountInputComponent(
   const returnKeyType = inputProps?.returnKeyType;
   const onFocus = inputProps?.onFocus;
   const onBlur = inputProps?.onBlur;
-  const fontSize = getAmountFontSize(
-    effectiveValue?.length || 0,
-    fontSizeScale,
+  // Default keeps the original full-size ramp; callers can cap it (maxFontSizeProp).
+  const maxFontSize = maxFontSizeProp ?? Math.round(56 * fontSizeScale);
+  const fontSize = Math.min(
+    getAmountFontSize(effectiveValue?.length || 0, fontSizeScale),
+    maxFontSize,
   );
   const availableInlineWidth = Math.max(
     Math.floor(layoutWidth || windowWidth || 0),
@@ -359,9 +365,9 @@ function SendAutoSizeAmountInputComponent(
   );
   const isCompactInlineWidth =
     md && availableInlineWidth > 0 && availableInlineWidth < 360;
-  const maxFontSize = Math.round(56 * fontSizeScale);
-  const minFontSize = Math.round(
-    (isCompactInlineWidth ? 12 : 14) * fontSizeScale,
+  const minFontSize = Math.min(
+    Math.round((isCompactInlineWidth ? 12 : 14) * fontSizeScale),
+    maxFontSize,
   );
   const wrappedSymbolFontSize = Math.max(
     WRAPPED_SYMBOL_MIN_FONT_SIZE,
