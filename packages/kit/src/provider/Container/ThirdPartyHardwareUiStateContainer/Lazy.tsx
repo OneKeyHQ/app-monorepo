@@ -1,47 +1,71 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
 
-import {
-  useThirdPartyAppInstallAtom,
-  useThirdPartyBatchInstallAtom,
-  useThirdPartyHardwareUiStateAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms/hardware';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type IThirdPartyHardwareUiStateContainerComponent = ComponentType;
+type IThirdPartyHardwareUiStateAtomWatcherComponent = ComponentType<{
+  onShouldMount: () => void;
+}>;
 type IShowThirdPartyHardwarePermissionDialogPayload =
   IAppEventBusPayload[EAppEventBusNames.ShowThirdPartyHardwarePermissionDialog];
 
+const THIRD_PARTY_HARDWARE_ATOM_WATCHER_DELAY_MS = platformEnv.isWeb ? 6000 : 0;
+
 function ThirdPartyHardwareUiStateContainerLazyCmp() {
-  const [uiState] = useThirdPartyHardwareUiStateAtom();
-  const [appInstallState] = useThirdPartyAppInstallAtom();
-  const [batchInstallState] = useThirdPartyBatchInstallAtom();
   const [shouldMount, setShouldMount] = useState(false);
   const [ContainerImpl, setContainerImpl] =
     useState<IThirdPartyHardwareUiStateContainerComponent | null>(null);
+  const [AtomWatcherImpl, setAtomWatcherImpl] =
+    useState<IThirdPartyHardwareUiStateAtomWatcherComponent | null>(null);
   const pendingPermissionPayloadRef = useRef<
     IShowThirdPartyHardwarePermissionDialogPayload | undefined
   >(undefined);
   const permissionPayloadReplayTimerRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
+  const requestMount = useCallback(() => {
+    setShouldMount(true);
+  }, []);
 
   useEffect(() => {
-    if (uiState || appInstallState || batchInstallState) {
-      setShouldMount(true);
+    if (AtomWatcherImpl || ContainerImpl) {
+      return;
     }
-  }, [appInstallState, batchInstallState, uiState]);
+    let isMounted = true;
+    const timer = setTimeout(() => {
+      void import('./ThirdPartyHardwareUiStateAtomWatcher')
+        .then((module) => {
+          if (isMounted) {
+            setAtomWatcherImpl(
+              () => module.ThirdPartyHardwareUiStateAtomWatcher,
+            );
+          }
+        })
+        .catch((error: Error) => {
+          console.error(
+            'Failed to load ThirdPartyHardwareUiStateAtomWatcher:',
+            error,
+          );
+        });
+    }, THIRD_PARTY_HARDWARE_ATOM_WATCHER_DELAY_MS);
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [AtomWatcherImpl, ContainerImpl]);
 
   useEffect(() => {
     const handlePermissionDialog = (
       payload: IShowThirdPartyHardwarePermissionDialogPayload,
     ) => {
       pendingPermissionPayloadRef.current = payload;
-      setShouldMount(true);
+      requestMount();
     };
     appEventBus.on(
       EAppEventBusNames.ShowThirdPartyHardwarePermissionDialog,
@@ -53,7 +77,7 @@ function ThirdPartyHardwareUiStateContainerLazyCmp() {
         handlePermissionDialog,
       );
     };
-  }, []);
+  }, [requestMount]);
 
   useEffect(() => {
     if (!shouldMount || ContainerImpl) {
@@ -108,9 +132,18 @@ function ThirdPartyHardwareUiStateContainerLazyCmp() {
   );
 
   if (!ContainerImpl) {
-    return null;
+    return AtomWatcherImpl ? (
+      <AtomWatcherImpl onShouldMount={requestMount} />
+    ) : null;
   }
-  return <ContainerImpl />;
+  return (
+    <>
+      <ContainerImpl />
+      {AtomWatcherImpl ? (
+        <AtomWatcherImpl onShouldMount={requestMount} />
+      ) : null}
+    </>
+  );
 }
 
 export const ThirdPartyHardwareUiStateContainerLazy = memo(

@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useRef } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef } from 'react';
 
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -6,14 +6,14 @@ import { useIntl } from 'react-intl';
 import { Dialog, Portal, Spinner } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePasswordPromptPromiseTriggerAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import { usePasswordPromptPromiseTriggerAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { PASSWORD_VERIFY_CONTAINER_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 import { EPasswordPromptType } from '@onekeyhq/shared/types/password';
 
-import PasswordSetupContainer from './PasswordSetupContainer';
-import PasswordVerifyContainer from './PasswordVerifyContainer';
+const PasswordSetupContainer = lazy(() => import('./PasswordSetupContainer'));
+const PasswordVerifyContainer = lazy(() => import('./PasswordVerifyContainer'));
 
 const PasswordVerifyPromptMount = () => {
   const intl = useIntl();

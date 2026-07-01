@@ -7,7 +7,7 @@ import {
   useAccountSelectorContextDataAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import {
   EAppEventBusNames,
   appEventBus,

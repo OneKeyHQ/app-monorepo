@@ -21,10 +21,10 @@ import {
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import {
   getDevSettingsNetworkThrottleEnabled,
-  useAppIsLockedAtom,
   useDevSettingsPersistAtom,
-  useOnboardingConnectWalletLoadingAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/onboarding';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import {
   EAppUpdateStatus,
   EUpdateFileType,

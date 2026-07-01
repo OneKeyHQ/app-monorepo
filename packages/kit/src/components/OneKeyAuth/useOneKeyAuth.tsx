@@ -6,7 +6,7 @@ import { Dialog, Spinner, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { useSupabaseAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/useSupabaseAuth';
-import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';

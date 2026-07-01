@@ -1,16 +1,19 @@
 import type { PropsWithChildren } from 'react';
-import { Suspense, useCallback, useEffect, useRef } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef } from 'react';
 
 import { AnimatePresence, Spinner, YStack } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import PasswordVerifyContainer from '../../../components/Password/container/PasswordVerifyContainer';
 
 import AppStateLock from './components/AppStateLock';
 import { AppStateUpdater } from './components/AppStateUpdater';
+
+const PasswordVerifyContainer = lazy(
+  () =>
+    import('../../../components/Password/container/PasswordVerifyContainer'),
+);
 
 const isLockContainerTampered = (
   el: HTMLElement,

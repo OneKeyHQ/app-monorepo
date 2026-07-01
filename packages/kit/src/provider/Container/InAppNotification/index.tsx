@@ -11,7 +11,7 @@ import {
   Toast,
   rootNavigationRef,
 } from '@onekeyhq/components';
-import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/InAppNotification';
 import {
   EAppEventBusNames,
   appEventBus,

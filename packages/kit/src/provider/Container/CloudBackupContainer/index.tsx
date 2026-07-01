@@ -1,4 +1,4 @@
-import { useCloudBackupExitPreventAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useCloudBackupExitPreventAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/cloudBackup';
 
 import { CloudBackupExitPrevent } from '../../../views/Onboardingv2/components/CloudBackupExitPrevent';
 

@@ -1,14 +1,19 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
 
-import { useHardwareUiStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/hardware';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type IHardwareUiStateContainerComponent = ComponentType;
+type IHardwareUiStateAtomWatcherComponent = ComponentType<{
+  onShouldMount: () => void;
+}>;
+
+const HARDWARE_ATOM_WATCHER_DELAY_MS = platformEnv.isWeb ? 6000 : 0;
 
 type IHardwareUiPendingEvent =
   | {
@@ -21,23 +26,43 @@ type IHardwareUiPendingEvent =
     };
 
 function HardwareUiStateContainerLazyCmp() {
-  const [state] = useHardwareUiStateAtom();
   const [shouldMount, setShouldMount] = useState(false);
   const [ContainerImpl, setContainerImpl] =
     useState<IHardwareUiStateContainerComponent | null>(null);
+  const [AtomWatcherImpl, setAtomWatcherImpl] =
+    useState<IHardwareUiStateAtomWatcherComponent | null>(null);
   const containerLoadedRef = useRef(false);
   const pendingEventsRef = useRef<IHardwareUiPendingEvent[]>([]);
   const replayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestMount = useCallback(() => {
+    setShouldMount(true);
+  }, []);
 
   useEffect(() => {
     containerLoadedRef.current = !!ContainerImpl;
   }, [ContainerImpl]);
 
   useEffect(() => {
-    if (state) {
-      setShouldMount(true);
+    if (AtomWatcherImpl || ContainerImpl) {
+      return;
     }
-  }, [state]);
+    let isMounted = true;
+    const timer = setTimeout(() => {
+      void import('./HardwareUiStateAtomWatcher')
+        .then((module) => {
+          if (isMounted) {
+            setAtomWatcherImpl(() => module.HardwareUiStateAtomWatcher);
+          }
+        })
+        .catch((error: Error) => {
+          console.error('Failed to load HardwareUiStateAtomWatcher:', error);
+        });
+    }, HARDWARE_ATOM_WATCHER_DELAY_MS);
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [AtomWatcherImpl, ContainerImpl]);
 
   useEffect(() => {
     const enqueueEvent = (event: IHardwareUiPendingEvent) => {
@@ -45,7 +70,7 @@ function HardwareUiStateContainerLazyCmp() {
         return;
       }
       pendingEventsRef.current.push(event);
-      setShouldMount(true);
+      requestMount();
     };
     const handleHardwareErrorDialog = (
       payload: IAppEventBusPayload[EAppEventBusNames.ShowHardwareErrorDialog],
@@ -81,7 +106,7 @@ function HardwareUiStateContainerLazyCmp() {
         handleRequestHardwareUiDialog,
       );
     };
-  }, []);
+  }, [requestMount]);
 
   useEffect(() => {
     if (!shouldMount || ContainerImpl) {
@@ -136,9 +161,18 @@ function HardwareUiStateContainerLazyCmp() {
   );
 
   if (!ContainerImpl) {
-    return null;
+    return AtomWatcherImpl ? (
+      <AtomWatcherImpl onShouldMount={requestMount} />
+    ) : null;
   }
-  return <ContainerImpl />;
+  return (
+    <>
+      <ContainerImpl />
+      {AtomWatcherImpl ? (
+        <AtomWatcherImpl onShouldMount={requestMount} />
+      ) : null}
+    </>
+  );
 }
 
 export const HardwareUiStateContainerLazy = memo(
