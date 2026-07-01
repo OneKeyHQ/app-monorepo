@@ -470,8 +470,8 @@ describe('buildBasicOptions', () => {
 
     expect(options.enabled).toBe(true);
     expect(options.maxBreadcrumbs).toBe(100);
-    expect(options.tracesSampleRate).toBe(0.1);
-    expect(options.profilesSampleRate).toBe(0.1);
+    expect(options.tracesSampleRate).toBe(0);
+    expect(options.profilesSampleRate).toBe(0);
     expect(typeof options.beforeSend).toBe('function');
   });
 

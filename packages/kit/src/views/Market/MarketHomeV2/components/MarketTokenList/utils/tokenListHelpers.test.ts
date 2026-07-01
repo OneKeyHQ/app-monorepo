@@ -81,6 +81,87 @@ describe('stock metadata values', () => {
     expect(token.marketCap).toBe(3000);
     expect(token.turnover).toBe(4000);
   });
+
+  test('uses 24h price change for stock rows regardless of selected time range', () => {
+    const token = transformApiItemToToken(
+      {
+        address: '0x390a684ef9cade28a7ad0dfa61ab1eb3842618c4',
+        name: 'Stock Token',
+        symbol: 'STOCK',
+        decimals: 18,
+        priceChange1hPercent: '12.34',
+        priceChange24hPercent: '-0.62',
+        stock: {
+          subtitle: 'Stock Token Inc.',
+          sourceLogoUri: '',
+        },
+      },
+      {
+        chainId: 'evm--1',
+        networkLogoUri: '',
+        timeRange: '1h',
+      },
+    );
+
+    expect(token.change24h).toBe(-0.62);
+    expect(token.priceChangeRaw).toBe('-0.62');
+  });
+
+  test('keeps raw dash price change without treating zero as missing', () => {
+    const baseToken = {
+      address: '0x390a684ef9cade28a7ad0dfa61ab1eb3842618c4',
+      name: 'Token',
+      symbol: 'TOKEN',
+      decimals: 18,
+    };
+
+    const missingChangeToken = transformApiItemToToken(
+      {
+        ...baseToken,
+        priceChange24hPercent: '-',
+      },
+      {
+        chainId: 'evm--1',
+        networkLogoUri: '',
+      },
+    );
+    const zeroChangeToken = transformApiItemToToken(
+      {
+        ...baseToken,
+        priceChange24hPercent: '0',
+      },
+      {
+        chainId: 'evm--1',
+        networkLogoUri: '',
+      },
+    );
+
+    expect(missingChangeToken.change24h).toBe(0);
+    expect(missingChangeToken.priceChangeRaw).toBe('-');
+    expect(zeroChangeToken.change24h).toBe(0);
+    expect(zeroChangeToken.priceChangeRaw).toBe('0');
+  });
+
+  test('keeps raw dash price change in selected time range', () => {
+    const token = transformApiItemToToken(
+      {
+        address: '0x390a684ef9cade28a7ad0dfa61ab1eb3842618c4',
+        name: 'Token',
+        symbol: 'TOKEN',
+        decimals: 18,
+        priceChange1hPercent: '-',
+        priceChange24hPercent: '1',
+      },
+      {
+        chainId: 'evm--1',
+        networkLogoUri: '',
+        timeRange: '1h',
+      },
+    );
+
+    expect(token.change24h).toBe(0);
+    expect(token.priceChangeRaw).toBe('-');
+  });
 });
 
 describe('shouldShowStockSubtitleForTokens', () => {

@@ -53,5 +53,22 @@
       "#12126"
     ],
     "notes": "Address risk check — active address screening for Prime (#12055); migrate Sui to SDK v2 (#12125); bump @onekeyfe/hd-* JS SDK to 1.1.29 (#12126); refine market WebSocket subscriptions (#12087); prevent Wallet Home cold-start blank state (#12117); fix desktop inactive-tab header swallowing clicks on external display (#12041); remove KOL hardware invitee discount display (#12108); analytics and i18n fixes (#12086)"
+  },
+  {
+    "seq": 5,
+    "commit": "1d6b6e8191395786e8a0933dbac518507e855458",
+    "date": "2026-06-29T10:59:26Z",
+    "prs": [
+      "#12138",
+      "#12142",
+      "#12144",
+      "#12152",
+      "#12154",
+      "#12163",
+      "#12166",
+      "#12177",
+      "#12186"
+    ],
+    "notes": "Disable Sentry performance tracing to stop renderer memory leak (#12186); fix iOS dialog bottom safe-area double-padding and color seam (#12138); guard exact BTC swap payments (#12177); optimize address risk check (#12163); use 24h stock price change (#12142); fix Android Prime intro video clipping (#12144); keep restored wallet account on cold start (#12154); correct market buy fiat value (#12152); recompute macOS title-bar draggable region on layout changes (#12166)"
   }
 ]
