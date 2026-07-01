@@ -18,7 +18,6 @@ import { defaultLogger } from '../logger/logger';
 import { isEnableLogNetwork } from '../logger/scopes/app/scenes/network';
 import nativeNetworkThrottle, {
   NATIVE_SLOW_4G_LATENCY_MS,
-  getNetworkThrottleRuntimeConfig,
 } from '../modules/NetworkThrottle';
 import platformEnv from '../platformEnv';
 import appStorage from '../storage/appStorage';
@@ -37,25 +36,7 @@ import {
 import { REQUEST_TIMEOUT } from './requestConst';
 
 import type { IAxiosResponse } from '../appApiClient/appApiClient';
-import type { INativeNetworkThrottleConfig } from '../modules/NetworkThrottle';
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';
-
-const NETWORK_THROTTLE_LOG_PREFIX = '[NETWORK-THROTTLE]';
-const LOG_URL_MAX_LENGTH = 160;
-
-type IAxiosNetworkTimingConfig = AxiosRequestConfig & {
-  $oneKeyNetworkThrottleTiming?: {
-    startedAt: number;
-    throttleConfig: INativeNetworkThrottleConfig;
-  };
-};
-
-type IDiagnosticProcess = NodeJS.Process & {
-  type?: string;
-  versions?: NodeJS.ProcessVersions & {
-    electron?: string;
-  };
-};
 
 let syncNativeNetworkThrottlePromise: Promise<boolean> | undefined;
 let lastSyncedNativeNetworkThrottleEnabled: boolean | undefined;
@@ -65,53 +46,6 @@ let nativeNetworkThrottleSyncedBeforeRequest = false;
 const refreshNetInfo = debounce(() => {
   appEventBus.emit(EAppEventBusNames.RefreshNetInfo, undefined);
 }, 2500);
-
-function stringifyLogValue(value: unknown) {
-  try {
-    return JSON.stringify(value);
-  } catch (error) {
-    return JSON.stringify({
-      stringifyError: error instanceof Error ? error.message : String(error),
-    });
-  }
-}
-
-function debugNetworkThrottleLog(label: string, value?: unknown) {
-  const payload =
-    value && typeof value === 'object' && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : { value };
-
-  defaultLogger.app.network.throttleDiagnostic(label, payload);
-
-  const valueText = value === undefined ? '' : ` ${stringifyLogValue(value)}`;
-  if (process.env.NODE_ENV !== 'production') {
-    // eslint-disable-next-line no-console
-    console.log(`${NETWORK_THROTTLE_LOG_PREFIX} ${label}${valueText}`);
-  }
-}
-
-function shouldLogNetworkThrottleTiming() {
-  return (
-    (!!platformEnv.isNative || !!platformEnv.isDesktop) &&
-    process.env.NODE_ENV !== 'test'
-  );
-}
-
-function getRequestTimingNow() {
-  return globalThis.performance?.now?.() ?? Date.now();
-}
-
-function normalizeDesktopNetworkThrottleTimingConfig(config: {
-  enabled?: boolean;
-  profile?: string;
-}): INativeNetworkThrottleConfig {
-  return {
-    enabled: Boolean(config.enabled),
-    profile: 'slow4g',
-    latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
-  };
-}
 
 async function syncNativeNetworkThrottleFromDevSettings(): Promise<boolean> {
   if (!platformEnv.isNative) {
@@ -195,170 +129,6 @@ async function ensureNativeNetworkThrottleSyncedBeforeRequest() {
   }
 }
 
-async function getNetworkThrottleTimingConfig(): Promise<INativeNetworkThrottleConfig> {
-  if (platformEnv.isDesktop) {
-    const desktopConfig =
-      await globalThis.desktopApiProxy?.dev?.getNetworkThrottle?.();
-    if (desktopConfig) {
-      return normalizeDesktopNetworkThrottleTimingConfig(desktopConfig);
-    }
-  }
-
-  if (platformEnv.isNative) {
-    return nativeNetworkThrottle.getNetworkThrottle();
-  }
-
-  return getNetworkThrottleRuntimeConfig();
-}
-
-function getSanitizedRequestTarget(config: AxiosRequestConfig) {
-  const rawUrl = String(config.url ?? '');
-  const rawBaseURL = String(config.baseURL ?? '');
-  const urlText =
-    rawBaseURL && rawUrl && !/^https?:\/\//i.test(rawUrl)
-      ? `${rawBaseURL.replace(/\/$/, '')}/${rawUrl.replace(/^\//, '')}`
-      : rawUrl || rawBaseURL;
-
-  try {
-    const parsedUrl = new URL(urlText);
-    return `${parsedUrl.host}${parsedUrl.pathname}`.slice(
-      0,
-      LOG_URL_MAX_LENGTH,
-    );
-  } catch {
-    const [withoutQuery] = urlText.split('?');
-    const [withoutHash] = withoutQuery.split('#');
-    return (withoutHash || '<unknown>').slice(0, LOG_URL_MAX_LENGTH);
-  }
-}
-
-function getAxiosAdapterDiagnosticValue(
-  adapter: AxiosRequestConfig['adapter'],
-): string | undefined {
-  if (!adapter) {
-    return undefined;
-  }
-  if (Array.isArray(adapter)) {
-    return adapter
-      .map((item) =>
-        typeof item === 'function'
-          ? `function:${item.name || 'anonymous'}`
-          : String(item),
-      )
-      .join(',');
-  }
-  if (typeof adapter === 'function') {
-    return `function:${adapter.name || 'anonymous'}`;
-  }
-  return String(adapter);
-}
-
-function getAxiosConfigRequestId(config: AxiosRequestConfig) {
-  const headers = config.headers as Record<string, unknown> | undefined;
-  const headerValue =
-    headers?.[HEADER_REQUEST_ID_KEY] ??
-    headers?.[HEADER_REQUEST_ID_KEY.toLowerCase()] ??
-    headers?.[HEADER_REQUEST_ID_KEY.toUpperCase()];
-  if (typeof headerValue === 'string') {
-    return headerValue;
-  }
-  if (headerValue === undefined || headerValue === null) {
-    return undefined;
-  }
-  return String(headerValue);
-}
-
-function getRuntimeDiagnosticPayload() {
-  const currentProcess =
-    typeof process === 'undefined'
-      ? undefined
-      : (process as IDiagnosticProcess);
-  const currentLocation =
-    typeof globalThis.location?.href === 'string'
-      ? globalThis.location.href.split('?')[0].split('#')[0]
-      : undefined;
-
-  return {
-    platform: platformEnv.appPlatform,
-    runtime: platformEnv.runtimeRole,
-    nativeRuntimeKind: platformEnv.nativeRuntimeKind,
-    processType: currentProcess?.type,
-    electronVersion: currentProcess?.versions?.electron,
-    nodeVersion: currentProcess?.versions?.node,
-    hasWindow: typeof globalThis.window !== 'undefined',
-    hasDocument: typeof globalThis.document !== 'undefined',
-    hasWorkerGlobalScope: typeof WorkerGlobalScope !== 'undefined',
-    location: currentLocation?.slice(0, LOG_URL_MAX_LENGTH),
-  };
-}
-
-async function markNetworkThrottleRequestTiming(config: AxiosRequestConfig) {
-  if (
-    !shouldLogNetworkThrottleTiming() ||
-    !isEnableLogNetwork(config.url || config.baseURL)
-  ) {
-    return;
-  }
-
-  const throttleConfig = await getNetworkThrottleTimingConfig().catch(() =>
-    getNetworkThrottleRuntimeConfig(),
-  );
-  (config as IAxiosNetworkTimingConfig).$oneKeyNetworkThrottleTiming = {
-    startedAt: getRequestTimingNow(),
-    throttleConfig,
-  };
-  debugNetworkThrottleLog('axios.request', {
-    ...getRuntimeDiagnosticPayload(),
-    throttleEnabled: throttleConfig.enabled,
-    throttleProfile: throttleConfig.profile,
-    latencyMs: throttleConfig.latencyMs,
-    method: config.method,
-    target: getSanitizedRequestTarget(config),
-    requestId: getAxiosConfigRequestId(config),
-    adapter: getAxiosAdapterDiagnosticValue(config.adapter),
-  });
-}
-
-function logNetworkThrottleRequestTiming({
-  config,
-  statusCode,
-  responseCode,
-  errorCode,
-}: {
-  config?: AxiosRequestConfig;
-  statusCode?: number;
-  responseCode?: unknown;
-  errorCode?: unknown;
-}) {
-  if (!config || !shouldLogNetworkThrottleTiming()) {
-    return;
-  }
-
-  const timingConfig = config as IAxiosNetworkTimingConfig;
-  const timing = timingConfig.$oneKeyNetworkThrottleTiming;
-  if (!timing) {
-    return;
-  }
-
-  const durationMs =
-    Math.round((getRequestTimingNow() - timing.startedAt) * 10) / 10;
-  const throttleConfig = timing.throttleConfig;
-  debugNetworkThrottleLog('axios.response', {
-    ...getRuntimeDiagnosticPayload(),
-    durationMs,
-    throttleEnabled: throttleConfig.enabled,
-    throttleProfile: throttleConfig.profile,
-    latencyMs: throttleConfig.latencyMs,
-    method: config.method,
-    target: getSanitizedRequestTarget(config),
-    requestId: getAxiosConfigRequestId(config),
-    adapter: getAxiosAdapterDiagnosticValue(config.adapter),
-    statusCode,
-    responseCode,
-    errorCode,
-  });
-}
-
 axios.interceptors.request.use(async (config) => {
   await ensureNativeNetworkThrottleSyncedBeforeRequest().catch(() => undefined);
 
@@ -372,11 +142,9 @@ axios.interceptors.request.use(async (config) => {
       if (isEnableLogNetwork(config.url)) {
         defaultLogger.app.network.start('axios', config.method, config.url);
       }
-      await markNetworkThrottleRequestTiming(config);
       return config;
     }
   } catch (_e) {
-    await markNetworkThrottleRequestTiming(config);
     return config;
   }
 
@@ -401,7 +169,6 @@ axios.interceptors.request.use(async (config) => {
       headers[HEADER_REQUEST_ID_KEY],
     );
   }
-  await markNetworkThrottleRequestTiming(config);
   return config;
 });
 
@@ -433,28 +200,13 @@ axios.interceptors.response.use(
             responseCode: response.data.code,
           });
         }
-        logNetworkThrottleRequestTiming({
-          config,
-          statusCode: response.status,
-          responseCode: response.data?.code,
-        });
         return response;
       }
     } catch (_e) {
-      logNetworkThrottleRequestTiming({
-        config,
-        statusCode: response.status,
-      });
       return response;
     }
 
     const data = response.data as IOneKeyAPIBaseResponse;
-
-    logNetworkThrottleRequestTiming({
-      config,
-      statusCode: response.status,
-      responseCode: data.code,
-    });
 
     if ((config as any).autoHandleError !== false && data.code !== 0) {
       const requestIdKey = HEADER_REQUEST_ID_KEY;
@@ -550,13 +302,6 @@ axios.interceptors.response.use(
         });
       }
     }
-
-    logNetworkThrottleRequestTiming({
-      config: error?.config,
-      statusCode: response?.status,
-      responseCode: response?.data?.code,
-      errorCode: error?.code,
-    });
 
     if (response?.status && typeof response.status === 'number') {
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion

@@ -11,24 +11,6 @@ export const isEnableLogNetwork = (path = '') =>
     (platformEnv.isDesktop && path.includes(SENTRY_IPC))
   );
 
-function stringifyDiagnosticValue(value: unknown): string {
-  if (value === undefined || value === null || value === '') {
-    return '';
-  }
-  if (
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-  ) {
-    return String(value).slice(0, 240);
-  }
-  try {
-    return JSON.stringify(value).slice(0, 240);
-  } catch {
-    return String(value).slice(0, 240);
-  }
-}
-
 export class NetworkScene extends BaseScene {
   @LogToLocal({ level: 'debug' })
   public start(
@@ -86,20 +68,5 @@ export class NetworkScene extends BaseScene {
     return `${requestType}:${method}:${path}:${statusCode}, requestId: ${
       requestId || ''
     }, responseCode: ${responseCode}, errorMessage: ${errorMessage || ''}`;
-  }
-
-  @LogToLocal({ level: 'info' })
-  public throttleDiagnostic(
-    label: string,
-    payload: Record<string, unknown> = {},
-  ) {
-    const payloadText = Object.entries(payload)
-      .map(([key, value]) => [key, stringifyDiagnosticValue(value)] as const)
-      .filter(([, value]) => value)
-      .map(([key, value]) => `${key}=${value}`)
-      .join(' ');
-    return `[network-throttle-diagnostic] ${label}${
-      payloadText ? ` ${payloadText}` : ''
-    }`;
   }
 }

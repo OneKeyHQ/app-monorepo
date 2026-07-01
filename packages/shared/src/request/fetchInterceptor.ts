@@ -2,26 +2,10 @@ import { forEach, isNil, isString } from 'lodash';
 
 import { defaultLogger } from '../logger/logger';
 import { isEnableLogNetwork } from '../logger/scopes/app/scenes/network';
-import nativeNetworkThrottle, {
-  NATIVE_SLOW_4G_LATENCY_MS,
-  getNetworkThrottleRuntimeConfig,
-} from '../modules/NetworkThrottle';
-import platformEnv from '../platformEnv';
 import systemTimeUtils from '../utils/systemTimeUtils';
 
 import { HEADER_REQUEST_ID_KEY, getRequestHeaders } from './Interceptor';
 import requestHelper from './requestHelper';
-
-import type { INativeNetworkThrottleConfig } from '../modules/NetworkThrottle';
-
-const LOG_URL_MAX_LENGTH = 160;
-
-type IDiagnosticProcess = NodeJS.Process & {
-  type?: string;
-  versions?: NodeJS.ProcessVersions & {
-    electron?: string;
-  };
-};
 
 function getUrlFromResource(resource: RequestInfo | URL | string) {
   if (isString(resource)) {
@@ -31,83 +15,6 @@ function getUrlFromResource(resource: RequestInfo | URL | string) {
     return resource.href;
   }
   return resource.url;
-}
-
-function getRequestTimingNow() {
-  return globalThis.performance?.now?.() ?? Date.now();
-}
-
-function getSanitizedRequestTarget(urlText: string) {
-  try {
-    const parsedUrl = new URL(urlText);
-    return `${parsedUrl.host}${parsedUrl.pathname}`.slice(
-      0,
-      LOG_URL_MAX_LENGTH,
-    );
-  } catch {
-    const [withoutQuery] = urlText.split('?');
-    const [withoutHash] = withoutQuery.split('#');
-    return (withoutHash || '<unknown>').slice(0, LOG_URL_MAX_LENGTH);
-  }
-}
-
-function shouldLogNetworkThrottleTiming(url: string) {
-  return (
-    (!!platformEnv.isNative || !!platformEnv.isDesktop) &&
-    process.env.NODE_ENV !== 'test' &&
-    isEnableLogNetwork(url)
-  );
-}
-
-function normalizeDesktopNetworkThrottleTimingConfig(config: {
-  enabled?: boolean;
-  profile?: string;
-}): INativeNetworkThrottleConfig {
-  return {
-    enabled: Boolean(config.enabled),
-    profile: 'slow4g',
-    latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
-  };
-}
-
-async function getNetworkThrottleTimingConfig(): Promise<INativeNetworkThrottleConfig> {
-  if (platformEnv.isDesktop) {
-    const desktopConfig =
-      await globalThis.desktopApiProxy?.dev?.getNetworkThrottle?.();
-    if (desktopConfig) {
-      return normalizeDesktopNetworkThrottleTimingConfig(desktopConfig);
-    }
-  }
-
-  if (platformEnv.isNative) {
-    return nativeNetworkThrottle.getNetworkThrottle();
-  }
-
-  return getNetworkThrottleRuntimeConfig();
-}
-
-function getRuntimeDiagnosticPayload() {
-  const currentProcess =
-    typeof process === 'undefined'
-      ? undefined
-      : (process as IDiagnosticProcess);
-  const currentLocation =
-    typeof globalThis.location?.href === 'string'
-      ? globalThis.location.href.split('?')[0].split('#')[0]
-      : undefined;
-
-  return {
-    platform: platformEnv.appPlatform,
-    runtime: platformEnv.runtimeRole,
-    nativeRuntimeKind: platformEnv.nativeRuntimeKind,
-    processType: currentProcess?.type,
-    electronVersion: currentProcess?.versions?.electron,
-    nodeVersion: currentProcess?.versions?.node,
-    hasWindow: typeof globalThis.window !== 'undefined',
-    hasDocument: typeof globalThis.document !== 'undefined',
-    hasWorkerGlobalScope: typeof WorkerGlobalScope !== 'undefined',
-    location: currentLocation?.slice(0, LOG_URL_MAX_LENGTH),
-  };
 }
 
 const fetchOrigin = fetch;
@@ -172,25 +79,6 @@ const newFetch = async function (
     defaultLogger.app.network.start('fetch', options.method, url, requestId);
   }
 
-  const shouldLogThrottleTiming = shouldLogNetworkThrottleTiming(url);
-  const startedAt = shouldLogThrottleTiming ? getRequestTimingNow() : 0;
-  const throttleConfig = shouldLogThrottleTiming
-    ? await getNetworkThrottleTimingConfig().catch(() =>
-        getNetworkThrottleRuntimeConfig(),
-      )
-    : undefined;
-  if (throttleConfig) {
-    defaultLogger.app.network.throttleDiagnostic('fetch.request', {
-      ...getRuntimeDiagnosticPayload(),
-      throttleEnabled: throttleConfig.enabled,
-      throttleProfile: throttleConfig.profile,
-      latencyMs: throttleConfig.latencyMs,
-      method: options.method,
-      target: getSanitizedRequestTarget(url),
-      requestId,
-    });
-  }
-
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return
   return (
     fetchOrigin
@@ -212,20 +100,6 @@ const newFetch = async function (
             requestId,
           });
         }
-        if (throttleConfig) {
-          defaultLogger.app.network.throttleDiagnostic('fetch.response', {
-            ...getRuntimeDiagnosticPayload(),
-            durationMs:
-              Math.round((getRequestTimingNow() - startedAt) * 10) / 10,
-            throttleEnabled: throttleConfig.enabled,
-            throttleProfile: throttleConfig.profile,
-            latencyMs: throttleConfig.latencyMs,
-            method: options?.method as string,
-            target: getSanitizedRequestTarget(url),
-            requestId,
-            statusCode: res.status,
-          });
-        }
         return res.clone();
       })
       .catch((e: unknown) => {
@@ -241,23 +115,6 @@ const newFetch = async function (
                 ? (e.message as string)
                 : String(e),
             requestId,
-          });
-        }
-        if (throttleConfig) {
-          defaultLogger.app.network.throttleDiagnostic('fetch.error', {
-            ...getRuntimeDiagnosticPayload(),
-            durationMs:
-              Math.round((getRequestTimingNow() - startedAt) * 10) / 10,
-            throttleEnabled: throttleConfig.enabled,
-            throttleProfile: throttleConfig.profile,
-            latencyMs: throttleConfig.latencyMs,
-            method: options?.method as string,
-            target: getSanitizedRequestTarget(url),
-            requestId,
-            errorMessage:
-              typeof e === 'object' && e && 'message' in e
-                ? (e.message as string)
-                : String(e),
           });
         }
         throw e;
