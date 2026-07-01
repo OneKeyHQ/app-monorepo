@@ -68,7 +68,9 @@ function isCredentialLocalSecretEnvelopeUnavailableError(
   );
 }
 
-function showToastOfError(error: IOneKeyError | unknown | undefined) {
+function showLocalSecretEnvelopeErrorDialogIfNeeded(
+  error: IOneKeyError | unknown | undefined,
+) {
   fixAxiosAbortCancelError(error);
   const err = error as IOneKeyError | undefined;
   if (
@@ -82,7 +84,15 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
         err.className ||
         EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable,
     });
+    return true;
   }
+  return false;
+}
+
+function showToastOfError(error: IOneKeyError | unknown | undefined) {
+  fixAxiosAbortCancelError(error);
+  showLocalSecretEnvelopeErrorDialogIfNeeded(error);
+  const err = error as IOneKeyError | undefined;
   if (
     err?.className &&
     [
@@ -228,5 +238,6 @@ export default {
   toastIfError,
   toastIfErrorDisable,
   showToastOfError,
+  showLocalSecretEnvelopeErrorDialogIfNeeded,
   withErrorAutoToast,
 };
