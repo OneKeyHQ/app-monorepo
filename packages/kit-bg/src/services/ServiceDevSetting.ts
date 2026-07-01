@@ -23,6 +23,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
   devSettingsPersistAtom,
   firmwareUpdateDevSettingsPersistAtom,
+  getDevSettingsNetworkThrottleEnabled,
 } from '../states/jotai/atoms/devSettings';
 
 import ServiceBase from './ServiceBase';
@@ -41,8 +42,17 @@ class ServiceDevSetting extends ServiceBase {
     super({ backgroundApi });
   }
 
+  private getExpectedNetworkThrottleEnabled(
+    devSettings: IDevSettingsPersistAtom,
+  ) {
+    return getDevSettingsNetworkThrottleEnabled(devSettings, true);
+  }
+
   async saveDevModeToSyncStorage() {
     const devSettings = await devSettingsPersistAtom.get();
+    const networkThrottleEnabledForNativeSync = platformEnv.isNative
+      ? this.getExpectedNetworkThrottleEnabled(devSettings)
+      : false;
     appStorage.syncStorage.set(
       EAppSyncStorageKeys.onekey_developer_mode_enabled,
       !!devSettings.enabled,
@@ -54,8 +64,7 @@ class ServiceDevSetting extends ServiceBase {
     );
     devSettingSyncStorage.set(
       EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
-      !!devSettings.enabled &&
-        !!devSettings.settings?.nativeNetworkThrottleEnabled,
+      networkThrottleEnabledForNativeSync,
     );
   }
 
@@ -100,44 +109,69 @@ class ServiceDevSetting extends ServiceBase {
     }
   }
 
-  private async applyDesktopNetworkThrottleAfterEnableDevMode() {
-    if (!platformEnv.isDesktop) {
+  private async applyNetworkThrottleAfterEnableDevMode() {
+    const devSettings = await devSettingsPersistAtom.get();
+
+    if (platformEnv.isDesktop) {
+      const expectedEnabled =
+        this.getExpectedNetworkThrottleEnabled(devSettings);
+      const config =
+        await globalThis.desktopApiProxy?.dev?.setNetworkThrottle?.({
+          enabled: expectedEnabled,
+          profile: 'slow4g',
+        });
+      if (!config) {
+        throw new OneKeyLocalError('Failed to update desktop network throttle');
+      }
+
+      const actualEnabled = Boolean(config.enabled);
+      setNetworkThrottleRuntimeConfig({
+        enabled: actualEnabled,
+        profile: 'slow4g',
+        latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
+      });
+      if (actualEnabled !== devSettings.settings?.networkThrottleEnabled) {
+        await devSettingsPersistAtom.set((prev) => ({
+          ...prev,
+          settings: {
+            ...prev.settings,
+            networkThrottleEnabled: actualEnabled,
+          },
+        }));
+        await this.saveDevModeToSyncStorage();
+        await this.syncCryptoSettings();
+      }
       return;
     }
 
-    const devSettings = await devSettingsPersistAtom.get();
-    const expectedEnabled =
-      devSettings.enabled &&
-      (devSettings.settings?.desktopNetworkThrottleEnabled ?? true);
-    const config = await globalThis.desktopApiProxy?.dev?.setNetworkThrottle?.({
-      enabled: expectedEnabled,
-      profile: 'slow4g',
-    });
-    if (!config) {
-      throw new OneKeyLocalError('Failed to update desktop network throttle');
-    }
+    if (platformEnv.isNative) {
+      const expectedEnabled =
+        this.getExpectedNetworkThrottleEnabled(devSettings);
+      const config = await nativeNetworkThrottle.setNetworkThrottle({
+        enabled: expectedEnabled,
+        profile: 'slow4g',
+      });
+      const actualEnabled = Boolean(config.enabled);
+      if (actualEnabled !== expectedEnabled) {
+        throw new OneKeyLocalError('Failed to update native network throttle');
+      }
 
-    const actualEnabled = Boolean(config.enabled);
-    setNetworkThrottleRuntimeConfig({
-      enabled: actualEnabled,
-      profile: 'slow4g',
-      latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
-    });
-    if (actualEnabled !== devSettings.settings?.desktopNetworkThrottleEnabled) {
-      await devSettingsPersistAtom.set((prev) => ({
-        ...prev,
-        settings: {
-          ...prev.settings,
-          desktopNetworkThrottleEnabled: actualEnabled,
-        },
-      }));
-      await this.saveDevModeToSyncStorage();
-      await this.syncCryptoSettings();
+      if (actualEnabled !== devSettings.settings?.networkThrottleEnabled) {
+        await devSettingsPersistAtom.set((prev) => ({
+          ...prev,
+          settings: {
+            ...prev.settings,
+            networkThrottleEnabled: actualEnabled,
+          },
+        }));
+        await this.saveDevModeToSyncStorage();
+        await this.syncCryptoSettings();
+      }
     }
   }
 
-  async syncDesktopNetworkThrottleSettings() {
-    if (!platformEnv.isDesktop) {
+  async syncNetworkThrottleSettings() {
+    if (!platformEnv.isDesktop && !platformEnv.isNative) {
       return;
     }
 
@@ -149,7 +183,11 @@ class ServiceDevSetting extends ServiceBase {
       return;
     }
 
-    await this.applyDesktopNetworkThrottleAfterEnableDevMode();
+    await this.applyNetworkThrottleAfterEnableDevMode();
+  }
+
+  async syncDesktopNetworkThrottleSettings() {
+    await this.syncNetworkThrottleSettings();
   }
 
   @backgroundMethod()
@@ -160,15 +198,15 @@ class ServiceDevSetting extends ServiceBase {
         enabled: true,
         settings: {
           ...prev.settings,
-          ...(platformEnv.isDesktop
-            ? { desktopNetworkThrottleEnabled: true }
+          ...(platformEnv.isDesktop || platformEnv.isNative
+            ? { networkThrottleEnabled: true }
             : undefined),
         },
       }));
       await this.saveDevModeToSyncStorage();
       await this.syncCryptoSettings();
       try {
-        await this.applyDesktopNetworkThrottleAfterEnableDevMode();
+        await this.applyNetworkThrottleAfterEnableDevMode();
       } catch (error) {
         await devSettingsPersistAtom.set(() => previousDevSettings);
         await this.saveDevModeToSyncStorage();
@@ -215,70 +253,42 @@ class ServiceDevSetting extends ServiceBase {
       await this.syncCryptoSettings();
     };
 
-    if (platformEnv.isDesktop && name === 'desktopNetworkThrottleEnabled') {
+    if (
+      (platformEnv.isDesktop || platformEnv.isNative) &&
+      name === 'networkThrottleEnabled'
+    ) {
       if (!previousDevSettings.enabled) {
         return false;
       }
       try {
         await updatePersistedDevSetting(Boolean(value));
-        const config =
-          await globalThis.desktopApiProxy?.dev?.setNetworkThrottle?.({
-            enabled: Boolean(value),
-            profile: 'slow4g',
-          });
-        if (!config) {
-          throw new OneKeyLocalError(
-            'Failed to update desktop network throttle',
-          );
-        }
-        const actualEnabled = Boolean(config.enabled);
-        if (actualEnabled !== Boolean(value)) {
-          await updatePersistedDevSetting(actualEnabled);
-        }
-        setNetworkThrottleRuntimeConfig({
-          enabled: actualEnabled,
-          profile: 'slow4g',
-          latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
-        });
-        return actualEnabled;
+        await this.applyNetworkThrottleAfterEnableDevMode();
+        const devSettings = await devSettingsPersistAtom.get();
+        return this.getExpectedNetworkThrottleEnabled(devSettings);
       } catch (error) {
         await devSettingsPersistAtom.set(() => previousDevSettings);
         await this.saveDevModeToSyncStorage();
         await this.syncCryptoSettings();
-        await globalThis.desktopApiProxy?.dev
-          ?.setNetworkThrottle?.({
-            enabled:
-              previousDevSettings.enabled &&
-              !!previousDevSettings.settings?.desktopNetworkThrottleEnabled,
-            profile: 'slow4g',
-          })
-          .catch(() => undefined);
+        if (platformEnv.isDesktop) {
+          await globalThis.desktopApiProxy?.dev
+            ?.setNetworkThrottle?.({
+              enabled:
+                this.getExpectedNetworkThrottleEnabled(previousDevSettings),
+              profile: 'slow4g',
+            })
+            .catch(() => undefined);
+        }
+        if (platformEnv.isNative) {
+          await nativeNetworkThrottle
+            .setNetworkThrottle({
+              enabled:
+                this.getExpectedNetworkThrottleEnabled(previousDevSettings),
+              profile: 'slow4g',
+            })
+            .catch(() => undefined);
+        }
         throw error;
       }
-    }
-
-    try {
-      if (platformEnv.isNative && name === 'nativeNetworkThrottleEnabled') {
-        if (!previousDevSettings.enabled) {
-          return false;
-        }
-        await updatePersistedDevSetting(Boolean(value));
-        const config = await nativeNetworkThrottle.setNetworkThrottle({
-          enabled: Boolean(value),
-          profile: 'slow4g',
-        });
-        if (config.enabled !== Boolean(value)) {
-          throw new OneKeyLocalError(
-            'Failed to update native network throttle',
-          );
-        }
-        return config.enabled;
-      }
-    } catch (error) {
-      await devSettingsPersistAtom.set(() => previousDevSettings);
-      await this.saveDevModeToSyncStorage();
-      await this.syncCryptoSettings();
-      throw error;
     }
 
     await updatePersistedDevSetting(value);
