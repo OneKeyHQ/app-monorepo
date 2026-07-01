@@ -72,13 +72,16 @@ const DEFAULT_NETWORK_THROTTLE_CONFIG: IDesktopStoreNetworkThrottle = {
   profile: 'slow4g',
 };
 
+const DESKTOP_NETWORK_THROTTLE_DIAGNOSTIC_DOMAIN_SUFFIXES = [
+  'onekeycn.com',
+  'onekeytest.com',
+  'onekey.so',
+] as const;
+
 const DESKTOP_NETWORK_THROTTLE_DIAGNOSTIC_URL_FILTER = {
-  urls: [
-    'https://onekeycn.com/*',
-    'https://*.onekeycn.com/*',
-    'https://onekey.so/*',
-    'https://*.onekey.so/*',
-  ],
+  urls: DESKTOP_NETWORK_THROTTLE_DIAGNOSTIC_DOMAIN_SUFFIXES.flatMap(
+    (domain) => [`https://${domain}/*`, `https://*.${domain}/*`],
+  ),
 };
 
 const DESKTOP_NETWORK_THROTTLE_DIAGNOSTIC_MAX_REQUEST_LOGS = 2000;
@@ -222,11 +225,8 @@ function shouldLogDesktopNetworkThrottleDiagnosticUrl(
     const host = parsedUrl.hostname.toLowerCase();
     const pathname = parsedUrl.pathname.toLowerCase();
     if (
-      !(
-        host === 'onekeycn.com' ||
-        host.endsWith('.onekeycn.com') ||
-        host === 'onekey.so' ||
-        host.endsWith('.onekey.so')
+      !DESKTOP_NETWORK_THROTTLE_DIAGNOSTIC_DOMAIN_SUFFIXES.some(
+        (domain) => host === domain || host.endsWith(`.${domain}`),
       )
     ) {
       return false;
