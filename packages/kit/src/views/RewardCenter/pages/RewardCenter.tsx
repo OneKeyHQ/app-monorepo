@@ -233,6 +233,10 @@ function RewardCenterDetails() {
         totalReceivedLimit: number;
         remaining: number;
         isReceived: boolean;
+        monthIPLimit: number;
+        monthIPRemain: number;
+        monthLimit: number;
+        monthRemain: number;
         error?: string;
         success: boolean;
       }>({
@@ -261,10 +265,10 @@ function RewardCenterDetails() {
   }, [account, claimSource, network]);
 
   // Detect whether the TRON account is activated on chain. An inactive account
-  // cannot claim energy, so the claim button is switched to a Receive action.
-  // Poll (and revalidate on focus) so that if the user leaves to top up TRX and
-  // comes back, the button flips from Receive back to Claim automatically once
-  // the account becomes activated.
+  // cannot claim energy, so the claim button is disabled and a top-up alert is
+  // shown. Poll (and revalidate on focus) so that if the user leaves to top up
+  // TRX and comes back, the claim button re-enables automatically once the
+  // account becomes activated.
   const {
     result: accountActivation,
     setStopPolling: setStopActivationPolling,
@@ -645,7 +649,9 @@ function RewardCenterDetails() {
           isClaimed ||
           isAccountNotActivated ||
           result?.remaining === 0 ||
-          result?.totalReceivedLimit === 0
+          result?.totalReceivedLimit === 0 ||
+          result?.monthIPRemain === 0 ||
+          result?.monthRemain === 0
         }
         onPress={handleClaimResource}
       >
@@ -660,6 +666,8 @@ function RewardCenterDetails() {
     isClaimed,
     result?.remaining,
     result?.totalReceivedLimit,
+    result?.monthIPRemain,
+    result?.monthRemain,
     handleClaimResource,
     renderClaimButtonText,
     isCreatingTronAccount,
@@ -737,6 +745,66 @@ function RewardCenterDetails() {
     isAccountNotActivated,
   ]);
 
+  // Top-of-page alert, by priority: inactive account (with a Top up action) >
+  // IP monthly claim limit reached > account monthly claim limit reached. The
+  // claim button stays labelled as-is and just disabled; the reason is surfaced
+  // here.
+  const renderTopAlert = useCallback(() => {
+    if (isAccountNotActivated) {
+      return (
+        <Alert
+          type="warning"
+          icon="InfoCircleOutline"
+          // TODO(i18n): hardcoded English until a translation key is added
+          title="Account not activated. Deposit TRX to activate it."
+          closable={false}
+          mb="$5"
+          action={{
+            primary: intl.formatMessage({
+              id: ETranslations.global_top_up,
+            }),
+            primaryTestID: RewardCenterTestIDs.topUpBtn,
+            onPrimaryPress: handleTopUp,
+          }}
+        />
+      );
+    }
+
+    if (result?.monthIPRemain === 0) {
+      return (
+        <Alert
+          type="warning"
+          icon="InfoCircleOutline"
+          // TODO(i18n): hardcoded English until a translation key is added
+          title="This month's claim limit for your IP has been reached."
+          closable={false}
+          mb="$5"
+        />
+      );
+    }
+
+    if (result?.monthRemain === 0) {
+      return (
+        <Alert
+          type="warning"
+          icon="InfoCircleOutline"
+          // TODO(i18n): hardcoded English until a translation key is added
+          title="This month's claim limit has been reached."
+          closable={false}
+          mb="$5"
+        />
+      );
+    }
+
+    return null;
+  }, [
+    isAccountNotActivated,
+    result?.monthIPRemain,
+    result?.monthRemain,
+    intl,
+    handleTopUp,
+  ]);
+
   const renderHeaderRight = useCallback(() => {
     if (!showAccountSelector) {
       return null;
@@ -791,23 +859,7 @@ function RewardCenterDetails() {
         headerLeftNoGlass
       />
       <Page.Body px="$5">
-        {isAccountNotActivated ? (
-          <Alert
-            type="warning"
-            icon="InfoCircleOutline"
-            // TODO(i18n): hardcoded English until a translation key is added
-            title="Account not activated. Deposit TRX to activate it."
-            closable={false}
-            mb="$5"
-            action={{
-              primary: intl.formatMessage({
-                id: ETranslations.global_top_up,
-              }),
-              primaryTestID: RewardCenterTestIDs.topUpBtn,
-              onPrimaryPress: handleTopUp,
-            }}
-          />
-        ) : null}
+        {renderTopAlert()}
         <Alert
           type="info"
           icon="InfoCircleOutline"
