@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import {
@@ -12,6 +13,8 @@ import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -61,6 +64,44 @@ function createThirdPartyAdapterNotRegisteredError(vendor: EHardwareVendor) {
     key: ETranslations.third_party_hw_adapter_not_registered__msg,
     info: { vendor },
   });
+}
+
+function stringifyThirdPartySearchDebugValue(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    return JSON.stringify({
+      stringifyError: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+function summarizeThirdPartySearchDevice(
+  value: unknown,
+): Record<string, unknown> {
+  const device = value as {
+    connectId?: unknown;
+    deviceId?: unknown;
+    uuid?: unknown;
+    name?: unknown;
+    model?: unknown;
+    connectionType?: unknown;
+    raw?: {
+      transport?: unknown;
+    };
+  };
+  return {
+    connectId: device.connectId,
+    deviceId: device.deviceId,
+    uuid: device.uuid,
+    name: device.name,
+    model: device.model,
+    connectionType: device.connectionType,
+    rawTransport:
+      typeof device.raw?.transport === 'string'
+        ? device.raw.transport
+        : undefined,
+  };
 }
 
 /**
@@ -278,10 +319,8 @@ class ServiceThirdPartyHardware extends ServiceBase {
   }
 
   /**
-   * Business-call Trezor USB→BLE fallback. When a saved Trezor has no
-   * `bleConnectId` yet, the keyring can request the same binding picker used by
-   * device management and wait for the selected BLE transport before retrying
-   * the current hardware operation.
+   * Business-call Trezor transport recovery. The picker may return a newly
+   * bound BLE connectId, or the known USB connectId if USB is restored.
    */
   async requestTrezorBleConnectIdForDevice({
     device,
@@ -320,6 +359,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
           usbConnectId,
           featuresDeviceId,
           promiseId,
+          trezorBleBindingMode: 'auto-fallback',
         },
       });
     });
@@ -349,6 +389,83 @@ class ServiceThirdPartyHardware extends ServiceBase {
       )} deviceId=${deviceId}`,
     );
     await adapter?.flushThpCredentials?.(deviceId, { connectId });
+  }
+
+  /**
+   * Tear down the cached Trezor adapter so the next `getAdapterForVendor`
+   * rebuilds it and warm-loads THP credentials fresh from the DB (credentials
+   * are seeded into the connector once at adapter creation, so a DB mutation
+   * only takes effect after recreation). Awaits the adapter's own `dispose()`
+   * first so the connector releases the USB handle (close + releaseInterface) —
+   * dropping the Map reference alone would leak the open device and break the
+   * next connect. Connection lifecycle stays inside the SDK; we only ask it to
+   * dispose. DEV-only helper for the THP debug tools.
+   */
+  private async disposeTrezorAdapterCache() {
+    const vendor = EHardwareVendor.trezor;
+    if (!this.isRegisteredThirdPartyVendor(vendor)) return;
+    const adapter = this.thirdPartyAdapters.get(vendor);
+    this.thirdPartyAdapters.delete(vendor);
+    this.thirdPartyAdapterInitPromises.delete(vendor);
+    try {
+      await adapter?.hw?.dispose?.();
+    } catch (error) {
+      defaultLogger.hardware.sdkLog.log(
+        `[ServiceThirdPartyHardware] trezor adapter dispose failed: ${
+          (error as Error)?.message ?? String(error)
+        }`,
+      );
+    }
+  }
+
+  /**
+   * DEV-ONLY. Corrupt this Trezor's stored THP pairing credentials so the device
+   * rejects them on the next handshake — used to reproduce/inspect pairing-loss
+   * recovery. Keeps the credential shape valid (still shipped to the device) but
+   * fills the `credential` blob with random hex. No-op when nothing is stored.
+   * Trezor-only. Gated behind developer mode in the UI.
+   */
+  @backgroundMethod()
+  async devCorruptTrezorThpCredentials({
+    dbDeviceId,
+  }: {
+    dbDeviceId: string;
+  }): Promise<{ corrupted: number }> {
+    const device = await localDb.getDevice(dbDeviceId);
+    const credentials = device.settings?.thpCredentials ?? [];
+    if (!credentials.length) {
+      return { corrupted: 0 };
+    }
+    const corrupted = credentials.map((cred) => {
+      const next = { ...cred };
+      if (typeof next.credential === 'string' && next.credential.length > 0) {
+        next.credential = stringUtils.randomString(next.credential.length, {
+          chars: '0123456789abcdef',
+        });
+      }
+      return next;
+    });
+    await localDb.updateDeviceThpCredentials({
+      dbDeviceId,
+      credentials: corrupted,
+    });
+    await this.disposeTrezorAdapterCache();
+    return { corrupted: corrupted.length };
+  }
+
+  /**
+   * DEV-ONLY. Clear this Trezor's stored THP credentials + bleConnectId so the
+   * next connect forces a fresh pairing. Trezor-only. Gated behind developer
+   * mode in the UI.
+   */
+  @backgroundMethod()
+  async devClearTrezorThpState({
+    dbDeviceId,
+  }: {
+    dbDeviceId: string;
+  }): Promise<void> {
+    await localDb.clearTrezorDeviceThpState({ dbDeviceId });
+    await this.disposeTrezorAdapterCache();
   }
 
   /**
@@ -407,6 +524,59 @@ class ServiceThirdPartyHardware extends ServiceBase {
     return this.getEvmAddressByWalletState({
       ...params,
       useEmptyPassphrase: true,
+    });
+  }
+
+  /**
+   * Build the wallet XFP (master fingerprint + first taproot xpub) for a
+   * third-party device via its adapter. Mirrors ServiceHardware.buildHwWalletXfp
+   * but sources both values from the vendor adapter's btc methods. The master
+   * fingerprint depends on the passphrase, so a hidden wallet must pass its
+   * passphraseState; a standard wallet uses the empty passphrase.
+   */
+  @backgroundMethod()
+  async buildHwWalletXfp(params: {
+    connectId: string;
+    deviceId: string;
+    vendor: EHardwareVendor;
+    passphraseState?: string;
+  }): Promise<string | undefined> {
+    const { connectId, deviceId, vendor, passphraseState } = params;
+    const adapter = await this.getAdapterForVendor(vendor);
+    if (!adapter) return undefined;
+    const passphraseParams = {
+      passphraseState: passphraseState || undefined,
+      useEmptyPassphrase: passphraseState ? undefined : true,
+    };
+    const fingerprintResult = await adapter.hw.btcGetMasterFingerprint(
+      connectId,
+      deviceId,
+      passphraseParams,
+    );
+    if (!fingerprintResult.success) {
+      throw convertThirdPartyDeviceError(fingerprintResult.payload, {
+        vendor,
+        chain: 'btc',
+      });
+    }
+    const publicKeyResult = await adapter.hw.btcGetPublicKey(
+      connectId,
+      deviceId,
+      {
+        path: BTC_FIRST_TAPROOT_PATH,
+        showOnDevice: false,
+        ...passphraseParams,
+      },
+    );
+    if (!publicKeyResult.success) {
+      throw convertThirdPartyDeviceError(publicKeyResult.payload, {
+        vendor,
+        chain: 'btc',
+      });
+    }
+    return accountUtils.buildFullXfp({
+      xfp: fingerprintResult.payload.masterFingerprint.replace(/^0x/, ''),
+      firstTaprootXpub: publicKeyResult.payload.xpub,
     });
   }
 
@@ -493,22 +663,40 @@ class ServiceThirdPartyHardware extends ServiceBase {
         throw createThirdPartyAdapterNotRegisteredError(params.vendor);
       }
       const adapterStartedAt = Date.now();
-      const devices = await adapter.searchDevices(
+      const adapterSearchOptions =
         params.resetSession ||
-          params.waitForAllTransports ||
-          params.transportType
+        params.waitForAllTransports ||
+        params.transportType
           ? {
               resetSession: params.resetSession,
               waitForAllTransports: params.waitForAllTransports,
               transportType: params.transportType,
             }
-          : undefined,
-      );
+          : undefined;
+      const devices = await adapter.searchDevices(adapterSearchOptions);
       const filteredDevices = params.transportType
         ? devices.filter(
             (device) => device.connectionType === params.transportType,
           )
         : devices;
+      if (filteredDevices.length !== devices.length) {
+        defaultLogger.hardware.sdkLog.log(
+          `[3rdPartyHW] searchDevices.filtered ${stringifyThirdPartySearchDebugValue(
+            {
+              vendor: params.vendor,
+              transportType: params.transportType,
+              rawCount: devices.length,
+              filteredCount: filteredDevices.length,
+              dropped: devices
+                .filter(
+                  (device) => device.connectionType !== params.transportType,
+                )
+                .map(summarizeThirdPartySearchDevice),
+              kept: filteredDevices.map(summarizeThirdPartySearchDevice),
+            },
+          )}`,
+        );
+      }
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW] searchDevices vendor=${params.vendor} rawCount=${
           devices.length

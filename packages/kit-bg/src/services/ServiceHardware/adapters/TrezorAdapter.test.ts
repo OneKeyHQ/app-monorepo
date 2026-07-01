@@ -29,7 +29,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
     requestDeviceNotFound: 'requestDeviceNotFound',
     requestTrezorThpPairing: 'requestTrezorThpPairing',
     requestTrezorPassphrase: 'requestTrezorPassphrase',
-    requestTrezorUnlock: 'requestTrezorUnlock',
+    unlockDevice: 'unlockDevice',
     confirmOnDevice: 'confirmOnDevice',
     connecting: 'connecting',
     processing: 'processing',

@@ -623,7 +623,7 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions).toHaveLength(0);
   });
 
-  it('hides Uniswap V4 removeLiquidity when currency metadata is missing', () => {
+  it('resolves Uniswap V4 removeLiquidity without currency metadata', () => {
     const sourcePosition = makeSourcePosition({
       protocol: 'uniswap-v4',
       protocolName: 'Uniswap V4',
@@ -655,7 +655,73 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
       supportedActions,
     });
 
-    expect(actions).toHaveLength(0);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].assets[0].extraParams).toEqual(
+      expect.objectContaining({
+        amount0Min: '1',
+        amount1Min: '1',
+        groupId: '0x1111111111111111111111111111111111111111#123',
+        tokenId: '123',
+      }),
+    );
+    expect(actions[0].assets[0].extraParams).not.toHaveProperty('currency0');
+    expect(actions[0].assets[0].extraParams).not.toHaveProperty('currency1');
+  });
+
+  it('resolves Uniswap V4 removeLiquidity when one currency is the native empty address', () => {
+    const tokenAddress = '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359';
+    const sourcePosition = makeSourcePosition({
+      networkId: 'evm--137',
+      protocol: 'uniswap-v4',
+      protocolName: 'Uniswap V4',
+      category: 'liquidity',
+      groupId: '0x1ec2ebf4f37e7363fdfe3551602425af0b3ceef9#23973',
+      name: 'Uniswap V4 POL/USDC Pool (#23973)',
+      assets: [
+        makeAsset({
+          symbol: 'POL',
+          address: '',
+          amount: '8.228050923106608',
+          value: 1,
+          price: 1,
+        }),
+        makeAsset({
+          symbol: 'USDC',
+          address: tokenAddress,
+          amount: '0.573641',
+          value: 1,
+          price: 1,
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'uniswap-v4',
+        networkId: 'evm--137',
+        positionCategory: 'liquidity',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.RemoveLiquidity,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--137',
+        protocol: 'uniswap-v4',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0].assets[0].extraParams).toEqual(
+      expect.objectContaining({
+        groupId: '0x1ec2ebf4f37e7363fdfe3551602425af0b3ceef9#23973',
+        tokenId: '23973',
+      }),
+    );
+    expect(actions[0].assets[0].extraParams).not.toHaveProperty('currency0');
+    expect(actions[0].assets[0].extraParams).not.toHaveProperty('currency1');
   });
 
   it('resolves grouped Uniswap removeLiquidity source positions independently', () => {

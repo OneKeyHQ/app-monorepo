@@ -1,0 +1,138 @@
+diff --git a/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/getOwnReflectMetadata.js b/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/getOwnReflectMetadata.js
+index 369a8ea..1bba316 100644
+--- a/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/getOwnReflectMetadata.js
++++ b/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/getOwnReflectMetadata.js
+@@ -1,8 +1,7 @@
+ "use strict";
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.getOwnReflectMetadata = getOwnReflectMetadata;
+-// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
++const metadataStore_1 = require("./metadataStore"); // OneKey patch
+ function getOwnReflectMetadata(target, metadataKey) {
+-    return Reflect.getOwnMetadata(metadataKey, target);
++    return (0, metadataStore_1.getOwnMetadata)(target, metadataKey); // OneKey patch
+ }
+-//# sourceMappingURL=getOwnReflectMetadata.js.map
+\ No newline at end of file
+diff --git a/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/getReflectMetadata.js b/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/getReflectMetadata.js
+index c21dfc0..ec866e3 100644
+--- a/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/getReflectMetadata.js
++++ b/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/getReflectMetadata.js
+@@ -1,8 +1,7 @@
+ "use strict";
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.getReflectMetadata = getReflectMetadata;
+-// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
++const metadataStore_1 = require("./metadataStore"); // OneKey patch
+ function getReflectMetadata(target, metadataKey) {
+-    return Reflect.getMetadata(metadataKey, target);
++    return (0, metadataStore_1.getMetadata)(target, metadataKey); // OneKey patch
+ }
+-//# sourceMappingURL=getReflectMetadata.js.map
+\ No newline at end of file
+diff --git a/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/metadataStore.js b/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/metadataStore.js
+new file mode 100644
+index 0000000..722d459
+--- /dev/null
++++ b/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/metadataStore.js
+@@ -0,0 +1,35 @@
++"use strict";
++// OneKey patch: keep inversify DI metadata in a module-local WeakMap instead of
++// mutating the global Reflect intrinsic (reflect-metadata). SES lockdown freezes
++// Reflect, which otherwise crashes the Ledger Device Management Kit on load.
++// Covers the (target, metadataKey) class-level metadata these helpers use;
++// behaviour mirrors reflect-metadata (own vs prototype-chain lookup). Verified
++// by sesHardenLibCompat.test.ts.
++Object.defineProperty(exports, "__esModule", { value: true });
++exports.getOwnMetadata = getOwnMetadata;
++exports.getMetadata = getMetadata;
++exports.setMetadata = setMetadata;
++const store = new WeakMap();
++function setMetadata(target, metadataKey, metadata) {
++    let map = store.get(target);
++    if (map === undefined) {
++        map = new Map();
++        store.set(target, map);
++    }
++    map.set(metadataKey, metadata);
++}
++function getOwnMetadata(target, metadataKey) {
++    const map = store.get(target);
++    return map === undefined ? undefined : map.get(metadataKey);
++}
++function getMetadata(target, metadataKey) {
++    let current = target;
++    while (current !== null && current !== undefined) {
++        const map = store.get(current);
++        if (map !== undefined && map.has(metadataKey)) {
++            return map.get(metadataKey);
++        }
++        current = Object.getPrototypeOf(current);
++    }
++    return undefined;
++}
+diff --git a/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/setReflectMetadata.js b/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/setReflectMetadata.js
+index dc1081b..77054ea 100644
+--- a/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/setReflectMetadata.js
++++ b/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/setReflectMetadata.js
+@@ -1,7 +1,7 @@
+ "use strict";
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.setReflectMetadata = setReflectMetadata;
++const metadataStore_1 = require("./metadataStore"); // OneKey patch
+ function setReflectMetadata(target, metadataKey, metadata) {
+-    Reflect.defineMetadata(metadataKey, metadata, target);
++    (0, metadataStore_1.setMetadata)(target, metadataKey, metadata); // OneKey patch
+ }
+-//# sourceMappingURL=setReflectMetadata.js.map
+\ No newline at end of file
+diff --git a/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/updateOwnReflectMetadata.js b/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/updateOwnReflectMetadata.js
+index 8616418..5ddf4bd 100644
+--- a/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/updateOwnReflectMetadata.js
++++ b/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/updateOwnReflectMetadata.js
+@@ -2,9 +2,9 @@
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.updateOwnReflectMetadata = updateOwnReflectMetadata;
+ const getOwnReflectMetadata_1 = require("./getOwnReflectMetadata");
++const metadataStore_1 = require("./metadataStore"); // OneKey patch
+ function updateOwnReflectMetadata(target, metadataKey, buildDefaultValue, callback) {
+     const metadata = (0, getOwnReflectMetadata_1.getOwnReflectMetadata)(target, metadataKey) ?? buildDefaultValue();
+     const updatedMetadata = callback(metadata);
+-    Reflect.defineMetadata(metadataKey, updatedMetadata, target);
++    (0, metadataStore_1.setMetadata)(target, metadataKey, updatedMetadata); // OneKey patch
+ }
+-//# sourceMappingURL=updateOwnReflectMetadata.js.map
+\ No newline at end of file
+diff --git a/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/updateReflectMetadata.js b/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/updateReflectMetadata.js
+index 28b5996..3908cf6 100644
+--- a/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/updateReflectMetadata.js
++++ b/node_modules/@inversifyjs/reflect-metadata-utils/lib/cjs/reflectMetadata/utils/updateReflectMetadata.js
+@@ -2,9 +2,9 @@
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.updateReflectMetadata = updateReflectMetadata;
+ const getReflectMetadata_1 = require("./getReflectMetadata");
++const metadataStore_1 = require("./metadataStore"); // OneKey patch
+ function updateReflectMetadata(target, metadataKey, buildDefaultValue, callback) {
+     const metadata = (0, getReflectMetadata_1.getReflectMetadata)(target, metadataKey) ?? buildDefaultValue();
+     const updatedMetadata = callback(metadata);
+-    Reflect.defineMetadata(metadataKey, updatedMetadata, target);
++    (0, metadataStore_1.setMetadata)(target, metadataKey, updatedMetadata); // OneKey patch
+ }
+-//# sourceMappingURL=updateReflectMetadata.js.map
+\ No newline at end of file
+diff --git a/node_modules/@inversifyjs/reflect-metadata-utils/lib/esm/index.js b/node_modules/@inversifyjs/reflect-metadata-utils/lib/esm/index.js
+index f9ebab3..74f4b91 100644
+--- a/node_modules/@inversifyjs/reflect-metadata-utils/lib/esm/index.js
++++ b/node_modules/@inversifyjs/reflect-metadata-utils/lib/esm/index.js
+@@ -1,2 +1,9 @@
+-function t(t,e){return Reflect.getOwnMetadata(e,t)}function e(t,e){return Reflect.getMetadata(e,t)}function n(t,e,n){Reflect.defineMetadata(e,n,t)}function a(e,n,a,f){const c=f(t(e,n)??a());Reflect.defineMetadata(n,c,e)}function f(t,n,a,f){const c=f(e(t,n)??a());Reflect.defineMetadata(n,c,t)}export{t as getOwnReflectMetadata,e as getReflectMetadata,n as setReflectMetadata,a as updateOwnReflectMetadata,f as updateReflectMetadata};
+-//# sourceMappingURL=index.js.map
++// OneKey patch: store inversify DI metadata in a module-local WeakMap instead of
++// the global Reflect intrinsic, so the Ledger DMK works under SES lockdown
++// (which freezes Reflect). Mirrors reflect-metadata for the (target, key)
++// class-level metadata these helpers use. Verified by sesHardenLibCompat.test.ts.
++const okStore=new WeakMap();
++function okSet(target,key,val){let m=okStore.get(target);if(m===undefined){m=new Map();okStore.set(target,m)}m.set(key,val)}
++function okGetOwn(target,key){const m=okStore.get(target);return m===undefined?undefined:m.get(key)}
++function okGet(target,key){let o=target;while(o!==null&&o!==undefined){const m=okStore.get(o);if(m!==undefined&&m.has(key))return m.get(key);o=Object.getPrototypeOf(o)}return undefined}
++function t(t,e){return okGetOwn(t,e)}function e(t,e){return okGet(t,e)}function n(t,e,n){okSet(t,e,n)}function a(e,n,a,f){const c=f(t(e,n)??a());okSet(e,n,c)}function f(t,n,a,f){const c=f(e(t,n)??a());okSet(t,n,c)}export{t as getOwnReflectMetadata,e as getReflectMetadata,n as setReflectMetadata,a as updateOwnReflectMetadata,f as updateReflectMetadata};

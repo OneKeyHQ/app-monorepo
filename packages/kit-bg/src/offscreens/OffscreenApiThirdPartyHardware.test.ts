@@ -33,6 +33,12 @@ describe('OffscreenApiThirdPartyHardware Trezor logging', () => {
     await api.searchDevices({ vendor: 'trezor' });
 
     const options = mockedCreateTrezorWebUsbConnector.mock.calls[0]?.[0];
+    expect(options?.thp).toEqual(
+      expect.objectContaining({
+        appName: 'OneKey Wallet',
+        hostName: expect.not.stringMatching(/^OneKey$/),
+      }),
+    );
     expect(options?.thp?.logger).toEqual(expect.any(Function));
     expect(options?.transportOptions?.logger).toEqual(expect.any(Function));
 

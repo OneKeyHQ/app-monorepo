@@ -98,6 +98,10 @@ const TrezorMultiTransportGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TrezorMultiTransport'),
 );
+const ThirdPartyHardwareActionsGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ThirdPartyHardwareActions'),
+);
 const IconGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Icon'),
@@ -710,6 +714,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentTrezorMultiTransport,
     component: TrezorMultiTransportGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentThirdPartyHardwareActions,
+    component: ThirdPartyHardwareActionsGallery,
   },
   {
     name: EGalleryRoutes.ComponentImage,
