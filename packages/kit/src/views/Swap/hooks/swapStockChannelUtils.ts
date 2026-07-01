@@ -54,6 +54,25 @@ export function getTokenIdentityKey(token?: Partial<ISwapTokenBase>) {
   }`;
 }
 
+export function shouldResetStockTradeReceiveAmount({
+  nextStockToken,
+  previousStockToken,
+  resetReceiveAmount,
+}: {
+  nextStockToken?: Partial<ISwapTokenBase>;
+  previousStockToken?: Partial<ISwapTokenBase>;
+  resetReceiveAmount?: boolean;
+}) {
+  const previousStockTokenKey = getTokenIdentityKey(previousStockToken);
+  const nextStockTokenKey = getTokenIdentityKey(nextStockToken);
+  return Boolean(
+    resetReceiveAmount &&
+    previousStockTokenKey &&
+    nextStockTokenKey &&
+    previousStockTokenKey !== nextStockTokenKey,
+  );
+}
+
 export function shouldLoadDefaultStockToken({
   selectedStockTokenKey,
 }: {
@@ -153,6 +172,28 @@ export function findTokenFromCandidates({
     equalTokenNoCaseSensitive({
       token1: candidate,
       token2: token,
+    }),
+  );
+}
+
+export function isStockPayTokenReadyForTradeInput({
+  payToken,
+  payTokenStatus,
+  selectablePayTokens,
+  stockIdentityReady,
+}: {
+  payToken?: Partial<ISwapTokenBase>;
+  payTokenStatus: ESwapStockChannelAsyncStatus;
+  selectablePayTokens: IToken[];
+  stockIdentityReady: boolean;
+}) {
+  return Boolean(
+    stockIdentityReady &&
+    payToken &&
+    payTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
+    findTokenFromCandidates({
+      candidates: selectablePayTokens,
+      token: payToken,
     }),
   );
 }

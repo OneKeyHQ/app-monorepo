@@ -142,6 +142,9 @@ class ServiceBootstrap extends ServiceBase {
       timedDeferred('serviceDevSetting.saveDevModeToSyncStorage', () =>
         this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage(),
       ),
+      timedDeferred('serviceDevSetting.syncNetworkThrottleSettings', () =>
+        this.backgroundApi.serviceDevSetting.syncNetworkThrottleSettings(),
+      ),
       timedDeferred('serviceDevSetting.syncCryptoSettings', () =>
         this.backgroundApi.serviceDevSetting.syncCryptoSettings(),
       ),

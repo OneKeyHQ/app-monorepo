@@ -109,6 +109,8 @@ export interface IDevSettings {
   // Force react-native-fast-pbkdf2 instead of the default quick-crypto backend
   // for native PBKDF2 calls (debug only).
   useFastPbkdf2NativeBackend?: boolean;
+  // Enable Slow 4G throttling on platforms with a supported backend.
+  networkThrottleEnabled?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -117,6 +119,16 @@ export type IDevSettingsPersistAtom = {
   enabled: boolean;
   settings?: IDevSettings;
 };
+
+export function getDevSettingsNetworkThrottleEnabled(
+  devSettings: IDevSettingsPersistAtom,
+  defaultEnabled: boolean,
+) {
+  if (!devSettings.enabled) {
+    return false;
+  }
+  return devSettings.settings?.networkThrottleEnabled ?? defaultEnabled;
+}
 export const {
   target: devSettingsPersistAtom,
   use: useDevSettingsPersistAtom,
@@ -147,6 +159,7 @@ export const {
       mockTradingViewKLineEmptyEnabled: false,
       mockTradingViewKLineEmptyIntervals: ['1m'],
       showMarketHomeWsDebug: false,
+      networkThrottleEnabled: !!platformEnv.isDesktop || !!platformEnv.isNative,
       allowLocalhostUrlInDAppBrowser: false,
       // Linux Desktop uses WebUSB; host udev rules are requested when needed.
       usbCommunicationMode: 'webusb',

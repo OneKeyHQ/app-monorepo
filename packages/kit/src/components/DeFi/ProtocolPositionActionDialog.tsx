@@ -23,6 +23,7 @@ import { PerpsSlider } from '@onekeyhq/kit/src/views/Perp/components/PerpsSlider
 import { SendAutoSizeAmountInput } from '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   buildDeFiActionBps,
@@ -855,10 +856,12 @@ function useProtocolPositionActionSubmit({
           isTxConfirmInitializing = false;
         }
         if (txConfirmInitError) {
+          errorToastUtils.toastIfErrorDisable(txConfirmInitError);
           throw new OneKeyLocalError(getErrorMessage(txConfirmInitError));
         }
       } catch (error) {
         if (!isUserRejectedErrorMessage({ error, intl })) {
+          errorToastUtils.toastIfErrorDisable(error);
           Toast.error({
             title: getErrorMessage(error),
           });

@@ -8,7 +8,10 @@ import Store from 'electron-store';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 const IPC_CHANNEL = 'mmkv:sync';
-const PERSISTENT_IDS = new Set(['onekey-app-setting']);
+const PERSISTENT_IDS = new Set([
+  'onekey-app-setting',
+  'onekey-app-dev-setting',
+]);
 
 const stores = new Map<string, Store>();
 
