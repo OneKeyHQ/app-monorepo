@@ -74,6 +74,7 @@ import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { homePageContentMaxWidthSx } from './homePageContentMaxWidth';
 import { shouldShowNoWalletContent } from './homePageNoWalletContent';
 import { NFTListContainerWithProvider } from './NFTListContainer';
+import { PerpsContainer } from './PerpsContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
@@ -468,6 +469,18 @@ export function HomePageView({
         }),
         testID: HomeTestIDs.tabPortfolio,
         component: <PortfolioContainerWithProvider />,
+      },
+      {
+        id: EHomeWalletTab.Perps,
+        name: intl.formatMessage({
+          id: ETranslations.global_perp,
+        }),
+        testID: HomeTestIDs.tabPerps,
+        component: (
+          <HomeTabContentMaxWidth>
+            <PerpsContainer />
+          </HomeTabContentMaxWidth>
+        ),
       },
       isDeFiEnabled
         ? {

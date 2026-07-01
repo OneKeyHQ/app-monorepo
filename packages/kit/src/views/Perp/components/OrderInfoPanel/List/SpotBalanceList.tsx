@@ -444,7 +444,7 @@ function SpotBalanceList({
             </SizableText>
           </Badge>
         </XStack>
-        <XStack alignItems="center" gap="$3" px="$4" pt="$1.5" pb="$2">
+        <XStack alignItems="center" gap="$3" px="$4" pt="$1.5" pb="$0.5">
           <XStack flexGrow={1} flexBasis={0} alignItems="center" gap="$1">
             <SizableText
               size="$bodyXs"
