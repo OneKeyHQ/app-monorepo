@@ -333,6 +333,9 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
             excludeBottomEdgeHeight={
               TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT
             }
+            failExcludedBottomEdgeTouchesOnTouchDown={
+              platformEnv.isNativeAndroid
+            }
             scrollScale={1}
             onHorizontalSwipe={chartAreaHorizontalSwipeHandler}
             horizontalSwipeThreshold={24}
