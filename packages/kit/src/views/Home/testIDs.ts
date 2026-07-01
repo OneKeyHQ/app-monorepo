@@ -18,7 +18,6 @@ export const HomeTestIDs = {
   perpsManageButton: 'home-perps-manage-button',
   perpsDepositButton: 'home-perps-deposit-button',
   perpsDesktopDepositButton: 'home-perps-desktop-deposit-button',
-  perpsMockStateButton: 'home-perps-mock-state-button',
 
   // Wallet actions
   sendButton: 'home-send-button',

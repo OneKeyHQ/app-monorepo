@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -10,18 +11,35 @@ import {
   Empty,
   Icon,
   Image,
-  SegmentControl,
+  NumberSizeableText,
   SizableText,
   Skeleton,
   Stack,
   Tabs,
   XStack,
   YStack,
+  rootNavigationRef,
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import type { ISizableTextProps } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+import type {
+  IPerpsHomeHolding,
+  IPerpsHomePosition,
+} from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
 import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import {
@@ -32,89 +50,101 @@ import { resolveOverviewCols } from '../components/DeFiListBlock/overviewColsRes
 import { RichBlock } from '../components/RichBlock';
 import { HomeTestIDs } from '../testIDs';
 
-type IPerpsMockHolding = {
-  symbol: string;
-  value: string;
-  balance: string;
-  pnl?: string;
-};
+import { usePerpsHomePortfolio } from './usePerpsHomePortfolio';
 
-type IPerpsMockPosition = {
-  coin: string;
-  side: 'long' | 'short';
-  leverageType: 'isolated' | 'cross';
-  leverage: string;
-  pnl: string;
-  roi: string;
-  size: string;
-  margin: string;
-  entryPrice: string;
-  fundingFee: string;
-  markPrice: string;
-  liqPrice: string;
-};
-
-type IPerpsMockViewState = 'ready' | 'loading' | 'empty';
-
-const getMockPerpsViewState = (): IPerpsMockViewState => 'ready';
-const PERPS_MOCK_VIEW_STATE_OPTIONS: {
-  value: IPerpsMockViewState;
-  label: string;
-}[] = [
-  { value: 'ready', label: '正常' },
-  { value: 'loading', label: 'Loading' },
-  { value: 'empty', label: '空' },
-];
-
-const MOCK_PERPS_HOLDINGS: IPerpsMockHolding[] = [
-  { symbol: 'USDC', value: '$82.45', balance: '82.45', pnl: '--' },
-  { symbol: 'HYPE', value: '$28.16', balance: '1.24', pnl: '+$1.02' },
-  { symbol: 'ETH', value: '$18.04', balance: '0.0056', pnl: '+$0.48' },
-  { symbol: 'BTC', value: '$12.38', balance: '0.00012', pnl: '--' },
-  { symbol: 'SOL', value: '$5.62', balance: '0.83', pnl: '-$0.12' },
-];
-
-const MOCK_PERPS_POSITIONS: IPerpsMockPosition[] = [
-  {
-    coin: 'ETH',
-    side: 'long',
-    leverageType: 'isolated',
-    leverage: '1x',
-    pnl: '+$10.12',
-    roi: '+10%',
-    size: '1.2',
-    margin: '$100.12',
-    entryPrice: '$1,600.12',
-    fundingFee: '-$0.01',
-    markPrice: '$1,600.12',
-    liqPrice: '$1,600.12',
-  },
-  {
-    coin: 'ETH',
-    side: 'short',
-    leverageType: 'isolated',
-    leverage: '1x',
-    pnl: '+$10.12',
-    roi: '+10%',
-    size: '$500.12',
-    margin: '$100.12',
-    entryPrice: '$1,600.12',
-    fundingFee: '-$0.01',
-    markPrice: '$1,600.12',
-    liqPrice: '$1,600.12',
-  },
-];
-const MOCK_PERPS_ACCOUNT_VALUE = '$146.65';
 const HYPER_EVM_LOGO_URI =
   'https://uni.onekey-asset.com/static/chain/hyper-evm.png';
 const SPAN_1: React.CSSProperties = { gridColumnEnd: 'span 1' };
 const noop = () => undefined;
 
+// Jump into the Perps tab (optionally focusing a coin), mirroring UniversalSearchPerpItem.
+function useOpenPerpAsset() {
+  const navigation = useAppNavigation();
+  return useCallback(
+    (coin?: string) => {
+      navigation.switchTab(ETabRoutes.Perp);
+      if (!coin) {
+        return;
+      }
+      void (async () => {
+        try {
+          await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
+            coin,
+          });
+          appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
+            mode: 'perp',
+            coin,
+          });
+        } catch {
+          return;
+        }
+        if (platformEnv.isNative) {
+          // The Home navigator can't push into the Perp tab's stack, so go via the root.
+          setTimeout(() => {
+            rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+              screen: ETabRoutes.Perp,
+              params: { screen: EModalPerpRoutes.MobilePerpMarket },
+            });
+          }, 500);
+        }
+      })();
+    },
+    [navigation],
+  );
+}
+
+function PerpsUsd({
+  value,
+  ...rest
+}: { value: number | undefined } & Omit<ISizableTextProps, 'children'>) {
+  if (value === undefined) {
+    return <SizableText {...rest}>--</SizableText>;
+  }
+  return (
+    <NumberSizeableText
+      formatter="value"
+      formatterOptions={{ currency: '$' }}
+      {...rest}
+    >
+      {value}
+    </NumberSizeableText>
+  );
+}
+
+// formatValue collapses every negative to "< $0.01", so format the magnitude and
+// carry the sign via a currency prefix + color (mirrors PositionsRow's pnl).
+function PerpsSignedUsd({
+  value,
+  ...rest
+}: { value: number | undefined } & Omit<
+  ISizableTextProps,
+  'children' | 'color'
+>) {
+  if (value === undefined) {
+    return (
+      <SizableText color="$textSubdued" {...rest}>
+        --
+      </SizableText>
+    );
+  }
+  const negative = value < 0;
+  return (
+    <NumberSizeableText
+      formatter="value"
+      formatterOptions={{ currency: negative ? '-$' : '+$' }}
+      color={negative ? '$red11' : '$green11'}
+      {...rest}
+    >
+      {new BigNumber(value).abs().toFixed()}
+    </NumberSizeableText>
+  );
+}
+
 function PerpsHoldingCard({
   holding,
   hyperEvmLogoUri,
 }: {
-  holding: IPerpsMockHolding;
+  holding: IPerpsHomeHolding;
   hyperEvmLogoUri: string;
 }) {
   return (
@@ -189,15 +219,24 @@ function PerpsHoldingCard({
         >
           {holding.symbol}
         </SizableText>
-        <SizableText size="$bodyLgMedium" color="$text" numberOfLines={1}>
-          {holding.value}
-        </SizableText>
+        <PerpsUsd
+          value={holding.valueUsd}
+          size="$bodyLgMedium"
+          color="$text"
+          numberOfLines={1}
+        />
       </YStack>
     </XStack>
   );
 }
 
-function PerpsHoldingsBlock({ hyperEvmLogoUri }: { hyperEvmLogoUri: string }) {
+function PerpsHoldingsBlock({
+  holdings,
+  hyperEvmLogoUri,
+}: {
+  holdings: IPerpsHomeHolding[];
+  hyperEvmLogoUri: string;
+}) {
   const media = useMedia();
   const cols = useMemo(
     () =>
@@ -216,7 +255,7 @@ function PerpsHoldingsBlock({ hyperEvmLogoUri }: { hyperEvmLogoUri: string }) {
       style={buildOverviewGridStyle(cols)}
       py="$2"
     >
-      {MOCK_PERPS_HOLDINGS.map((holding) => (
+      {holdings.map((holding) => (
         <XStack key={holding.symbol} minWidth={0} style={SPAN_1}>
           <PerpsHoldingCard
             holding={holding}
@@ -429,42 +468,14 @@ function PerpsEmptyState() {
   );
 }
 
-function PerpsMockStateSwitch({
-  value,
-  onChange,
-}: {
-  value: IPerpsMockViewState;
-  onChange: (value: IPerpsMockViewState) => void;
-}) {
-  return (
-    <XStack display="flex" justifyContent="flex-end" pt="$3">
-      <SegmentControl
-        h={32}
-        value={value}
-        options={PERPS_MOCK_VIEW_STATE_OPTIONS.map((option) => ({
-          label: option.label,
-          value: option.value,
-          testID: `${HomeTestIDs.perpsMockStateButton}-${option.value}`,
-        }))}
-        onChange={(nextValue) => onChange(nextValue as IPerpsMockViewState)}
-      />
-    </XStack>
-  );
-}
-
-function getPnlColor(pnl?: string) {
-  if (!pnl || pnl === '--') {
-    return '$textSubdued';
-  }
-  return pnl.startsWith('-') ? '$red11' : '$green11';
-}
-
 function PerpsDepositButton({ testID }: { testID: string }) {
   const intl = useIntl();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
 
   return (
     <Badge
       testID={testID}
+      onPress={() => void showDepositWithdrawModal('deposit')}
       borderRadius="$full"
       size="medium"
       variant="primary"
@@ -486,6 +497,7 @@ function PerpsDepositButton({ testID }: { testID: string }) {
 
 function PerpsHeaderActions() {
   const intl = useIntl();
+  const openPerp = useOpenPerpAsset();
 
   return (
     <XStack alignItems="center" gap="$2">
@@ -495,6 +507,7 @@ function PerpsHeaderActions() {
         variant="secondary"
         childrenAsText={false}
         testID={HomeTestIDs.perpsManageButton}
+        onPress={() => openPerp()}
       >
         <SizableText size="$bodySmMedium">
           {intl.formatMessage({
@@ -506,7 +519,7 @@ function PerpsHeaderActions() {
   );
 }
 
-function PerpsMobileHoldingRow({ holding }: { holding: IPerpsMockHolding }) {
+function PerpsMobileHoldingRow({ holding }: { holding: IPerpsHomeHolding }) {
   return (
     <XStack py="$2" alignItems="center" justifyContent="space-between" gap="$3">
       <XStack
@@ -524,29 +537,41 @@ function PerpsMobileHoldingRow({ holding }: { holding: IPerpsMockHolding }) {
           <SizableText size="$bodyLgMedium" numberOfLines={1}>
             {holding.symbol}
           </SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+          <NumberSizeableText
+            formatter="balance"
+            size="$bodyMd"
+            color="$textSubdued"
+            numberOfLines={1}
+          >
             {holding.balance}
-          </SizableText>
+          </NumberSizeableText>
         </YStack>
       </XStack>
       <YStack flexShrink={0} alignItems="flex-end" gap="$0.5">
-        <SizableText size="$bodyLgMedium" numberOfLines={1} textAlign="right">
-          {holding.value}
-        </SizableText>
-        <SizableText
-          size="$bodyMd"
-          color={getPnlColor(holding.pnl)}
+        <PerpsUsd
+          value={holding.valueUsd}
+          size="$bodyLgMedium"
           numberOfLines={1}
           textAlign="right"
-        >
-          {holding.pnl ?? '--'}
-        </SizableText>
+        />
+        <PerpsSignedUsd
+          value={holding.pnlUsd}
+          size="$bodyMd"
+          numberOfLines={1}
+          textAlign="right"
+        />
       </YStack>
     </XStack>
   );
 }
 
-function PerpsMobileHoldingsSummary() {
+function PerpsMobileHoldingsSummary({
+  totalUsd,
+  holdings,
+}: {
+  totalUsd: number;
+  holdings: IPerpsHomeHolding[];
+}) {
   const intl = useIntl();
 
   return (
@@ -559,9 +584,12 @@ function PerpsMobileHoldingsSummary() {
           <SizableText size="$headingXl" color="$textSubdued">
             ·
           </SizableText>
-          <SizableText size="$headingXl" color="$textSubdued" numberOfLines={1}>
-            {MOCK_PERPS_ACCOUNT_VALUE}
-          </SizableText>
+          <PerpsUsd
+            value={totalUsd}
+            size="$headingXl"
+            color="$textSubdued"
+            numberOfLines={1}
+          />
         </XStack>
         <PerpsDepositButton testID={HomeTestIDs.perpsDepositButton} />
       </XStack>
@@ -596,7 +624,7 @@ function PerpsMobileHoldingsSummary() {
           </XStack>
         </XStack>
         <YStack>
-          {MOCK_PERPS_HOLDINGS.map((holding) => (
+          {holdings.map((holding) => (
             <PerpsMobileHoldingRow key={holding.symbol} holding={holding} />
           ))}
         </YStack>
@@ -608,6 +636,8 @@ function PerpsMobileHoldingsSummary() {
 function PerpsMetric({
   labelId,
   value,
+  formatter,
+  formatterOptions,
   align = 'left',
   positive,
   negative,
@@ -617,7 +647,9 @@ function PerpsMetric({
   emphasis,
 }: {
   labelId: ETranslations;
-  value: string;
+  value: string | number;
+  formatter?: INumberFormatProps['formatter'];
+  formatterOptions?: INumberFormatProps['formatterOptions'];
   align?: 'left' | 'right';
   positive?: boolean;
   negative?: boolean;
@@ -639,6 +671,8 @@ function PerpsMetric({
   } else if (negative) {
     valueColor = '$red11';
   }
+  const valueSize = emphasis ? '$bodyMdMedium' : '$bodySmMedium';
+  const valueGtMdSize = emphasis ? '$bodyLgMedium' : '$bodyMdMedium';
 
   return (
     <YStack
@@ -660,19 +694,32 @@ function PerpsMetric({
           <Icon name="RepeatOutline" size="$3" color="$textSubdued" />
         ) : null}
       </XStack>
-      <SizableText
-        size={emphasis ? '$bodyMdMedium' : '$bodySmMedium'}
-        color={valueColor}
-        $gtMd={{ size: emphasis ? '$bodyLgMedium' : '$bodyMdMedium' }}
-      >
-        {value}
-      </SizableText>
+      {formatter ? (
+        <NumberSizeableText
+          size={valueSize}
+          color={valueColor}
+          $gtMd={{ size: valueGtMdSize }}
+          formatter={formatter}
+          formatterOptions={formatterOptions}
+        >
+          {value}
+        </NumberSizeableText>
+      ) : (
+        <SizableText
+          size={valueSize}
+          color={valueColor}
+          $gtMd={{ size: valueGtMdSize }}
+        >
+          {value}
+        </SizableText>
+      )}
     </YStack>
   );
 }
 
-function PerpsPositionCard({ position }: { position: IPerpsMockPosition }) {
+function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
   const intl = useIntl();
+  const openPerp = useOpenPerpAsset();
   const isLong = position.side === 'long';
   const sideColor = isLong ? '$green11' : '$red11';
   const leverageTypeText = intl.formatMessage({
@@ -681,6 +728,8 @@ function PerpsPositionCard({ position }: { position: IPerpsMockPosition }) {
         ? ETranslations.perp_trade_cross
         : ETranslations.perp_trade_isolated,
   });
+  // priceChange formatter is fixed at 2 decimals; PositionsRow shows ROE at 1.
+  const roiPercent = new BigNumber(position.roi).times(100).abs().toFixed(1);
 
   return (
     <YStack
@@ -692,6 +741,7 @@ function PerpsPositionCard({ position }: { position: IPerpsMockPosition }) {
         py: '$4',
       }}
       gap="$4"
+      onPress={() => openPerp(position.coin)}
     >
       <XStack justifyContent="space-between" flex={1} position="relative">
         <XStack flex={1} gap="$2" alignItems="center">
@@ -730,7 +780,7 @@ function PerpsPositionCard({ position }: { position: IPerpsMockPosition }) {
             fontSize={10}
             $gtMd={{ size: '$bodySm' }}
           >
-            {leverageTypeText} {position.leverage}
+            {leverageTypeText} {position.leverageValue}x
           </SizableText>
         </XStack>
         <Icon
@@ -745,15 +795,19 @@ function PerpsPositionCard({ position }: { position: IPerpsMockPosition }) {
         <XStack width="100%" justifyContent="space-between" alignItems="center">
           <PerpsMetric
             labelId={ETranslations.perp_position_pnl_mobile}
-            value={position.pnl}
-            positive
+            value={new BigNumber(position.pnlUsd).abs().toFixed()}
+            formatter="value"
+            formatterOptions={{ currency: position.pnlUsd < 0 ? '-$' : '+$' }}
+            positive={position.pnlUsd >= 0}
+            negative={position.pnlUsd < 0}
             emphasis
           />
           <PerpsMetric
             labelId={ETranslations.perp_share_roe}
-            value={position.roi}
+            value={`${position.roi < 0 ? '-' : '+'}${roiPercent}%`}
             align="right"
-            positive
+            positive={position.roi >= 0}
+            negative={position.roi < 0}
             emphasis
           />
         </XStack>
@@ -763,38 +817,53 @@ function PerpsPositionCard({ position }: { position: IPerpsMockPosition }) {
             <PerpsMetric
               labelId={ETranslations.perp_position_position_size}
               labelExtra={` (${position.coin})`}
-              value={position.size}
+              value={position.sizeCoin}
+              formatter="balance"
               column="left"
               showRepeat
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_margin}
-              value={position.margin}
+              value={position.marginUsd}
+              formatter="value"
+              formatterOptions={{ currency: '$' }}
               column="center"
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_entry_price}
-              value={position.entryPrice}
+              value={position.entryPx}
+              formatter="price"
+              formatterOptions={{ currency: '$' }}
               align="right"
               column="right"
             />
           </XStack>
 
           <XStack width="100%" justifyContent="space-between">
+            {/* fundingUsd > 0 = paid -> red '-$' (mirrors PositionsRow) */}
             <PerpsMetric
               labelId={ETranslations.perp_position_funding_2}
-              value={position.fundingFee}
-              negative
+              value={new BigNumber(position.fundingUsd).abs().toFixed()}
+              formatter="value"
+              formatterOptions={{
+                currency: position.fundingUsd > 0 ? '-$' : '+$',
+              }}
+              positive={position.fundingUsd <= 0}
+              negative={position.fundingUsd > 0}
               column="left"
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_mark_price}
-              value={position.markPrice}
+              value={position.markPx}
+              formatter="price"
+              formatterOptions={{ currency: '$' }}
               column="center"
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_liq_price}
-              value={position.liqPrice}
+              value={position.liqPx ?? '--'}
+              formatter="price"
+              formatterOptions={{ currency: '$' }}
               align="right"
               column="right"
             />
@@ -809,6 +878,7 @@ function PerpsPositionCard({ position }: { position: IPerpsMockPosition }) {
         variant="secondary"
         childrenAsText={false}
         testID={`${HomeTestIDs.perpsManageButton}-${position.side}`}
+        onPress={() => openPerp(position.coin)}
       >
         <SizableText size="$bodyMdMedium">
           {intl.formatMessage({ id: ETranslations.global_manage })}
@@ -821,34 +891,44 @@ function PerpsPositionCard({ position }: { position: IPerpsMockPosition }) {
 export function PerpsContainer() {
   const intl = useIntl();
   const tabBarHeight = useScrollContentTabBarOffset();
-  const [mockViewState, setMockViewState] = useState<IPerpsMockViewState>(
-    getMockPerpsViewState,
-  );
+  const { viewState, view } = usePerpsHomePortfolio();
 
   return (
     <Tabs.ScrollView contentContainerStyle={{ paddingBottom: tabBarHeight }}>
       <YStack px="$4" py="$3" gap="$2">
-        {mockViewState === 'loading' ? <PerpsLoadingState /> : null}
-        {mockViewState === 'empty' ? <PerpsEmptyState /> : null}
-        {mockViewState === 'ready' ? (
+        {viewState === 'loading' ? <PerpsLoadingState /> : null}
+        {viewState === 'empty' ? <PerpsEmptyState /> : null}
+        {viewState === 'ready' && view ? (
           <>
-            <PerpsMobileHoldingsSummary />
+            <PerpsMobileHoldingsSummary
+              totalUsd={view.netWorthUsd}
+              holdings={view.holdings}
+            />
             <YStack display="none" $gtMd={{ display: 'flex' }}>
               <RichBlock
                 withTitleSeparator
                 title={intl.formatMessage({
                   id: ETranslations.perp_account_panel_account_value,
                 })}
-                subTitle={MOCK_PERPS_ACCOUNT_VALUE}
+                subTitle={
+                  <PerpsUsd
+                    value={view.netWorthUsd}
+                    size="$headingXl"
+                    color="$textSubdued"
+                  />
+                }
                 headerContainerProps={{ px: 0, pb: 0 }}
                 headerActions={<PerpsHeaderActions />}
                 content={null}
                 plainContentContainer
               />
-              <PerpsHoldingsBlock hyperEvmLogoUri={HYPER_EVM_LOGO_URI} />
+              <PerpsHoldingsBlock
+                holdings={view.holdings}
+                hyperEvmLogoUri={HYPER_EVM_LOGO_URI}
+              />
             </YStack>
             <YStack gap="$3">
-              {MOCK_PERPS_POSITIONS.map((position) => (
+              {view.positions.map((position) => (
                 <PerpsPositionCard
                   key={`${position.coin}-${position.side}`}
                   position={position}
@@ -857,10 +937,6 @@ export function PerpsContainer() {
             </YStack>
           </>
         ) : null}
-        <PerpsMockStateSwitch
-          value={mockViewState}
-          onChange={setMockViewState}
-        />
       </YStack>
     </Tabs.ScrollView>
   );

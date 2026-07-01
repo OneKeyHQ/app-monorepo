@@ -18,7 +18,7 @@ export interface IPerpsHomePosition {
   sizeCoin: string; // |szi|
   marginUsd: number;
   entryPx: string;
-  fundingUsd: number; // cumFunding.sinceOpen (negative = paid)
+  fundingUsd: number; // cumFunding.sinceOpen (positive = paid)
   markPx: string; // derived positionValue / |szi|
   liqPx: string | null;
 }
