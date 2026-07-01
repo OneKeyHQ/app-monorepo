@@ -30,7 +30,6 @@ import {
   resolveDeFiActionTxAmount,
 } from '@onekeyhq/shared/src/utils/defiActionUtils';
 import defiPermitUtils from '@onekeyhq/shared/src/utils/defiPermitUtils';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   EDeFiPositionAction,
@@ -42,7 +41,6 @@ import {
 } from '@onekeyhq/shared/types/defi';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
-import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { showDeFiActionTxConfirmDialog } from './DeFiActionTxConfirmResult';
@@ -549,53 +547,6 @@ function attachDeFiActionTxConfirmInfo({
   };
 }
 
-function getDeFiActionEarnLabel(action: EDeFiPositionAction) {
-  if (
-    action === EDeFiPositionAction.Claim ||
-    action === EDeFiPositionAction.ClaimWithdrawal
-  ) {
-    return EEarnLabels.Claim;
-  }
-  if (
-    action === EDeFiPositionAction.Withdraw ||
-    action === EDeFiPositionAction.Repay ||
-    action === EDeFiPositionAction.RemoveLiquidity
-  ) {
-    return action === EDeFiPositionAction.Repay
-      ? EEarnLabels.Repay
-      : EEarnLabels.Withdraw;
-  }
-  return EEarnLabels.Unknown;
-}
-
-async function addDeFiActionEarnOrders({
-  action,
-  networkId,
-  data,
-}: {
-  action: IResolvedDeFiPositionAction;
-  networkId: string;
-  data: ISendTxOnSuccessData[];
-}) {
-  for (const orderTx of data) {
-    if (orderTx?.signedTx?.txid) {
-      await backgroundApiProxy.serviceStaking.addEarnOrder({
-        orderId: generateUUID(),
-        networkId,
-        txId: orderTx.signedTx.txid,
-        status: orderTx.decodedTx.status,
-        stakingLabel: getDeFiActionEarnLabel(action.action),
-        stakingProtocol: action.protocolId,
-        stakingTags: [
-          'defi-portfolio-action',
-          action.protocolId,
-          action.action,
-        ],
-      });
-    }
-  }
-}
-
 type IProtocolPositionActionSuccessParams = {
   accountId: string;
   networkId: string;
@@ -827,13 +778,6 @@ function useProtocolPositionActionSubmit({
             // not request Gas Account sponsorship.
             gasAccountScenario: 'defi',
             onSuccess: async (data: ISendTxOnSuccessData[]) => {
-              // Tag the tx for pending tracking, but don't block the confirming
-              // sheet on it: showing the sheet in the same tick the confirm
-              // modal pops keeps the handoff smooth instead of flashing the page
-              // underneath while the earn-order call resolves.
-              void addDeFiActionEarnOrders({ action, networkId, data }).catch(
-                () => undefined,
-              );
               // Block on the confirming sheet until the tx settles, then run
               // the caller's refresh so the position reflects the result.
               const finalStatus = await showDeFiActionTxConfirmDialog({

@@ -1346,6 +1346,8 @@ class ServiceHistory extends ServiceBase {
       }
     }
 
+    const localPendingTxConfirmedEventKeys = new Set<string>();
+
     // Notify subscribers (e.g. DeFi scheduler) that locally-pending txs
     // submitted by this app have just transitioned to confirmed/failed.
     // Resolve indexedAccountId so UI subscribers in All Networks mode (where
@@ -1357,6 +1359,9 @@ class ServiceHistory extends ServiceBase {
         await this.backgroundApi.serviceAccount.getDBAccountSafe({
           accountId: txAccountId,
         });
+      localPendingTxConfirmedEventKeys.add(
+        `${txAccountId}_${tx.decodedTx.networkId}_${tx.decodedTx.txid}`,
+      );
       appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
         accountId: txAccountId,
         indexedAccountId: txDBAccount?.indexedAccountId,
@@ -1580,6 +1585,22 @@ class ServiceHistory extends ServiceBase {
     });
 
     if (changedPendingTxInfos.length > 0) {
+      for (const tx of changedPendingTxInfos) {
+        const eventKey = `${tx.accountId}_${tx.networkId}_${tx.txId}`;
+        if (!localPendingTxConfirmedEventKeys.has(eventKey)) {
+          const txDBAccount =
+            await this.backgroundApi.serviceAccount.getDBAccountSafe({
+              accountId: tx.accountId,
+            });
+          appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
+            accountId: tx.accountId,
+            indexedAccountId: txDBAccount?.indexedAccountId,
+            networkId: tx.networkId,
+            txid: tx.txId,
+            status: tx.status,
+          });
+        }
+      }
       // Check if staking transaction status has changed, if so request backend to update order status
       await this.backgroundApi.serviceStaking.updateEarnOrder({
         txs: changedPendingTxInfos,
