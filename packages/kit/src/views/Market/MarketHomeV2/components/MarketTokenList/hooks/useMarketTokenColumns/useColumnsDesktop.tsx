@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { ITableColumn } from '@onekeyhq/components';
@@ -297,7 +296,7 @@ export const useColumnsDesktop = (
           return (
             <NumberSizeableText
               size="$bodyMd"
-              formatter={BigNumber(text).gt(1_000_000) ? 'marketCap' : 'price'}
+              formatter={Number(text) > 1_000_000 ? 'marketCap' : 'price'}
               formatterOptions={{ currency: '$', capAtMaxT: true }}
             >
               {text}

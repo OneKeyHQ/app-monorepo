@@ -1,12 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import {
-  Icon,
-  Popover,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 
 import {
   type ITimeRangeSelectorValue,
@@ -96,7 +91,7 @@ function TimeRangeDropdownImpl({
   );
 
   return (
-    <Popover
+    <LazyPopover
       title=""
       showHeader={false}
       placement="bottom-end"

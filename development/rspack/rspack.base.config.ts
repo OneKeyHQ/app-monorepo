@@ -181,6 +181,7 @@ const baseResolve = ({
       basePath,
       '../../node_modules/@react-aria/utils/src/index.ts',
     ),
+    'bn.js$': require.resolve('bn.js'),
   },
   fallback: {
     crypto:

@@ -1,5 +1,3 @@
-import BigNumber from 'bignumber.js';
-
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
@@ -39,8 +37,8 @@ export function normalizeStockMetadataValue(
     return undefined;
   }
 
-  const numericValue = new BigNumber(stringValue);
-  if (!numericValue.isFinite()) {
+  const numericValue = Number(stringValue);
+  if (!Number.isFinite(numericValue)) {
     return undefined;
   }
 
@@ -110,18 +108,15 @@ export function getNetworkLogoUri(chainOrNetworkId: string): string {
   return network?.logoURI || '';
 }
 
-/**
- * Safely parse string to number using BigNumber for precision
- */
 function safeNumber(value: string | undefined, fallback = 0): number {
   if (!value) return fallback;
 
   try {
-    const bn = new BigNumber(value);
-    if (bn.isNaN() || !bn.isFinite()) {
+    const numberValue = Number(value);
+    if (!Number.isFinite(numberValue)) {
       return fallback;
     }
-    return bn.toNumber();
+    return numberValue;
   } catch {
     return fallback;
   }

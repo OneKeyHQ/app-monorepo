@@ -375,16 +375,11 @@ function defaultLoadSes(): void {
 //
 // The PRIMARY fix is `overrideTaming: 'severe'` (see options.ts): it enables
 // override for all of Object.prototype, so these libraries work even when loaded
-// after lockdown. This warm-up is kept as DEFENSE IN DEPTH: loading the
-// offenders here, while intrinsics are still mutable, lets their init-time
-// assignment land regardless of the override-taming setting (and the cached
-// module is reused afterwards), so they stay safe even if that setting is ever
-// relaxed to 'moderate'/'min'.
+// after lockdown. Keep startup warm-up limited to dependencies that are already
+// otherwise needed by the initial graph; pulling optional offenders in here
+// regresses Web cold start.
 //
 // Confirmed offenders (surfaced by the patch-warning monitor):
-//  - decimal.js (pulled in by ripple-binary-codec for XRP) does
-//    `Decimal.prototype.constructor = Decimal` on an object-literal prototype
-//    inside clone().
 //  - axios (lazily pulled in by @ton/ton's HttpApi, so it initializes AFTER
 //    lockdown) runs a "reserved names hotfix" at module init: reduceDescriptors
 //    assigns `constructor` onto a fresh `{}` whose prototype is the frozen
@@ -399,14 +394,6 @@ function defaultLoadSes(): void {
 // load order. js-conflux-sdk's jsbi shim hit exactly this; it is fixed by
 // making the shim self-contained instead (patches/js-conflux-sdk+2.3.0.patch).
 function defaultWarmUpBeforeLockdown(): void {
-  // Each warm-up is independent: a failure/absence of one must not skip the
-  // others, so they get their own try/catch instead of sharing one.
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
-    require('decimal.js');
-  } catch {
-    // Best-effort: a failed/missing warm-up must never block startup.
-  }
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
     require('axios');

@@ -17,8 +17,8 @@ export const SES_HARDEN_LOOSE_LOCKDOWN_OPTIONS = {
   // all of Object.prototype, so those assignments shadow on the receiver
   // instead of throwing against the frozen intrinsic. Matches MetaMask's
   // posture. It does NOT weaken intrinsic integrity: shared prototypes stay
-  // frozen and only per-receiver shadowing is allowed. A warm-up list (see
-  // runtime.ts defaultWarmUpBeforeLockdown) is kept as defense-in-depth.
+  // frozen and only per-receiver shadowing is allowed. The runtime warm-up
+  // list stays limited to dependencies already needed by startup.
   // Behavior is locked down by sesHardenLibCompat.test.ts.
   overrideTaming: 'severe',
   stackFiltering: 'verbose',

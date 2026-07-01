@@ -1,7 +1,7 @@
 import type {
   PopoverContentProps,
   TooltipProps as TMTooltipProps,
-} from '@onekeyhq/components/src/shared/tamagui';
+} from '@onekeyhq/components/src/shared/tamaguiOverlay';
 import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 export interface ITooltipRef {
