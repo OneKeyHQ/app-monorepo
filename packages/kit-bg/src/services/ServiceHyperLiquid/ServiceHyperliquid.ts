@@ -22,6 +22,10 @@ import {
   PERPS_FILTERED_LEDGER_TYPES,
   PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
+import {
+  PERPS_HL_PORTFOLIO_EMPTY_MAX_AGE_MS,
+  PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_AGE_MS,
+} from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -34,6 +38,11 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import { hyperLiquidErrorResolver } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
+import {
+  assembleHyperliquidSnapshot,
+  buildSpotPriceMap,
+  spotNeedsPrices,
+} from '@onekeyhq/shared/src/utils/hyperliquidPortfolioUtils';
 import type {
   IResolvedTokenSelectorFavoriteAction,
   ITokenSelectorFavoriteAction,
@@ -61,6 +70,7 @@ import {
   XYZ_ASSET_ID_OFFSET,
   XYZ_DEX_PREFIX,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IHyperliquidPortfolioSnapshot } from '@onekeyhq/shared/types/hyperliquid/portfolio';
 import type {
   IApiRequestError,
   IApiRequestResult,
@@ -896,6 +906,106 @@ export default class ServiceHyperliquid extends ServiceBase {
     params: IUserFillsByTimeParameters,
   ): Promise<IFill[]> {
     return this._getUserFillsByTimeMemo(params);
+  }
+
+  // Shared across addresses: non-USDC spot pricing is account-independent.
+  _getSpotPriceMapMemo = cacheUtils.memoizee(
+    async () =>
+      buildSpotPriceMap(
+        await hyperLiquidApiClients.infoClient.spotMetaAndAssetCtxs(),
+      ),
+    {
+      max: 1,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      promise: true,
+    },
+  );
+
+  _fetchHlPortfolioMemo = cacheUtils.memoizee(
+    async (address: string): Promise<IHyperliquidPortfolioSnapshot> => {
+      const { infoClient } = hyperLiquidApiClients;
+      const user = address.toLowerCase() as IHex;
+      const [clearinghouse, spot] = await Promise.all([
+        infoClient.clearinghouseState({ user }),
+        infoClient.spotClearinghouseState({ user }),
+      ]);
+      const priceMap = spotNeedsPrices(spot)
+        ? await this._getSpotPriceMapMemo()
+        : { USDC: '1' };
+      return assembleHyperliquidSnapshot({
+        address: user,
+        clearinghouse,
+        spot,
+        priceMap,
+        now: Date.now(),
+      });
+    },
+    {
+      max: 16,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }),
+      normalizer: ([a]: [string]) => a.toLowerCase(),
+      promise: true,
+    },
+  );
+
+  @backgroundMethod()
+  async fetchHyperliquidPortfolioByAddress(
+    address: string,
+  ): Promise<IHyperliquidPortfolioSnapshot> {
+    return this._fetchHlPortfolioMemo(address);
+  }
+
+  @backgroundMethod()
+  async getHyperliquidPortfolioSnapshot({
+    address,
+    force,
+  }: {
+    address: string;
+    force?: boolean;
+  }): Promise<IHyperliquidPortfolioSnapshot | undefined> {
+    const normalized = address?.toLowerCase();
+    if (!normalized) {
+      return undefined;
+    }
+    const cached =
+      await this.backgroundApi.simpleDb.perp.getHyperliquidPortfolioSnapshot(
+        normalized,
+      );
+    if (!force && cached) {
+      const maxAge = cached.isEmpty
+        ? PERPS_HL_PORTFOLIO_EMPTY_MAX_AGE_MS
+        : PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_AGE_MS;
+      if (Date.now() - cached.fetchedAt <= maxAge) {
+        return cached;
+      }
+    }
+    if (force) {
+      // force must hit the network, so drop the 5s in-flight micro-cache too.
+      void this._fetchHlPortfolioMemo.delete(normalized);
+    }
+    try {
+      const fresh = await this.fetchHyperliquidPortfolioByAddress(normalized);
+      await this.backgroundApi.simpleDb.perp.setHyperliquidPortfolioSnapshot(
+        fresh,
+      );
+      return fresh;
+    } catch {
+      // Don't cache the failure; fall back to the (possibly stale) cache.
+      void this._fetchHlPortfolioMemo.delete(normalized);
+      return cached;
+    }
+  }
+
+  @backgroundMethod()
+  async invalidateHyperliquidPortfolio(address?: string): Promise<void> {
+    if (address) {
+      void this._fetchHlPortfolioMemo.delete(address.toLowerCase());
+    } else {
+      this._fetchHlPortfolioMemo.clear();
+    }
+    await this.backgroundApi.simpleDb.perp.clearHyperliquidPortfolioSnapshot(
+      address,
+    );
   }
 
   @backgroundMethod()
