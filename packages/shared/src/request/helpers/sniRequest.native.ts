@@ -1,14 +1,21 @@
-import {
-  type SniConnectMethod,
-  type SniConnectRequest,
-  request as nativeSniRequest,
-} from '@onekeyfe/react-native-sni-connect';
+import { request as nativeSniRequest } from '@onekeyfe/react-native-sni-connect';
 
 import { OneKeyLocalError } from '../../errors';
 
 import type { ISniRequestConfig, ISniResponse } from '../types/ipTable';
 
-function normalizeSniRequestMethod(method: string): SniConnectMethod {
+type ISniConnectMethod =
+  | 'GET'
+  | 'HEAD'
+  | 'POST'
+  | 'PUT'
+  | 'PATCH'
+  | 'DELETE'
+  | 'OPTIONS';
+
+type INativeSniRequestConfig = Parameters<typeof nativeSniRequest>[0];
+
+function normalizeSniRequestMethod(method: string): ISniConnectMethod {
   switch (method.toUpperCase()) {
     case 'GET':
       return 'GET';
@@ -29,7 +36,9 @@ function normalizeSniRequestMethod(method: string): SniConnectMethod {
   }
 }
 
-function buildNativeSniRequest(config: ISniRequestConfig): SniConnectRequest {
+function buildNativeSniRequest(
+  config: ISniRequestConfig,
+): INativeSniRequestConfig {
   const method = normalizeSniRequestMethod(config.method);
   const baseConfig = {
     ip: config.ip,
@@ -62,6 +71,8 @@ function buildNativeSniRequest(config: ISniRequestConfig): SniConnectRequest {
         body: config.body,
       };
   }
+
+  throw new OneKeyLocalError('Unsupported SNI request method');
 }
 
 /**
