@@ -391,20 +391,24 @@ function getToastLabel(
   }
 }
 
+type IAnimationModule = { default: ILottieViewProps['source'] };
+
+// Dynamically import animation JSON so the assets are code-split into an async
+// chunk instead of the startup bundle (matches ConfirmOnDeviceToastContent).
 function getLedgerActionAnimation(
   action: string | undefined,
   themeVariant: 'light' | 'dark',
-): ILottieViewProps['source'] | null {
+): Promise<IAnimationModule> | null {
   switch (action) {
     case EThirdPartyHardwareUiAction.confirmOnDevice:
     case EThirdPartyHardwareUiAction.openApp:
       return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/animations/confirm-on-ledger-dark.json') as ILottieViewProps['source'])
-        : (require('@onekeyhq/kit/assets/animations/confirm-on-ledger-light.json') as ILottieViewProps['source']);
+        ? import('@onekeyhq/kit/assets/animations/confirm-on-ledger-dark.json')
+        : import('@onekeyhq/kit/assets/animations/confirm-on-ledger-light.json');
     case EThirdPartyHardwareUiAction.unlockDevice:
       return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-dark.json') as ILottieViewProps['source'])
-        : (require('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-light.json') as ILottieViewProps['source']);
+        ? import('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-dark.json')
+        : import('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-light.json');
     default:
       return null;
   }
@@ -413,16 +417,16 @@ function getLedgerActionAnimation(
 function getTrezorActionAnimation(
   action: string | undefined,
   themeVariant: 'light' | 'dark',
-): ILottieViewProps['source'] | null {
+): Promise<IAnimationModule> | null {
   switch (action) {
     case EThirdPartyHardwareUiAction.confirmOnDevice:
       return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/animations/confirm-on-trezor-dark.json') as ILottieViewProps['source'])
-        : (require('@onekeyhq/kit/assets/animations/confirm-on-trezor-light.json') as ILottieViewProps['source']);
+        ? import('@onekeyhq/kit/assets/animations/confirm-on-trezor-dark.json')
+        : import('@onekeyhq/kit/assets/animations/confirm-on-trezor-light.json');
     case EThirdPartyHardwareUiAction.unlockDevice:
       return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/animations/enter-pin-on-trezor-dark.json') as ILottieViewProps['source'])
-        : (require('@onekeyhq/kit/assets/animations/enter-pin-on-trezor-light.json') as ILottieViewProps['source']);
+        ? import('@onekeyhq/kit/assets/animations/enter-pin-on-trezor-dark.json')
+        : import('@onekeyhq/kit/assets/animations/enter-pin-on-trezor-light.json');
     default:
       return null;
   }
@@ -482,14 +486,29 @@ function DeviceActionToast({
 
   const label = getToastLabel(action, vendor, intl);
 
-  const animationSource = useMemo(() => {
+  const [animationSource, setAnimationSource] = useState<
+    ILottieViewProps['source'] | null
+  >(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setAnimationSource(null);
+    let loader: Promise<IAnimationModule> | null = null;
     if (vendor === EHardwareVendor.ledger) {
-      return getLedgerActionAnimation(action, themeVariant);
+      loader = getLedgerActionAnimation(action, themeVariant);
+    } else if (vendor === EHardwareVendor.trezor) {
+      loader = getTrezorActionAnimation(action, themeVariant);
     }
-    if (vendor === EHardwareVendor.trezor) {
-      return getTrezorActionAnimation(action, themeVariant);
-    }
-    return null;
+    loader
+      ?.then((module) => {
+        if (!cancelled) setAnimationSource(module?.default ?? null);
+      })
+      .catch(() => {
+        // ignore
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [action, vendor, themeVariant]);
 
   return (
