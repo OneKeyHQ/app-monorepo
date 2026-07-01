@@ -150,84 +150,53 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
 
     const bucketNames = Object.values(EIndexedDBBucketNames);
 
-    for (const bucketName of bucketNames) {
-      // let idb = globalThis.indexedDB;
-      // if (ENABLE_INDEXEDDB_BUCKET) {
-      //   const bucketOptions: IStorageBucketOptions = {
-      //     durability: 'strict', // Or `'relaxed'`.
-      //     persisted: true, // Or `false`.
-      //   };
-      //   const storageBuckets = (globalThis.navigator as INavigator)
-      //     .storageBuckets;
-      //   // const bucket = await storageBuckets?.open(bucketName, bucketOptions);
-      //   const bucket = await storageBuckets?.open('hello-world', bucketOptions);
-      //   if (!bucket?.indexedDB) {
-      //     throw new OneKeyLocalError(`Failed to open bucket indexedDB: ${bucketName}`);
-      //   }
-      //   idb = bucket.indexedDB;
-      // }
-      // // import { deleteDB, openDB } from 'idb';
-      // const indexed = await openDB<IIndexedDBSchemaMap>(
-      //   self.buildDbName(bucketName),
-      //   INDEXED_DB_VERSION,
-      //   {
-      //     // TODO patch idb
-      //     indexedDBInstance: idb,
-      //     upgrade(db0, oldVersion, newVersion, transaction) {
-      //       // add object stores here
-      //       return self._handleDbUpgrade({
-      //         bucketName,
-      //         db: db0,
-      //         oldVersion,
-      //         newVersion,
-      //         transaction,
-      //       });
-      //     },
-      //   },
-      // );
+    // Open all IndexedDB buckets in parallel for faster DB initialization
+    await Promise.all(
+      bucketNames.map(async (bucketName) => {
+        const indexed = new IndexedDBPromised<IIndexedDBSchemaMap>({
+          bucketName,
+          name: indexedDBUtils.buildDbName(bucketName),
+          version: INDEXED_DB_VERSION,
+          upgrade: (params) => {
+            return self._handleDbUpgrade({
+              bucketName,
+              db: params.database,
+              nativeDB: params.nativeDB,
+              oldVersion: params.oldVersion,
+              newVersion: params.newVersion,
+              transaction: params.transaction,
+            });
+          },
+        });
+        try {
+          await indexed.open();
+        } catch (error) {
+          // Any failure to open the local database is re-thrown as a generic
+          // LocalDbOpenError. A version downgrade (on-disk DB newer than this
+          // build) is only one possible cause — disk corruption, I/O errors,
+          // quota, etc. all land here too — so we deliberately do NOT inspect the
+          // error type/name to classify it (brittle and easy to misclassify). We
+          // keep the ORIGINAL error message (only falling back to a fixed English
+          // string when the underlying error carries none): record it via the
+          // structured logger (console.* is stripped in production; defaultLogger
+          // reaches the exportable logs the user can upload from the lock screen),
+          // publish it to the global atom so the lock screen can show it
+          // immediately on mount, and carry it on the thrown error so the raw
+          // reason is never masked. (OK-56874)
+          const rawMessage =
+            (error as Error)?.message || 'DB open unknown error';
+          defaultLogger.app.error.log(
+            `[LocalDbIndexed] open failed: ${rawMessage}`,
+          );
+          void localDbOpenErrorAtom.set({ errorMessage: rawMessage });
+          throw new LocalDbOpenError({ message: rawMessage });
+        }
 
-      const indexed = new IndexedDBPromised<IIndexedDBSchemaMap>({
-        bucketName,
-        name: indexedDBUtils.buildDbName(bucketName),
-        version: INDEXED_DB_VERSION,
-        upgrade: (params) => {
-          return self._handleDbUpgrade({
-            bucketName,
-            db: params.database,
-            nativeDB: params.nativeDB,
-            oldVersion: params.oldVersion,
-            newVersion: params.newVersion,
-            transaction: params.transaction,
-          });
-        },
-      });
-      try {
-        await indexed.open();
-      } catch (error) {
-        // Any failure to open the local database is re-thrown as a generic
-        // LocalDbOpenError. A version downgrade (on-disk DB newer than this
-        // build) is only one possible cause — disk corruption, I/O errors,
-        // quota, etc. all land here too — so we deliberately do NOT inspect the
-        // error type/name to classify it (brittle and easy to misclassify). We
-        // keep the ORIGINAL error message (only falling back to a fixed English
-        // string when the underlying error carries none): record it via the
-        // structured logger (console.* is stripped in production; defaultLogger
-        // reaches the exportable logs the user can upload from the lock screen),
-        // publish it to the global atom so the lock screen can show it
-        // immediately on mount, and carry it on the thrown error so the raw
-        // reason is never masked. (OK-56874)
-        const rawMessage = (error as Error)?.message || 'DB open unknown error';
-        defaultLogger.app.error.log(
-          `[LocalDbIndexed] open failed: ${rawMessage}`,
-        );
-        void localDbOpenErrorAtom.set({ errorMessage: rawMessage });
-        throw new LocalDbOpenError({ message: rawMessage });
-      }
-
-      buckets[bucketName] = indexed;
-      if (process.env.NODE_ENV !== 'production') {
-        appGlobals.$$indexedDBBuckets = buckets;
-      }
+        buckets[bucketName] = indexed;
+      }),
+    );
+    if (process.env.NODE_ENV !== 'production') {
+      appGlobals.$$indexedDBBuckets = buckets;
     }
 
     // add initial records to store
