@@ -633,13 +633,6 @@ function MarketTokenListBase({
 
   const stableOnRow = useCallback(
     (item: IMarketToken, index: number) => {
-      if (
-        deferRichRowAfterIndex !== undefined &&
-        index >= deferRichRowAfterIndex
-      ) {
-        return undefined;
-      }
-
       return {
         onPress: onItemPressRef.current
           ? () => onItemPressRef.current!(item)
@@ -676,7 +669,6 @@ function MarketTokenListBase({
     [
       debugSubscriptionRangeEnd,
       debugSubscriptionRangeStart,
-      deferRichRowAfterIndex,
       navigateToPerps,
       showWebSocketDebugRows,
       toMarketDetailPage,

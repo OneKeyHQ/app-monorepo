@@ -6,7 +6,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type IThirdPartyHardwareUiStateContainerComponent = ComponentType;
 type IThirdPartyHardwareUiStateAtomWatcherComponent = ComponentType<{
@@ -14,8 +13,6 @@ type IThirdPartyHardwareUiStateAtomWatcherComponent = ComponentType<{
 }>;
 type IShowThirdPartyHardwarePermissionDialogPayload =
   IAppEventBusPayload[EAppEventBusNames.ShowThirdPartyHardwarePermissionDialog];
-
-const THIRD_PARTY_HARDWARE_ATOM_WATCHER_DELAY_MS = platformEnv.isWeb ? 6000 : 0;
 
 function ThirdPartyHardwareUiStateContainerLazyCmp() {
   const [shouldMount, setShouldMount] = useState(false);
@@ -34,31 +31,26 @@ function ThirdPartyHardwareUiStateContainerLazyCmp() {
   }, []);
 
   useEffect(() => {
-    if (AtomWatcherImpl || ContainerImpl) {
+    if (AtomWatcherImpl) {
       return;
     }
     let isMounted = true;
-    const timer = setTimeout(() => {
-      void import('./ThirdPartyHardwareUiStateAtomWatcher')
-        .then((module) => {
-          if (isMounted) {
-            setAtomWatcherImpl(
-              () => module.ThirdPartyHardwareUiStateAtomWatcher,
-            );
-          }
-        })
-        .catch((error: Error) => {
-          console.error(
-            'Failed to load ThirdPartyHardwareUiStateAtomWatcher:',
-            error,
-          );
-        });
-    }, THIRD_PARTY_HARDWARE_ATOM_WATCHER_DELAY_MS);
+    void import('./ThirdPartyHardwareUiStateAtomWatcher')
+      .then((module) => {
+        if (isMounted) {
+          setAtomWatcherImpl(() => module.ThirdPartyHardwareUiStateAtomWatcher);
+        }
+      })
+      .catch((error: Error) => {
+        console.error(
+          'Failed to load ThirdPartyHardwareUiStateAtomWatcher:',
+          error,
+        );
+      });
     return () => {
       isMounted = false;
-      clearTimeout(timer);
     };
-  }, [AtomWatcherImpl, ContainerImpl]);
+  }, [AtomWatcherImpl]);
 
   useEffect(() => {
     const handlePermissionDialog = (
