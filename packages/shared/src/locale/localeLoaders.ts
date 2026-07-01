@@ -40,8 +40,22 @@ const localeMessagesCache = new Map<
 export function loadLocaleMessages(locale: ILocaleJSONSymbol) {
   let messagesPromise = localeMessagesCache.get(locale);
   if (!messagesPromise) {
-    messagesPromise = LOCALE_LOADERS[locale]();
+    const nextPromise = LOCALE_LOADERS[locale]().catch((error: unknown) => {
+      if (localeMessagesCache.get(locale) === nextPromise) {
+        localeMessagesCache.delete(locale);
+      }
+      throw error;
+    });
+    messagesPromise = nextPromise;
     localeMessagesCache.set(locale, messagesPromise);
   }
   return messagesPromise;
+}
+
+export function __clearLocaleMessagesCacheForTests(locale?: ILocaleJSONSymbol) {
+  if (locale) {
+    localeMessagesCache.delete(locale);
+    return;
+  }
+  localeMessagesCache.clear();
 }

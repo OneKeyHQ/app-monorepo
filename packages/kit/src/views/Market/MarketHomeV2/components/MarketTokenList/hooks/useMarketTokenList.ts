@@ -332,6 +332,7 @@ export function useMarketTokenList({
       if (!hasNetworkId) {
         return undefined;
       }
+      const requestQueryKey = currentQueryKeyRef.current;
       const forceRemote = forceRemoteOnceRef.current;
       forceRemoteOnceRef.current = false;
       const response = await fetchMarketTokenListForPlatform(
@@ -349,20 +350,22 @@ export function useMarketTokenList({
       );
       const responseWithSource = response as IMarketTokenListResponseWithSource;
       const seedApiResult = seedApiResultRef.current;
+      const isCurrentRequest = currentQueryKeyRef.current === requestQueryKey;
       const shouldStableMergeRemote =
         platformEnv.isWeb &&
         forceRemote &&
+        isCurrentRequest &&
         !responseWithSource.__fromSeed &&
-        seedApiResult?.queryKey === currentQueryKeyRef.current;
+        seedApiResult?.queryKey === requestQueryKey;
       const displayResponse = shouldStableMergeRemote
         ? mergeSeedFirstRowsWithRemote({
             seedResponse: seedApiResult.response,
             remoteResponse: response,
           })
         : response;
-      if (responseWithSource.__fromSeed) {
+      if (responseWithSource.__fromSeed && isCurrentRequest) {
         seedApiResultRef.current = {
-          queryKey: currentQueryKeyRef.current,
+          queryKey: requestQueryKey,
           response,
         };
       } else if (shouldStableMergeRemote) {
