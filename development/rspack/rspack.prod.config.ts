@@ -96,9 +96,13 @@ export function createProductionConfig({
                 reuseExistingChunk: true,
               },
               lodashVendor: {
+                // 'initial' (not 'all'): only group lodash reachable from the
+                // initial graph. With 'all', lodash methods used solely by async
+                // route/SDK chunks are merged into this named chunk and dragged
+                // onto first paint. Keep parity with webpack.prod.config.js.
                 test: /[\\/]node_modules[\\/]lodash/,
                 name: 'vendor-lodash',
-                chunks: 'all' as const,
+                chunks: 'initial' as const,
                 priority: 30,
                 reuseExistingChunk: true,
               },

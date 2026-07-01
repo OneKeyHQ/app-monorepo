@@ -32,7 +32,7 @@ import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorLazyAction } from '../../../states/jotai/contexts/accountSelector/actionsLazy';
 import useScanQrCodeLazy from '../../../views/ScanQrCode/hooks/useScanQrCodeLazy';
 
 type ICreateQrWalletByScanParams = {
@@ -48,7 +48,7 @@ export function useCreateQrWallet() {
     start: startScan,
     // close,
   } = useScanQrCodeLazy();
-  const actions = useAccountSelectorActions();
+  const callAccountSelectorAction = useAccountSelectorLazyAction();
   const navigation = useAppNavigation();
 
   const createQrWalletByUr = useCallback(
@@ -108,7 +108,7 @@ export function useCreateQrWallet() {
         }
       }
       try {
-        const result = await actions.current.createQrWallet({
+        const result = await callAccountSelectorAction('createQrWallet', {
           qrDevice,
           airGapAccounts,
           isOnboarding,
@@ -119,7 +119,7 @@ export function useCreateQrWallet() {
         throw error;
       }
     },
-    [actions, navigation],
+    [callAccountSelectorAction, navigation],
   );
 
   const createQrWallet = useCallback(

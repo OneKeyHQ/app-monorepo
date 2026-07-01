@@ -66,7 +66,7 @@ import { MAX_LENGTH_ACCOUNT_NAME } from '../../../components/RenameDialog/rename
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
-import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import { toastSuccessWhenImportAddressOrPrivateKey } from '../../../utils/toastExistingWalletSwitch';
 import {
   OnboardingHeading,

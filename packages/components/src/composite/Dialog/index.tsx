@@ -1,8 +1,10 @@
-import type { ForwardedRef } from 'react';
+import type { ComponentProps, ForwardedRef } from 'react';
 import {
+  Suspense,
   cloneElement,
   createRef,
   forwardRef,
+  lazy,
   useCallback,
   useContext,
   useEffect,
@@ -37,7 +39,6 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { Toast } from '../../actions/Toast';
 import { Keyboard } from '../../content/Keyboard';
 import { SheetGrabber } from '../../content/SheetGrabber';
-import { Form } from '../../forms/Form';
 import {
   EPageType,
   EPortalContainerConstantName,
@@ -61,7 +62,6 @@ import {
 
 import { Content } from './Content';
 import { DialogContext } from './context';
-import { DialogForm } from './DialogForm';
 import { addDialogInstance, removeDialogInstance } from './dialogInstances';
 import { Footer, FooterAction } from './Footer';
 import {
@@ -80,6 +80,7 @@ import type {
   IDialogCancelProps,
   IDialogConfirmProps,
   IDialogContainerProps,
+  IDialogFormProps,
   IDialogHeaderProps,
   IDialogInstance,
   IDialogProps,
@@ -90,6 +91,36 @@ import type { UseFormReturn } from '../../hooks';
 import type { IYStackProps } from '../../primitives';
 import type { IColorTokens } from '../../types';
 import type { GestureResponderEvent } from 'react-native';
+
+type IDialogFormFieldProps = ComponentProps<
+  (typeof import('./DialogForm'))['DialogFormField']
+>;
+
+const LazyDialogFormComponent = lazy(async () => {
+  const { DialogForm } = await import('./DialogForm');
+  return { default: DialogForm };
+});
+
+function LazyDialogForm(props: IDialogFormProps) {
+  return (
+    <Suspense fallback={null}>
+      <LazyDialogFormComponent {...props} />
+    </Suspense>
+  );
+}
+
+const LazyDialogFormFieldComponent = lazy(async () => {
+  const { DialogFormField } = await import('./DialogForm');
+  return { default: DialogFormField };
+});
+
+function LazyDialogFormField(props: IDialogFormFieldProps) {
+  return (
+    <Suspense fallback={null}>
+      <LazyDialogFormFieldComponent {...props} />
+    </Suspense>
+  );
+}
 
 export * from './dialogInstances';
 export * from './hooks';
@@ -792,8 +823,8 @@ export const Dialog = {
   HyperlinkTextDescription: DialogHyperlinkTextDescription,
   Icon: DialogIcon,
   Footer: FooterAction,
-  Form: DialogForm,
-  FormField: Form.Field,
+  Form: LazyDialogForm,
+  FormField: LazyDialogFormField,
   Loading: DialogLoadingView,
   show: dialogShow,
   confirm: dialogConfirm,

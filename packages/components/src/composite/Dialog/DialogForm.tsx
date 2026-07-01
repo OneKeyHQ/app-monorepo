@@ -18,3 +18,5 @@ export function DialogForm({ formProps, children }: IDialogFormProps) {
   }, [form]);
   return <Form form={form}>{children}</Form>;
 }
+
+export const DialogFormField = Form.Field;

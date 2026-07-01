@@ -544,6 +544,7 @@ export function createBaseConfig({
                   ['@babel/preset-typescript', { allowDeclareFields: true }],
                 ],
                 plugins: [
+                  path.join(__dirname, '../babel-plugins/inline-translations'),
                   // Sentry component annotations (data-sentry-*) — parity with
                   // the webpack babel chain (babelTools.js, !isJest). Runs while
                   // JSX is still intact (babel-loader precedes swc here). Builds
