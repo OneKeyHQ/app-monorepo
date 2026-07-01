@@ -9,8 +9,8 @@
     "largestPreLcpScriptDecodedBytes": 614400
   },
   "startupGraph": {
-    "moduleCount": 3500,
-    "sourceSizeBytes": 14680064,
+    "moduleCount": 3300,
+    "sourceSizeBytes": 13107200,
     "initialScriptCount": 45,
     "initialScriptRawBytes": 7340032,
     "initialScriptGzipBytes": 2097152,
