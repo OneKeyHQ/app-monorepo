@@ -113,6 +113,14 @@ export function createProductionConfig({
                 priority: 35,
                 reuseExistingChunk: true,
               },
+              reactHookFormVendor: {
+                test: /[\\/]node_modules[\\/]react-hook-form[\\/]/,
+                name: 'vendor-react-hook-form',
+                chunks: 'all' as const,
+                enforce: true,
+                priority: 35,
+                reuseExistingChunk: true,
+              },
               networkVendor: {
                 test: /[\\/]node_modules[\\/]axios[\\/]/,
                 name: 'vendor-network',

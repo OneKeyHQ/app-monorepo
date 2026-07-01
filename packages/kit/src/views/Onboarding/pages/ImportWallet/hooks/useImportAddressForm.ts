@@ -2,17 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type {
-  IFormMode,
-  IReValidateMode,
-  UseFormReturn,
-} from '@onekeyhq/components';
+import { Toast } from '@onekeyhq/components';
 import {
-  Toast,
+  type IFormMode,
+  type IReValidateMode,
+  type UseFormReturn,
   useForm,
   useFormState,
   useFormWatch,
-} from '@onekeyhq/components';
+} from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';

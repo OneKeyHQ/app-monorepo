@@ -3,11 +3,6 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import type {
-  IFormMode,
-  IReValidateMode,
-  UseFormReturn,
-} from '@onekeyhq/components';
 import {
   Form,
   Icon,
@@ -17,9 +12,14 @@ import {
   Stack,
   XStack,
   YStack,
+} from '@onekeyhq/components';
+import {
+  type IFormMode,
+  type IReValidateMode,
+  type UseFormReturn,
   useForm,
   useFormWatch,
-} from '@onekeyhq/components';
+} from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   AccountSelectorProviderMirror,

@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { trim } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IFormMode, IReValidateMode } from '@onekeyhq/components';
 import {
   Form,
   Icon,
@@ -12,10 +11,14 @@ import {
   SizableText,
   Stack,
   useClipboard,
-  useForm,
-  useFormWatch,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  type IFormMode,
+  type IReValidateMode,
+  useForm,
+  useFormWatch,
+} from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorFormInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';

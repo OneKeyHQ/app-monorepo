@@ -1,6 +1,5 @@
 import { useIntl } from 'react-intl';
 
-import type { UseFormReturn } from '@onekeyhq/components';
 import {
   Form,
   Icon,
@@ -11,6 +10,7 @@ import {
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
+import type { UseFormReturn } from '@onekeyhq/components/src/hooks/useForm';
 import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorFormInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import {

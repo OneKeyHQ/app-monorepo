@@ -19,12 +19,13 @@ shimArrayFlatMap();
 if (typeof Array.prototype.toSorted !== 'function') {
   Object.defineProperty(Array.prototype, 'toSorted', {
     value(compareFn) {
-      if (this == null) {
+      if (this === null || this === undefined) {
         throw new TypeError(
           'Array.prototype.toSorted called on null or undefined',
         );
       }
-      return Array.prototype.slice.call(this).sort(compareFn);
+      const items = Array.prototype.slice.call(this);
+      return Reflect.apply(Array.prototype.sort, items, [compareFn]);
     },
     configurable: true,
     writable: true,

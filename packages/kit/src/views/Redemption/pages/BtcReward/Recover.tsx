@@ -12,9 +12,8 @@ import {
   Toast,
   XStack,
   YStack,
-  useForm,
-  useFormWatch,
 } from '@onekeyhq/components';
+import { useForm, useFormWatch } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import {

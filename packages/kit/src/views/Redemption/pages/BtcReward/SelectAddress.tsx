@@ -12,10 +12,13 @@ import {
   Stack,
   XStack,
   YStack,
+} from '@onekeyhq/components';
+import {
+  type IFormMode,
+  type IReValidateMode,
   useForm,
   useFormWatch,
-} from '@onekeyhq/components';
-import type { IFormMode, IReValidateMode } from '@onekeyhq/components';
+} from '@onekeyhq/components/src/hooks/useForm';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
