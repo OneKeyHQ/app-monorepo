@@ -871,11 +871,7 @@ function PerpPortfolioContentComponent({
         flex={1}
         borderRadius="$full"
         size={PERP_DIALOG_BUTTON_SIZE}
-        bg="$brand8"
-        hoverStyle={{ bg: '$brand9' }}
-        pressStyle={{ bg: '$brand10' }}
-        color="$textOnColor"
-        iconColor="$iconOnColor"
+        variant="accent"
         icon="DownloadOutline"
         onPress={() => showDepositWithdrawModal('deposit')}
       >
