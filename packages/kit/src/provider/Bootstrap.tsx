@@ -46,6 +46,7 @@ import {
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
+import nativeNetworkThrottle from '@onekeyhq/shared/src/modules/NetworkThrottle';
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
@@ -67,6 +68,8 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
+import { EDevSettingSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -772,6 +775,9 @@ export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
   const autoNavigation = devSettings.settings?.autoNavigation;
+  const nativeNetworkThrottleEnabled =
+    devSettings.enabled &&
+    (devSettings.settings?.nativeNetworkThrottleEnabled ?? false);
 
   const [, setOnboardingConnectWalletLoading] =
     useOnboardingConnectWalletLoadingAtom();
@@ -779,6 +785,26 @@ export function Bootstrap() {
   useEffect(() => {
     setOnboardingConnectWalletLoading(false);
   }, [setOnboardingConnectWalletLoading]);
+
+  useEffect(() => {
+    if (!platformEnv.isNative) {
+      return;
+    }
+    devSettingSyncStorage.set(
+      EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
+      !!devSettings.enabled,
+    );
+    devSettingSyncStorage.set(
+      EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
+      nativeNetworkThrottleEnabled,
+    );
+    void nativeNetworkThrottle
+      .setNetworkThrottle({
+        enabled: nativeNetworkThrottleEnabled,
+        profile: 'slow4g',
+      })
+      .catch(() => undefined);
+  }, [devSettings.enabled, nativeNetworkThrottleEnabled]);
 
   useEffect(() => {
     if (

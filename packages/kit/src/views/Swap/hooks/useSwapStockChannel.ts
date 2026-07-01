@@ -43,6 +43,7 @@ import {
   filterStockPayTokenCandidates,
   getTokenIdentityKey,
   resolveStockChannelSwapPair,
+  shouldResetStockTradeReceiveAmount,
 } from './swapStockChannelUtils';
 import { useSwapStockDefaultToken } from './useSwapStockDefaultToken';
 import { useSwapStockMarketWebSocket } from './useSwapStockMarketWebSocket';
@@ -80,6 +81,10 @@ function buildStockExecutionTokens({
 function normalizeSelectedStockSwapToken(token: ISwapToken) {
   return token.isStock ? token : { ...token, isStock: true };
 }
+
+type ISelectStockSwapTokenOptions = {
+  resetReceiveAmount?: boolean;
+};
 
 export function useSwapStockChannel() {
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -278,25 +283,21 @@ export function useSwapStockChannel() {
     setToTokenAmount({ value: '', isInput: false });
   }, [setFromTokenAmount, setToTokenAmount]);
 
+  const resetStockTradeReceiveAmount = useCallback(() => {
+    setToTokenAmount({ value: '', isInput: false });
+  }, [setToTokenAmount]);
+
   const selectStockSwapToken = useCallback(
-    (
-      token: ISwapToken,
-      options?: {
-        resetAmounts?: boolean;
-      },
-    ) => {
+    (token: ISwapToken, options?: ISelectStockSwapTokenOptions) => {
       const nextStockToken = normalizeSelectedStockSwapToken(token);
-      const previousStockTokenKey = getTokenIdentityKey(
-        stockTokenSnapshotRef.current,
-      );
-      const nextStockTokenKey = getTokenIdentityKey(nextStockToken);
       if (
-        options?.resetAmounts &&
-        previousStockTokenKey &&
-        nextStockTokenKey &&
-        previousStockTokenKey !== nextStockTokenKey
+        shouldResetStockTradeReceiveAmount({
+          nextStockToken,
+          previousStockToken: stockTokenSnapshotRef.current,
+          resetReceiveAmount: options?.resetReceiveAmount,
+        })
       ) {
-        resetStockTradeAmounts();
+        resetStockTradeReceiveAmount();
       }
       setStockTokenState(nextStockToken);
       setStockSelectedToken(nextStockToken);
@@ -305,7 +306,11 @@ export function useSwapStockChannel() {
         stockToken: nextStockToken,
       });
     },
-    [resetStockTradeAmounts, setStockSelectedToken, syncStockExecutionTokens],
+    [
+      resetStockTradeReceiveAmount,
+      setStockSelectedToken,
+      syncStockExecutionTokens,
+    ],
   );
 
   useEffect(() => {
@@ -318,7 +323,7 @@ export function useSwapStockChannel() {
         tokenRole: SWAP_STOCK_ANALYTICS_TOKEN_ROLE_STOCK,
         tokenListType: SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
       });
-      selectStockSwapToken(token, { resetAmounts: true });
+      selectStockSwapToken(token, { resetReceiveAmount: true });
     };
     appEventBus.on(
       EAppEventBusNames.SwapStockTokenSelected,
@@ -416,7 +421,7 @@ export function useSwapStockChannel() {
         tokenRole: SWAP_STOCK_ANALYTICS_TOKEN_ROLE_STOCK,
         tokenListType: SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
       });
-      selectStockSwapToken(nextSwapToken, { resetAmounts: true });
+      selectStockSwapToken(nextSwapToken, { resetReceiveAmount: true });
     },
     [selectStockSwapToken],
   );

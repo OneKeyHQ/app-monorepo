@@ -9,6 +9,7 @@ import { EDesktopStoreKeys } from '@onekeyhq/shared/types/desktop';
 import type {
   IDesktopStoreFallbackUpdateBundleData,
   IDesktopStoreMap,
+  IDesktopStoreNetworkThrottle,
   IDesktopStoreUpdateBundleData,
   IDesktopStoreUpdateSettings,
 } from '@onekeyhq/shared/types/desktop';
@@ -42,6 +43,20 @@ export const getDevTools = () => store.get(EDesktopStoreKeys.DevTools, false);
 
 export const setDevTools = (devTools: boolean) => {
   store.set(EDesktopStoreKeys.DevTools, devTools);
+};
+
+const defaultNetworkThrottle: IDesktopStoreNetworkThrottle = {
+  enabled: false,
+  profile: 'slow4g',
+};
+
+export const getNetworkThrottle = (): IDesktopStoreNetworkThrottle =>
+  store.get(EDesktopStoreKeys.NetworkThrottle, defaultNetworkThrottle);
+
+export const setNetworkThrottle = (
+  config: IDesktopStoreNetworkThrottle,
+): void => {
+  store.set(EDesktopStoreKeys.NetworkThrottle, config);
 };
 
 export const getDisableKeyboardShortcuts = () =>

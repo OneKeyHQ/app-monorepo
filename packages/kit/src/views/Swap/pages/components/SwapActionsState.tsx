@@ -361,7 +361,10 @@ const SwapActionsState = ({
   );
 
   const showRecipientInMetaRow = useMemo(
-    () => !md && swapTypeSwitch !== ESwapTabSwitchType.LIMIT,
+    () =>
+      !md &&
+      swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+      swapTypeSwitch !== ESwapTabSwitchType.STOCK,
     [md, swapTypeSwitch],
   );
 
@@ -411,9 +414,7 @@ const SwapActionsState = ({
         undefined,
         currentQuoteRes?.kind ?? ESwapQuoteKind.SELL,
         true,
-        nextSettings.swapToAnotherAccountSwitchOn
-          ? (swapToAnotherAccountAddress.address ?? swapToAddressInfo?.address)
-          : swapToAddressInfo?.address,
+        swapToAddressInfo?.address,
         value,
       );
     },
@@ -431,7 +432,6 @@ const SwapActionsState = ({
       swapFromAddressInfo?.address,
       swapIncognitoMode,
       swapToAnotherAccountSwitchOn,
-      swapToAnotherAccountAddress.address,
       swapToAddressInfo.address,
     ],
   );

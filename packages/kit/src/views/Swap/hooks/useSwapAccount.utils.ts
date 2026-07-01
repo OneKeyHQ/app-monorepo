@@ -26,6 +26,61 @@ type IShouldUseSwapAddressForTokenFetchParams = {
   targetNetworkId?: string;
 };
 
+type IShouldResetSwapRecipientOnAccountNetworkSyncParams = {
+  selectedRecipientAddress?: string;
+  selectedRecipientNetworkId?: string;
+  hasTargetWallet?: boolean;
+  targetAccountId?: string;
+  sourceAccountId?: string;
+  providerSupportReceiveAddress?: boolean;
+};
+
+function areSwapRecipientNetworksCompatible({
+  selectedRecipientNetworkId,
+  targetNetworkId,
+}: {
+  selectedRecipientNetworkId?: string;
+  targetNetworkId?: string;
+}) {
+  if (!selectedRecipientNetworkId || !targetNetworkId) {
+    return false;
+  }
+
+  return (
+    networkUtils.getNetworkImplOrNetworkId({
+      networkId: selectedRecipientNetworkId,
+    }) ===
+    networkUtils.getNetworkImplOrNetworkId({
+      networkId: targetNetworkId,
+    })
+  );
+}
+
+export function shouldResetSwapRecipientOnAccountNetworkSync({
+  selectedRecipientAddress,
+  selectedRecipientNetworkId,
+  hasTargetWallet,
+  targetAccountId,
+  sourceAccountId,
+  providerSupportReceiveAddress,
+}: IShouldResetSwapRecipientOnAccountNetworkSyncParams) {
+  if (!selectedRecipientNetworkId && !targetAccountId && hasTargetWallet) {
+    return true;
+  }
+
+  if (providerSupportReceiveAddress === false) {
+    return true;
+  }
+
+  if (!selectedRecipientAddress && targetAccountId !== sourceAccountId) {
+    return true;
+  }
+
+  // A temporary token-network mismatch must not delete the saved recipient when
+  // switching between Swap, Limit, and Stock.
+  return false;
+}
+
 export function shouldUseSwapCustomRecipientAddress({
   type,
   swapToAnotherAccountSwitchOn,
@@ -47,10 +102,22 @@ export function shouldUseSwapCustomRecipientAddress({
     return false;
   }
 
+  if (isAllNetwork) {
+    return areSwapRecipientNetworksCompatible({
+      selectedRecipientNetworkId,
+      targetNetworkId: tokenNetworkId,
+    });
+  }
+
   return (
-    isAllNetwork ||
-    activeNetworkId === selectedRecipientNetworkId ||
-    tokenNetworkId === selectedRecipientNetworkId
+    areSwapRecipientNetworksCompatible({
+      selectedRecipientNetworkId,
+      targetNetworkId: activeNetworkId,
+    }) ||
+    areSwapRecipientNetworksCompatible({
+      selectedRecipientNetworkId,
+      targetNetworkId: tokenNetworkId,
+    })
   );
 }
 
@@ -69,9 +136,10 @@ export function shouldShowSwapRecipientAddressInfo({
     return false;
   }
 
-  return (
-    selectedRecipientNetworkId === (toTokenNetworkId ?? toAddressNetworkId)
-  );
+  return areSwapRecipientNetworksCompatible({
+    selectedRecipientNetworkId,
+    targetNetworkId: toTokenNetworkId ?? toAddressNetworkId,
+  });
 }
 
 export function shouldUseSwapAddressForTokenFetch({

@@ -3914,6 +3914,34 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - ReactNativeNetworkThrottle (3.0.73):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
   - ReactNativePasskeys (0.3.3):
     - ExpoModulesCore
   - ReactNativePerfMemory (3.0.72):
@@ -4935,6 +4963,7 @@ DEPENDENCIES:
   - ReactNativeGetRandomValues (from `../../../node_modules/react-native-get-random-values`)
   - "ReactNativeLiteCard (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
   - "ReactNativeNativeLogger (from `../../../node_modules/@onekeyfe/react-native-native-logger`)"
+  - "ReactNativeNetworkThrottle (from `../../../node_modules/@onekeyfe/react-native-network-throttle`)"
   - ReactNativePasskeys (from `../../../node_modules/react-native-passkeys/ios`)
   - "ReactNativePerfMemory (from `../../../node_modules/@onekeyfe/react-native-perf-memory`)"
   - "ReactNativePerfStats (from `../../../node_modules/@onekeyfe/react-native-perf-stats`)"
@@ -5299,6 +5328,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-lite-card"
   ReactNativeNativeLogger:
     :path: "../../../node_modules/@onekeyfe/react-native-native-logger"
+  ReactNativeNetworkThrottle:
+    :path: "../../../node_modules/@onekeyfe/react-native-network-throttle"
   ReactNativePasskeys:
     :path: "../../../node_modules/react-native-passkeys/ios"
   ReactNativePerfMemory:
@@ -5528,6 +5559,7 @@ SPEC CHECKSUMS:
   ReactNativeGetRandomValues: 7ab312952425cd2a46db3cf58f7d1327f825c912
   ReactNativeLiteCard: 5d93740624a765f4c8d4324d9c2034d6ee86ff87
   ReactNativeNativeLogger: fcd41d56e2d3084edd030b8dfcfe3da92deb241f
+  ReactNativeNetworkThrottle: 9fd9ae6c8bcc21b5be689c6f8b882361d113d067
   ReactNativePasskeys: 9e950e8cbf0e7d6aad9df4dcd21cee0efeb4e5cd
   ReactNativePerfMemory: 1753e767f1ffc614ed98eb0b330c30acecac34bb
   ReactNativePerfStats: 8e3fc10f3e4314b65b3be4c3aca4f8d34c17758f

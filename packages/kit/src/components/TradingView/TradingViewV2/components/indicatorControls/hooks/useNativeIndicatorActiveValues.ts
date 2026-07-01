@@ -147,10 +147,13 @@ export function useNativeIndicatorActiveValues(
     [],
   );
 
-  return {
-    activeIndicatorValues,
-    updateActiveIndicatorValue,
-  };
+  return useMemo(
+    () => ({
+      activeIndicatorValues,
+      updateActiveIndicatorValue,
+    }),
+    [activeIndicatorValues, updateActiveIndicatorValue],
+  );
 }
 
 export function useNativeIndicatorControls({
