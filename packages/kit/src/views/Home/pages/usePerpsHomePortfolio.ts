@@ -5,7 +5,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
-import { POLLING_INTERVAL_FOR_DEFI } from '@onekeyhq/shared/src/consts/walletConsts';
+import { PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -72,8 +72,8 @@ export function usePerpsHomePortfolio(): {
     {
       // Account-scoped so result swaps synchronously on account switch instead of rendering the previous account's portfolio.
       swrKey: `perps-home:${indexedAccountId ?? accountId ?? ''}`,
-      // TTL-gated by the cache-first orchestrator, so this 60s poll rarely hits the network.
-      pollingInterval: POLLING_INTERVAL_FOR_DEFI,
+      // Poll interval matches the active TTL; the orchestrator gates real HL network to positions=15s / idle=1m / empty=30m.
+      pollingInterval: PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
       overrideIsFocused: (isPageFocused) => isPageFocused && isTabFocused,
     },
   );

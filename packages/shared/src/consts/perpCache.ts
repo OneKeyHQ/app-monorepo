@@ -66,6 +66,12 @@ export const PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_AGE_MS =
     minute: 1,
   });
 
+// Open positions are marked to market, so refresh them faster than idle accounts.
+export const PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS =
+  timerUtils.getTimeDurationMs({
+    seconds: 15,
+  });
+
 // Empty accounts only change via on-chain deposit (caught by
 // LocalPendingTxConfirmed), so probe them rarely.
 export const PERPS_HL_PORTFOLIO_EMPTY_MAX_AGE_MS = timerUtils.getTimeDurationMs(

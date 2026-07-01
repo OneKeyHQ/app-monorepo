@@ -23,6 +23,7 @@ import {
   PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
 import {
+  PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
   PERPS_HL_PORTFOLIO_EMPTY_MAX_AGE_MS,
   PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_AGE_MS,
 } from '@onekeyhq/shared/src/consts/perpCache';
@@ -972,9 +973,13 @@ export default class ServiceHyperliquid extends ServiceBase {
         normalized,
       );
     if (!force && cached) {
-      const maxAge = cached.isEmpty
-        ? PERPS_HL_PORTFOLIO_EMPTY_MAX_AGE_MS
-        : PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_AGE_MS;
+      let maxAge = PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_AGE_MS;
+      if (cached.perpPositions.length > 0) {
+        // Open positions move with mark price, so keep them close to live.
+        maxAge = PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS;
+      } else if (cached.isEmpty) {
+        maxAge = PERPS_HL_PORTFOLIO_EMPTY_MAX_AGE_MS;
+      }
       if (Date.now() - cached.fetchedAt <= maxAge) {
         return cached;
       }
