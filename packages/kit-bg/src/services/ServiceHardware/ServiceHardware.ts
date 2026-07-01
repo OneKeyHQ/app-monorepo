@@ -158,11 +158,15 @@ const NEW_DIALOG_EVENTS = new Set([
   EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION,
 ]);
 
+const LINUX_UDEV_RULES_AUTH_CANCEL_RETRY_DELAY_MS = 60_000;
+
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
   private bridgeAvailabilityChecked = false;
 
   private linuxUdevRulesReadyPromise: Promise<boolean> | undefined;
+
+  private linuxUdevRulesInstallMutedUntil = 0;
 
   // Third-party (Trezor / Ledger) hardware adapter lifecycle + methods now live
   // in ServiceThirdPartyHardware. ServiceHardware delegates via
@@ -824,6 +828,10 @@ class ServiceHardware extends ServiceBase {
       return false;
     }
 
+    if (Date.now() < this.linuxUdevRulesInstallMutedUntil) {
+      return false;
+    }
+
     if (!this.linuxUdevRulesReadyPromise) {
       this.linuxUdevRulesReadyPromise = this.installLinuxUdevRules().then(
         (ready) => {
@@ -948,6 +956,7 @@ class ServiceHardware extends ServiceBase {
       const result =
         await globalThis.desktopApiProxy?.system?.installOneKeyUdevRules?.();
       if (result?.installed) {
+        this.linuxUdevRulesInstallMutedUntil = 0;
         defaultLogger.hardware.sdkLog.log(
           '[LinuxWebUSB] OneKey udev rules ready',
           JSON.stringify(result),
@@ -959,6 +968,10 @@ class ServiceHardware extends ServiceBase {
           '[LinuxWebUSB] OneKey udev rules not installed',
           JSON.stringify(result),
         );
+        if (result.skippedReason === 'cancelled') {
+          this.linuxUdevRulesInstallMutedUntil =
+            Date.now() + LINUX_UDEV_RULES_AUTH_CANCEL_RETRY_DELAY_MS;
+        }
         if (
           result.needsManualInstall ||
           result.skippedReason === 'missing-pkexec'
