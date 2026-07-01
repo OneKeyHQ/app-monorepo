@@ -102,11 +102,11 @@ describe('offlineNetworkToastGuard', () => {
     ).toBe(true);
   });
 
-  it('suppresses transport timeout code regardless of network status', () => {
+  it('suppresses transport timeout code only after offline is confirmed', () => {
     const payload = createErrorToastPayload({
       errorCode: 'ECONNABORTED',
       errorName: 'AxiosError',
-      title: 'timeout of 30000ms exceeded',
+      title: 'Request timeout',
     });
 
     expect(
@@ -121,14 +121,14 @@ describe('offlineNetworkToastGuard', () => {
         isInternetReachable: true,
         payload,
       }),
-    ).toBe(true);
+    ).toBe(false);
 
     expect(
       shouldSuppressNetworkErrorToast({
         isInternetReachable: null,
         payload,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('suppresses axios timeout text without an HTTP status code', () => {
@@ -189,7 +189,7 @@ describe('offlineNetworkToastGuard', () => {
     ).toBe(false);
   });
 
-  it('suppresses server timeout responses with a transport timeout code', () => {
+  it('keeps server timeout responses visible even with a transport timeout code', () => {
     expect(
       shouldSuppressNetworkErrorToast({
         isInternetReachable: true,
@@ -200,7 +200,7 @@ describe('offlineNetworkToastGuard', () => {
           title: 'Request timeout',
         }),
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('keeps server and business errors visible while offline', () => {
@@ -224,6 +224,18 @@ describe('offlineNetworkToastGuard', () => {
           errorClassName: EOneKeyErrorClassNames.AxiosNetworkError,
           httpStatusCode: 503,
           title: '网络错误',
+        }),
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps numeric errorCode HTTP responses visible even with network error text', () => {
+    expect(
+      shouldSuppressNetworkErrorToast({
+        isInternetReachable: false,
+        payload: createErrorToastPayload({
+          errorCode: 503,
+          title: 'Network error',
         }),
       }),
     ).toBe(false);

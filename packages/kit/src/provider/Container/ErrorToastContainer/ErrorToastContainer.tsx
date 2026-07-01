@@ -56,6 +56,9 @@ export function ErrorToastContainer() {
         payload: p,
       });
       const shouldSuppress = suppressReason !== null;
+      const statusCodeForDeduplicate =
+        p.httpStatusCode ??
+        (typeof p.errorCode === 'number' ? p.errorCode : undefined);
       if (p.method === 'error') {
         defaultLogger.app.toastTrace.toastDecision({
           isInternetReachable,
@@ -68,6 +71,7 @@ export function ErrorToastContainer() {
           errorName: getToastTraceValue(p.errorName),
           errorClassName: getToastTraceValue(p.errorClassName),
           httpStatusCode: p.httpStatusCode,
+          effectiveHttpStatusCode: statusCodeForDeduplicate,
           hasRequestId: Boolean(p.requestId),
           hasToastId: Boolean(p.toastId),
         });
@@ -76,9 +80,6 @@ export function ErrorToastContainer() {
         return;
       }
 
-      const statusCodeForDeduplicate =
-        p.httpStatusCode ??
-        (typeof p.errorCode === 'number' ? p.errorCode : undefined);
       const deduplication = getDeduplicationId(statusCodeForDeduplicate);
       // For critical errors (403, 429, 5xx), force deduplication to prevent toast spam
       // Otherwise, respect custom toastId from caller

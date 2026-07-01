@@ -123,6 +123,36 @@ describe('ErrorToastContainer', () => {
     unmount();
   });
 
+  it('shows numeric errorCode HTTP responses even when offline', () => {
+    mockedGlobalNetInfo.currentState.mockReturnValue({
+      isInternetReachable: false,
+    });
+    const { unmount } = render(<ErrorToastContainer />);
+
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'error',
+        title: 'Network error',
+        errorCode: 503,
+      });
+    });
+
+    expect(mockedToast.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Network error',
+      }),
+    );
+    expect(mockedToastTrace.toastDecision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        effectiveHttpStatusCode: 503,
+        isInternetReachable: false,
+        shouldSuppress: false,
+        suppressReason: null,
+      }),
+    );
+    unmount();
+  });
+
   it('shows generic timeout text when it is not a transport timeout', () => {
     const { unmount } = render(<ErrorToastContainer />);
 

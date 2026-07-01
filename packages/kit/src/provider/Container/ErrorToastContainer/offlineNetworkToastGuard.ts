@@ -71,14 +71,6 @@ function hasTransportNetworkErrorCode(payload: IShowToastPayload) {
   );
 }
 
-function isAxiosNetworkTimeout(payload: IShowToastPayload) {
-  const isAxiosOrNetworkError =
-    payload.errorName === 'AxiosError' ||
-    payload.errorClassName === EOneKeyErrorClassNames.AxiosNetworkError;
-
-  return isAxiosOrNetworkError && hasExact30000MsTimeoutText(payload);
-}
-
 function isTransportNetworkError(payload: IShowToastPayload) {
   return (
     payload.errorClassName === EOneKeyErrorClassNames.AxiosNetworkError ||
@@ -87,10 +79,16 @@ function isTransportNetworkError(payload: IShowToastPayload) {
   );
 }
 
+function getEffectiveHttpStatusCode(payload: IShowToastPayload) {
+  return (
+    payload.httpStatusCode ??
+    (typeof payload.errorCode === 'number' ? payload.errorCode : undefined)
+  );
+}
+
 export type INetworkErrorToastSuppressReason =
   | 'transport-timeout-code'
   | 'exact-30000ms-timeout'
-  | 'axios-network-timeout'
   | 'transport-network-error'
   | 'offline-network-error';
 
@@ -105,24 +103,16 @@ export function getNetworkErrorToastSuppressReason({
     return null;
   }
 
-  if (hasTimeoutCode(payload)) {
-    return 'transport-timeout-code';
-  }
-
-  if (hasExact30000MsTimeoutText(payload)) {
-    return 'exact-30000ms-timeout';
-  }
-
-  if (typeof payload.httpStatusCode === 'number') {
+  if (typeof getEffectiveHttpStatusCode(payload) === 'number') {
     return null;
-  }
-
-  if (isAxiosNetworkTimeout(payload)) {
-    return 'axios-network-timeout';
   }
 
   const hasNetworkErrorCode = hasOfflineNetworkErrorCode(payload);
   if (isInternetReachable === false) {
+    if (hasTimeoutCode(payload)) {
+      return 'transport-timeout-code';
+    }
+
     if (
       payload.errorClassName === EOneKeyErrorClassNames.AxiosNetworkError ||
       hasNetworkErrorCode ||
@@ -130,6 +120,10 @@ export function getNetworkErrorToastSuppressReason({
     ) {
       return 'offline-network-error';
     }
+  }
+
+  if (hasExact30000MsTimeoutText(payload)) {
+    return 'exact-30000ms-timeout';
   }
 
   if (isTransportNetworkError(payload)) {

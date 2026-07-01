@@ -16,6 +16,7 @@ export type IToastTraceDecisionParams = {
   errorName?: IToastTraceStringValue;
   errorClassName?: IToastTraceStringValue;
   httpStatusCode?: number;
+  effectiveHttpStatusCode?: number;
   hasRequestId: boolean;
   hasToastId: boolean;
 };
