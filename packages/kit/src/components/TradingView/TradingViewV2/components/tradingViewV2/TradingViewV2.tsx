@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { SizableText, Stack, useTheme } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
@@ -119,6 +126,7 @@ interface IBaseTradingViewV2Props {
   nativeControlsLayoutMode?: ITradingViewNativeControlsLayoutMode;
   isNativeChartFullscreen?: boolean;
   showNativeIndicatorQuickBar?: boolean;
+  onNativeIndicatorQuickBarChange?: (quickBar: ReactNode | null) => void;
   onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
   onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
   onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
@@ -179,6 +187,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     nativeControlsLayoutMode,
     isNativeChartFullscreen,
     showNativeIndicatorQuickBar = true,
+    onNativeIndicatorQuickBarChange,
     onNativeChartFullscreenChange,
     onKLineDataReady,
     onKLineLoadError,
@@ -592,11 +601,50 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     [resetInteractionLocks, webRef],
   );
 
+  const nativeIndicatorQuickBar = useMemo(() => {
+    if (
+      !enableNativeChartControls ||
+      !showNativeIndicatorQuickBar ||
+      !nativeChartControlsConfig ||
+      nativeChartControlsConfig.indicatorsEnabled === false
+    ) {
+      return null;
+    }
+
+    return (
+      <TradingViewNativeIndicatorQuickBar
+        nativeChartControlsConfig={nativeChartControlsConfig}
+        nativeIndicatorState={nativeIndicatorState}
+        onIndicatorSelect={handleNativeIndicatorSelect}
+      />
+    );
+  }, [
+    enableNativeChartControls,
+    handleNativeIndicatorSelect,
+    nativeChartControlsConfig,
+    nativeIndicatorState,
+    showNativeIndicatorQuickBar,
+  ]);
+
+  useEffect(() => {
+    onNativeIndicatorQuickBarChange?.(nativeIndicatorQuickBar);
+  }, [nativeIndicatorQuickBar, onNativeIndicatorQuickBarChange]);
+
   useEffect(() => {
     return () => {
       resetInteractionLocks();
     };
   }, [resetInteractionLocks]);
+
+  useEffect(() => {
+    if (!onNativeIndicatorQuickBarChange) {
+      return undefined;
+    }
+
+    return () => {
+      onNativeIndicatorQuickBarChange(null);
+    };
+  }, [onNativeIndicatorQuickBarChange]);
 
   const handleMockEmptyKLineBadgePress = useCallback(() => {
     setMockEmptyKLineBadgePositionIndex(
@@ -706,13 +754,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         ) : null}
       </Stack>
 
-      {enableNativeChartControls && showNativeIndicatorQuickBar ? (
-        <TradingViewNativeIndicatorQuickBar
-          nativeChartControlsConfig={nativeChartControlsConfig}
-          nativeIndicatorState={nativeIndicatorState}
-          onIndicatorSelect={handleNativeIndicatorSelect}
-        />
-      ) : null}
+      {onNativeIndicatorQuickBarChange ? null : nativeIndicatorQuickBar}
     </Stack>
   );
 };

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -55,6 +62,7 @@ function MobileTradingViewTouchBridge({
   tokenSymbol,
   dataSource,
   pageWidth,
+  onNativeIndicatorQuickBarChange,
   onIndicatorsDialogOpenChange,
   onInteractionOverlayOpenChange,
 }: {
@@ -63,6 +71,7 @@ function MobileTradingViewTouchBridge({
   tokenSymbol: string;
   dataSource: 'websocket' | 'polling';
   pageWidth?: number;
+  onNativeIndicatorQuickBarChange: (quickBar: ReactNode | null) => void;
   onIndicatorsDialogOpenChange: (isOpen: boolean) => void;
   onInteractionOverlayOpenChange: (isOpen: boolean) => void;
 }) {
@@ -113,6 +122,7 @@ function MobileTradingViewTouchBridge({
       dataSource={dataSource}
       pageWidth={pageWidth}
       onTouchScroll={handleTouchScrollWhenEnabled}
+      onNativeIndicatorQuickBarChange={onNativeIndicatorQuickBarChange}
       onIndicatorsDialogOpenChange={handleIndicatorsDialogOpenChange}
       onInteractionOverlayOpenChange={handleInteractionOverlayOpenChange}
     />
@@ -187,6 +197,8 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     isTradingViewInteractionOverlayOpen,
     setIsTradingViewInteractionOverlayOpen,
   ] = useState(false);
+  const [nativeIndicatorQuickBar, setNativeIndicatorQuickBar] =
+    useState<ReactNode | null>(null);
   const isTradingViewScrollLocked =
     isTradingViewIndicatorsDialogOpen || isTradingViewInteractionOverlayOpen;
   const secondTabTouchStartRef = useRef<{
@@ -245,6 +257,12 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
   const handleInteractionOverlayOpenChange = useCallback((isOpen: boolean) => {
     setIsTradingViewInteractionOverlayOpen(isOpen);
   }, []);
+  const handleNativeIndicatorQuickBarChange = useCallback(
+    (quickBar: ReactNode | null) => {
+      setNativeIndicatorQuickBar(() => quickBar);
+    },
+    [],
+  );
 
   const handleHeaderHorizontalSwipe = useCallback(
     (direction: 'left' | 'right') => {
@@ -271,6 +289,21 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     }
     return 'calc(100vh - 96px - 74px - 250px)';
   }, [height]);
+
+  const tradingViewChartHeight = useMemo(() => {
+    if (
+      typeof tradingViewHeight === 'number' &&
+      nativeIndicatorQuickBar &&
+      platformEnv.isNative
+    ) {
+      return Math.max(
+        0,
+        tradingViewHeight - TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT,
+      );
+    }
+
+    return tradingViewHeight;
+  }, [nativeIndicatorQuickBar, tradingViewHeight]);
 
   const handleSecondTabTouchStart = useCallback(
     (event: GestureResponderEvent) => {
@@ -330,9 +363,6 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
             panActiveOffsetY={[-4, 4]}
             panFailOffsetX={chartAreaPanFailOffsetX}
             excludeRightEdgeRatio={chartAreaExcludeRightEdgeRatio}
-            excludeBottomEdgeHeight={
-              TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT
-            }
             scrollScale={1}
             onHorizontalSwipe={chartAreaHorizontalSwipeHandler}
             horizontalSwipeThreshold={24}
@@ -340,7 +370,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
             simultaneousWithNativeGesture
             cancelChildTouches={false}
           >
-            <Stack h={tradingViewHeight} overflow="hidden">
+            <Stack h={tradingViewChartHeight} overflow="hidden">
               {(() => {
                 if (!networkId || !tokenSymbol) {
                   return null;
@@ -356,6 +386,9 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
                         websocketConfig?.kline ? 'websocket' : 'polling'
                       }
                       pageWidth={effectivePageWidth}
+                      onNativeIndicatorQuickBarChange={
+                        handleNativeIndicatorQuickBarChange
+                      }
                       onIndicatorsDialogOpenChange={
                         handleIndicatorsDialogOpenChange
                       }
@@ -379,6 +412,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
               })()}
             </Stack>
           </HeaderScrollGestureWrapper>
+          {nativeIndicatorQuickBar}
           {platformEnv.isNativeIOS ? (
             <View
               style={{
@@ -399,11 +433,13 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     handleHeaderHorizontalSwipe,
     handleIndicatorsDialogOpenChange,
     handleInteractionOverlayOpenChange,
+    handleNativeIndicatorQuickBarChange,
     isTradingViewScrollLocked,
+    nativeIndicatorQuickBar,
     networkId,
     tokenAddress,
     tokenSymbol,
-    tradingViewHeight,
+    tradingViewChartHeight,
     websocketConfig?.kline,
   ]);
 
