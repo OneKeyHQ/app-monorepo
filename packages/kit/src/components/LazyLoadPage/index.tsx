@@ -59,6 +59,10 @@ export function LazyLoadPage<
 }
 
 // prevent useEffect triggers when tab loaded on Native
-export const LazyLoadRootTabPage = (factory: () => Promise<{ default: any }>) =>
+export const LazyLoadRootTabPage = (
+  factory: () => Promise<{ default: any }>,
+) => {
   // prevent hooks run
-  LazyLoadPage(factory, platformEnv.isNative ? 1 : undefined);
+  const Page = LazyLoadPage(factory, platformEnv.isNative ? 1 : undefined);
+  return memo(Page);
+};

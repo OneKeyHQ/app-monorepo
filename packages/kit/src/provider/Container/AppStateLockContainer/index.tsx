@@ -5,7 +5,12 @@ import { AnimatePresence, Spinner, YStack } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { IS_LOW_END_DEVICE } from '@onekeyhq/shared/src/performance/deviceMemory';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  isUnlockTransition,
+  shouldDeferColdStartLockRender,
+} from '@onekeyhq/shared/src/utils/coldStartLockDecision';
 
 import PasswordVerifyContainer from '../../../components/Password/container/PasswordVerifyContainer';
 
@@ -86,6 +91,37 @@ export function AppStateLockContainer({
 }: PropsWithChildren<unknown>) {
   const [isLocked] = useAppIsLockedAtom();
 
+  // Track whether this process has ever been unlocked. On low-end native devices
+  // we skip rendering the full app tree behind the lock screen ONLY for a
+  // cold-start lock (never unlocked yet) — so the single background JS thread
+  // is free to finish the 600k-iteration PBKDF2 `verifyPassword` before the OS
+  // (iOS jetsam / Android low-memory killer) kills the process. Once unlocked,
+  // we always render children again so an auto-lock-while-using never unmounts
+  // the user's current screen.
+  //
+  // The latch only flips on a real locked->unlocked transition (not on any
+  // `isLocked === false` render) so a transient/default `false` during early
+  // state hydration (e.g. the first cold start after upgrade) cannot
+  // permanently defeat the optimization on the riskiest boot.
+  const hasUnlockedOnceRef = useRef(false);
+  const prevLockedRef = useRef(isLocked);
+  if (isUnlockTransition(prevLockedRef.current, isLocked)) {
+    hasUnlockedOnceRef.current = true;
+  }
+  prevLockedRef.current = isLocked;
+  // Gated to native: low-RAM iOS (jetsam) and low-RAM Android (low-memory
+  // killer) both risk an OS process kill during the cold-start lock while the
+  // single background JS thread runs the heavy PBKDF2 verifyPassword. Web/desktop
+  // have no such cold-start memory-kill pressure, so they never defer — and the
+  // build-time `isNative` constant lets the whole call dead-code-eliminate there.
+  const deferColdStartChildren = platformEnv.isNative
+    ? shouldDeferColdStartLockRender({
+        isLowEndDevice: IS_LOW_END_DEVICE,
+        isLocked,
+        hasUnlockedOnce: hasUnlockedOnceRef.current,
+      })
+    : false;
+
   const handleUnlock = useCallback(async () => {
     await backgroundApiProxy.servicePassword.unLockApp();
   }, []);
@@ -118,7 +154,7 @@ export function AppStateLockContainer({
 
   return (
     <>
-      {children}
+      {deferColdStartChildren ? null : children}
       {!isLocked ? <AppStateUpdater /> : null}
       <AnimatePresence>
         {isLocked ? (

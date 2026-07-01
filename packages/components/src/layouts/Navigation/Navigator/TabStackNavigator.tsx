@@ -76,7 +76,7 @@ const emptyTabBar = () => null;
 const tabScreenOptions = {
   headerShown: false,
   freezeOnBlur: true,
-  lazy: false,
+  lazy: true,
 };
 
 const useTabBarPosition = platformEnv.isNative

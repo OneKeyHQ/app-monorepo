@@ -32,6 +32,7 @@ import {
   BRIDGE_STATUS_URL,
   PLAY_STORE_LINK,
 } from '@onekeyhq/shared/src/config/appConfig';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -75,13 +76,18 @@ import {
   ThemeListItem,
   UseGasAccountByDefaultListItem,
 } from './CustomElement';
-import { DevSettingsSection } from './DevSettingsSection';
 import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
 // import { OneKeyIdSubSettings } from './OneKeyIdSubSettings';
 // import { OneKeyIdTabItem } from './OneKeyIdTabItem';
 import { SubSearchSettings } from './SubSettings';
 
 import type { RouteProp } from '@react-navigation/native';
+
+const DevSettingsSection = LazyLoad(async () => {
+  const { DevSettingsSection: Component } =
+    await import('./DevSettingsSection');
+  return { default: Component };
+});
 
 export interface ISubSettingConfig {
   icon: string | IKeyOfIcons;
