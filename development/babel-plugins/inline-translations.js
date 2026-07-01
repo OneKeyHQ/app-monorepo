@@ -54,6 +54,7 @@ module.exports = function inlineTranslationsPlugin({ types: t }) {
       Program(programPath) {
         const localNames = new Set();
         const importSpecifiers = [];
+        const importDeclarationsToCleanup = new WeakSet();
 
         programPath.get('body').forEach((statementPath) => {
           if (!statementPath.isImportDeclaration()) {
@@ -78,6 +79,7 @@ module.exports = function inlineTranslationsPlugin({ types: t }) {
             }
             localNames.add(specifierPath.node.local.name);
             importSpecifiers.push(specifierPath);
+            importDeclarationsToCleanup.add(statementPath.node);
           });
         });
 
@@ -119,6 +121,7 @@ module.exports = function inlineTranslationsPlugin({ types: t }) {
         programPath.get('body').forEach((statementPath) => {
           if (
             statementPath.isImportDeclaration() &&
+            importDeclarationsToCleanup.has(statementPath.node) &&
             statementPath.node.specifiers.length === 0
           ) {
             statementPath.remove();
