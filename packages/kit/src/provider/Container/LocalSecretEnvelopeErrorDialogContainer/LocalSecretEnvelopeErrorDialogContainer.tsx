@@ -18,17 +18,25 @@ const OK_TEXT = 'OK';
 export function LocalSecretEnvelopeErrorDialogContainer() {
   const dialogRef = useRef<IDialogInstance | null>(null);
   const detailsDialogRef = useRef<IDialogInstance | null>(null);
+  const isDialogActiveRef = useRef(false);
+  const isDetailsDialogActiveRef = useRef(false);
 
   const showDetailsDialog = useCallback(async (technicalMessage: string) => {
     await dialogRef.current?.close();
     dialogRef.current = null;
-    if (detailsDialogRef.current?.isExist()) {
+    isDialogActiveRef.current = false;
+    if (isDetailsDialogActiveRef.current) {
       return;
     }
+    isDetailsDialogActiveRef.current = true;
     detailsDialogRef.current = Dialog.show({
       title: ERROR_DETAILS_TITLE,
       description: technicalMessage,
       onConfirmText: OK_TEXT,
+      onClose: () => {
+        detailsDialogRef.current = null;
+        isDetailsDialogActiveRef.current = false;
+      },
       showCancelButton: false,
     });
   }, []);
@@ -37,9 +45,10 @@ export function LocalSecretEnvelopeErrorDialogContainer() {
     const showFn = (
       payload: IAppEventBusPayload[EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog],
     ) => {
-      if (dialogRef.current?.isExist()) {
+      if (isDialogActiveRef.current || isDetailsDialogActiveRef.current) {
         return;
       }
+      isDialogActiveRef.current = true;
       dialogRef.current = Dialog.show({
         icon: 'ErrorOutline',
         title: WALLET_KEY_UNAVAILABLE_TITLE,
@@ -49,8 +58,13 @@ export function LocalSecretEnvelopeErrorDialogContainer() {
         onCancel: (close) => {
           void close().then(() => {
             dialogRef.current = null;
+            isDialogActiveRef.current = false;
             void showDetailsDialog(payload.technicalMessage);
           });
+        },
+        onClose: () => {
+          dialogRef.current = null;
+          isDialogActiveRef.current = false;
         },
         showCancelButton: true,
       });
@@ -67,6 +81,8 @@ export function LocalSecretEnvelopeErrorDialogContainer() {
       );
       dialogRef.current = null;
       detailsDialogRef.current = null;
+      isDialogActiveRef.current = false;
+      isDetailsDialogActiveRef.current = false;
     };
   }, [showDetailsDialog]);
 
