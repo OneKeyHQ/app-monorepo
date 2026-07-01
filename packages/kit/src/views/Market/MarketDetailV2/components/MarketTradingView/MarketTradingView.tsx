@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { type ReactNode, memo, useCallback } from 'react';
 
 import {
   TRADING_VIEW_DISABLED_FEATURES,
@@ -91,6 +91,7 @@ interface IMarketTradingViewProps {
   showNativeIndicatorQuickBar?: boolean;
   onTouchScroll?: (deltaY: number) => void;
   onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
+  onNativeIndicatorQuickBarChange?: (quickBar: ReactNode | null) => void;
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
   onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
 }
@@ -112,6 +113,7 @@ export const MarketTradingView = memo(
     showNativeIndicatorQuickBar,
     onTouchScroll,
     onNativeChartFullscreenChange,
+    onNativeIndicatorQuickBarChange,
     onIndicatorsDialogOpenChange,
     onInteractionOverlayOpenChange,
   }: IMarketTradingViewProps) => {
@@ -173,6 +175,7 @@ export const MarketTradingView = memo(
         isNativeChartFullscreen={isNativeChartFullscreen}
         showNativeIndicatorQuickBar={showNativeIndicatorQuickBar}
         onNativeChartFullscreenChange={onNativeChartFullscreenChange}
+        onNativeIndicatorQuickBarChange={onNativeIndicatorQuickBarChange}
       />
     );
   },
