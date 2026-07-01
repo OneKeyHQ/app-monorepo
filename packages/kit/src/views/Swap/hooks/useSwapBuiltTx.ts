@@ -37,6 +37,8 @@ import {
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyAppError, OneKeyError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -66,8 +68,11 @@ import type {
   IFeeSui,
   IFeeTron,
   IFeeUTXO,
+  IGasAccountQuote,
+  IGasAccountUiState,
   IGasEIP1559,
   IGasLegacy,
+  IGasPayer,
 } from '@onekeyhq/shared/types/fee';
 import {
   EMessageTypesEth,
@@ -124,6 +129,10 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
+import {
+  EGasAccountErrorStrategy,
+  getGasAccountErrorEntry,
+} from '../../SignatureConfirm/constants/gasAccountErrorCodes';
 import { buildSwapApproveAndSendSteps } from '../utils/buildSwapReviewState';
 import {
   type ISwapBtcOutputValidationError,
@@ -951,12 +960,75 @@ export function useSwapBuildTx() {
         },
         encodedTx: updatedUnsignedTxItem.encodedTx,
       });
-      const res = await backgroundApiProxy.serviceSend.signAndSendTransaction({
+      // When estimate-fee confirmed Gas Account sponsorship, attach the quote so
+      // broadcast pays via the sponsor. Mirrors the transaction-confirm page
+      // (TxFeeInfo): selectedPayer 'gasAccount' + `gas-account:${quoteId}` key.
+      const gasAccountUiState: IGasAccountUiState | undefined =
+        gasInfo.gasAccountEligible &&
+        gasInfo.payer === 'gasAccount' &&
+        gasInfo.gasAccountQuote?.quoteId
+          ? {
+              payer: gasInfo.payer,
+              gasAccountEligible: true,
+              gasAccountQuote: gasInfo.gasAccountQuote,
+              selectedPayer: 'gasAccount',
+              // Same nonce the quote was bound to at estimate-fee time.
+              lockedUserNonce:
+                typeof updatedUnsignedTxItem.nonce === 'number'
+                  ? updatedUnsignedTxItem.nonce
+                  : undefined,
+              idempotencyKey: `gas-account:${gasInfo.gasAccountQuote.quoteId}`,
+            }
+          : undefined;
+      const sendTxParams = {
         networkId,
         accountId,
         unsignedTx: updatedUnsignedTxItem,
-        signOnly: false,
-      });
+        signOnly: false as const,
+      };
+      let res: Awaited<
+        ReturnType<typeof backgroundApiProxy.serviceSend.signAndSendTransaction>
+      >;
+      try {
+        res = await backgroundApiProxy.serviceSend.signAndSendTransaction({
+          ...sendTxParams,
+          gasAccountUiState,
+        });
+      } catch (e) {
+        // Broadcast failed at the gas-account layer. Route by the same strategy
+        // table the confirm page (TxConfirmActions) uses. Plain (non
+        // gas-account) errors, and errors on a non-sponsored send, propagate.
+        const entry = gasAccountUiState
+          ? getGasAccountErrorEntry(getGasAccountErrorCode(e))
+          : undefined;
+        if (!entry) {
+          throw e;
+        }
+        // Mute the original bridge error so the global handler doesn't toast it
+        // (would duplicate the mapped message / conflict with suppressToast).
+        (e as IOneKeyError).autoToast = false;
+        const message = intl.formatMessage({ id: entry.messageKey });
+        // Honor the suppressToast contract (e.g. daily-limit codes stay silent).
+        if (!entry.suppressToast) {
+          Toast.error({ title: message });
+        }
+        if (entry.strategy === EGasAccountErrorStrategy.Fallback) {
+          // Sponsor path unavailable for this attempt (pool exhausted, daily
+          // limit, sponsor down …). Mirror the confirm page: drop the sponsor
+          // quote and resend once as user-paid so the swap can still go through
+          // when the user has native for gas. A user-paid failure (e.g. no
+          // native) then propagates honestly.
+          res =
+            await backgroundApiProxy.serviceSend.signAndSendTransaction(
+              sendTxParams,
+            );
+        } else {
+          // Refresh (quote/nonce stale — already prevented in Swap by the
+          // fresh estimate-at-send + locked nonce) and Hint (terminal) fail the
+          // step. OneKeyAppError avoids the tx-confirm fallback and a 2nd toast.
+          throw new OneKeyAppError({ message, autoToast: false });
+        }
+      }
       const decodedTx = await backgroundApiProxy.serviceSend.buildDecodedTx({
         networkId,
         accountId,
@@ -1264,6 +1336,9 @@ export function useSwapBuildTx() {
         feeAlgo?: IFeeAlgo[];
         feeDot?: IFeeDot[];
         feeBudget?: IFeeSui[];
+        payer?: IGasPayer;
+        gasAccountEligible?: boolean;
+        gasAccountQuote?: IGasAccountQuote;
       },
       gasCommon: {
         baseFee?: string;
@@ -1316,7 +1391,7 @@ export function useSwapBuildTx() {
         feeBudgetLet = gasRes.feeBudget?.[0];
       }
 
-      return applyCustomPriorityFeeToGasInfo({
+      const gasInfo = applyCustomPriorityFeeToGasInfo({
         gasInfo: {
           common: gasCommon,
           gas: gasLet,
@@ -1332,6 +1407,14 @@ export function useSwapBuildTx() {
         customPriorityFee: swapNetWorkFeeLevel?.customPriorityFee,
         estimateFeeParams,
       });
+      // Carry Gas Account sponsorship result from estimate-fee so it flows into
+      // both the preview (sponsored badge) and the send path (broadcast quoteId).
+      return {
+        ...gasInfo,
+        payer: gasRes.payer,
+        gasAccountEligible: gasRes.gasAccountEligible,
+        gasAccountQuote: gasRes.gasAccountQuote,
+      };
     },
     [
       swapNetWorkFeeLevel?.networkFeeLevel,
@@ -1356,6 +1439,12 @@ export function useSwapBuildTx() {
       const stepGasInfos =
         swapStepsRef.current.preSwapData.netWorkFee?.gasInfos;
       const swapInfo = buildUnsignedParams?.swapInfo;
+      // Backend Gas Account pre-check from the build-tx response. When the
+      // sponsorship candidate flag is on we must re-run estimate-fee right
+      // before sending to obtain a fresh, non-expired gasAccountQuote.quoteId,
+      // so we skip the cached-gas fast path below for sponsored swaps.
+      const isGasAccountEnabled =
+        !!swapInfo?.swapBuildResData?.result?.gasAccountEnabled;
       const buildUnsignedParamsCheckNonce = { ...buildUnsignedParams };
       if (approveUnsignedTxArr?.length && approveUnsignedTxArr.length > 0) {
         buildUnsignedParamsCheckNonce.prevNonce =
@@ -1710,7 +1799,8 @@ export function useSwapBuildTx() {
         }
       } else if (
         findGasInfo(stepGasInfos ?? [], unsignedTx.encodedTx) &&
-        !needFetchGas
+        !needFetchGas &&
+        !isGasAccountEnabled
       ) {
         const gasInfoFinal = findGasInfo(
           stepGasInfos ?? [],
@@ -1755,6 +1845,16 @@ export function useSwapBuildTx() {
             networkId,
             accountId,
             scenario: 'swap',
+            gasAccountEnabled: isGasAccountEnabled,
+            transfersInfo: unsignedTx.transfersInfo,
+            // Bind the sponsor quote to the nonce that will actually broadcast.
+            // prepareSendConfirmUnsignedTx already resolved it on the same
+            // unsignedTx, so estimate and broadcast share one nonce (avoids the
+            // 40209 NONCE_CHANGED quote drift seen on the confirm page).
+            lockedUserNonce:
+              typeof unsignedTx.nonce === 'number'
+                ? unsignedTx.nonce
+                : undefined,
           });
           if (!isApprove) {
             void swapEstimateFeeEvent(
@@ -2976,6 +3076,11 @@ export function useSwapBuildTx() {
         throw new OneKeyError('account error');
       }
       const swapInfo = buildUnsignedParams?.swapInfo;
+      // Gas Account sponsorship pre-check from the build-tx response; forwarded
+      // to estimate-fee so the preview can decide whether to show the sponsored
+      // badge based on the real `gasAccountEligible` response.
+      const isGasAccountEnabled =
+        !!swapInfo?.swapBuildResData?.result?.gasAccountEnabled;
       const buildUnsignedParamsCheckNonce = { ...buildUnsignedParams };
       if (approveUnsignedTxArr?.length && approveUnsignedTxArr.length > 0) {
         buildUnsignedParamsCheckNonce.prevNonce =
@@ -3191,6 +3296,12 @@ export function useSwapBuildTx() {
               networkId,
               accountId,
               scenario: 'swap',
+              gasAccountEnabled: isGasAccountEnabled,
+              transfersInfo: unsignedTx.transfersInfo,
+              lockedUserNonce:
+                typeof unsignedTx.nonce === 'number'
+                  ? unsignedTx.nonce
+                  : undefined,
             });
             void swapEstimateFeeEvent(
               ESwapEventAPIStatus.SUCCESS,

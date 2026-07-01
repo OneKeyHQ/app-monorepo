@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -67,6 +67,18 @@ const AccountModeSelector = memo(
       [abstractionMode, perpsActiveAccount.accountAddress],
     );
     const displayMode = draftMode ?? liveMode;
+
+    // Drafts are per-account; reset when the account changes.
+    useEffect(() => {
+      setDraftMode(undefined);
+    }, [perpsActiveAccount.accountAddress]);
+
+    // Drop the draft once live mode catches up, so live stays the source of truth.
+    useEffect(() => {
+      setDraftMode((prev) =>
+        prev !== undefined && prev === liveMode ? undefined : prev,
+      );
+    }, [liveMode]);
 
     const handlePress = useCallback(() => {
       if (disabled) return;

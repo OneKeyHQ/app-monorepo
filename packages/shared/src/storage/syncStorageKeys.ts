@@ -31,6 +31,7 @@ export enum EAppSyncStorageKeys {
 export enum EDevSettingSyncStorageKeys {
   onekey_developer_mode_enabled = 'onekey_developer_mode_enabled',
   onekey_bundle_skip_gpg_verification = 'onekey_bundle_skip_gpg_verification',
+  onekey_native_network_throttle_enabled = 'onekey_native_network_throttle_enabled',
 }
 
 // Logical "scope" identifiers used when caching lists that are surfaced by

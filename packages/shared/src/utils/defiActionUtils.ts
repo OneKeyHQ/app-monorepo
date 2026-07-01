@@ -82,6 +82,8 @@ const PROTOCOL_ALIAS_MAP: Record<string, string> = {
   aave_v3: 'aave_pool_v3',
   // oxlint-disable-next-line @cspell/spellchecker
   morphoblue: 'morpho_blue',
+  // oxlint-disable-next-line @cspell/spellchecker
+  stakedao: 'stake_dao',
 };
 
 function normalizeCategoryForAction(value?: string) {
@@ -186,6 +188,24 @@ function isPositiveAmount(amount?: string) {
   return value.isFinite() && value.gt(0);
 }
 
+// Whether the position currently holds claimable rewards (a positive reward
+// balance on the position itself or any of its source positions). Drives the
+// "Remove" vs "Remove & Claim rewards" labelling: removing an LP that has
+// rewards also claims them, so the label says so only when rewards exist.
+function positionHasRewards(
+  position: IDeFiProtocol['positions'][number],
+): boolean {
+  const hasPositiveReward = (rewards: IDeFiAsset[] | undefined) =>
+    rewards?.some((reward) => isPositiveAmount(reward.amount)) ?? false;
+  return (
+    hasPositiveReward(position.rewards) ||
+    (position.sourcePositions?.some((sourcePosition) =>
+      hasPositiveReward(sourcePosition.rewards),
+    ) ??
+      false)
+  );
+}
+
 function asRecord(value: unknown): IDeFiUnknownRecord | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return undefined;
@@ -277,9 +297,9 @@ function omitClientOnlyExtraParams(params?: IDeFiActionExtraParams) {
   const result: IDeFiActionExtraParams = { ...params };
   // Polygon claimWithdrawal is identified by groupId on the service side.
   // oxlint-disable-next-line @cspell/spellchecker
-  delete result['unbondNonces'];
+  delete result.unbondNonces;
   // oxlint-disable-next-line @cspell/spellchecker
-  delete result['unbond_nonces'];
+  delete result.unbond_nonces;
 
   return Object.keys(result).length > 0 ? result : undefined;
 }
@@ -845,6 +865,7 @@ export function resolveDeFiActionTxAmount({
 
 export default {
   buildDeFiActionBps,
+  positionHasRewards,
   resolveDeFiActionTxAmount,
   resolveDeFiPositionActionDebugCandidates,
   resolveDeFiPositionActions,
@@ -857,6 +878,7 @@ export {
   buildDeFiActionBps,
   normalizeCategoryForAction,
   normalizeDeFiActionPercent,
+  positionHasRewards,
   resolveDeFiPositionActionDebugCandidates,
   resolveDeFiPositionActions,
   scopeResolvedActionToAsset,

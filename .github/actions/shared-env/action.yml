@@ -4,69 +4,54 @@ description: Setup environment variables for the project
 inputs:
   checkout_ref:
     required: false
-    type: string
     default: ''
-    description: "Git ref to checkout (commit SHA, branch, or tag). If empty, defaults to the triggering event ref."
+    description: "Deprecated: callers must checkout the desired ref before invoking this local action."
+  source_ref_name:
+    required: false
+    default: ''
+    description: "Source ref name to use for release metadata when checkout uses a temporary CI ref."
   additional_env:
     required: false
-    type: string
     description: "Additional environment variables to inject"
   env_file_name:
     required: false
-    type: string
     default: ".env"
     description: "Target environment file name"
   sentry_project:
     required: false
-    type: string
     default: ''
     description: "Sentry project name"
   covalent_key:
     required: true
-    type: string
     description: "Covalent API Key"
   sentry_token:
     required: true
-    type: string
     description: "Sentry Auth Token"
   sentry_dsn_ext:
     required: true
-    type: string
     description: "Sentry External DSN of Chrome Extension"
   sentry_dsn_desktop:
     required: true
-    type: string
     description: "Sentry DSN of Desktop"
   sentry_dsn_mas:
     required: true
-    type: string
     description: "Sentry DSN of Mac App Store"
   sentry_dsn_snap:
     required: true
-    type: string
     description: "Sentry DSN of Snap"
   sentry_dsn_winms:
     required: true
-    type: string
     description: "Sentry DSN of Microsoft Store"
   sentry_dsn_react_native:
     required: true
-    type: string
     description: "Sentry DSN of React Native"
   sentry_dsn_web:
     required: true
-    type: string
     description: "Sentry DSN of Web"
 
 runs:
   using: "composite"
   steps:
-    - name: Checkout Source Code
-      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
-      with:
-        lfs: true
-        ref: ${{ inputs.checkout_ref || '' }}
-
     - name: Download workflow parameters
       if: ${{ github.event.workflow_run }}
       uses: dawidd6/action-download-artifact@v2
@@ -81,20 +66,69 @@ runs:
       if: ${{ github.event.workflow_run }}
       shell: bash
       run: |
-        # Load params.env from isolated temp directory to prevent artifact poisoning
+        set -euo pipefail
+
         PARAMS_FILE="${{ runner.temp }}/workflow-params/params.env"
-        if [ -f "$PARAMS_FILE" ]; then
-          cat "$PARAMS_FILE" >> $GITHUB_ENV
+        if [ ! -f "$PARAMS_FILE" ]; then
+          exit 0
         fi
 
-    - name: Switch to target branch
+        while IFS='=' read -r key value || [ -n "${key:-}" ]; do
+          case "$key" in
+            WORKFLOW_BUILD_NUMBER|WORKFLOW_BUNDLE_VERSION)
+              if [[ ! "$value" =~ ^[0-9]+$ ]]; then
+                echo "::error::Invalid numeric workflow parameter: $key=$value"
+                exit 1
+              fi
+              printf '%s=%s\n' "$key" "$value" >> "$GITHUB_ENV"
+              ;;
+            ONEKEY_ALLOW_SKIP_GPG_VERIFICATION)
+              if [[ "$value" != "true" && "$value" != "false" ]]; then
+                echo "::error::Invalid boolean workflow parameter: $key=$value"
+                exit 1
+              fi
+              printf '%s=%s\n' "$key" "$value" >> "$GITHUB_ENV"
+              ;;
+            WORKFLOW_GITHUB_SHA|WORKFLOW_GITHUB_REF_NAME)
+              echo "Ignoring checkout metadata from workflow artifact: $key"
+              ;;
+            '')
+              ;;
+            *)
+              echo "::warning::Ignoring unsupported workflow parameter: $key"
+              ;;
+          esac
+        done < "$PARAMS_FILE"
+
+    - name: Load workflow_run metadata
       if: ${{ github.event.workflow_run }}
       shell: bash
+      env:
+        CURRENT_REPOSITORY: ${{ github.repository }}
+        WORKFLOW_RUN_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+        WORKFLOW_RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+        WORKFLOW_RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
       run: |
-        if [ ! -z "${{ env.WORKFLOW_GITHUB_REF_NAME }}" ]; then
-          echo "Switching to branch: ${{ env.WORKFLOW_GITHUB_REF_NAME }}"
-          git fetch origin ${{ env.WORKFLOW_GITHUB_REF_NAME }}
-          git checkout ${{ env.WORKFLOW_GITHUB_REF_NAME }}
+        set -euo pipefail
+
+        if [ "$WORKFLOW_RUN_REPOSITORY" != "$CURRENT_REPOSITORY" ]; then
+          echo "::error::Rejecting workflow_run from fork repository: $WORKFLOW_RUN_REPOSITORY"
+          exit 1
+        fi
+
+        if [[ ! "$WORKFLOW_RUN_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+          echo "::error::Invalid workflow_run head SHA: $WORKFLOW_RUN_SHA"
+          exit 1
+        fi
+
+        printf 'WORKFLOW_GITHUB_SHA=%s\n' "$WORKFLOW_RUN_SHA" >> "$GITHUB_ENV"
+
+        if [ -n "$WORKFLOW_RUN_BRANCH" ]; then
+          {
+            echo 'WORKFLOW_GITHUB_REF_NAME<<__WORKFLOW_REF__'
+            printf '%s\n' "$WORKFLOW_RUN_BRANCH"
+            echo '__WORKFLOW_REF__'
+          } >> "$GITHUB_ENV"
         fi
 
     - name: Dotenv Action
@@ -105,6 +139,8 @@ runs:
 
     - name: Setup ENV 
       shell: bash
+      env:
+        SOURCE_REF_NAME: ${{ inputs.source_ref_name }}
       run: |
         # Generate app version ------- start
         app_version=${{ steps.dotenv.outputs.version }}
@@ -114,8 +150,8 @@ runs:
 
         # Generate app bundle version ------- start
         # Seconds since 2026-01-01T00:00:00Z epoch
-        if [ ! -z "${{ env.WORKFLOW_BUNDLE_VERSION }}" ]; then
-          app_bundle_version="${{ env.WORKFLOW_BUNDLE_VERSION }}"
+        if [ ! -z "${WORKFLOW_BUNDLE_VERSION:-}" ]; then
+          app_bundle_version="$WORKFLOW_BUNDLE_VERSION"
         else
           app_bundle_version=$(( $(date -u +%s) - $(date -u -d '2026-01-01T00:00:00' +%s 2>/dev/null || date -u -j -f '%Y-%m-%dT%H:%M:%S' '2026-01-01T00:00:00' +%s) ))
         fi
@@ -124,21 +160,24 @@ runs:
         # Generate app bundle version ------- end
 
         # Generate github sha ------- start
-        github_sha=${{ github.sha }}
-        if [ ! -z "${{ env.WORKFLOW_GITHUB_SHA }}" ]; then
-          github_sha=${{ env.WORKFLOW_GITHUB_SHA }}
+        github_sha="${GITHUB_SHA:-${{ github.sha }}}"
+        if [ ! -z "${WORKFLOW_GITHUB_SHA:-}" ]; then
+          github_sha="$WORKFLOW_GITHUB_SHA"
         fi
         echo '$github_sha='$github_sha
         echo "GITHUB_SHA=$github_sha" >> $GITHUB_ENV
         # Generate github sha ------- end
 
         # Generate github tag ------- start
-        github_ref=${{ github.ref }}
+        source_ref_name="${SOURCE_REF_NAME:-}"
+        github_ref="${GITHUB_REF:-${{ github.ref }}}"
         github_ref="${github_ref////-}"
         github_ref="${github_ref/refs-heads-/}"
         github_ref="${github_ref/refs-tags-/}"
-        if [ ! -z "${{ env.WORKFLOW_GITHUB_REF_NAME }}" ]; then
-          github_ref=${{ env.WORKFLOW_GITHUB_REF_NAME }}
+        if [ ! -z "$source_ref_name" ]; then
+          github_ref="$source_ref_name"
+        elif [ ! -z "${WORKFLOW_GITHUB_REF_NAME:-}" ]; then
+          github_ref="$WORKFLOW_GITHUB_REF_NAME"
         fi
         echo '$github_ref='$github_ref
         echo "GITHUB_TAG=$github_ref" >> $GITHUB_ENV
@@ -160,8 +199,8 @@ runs:
       shell: bash
       run: |
         echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
-        if [ ! -z "${{ env.WORKFLOW_BUILD_NUMBER }}" ]; then
-          echo "BUILD_NUMBER=${{ env.WORKFLOW_BUILD_NUMBER }}" >> $GITHUB_ENV
+        if [ ! -z "${WORKFLOW_BUILD_NUMBER:-}" ]; then
+          echo "BUILD_NUMBER=$WORKFLOW_BUILD_NUMBER" >> $GITHUB_ENV
         else
           # Generate build number ------- start
           DATE=`date "+%Y%m%d"`
