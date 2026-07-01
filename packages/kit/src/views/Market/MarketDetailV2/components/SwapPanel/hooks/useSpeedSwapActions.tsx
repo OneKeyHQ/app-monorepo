@@ -41,6 +41,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import {
   EAppEventBusNames,
@@ -2193,15 +2194,22 @@ export function useSpeedSwapActions(props: {
           return;
         }
         // Sponsored broadcast failed at the gas-account layer: show the mapped
-        // sponsor message (sponsor unavailable / daily limit / quote expired …)
-        // before surfacing the failure. Plain errors fall through unchanged.
+        // sponsor message (sponsor unavailable / quote expired …) before
+        // surfacing the failure. Plain errors fall through unchanged.
         const gasAccountEntry = getGasAccountErrorEntry(
           getGasAccountErrorCode(error),
         );
         if (gasAccountEntry) {
-          Toast.error({
-            title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
-          });
+          // Mute the rethrown bridge error so the global handler doesn't toast
+          // again (would duplicate the mapped message).
+          (error as IOneKeyError).autoToast = false;
+          // Honor the suppressToast contract (e.g. daily-limit codes stay
+          // silent and fall back to user-paid without a quota toast).
+          if (!gasAccountEntry.suppressToast) {
+            Toast.error({
+              title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+            });
+          }
         }
         throw error;
       }
@@ -2276,12 +2284,27 @@ export function useSpeedSwapActions(props: {
           onCancel?.();
           return;
         }
+        // Same sponsor-error mapping as sendMarketSwapTx: Fallback codes were
+        // already resent user-paid inside sendMarketDirectUnsignedTxs, so only
+        // Refresh/Hint reach here — surface the mapped message before failing.
+        const gasAccountEntry = getGasAccountErrorEntry(
+          getGasAccountErrorCode(error),
+        );
+        if (gasAccountEntry) {
+          (error as IOneKeyError).autoToast = false;
+          if (!gasAccountEntry.suppressToast) {
+            Toast.error({
+              title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+            });
+          }
+        }
         throw error;
       }
     },
     [
       cancelSpeedSwapBuildTx,
       handleMarketSwapBuildTxSuccess,
+      intl,
       isUserCancelledError,
       openMarketFallbackTxConfirm,
       requireReviewExecutionSnapshot,

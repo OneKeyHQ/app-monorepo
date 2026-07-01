@@ -2,6 +2,10 @@ import BigNumber from 'bignumber.js';
 
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  EGasAccountErrorStrategy,
+  getGasAccountErrorEntry,
+} from '@onekeyhq/kit/src/views/SignatureConfirm/constants/gasAccountErrorCodes';
 import type {
   IBuildUnsignedTxParams,
   ITransferInfo,
@@ -12,6 +16,7 @@ import {
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { applyCustomPriorityFeeToGasInfo } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import type {
@@ -1081,15 +1086,36 @@ async function updateUnsignedTxAndSendTx({
         }
       : undefined;
 
-  const signedTx = await backgroundApiProxy.serviceSend.signAndSendTransaction({
+  const sendTxParams = {
     networkId,
     accountId,
     unsignedTx: updatedUnsignedTxItem,
-    signOnly: false,
+    signOnly: false as const,
     tronResourceRentalInfo,
     useDefaultRpc,
-    gasAccountUiState,
-  });
+  };
+  let signedTx: Awaited<
+    ReturnType<typeof backgroundApiProxy.serviceSend.signAndSendTransaction>
+  >;
+  try {
+    signedTx = await backgroundApiProxy.serviceSend.signAndSendTransaction({
+      ...sendTxParams,
+      gasAccountUiState,
+    });
+  } catch (e) {
+    // Gas Account Fallback codes (pool exhausted, daily limit, sponsor down):
+    // drop the sponsor quote and resend once as user-paid, mirroring the
+    // confirm page. Refresh/Hint and non gas-account errors propagate to the UI
+    // (useSpeedSwapActions maps them to a sponsor toast). See useSwapBuiltTx.
+    const entry = gasAccountUiState
+      ? getGasAccountErrorEntry(getGasAccountErrorCode(e))
+      : undefined;
+    if (entry?.strategy !== EGasAccountErrorStrategy.Fallback) {
+      throw e;
+    }
+    signedTx =
+      await backgroundApiProxy.serviceSend.signAndSendTransaction(sendTxParams);
+  }
 
   const decodedTx = await backgroundApiProxy.serviceSend.buildDecodedTx({
     networkId,

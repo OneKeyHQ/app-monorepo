@@ -37,6 +37,7 @@ import {
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyAppError, OneKeyError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -128,7 +129,10 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
-import { getGasAccountErrorEntry } from '../../SignatureConfirm/constants/gasAccountErrorCodes';
+import {
+  EGasAccountErrorStrategy,
+  getGasAccountErrorEntry,
+} from '../../SignatureConfirm/constants/gasAccountErrorCodes';
 import { buildSwapApproveAndSendSteps } from '../utils/buildSwapReviewState';
 import {
   type ISwapBtcOutputValidationError,
@@ -976,33 +980,54 @@ export function useSwapBuildTx() {
               idempotencyKey: `gas-account:${gasInfo.gasAccountQuote.quoteId}`,
             }
           : undefined;
+      const sendTxParams = {
+        networkId,
+        accountId,
+        unsignedTx: updatedUnsignedTxItem,
+        signOnly: false as const,
+      };
       let res: Awaited<
         ReturnType<typeof backgroundApiProxy.serviceSend.signAndSendTransaction>
       >;
       try {
         res = await backgroundApiProxy.serviceSend.signAndSendTransaction({
-          networkId,
-          accountId,
-          unsignedTx: updatedUnsignedTxItem,
-          signOnly: false,
+          ...sendTxParams,
           gasAccountUiState,
         });
       } catch (e) {
-        // Sponsored broadcast failed at the gas-account layer (sponsor pool
-        // exhausted, daily limit, quote/nonce invalidated, scenario revoked …).
-        // Swap has no inline re-estimate loop like the confirm page, so surface
-        // the mapped sponsor message and fail the step (throw OneKeyAppError so
-        // the step runner marks it FAILED instead of bouncing to the separate
-        // tx-confirm fallback). Plain (non gas-account) errors propagate as-is.
-        if (gasAccountUiState) {
-          const entry = getGasAccountErrorEntry(getGasAccountErrorCode(e));
-          if (entry) {
-            const message = intl.formatMessage({ id: entry.messageKey });
-            Toast.error({ title: message });
-            throw new OneKeyAppError({ message, autoToast: false });
-          }
+        // Broadcast failed at the gas-account layer. Route by the same strategy
+        // table the confirm page (TxConfirmActions) uses. Plain (non
+        // gas-account) errors, and errors on a non-sponsored send, propagate.
+        const entry = gasAccountUiState
+          ? getGasAccountErrorEntry(getGasAccountErrorCode(e))
+          : undefined;
+        if (!entry) {
+          throw e;
         }
-        throw e;
+        // Mute the original bridge error so the global handler doesn't toast it
+        // (would duplicate the mapped message / conflict with suppressToast).
+        (e as IOneKeyError).autoToast = false;
+        const message = intl.formatMessage({ id: entry.messageKey });
+        // Honor the suppressToast contract (e.g. daily-limit codes stay silent).
+        if (!entry.suppressToast) {
+          Toast.error({ title: message });
+        }
+        if (entry.strategy === EGasAccountErrorStrategy.Fallback) {
+          // Sponsor path unavailable for this attempt (pool exhausted, daily
+          // limit, sponsor down …). Mirror the confirm page: drop the sponsor
+          // quote and resend once as user-paid so the swap can still go through
+          // when the user has native for gas. A user-paid failure (e.g. no
+          // native) then propagates honestly.
+          res =
+            await backgroundApiProxy.serviceSend.signAndSendTransaction(
+              sendTxParams,
+            );
+        } else {
+          // Refresh (quote/nonce stale — already prevented in Swap by the
+          // fresh estimate-at-send + locked nonce) and Hint (terminal) fail the
+          // step. OneKeyAppError avoids the tx-confirm fallback and a 2nd toast.
+          throw new OneKeyAppError({ message, autoToast: false });
+        }
       }
       const decodedTx = await backgroundApiProxy.serviceSend.buildDecodedTx({
         networkId,
