@@ -79,11 +79,25 @@ function isTransportNetworkError(payload: IShowToastPayload) {
   );
 }
 
-function getEffectiveHttpStatusCode(payload: IShowToastPayload) {
+function isValidHttpStatusCode(value: unknown): value is number {
   return (
-    payload.httpStatusCode ??
-    (typeof payload.errorCode === 'number' ? payload.errorCode : undefined)
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= 100 &&
+    value <= 599
   );
+}
+
+export function getEffectiveHttpStatusCode(payload: IShowToastPayload) {
+  if (isValidHttpStatusCode(payload.httpStatusCode)) {
+    return payload.httpStatusCode;
+  }
+
+  if (isValidHttpStatusCode(payload.errorCode)) {
+    return payload.errorCode;
+  }
+
+  return undefined;
 }
 
 export type INetworkErrorToastSuppressReason =

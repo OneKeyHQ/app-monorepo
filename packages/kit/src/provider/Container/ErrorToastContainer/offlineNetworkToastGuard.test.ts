@@ -241,6 +241,30 @@ describe('offlineNetworkToastGuard', () => {
     ).toBe(false);
   });
 
+  it('does not treat default OneKey error codes as HTTP status responses', () => {
+    expect(
+      shouldSuppressNetworkErrorToast({
+        isInternetReachable: true,
+        payload: createErrorToastPayload({
+          errorClassName: EOneKeyErrorClassNames.AxiosNetworkError,
+          errorCode: -99_999,
+          title: '网络错误',
+        }),
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldSuppressNetworkErrorToast({
+        isInternetReachable: false,
+        payload: createErrorToastPayload({
+          errorClassName: EOneKeyErrorClassNames.AxiosNetworkError,
+          httpStatusCode: -99_999,
+          title: 'Network error',
+        }),
+      }),
+    ).toBe(true);
+  });
+
   it('keeps non-error toast methods visible while offline', () => {
     expect(
       shouldSuppressNetworkErrorToast({

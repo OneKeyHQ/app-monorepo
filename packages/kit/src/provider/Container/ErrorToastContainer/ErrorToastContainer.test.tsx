@@ -153,6 +153,30 @@ describe('ErrorToastContainer', () => {
     unmount();
   });
 
+  it('does not use default OneKey error code as an effective HTTP status', () => {
+    const { unmount } = render(<ErrorToastContainer />);
+
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'error',
+        title: '网络错误',
+        errorClassName: EOneKeyErrorClassNames.AxiosNetworkError,
+        errorCode: -99_999,
+      });
+    });
+
+    expect(mockedToast.error).not.toHaveBeenCalled();
+    expect(mockedToastTrace.toastDecision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        effectiveHttpStatusCode: undefined,
+        isInternetReachable: true,
+        shouldSuppress: true,
+        suppressReason: 'transport-network-error',
+      }),
+    );
+    unmount();
+  });
+
   it('shows generic timeout text when it is not a transport timeout', () => {
     const { unmount } = render(<ErrorToastContainer />);
 

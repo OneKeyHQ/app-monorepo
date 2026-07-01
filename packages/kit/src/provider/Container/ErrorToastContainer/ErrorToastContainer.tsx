@@ -9,7 +9,10 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { getErrorAction } from './ErrorToasts';
-import { getNetworkErrorToastSuppressReason } from './offlineNetworkToastGuard';
+import {
+  getEffectiveHttpStatusCode,
+  getNetworkErrorToastSuppressReason,
+} from './offlineNetworkToastGuard';
 
 // Get deduplication ID for HTTP status codes to prevent toast spam
 // @param httpStatusCode - HTTP status code (e.g., 403, 429, 503)
@@ -56,9 +59,7 @@ export function ErrorToastContainer() {
         payload: p,
       });
       const shouldSuppress = suppressReason !== null;
-      const statusCodeForDeduplicate =
-        p.httpStatusCode ??
-        (typeof p.errorCode === 'number' ? p.errorCode : undefined);
+      const statusCodeForDeduplicate = getEffectiveHttpStatusCode(p);
       if (p.method === 'error') {
         defaultLogger.app.toastTrace.toastDecision({
           isInternetReachable,
