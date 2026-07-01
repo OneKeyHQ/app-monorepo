@@ -5,6 +5,7 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Icon,
   Image,
   NumberSizeableText,
@@ -133,7 +134,33 @@ const PreSwapInfoGroup = ({
     return '-';
   }, [activeNetworkFeeSelectValue, customNetworkFeeOptionLabel, intl]);
 
+  // Show the sponsorship badge only when estimate-fee actually confirmed Gas
+  // Account eligibility (carried on the estimated gasInfo). The quote/build-tx
+  // `gasAccountEnabled` flag alone is just a pre-check and is not sufficient.
+  const isGasSponsored = useMemo(
+    () =>
+      !!preSwapData.netWorkFee?.gasInfos?.some(
+        (item) => item.gasInfo.gasAccountEligible,
+      ),
+    [preSwapData.netWorkFee?.gasInfos],
+  );
+
   const networkFeeSelect = useMemo(() => {
+    // OneKey sponsors the network fee: the estimated amount and the fee-level
+    // selector are meaningless to the user, so show only the sponsored badge.
+    if (isGasSponsored) {
+      return (
+        <XStack alignItems="center" gap="$2">
+          <Badge badgeType="success" badgeSize="sm">
+            <Badge.Text>
+              {intl.formatMessage({
+                id: ETranslations.wallet_onekey_sponsored__title,
+              })}
+            </Badge.Text>
+          </Badge>
+        </XStack>
+      );
+    }
     return (
       <XStack alignItems="center" gap="$2">
         <Select
@@ -171,6 +198,7 @@ const PreSwapInfoGroup = ({
     );
   }, [
     intl,
+    isGasSponsored,
     activeNetworkFeeSelectValue,
     networkFeeLevelArray,
     networkFeeLevelLabel,

@@ -26,8 +26,10 @@ import type {
   IFeeSui,
   IFeeTron,
   IFeeUTXO,
+  IGasAccountQuote,
   IGasEIP1559,
   IGasLegacy,
+  IGasPayer,
 } from '../fee';
 import type { EMessageTypesEth } from '../message';
 import type { IToken } from '../token';
@@ -510,6 +512,12 @@ export interface ISwapGasInfo {
   feeAlgo?: IFeeAlgo;
   feeDot?: IFeeDot;
   feeBudget?: IFeeSui;
+  // Gas Account sponsorship result carried over from the estimate-fee response,
+  // so the preview UI (sponsored badge) and the send path (broadcast quoteId)
+  // can read it from the same gasInfo snapshot.
+  payer?: IGasPayer;
+  gasAccountEligible?: boolean;
+  gasAccountQuote?: IGasAccountQuote;
 }
 export interface ISwapPreSwapData {
   fromToken?: ISwapToken;
@@ -603,6 +611,12 @@ export interface IFetchQuoteResult {
   unSupportSlippage?: boolean;
   fromTokenInfo: ISwapTokenBase;
   toTokenInfo: ISwapTokenBase;
+  // Backend hint (returned in both quote and build-tx responses) that this
+  // provider/route is a candidate for OneKey Gas Account sponsorship. It is a
+  // pre-check only: the client forwards it as `gasAccountEnabled` to
+  // estimate-fee, and the real eligibility is decided by estimate-fee's
+  // `gasAccountEligible` response.
+  gasAccountEnabled?: boolean;
   quoteResultCtx?: any;
   cowSwapQuoteResult?: any;
   kind?: ESwapQuoteKind;
