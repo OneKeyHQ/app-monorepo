@@ -25,7 +25,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   type ITradingFormData,
   type ITradingFormEmptySizeParams,
@@ -110,7 +109,6 @@ import {
   shouldSkipPerpsOrderPanelComputedSizeValidation,
 } from '../../utils/perpsOrderPanelEnableTrading';
 import { getScaleOrderValidationErrorMessage } from '../../utils/scaleOrderValidation';
-import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 import { showEnableTradingStepsDialog } from './modals/EnableTradingStepsDialog';
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
@@ -249,6 +247,29 @@ const EstLiqPriceLeaf = memo(({ side }: { side: 'long' | 'short' }) => {
 });
 EstLiqPriceLeaf.displayName = 'EstLiqPriceLeaf';
 
+// Long = design-system "accent" button, Short = "destructive" button.
+// Semantic tokens are theme-aware, so no themeVariant branching is needed.
+// bg stays undefined while loading to suppress the colored background (matches
+// the prior behavior). Referenced from both the live and empty-size buttons.
+const PERP_SIDE_BUTTON_STYLES = {
+  loading: { bg: undefined, hoverBg: undefined, pressBg: undefined },
+  long: {
+    bg: '$bgAccent',
+    hoverBg: '$bgAccentHover',
+    pressBg: '$bgAccentActive',
+  },
+  short: {
+    bg: '$bgCriticalStrong',
+    hoverBg: '$bgCriticalStrongHover',
+    pressBg: '$bgCriticalStrongActive',
+  },
+};
+
+function getPerpSideButtonStyles(isLong: boolean, loading: boolean) {
+  if (loading) return PERP_SIDE_BUTTON_STYLES.loading;
+  return isLong ? PERP_SIDE_BUTTON_STYLES.long : PERP_SIDE_BUTTON_STYLES.short;
+}
+
 function SideButtonInternal({
   side,
   isMobile,
@@ -260,7 +281,6 @@ function SideButtonInternal({
 }: ISideButtonProps) {
   const intl = useIntl();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
-  const themeVariant = useThemeVariant();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
@@ -1159,35 +1179,8 @@ function SideButtonInternal({
     ],
   );
 
-  const buttonStyles = useMemo(() => {
-    const colors = PERP_TRADE_BUTTON_COLORS;
-    const getBgColor = () => {
-      if (shouldShowButtonLoading) return undefined;
-      return themeVariant === 'light'
-        ? colors.light[isLong ? 'long' : 'short']
-        : colors.dark[isLong ? 'long' : 'short'];
-    };
-
-    const getHoverBgColor = () => {
-      if (shouldShowButtonLoading) return undefined;
-      return themeVariant === 'light'
-        ? colors.light[isLong ? 'longHover' : 'shortHover']
-        : colors.dark[isLong ? 'longHover' : 'shortHover'];
-    };
-
-    const getPressBgColor = () => {
-      if (shouldShowButtonLoading) return undefined;
-      return themeVariant === 'light'
-        ? colors.light[isLong ? 'longPress' : 'shortPress']
-        : colors.dark[isLong ? 'longPress' : 'shortPress'];
-    };
-
-    return {
-      bg: getBgColor(),
-      hoverBg: getHoverBgColor(),
-      pressBg: getPressBgColor(),
-    };
-  }, [isLong, shouldShowButtonLoading, themeVariant]);
+  const buttonStyles = getPerpSideButtonStyles(isLong, shouldShowButtonLoading);
+  const labelColor = isLong ? '$textInverse' : '$textOnColor';
 
   const handlePress = useDebouncedCallback(
     async (): Promise<void> => {
@@ -1464,7 +1457,7 @@ function SideButtonInternal({
           <SizableText
             size="$bodyMdMedium"
             lineHeight={18}
-            color="$textOnColor"
+            color={labelColor}
             numberOfLines={1}
           >
             {buttonText}
@@ -1473,7 +1466,7 @@ function SideButtonInternal({
           {buttonSecondaryText ? (
             <SizableText
               fontSize={11}
-              color="$textOnColor"
+              color={labelColor}
               opacity={0.8}
               lineHeight={11}
               numberOfLines={1}
@@ -1624,7 +1617,6 @@ function EmptySizeSideButton({
 }: Omit<ISideButtonProps, 'handleConfirm' | 'marketDataFreshness'>) {
   const intl = useIntl();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
-  const themeVariant = useThemeVariant();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
@@ -1744,35 +1736,8 @@ function EmptySizeSideButton({
     spotTradeSymbol,
   ]);
 
-  const buttonStyles = useMemo(() => {
-    const colors = PERP_TRADE_BUTTON_COLORS;
-    const getBgColor = () => {
-      if (shouldShowButtonLoading) return undefined;
-      return themeVariant === 'light'
-        ? colors.light[isLong ? 'long' : 'short']
-        : colors.dark[isLong ? 'long' : 'short'];
-    };
-
-    const getHoverBgColor = () => {
-      if (shouldShowButtonLoading) return undefined;
-      return themeVariant === 'light'
-        ? colors.light[isLong ? 'longHover' : 'shortHover']
-        : colors.dark[isLong ? 'longHover' : 'shortHover'];
-    };
-
-    const getPressBgColor = () => {
-      if (shouldShowButtonLoading) return undefined;
-      return themeVariant === 'light'
-        ? colors.light[isLong ? 'longPress' : 'shortPress']
-        : colors.dark[isLong ? 'longPress' : 'shortPress'];
-    };
-
-    return {
-      bg: getBgColor(),
-      hoverBg: getHoverBgColor(),
-      pressBg: getPressBgColor(),
-    };
-  }, [isLong, shouldShowButtonLoading, themeVariant]);
+  const buttonStyles = getPerpSideButtonStyles(isLong, shouldShowButtonLoading);
+  const labelColor = isLong ? '$textInverse' : '$textOnColor';
 
   const requestEmptySizeEnableTrading = useCallback(
     async ({
@@ -1981,7 +1946,7 @@ function EmptySizeSideButton({
           <SizableText
             size="$bodyMdMedium"
             lineHeight={18}
-            color="$textOnColor"
+            color={labelColor}
             numberOfLines={1}
           >
             {buttonText}

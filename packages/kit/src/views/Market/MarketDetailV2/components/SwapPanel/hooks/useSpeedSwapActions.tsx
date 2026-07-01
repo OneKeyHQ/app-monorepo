@@ -11,12 +11,14 @@ import { ethers } from 'ethers';
 import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
+import { getGasAccountErrorEntry } from '@onekeyhq/kit/src/views/SignatureConfirm/constants/gasAccountErrorCodes';
 import { type ISwapReviewStepTexts } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
 import { checkSwapLatestBalanceSufficient } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
 import type {
@@ -39,6 +41,8 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -2189,6 +2193,24 @@ export function useSpeedSwapActions(props: {
           onCancel?.();
           return;
         }
+        // Sponsored broadcast failed at the gas-account layer: show the mapped
+        // sponsor message (sponsor unavailable / quote expired …) before
+        // surfacing the failure. Plain errors fall through unchanged.
+        const gasAccountEntry = getGasAccountErrorEntry(
+          getGasAccountErrorCode(error),
+        );
+        if (gasAccountEntry) {
+          // Mute the rethrown bridge error so the global handler doesn't toast
+          // again (would duplicate the mapped message).
+          (error as IOneKeyError).autoToast = false;
+          // Honor the suppressToast contract (e.g. daily-limit codes stay
+          // silent and fall back to user-paid without a quota toast).
+          if (!gasAccountEntry.suppressToast) {
+            Toast.error({
+              title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+            });
+          }
+        }
         throw error;
       }
     },
@@ -2197,6 +2219,7 @@ export function useSpeedSwapActions(props: {
       assertLatestFromTokenBalanceSufficient,
       cancelSpeedSwapBuildTx,
       handleMarketSwapBuildTxSuccess,
+      intl,
       isUserCancelledError,
       logMarketCreateOrder,
       openMarketFallbackTxConfirm,
@@ -2261,12 +2284,27 @@ export function useSpeedSwapActions(props: {
           onCancel?.();
           return;
         }
+        // Same sponsor-error mapping as sendMarketSwapTx: Fallback codes were
+        // already resent user-paid inside sendMarketDirectUnsignedTxs, so only
+        // Refresh/Hint reach here — surface the mapped message before failing.
+        const gasAccountEntry = getGasAccountErrorEntry(
+          getGasAccountErrorCode(error),
+        );
+        if (gasAccountEntry) {
+          (error as IOneKeyError).autoToast = false;
+          if (!gasAccountEntry.suppressToast) {
+            Toast.error({
+              title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+            });
+          }
+        }
         throw error;
       }
     },
     [
       cancelSpeedSwapBuildTx,
       handleMarketSwapBuildTxSuccess,
+      intl,
       isUserCancelledError,
       openMarketFallbackTxConfirm,
       requireReviewExecutionSnapshot,
