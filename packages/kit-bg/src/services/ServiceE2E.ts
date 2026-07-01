@@ -116,6 +116,7 @@ export type ILocalSecretEnvelopeSimulatedKeyLossResult = {
   credentialCount: number;
   deletedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[];
   lseCredentialCount: number;
+  preservedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[];
   runtimePlatform: ILocalSecretEnvelopeRuntimePlatform;
   skippedUnsupportedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[];
 };
@@ -752,17 +753,26 @@ class ServiceE2E extends ServiceBase {
     }
 
     const deletedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[] = [];
+    const preservedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[] = [];
     const skippedUnsupportedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[] =
       [];
+    const supportedLayers = [...layersByKey.values()].filter(
+      (layer) =>
+        layer.kind === 'indexeddb-cryptokey' || layer.kind === 'secure-storage',
+    );
+    const hasSecureStorageLayer = supportedLayers.some(
+      (layer) => layer.kind === 'secure-storage',
+    );
     for (const layer of layersByKey.values()) {
-      if (
-        layer.kind === 'indexeddb-cryptokey' ||
-        layer.kind === 'secure-storage'
-      ) {
+      const isSupportedLayer =
+        layer.kind === 'indexeddb-cryptokey' || layer.kind === 'secure-storage';
+      if (!isSupportedLayer) {
+        skippedUnsupportedLayers.push(layer);
+      } else if (hasSecureStorageLayer && layer.kind !== 'secure-storage') {
+        preservedLayers.push(layer);
+      } else {
         await removeLocalSecretEnvelopeLayerKey(layer);
         deletedLayers.push(layer);
-      } else {
-        skippedUnsupportedLayers.push(layer);
       }
     }
     localSecretEnvelopeService.clearCredentialMigrationConfigCache();
@@ -771,6 +781,7 @@ class ServiceE2E extends ServiceBase {
       credentialCount: credentials.length,
       deletedLayers,
       lseCredentialCount,
+      preservedLayers,
       runtimePlatform: detectLocalSecretEnvelopeRuntimePlatform(),
       skippedUnsupportedLayers,
     };

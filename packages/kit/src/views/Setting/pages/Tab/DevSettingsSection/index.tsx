@@ -140,6 +140,11 @@ type ILocalSecretEnvelopeSimulatedKeyLossResult = {
     recordCount: number;
   }>;
   lseCredentialCount: number;
+  preservedLayers: Array<{
+    kind: string;
+    keyRef: string;
+    recordCount: number;
+  }>;
 };
 
 type IServiceE2EWithLocalSecretEnvelopeDevTools = {
@@ -537,7 +542,7 @@ const BaseDevSettingsSection = () => {
     showDevOnlyPasswordDialog({
       title: 'Danger Zone: Simulate LSE Credential Key Loss',
       description:
-        'Deletes only local Keychain / CryptoKey layer keys referenced by current LSE credentials. This simulates a migrated device missing local LSE material and may make affected wallets inaccessible until restored again.',
+        'Deletes secure-storage / Keychain layer keys referenced by current LSE credentials when present. Falls back to CryptoKey only when there is no secure-storage layer. This simulates a migrated device missing non-portable local LSE material and may make affected wallets inaccessible until restored again.',
       confirmButtonProps: {
         testID: SettingTestIDs.localSecretEnvelopeSimulateKeyLossConfirm,
       },
@@ -1192,7 +1197,7 @@ const BaseDevSettingsSection = () => {
                       <SectionPressItem
                         icon="DeleteOutline"
                         title="Simulate LSE Credential Key Loss"
-                        subtitle="Delete Keychain / CryptoKey layer keys referenced by current LSE credentials to simulate migrated-device local key loss"
+                        subtitle="Prefer deleting Keychain / secure-storage LSE keys; fallback to CryptoKey only when no secure-storage layer exists"
                         testID={
                           SettingTestIDs.localSecretEnvelopeSimulateKeyLossButton
                         }
