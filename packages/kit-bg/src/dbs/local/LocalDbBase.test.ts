@@ -24,6 +24,7 @@ import {
   LocalSecretEnvelopeUnavailable,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { EDBAccountType } from './consts';
 import { LocalDbBase } from './LocalDbBase';
@@ -1179,6 +1180,69 @@ describe('LocalDbBase local secret envelope credentials', () => {
         layer.kind === adapter.kind ? adapter : undefined,
     });
     expect(innerCredential.credential).toBe(nextCredential);
+    expect(deleteLayerKey).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes an existing TON mnemonic credential during restore', async () => {
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    db.context.localPasswordKdfUpgraded = true;
+    db.context.localPasswordKdfUpgradedTargetIterations =
+      PBKDF2_CURRENT_NUM_OF_ITERATIONS;
+    db.context.localSecretEnvelopeCredentialMigrated = true;
+    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 1;
+    const accountId = 'imported--607--public-key';
+    const credentialId = accountUtils.buildTonMnemonicCredentialId({
+      accountId,
+    });
+    const originalRs = await encryptRevealableSeed({
+      rs: {
+        entropyWithLangPrefixed: 'english:00010203',
+        seed: 'seed-hex',
+      },
+      password,
+    });
+    const nextRs = await encryptRevealableSeed({
+      rs: {
+        entropyWithLangPrefixed: 'english:04050607',
+        seed: 'seed-hex-2',
+      },
+      password,
+    });
+    const deleteLayerKey = jest.fn();
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter({
+      deleteLayerKey,
+    });
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [adapter],
+        strength: 'profile-bound',
+      });
+    db.credentials = [
+      {
+        id: credentialId,
+        credential: await wrapLocalSecretEnvelopeV1({
+          dataType: 'credential',
+          layerAdapters: [adapter],
+          plaintext: originalRs,
+          recordId: credentialId,
+          strength: 'profile-bound',
+        }),
+      },
+    ];
+
+    await db.saveTonImportedAccountMnemonic({
+      accountId,
+      rs: nextRs,
+    });
+
+    const innerCredential = await db.getCredentialInner({
+      credentialId,
+      resolveLayerAdapter: (layer) =>
+        layer.kind === adapter.kind ? adapter : undefined,
+    });
+    expect(innerCredential.credential).toBe(nextRs);
     expect(deleteLayerKey).toHaveBeenCalledTimes(1);
   });
 

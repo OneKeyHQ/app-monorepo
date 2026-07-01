@@ -7234,24 +7234,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const credentialId = accountUtils.buildTonMnemonicCredentialId({
       accountId,
     });
-    const credential =
-      await this.wrapNewCredentialWithLocalSecretEnvelopeIfNeeded({
-        credentialId,
-        credential: rs,
-      });
-
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      await this.txAddRecords({
-        tx,
-        name: ELocalDBStoreNames.Credential,
-        records: [
-          {
-            id: credentialId,
-            credential,
-          },
-        ],
-        skipIfExists: true,
-      });
+    await this.replaceCredentialWithLocalSecretEnvelopeIfNeeded({
+      credentialId,
+      credential: rs,
     });
   }
 
