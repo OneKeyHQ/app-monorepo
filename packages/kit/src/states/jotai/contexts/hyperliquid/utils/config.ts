@@ -80,10 +80,8 @@ export const TOAST_CONFIGS: Record<EActionType, IToastConfig> = {
   },
 
   [EActionType.SET_ACCOUNT_MODE]: {
-    // TODO(i18n): swap for dedicated ETranslations keys once PM adds them.
-    loading: 'Updating account mode…',
-    // TODO(i18n): swap for dedicated ETranslations keys once PM adds them.
-    successTitle: 'Account mode updated',
+    loading: t(ETranslations.perp_account_mode_updating__msg),
+    successTitle: t(ETranslations.perp_account_mode_updated__msg),
   },
 
   [EActionType.SET_POSITION_TPSL]: {

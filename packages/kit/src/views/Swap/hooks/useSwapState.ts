@@ -116,6 +116,7 @@ function useSwapWarningCheck() {
         accountInfoReady: swapFromAddressInfo.accountInfo?.ready,
         accountSelectorActiveAccountInitDone,
         accountSelectorStorageInitDone,
+        hasAccount: Boolean(swapFromAddressInfo.accountInfo?.account),
         hasAccountWallet: Boolean(swapFromAddressInfo.accountInfo?.wallet),
         isWebDappMode: Boolean(platformEnv.isWebDappMode),
         walletListResolvedNoWallet: walletListResult?.wallets.length === 0,
@@ -123,6 +124,7 @@ function useSwapWarningCheck() {
     [
       accountSelectorActiveAccountInitDone,
       accountSelectorStorageInitDone,
+      swapFromAddressInfo.accountInfo?.account,
       swapFromAddressInfo.accountInfo?.ready,
       swapFromAddressInfo.accountInfo?.wallet,
       walletListResult?.wallets.length,

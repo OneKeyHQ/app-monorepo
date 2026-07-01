@@ -67,6 +67,7 @@
     "@onekeyfe/react-native-keychain-module": "3.0.70",
     "@onekeyfe/react-native-lite-card": "3.0.70",
     "@onekeyfe/react-native-native-logger": "3.0.70",
+    "@onekeyfe/react-native-network-throttle": "3.0.73",
     "@onekeyfe/react-native-perf-memory": "3.0.70",
     "@onekeyfe/react-native-perf-stats": "3.0.70",
     "@onekeyfe/react-native-perp-depth-bar": "3.0.70",
