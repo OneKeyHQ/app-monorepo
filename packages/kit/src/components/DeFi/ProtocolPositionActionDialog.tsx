@@ -19,10 +19,10 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token, TokenGroup } from '@onekeyhq/kit/src/components/Token';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
-import { PerpsSlider } from '@onekeyhq/kit/src/views/Perp/components/PerpsSlider';
 import { SendAutoSizeAmountInput } from '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   buildDeFiActionBps,
@@ -51,7 +51,6 @@ import {
 } from './ProtocolValueCell';
 
 const DEFAULT_ACTION_PERCENT = 100;
-const PERCENTAGE_SLIDER_SEGMENTS = 4;
 const PERCENTAGE_PRESET_VALUES = [25, 50, 75, 100] as const;
 const resolveActionTxAmount = resolveDeFiActionTxAmount as (params: {
   percentageAction: boolean;
@@ -855,10 +854,12 @@ function useProtocolPositionActionSubmit({
           isTxConfirmInitializing = false;
         }
         if (txConfirmInitError) {
+          errorToastUtils.toastIfErrorDisable(txConfirmInitError);
           throw new OneKeyLocalError(getErrorMessage(txConfirmInitError));
         }
       } catch (error) {
         if (!isUserRejectedErrorMessage({ error, intl })) {
+          errorToastUtils.toastIfErrorDisable(error);
           Toast.error({
             title: getErrorMessage(error),
           });
@@ -914,27 +915,6 @@ function ProtocolPositionActionPercentPresetRow({
         );
       })}
     </XStack>
-  );
-}
-
-function ProtocolPositionActionPercentSlider({
-  percent,
-  onChange,
-}: {
-  percent: number;
-  onChange: (percent: number) => void;
-}) {
-  const normalizedPercent = normalizeActionPercent(percent);
-  return (
-    <PerpsSlider
-      value={normalizedPercent}
-      onChange={(value) => onChange(normalizeActionPercent(value))}
-      min={0}
-      max={100}
-      segments={PERCENTAGE_SLIDER_SEGMENTS}
-      sliderHeight={6}
-      snapTapToSegment
-    />
   );
 }
 
@@ -1574,17 +1554,11 @@ function ProtocolPositionActionDialogContent({
             }
           />
         ) : null}
-        <YStack gap="$3">
-          <ProtocolPositionActionPercentSlider
-            percent={actionPercent}
-            onChange={setActionPercent}
-          />
-          <ProtocolPositionActionPercentPresetRow
-            percent={actionPercent}
-            maxLabel={maxLabel}
-            onChange={setActionPercent}
-          />
-        </YStack>
+        <ProtocolPositionActionPercentPresetRow
+          percent={actionPercent}
+          maxLabel={maxLabel}
+          onChange={setActionPercent}
+        />
         <ProtocolPositionActionReceive
           label={resultLabel}
           assets={aggregatedOutputPreviewAssets}

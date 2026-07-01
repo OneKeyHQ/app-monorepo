@@ -16,7 +16,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketAccountPortfolioPnl } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
-import { useCurrency } from '../../../components/Currency';
+import { Currency, useCurrency } from '../../../components/Currency';
 import { Token } from '../../../components/Token';
 
 interface ISwapProPositionItemProps {
@@ -70,7 +70,9 @@ const SwapProPositionItem = ({
     if (isNegative) prefix = '-';
 
     return {
-      text: `${prefix}$${unrealizedBN.abs().toFixed(2)} (${pnl.unrealizedPnlPercent}%)`,
+      value: unrealizedBN.abs().toFixed(),
+      percent: pnl.unrealizedPnlPercent,
+      prefix,
       color,
     };
   }, [pnl]);
@@ -124,13 +126,35 @@ const SwapProPositionItem = ({
           {token.fiatValue}
         </NumberSizeableText>
         {pnlDisplay ? (
-          <SizableText
-            size="$bodyMd"
-            color={pnlDisplay.color}
-            numberOfLines={1}
-          >
-            {pnlDisplay.text}
-          </SizableText>
+          <XStack alignItems="center" justifyContent="flex-end" gap="$0.5">
+            <XStack alignItems="center" gap="$0">
+              {pnlDisplay.prefix ? (
+                <SizableText
+                  size="$bodyMd"
+                  color={pnlDisplay.color}
+                  numberOfLines={1}
+                >
+                  {pnlDisplay.prefix}
+                </SizableText>
+              ) : null}
+              <Currency
+                size="$bodyMd"
+                color={pnlDisplay.color}
+                formatter="value"
+                sourceCurrency="usd"
+                numberOfLines={1}
+              >
+                {pnlDisplay.value}
+              </Currency>
+            </XStack>
+            <SizableText
+              size="$bodyMd"
+              color={pnlDisplay.color}
+              numberOfLines={1}
+            >
+              {`(${pnlDisplay.percent}%)`}
+            </SizableText>
+          </XStack>
         ) : null}
       </YStack>
     </Stack>

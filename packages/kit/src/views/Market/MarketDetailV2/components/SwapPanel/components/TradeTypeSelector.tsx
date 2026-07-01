@@ -59,7 +59,7 @@ export function TradeTypeSelector({
   const isBuyActive = value === 'buy';
   const isSellActive = value === 'sell';
   const buyTextColor: ColorTokens = isBuyActive
-    ? '$textOnBrightColor'
+    ? '$textInverse'
     : '$textSubdued';
 
   const buttonSize = size ?? (gtMd ? 'small' : 'medium');

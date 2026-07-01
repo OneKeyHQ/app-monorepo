@@ -125,8 +125,9 @@ export function HeaderScrollGestureWrapper({
       verticalPanGesture = verticalPanGesture.hitSlop(gestureHitSlop);
     }
 
+    verticalPanGesture =
+      verticalPanGesture.cancelsTouchesInView(cancelChildTouches);
     verticalPanGesture = verticalPanGesture
-      .cancelsTouchesInView(cancelChildTouches)
       .onStart((e) => {
         'worklet';
 
@@ -192,8 +193,9 @@ export function HeaderScrollGestureWrapper({
       horizontalPanGesture = horizontalPanGesture.hitSlop(gestureHitSlop);
     }
 
+    horizontalPanGesture =
+      horizontalPanGesture.cancelsTouchesInView(cancelChildTouches);
     horizontalPanGesture = horizontalPanGesture
-      .cancelsTouchesInView(cancelChildTouches)
       .onStart((e) => {
         'worklet';
 

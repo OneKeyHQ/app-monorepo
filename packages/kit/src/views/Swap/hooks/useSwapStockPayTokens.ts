@@ -16,9 +16,10 @@ import {
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { mevSwapNetworks } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type {
-  ISpeedSwapConfig,
-  ISwapToken,
+import {
+  EProtocolOfExchange,
+  type ISpeedSwapConfig,
+  type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
@@ -147,7 +148,6 @@ function sortStockPayTokens(tokens: IStockPayToken[]) {
 }
 
 export function useSwapStockPayTokens({
-  currentStockToken,
   currentStockTokenKey,
   disableNativePayToken,
   manualStockPayTokenKeyRef,
@@ -232,24 +232,32 @@ export function useSwapStockPayTokens({
     stockPayTokenPreferenceScope,
   ]);
 
+  const stockPayTokenCandidates = useMemo(
+    () => filterStockPayTokenCandidates(defaultTokens ?? []),
+    [defaultTokens],
+  );
   const rawPayTokens = useMemo(() => {
-    const stockPayTokenCandidates = filterStockPayTokenCandidates(
-      defaultTokens ?? [],
-    );
     if (!stockPayTokenCandidates.length) {
-      return [];
+      return EMPTY_DEFAULT_TOKENS;
     }
     if (!currentStockTokenKey || stockPayTokenCandidates.length === 1) {
-      return [...stockPayTokenCandidates];
+      return stockPayTokenCandidates;
+    }
+    const normalizedCurrentStockTokenKey = currentStockTokenKey.toLowerCase();
+    const currentStockTokenIsPayToken = stockPayTokenCandidates.some(
+      (token) =>
+        getTokenIdentityKey(token).toLowerCase() ===
+        normalizedCurrentStockTokenKey,
+    );
+    if (!currentStockTokenIsPayToken) {
+      return stockPayTokenCandidates;
     }
     return stockPayTokenCandidates.filter(
       (token) =>
-        !equalTokenNoCaseSensitive({
-          token1: token,
-          token2: currentStockToken,
-        }),
+        getTokenIdentityKey(token).toLowerCase() !==
+        normalizedCurrentStockTokenKey,
     );
-  }, [currentStockToken, currentStockTokenKey, defaultTokens]);
+  }, [currentStockTokenKey, stockPayTokenCandidates]);
 
   const rawPayTokenKeys = useMemo(
     () => rawPayTokens.map(getTokenIdentityKey).join('|'),
@@ -340,6 +348,7 @@ export function useSwapStockPayTokens({
             }
             const details =
               await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+                protocol: EProtocolOfExchange.STOCK,
                 networkId: token.networkId,
                 contractAddress: token.contractAddress,
                 accountId: networkAccount.id,
