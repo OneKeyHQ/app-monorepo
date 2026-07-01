@@ -151,7 +151,7 @@ export const {
       mockTradingViewKLineEmptyEnabled: false,
       mockTradingViewKLineEmptyIntervals: ['1m'],
       showMarketHomeWsDebug: false,
-      desktopNetworkThrottleEnabled: false,
+      desktopNetworkThrottleEnabled: !!platformEnv.isDesktop,
       nativeNetworkThrottleEnabled: false,
       allowLocalhostUrlInDAppBrowser: false,
       // Linux Desktop use Bridge，avoiding WebUSB permission problem

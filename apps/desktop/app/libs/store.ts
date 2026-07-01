@@ -46,7 +46,7 @@ export const setDevTools = (devTools: boolean) => {
 };
 
 const defaultNetworkThrottle: IDesktopStoreNetworkThrottle = {
-  enabled: false,
+  enabled: true,
   profile: 'slow4g',
 };
 
