@@ -161,10 +161,10 @@ jobs:
             exit 0
           fi
 
-          find ./apps/desktop/web-build -name '*.LICENSE.txt' -type f -delete
+          find ./apps/desktop/web-build -name '*.LICENSE.txt' -type f -exec rm -f {} +
           find ./apps/desktop/web-build \
-            \( -name '*.js.map' -o -name '*.css.map' \) \
-            -type f -delete
+            -type f \( -name '*.js.map' -o -name '*.css.map' \) \
+            -exec rm -f {} +
 
       - name: Build and Sign Snap Linux
         env:
@@ -179,9 +179,19 @@ jobs:
         run: |
           cd apps/desktop
           node scripts/finalize-renderer-assets.js
+          artifact_maps="$(find ./app/build \
+            -type f \( -name '*.js.map' -o -name '*.css.map' \) \
+            -print)"
+          if [ -n "$artifact_maps" ]; then
+            echo "::warning::Desktop snap package still contains sourcemaps after finalize; removing before packaging:"
+            echo "$artifact_maps"
+            find ./app/build \
+              -type f \( -name '*.js.map' -o -name '*.css.map' \) \
+              -exec rm -f {} +
+          fi
           remaining_maps="$(find ./app/build \
-            \( -name '*.js.map' -o -name '*.css.map' \) \
-            -type f -print)"
+            -type f \( -name '*.js.map' -o -name '*.css.map' \) \
+            -print)"
           if [ -n "$remaining_maps" ]; then
             echo "::error::Desktop snap package still contains sourcemaps:"
             echo "$remaining_maps"
