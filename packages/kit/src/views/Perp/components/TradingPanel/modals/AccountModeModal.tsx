@@ -17,6 +17,7 @@ import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
@@ -57,23 +58,16 @@ const ACCOUNT_MODE_OPTIONS: {
 const PORTFOLIO_MARGIN_LEARN_MORE_URL =
   'https://hyperliquid.gitbook.io/hyperliquid-docs/support/faq/portfolio-margin#margin-sharing';
 
-const TOKEN_LOGO_URIS = {
-  BTC: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/bitcoin/info/logo.png',
-  BNB: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/smartchain/info/logo.png',
-  ETH: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png',
-  USDC: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
-} as const;
-
 function TokenLogo({
   token,
   size = 28,
 }: {
-  token: keyof typeof TOKEN_LOGO_URIS;
+  token: 'BTC' | 'BNB' | 'ETH' | 'USDC';
   size?: number;
 }) {
   return (
     <Image
-      source={{ uri: TOKEN_LOGO_URIS[token] }}
+      source={{ uri: getHyperliquidTokenImageUrl(token) }}
       width={size}
       height={size}
       borderWidth="$px"
