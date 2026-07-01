@@ -49,6 +49,16 @@ export const OthersWalletAvatarImages = {
 export const ThirdPartyWalletAvatarImages = {
   ledger: require('../assets/wallet/avatar/Ledger.png'),
   trezor: require('../assets/wallet/avatar/Trezor.png'),
+  'Safe 3': require('../assets/wallet/avatar/Trezor.png'),
+  'Safe 5': require('../assets/wallet/avatar/Trezor.png'),
+  'Safe 7': require('../assets/wallet/avatar/Trezor.png'),
+  'Trezor Safe 3': require('../assets/wallet/avatar/Trezor.png'),
+  'Trezor Safe 5': require('../assets/wallet/avatar/Trezor.png'),
+  'Trezor Safe 7': require('../assets/wallet/avatar/Trezor.png'),
+  'Model One': require('../assets/wallet/avatar/Trezor.png'),
+  'Model T': require('../assets/wallet/avatar/Trezor.png'),
+  'Trezor Model One': require('../assets/wallet/avatar/Trezor.png'),
+  'Trezor Model T': require('../assets/wallet/avatar/Trezor.png'),
 };
 
 export const AllWalletAvatarImages = {
@@ -64,11 +74,14 @@ export type IHdWalletAvatarImageNames = keyof typeof HdWalletAvatarImages;
 export type IHwWalletAvatarImageNames = keyof typeof HwWalletAvatarImages;
 export type IOthersWalletAvatarImageNames =
   keyof typeof OthersWalletAvatarImages;
+export type IThirdPartyWalletAvatarImageNames =
+  keyof typeof ThirdPartyWalletAvatarImages;
 
 export type IAllWalletAvatarImageNamesWithoutDividers =
   | IHdWalletAvatarImageNames
   | IHwWalletAvatarImageNames
-  | IOthersWalletAvatarImageNames;
+  | IOthersWalletAvatarImageNames
+  | IThirdPartyWalletAvatarImageNames;
 
 export function getDeviceAvatarImage(
   deviceType: IDeviceType,

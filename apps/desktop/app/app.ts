@@ -68,6 +68,7 @@ import { registerInfoHandlers } from './libs/registerInfoHandlers';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import { getBackgroundColor } from './libs/utils';
+import { shouldGrantMainWindowDevicePermission } from './libs/webUsbDeviceSelection';
 // Logger initialization (file rotation, sanitization, rate limiting)
 import './logger';
 import initProcess from './process';
@@ -1335,15 +1336,11 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   // WebUSB permission handlers - Enable WebUSB support for hardware wallet connections
 
   browserWindow.webContents.session.setDevicePermissionHandler((details) => {
-    if (details.deviceType === 'usb') {
-      return true;
-    }
-    if (details.deviceType === 'hid') {
-      // WebHID has no protected-class blocklist (unlike WebUSB), so tighten
-      // to Ledger vendorId only.
-      return details.device?.vendorId === 0x2c_97;
-    }
-    return false;
+    // WebHID has no protected-class blocklist (unlike WebUSB), so tighten HID
+    // to Ledger vendorId only. USB is scoped to the trusted main window session;
+    // arbitrary dapp webviews use the separate persist:onekey deny-by-default
+    // session below.
+    return shouldGrantMainWindowDevicePermission(details);
   });
 
   // `session` here is the persistent defaultSession, which OUTLIVES the

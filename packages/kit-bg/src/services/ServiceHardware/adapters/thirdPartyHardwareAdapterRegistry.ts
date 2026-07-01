@@ -12,7 +12,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type { IThirdPartyHardwareAdapter } from './types';
-import type { IHardwareBridge } from '@onekeyfe/hwk-adapter-core';
+import type {
+  IHardwareBridge,
+  UiResponseEvent,
+} from '@onekeyfe/hwk-adapter-core';
 
 type IHwkSdkLogEvent = {
   type: string;
@@ -60,6 +63,67 @@ function isTrezorThpCredential(
     typeof credential.host_static_key === 'string' &&
     typeof credential.trezor_static_public_key === 'string'
   );
+}
+
+type IDevicePermissionAwareAdapter = {
+  on: (event: string, listener: () => Promise<void>) => void;
+  uiResponse: (response: UiResponseEvent) => void;
+};
+
+/**
+ * Wire the host's BLE permission gate for one vendor's adapter. The SDK emits
+ * REQUEST_DEVICE_PERMISSION before scanning/connecting; on native we check the
+ * app-level BLE permission and Bluetooth power state, show the matching dialog,
+ * then reply. Desktop/web/ext have no app-level BLE permission (the OS/browser
+ * handles WebHID/WebUSB/system Bluetooth), so we grant immediately.
+ *
+ * Without this handler the SDK's gate no-ops (listenerCount === 0) and a
+ * missing-permission scan surfaces as a raw BleError toast instead of the
+ * permission dialog — so every BLE-capable vendor must register it.
+ */
+async function registerThirdPartyDevicePermissionHandler(
+  hw: IDevicePermissionAwareAdapter,
+  vendor: EHardwareVendor,
+): Promise<void> {
+  const { UI_REQUEST, UI_RESPONSE } =
+    await import('@onekeyfe/hwk-adapter-core');
+  hw.on(UI_REQUEST.REQUEST_DEVICE_PERMISSION, async () => {
+    defaultLogger.hardware.sdkLog.log(
+      '[3rdPartyHW][Registry] REQUEST_DEVICE_PERMISSION',
+    );
+    let granted = true;
+    let reason: EThirdPartyDevicePermissionDeniedReason | undefined;
+    if (platformEnv.isNative) {
+      const isPermissionGranted = !!(await checkBLEPermissions());
+      if (!isPermissionGranted) {
+        granted = false;
+        reason = EThirdPartyDevicePermissionDeniedReason.permissionDenied;
+      } else {
+        const isBluetoothOn = await checkBLEState();
+        if (!isBluetoothOn) {
+          granted = false;
+          reason = EThirdPartyDevicePermissionDeniedReason.bluetoothTurnedOff;
+        }
+        defaultLogger.hardware.sdkLog.log(
+          `[3rdPartyHW][Registry] BLE state enabled=${String(isBluetoothOn)}`,
+        );
+      }
+    }
+    defaultLogger.hardware.sdkLog.log(
+      `[3rdPartyHW][Registry] BLE permission granted=${String(granted)}`,
+    );
+    if (!granted && reason) {
+      appEventBus.emit(
+        EAppEventBusNames.ShowThirdPartyHardwarePermissionDialog,
+        { vendor, reason },
+      );
+    }
+    const permissionPayload = reason ? { granted, reason } : { granted };
+    hw.uiResponse({
+      type: UI_RESPONSE.RECEIVE_DEVICE_PERMISSION,
+      payload: permissionPayload,
+    });
+  });
 }
 
 /**
@@ -171,6 +235,7 @@ export const thirdPartyHardwareAdapterRegistry = {
       adapterConnector: typeof connector,
     ) => InstanceType<typeof HwkTrezorAdapter>;
     const hw = new HwkTrezorAdapterCtor(connector);
+    await registerThirdPartyDevicePermissionHandler(hw, EHardwareVendor.trezor);
     defaultLogger.hardware.sdkLog.log(
       '[3rdPartyHW][Registry] trezor adapter ready',
     );
@@ -188,8 +253,6 @@ export const thirdPartyHardwareAdapterRegistry = {
       await import('@onekeyhq/shared/src/hardware/connector-loader/ledger');
     const { LedgerAdapter: HwkLedgerAdapter, onSdkEvent } =
       await import('@onekeyfe/hwk-ledger-adapter');
-    const { UI_REQUEST, UI_RESPONSE } =
-      await import('@onekeyfe/hwk-adapter-core');
     // SW-side subscriber. Offscreen runtime has its own bus singleton and
     // forwards into this same logger via IPC.
     onSdkEvent((event) => {
@@ -205,50 +268,7 @@ export const thirdPartyHardwareAdapterRegistry = {
     // prompts (REQUEST_INSTALL_APP), installs with progress, then retries.
     // A specific call can opt out via commonParams.autoInstallApp = false.
     const hw = new HwkLedgerAdapter(connector, { autoInstallApp: true });
-    // Only native mobile (iOS/Android) has an app-level BLE permission.
-    // Desktop/web/extension handle device permission at the OS/browser layer
-    // (WebHID/WebUSB prompts, node-hid, system Bluetooth) — from this app's
-    // perspective there's nothing to check, so grant immediately.
-    hw.on(UI_REQUEST.REQUEST_DEVICE_PERMISSION, async () => {
-      defaultLogger.hardware.sdkLog.log(
-        '[3rdPartyHW][Registry] REQUEST_DEVICE_PERMISSION',
-      );
-      let granted = true;
-      let reason: EThirdPartyDevicePermissionDeniedReason | undefined;
-      if (platformEnv.isNative) {
-        const isPermissionGranted = !!(await checkBLEPermissions());
-        if (!isPermissionGranted) {
-          granted = false;
-          reason = EThirdPartyDevicePermissionDeniedReason.permissionDenied;
-        } else {
-          const isBluetoothOn = await checkBLEState();
-          if (!isBluetoothOn) {
-            granted = false;
-            reason = EThirdPartyDevicePermissionDeniedReason.bluetoothTurnedOff;
-          }
-          defaultLogger.hardware.sdkLog.log(
-            `[3rdPartyHW][Registry] BLE state enabled=${String(isBluetoothOn)}`,
-          );
-        }
-      }
-      defaultLogger.hardware.sdkLog.log(
-        `[3rdPartyHW][Registry] BLE permission granted=${String(granted)}`,
-      );
-      if (!granted && reason) {
-        appEventBus.emit(
-          EAppEventBusNames.ShowThirdPartyHardwarePermissionDialog,
-          {
-            vendor: EHardwareVendor.ledger,
-            reason,
-          },
-        );
-      }
-      const permissionPayload = reason ? { granted, reason } : { granted };
-      hw.uiResponse({
-        type: UI_RESPONSE.RECEIVE_DEVICE_PERMISSION,
-        payload: permissionPayload,
-      });
-    });
+    await registerThirdPartyDevicePermissionHandler(hw, EHardwareVendor.ledger);
     defaultLogger.hardware.sdkLog.log(
       '[3rdPartyHW][Registry] ledger adapter ready',
     );

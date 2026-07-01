@@ -20,11 +20,12 @@ import type { IntlShape } from 'react-intl';
 function DeviceLabelDialogContent(props: {
   wallet: IDBWallet | undefined;
   deviceLabel: string;
+  asciiOnly?: boolean;
   onSubmit: (name: string) => Promise<void>;
 }) {
   const intl = useIntl();
   const [isLoading, setIsLoading] = useState(false);
-  const { wallet, deviceLabel, onSubmit } = props;
+  const { wallet, deviceLabel, asciiOnly, onSubmit } = props;
 
   const maxLength = MAX_LENGTH_HW_LABEL_NAME;
   return (
@@ -54,6 +55,15 @@ function DeviceLabelDialogContent(props: {
 
               const regexRule = emojiRegex();
               if (regexRule.test(value)) {
+                return intl.formatMessage({
+                  id: ETranslations.global_hardware_label_input_error,
+                });
+              }
+
+              // Some devices (e.g. Trezor) can only store printable ASCII
+              // labels, so reject anything outside ASCII 32-126 (CJK, control
+              // chars, etc.) before writing it to the device.
+              if (asciiOnly && /[^\x20-\x7E]/.test(value)) {
                 return intl.formatMessage({
                   id: ETranslations.global_hardware_label_input_error,
                 });
@@ -115,9 +125,11 @@ export const showLabelSetDialog = async (
   {
     wallet,
     intl,
+    asciiOnly,
   }: {
     wallet: IDBWallet | undefined;
     intl: IntlShape;
+    asciiOnly?: boolean;
   },
   {
     onSubmit,
@@ -141,6 +153,7 @@ export const showLabelSetDialog = async (
         <DeviceLabelDialogContent
           wallet={wallet}
           deviceLabel={deviceLabel}
+          asciiOnly={asciiOnly}
           onSubmit={onSubmit}
         />
       ),
