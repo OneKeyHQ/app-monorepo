@@ -30,6 +30,7 @@ import {
   resolveDeFiActionTxAmount,
 } from '@onekeyhq/shared/src/utils/defiActionUtils';
 import defiPermitUtils from '@onekeyhq/shared/src/utils/defiPermitUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   DEFI_PORTFOLIO_ACTION_STAKING_TAG,
@@ -800,9 +801,7 @@ function useProtocolPositionActionSubmit({
           if (!resp.tx) {
             throw new OneKeyLocalError('DeFi transaction is missing');
           }
-          if (!resp.orderId) {
-            throw new OneKeyLocalError('DeFi order id is missing');
-          }
+          const orderId = resp.orderId || generateUUID();
 
           const withUuid =
             selectedAssets.length > 1 || Boolean(resp.approvalTx);
@@ -835,7 +834,7 @@ function useProtocolPositionActionSubmit({
           // confirm info scale by percent.
           const displayAmount =
             amountForApi ?? (isMaxAmount ? selectedAsset.amount : undefined);
-          orderIdsByBusinessTxIndex.push(resp.orderId);
+          orderIdsByBusinessTxIndex.push(orderId);
           unsignedTxs.push(
             attachDeFiActionTxConfirmInfo({
               unsignedTx,

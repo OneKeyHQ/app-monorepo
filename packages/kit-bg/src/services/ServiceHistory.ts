@@ -1278,7 +1278,24 @@ class ServiceHistory extends ServiceBase {
     let confirmedTxs: IAccountHistoryTx[] = [];
     // Transactions still in pending status
     const pendingTxs: IAccountHistoryTx[] = [];
-    const accountsWithCompletedDeFiPortfolioTxs = new Set<string>();
+    const accountsWithCompletedDeFiPortfolioTxs: {
+      accountId: string;
+      networkId: string;
+    }[] = [];
+    const addCompletedDeFiPortfolioTxAccount = (item: {
+      accountId: string;
+      networkId: string;
+    }) => {
+      if (
+        !accountsWithCompletedDeFiPortfolioTxs.some(
+          (account) =>
+            account.accountId === item.accountId &&
+            account.networkId === item.networkId,
+        )
+      ) {
+        accountsWithCompletedDeFiPortfolioTxs.push(item);
+      }
+    };
 
     // Fetch details of locally pending transactions
     const onChainHistoryTxsDetails = await promiseAllSettledEnhanced(
@@ -1596,9 +1613,10 @@ class ServiceHistory extends ServiceBase {
           tx.status === EDecodedTxStatus.Confirmed &&
           order.stakingTags?.includes(DEFI_PORTFOLIO_ACTION_STAKING_TAG)
         ) {
-          accountsWithCompletedDeFiPortfolioTxs.add(
-            `${tx.accountId}_${tx.networkId}`,
-          );
+          addCompletedDeFiPortfolioTxAccount({
+            accountId: tx.accountId,
+            networkId: tx.networkId,
+          });
         }
       });
     }
@@ -1652,15 +1670,7 @@ class ServiceHistory extends ServiceBase {
           networkId: n,
         };
       }),
-      accountsWithCompletedDeFiPortfolioTxs: Array.from(
-        accountsWithCompletedDeFiPortfolioTxs,
-      ).map((item) => {
-        const [a, n] = item.split('_');
-        return {
-          accountId: a,
-          networkId: n,
-        };
-      }),
+      accountsWithCompletedDeFiPortfolioTxs,
     };
   }
 
