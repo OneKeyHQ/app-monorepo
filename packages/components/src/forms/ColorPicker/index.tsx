@@ -30,6 +30,7 @@ export interface IColorPickerPaletteProps extends Omit<
   colors?: readonly IColorPickerColor[];
   columns?: number;
   swatchSize?: number;
+  fullWidth?: boolean;
   disabled?: boolean;
   testID?: string;
 }
@@ -56,8 +57,10 @@ export interface IColorPickerProps extends Omit<
 }
 
 export const DEFAULT_COLOR_PICKER_COLUMNS = 11;
-const DEFAULT_MOBILE_COLOR_PICKER_COLUMNS = 6;
+const DEFAULT_COLOR_PICKER_SWATCH_SIZE = 28;
+const DEFAULT_COLOR_PICKER_GAP = '$0.5';
 const DEFAULT_COLOR_PICKER_TRIGGER_COLOR = '#FFFFFF';
+const DIALOG_CLOSE_DELAY_MS = 300;
 
 export const DEFAULT_COLOR_PICKER_COLORS: readonly string[] = [
   '#FFFFFF',
@@ -152,6 +155,9 @@ const defaultFloatingPanelProps = {
   width: 'auto',
   minWidth: 0,
 } as const;
+const defaultDialogContentContainerProps = {
+  pt: '$2',
+} as const;
 const allowTriggerPress = () => undefined;
 const preventTriggerPress = () => false;
 const swatchAccessibilityStateSelectedEnabled = {
@@ -229,6 +235,7 @@ const ColorSwatch = memo(
     option,
     selected,
     size,
+    fullWidth,
     disabled,
     onSelect,
     testID,
@@ -236,6 +243,7 @@ const ColorSwatch = memo(
     option: IColorPickerOption;
     selected: boolean;
     size: number;
+    fullWidth?: boolean;
     disabled?: boolean;
     onSelect: (value: string) => void;
     testID?: string;
@@ -256,8 +264,11 @@ const ColorSwatch = memo(
 
     return (
       <YStack
-        width={size}
-        height={size}
+        width={fullWidth ? undefined : size}
+        height={fullWidth ? undefined : size}
+        flex={fullWidth ? 1 : undefined}
+        aspectRatio={fullWidth ? 1 : undefined}
+        minWidth={fullWidth ? 0 : undefined}
         padding={2}
         alignItems="center"
         justifyContent="center"
@@ -304,17 +315,22 @@ const DefaultColorPickerTrigger = memo(
   ({
     color,
     disabled,
+    onPress,
     size,
     testID,
   }: {
     color: string;
     disabled?: boolean;
+    onPress?: IYStackProps['onPress'];
     size: number;
     testID?: string;
   }) => {
     const accessibilityState = disabled
       ? triggerAccessibilityStateDisabled
       : triggerAccessibilityStateEnabled;
+    const handlePress = disabled
+      ? preventTriggerPress
+      : (onPress ?? allowTriggerPress);
     return (
       <YStack
         width={size}
@@ -334,7 +350,7 @@ const DefaultColorPickerTrigger = memo(
         focusVisibleStyle={swatchFocusVisibleStyle}
         hoverStyle={disabled ? undefined : triggerHoverStyle}
         pressStyle={disabled ? undefined : triggerPressStyle}
-        onPress={disabled ? preventTriggerPress : allowTriggerPress}
+        onPress={handlePress}
         role={!platformEnv.isNative ? 'button' : undefined}
         aria-disabled={!platformEnv.isNative ? disabled : undefined}
         aria-label={
@@ -377,6 +393,7 @@ type IColorPickerContentProps = Omit<
 function ColorPickerContent({
   closeOverlay,
   closeOnSelect,
+  fullWidth,
   onValueChange,
   ...paletteProps
 }: IColorPickerContentProps) {
@@ -391,8 +408,16 @@ function ColorPickerContent({
   );
 
   return (
-    <YStack padding="$2">
-      <ColorPickerPalette {...paletteProps} onChange={handlePaletteChange} />
+    <YStack
+      width={fullWidth ? '100%' : undefined}
+      padding="$2"
+      alignItems={fullWidth ? 'stretch' : 'center'}
+    >
+      <ColorPickerPalette
+        {...paletteProps}
+        fullWidth={fullWidth}
+        onChange={handlePaletteChange}
+      />
     </YStack>
   );
 }
@@ -403,8 +428,9 @@ export function ColorPickerPalette({
   onChange,
   colors = DEFAULT_COLOR_PICKER_COLORS,
   columns = DEFAULT_COLOR_PICKER_COLUMNS,
-  swatchSize = 28,
-  gap = '$0.5',
+  swatchSize = DEFAULT_COLOR_PICKER_SWATCH_SIZE,
+  gap = DEFAULT_COLOR_PICKER_GAP,
+  fullWidth,
   disabled,
   testID,
   ...rest
@@ -435,6 +461,7 @@ export function ColorPickerPalette({
 
   return (
     <YStack
+      width={fullWidth ? '100%' : undefined}
       gap={gap}
       testID={testID}
       role={!platformEnv.isNative ? 'radiogroup' : undefined}
@@ -442,7 +469,7 @@ export function ColorPickerPalette({
       {...rest}
     >
       {colorRows.map((row, rowIndex) => (
-        <XStack key={rowIndex} gap={gap}>
+        <XStack key={rowIndex} width={fullWidth ? '100%' : undefined} gap={gap}>
           {row.map((option, optionIndex) => {
             const optionNormalizedValue = normalizeColorValue(option.value);
             return (
@@ -451,12 +478,25 @@ export function ColorPickerPalette({
                 option={option}
                 selected={selectedNormalizedValue === optionNormalizedValue}
                 size={swatchSize}
+                fullWidth={fullWidth}
                 disabled={disabled}
                 onSelect={handleSelect}
                 testID={testID ? `${testID}-${option.value}` : undefined}
               />
             );
           })}
+          {fullWidth && row.length < normalizedColumns
+            ? Array.from({ length: normalizedColumns - row.length }).map(
+                (_, placeholderIndex) => (
+                  <Stack
+                    key={`placeholder-${rowIndex}-${placeholderIndex}`}
+                    flex={1}
+                    aspectRatio={1}
+                    minWidth={0}
+                  />
+                ),
+              )
+            : null}
         </XStack>
       ))}
     </YStack>
@@ -469,8 +509,9 @@ export function ColorPicker({
   onChange,
   colors = DEFAULT_COLOR_PICKER_COLORS,
   columns,
-  swatchSize = 28,
-  gap = '$0.5',
+  swatchSize,
+  gap = DEFAULT_COLOR_PICKER_GAP,
+  fullWidth,
   disabled,
   testID,
   open,
@@ -486,6 +527,8 @@ export function ColorPicker({
   const { md } = useMedia();
   const [innerValue, setInnerValue] = useState(defaultValue);
   const [innerOpen, setInnerOpen] = useState(false);
+  const [shouldRenderMobileDialog, setShouldRenderMobileDialog] =
+    useState(false);
   const selectedValue = value ?? innerValue;
   const isOpenControlled = open !== undefined;
   const usedOpen = isOpenControlled ? !!open : innerOpen;
@@ -504,15 +547,31 @@ export function ColorPicker({
   }, [disabled, isOpenControlled, onOpenChange, open]);
 
   const resolvedColumns = useMemo(
-    () =>
-      normalizeColumns(
-        columns ??
-          (md
-            ? DEFAULT_MOBILE_COLOR_PICKER_COLUMNS
-            : DEFAULT_COLOR_PICKER_COLUMNS),
-      ),
-    [columns, md],
+    () => normalizeColumns(columns ?? DEFAULT_COLOR_PICKER_COLUMNS),
+    [columns],
   );
+
+  const resolvedSwatchSize = useMemo(
+    () => swatchSize ?? DEFAULT_COLOR_PICKER_SWATCH_SIZE,
+    [swatchSize],
+  );
+
+  const resolvedFullWidth = fullWidth ?? (md && swatchSize === undefined);
+
+  useEffect(() => {
+    if (!md) {
+      setShouldRenderMobileDialog(false);
+      return undefined;
+    }
+    if (effectiveOpen) {
+      setShouldRenderMobileDialog(true);
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      setShouldRenderMobileDialog(false);
+    }, DIALOG_CLOSE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [effectiveOpen, md]);
 
   const fallbackColor = useMemo(() => getColorOptionValue(colors[0]), [colors]);
   const triggerColor = selectedValue ?? fallbackColor;
@@ -587,8 +646,9 @@ export function ColorPicker({
         onValueChange={handleChange}
         colors={colors}
         columns={resolvedColumns}
-        swatchSize={swatchSize}
+        swatchSize={resolvedSwatchSize}
         gap={gap}
+        fullWidth={resolvedFullWidth}
         disabled={disabled}
         testID={testID ? `${testID}-palette` : undefined}
       />
@@ -601,8 +661,9 @@ export function ColorPicker({
       handleChange,
       paletteProps,
       resolvedColumns,
+      resolvedFullWidth,
+      resolvedSwatchSize,
       selectedValue,
-      swatchSize,
       testID,
     ],
   );
@@ -627,6 +688,7 @@ export function ColorPicker({
           open={effectiveOpen}
           onClose={handleDialogClose}
           renderContent={dialogContent}
+          contentContainerProps={defaultDialogContentContainerProps}
           sheetProps={sheetProps}
           floatingPanelProps={mergedFloatingPanelProps}
           testID={testID ? `${testID}-dialog` : undefined}
@@ -653,7 +715,7 @@ export function ColorPicker({
         >
           {trigger}
         </Trigger>
-        {mobileDialog}
+        {shouldRenderMobileDialog ? mobileDialog : null}
       </>
     );
   }
