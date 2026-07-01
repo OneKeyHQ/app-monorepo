@@ -8,6 +8,12 @@ import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import { getInstanceId } from '../../modules3rdParty/intercom/utils';
 import { EOneKeyErrorClassNames, type IOneKeyError } from '../types/errorTypes';
 
+import {
+  type ILocalSecretEnvelopeCredentialErrorData,
+  LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
+  LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
+} from './localSecretEnvelopeErrorData';
+
 async function buildDiagnosticText(err: IOneKeyError): Promise<string> {
   const parts: string[] = [];
 
@@ -63,8 +69,10 @@ function isCredentialLocalSecretEnvelopeUnavailableError(
     err?.name === EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable;
   return (
     isLocalSecretEnvelopeUnavailable &&
-    (err.data as { localSecretEnvelopeDataType?: string } | undefined)
-      ?.localSecretEnvelopeDataType === 'credential'
+    (
+      err.data as Partial<ILocalSecretEnvelopeCredentialErrorData> | undefined
+    )?.[LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD] ===
+      LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE
   );
 }
 

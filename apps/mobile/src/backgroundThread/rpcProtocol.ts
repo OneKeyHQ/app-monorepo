@@ -1,3 +1,9 @@
+import {
+  type ILocalSecretEnvelopeCredentialErrorData,
+  LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
+  LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
+} from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
+
 import type {
   IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
@@ -274,11 +280,13 @@ export function buildSafeBackgroundThreadErrorData(data: unknown) {
     data &&
     typeof data === 'object' &&
     !Array.isArray(data) &&
-    (data as { localSecretEnvelopeDataType?: unknown })
-      .localSecretEnvelopeDataType === 'credential'
+    (data as Partial<ILocalSecretEnvelopeCredentialErrorData>)[
+      LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD
+    ] === LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE
   ) {
     return {
-      localSecretEnvelopeDataType: 'credential',
+      [LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD]:
+        LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
     };
   }
 

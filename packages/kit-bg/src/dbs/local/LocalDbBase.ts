@@ -6913,6 +6913,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         : undefined;
     let replacedImportedCredential: string | undefined;
     let didReplaceImportedCredential = false;
+    let shouldCleanupSkippedImportedCredentialToAdd = false;
 
     const syncManager =
       this.backgroundApi.servicePrimeCloudSync.syncManagers.account;
@@ -7134,7 +7135,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                         'Only one can be imported at a time into a private key account.',
                       );
                     }
-                    await this.txAddRecords({
+                    const addCredentialResult = await this.txAddRecords({
                       tx,
                       name: ELocalDBStoreNames.Credential,
                       records: [
@@ -7145,6 +7146,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                       ],
                       skipIfExists: true,
                     });
+                    shouldCleanupSkippedImportedCredentialToAdd =
+                      addCredentialResult.added === 0;
                   }
                 }
 
@@ -7172,6 +7175,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         });
       }
       throw error;
+    }
+
+    if (
+      shouldCleanupSkippedImportedCredentialToAdd &&
+      importedCredentialToAdd &&
+      importedCredentialToAddInfo.layerAdapters?.length
+    ) {
+      await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+        envelope: importedCredentialToAdd,
+        layerAdapters: importedCredentialToAddInfo.layerAdapters,
+      });
     }
 
     if (

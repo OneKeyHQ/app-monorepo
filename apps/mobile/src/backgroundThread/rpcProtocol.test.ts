@@ -1,4 +1,9 @@
 import {
+  LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
+  LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
+} from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
+
+import {
   buildSafeBackgroundThreadErrorData,
   parseBackgroundThreadJotaiStateBroadcastBatchPayload,
   parseBackgroundThreadMainCapabilitiesPayload,
@@ -23,7 +28,8 @@ describe('background thread RPC protocol', () => {
       className: 'DeviceNotOpenedPassphrase',
       code: 801,
       data: {
-        localSecretEnvelopeDataType: 'credential',
+        [LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD]:
+          LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
       },
       payload,
     };
@@ -37,18 +43,21 @@ describe('background thread RPC protocol', () => {
 
     expect(response?.error?.payload).toEqual(payload);
     expect(response?.error?.data).toEqual({
-      localSecretEnvelopeDataType: 'credential',
+      [LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD]:
+        LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
     });
   });
 
   it('keeps only the LSE marker from background error data', () => {
     const data = buildSafeBackgroundThreadErrorData({
-      localSecretEnvelopeDataType: 'credential',
+      [LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD]:
+        LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
       detail: { localOnly: true },
     });
 
     expect(data).toEqual({
-      localSecretEnvelopeDataType: 'credential',
+      [LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD]:
+        LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
     });
   });
 
