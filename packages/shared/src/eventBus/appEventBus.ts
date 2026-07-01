@@ -104,6 +104,21 @@ export type IEventBusPayloadShowToast = {
   requestId?: string;
   diagnosticText?: string;
 };
+
+export type ILinuxUdevGuideReason =
+  | 'not-linux'
+  | 'snap'
+  | 'flatpak'
+  | 'missing-pkexec'
+  | 'cancelled'
+  | 'not-authorized'
+  | 'failed'
+  | 'webusb-access-denied'
+  | 'unknown';
+
+export type IEventBusPayloadShowLinuxUdevGuide = {
+  reason?: ILinuxUdevGuideReason;
+};
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: {
     num: number;
@@ -368,6 +383,7 @@ export interface IAppEventBusPayload {
     tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
   };
   [EAppEventBusNames.ShowSystemDiskFullWarning]: undefined;
+  [EAppEventBusNames.ShowLinuxBundleUdevGuide]: IEventBusPayloadShowLinuxUdevGuide;
   [EAppEventBusNames.SwapTxHistoryStatusUpdate]: {
     status: ESwapTxHistoryStatus;
     crossChainStatus?: ESwapCrossChainStatus;
