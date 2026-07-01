@@ -6,7 +6,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { getErrorAction } from './ErrorToasts';
 import {
@@ -37,15 +36,6 @@ const getDeduplicationId = (
   return { id: undefined, forceDeduplicate: false };
 };
 
-const getToastTraceValue = (value: unknown) => {
-  if (value === undefined || value === null) {
-    return value;
-  }
-
-  const text = String(value);
-  return text.length > 160 ? `${text.slice(0, 160)}...` : text;
-};
-
 export function ErrorToastContainer() {
   useEffect(() => {
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
@@ -60,23 +50,6 @@ export function ErrorToastContainer() {
       });
       const shouldSuppress = suppressReason !== null;
       const statusCodeForDeduplicate = getEffectiveHttpStatusCode(p);
-      if (p.method === 'error') {
-        defaultLogger.app.toastTrace.toastDecision({
-          isInternetReachable,
-          shouldSuppress,
-          suppressReason,
-          method: p.method,
-          title: getToastTraceValue(p.title),
-          message: getToastTraceValue(p.message),
-          errorCode: getToastTraceValue(p.errorCode),
-          errorName: getToastTraceValue(p.errorName),
-          errorClassName: getToastTraceValue(p.errorClassName),
-          httpStatusCode: p.httpStatusCode,
-          effectiveHttpStatusCode: statusCodeForDeduplicate,
-          hasRequestId: Boolean(p.requestId),
-          hasToastId: Boolean(p.toastId),
-        });
-      }
       if (shouldSuppress) {
         return;
       }

@@ -8,7 +8,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { ErrorToastContainer } from './ErrorToastContainer';
 
@@ -30,25 +29,11 @@ jest.mock('./ErrorToasts', () => ({
   getErrorAction: jest.fn(() => undefined),
 }));
 
-jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
-  defaultLogger: {
-    app: {
-      toastTrace: {
-        axiosNetworkError: jest.fn(),
-        toastDecision: jest.fn(),
-      },
-    },
-  },
-}));
-
 const mockedToast = Toast as unknown as {
   error: jest.Mock;
 };
 const mockedGlobalNetInfo = globalNetInfo as unknown as {
   currentState: jest.Mock;
-};
-const mockedToastTrace = defaultLogger.app.toastTrace as unknown as {
-  toastDecision: jest.Mock;
 };
 
 describe('ErrorToastContainer', () => {
@@ -74,13 +59,6 @@ describe('ErrorToastContainer', () => {
     });
 
     expect(mockedToast.error).not.toHaveBeenCalled();
-    expect(mockedToastTrace.toastDecision).toHaveBeenCalledWith(
-      expect.objectContaining({
-        isInternetReachable: false,
-        shouldSuppress: true,
-        suppressReason: 'offline-network-error',
-      }),
-    );
     unmount();
   });
 
@@ -96,14 +74,6 @@ describe('ErrorToastContainer', () => {
     });
 
     expect(mockedToast.error).not.toHaveBeenCalled();
-    expect(mockedToastTrace.toastDecision).toHaveBeenCalledWith(
-      expect.objectContaining({
-        isInternetReachable: true,
-        shouldSuppress: true,
-        suppressReason: 'transport-network-error',
-        title: '网络错误',
-      }),
-    );
     unmount();
   });
 
@@ -142,14 +112,6 @@ describe('ErrorToastContainer', () => {
         title: 'Network error',
       }),
     );
-    expect(mockedToastTrace.toastDecision).toHaveBeenCalledWith(
-      expect.objectContaining({
-        effectiveHttpStatusCode: 503,
-        isInternetReachable: false,
-        shouldSuppress: false,
-        suppressReason: null,
-      }),
-    );
     unmount();
   });
 
@@ -166,14 +128,6 @@ describe('ErrorToastContainer', () => {
     });
 
     expect(mockedToast.error).not.toHaveBeenCalled();
-    expect(mockedToastTrace.toastDecision).toHaveBeenCalledWith(
-      expect.objectContaining({
-        effectiveHttpStatusCode: undefined,
-        isInternetReachable: true,
-        shouldSuppress: true,
-        suppressReason: 'transport-network-error',
-      }),
-    );
     unmount();
   });
 
