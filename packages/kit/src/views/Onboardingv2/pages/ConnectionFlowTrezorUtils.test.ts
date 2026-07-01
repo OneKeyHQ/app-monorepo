@@ -16,16 +16,16 @@ describe('ConnectionFlowTrezorUtils', () => {
     expect(
       getTrezorSearchTransportType(EHardwareTransportType.DesktopWebBle),
     ).toBe('ble');
-    expect(getTrezorSearchTransportType(EHardwareTransportType.WEBUSB)).toBe(
-      'usb',
-    );
-    expect(getTrezorSearchTransportType(EHardwareTransportType.Bridge)).toBe(
-      'usb',
-    );
+    expect(
+      getTrezorSearchTransportType(EHardwareTransportType.WEBUSB),
+    ).toBeUndefined();
+    expect(
+      getTrezorSearchTransportType(EHardwareTransportType.Bridge),
+    ).toBeUndefined();
     expect(getTrezorSearchTransportType(undefined)).toBeUndefined();
   });
 
-  it('requests WebUSB permission before listing on desktop or extension UI', () => {
+  it('requests WebUSB permission before listing only when the platform needs a picker', () => {
     expect(
       shouldRequestTrezorWebUsbPermissionBeforeListing({
         isDesktop: false,
@@ -38,7 +38,7 @@ describe('ConnectionFlowTrezorUtils', () => {
         isDesktop: true,
         isExtension: false,
       }),
-    ).toBe(true);
+    ).toBe(false);
 
     expect(
       shouldRequestTrezorWebUsbPermissionBeforeListing({

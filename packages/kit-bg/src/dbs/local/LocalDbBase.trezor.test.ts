@@ -1,3 +1,4 @@
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -6,6 +7,8 @@ import {
   buildThirdPartyFeaturesInfoFromDevice,
   buildTrezorDesktopBleUsbConnectId,
   clearTrezorThpSettingsRaw,
+  getThirdPartyDeviceAvatarImage,
+  getThirdPartyDeviceModelName,
 } from './LocalDbBase';
 
 describe('clearTrezorThpSettingsRaw', () => {
@@ -183,6 +186,66 @@ describe('buildThirdPartyDeviceSettingsFromDevice', () => {
       vendorModelName: 'Safe 5',
       vendorFirmwareVersion: '2.10.0',
     });
+  });
+});
+
+describe('getThirdPartyDeviceModelName', () => {
+  it('uses vendorModelName over the user label without adding a vendor prefix', () => {
+    expect(
+      getThirdPartyDeviceModelName({
+        device: {
+          name: 'n',
+          vendorModelName: 'Safe 7',
+        } as never,
+        features: {
+          label: 'n',
+          model: 'Should Not Override Settings Model',
+          internal_model: 'T3W1',
+        } as never,
+      }),
+    ).toBe('Safe 7');
+  });
+
+  it('uses the connector model name when features do not carry model', () => {
+    expect(
+      getThirdPartyDeviceModelName({
+        device: {
+          name: 'n',
+          vendorModelName: 'Safe 7',
+        } as never,
+        features: {} as never,
+      }),
+    ).toBe('Safe 7');
+  });
+});
+
+describe('getThirdPartyDeviceAvatarImage', () => {
+  it.each([
+    'Safe 3',
+    'Safe 5',
+    'Safe 7',
+    'Trezor Safe 7',
+    'Model One',
+    'Model T',
+  ])(
+    'uses the Trezor vendorModelName avatar key when the %s asset is registered',
+    (modelName) => {
+      expect(
+        getThirdPartyDeviceAvatarImage({
+          profile: getVendorProfile(EHardwareVendor.trezor),
+          modelName,
+        }),
+      ).toBe(modelName);
+    },
+  );
+
+  it('falls back to the Trezor vendor avatar for unknown model assets', () => {
+    expect(
+      getThirdPartyDeviceAvatarImage({
+        profile: getVendorProfile(EHardwareVendor.trezor),
+        modelName: 'Unknown Model',
+      }),
+    ).toBe('trezor');
   });
 });
 

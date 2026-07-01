@@ -38,8 +38,9 @@ function DeviceSectionDeviceConnect() {
     showTrezorBleBindingDialog({
       usbConnectId: device.connectId,
       featuresDeviceId: device.deviceId,
+      intl,
     });
-  }, [device?.connectId, device?.deviceId]);
+  }, [device?.connectId, device?.deviceId, intl]);
 
   const onPressForgetDevice = useCallback(async () => {
     const walletWithDevice = await actions.getWalletWithDevice();

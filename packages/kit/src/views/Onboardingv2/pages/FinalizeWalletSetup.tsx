@@ -13,6 +13,7 @@ import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   AnimatePresence,
   Button,
+  Dialog,
   Icon,
   LinearGradient,
   SizableText,
@@ -622,6 +623,31 @@ function FinalizeWalletSetupPage({
                   key: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
                 });
               }
+              // Device has no seed yet — block creation and prompt the user to
+              // set it up first (we can't drive third-party device setup).
+              if (connectedFeatures?.initialized === false) {
+                await trackHardwareWalletConnection({
+                  status: 'failure',
+                  deviceType: thirdPartyDevice.deviceType,
+                  hardwareTransportType: resolvedTransportType,
+                  isSoftwareWalletOnlyUser,
+                  vendor: deviceData.vendor,
+                });
+                navigation.pop();
+                Dialog.show({
+                  title: intl.formatMessage({
+                    id: ETranslations.trezor_device_not_initialized__title,
+                  }),
+                  description: intl.formatMessage({
+                    id: ETranslations.trezor_device_not_initialized__desc,
+                  }),
+                  showCancelButton: false,
+                  onConfirmText: intl.formatMessage({
+                    id: ETranslations.global_i_got_it,
+                  }),
+                });
+                return;
+              }
               featuresForCreate = {
                 ...connectedFeatures,
                 device_id: connectedDeviceId,
@@ -734,6 +760,7 @@ function FinalizeWalletSetupPage({
     isSoftwareWalletOnlyUser,
     ledgerTabValue,
     intl,
+    navigation,
   ]);
 
   useEffect(() => {

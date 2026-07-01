@@ -94,6 +94,40 @@ describe('callTrezorWithBleFallback', () => {
     });
   });
 
+  it('retries the primary USB connectId when fallback discovery sees the same USB device again', async () => {
+    const fn = jest
+      .fn()
+      .mockResolvedValueOnce({
+        success: false,
+        payload: {
+          code: HardwareErrorCode.DeviceNotFound,
+          error: 'DeviceNotFound',
+        },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        payload: { address: '0x1234' },
+      });
+    const requestBleConnectId = jest.fn(async () => 'USB_CONNECT_ID');
+
+    const result = await callTrezorWithBleFallback(dbDevice, fn, {
+      requestBleConnectId,
+    });
+
+    expect(result).toEqual({
+      success: true,
+      payload: { address: '0x1234' },
+    });
+    expect(fn).toHaveBeenCalledTimes(2);
+    expect(fn).toHaveBeenNthCalledWith(1, 'USB_CONNECT_ID');
+    expect(fn).toHaveBeenNthCalledWith(2, 'USB_CONNECT_ID');
+    expect(requestBleConnectId).toHaveBeenCalledWith({
+      dbDevice,
+      usbConnectId: 'USB_CONNECT_ID',
+      featuresDeviceId: 'FEATURES_DEVICE_ID',
+    });
+  });
+
   it('does not request BLE binding for Trezor models without BLE support', async () => {
     const safe5Device = {
       ...dbDevice,

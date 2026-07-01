@@ -6,6 +6,7 @@
 
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
 require('./setimmediateShim');
+require('./requestIdleCallbackShim');
 
 // Promise.allSettled polyfill - must be injected before any code uses it
 // Hermes engine may have Promise but lack allSettled on some devices

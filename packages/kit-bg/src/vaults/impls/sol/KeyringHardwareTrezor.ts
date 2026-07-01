@@ -1,3 +1,4 @@
+import { fetchSolanaTokenDefinition } from '@onekeyfe/hwk-trezor-adapter';
 import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
@@ -82,6 +83,19 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
 
   private getBleFallbackOptions() {
     return buildTrezorBleFallbackOptions(this.backgroundApi);
+  }
+
+  // Best-effort: returns undefined on any failure so signing still proceeds.
+  private async _resolveSolTokenDefinition(ataDetails?: IATADetails[]) {
+    const tokenMint = ataDetails?.[0]?.mintAddress;
+    if (!tokenMint) {
+      return undefined;
+    }
+    try {
+      return await fetchSolanaTokenDefinition({ tokenMint });
+    } catch {
+      return undefined;
+    }
   }
 
   override async prepareAccounts(
@@ -185,6 +199,8 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
       ? Buffer.from(transaction.message.serialize()).toString('hex')
       : transaction.serializeMessage().toString('hex');
 
+    const encodedToken = await this._resolveSolTokenDefinition(ataDetails);
+
     const result = await callTrezorWithBleFallback(
       dbDevice,
       (connectId) =>
@@ -193,6 +209,7 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
             path,
             serializedTx,
             ataDetails,
+            encodedToken,
           }),
           ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
         }),
