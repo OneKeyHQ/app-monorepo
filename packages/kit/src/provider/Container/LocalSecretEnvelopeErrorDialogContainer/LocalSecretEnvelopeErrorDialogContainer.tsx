@@ -10,7 +10,7 @@ import {
 
 const WALLET_KEY_UNAVAILABLE_TITLE = 'Wallet key unavailable';
 const WALLET_KEY_UNAVAILABLE_DESCRIPTION =
-  'This device no longer has the local security key required to unlock this wallet. This can happen after moving to a new device, reinstalling the app, or clearing local app data. Use Backup or Transfer on the original device to migrate this wallet again.';
+  'This device no longer has the local security key required to unlock this wallet. This can happen after moving to a new device, reinstalling the app, or clearing local app data. Re-import this wallet using a recovery method you choose, such as Cloud Backup restore, Transfer, or another supported import method.';
 const ERROR_DETAILS_TITLE = 'Error details';
 const VIEW_ERROR_DETAILS_TEXT = 'View error details';
 const OK_TEXT = 'OK';
@@ -19,7 +19,9 @@ export function LocalSecretEnvelopeErrorDialogContainer() {
   const dialogRef = useRef<IDialogInstance | null>(null);
   const detailsDialogRef = useRef<IDialogInstance | null>(null);
 
-  const showDetailsDialog = useCallback((technicalMessage: string) => {
+  const showDetailsDialog = useCallback(async (technicalMessage: string) => {
+    await dialogRef.current?.close();
+    dialogRef.current = null;
     if (detailsDialogRef.current?.isExist()) {
       return;
     }
@@ -42,9 +44,14 @@ export function LocalSecretEnvelopeErrorDialogContainer() {
         icon: 'ErrorOutline',
         title: WALLET_KEY_UNAVAILABLE_TITLE,
         description: WALLET_KEY_UNAVAILABLE_DESCRIPTION,
-        onCancelText: VIEW_ERROR_DETAILS_TEXT,
-        onCancel: () => showDetailsDialog(payload.technicalMessage),
         onConfirmText: OK_TEXT,
+        onCancelText: VIEW_ERROR_DETAILS_TEXT,
+        onCancel: (close) => {
+          void close().then(() => {
+            dialogRef.current = null;
+            void showDetailsDialog(payload.technicalMessage);
+          });
+        },
         showCancelButton: true,
       });
     };
