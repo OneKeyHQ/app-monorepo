@@ -101,14 +101,22 @@ export function NativeBottomTabView({
     [descriptors],
   );
   const getLazy = useCallback(
-    ({ route }: { route: Route<string> }) =>
-      descriptors[route.key]?.options.lazy ?? true,
-    [descriptors],
+    ({ route }: { route: Route<string> }) => {
+      // Preloaded routes bypass lazy — treat as already loaded
+      if (state.preloadedRouteKeys?.includes(route.key)) {
+        return false;
+      }
+      return descriptors[route.key]?.options.lazy ?? true;
+    },
+    [descriptors, state.preloadedRouteKeys],
   );
   const getFreezeOnBlur = useCallback(
-    ({ route }: { route: Route<string> }) =>
-      descriptors[route.key]?.options.freezeOnBlur,
-    [descriptors],
+    ({ route }: { route: Route<string> }) => {
+      // Don't freeze preloaded routes so they can complete their first render
+      if (state.preloadedRouteKeys?.includes(route.key)) return false;
+      return descriptors[route.key]?.options.freezeOnBlur;
+    },
+    [descriptors, state.preloadedRouteKeys],
   );
   const getSceneStyle = useCallback(
     ({ route }: { route: Route<string> }) =>
