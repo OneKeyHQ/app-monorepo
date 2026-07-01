@@ -104,8 +104,10 @@ cache writes that can cross accounts or networks.
 
 Before marking a portfolio action ready:
 
-- Confirm the latest service branch contract for supported actions and
-  build-transaction DTOs.
+- Confirm the service contract from latest code before comparing or editing:
+  fetch/prune or pull the intended `server-service-earn` branch, record the
+  branch/ref and commit, and only then inspect supported actions,
+  build-transaction DTOs, dispatch, and protocol handlers.
 - Capture or inspect a real `/wallet/v1/portfolio/positions` payload for the
   affected protocol/account.
 - Reopen the action detail route from its real source surface and verify its

@@ -970,6 +970,29 @@ export function useSwapInit(params?: ISwapInitParams) {
         hasSelectedTokens = false;
       }
     }
+    if (hasImportParams && params?.importNetworkId && !hasImportTokenParams) {
+      if (!swapNetworksRef.current.length) {
+        return;
+      }
+      const importNetwork = swapNetworksRef.current.find(
+        (net) => net.networkId === params.importNetworkId,
+      );
+      const importSupportCheckType =
+        supportCheckSwapTabSwitchType ?? ESwapTabSwitchType.SWAP;
+      const isImportNetworkSupported =
+        importNetwork &&
+        getSwapNetworkSupportTabSwitchTypes({
+          supportSingleSwap: importNetwork.supportSingleSwap,
+          supportCrossChainSwap: importNetwork.supportCrossChainSwap,
+          supportLimit: importNetwork.supportLimit,
+          supportStock: importNetwork.supportStock,
+        }).includes(importSupportCheckType);
+      if (!isImportNetworkSupported) {
+        clearSelectedTokensColdStartCache();
+        finishSwapInitParamsSync();
+        return;
+      }
+    }
     if (hasImportTokenParams) {
       if (!swapNetworksRef.current.length) {
         return;
@@ -1121,7 +1144,6 @@ export function useSwapInit(params?: ISwapInitParams) {
       swapAddressInfoRef.current?.accountInfo?.ready ||
       Boolean(homeAccountSyncResult.synced);
     if (
-      !hasAccountReadyForDefaultToken ||
       !defaultTokenNetworkId ||
       !swapNetworksRef.current.length ||
       (hasImportParams &&
@@ -1130,6 +1152,20 @@ export function useSwapInit(params?: ISwapInitParams) {
         params?.importNetworkId !== defaultTokenNetworkId) ||
       skipSyncDefaultSelectedToken
     ) {
+      return;
+    }
+    const defaultTokenSet = swapDefaultSetTokens[defaultTokenNetworkId];
+    const hasDefaultTokenSet =
+      !isNil(defaultTokenSet?.fromToken) ||
+      !isNil(defaultTokenSet?.toToken) ||
+      !isNil(defaultTokenSet?.limitFromToken) ||
+      !isNil(defaultTokenSet?.limitToToken);
+    if (!hasDefaultTokenSet) {
+      clearSelectedTokensColdStartCache();
+      finishSwapInitParamsSync();
+      return;
+    }
+    if (!hasAccountReadyForDefaultToken) {
       return;
     }
     const isAllNet = networkUtils.isAllNetwork({
