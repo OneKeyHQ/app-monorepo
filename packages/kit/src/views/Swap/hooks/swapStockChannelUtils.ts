@@ -176,6 +176,28 @@ export function findTokenFromCandidates({
   );
 }
 
+export function isStockPayTokenReadyForTradeInput({
+  payToken,
+  payTokenStatus,
+  selectablePayTokens,
+  stockIdentityReady,
+}: {
+  payToken?: Partial<ISwapTokenBase>;
+  payTokenStatus: ESwapStockChannelAsyncStatus;
+  selectablePayTokens: IToken[];
+  stockIdentityReady: boolean;
+}) {
+  return Boolean(
+    stockIdentityReady &&
+    payToken &&
+    payTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
+    findTokenFromCandidates({
+      candidates: selectablePayTokens,
+      token: payToken,
+    }),
+  );
+}
+
 function getStockDefaultPayTokenCandidates(candidates: IToken[]) {
   return filterStockPayTokenCandidates(candidates);
 }

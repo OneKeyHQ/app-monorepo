@@ -1,9 +1,11 @@
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  ESwapStockChannelAsyncStatus,
   ESwapStockTradeSide,
   buildStockSwapTokenFromMarketListToken,
   filterStockPayTokenCandidates,
+  isStockPayTokenReadyForTradeInput,
   resolveStockChannelSwapPair,
   shouldLoadDefaultStockToken,
   shouldResetStockTradeReceiveAmount,
@@ -21,6 +23,16 @@ const usdtToken: ISwapToken = {
   contractAddress: '0xusdt',
   symbol: 'USDT',
   decimals: 6,
+};
+
+const usdcPayToken = {
+  ...usdcToken,
+  speedSwapDefaultAmount: [],
+};
+
+const usdtPayToken = {
+  ...usdtToken,
+  speedSwapDefaultAmount: [],
 };
 
 const ethToken: ISwapToken = {
@@ -142,6 +154,46 @@ describe('swapStockChannelUtils', () => {
       shouldResetStockTradeReceiveAmount({
         previousStockToken: appleStockToken,
         nextStockToken: micronStockToken,
+      }),
+    ).toBe(false);
+  });
+
+  it('marks the buy-side pay token ready only after it belongs to the active stock pay-token candidates', () => {
+    expect(
+      isStockPayTokenReadyForTradeInput({
+        payToken: usdcToken,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+        selectablePayTokens: [usdtPayToken],
+        stockIdentityReady: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      isStockPayTokenReadyForTradeInput({
+        payToken: usdcToken,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+        selectablePayTokens: [usdcPayToken, usdtPayToken],
+        stockIdentityReady: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps the buy-side pay token hidden while stock or pay-token state is still initializing', () => {
+    expect(
+      isStockPayTokenReadyForTradeInput({
+        payToken: usdcToken,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+        selectablePayTokens: [usdcPayToken],
+        stockIdentityReady: false,
+      }),
+    ).toBe(false);
+
+    expect(
+      isStockPayTokenReadyForTradeInput({
+        payToken: usdcToken,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Initializing,
+        selectablePayTokens: [usdcPayToken],
+        stockIdentityReady: true,
       }),
     ).toBe(false);
   });

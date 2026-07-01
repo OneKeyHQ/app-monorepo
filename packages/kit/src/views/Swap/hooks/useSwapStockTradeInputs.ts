@@ -31,6 +31,7 @@ import {
 
 import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 
+import { isStockPayTokenReadyForTradeInput } from './swapStockChannelUtils';
 import {
   STOCK_PRICE_SOURCE_CURRENCY,
   getStockTokenFiatValue,
@@ -431,6 +432,7 @@ export function useSwapStockAmountInputState({
   const {
     currentStockToken,
     payToken,
+    payTokenStatus,
     payTokens,
     selectablePayTokens,
     payTokenOptionsLoading,
@@ -446,11 +448,17 @@ export function useSwapStockAmountInputState({
   const stockIdentityReady =
     stockTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
     marketStatusStatus === ESwapStockChannelAsyncStatus.Ready;
-  const inputTokenBalanceReady = isBuySide
-    ? inputTokenVisible
+  const payTokenReady = isStockPayTokenReadyForTradeInput({
+    payToken,
+    payTokenStatus,
+    selectablePayTokens,
+    stockIdentityReady,
+  });
+  const inputTokenReady = isBuySide
+    ? payTokenReady
     : stockIdentityReady && inputTokenVisible;
   const stockInputTokenBalance = useStockInputTokenBalance({
-    enabled: inputTokenBalanceReady,
+    enabled: inputTokenReady,
     token: inputToken,
   });
   const resolvedInputTokenBalance =
@@ -554,7 +562,7 @@ export function useSwapStockAmountInputState({
   }, [displayBalance, fromTokenAmount.value, inputToken, isBuySide]);
 
   useEffect(() => {
-    if (!inputTokenBalanceReady || stockInputTokenBalance.loading) {
+    if (!inputTokenReady || stockInputTokenBalance.loading) {
       return;
     }
     if (fromTokenBalance === resolvedInputTokenBalance) {
@@ -563,7 +571,7 @@ export function useSwapStockAmountInputState({
     setFromTokenBalance(resolvedInputTokenBalance);
   }, [
     fromTokenBalance,
-    inputTokenBalanceReady,
+    inputTokenReady,
     resolvedInputTokenBalance,
     setFromTokenBalance,
     stockInputTokenBalance.loading,
@@ -589,6 +597,6 @@ export function useSwapStockAmountInputState({
     payTokens,
     selectablePayTokens,
     selectPayToken,
-    shouldRenderSkeleton: !inputTokenVisible,
+    shouldRenderSkeleton: !inputTokenReady,
   };
 }

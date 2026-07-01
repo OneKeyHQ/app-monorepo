@@ -102,8 +102,14 @@ export function shouldUseSwapCustomRecipientAddress({
     return false;
   }
 
+  if (isAllNetwork) {
+    return areSwapRecipientNetworksCompatible({
+      selectedRecipientNetworkId,
+      targetNetworkId: tokenNetworkId,
+    });
+  }
+
   return (
-    isAllNetwork ||
     areSwapRecipientNetworksCompatible({
       selectedRecipientNetworkId,
       targetNetworkId: activeNetworkId,

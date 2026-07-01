@@ -99,7 +99,7 @@ describe('shouldUseSwapCustomRecipientAddress', () => {
     ).toBe(false);
   });
 
-  it('allows the confirmed recipient on all-network accounts', () => {
+  it('allows the confirmed recipient on all-network accounts when the token network is compatible', () => {
     expect(
       shouldUseSwapCustomRecipientAddress({
         type: ESwapDirectionType.TO,
@@ -111,6 +111,20 @@ describe('shouldUseSwapCustomRecipientAddress', () => {
         isAllNetwork: true,
       }),
     ).toBe(true);
+  });
+
+  it('falls back on all-network accounts when the confirmed recipient is incompatible with the token network', () => {
+    expect(
+      shouldUseSwapCustomRecipientAddress({
+        type: ESwapDirectionType.TO,
+        swapToAnotherAccountSwitchOn: true,
+        selectedRecipientAddress: 'sol-recipient',
+        selectedRecipientNetworkId: 'sol--101',
+        activeNetworkId: 'onekeyall--all',
+        tokenNetworkId: 'evm--1',
+        isAllNetwork: true,
+      }),
+    ).toBe(false);
   });
 });
 

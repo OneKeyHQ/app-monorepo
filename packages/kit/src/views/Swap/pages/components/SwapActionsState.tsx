@@ -414,9 +414,7 @@ const SwapActionsState = ({
         undefined,
         currentQuoteRes?.kind ?? ESwapQuoteKind.SELL,
         true,
-        nextSettings.swapToAnotherAccountSwitchOn
-          ? (swapToAnotherAccountAddress.address ?? swapToAddressInfo?.address)
-          : swapToAddressInfo?.address,
+        swapToAddressInfo?.address,
         value,
       );
     },
@@ -434,7 +432,6 @@ const SwapActionsState = ({
       swapFromAddressInfo?.address,
       swapIncognitoMode,
       swapToAnotherAccountSwitchOn,
-      swapToAnotherAccountAddress.address,
       swapToAddressInfo.address,
     ],
   );
