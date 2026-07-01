@@ -743,7 +743,7 @@ function BtcAddresses() {
                   }
                 />
               ) : null}
-              {showFindAddressEntry ? (
+              {showFindAddressEntry && activeTab === 'receive' ? (
                 <ActionList
                   title=""
                   renderTrigger={

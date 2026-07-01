@@ -163,6 +163,7 @@ function TokenDetailsHistoryContent({
         // session-scoped and would bloat the cache if stored here.
         tokenHistoryCache.set(historyCacheKey, r.txs ?? []);
         onFirstPageResponse({
+          txs: r.txs ?? [],
           next: r.next,
           hasMore: r.hasMoreOnChainHistory,
           isIndexer: r.isIndexer,

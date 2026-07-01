@@ -16,6 +16,7 @@ export enum EAtomNames {
   passwordPromptPromiseTriggerAtom = 'passwordPromptPromiseTriggerAtom',
   passwordPersistAtom = 'passwordPersistAtom',
   passwordPersistManualLockStateAtom = 'passwordPersistManualLockStateAtom',
+  localDbOpenErrorAtom = 'localDbOpenErrorAtom',
   jotaiContextStoreMapAtom = 'jotaiContextStoreMapAtom',
   addressBookPersistAtom = 'addressBookPersistAtom',
   hardwareUiStateAtom = 'hardwareUiStateAtom',

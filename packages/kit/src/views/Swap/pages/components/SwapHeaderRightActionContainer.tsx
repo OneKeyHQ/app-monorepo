@@ -37,12 +37,12 @@ import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialo
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapActions,
+  useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import {
   EJotaiContextStoreNames,
   filterSwapHistoryPendingList,
@@ -504,14 +504,20 @@ const StockKLineHeaderButton = ({
   buttonSize: 'small' | 'medium';
 }) => {
   const navigation = useAppNavigation();
-  const {
-    isNative,
-    networkId: networkIdFromHook,
-    tokenAddress: tokenAddressFromHook,
-    tokenDetail,
-  } = useTokenDetail();
-  const networkId = networkIdFromHook ?? tokenDetail?.networkId ?? '';
-  const tokenAddress = tokenAddressFromHook ?? tokenDetail?.address ?? '';
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
+  const stockToken = useMemo(() => {
+    if (fromToken?.isStock) {
+      return fromToken;
+    }
+    if (toToken?.isStock) {
+      return toToken;
+    }
+    return undefined;
+  }, [fromToken, toToken]);
+  const isNative = stockToken?.isNative;
+  const networkId = stockToken?.networkId ?? '';
+  const tokenAddress = stockToken?.contractAddress ?? '';
   const network = useMemo(
     () =>
       networkUtils.getNetworkShortCode({
@@ -520,10 +526,7 @@ const StockKLineHeaderButton = ({
     [networkId],
   );
   const disabled =
-    !tokenDetail?.stock ||
-    !tokenDetail?.symbol ||
-    !networkId ||
-    (!tokenAddress && !isNative);
+    !stockToken?.symbol || !networkId || (!tokenAddress && !isNative);
 
   const onOpenStockMarketDetail = useCallback(() => {
     if (disabled) {
@@ -556,6 +559,175 @@ const StockKLineHeaderButton = ({
   );
 };
 
+// Mobile Swap Pro: the candlestick button lives in the top capsule (consistent
+// with the Swap & Bridge / Stocks tabs). It opens the Pro market detail for the
+// currently selected Pro token — same destination as the old in-body button.
+const SwapProKLineHeaderButton = ({
+  iconSize,
+  iconColor,
+  buttonSize,
+}: {
+  iconSize: number | `$${string}`;
+  iconColor?: ColorTokens;
+  buttonSize: 'small' | 'medium';
+}) => {
+  const navigation = useAppNavigation();
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const disabled =
+    !swapProSelectToken?.networkId ||
+    (!swapProSelectToken?.contractAddress && !swapProSelectToken?.isNative);
+
+  const onOpenProMarketDetail = useCallback(() => {
+    if (disabled) {
+      return;
+    }
+    dismissKeyboard();
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapProMarketDetail,
+      params: {
+        tokenAddress: swapProSelectToken?.contractAddress ?? '',
+        network: swapProSelectToken?.networkId ?? '',
+        isNative: swapProSelectToken?.isNative,
+        from: EEnterWay.SwapPro,
+        disableTrade: true,
+        showFavoriteButton: false,
+      },
+    });
+  }, [
+    disabled,
+    navigation,
+    swapProSelectToken?.contractAddress,
+    swapProSelectToken?.networkId,
+    swapProSelectToken?.isNative,
+  ]);
+
+  return (
+    <HeaderIconButton
+      testID={SwapTestIDs.kLineButton}
+      icon="TradingViewCandlesOutline"
+      onPress={onOpenProMarketDetail}
+      disabled={disabled}
+      iconProps={{ size: iconSize, color: iconColor ?? '$icon' }}
+      size={buttonSize}
+    />
+  );
+};
+
+type ISwapSettingsHeaderButtonProps = {
+  pageType?: EPageType;
+  iconSize?: number | `$${string}`;
+  iconColor?: ColorTokens;
+  compact?: boolean;
+  marketPresetSettings?: IMarketPresetSettingsState;
+};
+
+export function SwapSettingsHeaderButton({
+  pageType,
+  iconSize,
+  iconColor,
+  compact,
+  marketPresetSettings,
+}: ISwapSettingsHeaderButtonProps) {
+  const intl = useIntl();
+  const { slippageItem } = useSwapSlippagePercentageModeInfo();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const swapStoreName =
+    pageType === EPageType.modal
+      ? EJotaiContextStoreNames.swapModal
+      : EJotaiContextStoreNames.swap;
+  const focusSwapPro =
+    platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
+  const showSwapProSlippageSetting =
+    focusSwapPro &&
+    (!marketPresetSettings ||
+      (!marketPresetSettings.enabled && !marketPresetSettings.isLoading));
+  const showHeaderSlippageValue =
+    !compact &&
+    ((swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+      swapTypeSwitch !== ESwapTabSwitchType.STOCK) ||
+      showSwapProSlippageSetting);
+  const slippageTitle = useMemo(() => {
+    if (!showHeaderSlippageValue) {
+      return null;
+    }
+    if (slippageItem.key === ESwapSlippageSegmentKey.CUSTOM) {
+      return (
+        <SizableText
+          color={
+            slippageItem.value > swapSlippageWillAheadMinValue
+              ? '$textCaution'
+              : '$text'
+          }
+          size="$bodyMdMedium"
+        >{`${slippageItem.value}%`}</SizableText>
+      );
+    }
+    return null;
+  }, [showHeaderSlippageValue, slippageItem.key, slippageItem.value]);
+  const resolvedIconSize = iconSize ?? (compact ? 24 : 20);
+  const resolvedButtonSize = compact ? 'small' : 'medium';
+  const onOpenSwapSettings = useCallback(() => {
+    Dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.swap_page_settings,
+      }),
+      renderContent: (
+        <SwapProviderMirror storeName={swapStoreName}>
+          <SwapSettingsDialogContent
+            marketPresetSettings={marketPresetSettings}
+          />
+        </SwapProviderMirror>
+      ),
+      showConfirmButton: false,
+      showCancelButton: true,
+      onCancelText: intl.formatMessage({
+        id: ETranslations.global_close,
+      }),
+      showFooter: true,
+    });
+  }, [intl, marketPresetSettings, swapStoreName]);
+
+  if (slippageTitle) {
+    return (
+      <XStack
+        testID={SwapTestIDs.settingsButton}
+        onPress={onOpenSwapSettings}
+        borderRadius="$3"
+        bg="$bgSubdued"
+        cursor="pointer"
+        px={compact ? '$1.5' : '$2'}
+        py="$1"
+        gap={compact ? '$0.5' : '$1'}
+        alignItems="center"
+        justifyContent="center"
+        hoverStyle={{
+          bg: '$bgHover',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+      >
+        {slippageTitle}
+        <Icon
+          name="SliderHorOutline"
+          size={resolvedIconSize}
+          color={iconColor ?? '$icon'}
+        />
+      </XStack>
+    );
+  }
+
+  return (
+    <HeaderIconButton
+      testID={SwapTestIDs.settingsButton}
+      icon="SliderHorOutline"
+      onPress={onOpenSwapSettings}
+      iconProps={{ size: resolvedIconSize, color: iconColor }}
+      size={resolvedButtonSize}
+    />
+  );
+}
+
 const SwapHeaderRightActionContainer = ({
   pageType,
   iconSize,
@@ -577,7 +749,6 @@ const SwapHeaderRightActionContainer = ({
   const { gtLg } = useMedia();
   const InTabDialog = useInTabDialog();
   const InModalDialog = useInModalDialog();
-  const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -587,6 +758,9 @@ const SwapHeaderRightActionContainer = ({
       ? EJotaiContextStoreNames.swapModal
       : EJotaiContextStoreNames.swap;
   const historyProtocolType = useMemo(() => {
+    if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
+      return EProtocolOfExchange.STOCK;
+    }
     if (
       swapTypeSwitch !== ESwapTabSwitchType.LIMIT ||
       (platformEnv.isNative && swapProTradeType === ESwapProTradeType.MARKET)
@@ -620,33 +794,6 @@ const SwapHeaderRightActionContainer = ({
     swapPendingStatusList.length + limitOpenStatusList.length;
   const focusSwapPro =
     platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
-  const showSwapProSlippageSetting =
-    focusSwapPro &&
-    (!marketPresetSettings ||
-      (!marketPresetSettings.enabled && !marketPresetSettings.isLoading));
-  const showHeaderSlippageValue =
-    !compact &&
-    ((swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
-      swapTypeSwitch !== ESwapTabSwitchType.STOCK) ||
-      showSwapProSlippageSetting);
-  const slippageTitle = useMemo(() => {
-    if (!showHeaderSlippageValue) {
-      return null;
-    }
-    if (slippageItem.key === ESwapSlippageSegmentKey.CUSTOM) {
-      return (
-        <SizableText
-          color={
-            slippageItem.value > swapSlippageWillAheadMinValue
-              ? '$textCaution'
-              : '$text'
-          }
-          size="$bodyMdMedium"
-        >{`${slippageItem.value}%`}</SizableText>
-      );
-    }
-    return null;
-  }, [showHeaderSlippageValue, slippageItem.key, slippageItem.value]);
   const resolvedIconSize = iconSize ?? (compact ? 24 : 20);
   const resolvedButtonSize = compact ? 'small' : 'medium';
   const isStockType = swapTypeSwitch === ESwapTabSwitchType.STOCK;
@@ -664,10 +811,14 @@ const SwapHeaderRightActionContainer = ({
   const showKLineButton =
     swapTypeSwitch === ESwapTabSwitchType.SWAP ||
     swapTypeSwitch === ESwapTabSwitchType.STOCK ||
-    (swapTypeSwitch === ESwapTabSwitchType.LIMIT && !focusSwapPro);
+    swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   const isKLineDisabled = !fromToken && !toToken;
-  const showKLineAsDialog =
-    platformEnv.isNative || (platformEnv.isExtension && !gtLg);
+  // On native, the K-line in-page dialog (InTabDialog / InModalDialog) does not
+  // mount when triggered from the header capsule, so the Swap & Bridge button
+  // appeared unresponsive. Use the full SwapKLine modal on native instead — the
+  // same navigation.pushModal mechanism the Stocks / Pro buttons and desktop
+  // already use successfully. Keep the dialog only for the small extension popup.
+  const showKLineAsDialog = platformEnv.isExtension && !gtLg;
   const kLineDialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   const onOpenSwapKLineModal = useCallback(() => {
     if (isKLineDisabled) {
@@ -727,82 +878,37 @@ const SwapHeaderRightActionContainer = ({
     swapStoreName,
   ]);
 
-  const onOpenSwapSettings = useCallback(() => {
-    Dialog.show({
-      title: intl.formatMessage({
-        id: ETranslations.swap_page_settings,
-      }),
-      renderContent: (
-        <SwapProviderMirror storeName={swapStoreName}>
-          <SwapSettingsDialogContent
-            marketPresetSettings={marketPresetSettings}
-          />
-        </SwapProviderMirror>
-      ),
-      showConfirmButton: false,
-      showCancelButton: true,
-      onCancelText: intl.formatMessage({
-        id: ETranslations.global_close,
-      }),
-      showFooter: true,
-    });
-  }, [intl, marketPresetSettings, swapStoreName]);
-
   let kLineButton: ReactNode = null;
   if (showKLineButton) {
-    kLineButton = isStockType ? (
-      <StockKLineHeaderButton
-        iconSize={resolvedIconSize}
-        iconColor={iconColor}
-        buttonSize={resolvedButtonSize}
-      />
-    ) : (
-      <HeaderIconButton
-        testID={SwapTestIDs.kLineButton}
-        icon="TradingViewCandlesOutline"
-        onPress={onOpenSwapKLineModal}
-        disabled={isKLineDisabled}
-        iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
-        size={resolvedButtonSize}
-      />
-    );
+    if (isStockType) {
+      kLineButton = (
+        <StockKLineHeaderButton
+          iconSize={resolvedIconSize}
+          iconColor={iconColor}
+          buttonSize={resolvedButtonSize}
+        />
+      );
+    } else if (focusSwapPro) {
+      kLineButton = (
+        <SwapProKLineHeaderButton
+          iconSize={resolvedIconSize}
+          iconColor={iconColor}
+          buttonSize={resolvedButtonSize}
+        />
+      );
+    } else {
+      kLineButton = (
+        <HeaderIconButton
+          testID={SwapTestIDs.kLineButton}
+          icon="TradingViewCandlesOutline"
+          onPress={onOpenSwapKLineModal}
+          disabled={isKLineDisabled}
+          iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
+          size={resolvedButtonSize}
+        />
+      );
+    }
   }
-
-  const settingsButton = slippageTitle ? (
-    <XStack
-      testID={SwapTestIDs.settingsButton}
-      onPress={onOpenSwapSettings}
-      borderRadius="$3"
-      bg="$bgSubdued"
-      cursor="pointer"
-      px={compact ? '$1.5' : '$2'}
-      py="$1"
-      gap={compact ? '$0.5' : '$1'}
-      alignItems="center"
-      justifyContent="center"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
-    >
-      {slippageTitle}
-      <Icon
-        name="SliderHorOutline"
-        size={resolvedIconSize}
-        color={iconColor ?? '$icon'}
-      />
-    </XStack>
-  ) : (
-    <HeaderIconButton
-      testID={SwapTestIDs.settingsButton}
-      icon="SliderHorOutline"
-      onPress={onOpenSwapSettings}
-      iconProps={{ size: resolvedIconSize, color: iconColor }}
-      size={resolvedButtonSize}
-    />
-  );
 
   return (
     // iOS 26: the three actions share one Liquid Glass capsule (like the Wallet
@@ -810,47 +916,59 @@ const SwapHeaderRightActionContainer = ({
     <GlassButtonCapsule>
       <HeaderButtonGroup gap={compact ? '$2' : '$4'} flexShrink={0}>
         {kLineButton}
-        {settingsButton}
+        <SwapSettingsHeaderButton
+          pageType={pageType}
+          iconSize={iconSize}
+          iconColor={iconColor}
+          compact={compact}
+          marketPresetSettings={marketPresetSettings}
+        />
 
-        {historyBadgeCount > 0 ? (
-          <Stack
-            testID={SwapTestIDs.historyButton}
-            m={compact ? '$0' : '$0.5'}
-            w="$5"
-            h="$5"
-            userSelect="none"
-            borderRadius="$full"
-            borderColor="$icon"
-            borderWidth={1.2}
-            alignItems="center"
-            justifyContent="center"
-            hoverStyle={{
-              bg: '$bgHover',
-            }}
-            pressStyle={{
-              bg: '$bgActive',
-            }}
-            focusVisibleStyle={{
-              outlineColor: '$focusRing',
-              outlineWidth: 2,
-              outlineStyle: 'solid',
-              outlineOffset: 0,
-            }}
-            onPress={onOpenHistoryListModal}
-          >
-            <SizableText color="$text" size="$bodySm">
-              {`${historyBadgeCount}`}
-            </SizableText>
-          </Stack>
-        ) : (
-          <HeaderIconButton
-            testID={SwapTestIDs.historyButton}
-            icon="ClockTimeHistoryOutline"
-            onPress={onOpenHistoryListModal}
-            iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
-            size={resolvedButtonSize}
-          />
-        )}
+        {/* On mobile every tab has its own Order History list, so the global
+            history button is hidden there; keep it on desktop / web / ext. */}
+        {!platformEnv.isNative &&
+          (historyBadgeCount > 0 ? (
+            <Stack
+              testID={SwapTestIDs.historyButton}
+              m={compact ? '$0' : '$0.5'}
+              w="$5"
+              h="$5"
+              userSelect="none"
+              borderRadius="$full"
+              borderColor="$icon"
+              borderWidth={1.2}
+              alignItems="center"
+              justifyContent="center"
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              pressStyle={{
+                bg: '$bgActive',
+              }}
+              focusVisibleStyle={{
+                outlineColor: '$focusRing',
+                outlineWidth: 2,
+                outlineStyle: 'solid',
+                outlineOffset: 0,
+              }}
+              onPress={onOpenHistoryListModal}
+            >
+              <SizableText color="$text" size="$bodySm">
+                {`${historyBadgeCount}`}
+              </SizableText>
+            </Stack>
+          ) : (
+            <HeaderIconButton
+              testID={SwapTestIDs.historyButton}
+              icon="ClockTimeHistoryOutline"
+              onPress={onOpenHistoryListModal}
+              iconProps={{
+                size: resolvedIconSize,
+                color: iconColor ?? '$icon',
+              }}
+              size={resolvedButtonSize}
+            />
+          ))}
       </HeaderButtonGroup>
     </GlassButtonCapsule>
   );

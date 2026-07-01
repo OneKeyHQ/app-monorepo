@@ -40,6 +40,7 @@ import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   isPrivateSendSwapHistoryItem,
   isSamePrivateSendSwapHistoryItem,
+  isStockSwapHistoryItem,
   isSwapHistoryProtocolExcluded,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
@@ -1824,6 +1825,31 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async markAllSwapHistoryPreviewRead() {
+    await this.backgroundApi.simpleDb.swapHistory.markUnreadTerminalPreviewRead(
+      Date.now(),
+    );
+    // Re-derive the pending atom so subscribed UIs re-read the persisted list
+    // (newly-read terminal items drop out of the preview).
+    await this.syncSwapHistoryPendingList();
+  }
+
+  @backgroundMethod()
+  async seedSwapHistoryPreviewReadIfNeeded() {
+    const seeded =
+      await this.backgroundApi.simpleDb.swapHistory.seedPreviewReadIfNeeded(
+        Date.now(),
+      );
+    if (seeded) {
+      // Re-derive the pending atom (same invalidation as
+      // markAllSwapHistoryPreviewRead) so a foreground that already read the
+      // pre-seed history re-reads it and drops the now-read legacy terminal
+      // items from the preview, instead of keeping them for the whole session.
+      await this.syncSwapHistoryPendingList();
+    }
+  }
+
+  @backgroundMethod()
   async refreshSwapHistoryPendingStatusOnce() {
     const histories = await this.fetchSwapHistoryListFromSimple();
     const pendingHistories = histories.filter((history) =>
@@ -2039,6 +2065,12 @@ export default class ServiceSwap extends ServiceBase {
     statuses?: ESwapTxHistoryStatus[],
     options?: {
       excludeProtocols?: EProtocolOfExchange[];
+      // Keep stock trades (the Swap/Bridge tab hides them via the token-level
+      // isStock flag, so clearing it must not delete stock orders).
+      excludeStock?: boolean;
+      // Mirror of excludeStock for the Stock history surface: only clear stock
+      // trades, keeping everything the Swap/Bridge list owns.
+      onlyStock?: boolean;
     },
   ) {
     await this.backgroundApi.simpleDb.swapHistory.deleteSwapHistoryItem(
@@ -2056,6 +2088,12 @@ export default class ServiceSwap extends ServiceBase {
             excludeProtocols: options?.excludeProtocols,
           })
         ) {
+          return false;
+        }
+        if (options?.excludeStock && isStockSwapHistoryItem(item)) {
+          return false;
+        }
+        if (options?.onlyStock && !isStockSwapHistoryItem(item)) {
           return false;
         }
         return statuses ? statuses.includes(item.status) : true;
@@ -2076,12 +2114,22 @@ export default class ServiceSwap extends ServiceBase {
         ) {
           return true;
         }
+        if (options?.excludeStock && isStockSwapHistoryItem(item)) {
+          return true;
+        }
+        if (options?.onlyStock && !isStockSwapHistoryItem(item)) {
+          return true;
+        }
         return statuses ? !statuses.includes(item.status) : false;
       }),
     }));
     await Promise.all(
       deleteHistoryIds.map((id) => this.cleanHistoryStateIntervals(id)),
     );
+    // The history list refreshes off the pending-status key, which does not
+    // change when only finished orders are removed. Signal list views to
+    // re-fetch so a clear is reflected immediately instead of leaving stale rows.
+    appEventBus.emit(EAppEventBusNames.RefreshSwapHistoryList, undefined);
   }
 
   @backgroundMethod()
@@ -2105,6 +2153,11 @@ export default class ServiceSwap extends ServiceBase {
       ),
     }));
     await this.cleanHistoryStateIntervals(deleteHistoryId);
+    // Deleting a finished order does not change the pending-status key the list
+    // refreshes off, so signal list views to re-fetch (same reason as the
+    // batch clean above) — otherwise the deleted row lingers until a pending
+    // order transitions.
+    appEventBus.emit(EAppEventBusNames.RefreshSwapHistoryList, undefined);
   }
 
   @backgroundMethod()

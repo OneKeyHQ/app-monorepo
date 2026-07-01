@@ -60,93 +60,96 @@ interface ISegmentMarkProps {
   customNode?: ReactNode;
 }
 
-const SegmentMark = memo(function SegmentMarkInner({
-  index,
-  pct,
-  hoverGlowColor,
-  disabled,
-  registerRef,
-  reportPointerDown,
-  customNode,
-}: ISegmentMarkProps) {
-  const [hovered, setHovered] = useState(false);
-  const hasCustom = customNode !== undefined && customNode !== null;
+const SegmentMark = memo(
+  ({
+    index,
+    pct,
+    hoverGlowColor,
+    disabled,
+    registerRef,
+    reportPointerDown,
+    customNode,
+  }: ISegmentMarkProps) => {
+    const [hovered, setHovered] = useState(false);
+    const hasCustom = customNode !== undefined && customNode !== null;
 
-  const handleRef = useCallback(
-    (el: HTMLDivElement | null) => registerRef(index, el),
-    [index, registerRef],
-  );
+    const handleRef = useCallback(
+      (el: HTMLDivElement | null) => registerRef(index, el),
+      [index, registerRef],
+    );
 
-  const handlePointerDown = useCallback(() => {
-    // Don't stop propagation — the container needs to set up pointer capture
-    // so drag continues to work even when the press starts on a mark.
-    // Just hand off the mark index; the container will use that to snap the
-    // initial value to the exact step instead of clientX-based raw value.
-    if (disabled) return;
-    reportPointerDown(index);
-  }, [index, reportPointerDown, disabled]);
+    const handlePointerDown = useCallback(() => {
+      // Don't stop propagation — the container needs to set up pointer capture
+      // so drag continues to work even when the press starts on a mark.
+      // Just hand off the mark index; the container will use that to snap the
+      // initial value to the exact step instead of clientX-based raw value.
+      if (disabled) return;
+      reportPointerDown(index);
+    }, [index, reportPointerDown, disabled]);
 
-  const handleMouseEnter = useCallback(() => {
-    if (!disabled) setHovered(true);
-  }, [disabled]);
-  const handleMouseLeave = useCallback(() => setHovered(false), []);
+    const handleMouseEnter = useCallback(() => {
+      if (!disabled) setHovered(true);
+    }, [disabled]);
+    const handleMouseLeave = useCallback(() => setHovered(false), []);
 
-  const hitAreaStyle = useMemo<CSSProperties>(
-    () => ({
-      position: 'absolute',
-      top: '50%',
-      left: `${pct}%`,
-      transform: 'translate(-50%, -50%)',
-      width: MARK_HIT_AREA,
-      height: MARK_HIT_AREA,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      cursor: disabled ? 'not-allowed' : 'pointer',
-      // Track has pointer-events: none, so the mark must explicitly opt back
-      // in to receive hover and click.
-      pointerEvents: 'auto',
-      zIndex: 3,
-    }),
-    [pct, disabled],
-  );
+    const hitAreaStyle = useMemo<CSSProperties>(
+      () => ({
+        position: 'absolute',
+        top: '50%',
+        left: `${pct}%`,
+        transform: 'translate(-50%, -50%)',
+        width: MARK_HIT_AREA,
+        height: MARK_HIT_AREA,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        // Track has pointer-events: none, so the mark must explicitly opt back
+        // in to receive hover and click.
+        pointerEvents: 'auto',
+        zIndex: 3,
+      }),
+      [pct, disabled],
+    );
 
-  // background and borderColor are owned by applyMarkActiveStates (imperative
-  // DOM mutation). Listing them here too would let a hover-triggered
-  // re-render clobber the active-state fill set by the parent.
-  // borderWidth/borderStyle MUST live here: borderColor alone doesn't render a
-  // ring without a non-zero width and an explicit style, so the inactive marks
-  // would otherwise be invisible white circles on a white page.
-  const visualStyle = useMemo<CSSProperties>(
-    () => ({
-      width: MARK_SIZE,
-      height: MARK_SIZE,
-      borderRadius: '50%',
-      borderWidth: 1,
-      borderStyle: 'solid',
-      borderColor: 'transparent',
-      boxSizing: 'border-box',
-      boxShadow: hovered ? `0 0 0 4px ${hoverGlowColor}` : 'none',
-      transition: 'box-shadow 150ms ease',
-    }),
-    [hovered, hoverGlowColor],
-  );
+    // background and borderColor are owned by applyMarkActiveStates (imperative
+    // DOM mutation). Listing them here too would let a hover-triggered
+    // re-render clobber the active-state fill set by the parent.
+    // borderWidth/borderStyle MUST live here: borderColor alone doesn't render a
+    // ring without a non-zero width and an explicit style, so the inactive marks
+    // would otherwise be invisible white circles on a white page.
+    const visualStyle = useMemo<CSSProperties>(
+      () => ({
+        width: MARK_SIZE,
+        height: MARK_SIZE,
+        borderRadius: '50%',
+        borderWidth: 1,
+        borderStyle: 'solid',
+        borderColor: 'transparent',
+        boxSizing: 'border-box',
+        boxShadow: hovered ? `0 0 0 4px ${hoverGlowColor}` : 'none',
+        transition: 'box-shadow 150ms ease',
+      }),
+      [hovered, hoverGlowColor],
+    );
 
-  // When a custom renderMark is provided, it replaces the default visual
-  // entirely (matches native: `if (renderMark) return renderMark({ index })`).
-  // We skip the default circle wrapper AND skip ref registration so
-  // applyMarkActiveStates can't mutate the custom node's styles.
-  return (
-    <div
-      style={hitAreaStyle}
-      onPointerDown={handlePointerDown}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      {hasCustom ? customNode : <div ref={handleRef} style={visualStyle} />}
-    </div>
-  );
-});
+    // When a custom renderMark is provided, it replaces the default visual
+    // entirely (matches native: `if (renderMark) return renderMark({ index })`).
+    // We skip the default circle wrapper AND skip ref registration so
+    // applyMarkActiveStates can't mutate the custom node's styles.
+    return (
+      <div
+        style={hitAreaStyle}
+        onPointerDown={handlePointerDown}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        {hasCustom ? customNode : <div ref={handleRef} style={visualStyle} />}
+      </div>
+    );
+  },
+);
+SegmentMark.displayName = 'SegmentMark';
 
 function SegmentSliderComponent({
   value,

@@ -12,6 +12,7 @@ import {
   filterSwapMarketHistoryItems,
   getSwapMarketPendingHistoryCount,
   getSwapMarketPendingHistoryKey,
+  isStockSwapHistoryItem,
   isSwapMarketHistoryItem,
 } from './swapMarketHistory';
 
@@ -88,6 +89,47 @@ describe('swapMarketHistory', () => {
   it('keeps stock orders in the market history bucket', () => {
     expect(
       isSwapMarketHistoryItem(
+        createHistoryItem({ protocol: EProtocolOfExchange.STOCK }),
+      ),
+    ).toBe(true);
+  });
+
+  it('detects stock trades via the token isStock flag', () => {
+    const stockToken = createToken('AAPLon', '0xAAPLon', { isStock: true });
+    const usdc = createToken('USDC', '0xUSDC');
+    // Buy (pay stablecoin -> receive stock), protocol echoed as SWAP fallback
+    expect(
+      isStockSwapHistoryItem(
+        createHistoryItem({
+          protocol: EProtocolOfExchange.SWAP,
+          fromToken: usdc,
+          toToken: stockToken,
+        }),
+      ),
+    ).toBe(true);
+    // Sell (pay stock -> receive stablecoin)
+    expect(
+      isStockSwapHistoryItem(
+        createHistoryItem({
+          protocol: EProtocolOfExchange.SWAP,
+          fromToken: stockToken,
+          toToken: usdc,
+        }),
+      ),
+    ).toBe(true);
+    // Plain swap, no stock token
+    expect(
+      isStockSwapHistoryItem(
+        createHistoryItem({
+          protocol: EProtocolOfExchange.SWAP,
+          fromToken: usdc,
+          toToken: createToken('ETH'),
+        }),
+      ),
+    ).toBe(false);
+    // Item that does carry protocol === STOCK still counts
+    expect(
+      isStockSwapHistoryItem(
         createHistoryItem({ protocol: EProtocolOfExchange.STOCK }),
       ),
     ).toBe(true);

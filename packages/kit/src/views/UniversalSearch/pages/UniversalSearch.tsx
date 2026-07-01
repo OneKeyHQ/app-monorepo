@@ -47,11 +47,7 @@ import { ListItem } from '../../../components/ListItem';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import {
-  useAggregateTokensListMapAtom,
-  useAllTokenListAtom,
-  useAllTokenListMapAtom,
-} from '../../../states/jotai/contexts/tokenList';
+import { useHomeTokenListSnapshot } from '../../../states/jotai/contexts/tokenList/cells';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
 import { MarketWatchListProviderMirrorV2 } from '../../Market/MarketWatchListProviderMirrorV2';
@@ -171,9 +167,13 @@ export function UniversalSearch({
 }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const [allTokenList] = useAllTokenListAtom();
-  const [allTokenListMap] = useAllTokenListMapAtom();
-  const [aggregateTokenListMap] = useAggregateTokensListMapAtom();
+  // Home raw list + full fiat map snapshot (PULLed from the BG VM, refreshed on
+  // each home structure frame). Keeps the search cache hint alive (do
+  // NOT drop the cache) — `getRawTokenList()` also returns the SETTLED owner
+  // identity so the `shouldUseTokensCacheData` owner match still holds. Replaces
+  // the deleted `allTokenListAtom` / `allTokenListMapAtom`.
+  const allTokenList = useHomeTokenListSnapshot();
+  const allTokenListMap = allTokenList.map;
 
   const { result: allAggregateTokenInfo } = usePromiseResult(
     async () => backgroundApiProxy.serviceToken.getAllAggregateTokenInfo(),
@@ -341,14 +341,12 @@ export function UniversalSearch({
     return (
       allTokenList &&
       allTokenListMap &&
-      aggregateTokenListMap &&
       allTokenList.accountId === activeAccount?.account?.id &&
       allTokenList.networkId === activeAccount?.network?.id
     );
   }, [
     allTokenList,
     allTokenListMap,
-    aggregateTokenListMap,
     activeAccount?.account?.id,
     activeAccount?.network?.id,
   ]);
@@ -399,6 +397,35 @@ export function UniversalSearch({
           allowedSearchTypeSet.has(type),
       ),
     [allowedSearchTypeSet],
+  );
+
+  // The search category that the `initialTab` preset selects. The Discovery
+  // browser tab presets `dapp`, whose results arrive in the DEFERRED round.
+  const initialTabSearchType = useMemo<EUniversalSearchType | undefined>(() => {
+    if (initialTab === 'market') {
+      return EUniversalSearchType.V2MarketToken;
+    }
+    if (initialTab === 'dapp') {
+      return EUniversalSearchType.Dapp;
+    }
+    return undefined;
+  }, [initialTab]);
+
+  // When the preset tab's results come from the DEFERRED round (e.g. Dapp for
+  // the browser tab), painting `done` right after the PRIMARY round renders a
+  // result list that has no preset section yet — so `activeTab` falls back to
+  // "All" and surfaces market until the deferred round lands, and the tab
+  // highlight/content desync only clears after the user toggles tabs
+  // (OK-56756). Hold the loading skeleton through the deferred round so the
+  // first (and only) `done` paint already contains the preset section and lands
+  // on it directly. Presets served by the primary round (market) and the
+  // preset-less global search keep the fast partial paint.
+  const deferDonePaintUntilPresetReady = useMemo(
+    () =>
+      !!initialTabSearchType &&
+      !PRIMARY_SEARCH_TYPES.includes(initialTabSearchType) &&
+      allowedSearchTypeSet.has(initialTabSearchType),
+    [initialTabSearchType, allowedSearchTypeSet],
   );
 
   const buildSectionData = useCallback((data: IUniversalSearchResultItem[]) => {
@@ -604,9 +631,13 @@ export function UniversalSearch({
         tokenListCacheMap: shouldUseTokensCacheData
           ? allTokenListMap
           : undefined,
-        aggregateTokenListCacheMap: shouldUseTokensCacheData
-          ? aggregateTokenListMap
-          : undefined,
+        // PR-3 D2=B1 (tokenList cells full-delete): the UI no longer threads the
+        // home `aggregateTokensListMapAtom`. The BG
+        // `universalSearchOfAccountAssets` SELF-DERIVES the scoped owned
+        // sub-token list map for the searched owner (via
+        // `serviceToken.getLocalAggregateTokenListMap`) when this is absent, so
+        // aggregate sub-token (contract-address) matching is preserved.
+        aggregateTokenListCacheMap: undefined,
       };
       try {
         // Skip the primary round entirely when the active scope excludes all
@@ -626,7 +657,11 @@ export function UniversalSearch({
             input,
           });
 
-          if (primarySections.length > 0) {
+          // Skip the early partial paint when a deferred preset tab is active,
+          // so we never render a `done` state that is missing the preset
+          // section (OK-56756). The merged paint below then lands on the preset
+          // tab directly instead of falling back to "All" (which shows market).
+          if (primarySections.length > 0 && !deferDonePaintUntilPresetReady) {
             setSections(primarySections);
             setSearchStatus(ESearchStatus.done);
           }

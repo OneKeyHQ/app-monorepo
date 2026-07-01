@@ -14,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { DeFiPositionHealthFactorRow } from '@onekeyhq/kit/src/components/DeFi/DeFiPositionHealthFactorRow';
 import { ProtocolPositionActionButton } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
 import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import { ProtocolPositionSection } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionSection';
@@ -28,6 +29,7 @@ import {
   buildLocalizedProtocolPositionItems,
   buildProtocolDisplayInfo,
   getProtocolPositionDisplayName,
+  isSectionedPosition,
 } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -208,6 +210,10 @@ function DeFiProtocolDetails() {
               positionValueState.hasAvailableValue &&
               positionValueState.hasUnavailableValue;
             const actionPosition = buildActionPosition(position);
+            // Lending / debt-bearing positions put a scoped action on each
+            // supplied/borrowed/rewards row; simple positions keep a single
+            // position-level button below.
+            const sectioned = isSectionedPosition(position);
 
             return (
               <Stack key={position.positionKey} px="$5">
@@ -249,6 +255,13 @@ function DeFiProtocolDetails() {
                     />
                   </Stack>
                 </XStack>
+                {typeof position.healthFactor === 'number' ? (
+                  <Stack pt="$2" pb="$1">
+                    <DeFiPositionHealthFactorRow
+                      healthFactor={position.healthFactor}
+                    />
+                  </Stack>
+                ) : null}
                 <YStack gap="$2">
                   {position.sections.map((section) => (
                     <ProtocolPositionSection
@@ -257,17 +270,31 @@ function DeFiProtocolDetails() {
                       section={section}
                       currencySymbol={settings.currencyInfo.symbol}
                       priceUnavailableLabel={priceUnavailableLabel}
+                      actionProps={
+                        sectioned
+                          ? {
+                              accountId: actionAccountId,
+                              indexedAccountId: actionIndexedAccountId,
+                              protocol,
+                              actionPosition,
+                              supportedActions,
+                              onActionSuccess: handleActionSuccess,
+                            }
+                          : undefined
+                      }
                     />
                   ))}
-                  <ProtocolPositionActionButton
-                    accountId={actionAccountId}
-                    indexedAccountId={actionIndexedAccountId}
-                    protocol={protocol}
-                    position={actionPosition}
-                    supportedActions={supportedActions}
-                    containerProps={{ alignSelf: 'flex-end' }}
-                    onSuccess={handleActionSuccess}
-                  />
+                  {sectioned ? null : (
+                    <ProtocolPositionActionButton
+                      accountId={actionAccountId}
+                      indexedAccountId={actionIndexedAccountId}
+                      protocol={protocol}
+                      position={actionPosition}
+                      supportedActions={supportedActions}
+                      block
+                      onSuccess={handleActionSuccess}
+                    />
+                  )}
                 </YStack>
               </Stack>
             );

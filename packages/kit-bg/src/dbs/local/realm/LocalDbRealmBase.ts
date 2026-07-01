@@ -9,13 +9,16 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { LocalDbOpenError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ensureLocalDbNotOnNativeMainThread } from '@onekeyhq/shared/src/utils/assertUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
+import { localDbOpenErrorAtom } from '../../../states/jotai/atoms/localDb';
 import { REALM_DB_NAME, REALM_DB_VERSION } from '../consts';
 import { LocalDbBase } from '../LocalDbBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
@@ -39,28 +42,48 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
     // "main thread never opens Realm" convention into an enforced guard so a
     // future refactor cannot accidentally open the DB on the UI/main thread.
     ensureLocalDbNotOnNativeMainThread();
-    const realm = await Realm.open({
-      path: REALM_DB_NAME,
-      schema: realmDBSchemas as any,
-      schemaVersion: REALM_DB_VERSION,
-      onMigration: (oldRealm: Realm, newRealm: Realm) => {
-        const oldVersion = oldRealm.schemaVersion;
-        const newVersion = newRealm.schemaVersion;
-        console.log(oldVersion, newVersion);
-        // do nothing here, add migration logic on service layer
+    let realm: Realm;
+    try {
+      realm = await Realm.open({
+        path: REALM_DB_NAME,
+        schema: realmDBSchemas as any,
+        schemaVersion: REALM_DB_VERSION,
+        onMigration: (oldRealm: Realm, newRealm: Realm) => {
+          const oldVersion = oldRealm.schemaVersion;
+          const newVersion = newRealm.schemaVersion;
+          console.log(oldVersion, newVersion);
+          // do nothing here, add migration logic on service layer
 
-        // update network rpcURL
-        if (oldRealm.schemaVersion < 13) {
-          //   const networks = newRealm.objects<NetworkSchema>('Network');
-          //   for (const network of networks) {
-          //     const toClear = DEFAULT_RPC_ENDPOINT_TO_CLEAR[network.id];
-          //     if (typeof toClear !== 'undefined' && network.rpcURL === toClear) {
-          //       network.rpcURL = '';
-          //     }
-          //   }
-        }
-      },
-    });
+          // update network rpcURL
+          if (oldRealm.schemaVersion < 13) {
+            //   const networks = newRealm.objects<NetworkSchema>('Network');
+            //   for (const network of networks) {
+            //     const toClear = DEFAULT_RPC_ENDPOINT_TO_CLEAR[network.id];
+            //     if (typeof toClear !== 'undefined' && network.rpcURL === toClear) {
+            //       network.rpcURL = '';
+            //     }
+            //   }
+          }
+        },
+      });
+    } catch (error) {
+      // Any failure to open the local database is re-thrown as a generic
+      // LocalDbOpenError. A version downgrade (on-disk DB newer than this build)
+      // is only one possible cause — disk corruption, I/O errors, locking, etc.
+      // all land here too — so we deliberately do NOT inspect the error
+      // type/message to classify it (brittle and easy to misclassify). We keep
+      // the ORIGINAL error message (only falling back to a fixed English string
+      // when the underlying error carries none): record it via the structured
+      // logger (console.* is stripped in production; defaultLogger reaches the
+      // exportable logs the user can upload from the lock screen), publish it to
+      // the global atom so the lock screen can show it immediately on mount, and
+      // carry it on the thrown error so the raw reason is never masked.
+      // (OK-56874)
+      const rawMessage = (error as Error)?.message || 'DB open unknown error';
+      defaultLogger.app.error.log(`[LocalDbRealm] open failed: ${rawMessage}`);
+      void localDbOpenErrorAtom.set({ errorMessage: rawMessage });
+      throw new LocalDbOpenError({ message: rawMessage });
+    }
     if (process.env.NODE_ENV !== 'production') {
       appGlobals.$$realm = realm;
       setTimeout(() => {

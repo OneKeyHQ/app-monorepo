@@ -544,7 +544,11 @@ export interface ISwapPreSwapData {
   supportPreBuild?: boolean;
   allowanceResult?: IAllowanceResult;
   netWorkFee?: {
-    gasInfos?: { encodeTx: IEncodedTx; gasInfo: ISwapGasInfo }[];
+    gasInfos?: {
+      encodeTx: IEncodedTx;
+      gasInfo: ISwapGasInfo;
+      txSize?: number;
+    }[];
     gasFeeFiatValue?: string;
   };
 }
@@ -996,6 +1000,9 @@ export interface ISwapTxHistory {
   ctx?: any;
   currency?: string;
   currencyId?: string;
+  // Timestamp at which this item was archived ("read") by the Swap history
+  // preview module. Presence = read; absence = unread. Value is never compared.
+  previewReadAt?: number;
   accountInfo: {
     sender: {
       accountId?: string;

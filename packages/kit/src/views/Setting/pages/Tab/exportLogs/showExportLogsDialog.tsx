@@ -9,6 +9,7 @@ import {
   Button,
   Dialog,
   Icon,
+  Portal,
   Progress,
   SizableText,
   Stack,
@@ -19,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import { inAppStateLockStyle } from '@onekeyhq/kit/src/views/Setting/hooks';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -35,7 +37,11 @@ type IDialogStage =
   | 'fallback_export_done'
   | 'final_error';
 
-function UploadLogsDialogContent() {
+function UploadLogsDialogContent({
+  inAppStateLock,
+}: {
+  inAppStateLock?: boolean;
+}) {
   const intl = useIntl();
   const dialog = useDialogInstance();
   const { copyText } = useClipboard();
@@ -196,6 +202,17 @@ function UploadLogsDialogContent() {
           }),
         });
       } catch (_error) {
+        // On the lock screen manual export is unavailable (file save / share
+        // sheet cannot be presented above the lock overlay), so skip the
+        // export fallback and surface a terminal error instead. (OK-56874)
+        if (inAppStateLock) {
+          console.log(
+            '[Log Upload] Upload failed on lock screen; manual export disabled',
+          );
+          setDialogStage('final_error');
+          setErrorMessage(undefined);
+          return;
+        }
         // Upload failed after retries - fallback to export
         console.log(
           '[Log Upload] All upload attempts failed, falling back to export',
@@ -227,7 +244,7 @@ function UploadLogsDialogContent() {
         isActiveRef.current = false;
       }
     },
-    [dialogStage, resolveError, intl, generateFileBaseName],
+    [dialogStage, resolveError, intl, generateFileBaseName, inAppStateLock],
   );
 
   const handleConfirmAction = useCallback(
@@ -243,14 +260,31 @@ function UploadLogsDialogContent() {
       case 'idle':
         return (
           <Stack>
-            <HyperlinkText
-              size="$bodyLg"
-              color="$textSubdued"
-              translationId={
-                ETranslations.settings_logs_do_not_include_sensitive_data
-              }
-              onAction={handleManualExport}
-            />
+            {inAppStateLock ? (
+              // Lock screen: keep the privacy reassurance but hide the inline
+              // "manually export logs" action, since file export / share sheet
+              // cannot be presented above the lock overlay. (OK-56874)
+              <SizableText size="$bodyLg" color="$textSubdued">
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.settings_logs_do_not_include_sensitive_data,
+                  },
+                  {
+                    action: () => null,
+                    underline: () => null,
+                  },
+                )}
+              </SizableText>
+            ) : (
+              <HyperlinkText
+                size="$bodyLg"
+                color="$textSubdued"
+                translationId={
+                  ETranslations.settings_logs_do_not_include_sensitive_data
+                }
+                onAction={handleManualExport}
+              />
+            )}
           </Stack>
         );
 
@@ -438,11 +472,25 @@ function UploadLogsDialogContent() {
   );
 }
 
-export function showExportLogsDialog({ title }: { title: string }) {
+export function showExportLogsDialog({
+  title,
+  inAppStateLock,
+}: {
+  title: string;
+  // Render the dialog above the app-state lock screen overlay (OK-56874).
+  inAppStateLock?: boolean;
+}) {
   return Dialog.show({
     icon: 'UploadOutline',
     title,
     showFooter: false,
-    renderContent: <UploadLogsDialogContent />,
+    renderContent: <UploadLogsDialogContent inAppStateLock={inAppStateLock} />,
+    ...(inAppStateLock
+      ? {
+          ...inAppStateLockStyle,
+          isOverTopAllViews: true,
+          portalContainer: Portal.Constant.APP_STATE_LOCK_CONTAINER_OVERLAY,
+        }
+      : undefined),
   });
 }

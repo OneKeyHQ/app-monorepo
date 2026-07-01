@@ -50,7 +50,15 @@ export const isSupportWebAuth = async () => {
   return finalSupport;
 };
 
-export const verifiedWebAuth = async (credId: string) => {
+export const verifiedWebAuth = async (
+  credId: string,
+  options?: {
+    // Restrict verification to the built-in platform authenticator (Touch ID /
+    // Windows Hello on THIS device) and reject the cross-device "use a passkey
+    // on another device" (hybrid/caBLE) and roaming USB-key flows.
+    platformAuthenticatorOnly?: boolean;
+  },
+) => {
   if (!(await isSupportWebAuth())) {
     throw new OneKeyLocalError('Not support web auth');
   }
@@ -62,6 +70,11 @@ export const verifiedWebAuth = async (credId: string) => {
         {
           type: 'public-key',
           id: base64Decode(credId) as BufferSource,
+          // Hint the client that the credential lives on the internal
+          // authenticator so the hybrid/USB transports are not offered.
+          ...(options?.platformAuthenticatorOnly
+            ? { transports: ['internal'] as AuthenticatorTransport[] }
+            : null),
         },
       ],
       userVerification: 'required',
@@ -70,7 +83,19 @@ export const verifiedWebAuth = async (credId: string) => {
     },
   };
   try {
-    return await navigator.credentials.get(getCredentialOptions);
+    const cred = await navigator.credentials.get(getCredentialOptions);
+    if (options?.platformAuthenticatorOnly) {
+      const attachment = (
+        cred as { authenticatorAttachment?: string | null } | null
+      )?.authenticatorAttachment;
+      // Only reject when the client explicitly reports a non-platform
+      // authenticator; when it is unreported we rely on the `internal`
+      // transport hint above.
+      if (attachment && attachment !== 'platform') {
+        return undefined;
+      }
+    }
+    return cred;
   } catch (e) {
     if (
       e instanceof DOMException &&

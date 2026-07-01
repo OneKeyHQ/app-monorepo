@@ -125,6 +125,7 @@ export function buildPositionLine(
 export function buildOrderLine(
   order: IPerpsFrontendOrder,
   szDecimals: number,
+  symbol: string,
 ): ITVLine | null {
   const sz = parseSize(order.sz);
   if (sz === 0 || !parseValidPrice(order.limitPx)) {
@@ -140,7 +141,8 @@ export function buildOrderLine(
 
   return {
     id: `order:${order.oid}`,
-    symbol: order.coin,
+    // Chart symbol, not order.coin (`@index` for spot), so sync/patch/drag share one key.
+    symbol,
     kind: 'order',
     price: toChartPriceString(order.limitPx),
     qty: formatHlSize(sz, szDecimals) || '0',
@@ -178,6 +180,7 @@ function isTriggerTpSlOrder(orderType: string): boolean {
 export function buildTpSlLine(
   order: IPerpsFrontendOrder,
   szDecimals: number,
+  symbol: string,
   positionSize?: string,
 ): ITVLine | null {
   const orderSize = parseSize(order.sz);
@@ -216,7 +219,8 @@ export function buildTpSlLine(
 
   return {
     id: `${kind}:${order.oid}`,
-    symbol: order.coin,
+    // Key on the chart symbol (see buildOrderLine), not order.coin.
+    symbol,
     kind,
     price: toChartPriceString(order.triggerPx),
     qty: formatHlSize(resolvedSize, szDecimals) || '0',
@@ -260,12 +264,14 @@ export function buildAllLinesForSymbol(
     ? new BigNumber(currentPosition.position.szi || '0').abs().toFixed()
     : undefined;
 
-  for (const order of orders.filter((o) => o.coin === symbol)) {
+  // Already scoped to the active instrument upstream; re-filtering by
+  // `o.coin === symbol` here dropped spot orders (`@index` coin) (OK-56900).
+  for (const order of orders) {
     let line: ITVLine | null = null;
     if (order.orderType === 'Limit') {
-      line = buildOrderLine(order, szDecimals);
+      line = buildOrderLine(order, szDecimals, symbol);
     } else if (isTpSlOrder(order.orderType)) {
-      line = buildTpSlLine(order, szDecimals, currentPositionSize);
+      line = buildTpSlLine(order, szDecimals, symbol, currentPositionSize);
     }
     if (line) lines.push(line);
   }

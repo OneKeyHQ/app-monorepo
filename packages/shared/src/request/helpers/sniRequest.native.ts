@@ -1,18 +1,67 @@
 import {
+  type SniConnectMethod,
+  type SniConnectRequest,
   request as nativeSniRequest,
-  subscribeToLogs as nativeSubscribeToLogs,
 } from '@onekeyfe/react-native-sni-connect';
 
-import type { ISniRequestConfig, ISniResponse } from '../types/ipTable';
-import type { LogEntry } from '@onekeyfe/react-native-sni-connect';
+import { OneKeyLocalError } from '../../errors';
 
-/**
- * Subscribe to SNI connection logs for debugging
- * @param callback - Function to call when new log entries are available
- * @returns Unsubscribe function
- */
-export function subscribeToLogs(callback: (log: LogEntry) => void): () => void {
-  return nativeSubscribeToLogs(callback);
+import type { ISniRequestConfig, ISniResponse } from '../types/ipTable';
+
+function normalizeSniRequestMethod(method: string): SniConnectMethod {
+  switch (method.toUpperCase()) {
+    case 'GET':
+      return 'GET';
+    case 'HEAD':
+      return 'HEAD';
+    case 'POST':
+      return 'POST';
+    case 'PUT':
+      return 'PUT';
+    case 'PATCH':
+      return 'PATCH';
+    case 'DELETE':
+      return 'DELETE';
+    case 'OPTIONS':
+      return 'OPTIONS';
+    default:
+      throw new OneKeyLocalError(`Unsupported SNI request method: ${method}`);
+  }
+}
+
+function buildNativeSniRequest(config: ISniRequestConfig): SniConnectRequest {
+  const method = normalizeSniRequestMethod(config.method);
+  const baseConfig = {
+    ip: config.ip,
+    hostname: config.hostname,
+    path: config.path,
+    headers: config.headers,
+    timeout: config.timeout,
+  };
+
+  switch (method) {
+    case 'GET':
+    case 'HEAD':
+      return {
+        ...baseConfig,
+        method,
+      };
+    case 'POST':
+    case 'PUT':
+    case 'PATCH':
+      return {
+        ...baseConfig,
+        method,
+        body: config.body ?? '',
+      };
+    case 'DELETE':
+    case 'OPTIONS':
+      return {
+        ...baseConfig,
+        method,
+        body: config.body,
+      };
+  }
 }
 
 /**
@@ -22,15 +71,7 @@ export function subscribeToLogs(callback: (log: LogEntry) => void): () => void {
 export async function sniRequest(
   config: ISniRequestConfig,
 ): Promise<ISniResponse | null> {
-  const response = await nativeSniRequest({
-    ip: config.ip,
-    hostname: config.hostname,
-    path: config.path,
-    headers: config.headers,
-    method: config.method,
-    body: config.body,
-    timeout: config.timeout,
-  });
+  const response = await nativeSniRequest(buildNativeSniRequest(config));
 
   return {
     statusCode: response.status,

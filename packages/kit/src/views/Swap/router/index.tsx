@@ -5,12 +5,17 @@ import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
+import SwapHistoryListModalFallback from '../pages/modal/SwapHistoryListModalFallback';
+import SwapTokenSelectModal from '../pages/modal/SwapTokenSelectModal';
 
 const LimitOrderDetailModal = LazyLoadPage(
   () => import('../pages/modal/LimitOrderDetailModal'),
 );
 const SwapHistoryListModal = LazyLoadPage(
   () => import('../pages/modal/SwapHistoryListModal'),
+  undefined,
+  undefined,
+  <SwapHistoryListModalFallback />,
 );
 
 const SwapHistoryDetailModal = LazyLoadPage(
@@ -21,9 +26,6 @@ const SwapProviderSelectModal = LazyLoadPage(
 );
 const SwapToAnotherAddressModal = LazyLoadPage(
   () => import('../pages/modal/SwapToAnotherAddressModal'),
-);
-const SwapTokenSelectModal = LazyLoadPage(
-  () => import('../pages/modal/SwapTokenSelectModal'),
 );
 const TokenRiskReminderModal = LazyLoadPage(
   () => import('../pages/modal/TokenRiskReminderModal'),
@@ -67,7 +69,7 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
   {
     name: EModalSwapRoutes.SwapHistoryList,
     component: SwapHistoryListModal,
-    translationId: ETranslations.Limit_order_history,
+    translationId: ETranslations.swap_history_title,
   },
   {
     name: EModalSwapRoutes.SwapHistoryDetail,

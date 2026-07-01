@@ -107,6 +107,7 @@ import {
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
 import { TradingFormInput } from '../inputs/TradingFormInput';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
+import { AccountModeSelector } from '../selectors/AccountModeSelector';
 import { BBOSelector } from '../selectors/BBOSelector';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
 import { MobileOrderTypeSelector } from '../selectors/MobileOrderTypeSelector';
@@ -178,7 +179,8 @@ const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
 const TWAP_ESTIMATED_SLICE_INTERVAL_MINUTES = 0.5;
 const TWAP_MIN_SLICE_NOTIONAL_HINT = 10;
-const ORDER_TYPE_HELP_CENTER_URL = 'https://help.onekey.so/articles/15442238';
+export const ORDER_TYPE_HELP_CENTER_URL =
+  'https://help.onekey.so/articles/15442238';
 const TWAP_DURATION_PRESET_OPTIONS = [
   { label: '1h', minutes: 60 },
   { label: '6h', minutes: 360 },
@@ -400,7 +402,7 @@ function OrderTypeInfoContent({
   );
 }
 
-function OrderTypeInfoButton({
+export function OrderTypeInfoButton({
   description,
   helpUrl,
   isMobile,
@@ -2476,6 +2478,9 @@ function PerpTradingForm({
   const reduceOnlyLabel = intl.formatMessage({
     id: ETranslations.perps_reduce_only,
   });
+  const reduceOnlyTooltip = intl.formatMessage({
+    id: ETranslations.perp_reduce_only__desc,
+  });
 
   const renderReduceOnlyCheckbox = ({
     testID,
@@ -2486,26 +2491,33 @@ function PerpTradingForm({
     value: boolean;
     onChange: (checked: boolean) => void;
   }) => (
-    <Checkbox
-      testID={testID}
-      value={value}
-      onChange={(checked) => onChange(!!checked)}
-      disabled={isSubmitting}
-      label={reduceOnlyLabel}
-      containerProps={{
-        p: 0,
-        alignItems: 'center',
-        cursor: isSubmitting ? 'default' : 'pointer',
-      }}
-      labelProps={{
-        fontSize: isMobile ? '$bodySm' : '$bodyMdMedium',
-        fontWeight: isMobile ? '400' : '500',
-        color: '$text',
-      }}
-      width={checkboxSizeVal}
-      height={checkboxSizeVal}
-      {...(isMobile && { p: '$0' })}
-    />
+    <XStack alignItems="center" gap="$2">
+      <Checkbox
+        testID={testID}
+        value={value}
+        onChange={(checked) => onChange(!!checked)}
+        disabled={isSubmitting}
+        shouldStopPropagation
+        containerProps={{
+          p: 0,
+          alignItems: 'center',
+          cursor: isSubmitting ? 'default' : 'pointer',
+        }}
+        width={checkboxSizeVal}
+        height={checkboxSizeVal}
+        {...(isMobile && { p: '$0' })}
+      />
+      <DashText
+        size={isMobile ? '$bodySm' : '$bodyMdMedium'}
+        color="$text"
+        dashColor="$textDisabled"
+        dashThickness={0.5}
+        tooltip={reduceOnlyTooltip}
+        tooltipTitle={reduceOnlyLabel}
+      >
+        {reduceOnlyLabel}
+      </DashText>
+    </XStack>
   );
 
   const renderBottomSection = () => {
@@ -2837,14 +2849,22 @@ function PerpTradingForm({
       {isMobile ? (
         <YStack gap="$2.5" flexShrink={0}>
           {isSpot ? null : (
-            <XStack alignItems="center" gap="$2.5">
-              <YStack flex={1}>
+            <XStack alignItems="center" gap="$2.5" width="100%">
+              <YStack flex={1} flexBasis={0} minWidth={0}>
                 <MarginModeSelector
                   disabled={isSubmitting}
                   isMobile={isMobile}
                 />
               </YStack>
-              <LeverageAdjustModal isMobile={isMobile} />
+              <YStack flex={1} flexBasis={0} minWidth={0}>
+                <LeverageAdjustModal isMobile={isMobile} />
+              </YStack>
+              <YStack flex={1} flexBasis={0} minWidth={0}>
+                <AccountModeSelector
+                  disabled={isSubmitting}
+                  isMobile={isMobile}
+                />
+              </YStack>
             </XStack>
           )}
 
@@ -2880,14 +2900,22 @@ function PerpTradingForm({
         <>
           <YStack gap="$2">
             {isSpot ? null : (
-              <XStack alignItems="center" flex={1} gap="$3">
-                <YStack flex={1}>
+              <XStack alignItems="center" flex={1} gap="$3" width="100%">
+                <YStack flex={1} flexBasis={0} minWidth={0}>
                   <MarginModeSelector
                     disabled={isSubmitting}
                     isMobile={isMobile}
                   />
                 </YStack>
-                <LeverageAdjustModal isMobile={isMobile} />
+                <YStack flex={1} flexBasis={0} minWidth={0}>
+                  <LeverageAdjustModal isMobile={isMobile} />
+                </YStack>
+                <YStack flex={1} flexBasis={0} minWidth={0}>
+                  <AccountModeSelector
+                    disabled={isSubmitting}
+                    isMobile={isMobile}
+                  />
+                </YStack>
               </XStack>
             )}
 

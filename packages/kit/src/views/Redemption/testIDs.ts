@@ -15,6 +15,10 @@ export const RedemptionTestIDs = {
   // --- BTC reward detail ---
   btcRewardCopyBtn: 'redemption-btc-reward-copy-btn',
   btcRewardOpenExplorerBtn: 'redemption-btc-reward-open-explorer-btn',
+  btcRewardRecoverEntryBtn: 'redemption-btc-reward-recover-entry-btn',
+  btcRewardRecoverEmptyBtn: 'redemption-btc-reward-recover-empty-btn',
+  btcRewardRecoverSourceInput: 'redemption-btc-reward-recover-source-input',
+  btcRewardRecoverCodeInput: 'redemption-btc-reward-recover-code-input',
 
   // --- Verify voucher ---
   verifyVoucherInput: 'redemption-verify-voucher-input',

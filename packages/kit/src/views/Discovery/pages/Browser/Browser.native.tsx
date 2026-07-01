@@ -54,7 +54,6 @@ import {
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
 import { MarketHomeWithProvider } from '../../../Market/MarketHomeV2/MarketHomeV2';
@@ -182,10 +181,6 @@ const popToDiscoveryHomePage = (depth = 0) => {
   }
 };
 
-// Stable reference so the Browser tab's universal-search scope doesn't rebuild
-// downstream memos on every render (OK-56756).
-const DAPP_ONLY_SEARCH_FILTER_TYPES = [EUniversalSearchType.Dapp];
-
 function MobileBrowser() {
   const isTabletMainView = useSplitMainView();
   const isTabletDetailView = useSplitSubView();
@@ -211,6 +206,10 @@ function MobileBrowser() {
   }, [selectedHeaderTab]);
   const outerPageScrollPosition = useSharedValue(initialPageIndex);
 
+  // Under the Browser tab the universal search defaults to the Dapps tab so its
+  // results show dapp content first, while keeping the full search scope so the
+  // Market/Perp/Wallet tabs are still available to switch to (OK-56756). Do NOT
+  // narrow the search scope here — that would drop those tabs entirely.
   const searchInitialTab = useMemo(() => {
     if (selectedHeaderTab === ETranslations.global_market) {
       return 'market' as const;
@@ -220,14 +219,6 @@ function MobileBrowser() {
     }
     return undefined;
   }, [selectedHeaderTab]);
-
-  // Under the Browser tab the search should only surface dapps — restrict the
-  // universal search scope so market/perp/wallet results don't leak in
-  // (OK-56756). Other header tabs keep the full-scope universal search.
-  const searchFilterTypes =
-    selectedHeaderTab === ETranslations.global_browser
-      ? DAPP_ONLY_SEARCH_FILTER_TYPES
-      : undefined;
 
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
@@ -683,7 +674,6 @@ function MobileBrowser() {
               size="medium"
               glass
               initialTab={searchInitialTab}
-              filterTypes={searchFilterTypes}
             />
           </Stack>
           <TabPageHeader

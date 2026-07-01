@@ -11,6 +11,7 @@ import {
   type IRepayWithCollateralConfirmParams,
 } from '@onekeyhq/kit/src/views/Borrow/components/BorrowRepayPosition';
 import { ManagePosition } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
+import { resolveBorrowRepayAllBalance } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/utils';
 import {
   useUniversalBorrowRepay,
   useUniversalBorrowRepayWithCollateral,
@@ -605,14 +606,119 @@ export const WithdrawSection = ({
   // Build token for staking info (use selected asset or default)
   const effectiveToken = useMemo<IToken | undefined>(() => {
     if (selectedAsset) {
+      const tokenAddress = selectedAsset.token.address ?? '';
       return {
         ...selectedAsset.token,
-        isNative: false,
+        isNative: !tokenAddress,
         networkId,
       } as IToken;
     }
     return token;
   }, [selectedAsset, token, networkId]);
+
+  const borrowActionApproveToken = useMemo<IToken | undefined>(() => {
+    if (!effectiveToken) {
+      return undefined;
+    }
+    if (protocolInfo?.approveAsset) {
+      return {
+        ...effectiveToken,
+        address: protocolInfo.approveAsset,
+        isNative: false,
+        networkId,
+      };
+    }
+    return effectiveToken;
+  }, [effectiveToken, networkId, protocolInfo?.approveAsset]);
+
+  const borrowActionApproveTarget = useMemo(() => {
+    const canApproveBorrowAction =
+      borrowAction === 'withdraw' || borrowAction === 'repay';
+    if (
+      !useBorrowApi ||
+      !canApproveBorrowAction ||
+      !protocolInfo?.approve?.approveTarget ||
+      !borrowActionApproveToken ||
+      borrowActionApproveToken.isNative
+    ) {
+      return undefined;
+    }
+    return {
+      accountId,
+      networkId,
+      spenderAddress: protocolInfo.approve.approveTarget,
+      token: borrowActionApproveToken,
+    };
+  }, [
+    accountId,
+    borrowAction,
+    borrowActionApproveToken,
+    networkId,
+    protocolInfo?.approve?.approveTarget,
+    useBorrowApi,
+  ]);
+
+  const { result: borrowActionAllowanceResult } = usePromiseResult(
+    async () => {
+      if (!borrowActionApproveTarget) {
+        return undefined;
+      }
+      const { allowanceParsed } =
+        await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+          accountId,
+          networkId,
+          spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+            approveType: EApproveType.Legacy,
+            approveSpenderAddress: borrowActionApproveTarget.spenderAddress,
+          }),
+          tokenAddress: borrowActionApproveTarget.token.address,
+        });
+      return { allowanceParsed };
+    },
+    [accountId, borrowActionApproveTarget, networkId],
+    { watchLoading: true, undefinedResultIfReRun: true },
+  );
+  const defaultBorrowActionApproveTokenAddress = useMemo(
+    () =>
+      normalizeStakeTokenAddress({
+        address: protocolInfo?.approveAsset ?? token?.address,
+        isNative: protocolInfo?.approveAsset ? false : token?.isNative,
+      }),
+    [protocolInfo?.approveAsset, token?.address, token?.isNative],
+  );
+  const borrowActionApproveTokenAddress = useMemo(
+    () =>
+      normalizeStakeTokenAddress({
+        address: borrowActionApproveTarget?.token.address,
+        isNative: borrowActionApproveTarget?.token.isNative,
+      }),
+    [
+      borrowActionApproveTarget?.token.address,
+      borrowActionApproveTarget?.token.isNative,
+    ],
+  );
+  const protocolApproveAllowance = useMemo(() => {
+    const allowance = protocolInfo?.approve?.allowance;
+    return typeof allowance === 'string' ? allowance : undefined;
+  }, [protocolInfo?.approve?.allowance]);
+  const currentBorrowActionAllowance = useMemo<string | undefined>(() => {
+    if (!borrowActionApproveTarget) {
+      return protocolApproveAllowance;
+    }
+    const shouldUseProtocolApproveAllowance =
+      borrowActionApproveTokenAddress ===
+      defaultBorrowActionApproveTokenAddress;
+    return (
+      borrowActionAllowanceResult?.allowanceParsed ??
+      (shouldUseProtocolApproveAllowance ? protocolApproveAllowance : undefined)
+    );
+  }, [
+    borrowActionAllowanceResult?.allowanceParsed,
+    borrowActionApproveTarget,
+    borrowActionApproveTokenAddress,
+    defaultBorrowActionApproveTokenAddress,
+    protocolApproveAllowance,
+  ]);
 
   const onBorrowConfirm = useCallback(
     async ({
@@ -732,6 +838,28 @@ export const WithdrawSection = ({
       ],
       { watchLoading: true },
     );
+
+  const effectiveRepayAllBalance = useMemo(() => {
+    if (borrowAction !== 'repay') {
+      return undefined;
+    }
+    return resolveBorrowRepayAllBalance({
+      selectedDebtBalance: selectedAsset?.borrowed?.amount,
+      protocolDebtBalance: protocolInfo?.debtBalance,
+      reserveAddress: effectiveReserveAddress,
+      tokenAddress: token?.address,
+      repayTokenSymbol: effectiveTokenSymbol,
+      borrowedAssets: freshBorrowReserves?.borrowed?.assets,
+    });
+  }, [
+    borrowAction,
+    effectiveReserveAddress,
+    effectiveTokenSymbol,
+    freshBorrowReserves?.borrowed?.assets,
+    protocolInfo?.debtBalance,
+    selectedAsset?.borrowed?.amount,
+    token?.address,
+  ]);
 
   const collateralAssets = useMemo(() => {
     const suppliedAssets = freshBorrowReserves?.supplied?.assets ?? [];
@@ -876,9 +1004,12 @@ export const WithdrawSection = ({
           decimals={effectiveDecimals}
           balance={effectiveBalance}
           maxBalance={effectiveMaxBalance}
+          repayAllBalance={effectiveRepayAllBalance}
           tokenSymbol={effectiveTokenSymbol}
           tokenImageUri={effectiveTokenImageUri}
           onWalletConfirm={onBorrowConfirm}
+          approveTarget={borrowActionApproveTarget}
+          currentAllowance={currentBorrowActionAllowance}
           onRepayWithCollateralConfirm={onBorrowRepayWithCollateralConfirm}
           tokenInfo={tokenInfo}
           isDisabled={isDisabled}
@@ -925,6 +1056,8 @@ export const WithdrawSection = ({
           tokenSymbol={effectiveTokenSymbol}
           tokenImageUri={effectiveTokenImageUri}
           onConfirm={onBorrowConfirm}
+          approveTarget={borrowActionApproveTarget}
+          currentAllowance={currentBorrowActionAllowance}
           tokenInfo={tokenInfo}
           isDisabled={isDisabled}
           borrowMarketAddress={

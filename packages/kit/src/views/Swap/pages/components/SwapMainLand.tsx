@@ -334,13 +334,25 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapProTradeType === ESwapProTradeType.MARKET &&
     !!swapProMarketPresetTokenContext &&
     swapProMarketPresetSettings.isLoading;
+  const marketPresetSwapOverrideToken = useMemo(() => {
+    if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
+      return undefined;
+    }
+    if (focusSwapPro) {
+      return swapProMarketPresetTokenContext;
+    }
+    return marketPresetTokenContext;
+  }, [
+    focusSwapPro,
+    marketPresetTokenContext,
+    swapProMarketPresetTokenContext,
+    swapTypeSwitch,
+  ]);
 
   // Reactively resolve Market preset overrides based on which side the market token sits on.
   // Lets Swap and Swap Pro pick up BUY vs SELL preset as the user flips sides.
   useMarketPresetSwapOverridesEffect({
-    marketPresetToken: focusSwapPro
-      ? swapProMarketPresetTokenContext
-      : marketPresetTokenContext,
+    marketPresetToken: marketPresetSwapOverrideToken,
     speedConfig: focusSwapPro ? speedConfig : undefined,
     speedConfigReady: focusSwapPro ? speedConfigReady : undefined,
   });
@@ -1123,6 +1135,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const scrollViewRef = useRef<ScrollViewNative>(null);
   const onTokenPress = useCallback(
     (token: ISwapToken) => {
+      if (token.isStock) {
+        return;
+      }
       if (focusSwapPro) {
         void setSwapProSelectToken(token);
       } else {
@@ -1200,7 +1215,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       return (
         <SwapStockDesktopContainer
           storeName={storeName}
-          marketPresetToken={marketPresetTokenContext}
           onSelectToken={onSelectToken}
           onTokenPress={onTokenPress}
           supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
@@ -1231,7 +1245,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       return (
         <SwapStockMobileContainer
           storeName={storeName}
-          marketPresetToken={marketPresetTokenContext}
           onSelectToken={onSelectToken}
           onTokenPress={onTokenPress}
           supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
@@ -1331,7 +1344,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapRecentTokenPairs,
     swapBridgeSupportNetworksFilterAllNet,
     storeName,
-    marketPresetTokenContext,
     isWrapped,
     swapInitParams?.swapTabSwitchType,
     swapInitParams?.swapSource,

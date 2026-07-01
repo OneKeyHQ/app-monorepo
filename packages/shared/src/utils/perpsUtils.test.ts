@@ -5,7 +5,10 @@
 
 import BigNumber from 'bignumber.js';
 
-import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
+import {
+  EHyperLiquidAbstractionMode,
+  EPerpsSizeInputMode,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   analyzeOrderBookPrecision,
@@ -28,6 +31,7 @@ import {
   getSpotMarketCapValue,
   getSpotTokenDisplayName,
   getValidPriceDecimals,
+  isHyperLiquidAbstractionModeEnabled,
   isPredictionMarketInstrument,
   resolveTradingSizeBN,
 } from './perpsUtils';
@@ -250,9 +254,9 @@ describe('buildPreferredSpotUniverseByBaseNameMap', () => {
       },
     ]);
 
-    expect(result['UBTC'].name).toBe('@142');
-    expect(result['KHYPE'].name).toBe('@336');
-    expect(result['ONLYUSDH'].name).toBe('@999');
+    expect(result.UBTC.name).toBe('@142');
+    expect(result.KHYPE.name).toBe('@336');
+    expect(result.ONLYUSDH.name).toBe('@999');
   });
 });
 
@@ -653,5 +657,36 @@ describe('calculateLiquidationPrice', () => {
     });
 
     expect(liquidationPrice?.toNumber()).toBeCloseTo(25.789_474, 6);
+  });
+});
+
+describe('isHyperLiquidAbstractionModeEnabled', () => {
+  // Guards against dropping PORTFOLIO_MARGIN — that would force-revert PM accounts.
+  it('accepts unified account and portfolio margin', () => {
+    expect(
+      isHyperLiquidAbstractionModeEnabled(
+        EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+      ),
+    ).toBe(true);
+    expect(
+      isHyperLiquidAbstractionModeEnabled(
+        EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN,
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects disabled / default / dexAbstraction / unknown', () => {
+    expect(
+      isHyperLiquidAbstractionModeEnabled(EHyperLiquidAbstractionMode.DISABLED),
+    ).toBe(false);
+    expect(
+      isHyperLiquidAbstractionModeEnabled(EHyperLiquidAbstractionMode.DEFAULT),
+    ).toBe(false);
+    expect(
+      isHyperLiquidAbstractionModeEnabled(
+        EHyperLiquidAbstractionMode.DEX_ABSTRACTION,
+      ),
+    ).toBe(false);
+    expect(isHyperLiquidAbstractionModeEnabled(undefined)).toBe(false);
   });
 });
