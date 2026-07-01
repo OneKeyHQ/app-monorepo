@@ -72,8 +72,25 @@ const DEFAULT_NETWORK_THROTTLE_CONFIG: IDesktopStoreNetworkThrottle = {
   profile: 'slow4g',
 };
 
+const DESKTOP_NETWORK_THROTTLE_DIAGNOSTIC_URL_FILTER = {
+  urls: [
+    'https://onekeycn.com/*',
+    'https://*.onekeycn.com/*',
+    'https://onekey.so/*',
+    'https://*.onekey.so/*',
+  ],
+};
+
+const DESKTOP_NETWORK_THROTTLE_DIAGNOSTIC_MAX_REQUEST_LOGS = 2000;
+const LOG_URL_MAX_LENGTH = 160;
+
 const appliedStateBySession = new WeakMap<Session, string>();
 const appliedStateByWebContentsDebugger = new WeakMap<WebContents, string>();
+const diagnosticInstalledSessions = new WeakSet<Session>();
+const diagnosticRequestStartedAtBySession = new WeakMap<
+  Session,
+  Map<number, number>
+>();
 const webContentsDebuggersAttachedByNetworkThrottle =
   new WeakSet<WebContents>();
 const webContentsDebuggersDetachingByNetworkThrottle =
@@ -90,6 +107,8 @@ const webContentsDebuggerReapplyOnDevToolsClosed = new WeakMap<
 const MAX_DEBUGGER_REAPPLY_ATTEMPTS = 10;
 
 let runtimeNetworkThrottleConfig: IDesktopStoreNetworkThrottle | undefined;
+let desktopNetworkThrottleDiagnosticRequestLogCount = 0;
+let desktopNetworkThrottleDiagnosticRequestLimitLogged = false;
 
 function normalizeDesktopNetworkThrottleConfig(
   config: Partial<IDesktopStoreNetworkThrottle> | undefined,
@@ -164,6 +183,159 @@ function getRuntimeNetworkThrottleConfig(): IDesktopStoreNetworkThrottle {
 
 function getSessionStateKey(config: IDesktopStoreNetworkThrottle): string {
   return config.enabled ? config.profile : 'disabled';
+}
+
+function getDiagnosticThrottleStateText(
+  config: IDesktopStoreNetworkThrottle = getRuntimeNetworkThrottleConfig(),
+): string {
+  if (!config.enabled) {
+    return 'state=disabled';
+  }
+
+  const profile = DESKTOP_NETWORK_THROTTLE_PROFILES[config.profile];
+  return (
+    `state=${config.profile} latencyMs=${profile.latency} ` +
+    `downloadBps=${profile.downloadThroughput} ` +
+    `uploadBps=${profile.uploadThroughput}`
+  );
+}
+
+function getSanitizedDiagnosticUrl(urlText: string): string {
+  try {
+    const parsedUrl = new URL(urlText);
+    return `${parsedUrl.host}${parsedUrl.pathname}`.slice(
+      0,
+      LOG_URL_MAX_LENGTH,
+    );
+  } catch {
+    const [withoutQuery] = urlText.split('?');
+    const [withoutHash] = withoutQuery.split('#');
+    return (withoutHash || '<unknown>').slice(0, LOG_URL_MAX_LENGTH);
+  }
+}
+
+function shouldLogDesktopNetworkThrottleDiagnosticUrl(
+  urlText: string,
+): boolean {
+  try {
+    const parsedUrl = new URL(urlText);
+    const host = parsedUrl.hostname.toLowerCase();
+    const pathname = parsedUrl.pathname.toLowerCase();
+    if (
+      !(
+        host === 'onekeycn.com' ||
+        host.endsWith('.onekeycn.com') ||
+        host === 'onekey.so' ||
+        host.endsWith('.onekey.so')
+      )
+    ) {
+      return false;
+    }
+    if (
+      /\.(?:avif|css|gif|ico|jpeg|jpg|js|map|png|svg|webp|woff|woff2)$/u.test(
+        pathname,
+      )
+    ) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getDiagnosticRequestStartMap(targetSession: Session) {
+  let requestStartedAt = diagnosticRequestStartedAtBySession.get(targetSession);
+  if (!requestStartedAt) {
+    requestStartedAt = new Map<number, number>();
+    diagnosticRequestStartedAtBySession.set(targetSession, requestStartedAt);
+  }
+  return requestStartedAt;
+}
+
+function canLogDesktopNetworkThrottleDiagnosticRequest(): boolean {
+  if (
+    desktopNetworkThrottleDiagnosticRequestLogCount <
+    DESKTOP_NETWORK_THROTTLE_DIAGNOSTIC_MAX_REQUEST_LOGS
+  ) {
+    desktopNetworkThrottleDiagnosticRequestLogCount += 1;
+    return true;
+  }
+
+  if (!desktopNetworkThrottleDiagnosticRequestLimitLogged) {
+    desktopNetworkThrottleDiagnosticRequestLimitLogged = true;
+    logger.info(
+      `[desktop-network-throttle-diagnostic] main-webRequest log limit reached max=${DESKTOP_NETWORK_THROTTLE_DIAGNOSTIC_MAX_REQUEST_LOGS}`,
+    );
+  }
+  return false;
+}
+
+function installDesktopNetworkThrottleDiagnosticsForSession(
+  targetSession: Session,
+  label: string,
+): void {
+  if (diagnosticInstalledSessions.has(targetSession)) {
+    return;
+  }
+  diagnosticInstalledSessions.add(targetSession);
+
+  const requestStartedAt = getDiagnosticRequestStartMap(targetSession);
+  logger.info(
+    `[desktop-network-throttle-diagnostic] main-webRequest installed session=${label} ${getDiagnosticThrottleStateText()}`,
+  );
+
+  targetSession.webRequest.onBeforeRequest(
+    DESKTOP_NETWORK_THROTTLE_DIAGNOSTIC_URL_FILTER,
+    (details, callback) => {
+      if (
+        shouldLogDesktopNetworkThrottleDiagnosticUrl(details.url) &&
+        canLogDesktopNetworkThrottleDiagnosticRequest()
+      ) {
+        requestStartedAt.set(details.id, Date.now());
+        logger.info(
+          `[desktop-network-throttle-diagnostic] main-webRequest-start session=${label} id=${details.id} method=${details.method} resourceType=${details.resourceType} webContentsId=${details.webContentsId} url=${getSanitizedDiagnosticUrl(details.url)} ${getDiagnosticThrottleStateText()}`,
+        );
+      }
+      callback({ cancel: false });
+    },
+  );
+
+  targetSession.webRequest.onCompleted(
+    DESKTOP_NETWORK_THROTTLE_DIAGNOSTIC_URL_FILTER,
+    (details) => {
+      if (!shouldLogDesktopNetworkThrottleDiagnosticUrl(details.url)) {
+        return;
+      }
+      const startedAt = requestStartedAt.get(details.id);
+      if (!startedAt) {
+        return;
+      }
+      requestStartedAt.delete(details.id);
+      const durationMs = Date.now() - startedAt;
+      logger.info(
+        `[desktop-network-throttle-diagnostic] main-webRequest-completed session=${label} id=${details.id} method=${details.method} resourceType=${details.resourceType} webContentsId=${details.webContentsId} statusCode=${details.statusCode} durationMs=${durationMs} url=${getSanitizedDiagnosticUrl(details.url)} ${getDiagnosticThrottleStateText()}`,
+      );
+    },
+  );
+
+  targetSession.webRequest.onErrorOccurred(
+    DESKTOP_NETWORK_THROTTLE_DIAGNOSTIC_URL_FILTER,
+    (details) => {
+      if (!shouldLogDesktopNetworkThrottleDiagnosticUrl(details.url)) {
+        return;
+      }
+      const startedAt = requestStartedAt.get(details.id);
+      if (!startedAt) {
+        return;
+      }
+      requestStartedAt.delete(details.id);
+      const durationMs = Date.now() - startedAt;
+      logger.info(
+        `[desktop-network-throttle-diagnostic] main-webRequest-error session=${label} id=${details.id} method=${details.method} resourceType=${details.resourceType} webContentsId=${details.webContentsId} durationMs=${durationMs} error=${details.error} url=${getSanitizedDiagnosticUrl(details.url)} ${getDiagnosticThrottleStateText()}`,
+      );
+    },
+  );
 }
 
 function getSessionAppliedLogMessage(
@@ -387,6 +559,9 @@ async function applyDesktopNetworkThrottleToWebContentsDebugger({
   const targetLabel = `${label}:${contents.id}:${contents.getType()}`;
   try {
     const { debugger: targetDebugger } = contents;
+    logger.info(
+      `[desktop-network-throttle-diagnostic] debugger-apply webContents=${targetLabel} url=${getSanitizedDiagnosticUrl(contents.getURL())} ${getDiagnosticThrottleStateText(config)}`,
+    );
     if (!targetDebugger.isAttached()) {
       targetDebugger.attach('1.3');
       webContentsDebuggersAttachedByNetworkThrottle.add(contents);
@@ -508,6 +683,22 @@ export async function applyDesktopNetworkThrottleToKnownSessions(
       })),
   ]);
 
+  for (const entry of entries) {
+    installDesktopNetworkThrottleDiagnosticsForSession(
+      entry.targetSession,
+      entry.label,
+    );
+  }
+  logger.info(
+    `[desktop-network-throttle-diagnostic] apply-known-sessions sessions=${entries
+      .map((entry) => entry.label)
+      .join(
+        ',',
+      )} webContents=${webContents.getAllWebContents().length} ${getDiagnosticThrottleStateText(
+      config,
+    )}`,
+  );
+
   const closeConnectionTasks: Array<Promise<void>> = [];
   for (const entry of entries) {
     const appliedSession = applyDesktopNetworkThrottleToSession(
@@ -542,6 +733,15 @@ export function applyDesktopNetworkThrottleToWebContents(
     return;
   }
   const config = getRuntimeNetworkThrottleConfig();
+  installDesktopNetworkThrottleDiagnosticsForSession(
+    contents.session,
+    `webContents:${contents.id}:${contents.getType()}`,
+  );
+  logger.info(
+    `[desktop-network-throttle-diagnostic] apply-webContents webContents=${contents.id}:${contents.getType()} url=${getSanitizedDiagnosticUrl(contents.getURL())} ${getDiagnosticThrottleStateText(
+      config,
+    )}`,
+  );
   applyDesktopNetworkThrottleToSession(
     contents.session,
     `webContents:${contents.id}:${contents.getType()}`,

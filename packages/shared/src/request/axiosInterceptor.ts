@@ -50,6 +50,13 @@ type IAxiosNetworkTimingConfig = AxiosRequestConfig & {
   };
 };
 
+type IDiagnosticProcess = NodeJS.Process & {
+  type?: string;
+  versions?: NodeJS.ProcessVersions & {
+    electron?: string;
+  };
+};
+
 let syncNativeNetworkThrottlePromise: Promise<boolean> | undefined;
 let lastSyncedNativeNetworkThrottleEnabled: boolean | undefined;
 let nativeNetworkThrottleSyncStorageHydrationTimedOut = false;
@@ -70,20 +77,24 @@ function stringifyLogValue(value: unknown) {
 }
 
 function debugNetworkThrottleLog(label: string, value?: unknown) {
-  if (process.env.NODE_ENV === 'production') {
-    return;
-  }
+  const payload =
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : { value };
+
+  defaultLogger.app.network.throttleDiagnostic(label, payload);
 
   const valueText = value === undefined ? '' : ` ${stringifyLogValue(value)}`;
-  // eslint-disable-next-line no-console
-  console.log(`${NETWORK_THROTTLE_LOG_PREFIX} ${label}${valueText}`);
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console
+    console.log(`${NETWORK_THROTTLE_LOG_PREFIX} ${label}${valueText}`);
+  }
 }
 
 function shouldLogNetworkThrottleTiming() {
   return (
-    !!platformEnv.isDev &&
     (!!platformEnv.isNative || !!platformEnv.isDesktop) &&
-    process.env.NODE_ENV !== 'production'
+    process.env.NODE_ENV !== 'test'
   );
 }
 
@@ -221,8 +232,71 @@ function getSanitizedRequestTarget(config: AxiosRequestConfig) {
   }
 }
 
+function getAxiosAdapterDiagnosticValue(
+  adapter: AxiosRequestConfig['adapter'],
+): string | undefined {
+  if (!adapter) {
+    return undefined;
+  }
+  if (Array.isArray(adapter)) {
+    return adapter
+      .map((item) =>
+        typeof item === 'function'
+          ? `function:${item.name || 'anonymous'}`
+          : String(item),
+      )
+      .join(',');
+  }
+  if (typeof adapter === 'function') {
+    return `function:${adapter.name || 'anonymous'}`;
+  }
+  return String(adapter);
+}
+
+function getAxiosConfigRequestId(config: AxiosRequestConfig) {
+  const headers = config.headers as Record<string, unknown> | undefined;
+  const headerValue =
+    headers?.[HEADER_REQUEST_ID_KEY] ??
+    headers?.[HEADER_REQUEST_ID_KEY.toLowerCase()] ??
+    headers?.[HEADER_REQUEST_ID_KEY.toUpperCase()];
+  if (typeof headerValue === 'string') {
+    return headerValue;
+  }
+  if (headerValue === undefined || headerValue === null) {
+    return undefined;
+  }
+  return String(headerValue);
+}
+
+function getRuntimeDiagnosticPayload() {
+  const currentProcess =
+    typeof process === 'undefined'
+      ? undefined
+      : (process as IDiagnosticProcess);
+  const currentLocation =
+    typeof globalThis.location?.href === 'string'
+      ? globalThis.location.href.split('?')[0].split('#')[0]
+      : undefined;
+
+  return {
+    platform: platformEnv.appPlatform,
+    runtime: platformEnv.runtimeRole,
+    nativeRuntimeKind: platformEnv.nativeRuntimeKind,
+    processType: currentProcess?.type,
+    electronVersion: currentProcess?.versions?.electron,
+    nodeVersion: currentProcess?.versions?.node,
+    hasWindow: typeof globalThis.window !== 'undefined',
+    hasDocument: typeof globalThis.document !== 'undefined',
+    hasWorkerGlobalScope: typeof WorkerGlobalScope !== 'undefined',
+    location: currentLocation?.slice(0, LOG_URL_MAX_LENGTH),
+  };
+}
+
 async function markNetworkThrottleRequestTiming(config: AxiosRequestConfig) {
-  if (!shouldLogNetworkThrottleTiming()) {
+  if (
+    !shouldLogNetworkThrottleTiming() ||
+    !isEnableLogNetwork(config.url || config.baseURL)
+  ) {
     return;
   }
 
@@ -233,6 +307,16 @@ async function markNetworkThrottleRequestTiming(config: AxiosRequestConfig) {
     startedAt: getRequestTimingNow(),
     throttleConfig,
   };
+  debugNetworkThrottleLog('axios.request', {
+    ...getRuntimeDiagnosticPayload(),
+    throttleEnabled: throttleConfig.enabled,
+    throttleProfile: throttleConfig.profile,
+    latencyMs: throttleConfig.latencyMs,
+    method: config.method,
+    target: getSanitizedRequestTarget(config),
+    requestId: getAxiosConfigRequestId(config),
+    adapter: getAxiosAdapterDiagnosticValue(config.adapter),
+  });
 }
 
 function logNetworkThrottleRequestTiming({
@@ -260,15 +344,15 @@ function logNetworkThrottleRequestTiming({
     Math.round((getRequestTimingNow() - timing.startedAt) * 10) / 10;
   const throttleConfig = timing.throttleConfig;
   debugNetworkThrottleLog('axios.response', {
+    ...getRuntimeDiagnosticPayload(),
     durationMs,
     throttleEnabled: throttleConfig.enabled,
     throttleProfile: throttleConfig.profile,
     latencyMs: throttleConfig.latencyMs,
-    platform: platformEnv.appPlatform,
-    runtime: platformEnv.runtimeRole,
-    nativeRuntimeKind: platformEnv.nativeRuntimeKind,
     method: config.method,
     target: getSanitizedRequestTarget(config),
+    requestId: getAxiosConfigRequestId(config),
+    adapter: getAxiosAdapterDiagnosticValue(config.adapter),
     statusCode,
     responseCode,
     errorCode,
