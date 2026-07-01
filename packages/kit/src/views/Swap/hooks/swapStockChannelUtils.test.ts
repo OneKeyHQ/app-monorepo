@@ -8,6 +8,7 @@ import {
   isStockPayTokenReadyForTradeInput,
   resolveStockChannelSwapPair,
   shouldLoadDefaultStockToken,
+  shouldRenderStockTradeInputSkeleton,
   shouldResetStockTradeReceiveAmount,
 } from './swapStockChannelUtils';
 
@@ -178,7 +179,7 @@ describe('swapStockChannelUtils', () => {
     ).toBe(true);
   });
 
-  it('keeps the buy-side pay token hidden while stock or pay-token state is still initializing', () => {
+  it('marks the buy-side pay token not ready while stock or pay-token state is still initializing', () => {
     expect(
       isStockPayTokenReadyForTradeInput({
         payToken: usdcToken,
@@ -196,6 +197,34 @@ describe('swapStockChannelUtils', () => {
         stockIdentityReady: true,
       }),
     ).toBe(false);
+  });
+
+  it('keeps the buy-side pay token visible during non-initial readiness refreshes', () => {
+    expect(
+      shouldRenderStockTradeInputSkeleton({
+        inputTokenReady: false,
+        inputTokenVisible: false,
+        isBuySide: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldRenderStockTradeInputSkeleton({
+        inputTokenReady: false,
+        inputTokenVisible: true,
+        isBuySide: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps sell-side stock input skeleton tied to full readiness', () => {
+    expect(
+      shouldRenderStockTradeInputSkeleton({
+        inputTokenReady: false,
+        inputTokenVisible: true,
+        isBuySide: false,
+      }),
+    ).toBe(true);
   });
 
   it('marks only stock market tokens as stock swap tokens', () => {

@@ -31,7 +31,10 @@ import {
 
 import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 
-import { isStockPayTokenReadyForTradeInput } from './swapStockChannelUtils';
+import {
+  isStockPayTokenReadyForTradeInput,
+  shouldRenderStockTradeInputSkeleton,
+} from './swapStockChannelUtils';
 import {
   STOCK_PRICE_SOURCE_CURRENCY,
   getStockTokenFiatValue,
@@ -597,6 +600,10 @@ export function useSwapStockAmountInputState({
     payTokens,
     selectablePayTokens,
     selectPayToken,
-    shouldRenderSkeleton: !inputTokenReady,
+    shouldRenderSkeleton: shouldRenderStockTradeInputSkeleton({
+      inputTokenReady,
+      inputTokenVisible,
+      isBuySide,
+    }),
   };
 }
