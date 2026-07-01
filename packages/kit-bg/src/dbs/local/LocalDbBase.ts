@@ -2437,24 +2437,27 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
   }
 
-  async wrapNewCredentialWithLocalSecretEnvelopeIfNeeded({
+  async buildCredentialForLocalSecretEnvelopeWrite({
     credential,
     credentialId,
   }: {
     credential: string;
     credentialId: string;
-  }): Promise<string> {
+  }): Promise<{
+    credential: string;
+    layerAdapters?: ILocalSecretEnvelopeLayerAdapter[];
+  }> {
     const candidate = classifyLocalSecretEnvelopeMigrationCandidate({
       dataType: 'credential',
       recordId: credentialId,
       rawValue: credential,
     });
     if (!candidate.canMigrate) {
-      return credential;
+      return { credential };
     }
 
     if (!(await this.isLocalPasswordKdfLazyUpgradeCompleted())) {
-      return credential;
+      return { credential };
     }
 
     const config =
@@ -2473,17 +2476,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         throw error;
       }
       // Not migrated yet: graceful degradation; lazy migration wraps later.
-      return credential;
+      return { credential };
     }
 
     try {
-      return await wrapLocalSecretEnvelopeV1({
-        dataType: 'credential',
+      return {
+        credential: await wrapLocalSecretEnvelopeV1({
+          dataType: 'credential',
+          layerAdapters: config.layerAdapters,
+          plaintext: credential,
+          recordId: credentialId,
+          strength: config.strength,
+        }),
         layerAdapters: config.layerAdapters,
-        plaintext: credential,
-        recordId: credentialId,
-        strength: config.strength,
-      });
+      };
     } catch (error) {
       console.error('localSecretEnvelopeCredentialOnWrite error', {
         credentialId,
@@ -2502,8 +2508,107 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         markCredentialLocalSecretEnvelopeUnavailableError(unavailableError);
         throw unavailableError;
       }
-      return credential;
+      return { credential };
     }
+  }
+
+  async wrapNewCredentialWithLocalSecretEnvelopeIfNeeded({
+    credential,
+    credentialId,
+  }: {
+    credential: string;
+    credentialId: string;
+  }): Promise<string> {
+    return (
+      await this.buildCredentialForLocalSecretEnvelopeWrite({
+        credential,
+        credentialId,
+      })
+    ).credential;
+  }
+
+  async replaceCredentialWithLocalSecretEnvelopeIfNeeded({
+    credential,
+    credentialId,
+  }: {
+    credential: string;
+    credentialId: string;
+  }): Promise<boolean> {
+    const nextCredentialInfo =
+      await this.buildCredentialForLocalSecretEnvelopeWrite({
+        credential,
+        credentialId,
+      });
+    const existingCredential = await this.getCredentialSafe(credentialId);
+    let originalCredential: string | undefined;
+    let replaced = false;
+    try {
+      await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+        if (existingCredential) {
+          await this.txUpdateRecords({
+            tx,
+            name: ELocalDBStoreNames.Credential,
+            ids: [credentialId],
+            updater: (record) => {
+              originalCredential = record.credential;
+              if (record.credential !== nextCredentialInfo.credential) {
+                record.credential = nextCredentialInfo.credential;
+                replaced = true;
+              }
+              return record;
+            },
+          });
+        } else {
+          const { added } = await this.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Credential,
+            records: [
+              {
+                id: credentialId,
+                credential: nextCredentialInfo.credential,
+              },
+            ],
+            skipIfExists: true,
+          });
+          replaced = added > 0;
+        }
+      });
+    } catch (error) {
+      if (nextCredentialInfo.layerAdapters?.length) {
+        await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+          envelope: nextCredentialInfo.credential,
+          layerAdapters: nextCredentialInfo.layerAdapters,
+        });
+      }
+      throw error;
+    }
+
+    if (
+      !replaced &&
+      (!originalCredential ||
+        originalCredential !== nextCredentialInfo.credential) &&
+      nextCredentialInfo.layerAdapters?.length
+    ) {
+      await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+        envelope: nextCredentialInfo.credential,
+        layerAdapters: nextCredentialInfo.layerAdapters,
+      });
+    }
+
+    if (
+      replaced &&
+      originalCredential &&
+      originalCredential !== nextCredentialInfo.credential &&
+      isLocalSecretEnvelopeString(originalCredential) &&
+      nextCredentialInfo.layerAdapters?.length
+    ) {
+      await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+        envelope: originalCredential,
+        layerAdapters: nextCredentialInfo.layerAdapters,
+      });
+    }
+
+    return replaced;
   }
 
   /**
@@ -6789,13 +6894,25 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     });
 
-    const importedCredentialToAdd =
-      walletId === WALLET_TYPE_IMPORTED && importedCredential && accounts[0]?.id
-        ? await this.wrapNewCredentialWithLocalSecretEnvelopeIfNeeded({
-            credentialId: accounts[0].id,
+    const importedCredentialId =
+      walletId === WALLET_TYPE_IMPORTED ? accounts[0]?.id : undefined;
+    const importedCredentialToAddInfo: {
+      credential: string | undefined;
+      layerAdapters?: ILocalSecretEnvelopeLayerAdapter[];
+    } =
+      importedCredentialId && importedCredential
+        ? await this.buildCredentialForLocalSecretEnvelopeWrite({
+            credentialId: importedCredentialId,
             credential: importedCredential,
           })
-        : importedCredential;
+        : { credential: importedCredential };
+    const importedCredentialToAdd = importedCredentialToAddInfo.credential;
+    const existingImportedCredential =
+      importedCredentialId && walletId === WALLET_TYPE_IMPORTED
+        ? await this.getCredentialSafe(importedCredentialId)
+        : undefined;
+    let replacedImportedCredential: string | undefined;
+    let didReplaceImportedCredential = false;
 
     const syncManager =
       this.backgroundApi.servicePrimeCloudSync.syncManagers.account;
@@ -6848,171 +6965,226 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     // db transaction: add accounts to wallet
 
-    const addResults = await this.withTransaction(
-      EIndexedDBBucketNames.account,
-      async (tx) => {
-        const addResults0 = await syncManager.txWithSyncFlowOfDBRecordCreating({
-          tx,
-          existingSyncItems:
-            existingSyncItemsInfoResult000025394378263443374653.existingSyncItems,
-          newSyncItems:
-            existingSyncItemsInfoResult000025394378263443374653.newSyncItems,
-          runDbTxFn: async () => {
-            const firstAccount: IDBAccount | undefined = accounts?.[0];
-
-            const shouldBuildIdHash =
-              firstAccount &&
-              firstAccount?.pathIndex === 0 &&
-              firstAccount?.address &&
-              firstAccount?.coinType === COINTYPE_ETH &&
-              firstAccount?.indexedAccountId &&
-              firstAccount?.path === FIRST_EVM_ADDRESS_PATH;
-
-            // build idHash for account avatar by firstEvmAddress
-            if (shouldBuildIdHash) {
-              const firstEvmAddress = firstAccount.address.toLowerCase();
-              await this.txUpdateWallet({
-                tx,
-                walletId,
-                updater: (w) => {
-                  w.firstEvmAddress = firstEvmAddress;
-                  return w;
-                },
-              });
-              await this.txUpdateRecords({
-                tx,
-                name: ELocalDBStoreNames.IndexedAccount,
-                ids: [firstAccount?.indexedAccountId].filter(Boolean),
-                updater: async (item) => {
-                  item.idHash = await this.buildIndexedAccountIdHash({
-                    firstEvmAddress,
-                    indexedAccountId: item.id,
-                    index: firstAccount.pathIndex,
-                  });
-                  return item;
-                },
-              });
-            }
-
-            let removed = 0;
-            if (
-              existsAccounts &&
-              existsAccounts.length &&
-              !applyRestoreSyncPolicy
-            ) {
-              // TODO remove and re-add, may cause nextIds not correct,
-              // TODO return actual removed count
-              await this.txRemoveRecords({
-                tx,
-                name: ELocalDBStoreNames.Account,
-                ids,
-                ignoreNotFound: true,
-              });
-
-              removed = existsAccounts.length;
-            }
-
-            // add account record
-            // eslint-disable-next-line prefer-const
-            let { added, addedIds } = await this.txAddRecords({
+    let addResults: {
+      isOverrideAccounts: boolean;
+      existsAccounts: IDBAccount[];
+    };
+    try {
+      addResults = await this.withTransaction(
+        EIndexedDBBucketNames.account,
+        async (tx) => {
+          const addResults0 =
+            await syncManager.txWithSyncFlowOfDBRecordCreating({
               tx,
-              name: ELocalDBStoreNames.Account,
-              records: accounts,
-              skipIfExists: true,
-            });
+              existingSyncItems:
+                existingSyncItemsInfoResult000025394378263443374653.existingSyncItems,
+              newSyncItems:
+                existingSyncItemsInfoResult000025394378263443374653.newSyncItems,
+              runDbTxFn: async () => {
+                const firstAccount: IDBAccount | undefined = accounts?.[0];
 
-            let actualAdded = added - removed;
+                const shouldBuildIdHash =
+                  firstAccount &&
+                  firstAccount?.pathIndex === 0 &&
+                  firstAccount?.address &&
+                  firstAccount?.coinType === COINTYPE_ETH &&
+                  firstAccount?.indexedAccountId &&
+                  firstAccount?.path === FIRST_EVM_ADDRESS_PATH;
 
-            // filter out url account
-            const allAddedIds = addedIds;
-            addedIds = addedIds.filter(
-              (id) => !accountUtils.isUrlAccountFn({ accountId: id }),
-            );
-            const urlAccountsCount = allAddedIds.length - addedIds.length;
-            actualAdded = Math.max(0, actualAdded - urlAccountsCount);
-
-            // update singleton wallet.accounts & nextAccountId
-            if (actualAdded > 0 && this.isSingletonWallet({ walletId })) {
-              await this.txUpdateWallet({
-                tx,
-                walletId,
-                updater: (w) => {
-                  // DO NOT use  w.nextIds = w.nextIds || {};
-                  // it will reset nextIds to {}
-                  if (!w.nextIds) {
-                    w.nextIds = {};
-                  }
-
-                  const nextIdsData = w.nextIds;
-                  const currentNextAccountId = this.getNextIdsValue({
-                    nextIds: nextIdsData,
-                    key: 'accountGlobalNum',
-                    defaultValue: 1,
-                  });
-                  const newAccountGlobalNum =
-                    currentNextAccountId + actualAdded;
-                  w.nextIds.accountGlobalNum = newAccountGlobalNum;
-
-                  // RealmDB Error: Expected 'accounts[0]' to be a string, got an instance of List
-                  // w.accounts is List not Array in realmDB
-                  w.accounts = Array.from(w.accounts || []);
-
-                  w.accounts = uniq(
-                    [].concat(Array.from(w.accounts) as any, addedIds as any),
-                  ).filter(Boolean);
-
-                  return w;
-                },
-              });
-            }
-
-            // add imported account credential
-            if (walletId === WALLET_TYPE_IMPORTED) {
-              const shouldReuseExistingImportedCredential =
-                applyRestoreSyncPolicy &&
-                existsAccounts.length > 0 &&
-                addedIds.length === 0;
-
-              // Restore can keep an existing imported account record, so its
-              // credential row should be reused instead of being inserted again.
-              if (!shouldReuseExistingImportedCredential) {
-                if (addedIds.length !== 1) {
-                  throw new OneKeyLocalError(
-                    'Only one can be imported at a time into a private key account.',
-                  );
-                }
-                if (!importedCredential) {
-                  throw new OneKeyLocalError(
-                    'importedCredential is required for imported account',
-                  );
-                }
-                await this.txAddRecords({
-                  tx,
-                  name: ELocalDBStoreNames.Credential,
-                  records: [
-                    {
-                      id: addedIds[0],
-                      credential: checkIsDefined(importedCredentialToAdd),
+                // build idHash for account avatar by firstEvmAddress
+                if (shouldBuildIdHash) {
+                  const firstEvmAddress = firstAccount.address.toLowerCase();
+                  await this.txUpdateWallet({
+                    tx,
+                    walletId,
+                    updater: (w) => {
+                      w.firstEvmAddress = firstEvmAddress;
+                      return w;
                     },
-                  ],
+                  });
+                  await this.txUpdateRecords({
+                    tx,
+                    name: ELocalDBStoreNames.IndexedAccount,
+                    ids: [firstAccount?.indexedAccountId].filter(Boolean),
+                    updater: async (item) => {
+                      item.idHash = await this.buildIndexedAccountIdHash({
+                        firstEvmAddress,
+                        indexedAccountId: item.id,
+                        index: firstAccount.pathIndex,
+                      });
+                      return item;
+                    },
+                  });
+                }
+
+                let removed = 0;
+                if (
+                  existsAccounts &&
+                  existsAccounts.length &&
+                  !applyRestoreSyncPolicy
+                ) {
+                  // TODO remove and re-add, may cause nextIds not correct,
+                  // TODO return actual removed count
+                  await this.txRemoveRecords({
+                    tx,
+                    name: ELocalDBStoreNames.Account,
+                    ids,
+                    ignoreNotFound: true,
+                  });
+
+                  removed = existsAccounts.length;
+                }
+
+                // add account record
+                // eslint-disable-next-line prefer-const
+                let { added, addedIds } = await this.txAddRecords({
+                  tx,
+                  name: ELocalDBStoreNames.Account,
+                  records: accounts,
                   skipIfExists: true,
                 });
-              }
-            }
 
-            const isOverrideAccounts = removed > 0 && actualAdded === 0;
+                let actualAdded = added - removed;
 
-            return {
-              isOverrideAccounts,
-              existsAccounts,
-            };
+                // filter out url account
+                const allAddedIds = addedIds;
+                addedIds = addedIds.filter(
+                  (id) => !accountUtils.isUrlAccountFn({ accountId: id }),
+                );
+                const urlAccountsCount = allAddedIds.length - addedIds.length;
+                actualAdded = Math.max(0, actualAdded - urlAccountsCount);
 
-            // TODO should add accountId to wallet.accounts or wallet.indexedAccounts?
-          },
+                // update singleton wallet.accounts & nextAccountId
+                if (actualAdded > 0 && this.isSingletonWallet({ walletId })) {
+                  await this.txUpdateWallet({
+                    tx,
+                    walletId,
+                    updater: (w) => {
+                      // DO NOT use  w.nextIds = w.nextIds || {};
+                      // it will reset nextIds to {}
+                      if (!w.nextIds) {
+                        w.nextIds = {};
+                      }
+
+                      const nextIdsData = w.nextIds;
+                      const currentNextAccountId = this.getNextIdsValue({
+                        nextIds: nextIdsData,
+                        key: 'accountGlobalNum',
+                        defaultValue: 1,
+                      });
+                      const newAccountGlobalNum =
+                        currentNextAccountId + actualAdded;
+                      w.nextIds.accountGlobalNum = newAccountGlobalNum;
+
+                      // RealmDB Error: Expected 'accounts[0]' to be a string, got an instance of List
+                      // w.accounts is List not Array in realmDB
+                      w.accounts = Array.from(w.accounts || []);
+
+                      w.accounts = uniq(
+                        [].concat(
+                          Array.from(w.accounts) as any,
+                          addedIds as any,
+                        ),
+                      ).filter(Boolean);
+
+                      return w;
+                    },
+                  });
+                }
+
+                // add imported account credential
+                if (walletId === WALLET_TYPE_IMPORTED) {
+                  const hasExistingImportedAccount = Boolean(
+                    importedCredentialId &&
+                    existsAccounts.some(
+                      (account) => account.id === importedCredentialId,
+                    ),
+                  );
+                  if (!importedCredentialId) {
+                    throw new OneKeyLocalError(
+                      'imported account credential id is required',
+                    );
+                  }
+                  if (!importedCredentialToAdd) {
+                    throw new OneKeyLocalError(
+                      'importedCredential is required for imported account',
+                    );
+                  }
+                  if (
+                    existingImportedCredential &&
+                    hasExistingImportedAccount
+                  ) {
+                    await this.txUpdateRecords({
+                      tx,
+                      name: ELocalDBStoreNames.Credential,
+                      ids: [importedCredentialId],
+                      updater: (record) => {
+                        replacedImportedCredential = record.credential;
+                        if (record.credential !== importedCredentialToAdd) {
+                          record.credential = importedCredentialToAdd;
+                          didReplaceImportedCredential = true;
+                        }
+                        return record;
+                      },
+                    });
+                  } else {
+                    if (addedIds.length !== 1 && !hasExistingImportedAccount) {
+                      throw new OneKeyLocalError(
+                        'Only one can be imported at a time into a private key account.',
+                      );
+                    }
+                    await this.txAddRecords({
+                      tx,
+                      name: ELocalDBStoreNames.Credential,
+                      records: [
+                        {
+                          id: importedCredentialId,
+                          credential: checkIsDefined(importedCredentialToAdd),
+                        },
+                      ],
+                      skipIfExists: true,
+                    });
+                  }
+                }
+
+                const isOverrideAccounts = removed > 0 && actualAdded === 0;
+
+                return {
+                  isOverrideAccounts,
+                  existsAccounts,
+                };
+
+                // TODO should add accountId to wallet.accounts or wallet.indexedAccounts?
+              },
+            });
+          return addResults0;
+        },
+      );
+    } catch (error) {
+      if (
+        importedCredentialToAddInfo.layerAdapters?.length &&
+        importedCredentialToAdd
+      ) {
+        await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+          envelope: importedCredentialToAdd,
+          layerAdapters: importedCredentialToAddInfo.layerAdapters,
         });
-        return addResults0;
-      },
-    );
+      }
+      throw error;
+    }
+
+    if (
+      didReplaceImportedCredential &&
+      replacedImportedCredential &&
+      replacedImportedCredential !== importedCredentialToAdd &&
+      isLocalSecretEnvelopeString(replacedImportedCredential) &&
+      importedCredentialToAddInfo.layerAdapters?.length
+    ) {
+      await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+        envelope: replacedImportedCredential,
+        layerAdapters: importedCredentialToAddInfo.layerAdapters,
+      });
+    }
 
     // saveAccountAddresses
     if (allAccountsBelongToNetworkId) {
