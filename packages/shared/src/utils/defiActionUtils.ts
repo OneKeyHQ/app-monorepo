@@ -82,6 +82,8 @@ const PROTOCOL_ALIAS_MAP: Record<string, string> = {
   aave_v3: 'aave_pool_v3',
   // oxlint-disable-next-line @cspell/spellchecker
   morphoblue: 'morpho_blue',
+  // oxlint-disable-next-line @cspell/spellchecker
+  stakedao: 'stake_dao',
 };
 
 function normalizeCategoryForAction(value?: string) {
