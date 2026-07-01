@@ -10,14 +10,22 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type {
+  IEventBusPayloadShowLinuxUdevGuide,
+  ILinuxUdevGuideReason,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-// Sandboxed Linux builds (flatpak/snap) cannot install host udev rules from
-// inside the sandbox. When USB access is denied (LIBUSB_ERROR_ACCESS),
+// Sandboxed Linux builds and restricted PolicyKit sessions may need manual USB
+// permission recovery. When USB access is denied (LIBUSB_ERROR_ACCESS),
 // ServiceHardware emits ShowLinuxBundleUdevGuide and we point the user to the
-// help article that explains how to install the rules on the host.
+// help article that covers Linux udev rules, Flatpak, and Snap troubleshooting.
+function getLinuxUdevGuideUrl(_reason?: ILinuxUdevGuideReason) {
+  return LINUX_UDEV_HELP_URL;
+}
+
 export function LinuxUdevGuideDialogContainer() {
   const intl = useIntl();
   const dialogRef = useRef<IDialogInstance | null>(null);
@@ -26,7 +34,8 @@ export function LinuxUdevGuideDialogContainer() {
       return;
     }
     const showFn = debounce(
-      async () => {
+      async (payload: IEventBusPayloadShowLinuxUdevGuide) => {
+        const helpUrl = getLinuxUdevGuideUrl(payload?.reason);
         await dialogRef.current?.close();
         dialogRef.current = Dialog.show({
           icon: 'UsbOutline',
@@ -40,7 +49,7 @@ export function LinuxUdevGuideDialogContainer() {
             id: ETranslations.global_view_tutorial,
           }),
           onConfirm: () => {
-            openUrlExternal(LINUX_UDEV_HELP_URL);
+            openUrlExternal(helpUrl);
           },
           showCancelButton: true,
         });

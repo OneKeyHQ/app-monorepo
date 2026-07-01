@@ -14,7 +14,10 @@ import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts'
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type {
+  IAppEventBusPayload,
+  ILinuxUdevGuideReason,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -890,7 +893,7 @@ class ServiceHardware extends ServiceBase {
     );
   }
 
-  private getLinuxUdevManualInstallReason() {
+  private getLinuxUdevManualInstallReason(): ILinuxUdevGuideReason {
     if (this.isDesktopLinuxFlatpakRuntime()) {
       return 'flatpak';
     }
@@ -981,7 +984,7 @@ class ServiceHardware extends ServiceBase {
 
   private notifyLinuxUdevManualInstallIfNeeded(options?: {
     force?: boolean;
-    reason?: string;
+    reason?: ILinuxUdevGuideReason;
   }) {
     if (this.linuxUdevGuideShown) {
       return;
@@ -997,7 +1000,7 @@ class ServiceHardware extends ServiceBase {
       return;
     }
     this.linuxUdevGuideShown = true;
-    let reason = options?.reason ?? 'unknown';
+    let reason: ILinuxUdevGuideReason = options?.reason ?? 'unknown';
     if (!options?.reason) {
       if (this.isDesktopLinuxFlatpakRuntime()) {
         reason = 'flatpak';
@@ -1008,7 +1011,7 @@ class ServiceHardware extends ServiceBase {
     defaultLogger.hardware.sdkLog.log(
       `[LinuxWebUSB] host udev rules need manual install (${reason}); showing manual install guide`,
     );
-    appEventBus.emit(EAppEventBusNames.ShowLinuxBundleUdevGuide, undefined);
+    appEventBus.emit(EAppEventBusNames.ShowLinuxBundleUdevGuide, { reason });
   }
 
   @backgroundMethod()
