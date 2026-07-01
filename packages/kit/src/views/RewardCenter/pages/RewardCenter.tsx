@@ -1,3 +1,4 @@
+// cspell:ignore Actived
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
@@ -31,6 +32,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EModalRewardCenterRoutes,
   IModalRewardCenterParamList,
@@ -257,6 +259,56 @@ function RewardCenterDetails() {
 
     return resp;
   }, [account, claimSource, network]);
+
+  // Detect whether the TRON account is activated on chain. An inactive account
+  // cannot claim energy, so the claim button is switched to a Receive action.
+  // Poll (and revalidate on focus) so that if the user leaves to top up TRX and
+  // comes back, the button flips from Receive back to Claim automatically once
+  // the account becomes activated.
+  const {
+    result: accountActivation,
+    setStopPolling: setStopActivationPolling,
+  } = usePromiseResult(
+    async () => {
+      if (!account || !network) {
+        return;
+      }
+
+      const resp =
+        await backgroundApiProxy.serviceAccountProfile.sendProxyRequestWithTrxRes<{
+          isActived: boolean;
+        }>({
+          networkId: network.id,
+          body: {
+            method: 'get',
+            url: '/api/account',
+            data: {
+              fromAddress: account.address,
+            },
+            params: {},
+          },
+        });
+
+      return resp;
+    },
+    [account, network],
+    {
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 15 }),
+      revalidateOnFocus: true,
+    },
+  );
+
+  // Only treat the account as inactive once the check has definitively
+  // resolved to false, so we never flash the Receive state while loading.
+  const isAccountNotActivated = accountActivation?.isActived === false;
+
+  // Stop hammering the backend once activation is confirmed. Polling
+  // auto-resumes when deps (account/network) change to another inactive one.
+  useEffect(() => {
+    if (accountActivation?.isActived === true) {
+      setStopActivationPolling(true);
+    }
+  }, [accountActivation?.isActived, setStopActivationPolling]);
 
   const renderClaimButtonText = useCallback(() => {
     if (result?.remaining === 0 || result?.totalReceivedLimit === 0) {
@@ -525,6 +577,37 @@ function RewardCenterDetails() {
     }
   }, [activeAccount, createAddress, network]);
 
+  const { result: nativeToken } = usePromiseResult(async () => {
+    if (!account || !network) {
+      return undefined;
+    }
+    return backgroundApiProxy.serviceToken.getNativeToken({
+      accountId: account.id,
+      networkId: network.id,
+    });
+  }, [account, network]);
+
+  // Same as the home Receive button: open the "choose receive mode" selector
+  // (ReceiveSelector), scoped to this TRON account's native TRX, so the user can
+  // top up TRX, which activates the account.
+  const handleTopUp = useCallback(() => {
+    if (!account || !network || !nativeToken) {
+      return;
+    }
+    navigation.pushModal(EModalRoutes.ReceiveModal, {
+      screen: EModalReceiveRoutes.ReceiveSelector,
+      params: {
+        accountId: account.id,
+        networkId: network.id,
+        walletId: accountUtils.getWalletIdFromAccountId({
+          accountId: account.id,
+        }),
+        indexedAccountId: account.indexedAccountId,
+        token: nativeToken,
+      },
+    });
+  }, [account, network, nativeToken, navigation]);
+
   const renderClaimButton = useCallback(() => {
     if (!isClaimResourceAvailable) {
       return null;
@@ -553,11 +636,14 @@ function RewardCenterDetails() {
         size="medium"
         variant="primary"
         loading={isClaiming}
+        // Inactive account cannot claim energy; keep the label and disable the
+        // button. Activation is handled via the Top up action on the Alert.
         disabled={
           !isClaimResourceAvailable ||
           isLoadingResourceState ||
           isClaiming ||
           isClaimed ||
+          isAccountNotActivated ||
           result?.remaining === 0 ||
           result?.totalReceivedLimit === 0
         }
@@ -578,6 +664,7 @@ function RewardCenterDetails() {
     renderClaimButtonText,
     isCreatingTronAccount,
     handleCreateTronAccount,
+    isAccountNotActivated,
     intl,
   ]);
 
@@ -626,7 +713,8 @@ function RewardCenterDetails() {
                   form.formState.isSubmitting ||
                   !form.formState.isValid ||
                   isRedeeming ||
-                  !isClaimResourceAvailable
+                  !isClaimResourceAvailable ||
+                  isAccountNotActivated
                 }
               >
                 {intl.formatMessage({
@@ -646,6 +734,7 @@ function RewardCenterDetails() {
     handleRedeemCode,
     isRedeeming,
     isClaimResourceAvailable,
+    isAccountNotActivated,
   ]);
 
   const renderHeaderRight = useCallback(() => {
@@ -702,6 +791,23 @@ function RewardCenterDetails() {
         headerLeftNoGlass
       />
       <Page.Body px="$5">
+        {isAccountNotActivated ? (
+          <Alert
+            type="warning"
+            icon="InfoCircleOutline"
+            // TODO(i18n): hardcoded English until a translation key is added
+            title="Account not activated. Deposit TRX to activate it."
+            closable={false}
+            mb="$5"
+            action={{
+              primary: intl.formatMessage({
+                id: ETranslations.global_top_up,
+              }),
+              primaryTestID: RewardCenterTestIDs.topUpBtn,
+              onPrimaryPress: handleTopUp,
+            }}
+          />
+        ) : null}
         <Alert
           type="info"
           icon="InfoCircleOutline"
