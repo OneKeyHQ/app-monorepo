@@ -62,6 +62,7 @@ import {
   ONEKEY_TEST_API_HOST,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   isDualScreenDevice,
@@ -120,7 +121,6 @@ import { DiscoverySearchDebugTool } from './DiscoverySearchDebugTool';
 import { HapticsPanel } from './HapticsPanel';
 import { ImagePanel } from './ImagePanel';
 import { IpTableSelector } from './IpTableSelector';
-import { NavigationDiagnosticsSection } from './NavigationDiagnosticsSection';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { NotificationPayloadTest } from './NotificationPayloadTest';
@@ -131,6 +131,12 @@ import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
 import { TestAccountsDevSetting } from './TestAccountsDevSetting';
+
+const LazyNavigationDiagnosticsSection = LazyLoad(async () => {
+  const { NavigationDiagnosticsSection } =
+    await import('./NavigationDiagnosticsSection');
+  return { default: NavigationDiagnosticsSection };
+});
 
 export function showDevOnlyPasswordDialog({
   title,
@@ -1644,7 +1650,7 @@ const BaseDevSettingsSection = () => {
                       animation="quick"
                       exitStyle={{ opacity: 0 }}
                     >
-                      <NavigationDiagnosticsSection />
+                      <LazyNavigationDiagnosticsSection />
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
                 </Accordion.Item>
