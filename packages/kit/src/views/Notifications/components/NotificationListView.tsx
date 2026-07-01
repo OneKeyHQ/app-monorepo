@@ -501,10 +501,7 @@ export function NotificationListView({
   const { isVersionCompatible } = useVersionCompatible();
 
   const handleMarkAllReadSuccess = useCallback(() => {
-    const allCachedItems = [
-      ...Object.values(cacheListRef.current).flat(),
-      ...result,
-    ];
+    const allCachedItems = Object.values(cacheListRef.current).flat();
     const readedMessageMap = buildReadedMessageMap(allCachedItems);
     cacheListRef.current = {
       [ENotificationPushTopicTypes.all]: markNotificationItemsRead(
@@ -533,7 +530,7 @@ export function NotificationListView({
       [ENotificationPushTopicTypes.accountActivity]: 0,
       [ENotificationPushTopicTypes.system]: 0,
     });
-  }, [result, setNotificationsData, setReadedMap, setUnreadMap]);
+  }, [setNotificationsData, setReadedMap, setUnreadMap]);
 
   const {
     markAllReadTitle,
