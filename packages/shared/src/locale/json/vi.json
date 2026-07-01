@@ -5168,6 +5168,7 @@
   "trezor_ble_binding_scan_timeout__msg": "Không tìm thấy thiết bị Bluetooth Trezor nào để ghép nối. Hãy đảm bảo thiết bị đã được mở khóa và đang ở màn hình ghép nối Bluetooth, sau đó thử lại.",
   "trezor_ble_binding_searching__desc": "Đang tìm kiếm thiết bị Bluetooth Trezor để ghép nối…",
   "trezor_ble_bond_invalid__msg": "Ghép nối Bluetooth này không còn hợp lệ. Hãy quên thiết bị này trong cài đặt Bluetooth của hệ thống, sau đó kết nối lại.",
+  "trezor_ble_connect_failed__msg": "Couldn't connect to this Bluetooth device. Check the device, or re-pair it.",
   "trezor_connect_failed_before_wallet_creation__msg": "Kết nối thiết bị Trezor thất bại trước khi tạo ví.",
   "trezor_device_id_required_before_wallet_creation__msg": "Cần có ID thiết bị Trezor trước khi tạo ví.",
   "trezor_device_not_initialized__desc": "Thiết bị này chưa có ví điện tử. Hãy hoàn tất thiết lập trên thiết bị, sau đó kết nối lại.",

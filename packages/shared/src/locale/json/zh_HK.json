@@ -5168,6 +5168,7 @@
   "trezor_ble_binding_scan_timeout__msg": "找不到可配對的 Trezor 藍牙裝置。請確認裝置已解鎖並停留在藍牙配對畫面，然後重試。",
   "trezor_ble_binding_searching__desc": "正在搜尋可配對的 Trezor 藍牙裝置…",
   "trezor_ble_bond_invalid__msg": "藍牙配對已失效。請在系統藍牙設定中移除此裝置，然後重新連線。",
+  "trezor_ble_connect_failed__msg": "Couldn't connect to this Bluetooth device. Check the device, or re-pair it.",
   "trezor_connect_failed_before_wallet_creation__msg": "在建立錢包前，Trezor 裝置連線失敗。",
   "trezor_device_id_required_before_wallet_creation__msg": "在建立錢包前，需要 Trezor 裝置 ID。",
   "trezor_device_not_initialized__desc": "此設備尚未連接錢包。請完成設備上的設置，然後重新連接。",

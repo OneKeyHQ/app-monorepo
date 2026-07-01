@@ -5168,6 +5168,7 @@
   "trezor_ble_binding_scan_timeout__msg": "Aucun appareil Bluetooth Trezor à appairer n'a été trouvé. Assurez-vous que l'appareil est déverrouillé et sur l'écran d'appairage Bluetooth, puis réessayez.",
   "trezor_ble_binding_searching__desc": "Recherche d'appareils Bluetooth Trezor à appairer…",
   "trezor_ble_bond_invalid__msg": "Cet appairage Bluetooth n'est plus valide. Oubliez cet appareil dans les réglages Bluetooth du système, puis reconnectez-le.",
+  "trezor_ble_connect_failed__msg": "Couldn't connect to this Bluetooth device. Check the device, or re-pair it.",
   "trezor_connect_failed_before_wallet_creation__msg": "La connexion de l'appareil Trezor a échoué avant la création du portefeuille.",
   "trezor_device_id_required_before_wallet_creation__msg": "L'identifiant de l'appareil Trezor est requis avant la création du portefeuille.",
   "trezor_device_not_initialized__desc": "Cet appareil ne possède pas encore de portefeuille. Terminez la configuration sur l'appareil, puis reconnectez-vous.",

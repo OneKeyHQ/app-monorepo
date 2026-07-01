@@ -5168,6 +5168,7 @@
   "trezor_ble_binding_scan_timeout__msg": "未找到可配对的 Trezor 蓝牙设备。请确认设备已解锁并停留在蓝牙配对页面，然后重试。",
   "trezor_ble_binding_searching__desc": "正在搜索可配对的 Trezor 蓝牙设备…",
   "trezor_ble_bond_invalid__msg": "蓝牙配对已失效。请在系统蓝牙设置中忽略此设备，然后重新连接。",
+  "trezor_ble_connect_failed__msg": "无法连接此蓝牙设备，请检查设备或重新配对",
   "trezor_connect_failed_before_wallet_creation__msg": "在创建钱包前，Trezor 设备连接失败。",
   "trezor_device_id_required_before_wallet_creation__msg": "在创建钱包前，需要 Trezor 设备 ID。",
   "trezor_device_not_initialized__desc": "此设备还没有创建钱包。请先在设备上完成初始化设置，然后重新连接。",

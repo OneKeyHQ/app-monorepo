@@ -5168,6 +5168,7 @@
   "trezor_ble_binding_scan_timeout__msg": "Keine koppelbaren Trezor-Bluetooth-Geräte gefunden. Stellen Sie sicher, dass das Gerät entsperrt ist und sich im Bluetooth-Kopplungsbildschirm befindet, und versuchen Sie es erneut.",
   "trezor_ble_binding_searching__desc": "Suche nach koppelbaren Trezor-Bluetooth-Geräten…",
   "trezor_ble_bond_invalid__msg": "Diese Bluetooth-Kopplung ist nicht mehr gültig. Entfernen Sie dieses Gerät in den Bluetooth-Einstellungen des Systems und verbinden Sie es erneut.",
+  "trezor_ble_connect_failed__msg": "Couldn't connect to this Bluetooth device. Check the device, or re-pair it.",
   "trezor_connect_failed_before_wallet_creation__msg": "Die Verbindung zum Trezor-Gerät ist vor der Wallet-Erstellung fehlgeschlagen.",
   "trezor_device_id_required_before_wallet_creation__msg": "Vor der Wallet-Erstellung ist eine Trezor-Geräte-ID erforderlich.",
   "trezor_device_not_initialized__desc": "Dieses Gerät verfügt noch über keine Wallet. Schließen Sie die Einrichtung auf dem Gerät ab und verbinden Sie es anschließend erneut.",

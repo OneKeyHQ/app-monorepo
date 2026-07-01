@@ -5173,6 +5173,7 @@ export enum ETranslations {
   trezor_ble_binding_scan_timeout__msg = 'trezor_ble_binding_scan_timeout__msg',
   trezor_ble_binding_searching__desc = 'trezor_ble_binding_searching__desc',
   trezor_ble_bond_invalid__msg = 'trezor_ble_bond_invalid__msg',
+  trezor_ble_connect_failed__msg = 'trezor_ble_connect_failed__msg',
   trezor_connect_failed_before_wallet_creation__msg = 'trezor_connect_failed_before_wallet_creation__msg',
   trezor_device_id_required_before_wallet_creation__msg = 'trezor_device_id_required_before_wallet_creation__msg',
   trezor_device_not_initialized__desc = 'trezor_device_not_initialized__desc',

@@ -5168,6 +5168,7 @@
   "trezor_ble_binding_scan_timeout__msg": "Tidak ada perangkat Bluetooth Trezor yang ditemukan untuk disandingkan. Pastikan perangkat tidak terkunci dan berada di layar penyandingan Bluetooth, lalu coba lagi.",
   "trezor_ble_binding_searching__desc": "Mencari perangkat Bluetooth Trezor untuk disandingkan…",
   "trezor_ble_bond_invalid__msg": "Penyandingan Bluetooth ini sudah tidak valid. Lupakan perangkat ini di pengaturan Bluetooth sistem, lalu sambungkan kembali.",
+  "trezor_ble_connect_failed__msg": "Couldn't connect to this Bluetooth device. Check the device, or re-pair it.",
   "trezor_connect_failed_before_wallet_creation__msg": "Koneksi perangkat Trezor gagal sebelum pembuatan dompet.",
   "trezor_device_id_required_before_wallet_creation__msg": "ID perangkat Trezor diperlukan sebelum pembuatan dompet.",
   "trezor_device_not_initialized__desc": "Perangkat ini belum memiliki dompet. Selesaikan pengaturan pada perangkat, lalu sambungkan kembali.",

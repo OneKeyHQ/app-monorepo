@@ -5168,6 +5168,7 @@
   "trezor_ble_binding_scan_timeout__msg": "No se encontraron dispositivos Bluetooth Trezor para emparejar. Asegúrate de que el dispositivo esté desbloqueado y en la pantalla de emparejamiento Bluetooth, e inténtalo de nuevo.",
   "trezor_ble_binding_searching__desc": "Buscando dispositivos Bluetooth Trezor para emparejar…",
   "trezor_ble_bond_invalid__msg": "Este emparejamiento Bluetooth ya no es válido. Olvida este dispositivo en los ajustes de Bluetooth del sistema y vuelve a conectarlo.",
+  "trezor_ble_connect_failed__msg": "Couldn't connect to this Bluetooth device. Check the device, or re-pair it.",
   "trezor_connect_failed_before_wallet_creation__msg": "La conexión del dispositivo Trezor falló antes de crear la cartera.",
   "trezor_device_id_required_before_wallet_creation__msg": "Se requiere el ID del dispositivo Trezor antes de crear la cartera.",
   "trezor_device_not_initialized__desc": "Este dispositivo aún no tiene billetera. Complete la configuración en el dispositivo y luego vuelva a conectarse.",

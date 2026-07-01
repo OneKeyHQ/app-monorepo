@@ -5168,6 +5168,7 @@
   "trezor_ble_binding_scan_timeout__msg": "পেয়ার করার জন্য কোনো Trezor Bluetooth ডিভাইস পাওয়া যায়নি। ডিভাইসটি আনলক আছে এবং Bluetooth পেয়ারিং স্ক্রিনে আছে কিনা নিশ্চিত করুন, তারপর আবার চেষ্টা করুন।",
   "trezor_ble_binding_searching__desc": "পেয়ার করার জন্য Trezor Bluetooth ডিভাইস খোঁজা হচ্ছে…",
   "trezor_ble_bond_invalid__msg": "এই Bluetooth পেয়ারিং আর বৈধ নয়। সিস্টেমের Bluetooth সেটিংসে এই ডিভাইসটি ভুলে যান, তারপর আবার সংযোগ করুন।",
+  "trezor_ble_connect_failed__msg": "Couldn't connect to this Bluetooth device. Check the device, or re-pair it.",
   "trezor_connect_failed_before_wallet_creation__msg": "ওয়ালেট তৈরির আগে Trezor ডিভাইস সংযোগ ব্যর্থ হয়েছে।",
   "trezor_device_id_required_before_wallet_creation__msg": "ওয়ালেট তৈরির আগে Trezor ডিভাইস ID প্রয়োজন।",
   "trezor_device_not_initialized__desc": "এই ডিভাইসটিতে এখনও কোনো ওয়ালেট নেই। ডিভাইসটিতে সেটআপটি সম্পূর্ণ করুন, তারপর আবার সংযোগ করুন।",

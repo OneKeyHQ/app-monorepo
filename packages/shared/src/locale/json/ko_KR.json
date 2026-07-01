@@ -5168,6 +5168,7 @@
   "trezor_ble_binding_scan_timeout__msg": "페어링할 Trezor 블루투스 기기를 찾을 수 없습니다. 기기의 잠금이 해제되어 있고 블루투스 페어링 화면이 표시되어 있는지 확인한 후 다시 시도하세요.",
   "trezor_ble_binding_searching__desc": "페어링할 Trezor 블루투스 기기를 검색하는 중…",
   "trezor_ble_bond_invalid__msg": "이 블루투스 페어링이 더 이상 유효하지 않습니다. 시스템 블루투스 설정에서 이 기기를 삭제한 후 다시 연결하세요.",
+  "trezor_ble_connect_failed__msg": "Couldn't connect to this Bluetooth device. Check the device, or re-pair it.",
   "trezor_connect_failed_before_wallet_creation__msg": "지갑 생성 전에 Trezor 기기 연결에 실패했습니다.",
   "trezor_device_id_required_before_wallet_creation__msg": "지갑 생성 전에 Trezor 기기 ID가 필요합니다.",
   "trezor_device_not_initialized__desc": "이 기기에는 아직 지갑이 없습니다. 기기에서 설정을 완료한 후 다시 연결하세요.",

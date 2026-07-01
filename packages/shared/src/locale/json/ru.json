@@ -5168,6 +5168,7 @@
   "trezor_ble_binding_scan_timeout__msg": "Не найдено устройств Trezor по Bluetooth для сопряжения. Убедитесь, что устройство разблокировано и находится на экране сопряжения Bluetooth, затем повторите попытку.",
   "trezor_ble_binding_searching__desc": "Поиск устройств Trezor по Bluetooth для сопряжения…",
   "trezor_ble_bond_invalid__msg": "Это сопряжение Bluetooth больше недействительно. Удалите это устройство в системных настройках Bluetooth, затем подключитесь снова.",
+  "trezor_ble_connect_failed__msg": "Couldn't connect to this Bluetooth device. Check the device, or re-pair it.",
   "trezor_connect_failed_before_wallet_creation__msg": "Не удалось подключить устройство Trezor до создания кошелька.",
   "trezor_device_id_required_before_wallet_creation__msg": "Перед созданием кошелька требуется идентификатор устройства Trezor.",
   "trezor_device_not_initialized__desc": "На этом устройстве пока нет кошелька. Завершите настройку устройства, затем подключитесь снова.",

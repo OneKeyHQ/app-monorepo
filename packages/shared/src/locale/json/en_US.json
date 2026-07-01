@@ -5168,6 +5168,7 @@
   "trezor_ble_binding_scan_timeout__msg": "No Trezor Bluetooth devices found to pair. Make sure the device is unlocked and on the Bluetooth pairing screen, then try again.",
   "trezor_ble_binding_searching__desc": "Searching for Trezor Bluetooth devices to pair…",
   "trezor_ble_bond_invalid__msg": "This Bluetooth pairing is no longer valid. Forget this device in your system Bluetooth settings, then reconnect.",
+  "trezor_ble_connect_failed__msg": "Couldn't connect to this Bluetooth device. Check the device, or re-pair it.",
   "trezor_connect_failed_before_wallet_creation__msg": "Trezor device connection failed before wallet creation.",
   "trezor_device_id_required_before_wallet_creation__msg": "Trezor device ID is required before wallet creation.",
   "trezor_device_not_initialized__desc": "This device has no wallet yet. Complete the setup on the device, then connect again.",

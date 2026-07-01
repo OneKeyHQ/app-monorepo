@@ -16,7 +16,9 @@ import type { IOneKeyErrorHardwareProps } from './hardwareErrors';
 
 export const THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE = 10_504;
 export const THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE =
-  10_110 as ThirdPartyHwErrorCode;
+  ThirdPartyHwErrorCode.DevicePathForbidden;
+export const THIRD_PARTY_HW_BLE_CONNECT_FAILED_CODE =
+  ThirdPartyHwErrorCode.BleConnectFailed;
 
 // ---------------------------------------------------------------------------
 // Base class for third-party hardware errors
@@ -326,6 +328,21 @@ export class ThirdPartyBleBondInvalid extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.BleBondInvalid;
+}
+
+// Generic BLE connect failure: the OS dropped the real reason, so we can't tell
+// a stale bond from an unreachable device — one honest "re-pair" hint.
+export class ThirdPartyBleConnectFailed extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.trezor_ble_connect_failed__msg,
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override code = THIRD_PARTY_HW_BLE_CONNECT_FAILED_CODE;
 }
 
 /**
