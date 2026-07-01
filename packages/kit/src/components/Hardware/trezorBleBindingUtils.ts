@@ -2,9 +2,47 @@ import natsort from 'natsort';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
+export type ITrezorBleBindingMode = 'manual-binding' | 'auto-fallback';
+
 export type ITrezorBleBindingScannedDevice = SearchDevice & {
   raw?: { connectionType?: 'usb' | 'ble' };
 };
+
+export function getTrezorBleBindingScanOptions(mode: ITrezorBleBindingMode): {
+  resetSession: boolean;
+  waitForAllTransports?: boolean;
+  transportType?: 'usb' | 'ble';
+} {
+  if (mode === 'auto-fallback') {
+    return {
+      resetSession: true,
+      waitForAllTransports: true,
+    };
+  }
+  return {
+    resetSession: true,
+    transportType: 'ble',
+  };
+}
+
+export function findTrezorAutoFallbackConnectId({
+  mode,
+  devices,
+  usbConnectId,
+}: {
+  mode: ITrezorBleBindingMode;
+  devices: ITrezorBleBindingScannedDevice[];
+  usbConnectId: string;
+}): string | null {
+  if (mode !== 'auto-fallback') {
+    return null;
+  }
+  const usbDevice = devices.find(
+    (device) =>
+      device.connectId === usbConnectId && device.raw?.connectionType === 'usb',
+  );
+  return usbDevice?.connectId || null;
+}
 
 export function buildTrezorBleBindingCandidates({
   devices,

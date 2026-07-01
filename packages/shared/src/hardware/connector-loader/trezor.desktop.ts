@@ -1,5 +1,6 @@
 import { OneKeyLocalError } from '../../errors';
 import { logHwk } from '../hwkLogger';
+import { getTrezorThpIdentity } from '../trezorThpIdentity';
 
 import type { IConnector } from '@onekeyfe/hwk-adapter-core';
 import type { TrezorBleApi } from '@onekeyfe/hwk-trezor-connector-electron-ble';
@@ -18,9 +19,11 @@ import type { TrezorBleApi } from '@onekeyfe/hwk-trezor-connector-electron-ble';
  */
 export type TrezorDesktopTransport = 'all' | 'usb' | 'ble';
 
+const trezorThpIdentity = getTrezorThpIdentity();
+
 const THP = {
-  hostName: 'OneKey',
-  appName: 'OneKey Wallet',
+  hostName: trezorThpIdentity.hostName,
+  appName: trezorThpIdentity.appName,
   // Forward the connector's internal logs (incl. the `[TREZOR_VERIFY]`
   // per-transport scan/connect field dumps) to the hardware SDK logger. Without
   // this the connector's `thp.logger` is undefined and every dump is swallowed.

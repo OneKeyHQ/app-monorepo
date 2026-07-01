@@ -316,6 +316,20 @@ export class TrezorAdapter
       });
     });
 
+    // Old button devices prompt for the PIN on the host matrix → RECEIVE_PIN
+    // (touchscreen devices enter on-device via REQUEST_BUTTON instead).
+    this.hw.on(UI_REQUEST.REQUEST_PIN, (event) => {
+      const payload = event.payload as { connectId?: string; type?: string };
+      defaultLogger.hardware.sdkLog.log(
+        '[3rdPartyHW][Trezor] REQUEST_PIN -> host PIN matrix',
+      );
+      void thirdPartyHardwareUiStateAtom.set({
+        action: EThirdPartyHardwareUiAction.requestTrezorPin,
+        vendor: EHardwareVendor.trezor,
+        payload: payload.connectId ? { connectId: payload.connectId } : {},
+      });
+    });
+
     // THP lock — emitted as a REQUEST_BUTTON with code=ButtonRequest_PinEntry
     // by hwk-trezor-core when ThpDeviceLocked → tryToUnlock retry. Surface as
     // a toast; the SDK's THP read blocks on its own until the user enters
@@ -331,12 +345,10 @@ export class TrezorAdapter
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Trezor] REQUEST_BUTTON code=${code}`,
       );
-      // PIN entry — full PIN typed on device touchscreen. Needs a distinct
-      // "your device is locked, unlock on its screen" toast, not a generic
-      // "confirm on device" prompt.
+      // PIN entry on device touchscreen — reuse the shared `unlockDevice` action.
       if (code === 'ButtonRequest_PinEntry') {
         void thirdPartyHardwareUiStateAtom.set({
-          action: EThirdPartyHardwareUiAction.requestTrezorUnlock,
+          action: EThirdPartyHardwareUiAction.unlockDevice,
           vendor: EHardwareVendor.trezor,
         });
         return;
@@ -752,7 +764,6 @@ export class TrezorAdapter
     options?: IThirdPartyHardwareSearchOptions,
   ): Promise<DeviceInfo[]> {
     const startedAt = Date.now();
-    defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Trezor] searchDevices()');
     if (options?.resetSession) {
       (
         this.hw as IHardwareWallet & {
@@ -774,6 +785,23 @@ export class TrezorAdapter
             (device) => device.connectionType === options.transportType,
           )
         : devices;
+      if (filteredDevices.length !== devices.length) {
+        defaultLogger.hardware.sdkLog.log(
+          `[3rdPartyHW][Trezor] searchDevices.filtered ${stringifyTrezorSearchDebugValue(
+            {
+              transportType: options?.transportType,
+              rawCount: devices.length,
+              filteredCount: filteredDevices.length,
+              dropped: devices
+                .filter(
+                  (device) => device.connectionType !== options?.transportType,
+                )
+                .map(summarizeTrezorSearchDevice),
+              kept: filteredDevices.map(summarizeTrezorSearchDevice),
+            },
+          )}`,
+        );
+      }
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Trezor] searchDevices -> count=${
           filteredDevices.length
@@ -800,6 +828,17 @@ export class TrezorAdapter
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Trezor] connectDevice result success=${String(result.success)}`,
       );
+      if (!result.success) {
+        let payloadStr = '';
+        try {
+          payloadStr = JSON.stringify(result.payload);
+        } catch {
+          payloadStr = String(result.payload);
+        }
+        defaultLogger.hardware.sdkLog.log(
+          `[3rdPartyHW][Trezor] connectDevice FAILURE payload=${payloadStr}`,
+        );
+      }
       if (result.success) {
         const info = await this.hw.getDeviceInfo(connectId, result.payload);
         if (info.success) {
@@ -948,5 +987,35 @@ export class TrezorAdapter
     this._disposeSdkEvents?.();
     this._disposeSdkEvents = undefined;
     void this.hw.dispose();
+  }
+}
+
+function summarizeTrezorSearchDevice(
+  device: DeviceInfo,
+): Record<string, unknown> {
+  const extra = device as DeviceInfo & {
+    name?: unknown;
+    raw?: { transport?: unknown };
+  };
+  return {
+    connectId: device.connectId,
+    deviceId: device.deviceId,
+    name: extra.name,
+    model: device.model,
+    connectionType: device.connectionType,
+    rawTransport:
+      typeof extra.raw?.transport === 'string'
+        ? extra.raw.transport
+        : undefined,
+  };
+}
+
+function stringifyTrezorSearchDebugValue(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    return JSON.stringify({
+      stringifyError: error instanceof Error ? error.message : String(error),
+    });
   }
 }
