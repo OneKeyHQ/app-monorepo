@@ -752,6 +752,25 @@ function SecurityCheckCard(props: IProps) {
     urlSecurityInfo,
   ]);
 
+  const hasResolvedRequiredChecks = useMemo(() => {
+    if (!origin) {
+      return false;
+    }
+    const siteResolved = Boolean(urlSecurityInfo?.level);
+    const operationResolved =
+      kind === 'transaction'
+        ? Boolean(decodedTxs?.length)
+        : Boolean(messageDisplay) && !isMessageParseFallback;
+    return siteResolved && operationResolved;
+  }, [
+    decodedTxs?.length,
+    isMessageParseFallback,
+    kind,
+    messageDisplay,
+    origin,
+    urlSecurityInfo?.level,
+  ]);
+
   const highestStatus = useMemo(() => {
     if (!findings.length) {
       return undefined;
@@ -853,6 +872,8 @@ function SecurityCheckCard(props: IProps) {
     [decodedTxs, findings, intl, kind, messageDisplay, origin, urlSecurityInfo],
   );
 
+  const isNoIssue = findings.length === 0;
+
   const renderSummary = useCallback(() => {
     if (!highestStatus) {
       return null;
@@ -892,13 +913,40 @@ function SecurityCheckCard(props: IProps) {
     );
   }, [findings, highestStatus, intl]);
 
-  if (!findings.length) {
+  if (isNoIssue && (!hasResolvedRequiredChecks || !coverageTitle)) {
     return null;
   }
 
   const headerTitle = intl.formatMessage({
     id: ETranslations.dapp_connect_security_checks__title,
   });
+
+  if (isNoIssue) {
+    return (
+      <YStack
+        testID={SignatureConfirmTestIDs.SecurityCheckCard}
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$neutral3"
+        borderRadius="$3"
+        overflow="hidden"
+        bg="$bgSubdued"
+      >
+        <XStack alignItems="center" gap="$3" px="$3" py="$2.5">
+          <YStack flex={1} minWidth={0} alignItems="flex-start">
+            <SizableText size="$bodyMdMedium" numberOfLines={1}>
+              {headerTitle}
+            </SizableText>
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+              {coverageTitle}
+            </SizableText>
+          </YStack>
+          <Badge badgeType="success" badgeSize="sm" flexShrink={0}>
+            No issues detected
+          </Badge>
+        </XStack>
+      </YStack>
+    );
+  }
 
   return (
     <YStack
