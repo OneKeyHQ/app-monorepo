@@ -8,6 +8,7 @@ import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { waitForTxFinalStatus } from '@onekeyhq/kit/src/utils/waitForTxFinalStatus';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -61,51 +62,6 @@ type ITxConfirmResult =
   | {
       status: 'cancel';
     };
-
-const waitForTxFinalStatus = async ({
-  accountId,
-  networkId,
-  txid,
-  signal,
-  maxAttempts = 24,
-  intervalMs = timerUtils.getTimeDurationMs({ seconds: 5 }),
-}: {
-  accountId: string;
-  networkId: string;
-  txid: string;
-  signal?: AbortSignal;
-  maxAttempts?: number;
-  intervalMs?: number;
-}) => {
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    if (signal?.aborted) {
-      return undefined;
-    }
-
-    const txDetailsResp =
-      await backgroundApiProxy.serviceHistory.fetchTxDetails({
-        accountId,
-        networkId,
-        txid,
-      });
-    const txStatus = txDetailsResp?.data?.status;
-
-    if (
-      txStatus === EOnChainHistoryTxStatus.Success ||
-      txStatus === EOnChainHistoryTxStatus.Failed
-    ) {
-      return txStatus;
-    }
-
-    if (attempt < maxAttempts - 1) {
-      await new Promise<void>((resolve) => {
-        setTimeout(resolve, intervalMs);
-      });
-    }
-  }
-
-  return undefined;
-};
 
 const handleStakeSuccess = async ({
   data,

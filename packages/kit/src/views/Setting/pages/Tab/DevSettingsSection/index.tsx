@@ -2,6 +2,7 @@ import {
   Children,
   isValidElement,
   useCallback,
+  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -48,7 +49,10 @@ import { navigateToReferralLanding } from '@onekeyhq/kit/src/routes/config/deepl
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WebEmbedDevConfig } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import {
+  getDevSettingsNetworkThrottleEnabled,
+  useDevSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import appDeviceInfo from '@onekeyhq/shared/src/appDeviceInfo/appDeviceInfo';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -65,6 +69,7 @@ import {
   isSpanning,
 } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
+import { NATIVE_SLOW_4G_LATENCY_MS } from '@onekeyhq/shared/src/modules/NetworkThrottle';
 import {
   requestPermissionsAsync,
   setBadgeCountAsync,
@@ -434,7 +439,7 @@ function TradingViewKLineEmptyMockIntervalsDialogContent({
 
 const BaseDevSettingsSection = () => {
   const [settings] = useSettingsPersistAtom();
-  const [devSettings] = useDevSettingsPersistAtom();
+  const [devSettings, setDevSettings] = useDevSettingsPersistAtom();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { copyText } = useClipboard();
@@ -457,14 +462,80 @@ const BaseDevSettingsSection = () => {
   const mockTradingViewKLineEmptySubtitle = mockTradingViewKLineEmptyEnabled
     ? mockTradingViewKLineEmptyIntervalsText
     : '已关闭';
+  const networkThrottleEnabled = getDevSettingsNetworkThrottleEnabled(
+    devSettings,
+    Boolean(platformEnv.isDesktop || platformEnv.isNative),
+  );
+
+  useEffect(() => {
+    if (!platformEnv.isDesktop) {
+      return;
+    }
+    void globalThis.desktopApiProxy?.dev
+      ?.getNetworkThrottle?.()
+      .then((config) => {
+        const enabled = !!config.enabled;
+        setDevSettings((prev) => {
+          if (prev.settings?.networkThrottleEnabled === enabled) {
+            return prev;
+          }
+          return {
+            ...prev,
+            settings: {
+              ...prev.settings,
+              networkThrottleEnabled: enabled,
+            },
+          };
+        });
+      })
+      .catch(() => undefined);
+  }, [setDevSettings]);
+
+  const handleNetworkThrottleChange = useCallback(
+    async (enabled: boolean) => {
+      if (!devSettings.enabled) {
+        Toast.error({
+          title: 'Enable developer mode first',
+        });
+        return;
+      }
+      try {
+        const actualEnabled = Boolean(
+          await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+            'networkThrottleEnabled',
+            enabled,
+          ),
+        );
+        Toast.success({
+          title: actualEnabled
+            ? 'Slow 4G enabled'
+            : 'Network throttle disabled',
+        });
+      } catch {
+        Toast.error({
+          title: 'Failed to update network throttle',
+        });
+      }
+    },
+    [devSettings.enabled],
+  );
 
   const handleDevModeOnChange = useCallback(() => {
     Dialog.show({
       title: '关闭开发者模式',
-      onConfirm: () => {
-        void backgroundApiProxy.serviceDevSetting.switchDevMode(false);
-        if (platformEnv.isDesktop) {
-          void globalThis?.desktopApiProxy?.dev?.changeDevTools(false);
+      onConfirm: async () => {
+        try {
+          await backgroundApiProxy.serviceDevSetting.switchDevMode(false);
+        } catch {
+          Toast.error({
+            title: 'Failed to disable developer mode',
+          });
+        } finally {
+          if (platformEnv.isDesktop) {
+            await globalThis?.desktopApiProxy?.dev
+              ?.changeDevTools(false)
+              .catch(() => undefined);
+          }
         }
       },
     });
@@ -653,7 +724,7 @@ const BaseDevSettingsSection = () => {
         title: 'Dev Tools & Dev Settings',
         description: '开发者工具 开发环境设置',
         keywords:
-          '开发者悬浮窗 RTL 禁止桌面快捷键 禁用IP直连 强制使用IP请求 Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
+          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
       },
       {
         key: 'appUpdate',
@@ -1039,6 +1110,46 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+
+                      {platformEnv.isDesktop ? (
+                        <SectionPressItem
+                          icon="SpeedLowOutline"
+                          title="Desktop Slow 4G Network Throttle"
+                          subtitle={
+                            networkThrottleEnabled
+                              ? 'Slow 4G latency enabled: 562.5ms'
+                              : 'Disabled'
+                          }
+                          drillIn={false}
+                          searchKeywords="Desktop Slow 4G Network Throttle weak network throttling 弱网 慢网"
+                        >
+                          <Switch
+                            size={ESwitchSize.small}
+                            value={networkThrottleEnabled}
+                            onChange={handleNetworkThrottleChange}
+                          />
+                        </SectionPressItem>
+                      ) : null}
+
+                      {platformEnv.isNative ? (
+                        <SectionPressItem
+                          icon="SpeedLowOutline"
+                          title="Native Slow 4G Network Throttle"
+                          subtitle={
+                            networkThrottleEnabled
+                              ? `Slow 4G latency enabled: ${NATIVE_SLOW_4G_LATENCY_MS}ms`
+                              : 'Disabled'
+                          }
+                          drillIn={false}
+                          searchKeywords="Native Slow 4G Network Throttle iOS Android latency weak network throttling 弱网 慢网"
+                        >
+                          <Switch
+                            size={ESwitchSize.small}
+                            value={networkThrottleEnabled}
+                            onChange={handleNetworkThrottleChange}
+                          />
+                        </SectionPressItem>
+                      ) : null}
 
                       <SectionPressItem
                         icon="ShieldKeyholeOutline"
@@ -1562,16 +1673,6 @@ const BaseDevSettingsSection = () => {
                         onValueChange={() => {
                           void backgroundApiProxy.serviceMarketV2.clearMarketBannerCache();
                         }}
-                      >
-                        <Switch size={ESwitchSize.small} />
-                      </SectionFieldItem>
-
-                      <SectionFieldItem
-                        icon="ChartColumnarOutline"
-                        name="showUnavailableDeFiActionButtons"
-                        title="Show unavailable DeFi action buttons"
-                        subtitle="Use supported-protocols to show hidden actions, and let watch-only accounts open action UI"
-                        searchKeywords="DeFi Earn Portfolio supported-protocols actions disabled buttons"
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>

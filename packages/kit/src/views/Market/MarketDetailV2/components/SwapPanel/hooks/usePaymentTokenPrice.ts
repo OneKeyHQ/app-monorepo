@@ -24,17 +24,20 @@ type IPaymentTokenPriceResult = {
 export function usePaymentTokenPrice(
   paymentToken?: ISwapTokenBase,
   networkId?: string,
+  currencyId?: string,
 ): IUsePaymentTokenPriceResult {
   const hasPaymentToken = Boolean(paymentToken);
   const paymentContractAddress = paymentToken?.contractAddress ?? '';
-  const paymentTokenKey = `${networkId ?? ''}:${paymentContractAddress}`;
+  const paymentTokenKey = `${networkId ?? ''}:${paymentContractAddress}:${
+    currencyId ?? ''
+  }`;
   const {
     result: paymentTokenPriceResult,
     isLoading,
     run: refetch,
   } = usePromiseResult(
     async (): Promise<IPaymentTokenPriceResult | undefined> => {
-      if (!networkId || !hasPaymentToken) {
+      if (!networkId || !currencyId || !hasPaymentToken) {
         return undefined;
       }
 
@@ -42,15 +45,27 @@ export function usePaymentTokenPrice(
         {
           networkId,
           contractAddress: paymentContractAddress,
+          currency: currencyId,
         },
       );
 
       return {
-        tokenDetail: detail?.[0],
+        tokenDetail: detail?.[0]
+          ? {
+              ...detail[0],
+              currency: currencyId,
+            }
+          : undefined,
         tokenKey: paymentTokenKey,
       };
     },
-    [hasPaymentToken, networkId, paymentContractAddress, paymentTokenKey],
+    [
+      currencyId,
+      hasPaymentToken,
+      networkId,
+      paymentContractAddress,
+      paymentTokenKey,
+    ],
     {
       watchLoading: true,
       pollingInterval: 5000, // 5 seconds

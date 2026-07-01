@@ -7,6 +7,7 @@ export enum EActionType {
   LIMIT_ORDER_CLOSE = 'limitOrderClose',
   UPDATE_LEVERAGE = 'updateLeverage',
   UPDATE_ISOLATED_MARGIN = 'updateIsolatedMargin',
+  SET_ACCOUNT_MODE = 'setAccountMode',
   SET_POSITION_TPSL = 'setPositionTpsl',
   CANCEL_ORDER = 'cancelOrder',
   MODIFY_ORDER = 'modifyOrder',

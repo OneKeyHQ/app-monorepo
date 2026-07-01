@@ -2,7 +2,6 @@ import type { ComponentType } from 'react';
 
 import {
   init,
-  reactNativeTracingIntegration,
   nativeCrash as sentryNativeCrash,
   withErrorBoundary,
   withProfiler,
@@ -11,7 +10,7 @@ import {
 
 import appGlobals from '../../appGlobals';
 
-import { buildBasicOptions, navigationIntegration } from './basicOptions';
+import { buildBasicOptions } from './basicOptions';
 
 import type { FallbackRender } from '@sentry/react';
 
@@ -24,12 +23,24 @@ export const initSentry = () => {
   if (process.env.NODE_ENV !== 'production') {
     return;
   }
-  const { profilesSampleRate: _profilesSampleRate, ...basicOptions } =
-    buildBasicOptions({
-      onError: (errorMessage, stacktrace) => {
-        appGlobals.$defaultLogger?.app.error.log(errorMessage, stacktrace);
-      },
-    });
+  // Strip tracesSampleRate AND profilesSampleRate before handing options to the
+  // RN SDK. @sentry/react-native's getDefaultIntegrations treats tracing as
+  // ENABLED whenever `typeof tracesSampleRate === 'number'` (0 included), and
+  // `integrations: []` only MERGES with — does not override — the default set.
+  // So a leftover `tracesSampleRate: 0` would re-install the default tracing
+  // integrations (appStart / nativeFrames / stallTracking / timeToDisplay)
+  // regardless of `enableAutoPerformanceTracing: false`. Removing the key makes
+  // hasTracingEnabled=false so none of them are installed. profilesSampleRate is
+  // likewise stripped to keep hermesProfilingIntegration off.
+  const {
+    tracesSampleRate: _tracesSampleRate,
+    profilesSampleRate: _profilesSampleRate,
+    ...basicOptions
+  } = buildBasicOptions({
+    onError: (errorMessage, stacktrace) => {
+      appGlobals.$defaultLogger?.app.error.log(errorMessage, stacktrace);
+    },
+  });
 
   init({
     dsn: process.env.SENTRY_DSN_REACT_NATIVE || '',
@@ -37,8 +48,11 @@ export const initSentry = () => {
     maxCacheItems: 60,
     enableAppHangTracking: true,
     appHangTimeoutInterval: 5,
-    integrations: [navigationIntegration, reactNativeTracingIntegration()],
-    enableAutoPerformanceTracing: true,
+    // Performance tracing fully disabled on native — tracesSampleRate is
+    // stripped above so the SDK installs none of its default tracing
+    // integrations; error reporting + breadcrumbs are unaffected.
+    integrations: [],
+    enableAutoPerformanceTracing: false,
     // Disable Hermes profiling on React Native. With multiple Hermes runtimes
     // in the iOS release smoke test, native stopProfiling can throw on a
     // background queue and crash during TurboModule error conversion.

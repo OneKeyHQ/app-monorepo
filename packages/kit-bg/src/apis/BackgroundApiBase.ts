@@ -32,7 +32,10 @@ import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection'
 
 import { updateInterceptorRequestHelper } from '../init/updateInterceptorRequestHelper';
 import { updateInterceptorRequestHelperWithIpTable } from '../init/updateInterceptorRequestHelperWithIpTable';
-import { createBackgroundProviders } from '../providers/backgroundProviders';
+import {
+  createBackgroundProviders,
+  providerApiLoaders,
+} from '../providers/backgroundProviders';
 import { settingsPersistAtom } from '../states/jotai/atoms';
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 import { jotaiInit } from '../states/jotai/jotaiInit';
@@ -327,10 +330,53 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   bridgeExtBg: JsBridgeExtBackground | null = null;
 
-  providers: Record<IInjectedProviderNames, ProviderApiBase> =
+  // Only $private is eager here; per-chain providers are loaded lazily on first
+  // use via getProviderApi() so their heavy chain SDKs stay out of the initial
+  // (web) / startup (native) bundle graph.
+  providers: Partial<Record<IInjectedProviderNames, ProviderApiBase>> =
     createBackgroundProviders({
       backgroundApi: this,
     });
+
+  // In-flight loader cache: dedupes concurrent loads of the same provider so two
+  // simultaneous dapp messages can't construct two ProviderApi instances.
+  private providerApiLoadingCache: Partial<
+    Record<IInjectedProviderNames, Promise<ProviderApiBase>>
+  > = {};
+
+  async getProviderApi(
+    scope: IInjectedProviderNames,
+  ): Promise<ProviderApiBase> {
+    const existing = this.providers[scope];
+    if (existing) {
+      return existing;
+    }
+    let loading = this.providerApiLoadingCache[scope];
+    if (!loading) {
+      const loader = providerApiLoaders[scope];
+      if (!loader) {
+        throw new OneKeyLocalError(
+          `[${scope as string}] ProviderApi loader is not found.`,
+        );
+      }
+      loading = loader()
+        .then((module) => {
+          const ProviderApiClass = module.default;
+          const instance = new ProviderApiClass({ backgroundApi: this });
+          this.providers[scope] = instance;
+          return instance;
+        })
+        .catch((error) => {
+          // Drop the rejected promise so a transient load failure (e.g. a
+          // failed webpack chunk request on web) doesn't permanently poison
+          // the cache and leave the provider unavailable for the session.
+          delete this.providerApiLoadingCache[scope];
+          throw error;
+        });
+      this.providerApiLoadingCache[scope] = loading;
+    }
+    return loading;
+  }
 
   // @ts-ignore
   _persistorUnsubscribe: () => void;
@@ -374,13 +420,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const isKeylessPrivateMethod = isProviderApiPrivateKeylessMethod(
       payloadData?.method,
     );
-    const provider: ProviderApiBase | null =
-      this.providers[scope as IInjectedProviderNames];
-    if (!provider) {
-      throw new OneKeyLocalError(
-        `[${scope as string}] ProviderApi instance is not found.`,
-      );
-    }
+    const provider: ProviderApiBase = await this.getProviderApi(
+      scope as IInjectedProviderNames,
+    );
     if (
       scope === IInjectedProviderNames.$private &&
       ((isKeylessPrivateMethod &&

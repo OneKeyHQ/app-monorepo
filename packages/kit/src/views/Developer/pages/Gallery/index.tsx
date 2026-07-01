@@ -42,6 +42,10 @@ const CheckboxGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Checkbox'),
 );
+const ColorPickerGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ColorPicker'),
+);
 const DatePickerGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DatePicker'),
@@ -596,6 +600,7 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentListItem, component: ListItemGallery },
   { name: EGalleryRoutes.ComponentSkeleton, component: SkeletonGallery },
   { name: EGalleryRoutes.ComponentCheckbox, component: CheckboxGallery },
+  { name: EGalleryRoutes.ComponentColorPicker, component: ColorPickerGallery },
   { name: EGalleryRoutes.ComponentActionList, component: ActionListGallery },
   { name: EGalleryRoutes.ComponentPopover, component: PopoverGallery },
   { name: EGalleryRoutes.ComponentProgress, component: ProgressGallery },

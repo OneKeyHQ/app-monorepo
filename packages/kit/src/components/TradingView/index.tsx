@@ -14,6 +14,14 @@ interface ITradingViewWithVersionProps extends ITradingViewProps {
   storageNamespace?: string;
   enableNativeChartControls?: boolean;
   enableNativeIntervalSelector?: boolean;
+  nativeChartTypeControlMode?: 'toggle' | 'select';
+  nativeIndicatorControlMode?: 'dialog' | 'popover';
+  nativeIntervalControlMode?: 'dialog' | 'popover';
+  nativePriceMarketCapControlMode?: 'settings' | 'select';
+  nativeControlsLayoutMode?: 'mobile' | 'desktop';
+  isNativeChartFullscreen?: boolean;
+  showNativeIndicatorQuickBar?: boolean;
+  onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
 }
 
 export function TradingView({
@@ -25,6 +33,14 @@ export function TradingView({
   storageNamespace,
   enableNativeChartControls,
   enableNativeIntervalSelector,
+  nativeChartTypeControlMode,
+  nativeIndicatorControlMode,
+  nativeIntervalControlMode,
+  nativePriceMarketCapControlMode,
+  nativeControlsLayoutMode,
+  isNativeChartFullscreen,
+  showNativeIndicatorQuickBar,
+  onNativeChartFullscreenChange,
   ...props
 }: ITradingViewWithVersionProps & WebViewProps) {
   if (version === 'v2') {
@@ -38,6 +54,14 @@ export function TradingView({
         storageNamespace={storageNamespace}
         enableNativeChartControls={enableNativeChartControls}
         enableNativeIntervalSelector={enableNativeIntervalSelector}
+        nativeChartTypeControlMode={nativeChartTypeControlMode}
+        nativeIndicatorControlMode={nativeIndicatorControlMode}
+        nativeIntervalControlMode={nativeIntervalControlMode}
+        nativePriceMarketCapControlMode={nativePriceMarketCapControlMode}
+        nativeControlsLayoutMode={nativeControlsLayoutMode}
+        isNativeChartFullscreen={isNativeChartFullscreen}
+        showNativeIndicatorQuickBar={showNativeIndicatorQuickBar}
+        onNativeChartFullscreenChange={onNativeChartFullscreenChange}
       />
     );
   }

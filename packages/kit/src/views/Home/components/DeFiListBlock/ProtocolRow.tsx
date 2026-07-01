@@ -2,12 +2,22 @@ import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack, YStack } from '@onekeyhq/components';
+import {
+  Badge,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import { getProtocolValueState } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { buildProtocolDisplayInfo } from '@onekeyhq/kit/src/utils/defiPositionUtils';
+import { useDeFiListSupportedActionsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
+import {
+  buildProtocolDisplayInfo,
+  getProtocolActionBadgeLabelIds,
+} from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -26,6 +36,7 @@ const ProtocolRow = memo(
   ({ protocol, protocolInfo, onPress, isAllNetworks }: IProtocolRowProps) => {
     const intl = useIntl();
     const [settings] = useSettingsPersistAtom();
+    const [{ supportedActions }] = useDeFiListSupportedActionsAtom();
     const currencySymbol = settings.currencyInfo.symbol;
 
     const protocolDisplayInfo = useMemo(
@@ -39,6 +50,11 @@ const ProtocolRow = memo(
     const protocolValueState = useMemo(
       () => getProtocolValueState(protocol),
       [protocol],
+    );
+    // The actions this protocol's detail page can perform, previewed as badges.
+    const actionLabelIds = useMemo(
+      () => getProtocolActionBadgeLabelIds({ protocol, supportedActions }),
+      [protocol, supportedActions],
     );
     const hasPartialUnavailableValue =
       protocolValueState.hasAvailableValue &&
@@ -83,19 +99,36 @@ const ProtocolRow = memo(
             {positionCountText}
           </SizableText>
         </YStack>
-        <Stack flexShrink={0} maxWidth={120} alignItems="flex-end">
-          <ProtocolValueCell
-            value={protocolValueState.value}
-            currencySymbol={currencySymbol}
-            priceUnavailableLabel={priceUnavailableLabel}
-            partialPriceUnavailableLabel={partialPriceUnavailableLabel}
-            isUnavailable={!protocolValueState.hasAvailableValue}
-            showPriceUnavailableTooltip={hasPartialUnavailableValue}
-            size="$bodyLgMedium"
-            textAlign="right"
-            numberOfLines={1}
-          />
-        </Stack>
+        <YStack flexShrink={0} alignItems="flex-end" gap="$1">
+          <Stack maxWidth={120} alignItems="flex-end">
+            <ProtocolValueCell
+              value={protocolValueState.value}
+              currencySymbol={currencySymbol}
+              priceUnavailableLabel={priceUnavailableLabel}
+              partialPriceUnavailableLabel={partialPriceUnavailableLabel}
+              isUnavailable={!protocolValueState.hasAvailableValue}
+              showPriceUnavailableTooltip={hasPartialUnavailableValue}
+              size="$bodyLgMedium"
+              textAlign="right"
+              numberOfLines={1}
+            />
+          </Stack>
+          {actionLabelIds.length > 0 ? (
+            <XStack
+              justifyContent="flex-end"
+              alignItems="center"
+              gap="$1"
+              flexWrap="wrap"
+              maxWidth={180}
+            >
+              {actionLabelIds.map((labelId) => (
+                <Badge key={labelId} badgeType="info" badgeSize="sm">
+                  {intl.formatMessage({ id: labelId })}
+                </Badge>
+              ))}
+            </XStack>
+          ) : null}
+        </YStack>
       </ListItem>
     );
   },

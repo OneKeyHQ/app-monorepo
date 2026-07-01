@@ -141,13 +141,16 @@ export function buildSwapAllNetworkTokenListCacheKey({
   accountId,
   lpToken,
   currency,
+  protocol,
 }: {
   accountId: string;
   lpToken?: boolean;
   currency?: string;
+  protocol?: string;
 }) {
   const currencyKey = currency ? `__${currency}` : '';
-  return `${accountId}${lpToken ? '__lpToken' : ''}${currencyKey}`;
+  const protocolKey = protocol ? `__${protocol}` : '';
+  return `${accountId}${protocolKey}${lpToken ? '__lpToken' : ''}${currencyKey}`;
 }
 
 export const SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED =

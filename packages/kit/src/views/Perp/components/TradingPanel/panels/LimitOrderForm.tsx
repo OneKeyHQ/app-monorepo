@@ -9,10 +9,12 @@ import {
   DashText,
   Dialog,
   SizableText,
+  Skeleton,
   Toast,
   XStack,
   YStack,
   resetToRoute,
+  useMedia,
 } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -55,6 +57,7 @@ import {
   EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   calculateLiquidationPrice,
   formatPriceToSignificantDigits,
@@ -80,9 +83,13 @@ import { getEnableTradingDialogConfirmDecision } from '../../../utils/enableTrad
 import { shouldApplyMinimumOrderGuard } from '../../../utils/minimumOrderGuard';
 import { shouldBlockPerpsTradingForMarketData } from '../../../utils/perpsMarketDataFreshness';
 import { resolveTpSlTriggerPx } from '../../../utils/resolveTpSlTriggerPx';
-import { PERP_TRADE_BUTTON_COLORS } from '../../../utils/styleUtils';
+import {
+  PERP_TRADE_BUTTON_COLORS,
+  getTradingSideTextColor,
+} from '../../../utils/styleUtils';
 import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../PerpDialogLayout';
 import { PerpsSlider } from '../../PerpsSlider';
+import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
@@ -90,6 +97,11 @@ import { showEnableTradingStepsDialog } from '../modals/EnableTradingStepsDialog
 import { showOrderConfirmDialog } from '../modals/OrderConfirmModal';
 import { BBOSelector } from '../selectors/BBOSelector';
 import { TimeInForceSelector } from '../selectors/TimeInForceSelector';
+
+import {
+  ORDER_TYPE_HELP_CENTER_URL,
+  OrderTypeInfoButton,
+} from './PerpTradingForm';
 
 interface ILimitOrderFormProps {
   symbol: string;
@@ -184,6 +196,7 @@ export function LimitOrderForm({
   const [limitTif, setLimitTif] = useState<ITIF>('Gtc');
   const [bboPriceMode, setBboPriceMode] = useState<IBBOPriceMode>(null);
   const [hasTpsl, setHasTpsl] = useState(false);
+  const [reduceOnly, setReduceOnly] = useState(false);
   const [tpType, setTpType] = useState<'price' | 'percentage'>('price');
   const [tpValue, setTpValue] = useState('');
   const [slType, setSlType] = useState<'price' | 'percentage'>('price');
@@ -297,6 +310,20 @@ export function LimitOrderForm({
       : new BigNumber(0);
   }, [spotBalances, spotUniverse?.quoteName]);
 
+  // Full base holding (does NOT subtract `hold`): the position row must show what
+  // the user owns, otherwise open sell orders shrink it into "available to sell".
+  const spotHoldingBaseBN = useMemo(() => {
+    if (!spotUniverse?.baseName) {
+      return new BigNumber(0);
+    }
+    const balance = spotBalances.find(
+      (item) => item.coin === spotUniverse.baseName,
+    );
+    return balance
+      ? BigNumber.max(new BigNumber(balance.total), 0)
+      : new BigNumber(0);
+  }, [spotBalances, spotUniverse?.baseName]);
+
   // [buyMax, sellMax] in base-token units: buy is bounded by quote balance / price,
   // sell by the base-token balance.
   const computeSpotMaxTradeSzs = useCallback(
@@ -358,6 +385,42 @@ export function LimitOrderForm({
       )?.[0]?.position,
     [perpsPositions, activeAsset?.coin],
   );
+
+  // Available-to-trade / current-position values for the summary card.
+  const perpsAvailableToTrade = useMemo(() => {
+    const available = activeAssetData?.availableToTrade;
+    if (!available) {
+      return '0';
+    }
+    const longValue = Number(available[0] ?? 0);
+    const shortValue = Number(available[1] ?? 0);
+    return new BigNumber(Math.min(longValue, shortValue)).toFixed(
+      2,
+      BigNumber.ROUND_DOWN,
+    );
+  }, [activeAssetData?.availableToTrade]);
+
+  const [perpsPositionSize, perpsPositionSide] = useMemo(() => {
+    const szi = Number(currentCoinPosition?.szi ?? 0);
+    const positionSide: ITradeSide = szi >= 0 ? 'long' : 'short';
+    return [Math.abs(szi), positionSide] as const;
+  }, [currentCoinPosition?.szi]);
+  const perpsPositionColor =
+    perpsPositionSize > 0
+      ? getTradingSideTextColor(perpsPositionSide)
+      : '$text';
+
+  const spotHoldingDisplay = useMemo(() => {
+    if (!isSpot) {
+      return '';
+    }
+    const baseName = spotUniverse?.baseName
+      ? getSpotTokenDisplayName(spotUniverse.baseName)
+      : '';
+    return `${numberFormat(spotHoldingBaseBN.toFixed(), {
+      formatter: 'balance',
+    })} ${baseName}`;
+  }, [isSpot, spotHoldingBaseBN, spotUniverse?.baseName]);
   const sideStats = useMemo(() => {
     const buildStats = (targetSide: ITradeSide) => {
       if (isSpot) {
@@ -696,10 +759,18 @@ export function LimitOrderForm({
 
       const computedSizeBN = computeSizeBN(pressedSide, resolvedPriceBN);
       if (!computedSizeBN.isFinite() || computedSizeBN.lte(0)) {
+        // A slider % resolving to 0 means no funds, so show that rather than the
+        // misleading "enter amount" hint.
+        const pickedPercentButNoFunds =
+          sizeInputMode === EPerpsSizeInputMode.SLIDER && sizePercent > 0;
+        let emptySizeMessageId = ETranslations.perp_trade_amount_place_holder;
+        if (pickedPercentButNoFunds) {
+          emptySizeMessageId = isSpot
+            ? ETranslations.dexmarket_insufficient_balance
+            : ETranslations.perp_insufficient_margin__title;
+        }
         Toast.message({
-          title: intl.formatMessage({
-            id: ETranslations.perp_trade_amount_place_holder,
-          }),
+          title: intl.formatMessage({ id: emptySizeMessageId }),
         });
         return;
       }
@@ -730,6 +801,11 @@ export function LimitOrderForm({
           pressedSide === 'long'
             ? orderValueBN.gt(spotAvailableQuoteBN)
             : computedSizeBN.gt(spotAvailableBaseBN);
+      } else if (reduceOnly) {
+        // Reduce-only closes an existing position and consumes no new margin, so
+        // the available-margin check must not block it (HL bounds it to the
+        // position size); otherwise closing at zero free margin is impossible.
+        insufficientBalance = false;
       } else {
         const available = activeAssetData?.availableToTrade;
         const sideAvailableBN = new BigNumber(
@@ -774,7 +850,8 @@ export function LimitOrderForm({
         leverage,
         bboPriceMode: bboPriceMode ?? null,
         limitTif,
-        reduceOnly: false,
+        // Reduce-only is a perps-only concept; spot has no position to reduce.
+        reduceOnly: isSpot ? false : reduceOnly,
         hasTpsl: isSpot ? false : hasTpsl,
         tpTriggerPx: tpTriggerPx ?? '',
         tpGainPercent: '',
@@ -809,7 +886,10 @@ export function LimitOrderForm({
       limitTif,
       marketDataFreshness,
       onClose,
+      reduceOnly,
       resolvePriceForSide,
+      sizeInputMode,
+      sizePercent,
       slType,
       slValue,
       spotAvailableBaseBN,
@@ -920,6 +1000,49 @@ export function LimitOrderForm({
 
   return (
     <YStack gap="$2.5">
+      {/* Available / Current Position card, same style as the main trading panel. */}
+      <YStack
+        gap="$2.5"
+        p="$2.5"
+        borderWidth="$px"
+        borderColor="$borderSubdued"
+        borderRadius="$2"
+      >
+        <XStack justifyContent="space-between" alignItems="center">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_trade_account_overview_available,
+            })}
+          </SizableText>
+          {isSpot ? (
+            <SizableText size="$bodySmMedium" color="$text">
+              {spotAvailableDisplay || '--'}
+            </SizableText>
+          ) : (
+            <PerpsAccountNumberValue value={perpsAvailableToTrade} />
+          )}
+        </XStack>
+        <XStack justifyContent="space-between" alignItems="center">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_trade_current_position,
+            })}
+          </SizableText>
+          {perpsAccountLoading?.selectAccountLoading ? (
+            <Skeleton width={60} height={16} />
+          ) : (
+            <SizableText
+              size="$bodySmMedium"
+              color={isSpot ? '$text' : perpsPositionColor}
+            >
+              {isSpot
+                ? spotHoldingDisplay || '--'
+                : `${perpsPositionSize} ${displayName}`}
+            </SizableText>
+          )}
+        </XStack>
+      </YStack>
+
       {/* Price + BBO */}
       <XStack alignItems="center" gap="$2.5">
         {isBBOActive ? (
@@ -988,6 +1111,27 @@ export function LimitOrderForm({
 
       {!isSpot ? (
         <>
+          {/* Reduce-only (perps only), mirroring the standard order panel. */}
+          <XStack alignItems="center" mb="$2">
+            <Checkbox
+              testID="chart-limit-reduce-only-checkbox"
+              value={reduceOnly}
+              onChange={(checked) => setReduceOnly(!!checked)}
+              label={intl.formatMessage({
+                id: ETranslations.perps_reduce_only,
+              })}
+              containerProps={{
+                p: 0,
+                alignItems: 'center',
+                cursor: 'pointer',
+              }}
+              labelProps={{
+                size: '$bodyMd',
+                color: '$text',
+              }}
+            />
+          </XStack>
+
           {/* TP/SL */}
           <XStack
             width="100%"
@@ -1066,16 +1210,6 @@ export function LimitOrderForm({
               {spotOrderValueBN.gt(0)
                 ? `$${spotOrderValueBN.toFixed(2, BigNumber.ROUND_DOWN)}`
                 : '--'}
-            </SizableText>
-          </XStack>
-          <XStack justifyContent="space-between">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_trade_account_overview_available,
-              })}
-            </SizableText>
-            <SizableText size="$bodySmMedium" color="$text">
-              {spotAvailableDisplay || '--'}
             </SizableText>
           </XStack>
         </YStack>
@@ -1231,6 +1365,24 @@ export function LimitOrderForm({
 // symbol/price are snapshotted at open; LimitOrderForm closes and the confirm
 // step re-asserts the live coin still matches, so a later active-asset switch
 // cannot submit a stale ticket against another coin.
+// Dialog title with the order-type info icon (reuses the panel's OrderTypeInfoButton).
+function LimitOrderDialogTitle({ title }: { title: string }) {
+  const intl = useIntl();
+  const media = useMedia();
+  return (
+    <XStack alignItems="center" gap="$1.5">
+      <Dialog.Title>{title}</Dialog.Title>
+      <OrderTypeInfoButton
+        description={intl.formatMessage({
+          id: ETranslations.perp_order_type_limit_desc__desc,
+        })}
+        helpUrl={ORDER_TYPE_HELP_CENTER_URL}
+        isMobile={!media.gtMd}
+      />
+    </XStack>
+  );
+}
+
 export function showLimitOrderDialog({
   symbol,
   price,
@@ -1245,23 +1397,30 @@ export function showLimitOrderDialog({
   intl: IntlShape;
 }) {
   const displayName = displayPair ?? parseDexCoin(symbol).displayName;
+  const titleText = `${intl.formatMessage({
+    id: ETranslations.perp_trade_limit,
+  })} · ${displayName}`;
   const dialogInstance = Dialog.show({
-    title: `${intl.formatMessage({
-      id: ETranslations.perp_trade_limit,
-    })} · ${displayName}`,
+    // No `title` here: the custom Dialog.Header below supplies the single header
+    // (title + info button); the default BasicDialogHeader renders it + close.
     renderContent: (
-      <PerpsAccountSelectorProviderMirror>
-        <PerpsProviderMirror>
-          <LimitOrderForm
-            symbol={symbol}
-            seededPrice={price}
-            displayCoin={displayCoin}
-            onClose={() => {
-              void dialogInstance.close();
-            }}
-          />
-        </PerpsProviderMirror>
-      </PerpsAccountSelectorProviderMirror>
+      <>
+        <Dialog.Header>
+          <LimitOrderDialogTitle title={titleText} />
+        </Dialog.Header>
+        <PerpsAccountSelectorProviderMirror>
+          <PerpsProviderMirror>
+            <LimitOrderForm
+              symbol={symbol}
+              seededPrice={price}
+              displayCoin={displayCoin}
+              onClose={() => {
+                void dialogInstance.close();
+              }}
+            />
+          </PerpsProviderMirror>
+        </PerpsAccountSelectorProviderMirror>
+      </>
     ),
     contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,

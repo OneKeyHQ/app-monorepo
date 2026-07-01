@@ -114,7 +114,7 @@ jest.mock('react-native', () => ({
 // `.flush()` queuing semantics, etc.) must either `jest.unmock('lodash')`
 // or override `debounce` per-test — otherwise it will silently misbehave.
 jest.mock('lodash', () => {
-  const actualLodash = jest.requireActual('lodash') as Record<string, unknown>;
+  const actualLodash = jest.requireActual<Record<string, unknown>>('lodash');
   return {
     ...actualLodash,
     debounce: (fn: (...args: unknown[]) => unknown) => {
@@ -928,7 +928,7 @@ describe('useBrowserTabActions', () => {
       }),
     ).toBe(EValidateUrlEnum.ValidDeeplink);
 
-    let opened: boolean | void = undefined;
+    let opened!: boolean | void;
     await act(async () => {
       opened = await result.current.actions.gotoSite({
         id: 'tab-1',
@@ -997,7 +997,7 @@ describe('useBrowserTabActions', () => {
       },
     );
 
-    let opened: boolean | void = undefined;
+    let opened!: boolean | void;
     await act(async () => {
       opened = await result.current.actions.gotoSite({
         id: 'tab-1',

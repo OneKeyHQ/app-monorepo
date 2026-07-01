@@ -11,6 +11,10 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: write
+  actions: write
+
 jobs:
   # get-commit-id:
   #   runs-on: ubuntu-24.04
@@ -79,15 +83,49 @@ jobs:
 
           echo "WORKFLOW_BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> ./workflow-data/params.env
           bundle_version=$(( $(date -u +%s) - $(date -u -d '2026-01-01T00:00:00' +%s 2>/dev/null || date -u -j -f '%Y-%m-%dT%H:%M:%S' '2026-01-01T00:00:00' +%s) ))
+          echo "BUILD_BUNDLE_VERSION=$bundle_version" >> "$GITHUB_ENV"
           echo "WORKFLOW_BUNDLE_VERSION=$bundle_version" >> ./workflow-data/params.env
           echo "ONEKEY_ALLOW_SKIP_GPG_VERIFICATION=${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}" >> ./workflow-data/params.env
-      
+
       - name: Upload workflow parameters
         uses: actions/upload-artifact@v4
         with:
           name: workflow-params
           path: workflow-data/params.env
           retention-days: 1
+
+      - name: Dispatch desktop release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_REF_NAME: ci/desktop-release/${{ github.run_id }}-${{ github.run_attempt }}
+          SOURCE_REF_NAME: ${{ github.ref_name }}
+          BUILD_NUMBER: ${{ env.BUILD_NUMBER }}
+          BUILD_BUNDLE_VERSION: ${{ env.BUILD_BUNDLE_VERSION }}
+          ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
+        run: |
+          set -euo pipefail
+
+          cleanup_tag() {
+            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${RELEASE_REF_NAME}" >/dev/null 2>&1 || true
+          }
+          trap cleanup_tag ERR
+
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+            -f "ref=refs/tags/${RELEASE_REF_NAME}" \
+            -f "sha=${GITHUB_SHA}"
+
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/workflows/release-desktop-all.yml/dispatches" \
+            -f "ref=${RELEASE_REF_NAME}" \
+            -f "inputs[source_ref_name]=${SOURCE_REF_NAME}" \
+            -f "inputs[build_number]=${BUILD_NUMBER}" \
+            -f "inputs[build_bundle_version]=${BUILD_BUNDLE_VERSION}" \
+            -f "inputs[ONEKEY_ALLOW_SKIP_GPG_VERIFICATION]=${ONEKEY_ALLOW_SKIP_GPG_VERIFICATION}" \
+            -f "inputs[notify_release]=true" \
+            -f "inputs[upload_mas_to_testflight]=true" \
+            -f "inputs[upload_snap_to_store]=true" \
+            -f "inputs[cleanup_release_ref]=true"
+
+          trap - ERR
 
 
       # - name: Clone Build History Branch
@@ -103,6 +141,3 @@ jobs:
       #     git config --local user.name "GitHub Action"
       #     git commit -am "build ${{ needs.get-commit-id.outputs.upstream_id }} in $CURRENT_TIME"
       #     git push --set-upstream origin buildhistory
-
-
-

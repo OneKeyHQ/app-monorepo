@@ -8,293 +8,61 @@ import type {
   IBackgroundApiBridge,
 } from '../apis/IBackgroundApi';
 
+export type IProviderApiModule = {
+  default: new (props: {
+    backgroundApi: IBackgroundApiBridge | IBackgroundApi;
+  }) => ProviderApiBase;
+};
+
+// Per-chain ProviderApi async loaders.
+//
+// Why import() (not require()): a static-string require() bundles the target
+// module — and its heavy chain SDK — into the INITIAL (web) / startup (native)
+// graph even when wrapped in a lazy getter, because webpack/Metro treat sync
+// require as a build-time dependency. import() instead emits a webpack async
+// chunk (web) / a lazy split-bundle segment (native, see
+// apps/mobile/plugins/asyncRequireCore.js + bundle-groups.config.js), so a
+// chain's ProviderApi + SDK only loads when a dapp actually invokes that chain.
+// Mirrors the cross-platform-proven vaults/factory.ts vaultsLoader pattern.
+export const providerApiLoaders: Partial<
+  Record<IInjectedProviderNames, () => Promise<IProviderApiModule>>
+> = {
+  [IInjectedProviderNames.ethereum]: () => import('./ProviderApiEthereum'),
+  [IInjectedProviderNames.solana]: () => import('./ProviderApiSolana'),
+  [IInjectedProviderNames.near]: () => import('./ProviderApiNear'),
+  [IInjectedProviderNames.aptos]: () => import('./ProviderApiAptos'),
+  [IInjectedProviderNames.conflux]: () => import('./ProviderApiConflux'),
+  [IInjectedProviderNames.tron]: () => import('./ProviderApiTron'),
+  [IInjectedProviderNames.algo]: () => import('./ProviderApiAlgo'),
+  [IInjectedProviderNames.sui]: () => import('./ProviderApiSui'),
+  [IInjectedProviderNames.bfc]: () => import('./ProviderApiBfc'),
+  [IInjectedProviderNames.ton]: () => import('./ProviderApiTon'),
+  [IInjectedProviderNames.alephium]: () => import('./ProviderApiAlph'),
+  [IInjectedProviderNames.scdo]: () => import('./ProviderApiScdo'),
+  [IInjectedProviderNames.cardano]: () => import('./ProviderApiCardano'),
+  [IInjectedProviderNames.cosmos]: () => import('./ProviderApiCosmos'),
+  [IInjectedProviderNames.polkadot]: () => import('./ProviderApiPolkadot'),
+  [IInjectedProviderNames.webln]: () => import('./ProviderApiWebln'),
+  [IInjectedProviderNames.nostr]: () => import('./ProviderApiNostr'),
+  [IInjectedProviderNames.btc]: () => import('./ProviderApiBtc'),
+  [IInjectedProviderNames.neo]: () => import('./ProviderApiNeoN3'),
+  [IInjectedProviderNames.stellar]: () => import('./ProviderApiStellar'),
+};
+
+// $private stays EAGER: it is accessed SYNCHRONOUSLY by name in several places
+// (ProviderApiNear, ServiceDApp, ServiceContextMenu, ServiceSetting), so it must
+// always be present on backgroundApi.providers. All other providers are loaded
+// lazily via BackgroundApiBase.getProviderApi(scope).
 function createBackgroundProviders({
   backgroundApi,
 }: {
   backgroundApi: IBackgroundApiBridge | IBackgroundApi;
-}) {
-  const backgroundProviders: Record<string, ProviderApiBase> = {
+}): Partial<Record<IInjectedProviderNames, ProviderApiBase>> {
+  return {
     [IInjectedProviderNames.$private]: new ProviderApiPrivate({
       backgroundApi,
     }),
   };
-
-  // Object.defineProperty(backgroundProviders, IInjectedProviderNames.$private, {
-  //   get() {
-  //     const ProviderApiPrivate = (
-  //       require('./ProviderApiPrivate') as unknown as typeof import('./ProviderApiPrivate')
-  //     ).default;
-  //     const value = new ProviderApiPrivate({ backgroundApi });
-  //     Object.defineProperty(this, IInjectedProviderNames.$private, { value });
-  //     return value;
-  //   },
-  //   configurable: true,
-  //   enumerable: true,
-  // });
-
-  // Lazy load providers using getters
-
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.ethereum, {
-    get() {
-      const ProviderApiEthereum = (
-        require('./ProviderApiEthereum') as unknown as typeof import('./ProviderApiEthereum')
-      ).default;
-      const value = new ProviderApiEthereum({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.ethereum, { value });
-      return value;
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.solana, {
-    get() {
-      const ProviderApiSolana = (
-        require('./ProviderApiSolana') as unknown as typeof import('./ProviderApiSolana')
-      ).default;
-      const value = new ProviderApiSolana({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.solana, { value });
-      return value;
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.near, {
-    get() {
-      const ProviderApiNear = (
-        require('./ProviderApiNear') as unknown as typeof import('./ProviderApiNear')
-      ).default;
-      const value = new ProviderApiNear({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.near, { value });
-      return value;
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.aptos, {
-    get() {
-      const ProviderApiAptos = (
-        require('./ProviderApiAptos') as unknown as typeof import('./ProviderApiAptos')
-      ).default;
-      const value = new ProviderApiAptos({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.aptos, { value });
-      return value;
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.conflux, {
-    get() {
-      const ProviderApiConflux = (
-        require('./ProviderApiConflux') as unknown as typeof import('./ProviderApiConflux')
-      ).default;
-      const value = new ProviderApiConflux({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.conflux, { value });
-      return value;
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.tron, {
-    get() {
-      const ProviderApiTron = (
-        require('./ProviderApiTron') as unknown as typeof import('./ProviderApiTron')
-      ).default;
-      const value = new ProviderApiTron({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.tron, { value });
-      return value;
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.algo, {
-    get() {
-      const ProviderApiAlgo = (
-        require('./ProviderApiAlgo') as unknown as typeof import('./ProviderApiAlgo')
-      ).default;
-      const value = new ProviderApiAlgo({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.algo, { value });
-      return value;
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.sui, {
-    get() {
-      const ProviderApiSui = (
-        require('./ProviderApiSui') as unknown as typeof import('./ProviderApiSui')
-      ).default;
-      const value = new ProviderApiSui({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.sui, { value });
-      return value;
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.bfc, {
-    get() {
-      const ProviderApiBfc = (
-        require('./ProviderApiBfc') as unknown as typeof import('./ProviderApiBfc')
-      ).default;
-      const value = new ProviderApiBfc({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.bfc, { value });
-      return value;
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.ton, {
-    get() {
-      const ProviderApiTon = (
-        require('./ProviderApiTon') as unknown as typeof import('./ProviderApiTon')
-      ).default;
-      const value = new ProviderApiTon({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.ton, { value });
-      return value;
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.alephium, {
-    get() {
-      const ProviderApiAlph = (
-        require('./ProviderApiAlph') as unknown as typeof import('./ProviderApiAlph')
-      ).default;
-      const value = new ProviderApiAlph({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.alephium, { value });
-      return value;
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.scdo, {
-    get() {
-      const ProviderApiScdo = (
-        require('./ProviderApiScdo') as unknown as typeof import('./ProviderApiScdo')
-      ).default;
-      const value = new ProviderApiScdo({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.scdo, { value });
-      return value;
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.cardano, {
-    get() {
-      const ProviderApiCardano = (
-        require('./ProviderApiCardano') as unknown as typeof import('./ProviderApiCardano')
-      ).default;
-      const value = new ProviderApiCardano({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.cardano, { value });
-      return value;
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.cosmos, {
-    get() {
-      const ProviderApiCosmos = (
-        require('./ProviderApiCosmos') as unknown as typeof import('./ProviderApiCosmos')
-      ).default;
-      const value = new ProviderApiCosmos({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.cosmos, { value });
-      return value;
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.polkadot, {
-    get() {
-      const ProviderApiPolkadot = (
-        require('./ProviderApiPolkadot') as unknown as typeof import('./ProviderApiPolkadot')
-      ).default;
-      const value = new ProviderApiPolkadot({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.polkadot, { value });
-      return value;
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.webln, {
-    get() {
-      const ProviderApiWebln = (
-        require('./ProviderApiWebln') as unknown as typeof import('./ProviderApiWebln')
-      ).default;
-      const value = new ProviderApiWebln({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.webln, { value });
-      return value;
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.nostr, {
-    get() {
-      const ProviderApiNostr = (
-        require('./ProviderApiNostr') as unknown as typeof import('./ProviderApiNostr')
-      ).default;
-      const value = new ProviderApiNostr({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.nostr, { value });
-      return value;
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.btc, {
-    get() {
-      const ProviderApiBtc = (
-        require('./ProviderApiBtc') as unknown as typeof import('./ProviderApiBtc')
-      ).default;
-      const value = new ProviderApiBtc({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.btc, { value });
-      return value;
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.neo, {
-    get() {
-      const ProviderApiNeoN3 = (
-        require('./ProviderApiNeoN3') as unknown as typeof import('./ProviderApiNeoN3')
-      ).default;
-      const value = new ProviderApiNeoN3({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.neo, { value });
-      return value;
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.stellar, {
-    get() {
-      const ProviderApiStellar = (
-        require('./ProviderApiStellar') as unknown as typeof import('./ProviderApiStellar')
-      ).default;
-      const value = new ProviderApiStellar({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.stellar, { value });
-      return value;
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  return backgroundProviders;
 }
 
 export { createBackgroundProviders };

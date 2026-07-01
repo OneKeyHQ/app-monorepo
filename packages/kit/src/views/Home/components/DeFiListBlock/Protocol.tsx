@@ -193,6 +193,7 @@ const ProtocolDesktopLayout = memo(
                     networkId={protocol.networkId}
                     currencySymbol={currencySymbol}
                     netWorth={protocolDisplayInfo.netWorth}
+                    protocolUrl={protocolDisplayInfo.protocolUrl}
                     isAllNetworks={isAllNetworks}
                     positionCountText={positionCountText}
                     open={open}

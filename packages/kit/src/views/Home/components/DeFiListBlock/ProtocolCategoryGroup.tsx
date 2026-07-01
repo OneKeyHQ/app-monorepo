@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
 
 import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { DeFiPositionHealthFactorRow } from '@onekeyhq/kit/src/components/DeFi/DeFiPositionHealthFactorRow';
 import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import {
   type ILocalizedProtocolCategoryGroup,
@@ -118,6 +119,13 @@ const ProtocolCategoryGroup = memo(
                     </SizableText>
                   ) : null}
                 </XStack>
+                {typeof position.healthFactor === 'number' ? (
+                  <YStack px="$5">
+                    <DeFiPositionHealthFactorRow
+                      healthFactor={position.healthFactor}
+                    />
+                  </YStack>
+                ) : null}
                 <ProtocolSectionedPositionTable
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}

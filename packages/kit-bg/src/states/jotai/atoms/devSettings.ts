@@ -92,9 +92,6 @@ export interface IDevSettings {
   forceIpTableStrict?: boolean;
   // Enable mock market banner data for UI testing
   enableMockMarketBanner?: boolean;
-  // Show DeFi action buttons that are protocol-supported but not currently actionable,
-  // and allow watch-only accounts to render/click the action UI.
-  showUnavailableDeFiActionButtons?: boolean;
   // Test accounts for OneKey ID login testing
   testAccounts?: ITestAccount[];
   // Ignore server bundle update info (prevents rollback when dev-switching bundles)
@@ -112,6 +109,8 @@ export interface IDevSettings {
   // Force react-native-fast-pbkdf2 instead of the default quick-crypto backend
   // for native PBKDF2 calls (debug only).
   useFastPbkdf2NativeBackend?: boolean;
+  // Enable Slow 4G throttling on platforms with a supported backend.
+  networkThrottleEnabled?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -120,6 +119,16 @@ export type IDevSettingsPersistAtom = {
   enabled: boolean;
   settings?: IDevSettings;
 };
+
+export function getDevSettingsNetworkThrottleEnabled(
+  devSettings: IDevSettingsPersistAtom,
+  defaultEnabled: boolean,
+) {
+  if (!devSettings.enabled) {
+    return false;
+  }
+  return devSettings.settings?.networkThrottleEnabled ?? defaultEnabled;
+}
 export const {
   target: devSettingsPersistAtom,
   use: useDevSettingsPersistAtom,
@@ -150,12 +159,12 @@ export const {
       mockTradingViewKLineEmptyEnabled: false,
       mockTradingViewKLineEmptyIntervals: ['1m'],
       showMarketHomeWsDebug: false,
+      networkThrottleEnabled: !!platformEnv.isDesktop || !!platformEnv.isNative,
       allowLocalhostUrlInDAppBrowser: false,
       // Linux Desktop use Bridge，avoiding WebUSB permission problem
       usbCommunicationMode: platformEnv.isDesktopLinux ? 'bridge' : 'webusb',
       disableIpTableInProd: false, // IP Table enabled by default
       forceIpTableStrict: false, // Strict mode: disabled by default
-      showUnavailableDeFiActionButtons: false,
       useFastPbkdf2NativeBackend: false,
     },
   },

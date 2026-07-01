@@ -57,6 +57,10 @@ import {
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
+import {
+  applyDesktopNetworkThrottleToKnownSessions,
+  applyDesktopNetworkThrottleToWebContents,
+} from './libs/networkThrottle';
 // Side-effect import: registers synchronous IPC handler for renderer MMKV access
 // eslint-disable-next-line import-js/order
 import './libs/react-native-mmkv-desktop-main';
@@ -83,7 +87,17 @@ import { destroyTrayWindow, getTrayWindow } from './tray/trayWindow';
 
 import type { IpcMainLike } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
 
-initSentry();
+// Perf: defer Sentry init off the synchronous module-init path. `@sentry/electron`
+// is external (~5MB); requiring + initializing it on the next tick keeps the
+// require()/parse out of the cold-start eval window.
+//
+// Use process.nextTick (not setImmediate): it fires before any timer/IO callback,
+// so Sentry's global error handlers are installed at the earliest possible point
+// after synchronous eval — and always before the first window (created in
+// app.whenReady()). This minimizes the window in which an early async error would
+// go unreported. (Synchronous top-level errors during app.js eval remain
+// pre-Sentry by construction; native crashes are still covered out-of-band.)
+process.nextTick(initSentry);
 
 const isPerfCiMode = process.env.PERF_CI_MODE === '1';
 const isDesktopE2EMode = process.env.DESKTOP_E2E_MODE === 'true';
@@ -724,6 +738,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     icon: path.join(appStaticResourcesPath, 'images/icons/512x512.png'),
     ...savedWinBounds,
   });
+  applyDesktopNetworkThrottleToWebContents(browserWindow.webContents);
 
   const getSafelyBrowserWindow = () => {
     if (browserWindow && !browserWindow.isDestroyed()) {
@@ -1189,6 +1204,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   const overlaySession = session.fromPartition(
     DESKTOP_WEBVIEW_OVERLAY_PARTITION,
   );
+  void applyDesktopNetworkThrottleToKnownSessions();
   // Overlay loads arbitrary external https pages from deeplinks /
   // notifications; the renderer's media-permission whitelist already
   // denies getUserMedia at the react-native-webview layer, but the
@@ -1206,6 +1222,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   // Prevents clicking on links to open new Windows
   app.removeAllListeners('web-contents-created');
   app.on('web-contents-created', (event, contents) => {
+    applyDesktopNetworkThrottleToWebContents(contents);
     if (contents.getType() === 'webview') {
       const isOverlayWebview = contents.session === overlaySession;
       if (isOverlayWebview) {
@@ -1321,6 +1338,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     'clipboard-sanitized-write',
   ]);
   const webviewSession = session.fromPartition('persist:onekey');
+  void applyDesktopNetworkThrottleToKnownSessions();
   webviewSession.setPermissionRequestHandler(
     (webContents, permission, callback, details) => {
       const requestingUrl = details.requestingUrl || '';
