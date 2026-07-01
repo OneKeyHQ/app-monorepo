@@ -23,9 +23,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type {
-  IFetchQuoteResult,
-  ISwapToken,
+import {
+  EProtocolOfExchange,
+  type IFetchQuoteResult,
+  type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
@@ -170,6 +171,7 @@ function useStockInputTokenBalance({
       }
       const details =
         await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+          protocol: EProtocolOfExchange.STOCK,
           networkId: token.networkId,
           contractAddress: token.contractAddress,
           accountId: networkAccount.id,
@@ -435,30 +437,20 @@ export function useSwapStockAmountInputState({
     disableNativePayToken,
     marketStatusStatus,
     selectPayToken,
-    speedConfigReady,
     stockTokenStatus,
     tradeSide,
   } = stockChannel;
   const isBuySide = tradeSide === ESwapStockTradeSide.Buy;
   const inputToken = isBuySide ? payToken : currentStockToken;
+  const inputTokenVisible = Boolean(inputToken);
   const stockIdentityReady =
     stockTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
     marketStatusStatus === ESwapStockChannelAsyncStatus.Ready;
-  const payTokenReady =
-    !isBuySide ||
-    Boolean(
-      stockIdentityReady &&
-      speedConfigReady &&
-      payToken &&
-      selectablePayTokens.some((token) =>
-        equalTokenNoCaseSensitive({ token1: token, token2: payToken }),
-      ),
-    );
-  const inputTokenReady = isBuySide
-    ? payTokenReady
-    : stockIdentityReady && Boolean(inputToken);
+  const inputTokenBalanceReady = isBuySide
+    ? inputTokenVisible
+    : stockIdentityReady && inputTokenVisible;
   const stockInputTokenBalance = useStockInputTokenBalance({
-    enabled: inputTokenReady,
+    enabled: inputTokenBalanceReady,
     token: inputToken,
   });
   const resolvedInputTokenBalance =
@@ -562,7 +554,7 @@ export function useSwapStockAmountInputState({
   }, [displayBalance, fromTokenAmount.value, inputToken, isBuySide]);
 
   useEffect(() => {
-    if (!inputTokenReady || stockInputTokenBalance.loading) {
+    if (!inputTokenBalanceReady || stockInputTokenBalance.loading) {
       return;
     }
     if (fromTokenBalance === resolvedInputTokenBalance) {
@@ -571,7 +563,7 @@ export function useSwapStockAmountInputState({
     setFromTokenBalance(resolvedInputTokenBalance);
   }, [
     fromTokenBalance,
-    inputTokenReady,
+    inputTokenBalanceReady,
     resolvedInputTokenBalance,
     setFromTokenBalance,
     stockInputTokenBalance.loading,
@@ -597,6 +589,6 @@ export function useSwapStockAmountInputState({
     payTokens,
     selectablePayTokens,
     selectPayToken,
-    shouldRenderSkeleton: !inputTokenReady,
+    shouldRenderSkeleton: !inputTokenVisible,
   };
 }
