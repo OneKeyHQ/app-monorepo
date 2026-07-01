@@ -460,9 +460,11 @@ const BaseDevSettingsSection = () => {
     ? mockTradingViewKLineEmptyIntervalsText
     : '已关闭';
   const desktopNetworkThrottleEnabled =
-    devSettings.settings?.desktopNetworkThrottleEnabled ?? false;
+    devSettings.enabled &&
+    (devSettings.settings?.desktopNetworkThrottleEnabled ?? false);
   const nativeNetworkThrottleEnabled =
-    devSettings.settings?.nativeNetworkThrottleEnabled ?? false;
+    devSettings.enabled &&
+    (devSettings.settings?.nativeNetworkThrottleEnabled ?? false);
 
   useEffect(() => {
     if (!platformEnv.isDesktop) {
@@ -490,6 +492,12 @@ const BaseDevSettingsSection = () => {
 
   const handleDesktopNetworkThrottleChange = useCallback(
     async (enabled: boolean) => {
+      if (!devSettings.enabled) {
+        Toast.error({
+          title: 'Enable developer mode first',
+        });
+        return;
+      }
       try {
         const actualEnabled = Boolean(
           await backgroundApiProxy.serviceDevSetting.updateDevSetting(
@@ -508,11 +516,17 @@ const BaseDevSettingsSection = () => {
         });
       }
     },
-    [],
+    [devSettings.enabled],
   );
 
   const handleNativeNetworkThrottleChange = useCallback(
     async (enabled: boolean) => {
+      if (!devSettings.enabled) {
+        Toast.error({
+          title: 'Enable developer mode first',
+        });
+        return;
+      }
       try {
         const actualEnabled = Boolean(
           await backgroundApiProxy.serviceDevSetting.updateDevSetting(
@@ -531,7 +545,7 @@ const BaseDevSettingsSection = () => {
         });
       }
     },
-    [],
+    [devSettings.enabled],
   );
 
   const handleDevModeOnChange = useCallback(() => {
