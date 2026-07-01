@@ -49,7 +49,10 @@ import { navigateToReferralLanding } from '@onekeyhq/kit/src/routes/config/deepl
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WebEmbedDevConfig } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import {
+  getDevSettingsNetworkThrottleEnabled,
+  useDevSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import appDeviceInfo from '@onekeyhq/shared/src/appDeviceInfo/appDeviceInfo';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -459,10 +462,10 @@ const BaseDevSettingsSection = () => {
   const mockTradingViewKLineEmptySubtitle = mockTradingViewKLineEmptyEnabled
     ? mockTradingViewKLineEmptyIntervalsText
     : '已关闭';
-  const desktopNetworkThrottleEnabled =
-    devSettings.settings?.desktopNetworkThrottleEnabled ?? false;
-  const nativeNetworkThrottleEnabled =
-    devSettings.settings?.nativeNetworkThrottleEnabled ?? false;
+  const networkThrottleEnabled = getDevSettingsNetworkThrottleEnabled(
+    devSettings,
+    Boolean(platformEnv.isDesktop || platformEnv.isNative),
+  );
 
   useEffect(() => {
     if (!platformEnv.isDesktop) {
@@ -473,14 +476,14 @@ const BaseDevSettingsSection = () => {
       .then((config) => {
         const enabled = !!config.enabled;
         setDevSettings((prev) => {
-          if (prev.settings?.desktopNetworkThrottleEnabled === enabled) {
+          if (prev.settings?.networkThrottleEnabled === enabled) {
             return prev;
           }
           return {
             ...prev,
             settings: {
               ...prev.settings,
-              desktopNetworkThrottleEnabled: enabled,
+              networkThrottleEnabled: enabled,
             },
           };
         });
@@ -488,50 +491,33 @@ const BaseDevSettingsSection = () => {
       .catch(() => undefined);
   }, [setDevSettings]);
 
-  const handleDesktopNetworkThrottleChange = useCallback(
+  const handleNetworkThrottleChange = useCallback(
     async (enabled: boolean) => {
+      if (!devSettings.enabled) {
+        Toast.error({
+          title: 'Enable developer mode first',
+        });
+        return;
+      }
       try {
         const actualEnabled = Boolean(
           await backgroundApiProxy.serviceDevSetting.updateDevSetting(
-            'desktopNetworkThrottleEnabled',
+            'networkThrottleEnabled',
             enabled,
           ),
         );
         Toast.success({
           title: actualEnabled
-            ? 'Desktop Slow 4G enabled'
-            : 'Desktop network throttle disabled',
+            ? 'Slow 4G enabled'
+            : 'Network throttle disabled',
         });
       } catch {
         Toast.error({
-          title: 'Failed to update desktop network throttle',
+          title: 'Failed to update network throttle',
         });
       }
     },
-    [],
-  );
-
-  const handleNativeNetworkThrottleChange = useCallback(
-    async (enabled: boolean) => {
-      try {
-        const actualEnabled = Boolean(
-          await backgroundApiProxy.serviceDevSetting.updateDevSetting(
-            'nativeNetworkThrottleEnabled',
-            enabled,
-          ),
-        );
-        Toast.success({
-          title: actualEnabled
-            ? 'Native Slow 4G latency enabled'
-            : 'Native network throttle disabled',
-        });
-      } catch {
-        Toast.error({
-          title: 'Failed to update native network throttle',
-        });
-      }
-    },
-    [],
+    [devSettings.enabled],
   );
 
   const handleDevModeOnChange = useCallback(() => {
@@ -1130,7 +1116,7 @@ const BaseDevSettingsSection = () => {
                           icon="SpeedLowOutline"
                           title="Desktop Slow 4G Network Throttle"
                           subtitle={
-                            desktopNetworkThrottleEnabled
+                            networkThrottleEnabled
                               ? 'Slow 4G latency enabled: 562.5ms'
                               : 'Disabled'
                           }
@@ -1139,8 +1125,8 @@ const BaseDevSettingsSection = () => {
                         >
                           <Switch
                             size={ESwitchSize.small}
-                            value={desktopNetworkThrottleEnabled}
-                            onChange={handleDesktopNetworkThrottleChange}
+                            value={networkThrottleEnabled}
+                            onChange={handleNetworkThrottleChange}
                           />
                         </SectionPressItem>
                       ) : null}
@@ -1150,7 +1136,7 @@ const BaseDevSettingsSection = () => {
                           icon="SpeedLowOutline"
                           title="Native Slow 4G Network Throttle"
                           subtitle={
-                            nativeNetworkThrottleEnabled
+                            networkThrottleEnabled
                               ? `Slow 4G latency enabled: ${NATIVE_SLOW_4G_LATENCY_MS}ms`
                               : 'Disabled'
                           }
@@ -1159,8 +1145,8 @@ const BaseDevSettingsSection = () => {
                         >
                           <Switch
                             size={ESwitchSize.small}
-                            value={nativeNetworkThrottleEnabled}
-                            onChange={handleNativeNetworkThrottleChange}
+                            value={networkThrottleEnabled}
+                            onChange={handleNetworkThrottleChange}
                           />
                         </SectionPressItem>
                       ) : null}

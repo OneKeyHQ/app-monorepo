@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import {
+  getDevSettingsNetworkThrottleEnabled,
   useAppIsLockedAtom,
   useDevSettingsPersistAtom,
   useOnboardingConnectWalletLoadingAtom,
@@ -775,9 +776,10 @@ export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
   const autoNavigation = devSettings.settings?.autoNavigation;
-  const nativeNetworkThrottleEnabled =
-    devSettings.enabled &&
-    (devSettings.settings?.nativeNetworkThrottleEnabled ?? false);
+  const networkThrottleEnabled = getDevSettingsNetworkThrottleEnabled(
+    devSettings,
+    !!platformEnv.isNative,
+  );
 
   const [, setOnboardingConnectWalletLoading] =
     useOnboardingConnectWalletLoadingAtom();
@@ -796,15 +798,15 @@ export function Bootstrap() {
     );
     devSettingSyncStorage.set(
       EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
-      nativeNetworkThrottleEnabled,
+      networkThrottleEnabled,
     );
     void nativeNetworkThrottle
       .setNetworkThrottle({
-        enabled: nativeNetworkThrottleEnabled,
+        enabled: networkThrottleEnabled,
         profile: 'slow4g',
       })
       .catch(() => undefined);
-  }, [devSettings.enabled, nativeNetworkThrottleEnabled]);
+  }, [devSettings.enabled, networkThrottleEnabled]);
 
   useEffect(() => {
     if (
