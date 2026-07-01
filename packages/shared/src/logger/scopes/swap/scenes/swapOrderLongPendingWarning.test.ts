@@ -12,6 +12,11 @@ import {
 describe('SwapOrderLongPendingWarningScene', () => {
   let trackEvent: jest.MockedFunction<Analytics['trackEvent']>;
 
+  async function flushWebLazyLoggerTimers() {
+    await jest.runOnlyPendingTimersAsync();
+    await jest.runOnlyPendingTimersAsync();
+  }
+
   beforeEach(() => {
     jest.useFakeTimers();
     trackEvent = jest.fn();
@@ -30,7 +35,7 @@ describe('SwapOrderLongPendingWarningScene', () => {
     jest.useRealTimers();
   });
 
-  it('reports the long pending warning event to analytics with the full payload', () => {
+  it('reports the long pending warning event to analytics with the full payload', async () => {
     const payload: ISwapOrderLongPendingWarningPayload = {
       orderId: 'order-analytics',
       pendingDuration: 5430,
@@ -68,7 +73,7 @@ describe('SwapOrderLongPendingWarningScene', () => {
     defaultLogger.swap.swapOrderLongPendingWarning.swapOrderLongPendingWarning(
       payload,
     );
-    jest.runOnlyPendingTimers();
+    await flushWebLazyLoggerTimers();
 
     expect(trackEvent).toHaveBeenCalledWith(
       'swapOrderLongPendingWarning',

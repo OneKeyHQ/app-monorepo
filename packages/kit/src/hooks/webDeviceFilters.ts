@@ -1,16 +1,10 @@
+import { ONEKEY_WEBUSB_FILTER } from '@onekeyfe/hd-shared';
+import { TREZOR_WEBUSB_FILTERS as HARDWARE_TREZOR_WEBUSB_FILTERS } from '@onekeyfe/hwk-trezor-connector-webusb';
+
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-export const ONEKEY_WEBUSB_FILTERS: USBDeviceFilter[] = [
-  { vendorId: 0x12_09, productId: 0x53_c0 },
-  { vendorId: 0x12_09, productId: 0x53_c1 },
-  { vendorId: 0x12_09, productId: 0x4f_4a },
-  { vendorId: 0x12_09, productId: 0x4f_4b },
-];
-
-export const TREZOR_WEBUSB_FILTERS: USBDeviceFilter[] = [
-  { vendorId: 0x12_09, productId: 0x53_c1 },
-  { vendorId: 0x12_09, productId: 0x53_c0 },
-];
+export const ONEKEY_WEBUSB_FILTERS = ONEKEY_WEBUSB_FILTER as USBDeviceFilter[];
+export const TREZOR_WEBUSB_FILTERS = HARDWARE_TREZOR_WEBUSB_FILTERS;
 
 export function getWebUsbDeviceFilters(vendor?: EHardwareVendor) {
   if (vendor === EHardwareVendor.trezor) {

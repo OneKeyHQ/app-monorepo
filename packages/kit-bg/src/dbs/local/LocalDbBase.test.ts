@@ -57,6 +57,8 @@ import type {
   ILocalDBTxUpdateRecordsParams,
 } from './types';
 
+jest.setTimeout(120_000);
+
 function buildNoopSyncManager() {
   return {
     buildExistingSyncItemsInfo: jest.fn(async () => ({

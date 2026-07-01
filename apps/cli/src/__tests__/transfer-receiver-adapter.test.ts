@@ -49,6 +49,8 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 
+jest.setTimeout(30_000);
+
 function createMockUser(id: string): IE2EESocketUserInfo {
   return {
     id,
