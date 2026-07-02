@@ -270,7 +270,7 @@ function RewardCenterDetails() {
   // TRX and comes back, the claim button re-enables automatically once the
   // account becomes activated.
   const {
-    result: accountActivation,
+    result: accountActivationResult,
     setStopPolling: setStopActivationPolling,
   } = usePromiseResult(
     async () => {
@@ -309,7 +309,11 @@ function RewardCenterDetails() {
           return undefined;
         }
 
-        return { isActived: resp.data.isActived };
+        return {
+          accountId: account.id,
+          networkId: network.id,
+          isActived: resp.data.isActived,
+        };
       } catch (_error) {
         return undefined;
       }
@@ -319,9 +323,17 @@ function RewardCenterDetails() {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 15 }),
       revalidateOnFocus: true,
       undefinedResultIfError: true,
-      undefinedResultIfReRun: true,
     },
   );
+
+  // Ignore stale results from a previous account/network without clearing the
+  // same-account polling result while a refresh is in flight.
+  const accountActivation =
+    accountActivationResult &&
+    accountActivationResult.accountId === account?.id &&
+    accountActivationResult.networkId === network?.id
+      ? accountActivationResult
+      : undefined;
 
   // Only treat the account as inactive once the check has definitively
   // resolved to false, so we never flash the Receive state while loading.
@@ -610,24 +622,40 @@ function RewardCenterDetails() {
     }
   }, [activeAccount, createAddress, network]);
 
-  const { result: nativeToken, isLoading: isNativeTokenLoading } =
+  const { result: nativeTokenResult, isLoading: isNativeTokenLoading } =
     usePromiseResult(
       async () => {
         if (!account || !network) {
           return undefined;
         }
-        return backgroundApiProxy.serviceToken.getNativeToken({
+        const token = await backgroundApiProxy.serviceToken.getNativeToken({
           accountId: account.id,
           networkId: network.id,
         });
+
+        if (!token) {
+          return undefined;
+        }
+
+        return {
+          accountId: account.id,
+          networkId: network.id,
+          token,
+        };
       },
       [account, network],
       {
         watchLoading: true,
         undefinedResultIfError: true,
-        undefinedResultIfReRun: true,
       },
     );
+
+  const nativeToken =
+    nativeTokenResult &&
+    nativeTokenResult.accountId === account?.id &&
+    nativeTokenResult.networkId === network?.id
+      ? nativeTokenResult.token
+      : undefined;
 
   // Same as the home Receive button: open the "choose receive mode" selector
   // (ReceiveSelector), scoped to this TRON account's native TRX, so the user can
