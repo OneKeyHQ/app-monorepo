@@ -138,11 +138,11 @@ function safePositiveNumber(value: string | undefined): number | undefined {
   }
 
   try {
-    const bn = new BigNumber(value);
-    if (bn.isNaN() || !bn.isFinite() || bn.lte(0)) {
+    const numberValue = Number(value);
+    if (!Number.isFinite(numberValue) || numberValue <= 0) {
       return undefined;
     }
-    return bn.toNumber();
+    return numberValue;
   } catch {
     return undefined;
   }
@@ -185,22 +185,16 @@ export function calculateMarketTokenLivePriceChange({
     return undefined;
   }
 
-  const priceBN = new BigNumber(price);
-  const priceChangeBasePriceBN = new BigNumber(priceChangeBasePrice);
   if (
-    !priceBN.isFinite() ||
-    !priceChangeBasePriceBN.isFinite() ||
-    priceBN.lte(0) ||
-    priceChangeBasePriceBN.lte(0)
+    !Number.isFinite(price) ||
+    !Number.isFinite(priceChangeBasePrice) ||
+    price <= 0 ||
+    priceChangeBasePrice <= 0
   ) {
     return undefined;
   }
 
-  return priceBN
-    .minus(priceChangeBasePriceBN)
-    .div(priceChangeBasePriceBN)
-    .times(100)
-    .toNumber();
+  return ((price - priceChangeBasePrice) / priceChangeBasePrice) * 100;
 }
 
 /**
