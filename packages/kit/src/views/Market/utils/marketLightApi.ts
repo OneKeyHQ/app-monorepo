@@ -21,7 +21,7 @@ import {
   type IMarketTokenListResponseWithSource,
   fetchMarketHomeTokenListSeed,
   preloadMarketHomeTokenListSeed,
-  shouldUseMarketHomeTokenListSeedFile,
+  shouldUseMarketHomeTokenListBootstrapSeed,
 } from './marketHomeTokenListSeed';
 import { markMarketPerf } from './marketPerf';
 
@@ -89,16 +89,20 @@ const shouldUseMarketHomeTokenListSeed = ({
   sortBy,
   sortType,
   page,
+  limit,
   minLiquidity,
+  maxLiquidity,
   type,
   timeFrame,
 }: INormalizedMarketTokenListRequestParams) =>
-  shouldUseMarketHomeTokenListSeedFile() &&
+  shouldUseMarketHomeTokenListBootstrapSeed() &&
   networkId === '' &&
   sortBy === 'v24hUSD' &&
   sortType === 'desc' &&
   page === 1 &&
+  limit === 20 &&
   minLiquidity === 5000 &&
+  maxLiquidity === undefined &&
   type === 'trending' &&
   timeFrame === '2';
 

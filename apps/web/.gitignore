@@ -6,8 +6,8 @@ node_modules/
 # Expo
 .expo/
 dist/
+.generated/
 web-build/
-public/static/market-home-token-seed-v1.json
 
 # Native
 *.orig.*

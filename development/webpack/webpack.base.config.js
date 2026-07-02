@@ -8,6 +8,7 @@ const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 const webpack = require('webpack');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
 
+const { readOneKeyBootstrapDataCode } = require('../htmlBootstrapData');
 const { resolveCommitSha } = require('../utils/resolveCommitSha');
 
 const { isDev, PUBLIC_URL, NODE_ENV, ONEKEY_PROXY } = require('./constant');
@@ -216,6 +217,11 @@ module.exports = ({ platform, basePath, configName }) => {
               encoding: 'utf-8',
             },
           ),
+          onekeyBootstrapDataCode: readOneKeyBootstrapDataCode({
+            basePath,
+            isDev,
+            platform,
+          }),
           WEB_PUBLIC_URL: PUBLIC_URL || '/',
           WEB_TITLE: platform,
           NO_SCRIPT:

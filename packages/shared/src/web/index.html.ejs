@@ -22,6 +22,12 @@
       /* add global styles to packages/shared/src/web/index.css */
     </style>
 
+    <% if (typeof onekeyBootstrapDataCode !== 'undefined' && onekeyBootstrapDataCode) { %>
+    <script>
+      <%= onekeyBootstrapDataCode %>
+    </script>
+    <% } %>
+
     <% if ( (platform === 'desktop' || platform === 'web') && isDev ) { %>
     <script>
       // DEV-ONLY (gated by isDev — ZERO prod effect): pre-read the cold-start

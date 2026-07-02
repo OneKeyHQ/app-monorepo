@@ -8,39 +8,61 @@ type IMarketTokenListResponseWithSource = IMarketTokenListResponse & {
   __fromSeed?: boolean;
 };
 
-const MARKET_HOME_TOKEN_LIST_SEED_URL =
-  '/static/market-home-token-seed-v1.json';
+type IOneKeyBootstrapData = {
+  marketHomeTokenListSeed?: IMarketTokenListResponse;
+};
 
-const shouldUseMarketHomeTokenListSeedFile = () =>
+type IGlobalWithOneKeyBootstrapData = typeof globalThis & {
+  __ONEKEY_BOOTSTRAP_DATA__?: IOneKeyBootstrapData;
+};
+
+// Web HTML injects this generic bootstrap payload before app bundles so Market
+// can paint the first token list without an extra cold-start seed request.
+const ONEKEY_BOOTSTRAP_DATA_GLOBAL = '__ONEKEY_BOOTSTRAP_DATA__';
+
+const shouldUseMarketHomeTokenListBootstrapSeed = () =>
   platformEnv.isWeb && process.env.NODE_ENV === 'production';
 
 let marketHomeTokenListSeedPromise:
   | Promise<IMarketTokenListResponseWithSource>
   | undefined;
 
+function readMarketHomeTokenListBootstrapSeed():
+  | IMarketTokenListResponseWithSource
+  | undefined {
+  const bootstrapData = (globalThis as IGlobalWithOneKeyBootstrapData)[
+    ONEKEY_BOOTSTRAP_DATA_GLOBAL
+  ];
+  const data = bootstrapData?.marketHomeTokenListSeed;
+  if (!data || !Array.isArray(data.list) || data.list.length === 0) {
+    return undefined;
+  }
+  delete bootstrapData.marketHomeTokenListSeed;
+
+  return {
+    list: data.list,
+    total: data.total,
+    __fromSeed: true,
+  };
+}
+
 const fetchMarketHomeTokenListSeed =
   async (): Promise<IMarketTokenListResponseWithSource> => {
     marketHomeTokenListSeedPromise ??= (async () => {
       markMarketPerf('market-light-api-token-list-seed-start');
-      return fetch(MARKET_HOME_TOKEN_LIST_SEED_URL, {
-        cache: 'force-cache',
-      });
+      const data = readMarketHomeTokenListBootstrapSeed();
+      if (!data) {
+        throw new OneKeyLocalError('Market token bootstrap seed is missing');
+      }
+
+      return data;
     })()
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new OneKeyLocalError(
-            `Market token seed failed: ${response.status}`,
-          );
-        }
-        const data = (await response.json()) as IMarketTokenListResponse;
+      .then((data) => {
         markMarketPerf('market-light-api-token-list-seed-end', {
           count: data.list.length,
+          source: 'bootstrap',
         });
-        return {
-          list: data.list,
-          total: data.total,
-          __fromSeed: true,
-        };
+        return data;
       })
       .catch((error) => {
         marketHomeTokenListSeedPromise = undefined;
@@ -51,7 +73,7 @@ const fetchMarketHomeTokenListSeed =
   };
 
 const preloadMarketHomeTokenListSeed = () => {
-  if (!shouldUseMarketHomeTokenListSeedFile()) {
+  if (!shouldUseMarketHomeTokenListBootstrapSeed()) {
     return;
   }
   markMarketPerf('market-light-api-token-list-seed-preload');
@@ -61,6 +83,6 @@ const preloadMarketHomeTokenListSeed = () => {
 export {
   fetchMarketHomeTokenListSeed,
   preloadMarketHomeTokenListSeed,
-  shouldUseMarketHomeTokenListSeedFile,
+  shouldUseMarketHomeTokenListBootstrapSeed,
 };
 export type { IMarketTokenListResponseWithSource };

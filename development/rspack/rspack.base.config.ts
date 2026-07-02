@@ -28,6 +28,14 @@ require('../env');
 const { resolveCommitSha } = require('../utils/resolveCommitSha') as {
   resolveCommitSha: () => string;
 };
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { readOneKeyBootstrapDataCode } = require('../htmlBootstrapData') as {
+  readOneKeyBootstrapDataCode: (opts: {
+    basePath: string;
+    isDev: boolean;
+    platform: string;
+  }) => string;
+};
 
 // Single source of truth for the client-exposed env vars. Mirrors the webpack
 // `transform-inline-environment-variables` plugin so the same ~42 vars are
@@ -392,6 +400,11 @@ export function createBaseConfig({
               encoding: 'utf-8',
             },
           ),
+          onekeyBootstrapDataCode: readOneKeyBootstrapDataCode({
+            basePath,
+            isDev,
+            platform,
+          }),
           WEB_PUBLIC_URL: publicUrl || '/',
           WEB_TITLE: platform,
           NO_SCRIPT:
