@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -18,19 +18,40 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { useBorrowApproveAndSubmit } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/hooks/useBorrowApproveAndSubmit';
+import type { IManagePositionApproveTarget } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/types';
+import { useUniversalBorrowAction } from '@onekeyhq/kit/src/views/Borrow/components/UniversalBorrowAction';
+import {
+  useUniversalBorrowRepay,
+  useUniversalBorrowWithdraw,
+} from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks';
+import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
+import { useManagePage } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
+import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import defiActionUtils from '@onekeyhq/shared/src/utils/defiActionUtils';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   EDeFiPositionAction,
   type IResolvedDeFiPositionAction,
   type IResolvedDeFiPositionActionAsset,
 } from '@onekeyhq/shared/types/defi';
+import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
+import {
+  EBorrowActionsEnum,
+  EEarnLabels,
+  EManagePositionType,
+  type IBorrowAsset,
+  type IBorrowAssetsList,
+} from '@onekeyhq/shared/types/staking';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import {
   type IProtocolPositionActionSuccessParams,
   ProtocolPositionActionAmountInput,
+  ProtocolPositionActionAnchor,
   clampAmountDecimals,
   getActionLabel,
   getErrorMessage,
@@ -76,6 +97,14 @@ const LENDING_ACTION_TO_DEFI_ACTION: Record<
 > = {
   withdraw: EDeFiPositionAction.Withdraw,
   repay: EDeFiPositionAction.Repay,
+};
+
+const LENDING_ACTION_TO_BORROW_ACTION: Record<
+  IProtocolLendingActionType,
+  EBorrowActionsEnum
+> = {
+  withdraw: EBorrowActionsEnum.Withdraw,
+  repay: EBorrowActionsEnum.Repay,
 };
 
 function getLendingColumnHeaderLabel({
@@ -548,12 +577,13 @@ function ProtocolLendingActionDefiContent({
   );
 }
 
-// Placeholder so the dispatcher can narrow the discriminated `source` and the
-// file compiles. ponytail: the full Aave borrow flow (dropdown data, health
-// factor preview, approve, build) lands in the follow-up commit and replaces
-// this body.
 function ProtocolLendingActionBorrowContent({
+  accountId,
+  networkId,
   actionType,
+  source,
+  hasDebts,
+  onSuccess,
 }: {
   accountId: string;
   networkId: string;
@@ -565,27 +595,483 @@ function ProtocolLendingActionBorrowContent({
   ) => void | Promise<void>;
 }) {
   const intl = useIntl();
+  const [
+    {
+      currencyInfo: { symbol: currencySymbol },
+    },
+  ] = useSettingsPersistAtom();
+  const isWithdraw = actionType === 'withdraw';
+
+  const [reserveAddress, setReserveAddress] = useState(source.reserveAddress);
+
+  // Fixed mode (a desktop row already named the asset) skips the fetch — the
+  // dropdown is only for the position-level entry.
+  const { result: assetsList, isLoading: assetsLoading } = usePromiseResult(
+    async (): Promise<IBorrowAssetsList> => {
+      if (!source.selectable) return { assets: [] };
+      return backgroundApiProxy.serviceStaking.getBorrowAssetsList({
+        accountId,
+        networkId,
+        provider: source.provider,
+        marketAddress: source.marketAddress,
+        action: LENDING_ACTION_TO_BORROW_ACTION[actionType],
+      });
+    },
+    [
+      accountId,
+      networkId,
+      actionType,
+      source.selectable,
+      source.provider,
+      source.marketAddress,
+    ],
+    { initResult: { assets: [] as IBorrowAsset[] }, watchLoading: true },
+  );
+  const selectedBorrowAsset = assetsList.assets.find(
+    (item) => item.reserveAddress === reserveAddress,
+  );
+
+  // Approve target, decimals, price and balances for the selected reserve
+  // (reloads when the reserve address changes).
+  const { tokenInfo, protocolInfo } = useManagePage({
+    accountId,
+    indexedAccountId: source.indexedAccountId,
+    networkId,
+    symbol: source.symbol as ISupportedSymbol,
+    provider: source.provider,
+    vault: undefined,
+    type: isWithdraw ? EManagePositionType.Withdraw : EManagePositionType.Repay,
+    reserveAddress,
+    marketAddress: source.marketAddress,
+    revalidateOnFocus: false,
+  });
+  const baseToken = tokenInfo?.token as IToken | undefined;
+
+  // Effective display values (mirror WithdrawSection's fallback chain).
+  const effectiveSymbol = selectedBorrowAsset?.token.symbol ?? source.symbol;
+  const effectiveLogo = selectedBorrowAsset?.token.logoURI ?? source.logoURI;
+  const effectiveDecimals =
+    selectedBorrowAsset?.token.decimals ??
+    protocolInfo?.protocolInputDecimals ??
+    baseToken?.decimals;
+  const effectiveBalance = selectedBorrowAsset
+    ? ((isWithdraw
+        ? selectedBorrowAsset.supplied?.title?.text
+        : selectedBorrowAsset.borrowed?.title?.text) ?? '0')
+    : (protocolInfo?.activeBalance ?? '0');
+
+  const [amount, setAmount] = useState('');
+  const [isMaxAmount, setIsMaxAmount] = useState(isWithdraw);
+  const hasUserTouchedRef = useRef(false);
+  const prefilledReserveRef = useRef<string | undefined>(undefined);
+
+  // Withdraw prefills the full balance as an untouched Max default once the
+  // balance resolves (it loads async here, unlike the defi source). Any user
+  // touch freezes the field so the prefill can't clobber typing; switching
+  // assets re-arms it.
+  useEffect(() => {
+    if (!isWithdraw) return;
+    if (hasUserTouchedRef.current) return;
+    if (prefilledReserveRef.current === reserveAddress) return;
+    const balanceBN = new BigNumber(effectiveBalance || '0');
+    if (!balanceBN.isFinite() || balanceBN.lte(0)) return;
+    prefilledReserveRef.current = reserveAddress;
+    setAmount(clampAmountDecimals(effectiveBalance, effectiveDecimals));
+    setIsMaxAmount(true);
+  }, [effectiveBalance, effectiveDecimals, isWithdraw, reserveAddress]);
+
+  const amountBN = new BigNumber(amount || '0');
+  const availableBN = new BigNumber(effectiveBalance || '0');
+  const isAmountPositive = amountBN.isFinite() && amountBN.gt(0);
+  let selectedAmountPercent = 0;
+  if (isMaxAmount) {
+    selectedAmountPercent = 100;
+  } else if (isAmountPositive && availableBN.gt(0)) {
+    const pct = amountBN.div(availableBN).multipliedBy(100);
+    selectedAmountPercent =
+      LENDING_PERCENT_PRESETS.find((preset) =>
+        pct.minus(preset).abs().lt(0.5),
+      ) ?? 0;
+  }
+
+  const handleAmountChange = (next: string) => {
+    if (!validateAmountInput(next, effectiveDecimals)) return;
+    hasUserTouchedRef.current = true;
+    setAmount(next);
+    setIsMaxAmount(false);
+  };
+  const handleAmountInputFocus = () => {
+    if (isMaxAmount && !hasUserTouchedRef.current) {
+      hasUserTouchedRef.current = true;
+      setAmount('');
+      setIsMaxAmount(false);
+    }
+  };
+  const handleMaxAmount = () => {
+    hasUserTouchedRef.current = true;
+    setAmount(clampAmountDecimals(effectiveBalance, effectiveDecimals));
+    setIsMaxAmount(true);
+  };
+  const handleSelectPercent = (percent: number) => {
+    // Max maps to withdrawAll/repayAll so a full close is dust-free; 25/50/75
+    // fill an exact token amount.
+    if (percent >= 100) {
+      handleMaxAmount();
+      return;
+    }
+    hasUserTouchedRef.current = true;
+    const next = availableBN.multipliedBy(percent).div(100);
+    setAmount(clampAmountDecimals(next.toFixed(), effectiveDecimals));
+    setIsMaxAmount(false);
+  };
+  const handleSelectAsset = (key: string) => {
+    setReserveAddress(key);
+    hasUserTouchedRef.current = false;
+    if (!isWithdraw) {
+      setAmount('');
+      setIsMaxAmount(false);
+    }
+    // Withdraw: the prefill effect refills once the new reserve resolves.
+  };
+
+  const actionResult = useUniversalBorrowAction({
+    action: actionType,
+    accountId,
+    networkId,
+    provider: source.provider,
+    marketAddress: source.marketAddress,
+    reserveAddress,
+    amount,
+    repayAll: actionType === 'repay' ? isMaxAmount : undefined,
+  });
+
+  // Approve target (mirror WithdrawSection's effectiveToken + approve target).
+  const effectiveToken = useMemo<IToken | undefined>(() => {
+    if (selectedBorrowAsset) {
+      const tokenAddress = selectedBorrowAsset.token.address ?? '';
+      return {
+        ...selectedBorrowAsset.token,
+        isNative: !tokenAddress,
+        networkId,
+      } as IToken;
+    }
+    return baseToken;
+  }, [selectedBorrowAsset, baseToken, networkId]);
+
+  const approveTarget = useMemo<
+    IManagePositionApproveTarget | undefined
+  >(() => {
+    if (!effectiveToken) return undefined;
+    const approveToken: IToken = protocolInfo?.approveAsset
+      ? {
+          ...effectiveToken,
+          address: protocolInfo.approveAsset,
+          isNative: false,
+          networkId,
+        }
+      : effectiveToken;
+    if (!protocolInfo?.approve?.approveTarget || approveToken.isNative) {
+      return undefined;
+    }
+    return {
+      accountId,
+      networkId,
+      spenderAddress: protocolInfo.approve.approveTarget,
+      token: approveToken,
+    };
+  }, [
+    accountId,
+    effectiveToken,
+    networkId,
+    protocolInfo?.approve?.approveTarget,
+    protocolInfo?.approveAsset,
+  ]);
+
+  const handleBorrowWithdraw = useUniversalBorrowWithdraw({
+    accountId,
+    networkId,
+  });
+  const handleBorrowRepay = useUniversalBorrowRepay({ accountId, networkId });
+  const closeRef = useRef<(() => void | Promise<void>) | undefined>(undefined);
+
+  // Close the dialog before the borrow hooks navigate to tx-confirm (they show
+  // the shared confirming sheet on success), otherwise the dialog stacks above
+  // the confirm page.
+  const submitBorrowTx = useCallback(async () => {
+    await closeRef.current?.();
+    const { provider, marketAddress } = source;
+    const tags: string[] = [
+      EEarnLabels.Borrow,
+      buildBorrowTag({ provider, action: actionType }),
+    ];
+    if (protocolInfo?.stakeTag) {
+      tags.push(protocolInfo.stakeTag);
+    }
+    const protocolLogoURI =
+      source.providerLogoURI ?? protocolInfo?.providerDetail.logoURI;
+    const protocolLabel = earnUtils.getEarnProviderName({
+      providerName: provider,
+    });
+    if (actionType === 'repay') {
+      await handleBorrowRepay({
+        amount,
+        provider,
+        marketAddress,
+        reserveAddress,
+        repayAll: isMaxAmount,
+        stakingInfo: effectiveToken
+          ? {
+              label: EEarnLabels.Repay,
+              protocol: protocolLabel,
+              protocolLogoURI,
+              send: { token: effectiveToken, amount },
+              tags,
+            }
+          : undefined,
+        onSuccess: (data) => {
+          void onSuccess?.({ accountId, networkId, data });
+        },
+      });
+      return;
+    }
+    await handleBorrowWithdraw({
+      amount,
+      provider,
+      marketAddress,
+      reserveAddress,
+      withdrawAll: isMaxAmount,
+      stakingInfo: effectiveToken
+        ? {
+            label: EEarnLabels.Withdraw,
+            protocol: protocolLabel,
+            protocolLogoURI,
+            receive: { token: effectiveToken, amount },
+            tags,
+          }
+        : undefined,
+      onSuccess: (data) => {
+        void onSuccess?.({ accountId, networkId, data });
+      },
+    });
+  }, [
+    accountId,
+    actionType,
+    amount,
+    effectiveToken,
+    handleBorrowRepay,
+    handleBorrowWithdraw,
+    isMaxAmount,
+    networkId,
+    onSuccess,
+    protocolInfo?.providerDetail.logoURI,
+    protocolInfo?.stakeTag,
+    reserveAddress,
+    source,
+  ]);
+
+  const { needsApproval, approveLoading, onApprove } =
+    useBorrowApproveAndSubmit({
+      approveTarget,
+      amountValue: amount,
+      onSubmit: submitBorrowTx,
+    });
+
+  const handleFooterConfirm = async ({
+    close,
+    preventClose,
+  }: {
+    close?: () => void | Promise<void>;
+    preventClose: () => void;
+  }) => {
+    closeRef.current = close;
+    // We own the close timing: submitBorrowTx closes right before navigating,
+    // and the approve hop keeps the dialog open until it auto-submits.
+    preventClose();
+    if (needsApproval) {
+      await onApprove();
+      return;
+    }
+    await submitBorrowTx();
+  };
+
   const actionLabel = getActionLabel({
     action: LENDING_ACTION_TO_DEFI_ACTION[actionType],
     intl,
   });
+  const availableLabel = intl.formatMessage({
+    id: ETranslations.global_available,
+  });
+  const maxLabel = intl.formatMessage({ id: ETranslations.global_max });
+  const insufficientLabel = intl.formatMessage({
+    id: ETranslations.earn_insufficient_balance,
+  });
+  const columnHeaderLabel = getLendingColumnHeaderLabel({ actionType, intl });
+
+  const selectorItems = useMemo<ILendingSelectorItem[]>(
+    () =>
+      assetsList.assets.map((asset) => ({
+        key: asset.reserveAddress,
+        symbol: asset.token.symbol,
+        logoURI: asset.token.logoURI,
+        balanceText:
+          (isWithdraw
+            ? asset.supplied?.title?.text
+            : asset.borrowed?.title?.text) ?? '0',
+        descriptionText: isWithdraw
+          ? asset.supplied?.description?.text
+          : asset.borrowed?.description?.text,
+      })),
+    [assetsList.assets, isWithdraw],
+  );
+  const selectable = source.selectable && selectorItems.length > 1;
+  const selectedItem: ILendingSelectorItem = selectedBorrowAsset
+    ? {
+        key: selectedBorrowAsset.reserveAddress,
+        symbol: effectiveSymbol,
+        logoURI: effectiveLogo,
+        balanceText: effectiveBalance,
+        descriptionText: isWithdraw
+          ? selectedBorrowAsset.supplied?.description?.text
+          : selectedBorrowAsset.borrowed?.description?.text,
+      }
+    : {
+        key: reserveAddress,
+        symbol: effectiveSymbol,
+        logoURI: effectiveLogo,
+        balanceText: effectiveBalance,
+      };
+
+  const healthFactor = actionResult.transactionConfirmation?.healthFactor;
+  const confirmDisabled =
+    amountBN.isLessThanOrEqualTo(0) ||
+    actionResult.isCheckAmountMessageError ||
+    actionResult.checkAmountResult === false ||
+    actionResult.checkAmountLoading;
+  // Belt-and-suspenders: a selectable Aave entry whose asset fetch AND protocol
+  // info both come back empty falls back to the empty state instead of crashing.
+  const isEmpty =
+    source.selectable &&
+    !assetsLoading &&
+    assetsList.assets.length === 0 &&
+    !protocolInfo;
+
   return (
     <YStack gap="$5">
       <Dialog.Header>
         <Dialog.Title>{actionLabel}</Dialog.Title>
       </Dialog.Header>
-      <YStack py="$6" alignItems="center">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.global_select_crypto })}
-        </SizableText>
-      </YStack>
+
+      {isEmpty ? (
+        <YStack py="$6" alignItems="center">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.global_select_crypto })}
+          </SizableText>
+        </YStack>
+      ) : (
+        <>
+          <LendingAssetSelectorRow
+            item={selectedItem}
+            items={selectorItems}
+            selectable={selectable}
+            onSelect={handleSelectAsset}
+            columnHeaderLabel={columnHeaderLabel}
+          />
+          {/* ponytail: no per-unit price in the borrow APIs, so the amount hero
+              shows the token amount without a live fiat sub-line. */}
+          <ProtocolPositionActionAmountInput
+            amount={amount}
+            onChangeAmount={handleAmountChange}
+            onSelectPercent={handleSelectPercent}
+            selectedPercent={selectedAmountPercent}
+            symbol={effectiveSymbol}
+            tokenLogoUrl={effectiveLogo}
+            availableAmount={effectiveBalance}
+            fiatValue="0"
+            currencySymbol={currencySymbol}
+            isInsufficient={false}
+            availableLabel={availableLabel}
+            maxLabel={maxLabel}
+            insufficientLabel={insufficientLabel}
+            onFocus={handleAmountInputFocus}
+          />
+          {healthFactor ? (
+            <YStack gap="$1">
+              <ProtocolPositionActionAnchor
+                label={intl.formatMessage({
+                  id: ETranslations.defi_health_factor,
+                })}
+                iconNode={null}
+                valueNode={
+                  <XStack alignItems="center" gap="$2" flexShrink={0}>
+                    <Stack opacity={healthFactor.latest ? 0.5 : 1}>
+                      <EarnText
+                        text={healthFactor.current?.title}
+                        size="$bodyMdMedium"
+                      />
+                    </Stack>
+                    {healthFactor.latest ? (
+                      <>
+                        <Icon
+                          name="ArrowRightSolid"
+                          size="$4"
+                          color="$iconDisabled"
+                        />
+                        <EarnText
+                          text={healthFactor.latest?.title}
+                          size="$bodyMdMedium"
+                        />
+                      </>
+                    ) : null}
+                  </XStack>
+                }
+              />
+              <XStack justifyContent="flex-end">
+                <EarnText
+                  text={
+                    actionResult.transactionConfirmation?.liquidationAt
+                      ?.description ?? {
+                      text: intl.formatMessage({
+                        id: ETranslations.defi_liquidation_at_less_than_1_00,
+                      }),
+                    }
+                  }
+                  size="$bodySm"
+                  color="$textSubdued"
+                />
+              </XStack>
+            </YStack>
+          ) : null}
+        </>
+      )}
+
+      <LendingActionAlerts
+        showLiquidationWarning={Boolean(hasDebts) && isWithdraw}
+        errorMessage={
+          actionResult.isCheckAmountMessageError
+            ? actionResult.checkAmountMessage
+            : undefined
+        }
+      />
+      {actionResult.checkAmountAlerts.map((alert, index) => (
+        <Alert
+          key={`${alert.type}-${index}`}
+          type={alert.type}
+          description={alert.text.text}
+        />
+      ))}
+
       <Dialog.Footer
         showCancelButton={false}
         showConfirmButton
-        onConfirmText={actionLabel}
-        confirmButtonProps={{ disabled: true }}
-        onConfirm={({ preventClose }) => {
-          preventClose();
+        onConfirmText={
+          needsApproval
+            ? intl.formatMessage({ id: ETranslations.global_approve })
+            : actionLabel
+        }
+        onConfirm={handleFooterConfirm}
+        confirmButtonProps={{
+          disabled: confirmDisabled,
+          loading: approveLoading || actionResult.checkAmountLoading,
         }}
       />
     </YStack>
