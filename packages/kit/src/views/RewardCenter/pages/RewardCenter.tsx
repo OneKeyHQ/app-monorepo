@@ -755,8 +755,9 @@ function RewardCenterDetails() {
         <Alert
           type="warning"
           icon="InfoCircleOutline"
-          // TODO(i18n): hardcoded English until a translation key is added
-          title="Account not activated. Deposit TRX to activate it."
+          title={intl.formatMessage({
+            id: ETranslations.tron_energy_account_inactive_deposit_notice,
+          })}
           closable={false}
           mb="$5"
           action={{
@@ -775,8 +776,9 @@ function RewardCenterDetails() {
         <Alert
           type="warning"
           icon="InfoCircleOutline"
-          // TODO(i18n): hardcoded English until a translation key is added
-          title="This month's claim limit for your IP has been reached."
+          title={intl.formatMessage({
+            id: ETranslations.tron_energy_claim_limit_ip_reached_notice,
+          })}
           closable={false}
           mb="$5"
         />
@@ -788,8 +790,9 @@ function RewardCenterDetails() {
         <Alert
           type="warning"
           icon="InfoCircleOutline"
-          // TODO(i18n): hardcoded English until a translation key is added
-          title="This month's claim limit has been reached."
+          title={intl.formatMessage({
+            id: ETranslations.tron_energy_claim_limit_reached_notice,
+          })}
           closable={false}
           mb="$5"
         />
