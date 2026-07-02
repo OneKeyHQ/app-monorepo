@@ -8,6 +8,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   useHistoryListActions,
   withHistoryListProvider,
@@ -63,6 +64,7 @@ function TokenDetailsHistoryContent({
   } = props;
 
   const ListComponentRef = useRef<typeof SectionList>(null);
+  const isRouteFocused = useRouteIsFocused();
 
   const recomputeLayout = useCallback(() => {
     if (!platformEnv.isNative) {
@@ -217,7 +219,7 @@ function TokenDetailsHistoryContent({
   // meaningful and the user can be scrolled deep); a pass-through otherwise.
   // `inTabList` also gates the scroll observer mount below, so the tab-context
   // hook never runs on the non-tab single-token detail path.
-  const frozenTopEnabled = !!inTabList && focusParam;
+  const frozenTopEnabled = !!inTabList && focusParam && isRouteFocused;
   // `historyCacheKey` doubles as the freeze identity: it changes exactly when
   // the rows switch to a different history stream (account / network / token /
   // filters / currency), which must drop the frozen baseline.

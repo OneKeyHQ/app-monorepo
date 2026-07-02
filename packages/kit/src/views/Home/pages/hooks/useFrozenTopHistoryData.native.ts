@@ -48,7 +48,7 @@ export function useFrozenTopHistoryData(
   const apply = useCallback(() => {
     const next = selectVisibleHistoryRows({
       combined: combinedRef.current,
-      displayedIds: new Set(displayedRef.current.map((tx) => tx.id)),
+      displayed: displayedRef.current,
       isAwayFromTop: isAwayFromTopRef.current,
       enabled,
     });

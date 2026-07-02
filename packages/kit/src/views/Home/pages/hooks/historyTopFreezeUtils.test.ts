@@ -6,8 +6,8 @@ function tx(id: string): IAccountHistoryTx {
   return { id } as unknown as IAccountHistoryTx;
 }
 
-function idSet(...ids: string[]): Set<string> {
-  return new Set(ids);
+function rows(...ids: string[]): IAccountHistoryTx[] {
+  return ids.map(tx);
 }
 
 describe('selectVisibleHistoryRows', () => {
@@ -17,7 +17,7 @@ describe('selectVisibleHistoryRows', () => {
     expect(
       selectVisibleHistoryRows({
         combined,
-        displayedIds: idSet('A', 'B', 'C'),
+        displayed: rows('A', 'B', 'C'),
         isAwayFromTop: true,
         enabled: false,
       }),
@@ -28,7 +28,7 @@ describe('selectVisibleHistoryRows', () => {
     expect(
       selectVisibleHistoryRows({
         combined,
-        displayedIds: idSet('A', 'B', 'C'),
+        displayed: rows('A', 'B', 'C'),
         isAwayFromTop: false,
         enabled: true,
       }),
@@ -40,7 +40,7 @@ describe('selectVisibleHistoryRows', () => {
     expect(
       selectVisibleHistoryRows({
         combined: empty,
-        displayedIds: idSet('A'),
+        displayed: rows('A'),
         isAwayFromTop: true,
         enabled: true,
       }),
@@ -50,7 +50,7 @@ describe('selectVisibleHistoryRows', () => {
   it('holds back a single freshly prepended top row while scrolled away', () => {
     const result = selectVisibleHistoryRows({
       combined,
-      displayedIds: idSet('A', 'B', 'C'),
+      displayed: rows('A', 'B', 'C'),
       isAwayFromTop: true,
       enabled: true,
     });
@@ -62,7 +62,7 @@ describe('selectVisibleHistoryRows', () => {
     const result = selectVisibleHistoryRows({
       // displayed already excludes X (held on a previous tick)
       combined: grown,
-      displayedIds: idSet('A', 'B', 'C'),
+      displayed: rows('A', 'B', 'C'),
       isAwayFromTop: true,
       enabled: true,
     });
@@ -74,7 +74,7 @@ describe('selectVisibleHistoryRows', () => {
     const grown = [tx('X'), tx('A'), tx('B'), tx('C'), tx('D')];
     const result = selectVisibleHistoryRows({
       combined: grown,
-      displayedIds: idSet('A', 'B', 'C'),
+      displayed: rows('A', 'B', 'C'),
       isAwayFromTop: true,
       enabled: true,
     });
@@ -85,7 +85,7 @@ describe('selectVisibleHistoryRows', () => {
     const grown = [tx('A'), tx('B'), tx('C'), tx('D')];
     const result = selectVisibleHistoryRows({
       combined: grown,
-      displayedIds: idSet('A', 'B', 'C'),
+      displayed: rows('A', 'B', 'C'),
       isAwayFromTop: true,
       enabled: true,
     });
@@ -99,7 +99,7 @@ describe('selectVisibleHistoryRows', () => {
     const grown = [tx('P'), tx('N'), tx('A'), tx('B'), tx('C')];
     const result = selectVisibleHistoryRows({
       combined: grown,
-      displayedIds: idSet('P', 'A', 'B', 'C'),
+      displayed: rows('P', 'A', 'B', 'C'),
       isAwayFromTop: true,
       enabled: true,
     });
@@ -112,7 +112,7 @@ describe('selectVisibleHistoryRows', () => {
     const grown = [tx('P'), tx('N'), tx('A'), tx('B'), tx('C'), tx('D')];
     const result = selectVisibleHistoryRows({
       combined: grown,
-      displayedIds: idSet('P', 'A', 'B', 'C'),
+      displayed: rows('P', 'A', 'B', 'C'),
       isAwayFromTop: true,
       enabled: true,
     });
@@ -125,7 +125,7 @@ describe('selectVisibleHistoryRows', () => {
     const refreshed = [tx('A'), tx('B'), tx('C')];
     const result = selectVisibleHistoryRows({
       combined: refreshed,
-      displayedIds: idSet('A', 'B', 'C'),
+      displayed: rows('A', 'B', 'C'),
       isAwayFromTop: true,
       enabled: true,
     });
@@ -137,10 +137,21 @@ describe('selectVisibleHistoryRows', () => {
     expect(
       selectVisibleHistoryRows({
         combined: replaced,
-        displayedIds: idSet('A', 'B', 'C'),
+        displayed: rows('A', 'B', 'C'),
         isAwayFromTop: true,
         enabled: true,
       }),
     ).toBe(replaced);
+  });
+
+  it('keeps displayed-block order stable when existing rows reorder above the viewport', () => {
+    const reordered = [tx('B'), tx('A'), tx('C'), tx('D')];
+    const result = selectVisibleHistoryRows({
+      combined: reordered,
+      displayed: rows('A', 'B', 'C'),
+      isAwayFromTop: true,
+      enabled: true,
+    });
+    expect(result.map((t) => t.id)).toEqual(['A', 'B', 'C', 'D']);
   });
 });

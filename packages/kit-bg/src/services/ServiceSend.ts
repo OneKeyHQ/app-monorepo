@@ -945,8 +945,10 @@ class ServiceSend extends ServiceBase {
   // - Otherwise (backend-indexed networks) -> wallet API, whose indexed nonce
   //   reflects the confirmed count.
   //
-  // Custom-RPC / network detection is defensive: if it cannot be resolved, fall
-  // back to the wallet API rather than failing the whole precheck.
+  // Custom-RPC / network detection is defensive: only a positively
+  // backend-indexed network may use the wallet API. If the index status cannot
+  // be resolved, fail-open instead of risking the non-indexed wallet API's
+  // pending-inclusive nonce false positive.
   private async fetchReplaceTxOnChainNextNonce({
     accountId,
     networkId,
@@ -968,53 +970,48 @@ class ServiceSend extends ServiceBase {
     }
     const broadcastViaCustomRpc = customRpcEnabled && !useDefaultRpc;
 
-    let readFromRpc = broadcastViaCustomRpc;
-    if (!readFromRpc) {
+    if (!broadcastViaCustomRpc) {
       try {
         const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({
           networkId,
         });
-        // Only positively non-indexed networks switch away from the wallet
-        // API; missing config falls back to the wallet API (existing
-        // behavior). Reaching here means the broadcast does NOT go through the
-        // custom RPC (disabled, or bypassed via `useDefaultRpc`), so neither
-        // nonce source is trustworthy on a non-indexed network: the wallet
-        // API's pending-inclusive nonce is exactly the OK-57049 false
-        // positive, and reading the bypassed/disabled custom node would let a
-        // lagging or forked node drive the blocking consumed verdict. Skip
-        // the precheck explicitly (fail-open).
-        if (network?.backendIndex === false) {
-          return undefined;
+        if (network?.backendIndex === true) {
+          const { nonce } =
+            await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+              networkId,
+              accountId,
+              withNonce: true,
+            });
+          return isNil(nonce) ? undefined : nonce;
         }
+
+        // Reaching here means the broadcast does NOT go through the custom RPC
+        // (disabled, or bypassed via `useDefaultRpc`), and the network is not
+        // positively known to be backend-indexed. For non-indexed networks the
+        // wallet API's pending-inclusive nonce is exactly the OK-57049 false
+        // positive; if the index status is missing or failed to load, choose
+        // the same fail-open path and leave cleanup to broadcast-time 40024 /
+        // node `nonce too low`.
+        return undefined;
       } catch {
-        readFromRpc = false;
+        return undefined;
       }
     }
 
-    if (readFromRpc) {
-      const vault = await vaultFactory.getVault({ networkId, accountId });
-      const accountAddress =
-        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-          accountId,
-          networkId,
-        });
-      const resp = await vault.fetchAccountDetailsByRpc({
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
         accountId,
         networkId,
-        accountAddress,
-        withNonce: true,
       });
-      const rpcNonce = resp?.data?.data?.nonce;
-      return isNil(rpcNonce) ? undefined : rpcNonce;
-    }
-
-    const { nonce } =
-      await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
-        networkId,
-        accountId,
-        withNonce: true,
-      });
-    return isNil(nonce) ? undefined : nonce;
+    const resp = await vault.fetchAccountDetailsByRpc({
+      accountId,
+      networkId,
+      accountAddress,
+      withNonce: true,
+    });
+    const rpcNonce = resp?.data?.data?.nonce;
+    return isNil(rpcNonce) ? undefined : rpcNonce;
   }
 
   isReplaceTxNonceAlreadyUsedServerError(error: unknown): boolean {

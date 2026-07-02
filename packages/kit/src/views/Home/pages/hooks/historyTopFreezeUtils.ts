@@ -32,18 +32,20 @@ export const FREEZE_RELEASE_OFFSET = 48;
 // not just a contiguous leading run.
 export function selectVisibleHistoryRows({
   combined,
-  displayedIds,
+  displayed,
   isAwayFromTop,
   enabled,
 }: {
   combined: IAccountHistoryTx[];
-  displayedIds: Set<string>;
+  displayed: IAccountHistoryTx[];
   isAwayFromTop: boolean;
   enabled: boolean;
 }): IAccountHistoryTx[] {
   if (!enabled || !isAwayFromTop || combined.length === 0) {
     return combined;
   }
+
+  const displayedIds = new Set(displayed.map((tx) => tx.id));
 
   // The last row that was already displayed marks the boundary: everything
   // after it is bottom growth (load-more) that extends below the viewport and
@@ -63,20 +65,32 @@ export function selectVisibleHistoryRows({
     return combined;
   }
 
-  // Keep only rows that were already displayed within [0..lastDisplayedIndex]
-  // (dropping any newly inserted rows in that range), then append everything
-  // after it (bottom growth).
-  const head: IAccountHistoryTx[] = [];
+  // Keep the previously displayed order within [0..lastDisplayedIndex], using
+  // the latest row objects from `combined`, then append everything after it
+  // (bottom growth). This also freezes pure reorders while away from the top:
+  // an updatedAt/status refresh can move an existing row upward without adding
+  // an id, but that still changes content above the viewport and can shift the
+  // native SectionList offset.
+  const visibleHeadById = new Map<string, IAccountHistoryTx>();
   for (let i = 0; i <= lastDisplayedIndex; i += 1) {
-    if (displayedIds.has(combined[i].id)) {
-      head.push(combined[i]);
-    }
+    visibleHeadById.set(combined[i].id, combined[i]);
   }
+  const head = displayed
+    .map((row) => visibleHeadById.get(row.id))
+    .filter((row): row is IAccountHistoryTx => Boolean(row));
 
-  // Nothing new was inserted within the displayed block, so `combined` already
-  // equals head + bottom growth. Return the original reference so React can bail
-  // out of the re-render.
-  if (head.length === lastDisplayedIndex + 1) {
+  const combinedHeadIds = combined
+    .slice(0, lastDisplayedIndex + 1)
+    .map((row) => row.id);
+  const headIds = head.map((row) => row.id);
+  const isDisplayedBlockUnchanged =
+    combinedHeadIds.length === headIds.length &&
+    combinedHeadIds.every((id, index) => id === headIds[index]);
+
+  // Nothing new was inserted or reordered within the displayed block, so
+  // `combined` already equals head + bottom growth. Return the original
+  // reference so React can bail out of the re-render.
+  if (isDisplayedBlockUnchanged) {
     return combined;
   }
 
