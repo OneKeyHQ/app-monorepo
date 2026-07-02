@@ -1086,60 +1086,59 @@ function ProtocolPositionActionAnchor({
 }
 
 // The percentage hero for remove-liquidity (and other no-fungible-amount
-// percentage actions): the % being removed is the hero, the fiat value sits
-// beneath — mirroring the typed-amount hero in withdraw.
+// percentage actions): the % being removed is an editable auto-sizing input —
+// the same control as the typed-amount hero — with the fiat value beneath.
+// Presets fill it; free typing covers any integer 1..100.
 function ProtocolPositionActionPercentHero({
-  percent,
+  percentText,
+  onChangePercentText,
   value,
   isUnavailable,
   showPriceUnavailableTooltip,
   currencySymbol,
   priceUnavailableLabel,
 }: {
-  percent: number;
+  percentText: string;
+  onChangePercentText: (value: string) => void;
   value: number;
   isUnavailable: boolean;
   showPriceUnavailableTooltip: boolean;
   currencySymbol: string;
   priceUnavailableLabel: string;
 }) {
-  const normalizedPercent = normalizeActionPercent(percent);
-  // Mirror the typed-amount hero (SendAutoSizeAmountInput): no top label — the
-  // Dialog.Title already carries the verb — a large centered value with the
-  // fiat at $headingLg beneath, sharing DEFI_ACTION_HERO_MIN_HEIGHT so the
-  // percentage and typed-amount flows read as one hero, not two screens.
   return (
-    <YStack
-      gap="$2"
-      alignItems="center"
-      justifyContent="center"
+    <SendAutoSizeAmountInput
       minHeight={DEFI_ACTION_HERO_MIN_HEIGHT}
-    >
-      <SizableText
-        size="$heading5xl"
-        color="$text"
-        fontVariant={['tabular-nums']}
-      >
-        {`${normalizedPercent}%`}
-      </SizableText>
-      <XStack alignItems="center" gap="$1" minWidth={0}>
-        <SizableText size="$headingLg" color="$textSubdued">
-          ≈
-        </SizableText>
-        <ProtocolValueCell
-          value={value}
-          currencySymbol={currencySymbol}
-          priceUnavailableLabel={priceUnavailableLabel}
-          isUnavailable={isUnavailable}
-          showPriceUnavailableTooltip={showPriceUnavailableTooltip}
-          size="$headingLg"
-          color="$textSubdued"
-          textAlign="center"
-          numberOfLines={1}
-          fontVariant={['tabular-nums']}
-        />
-      </XStack>
-    </YStack>
+      justifyContent="center"
+      maxFontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
+      value={percentText}
+      onChange={onChangePercentText}
+      tokenSymbol="%"
+      extraContent={
+        <XStack
+          alignItems="center"
+          justifyContent="center"
+          gap="$1"
+          minWidth={0}
+        >
+          <SizableText size="$headingLg" color="$textSubdued">
+            ≈
+          </SizableText>
+          <ProtocolValueCell
+            value={value}
+            currencySymbol={currencySymbol}
+            priceUnavailableLabel={priceUnavailableLabel}
+            isUnavailable={isUnavailable}
+            showPriceUnavailableTooltip={showPriceUnavailableTooltip}
+            size="$headingLg"
+            color="$textSubdued"
+            textAlign="center"
+            numberOfLines={1}
+            fontVariant={['tabular-nums']}
+          />
+        </XStack>
+      }
+    />
   );
 }
 
@@ -1380,7 +1379,15 @@ function ProtocolPositionActionDialogContent({
       currencyInfo: { symbol: currencySymbol },
     },
   ] = useSettingsPersistAtom();
-  const [actionPercent, setActionPercent] = useState(DEFAULT_ACTION_PERCENT);
+  // Percent as typed text so the hero is directly editable. Invalid or empty
+  // text zeroes the preview and disables confirm (buildDeFiActionBps returns
+  // undefined outside integer 1..100) while keeping the field editable.
+  const [actionPercentText, setActionPercentText] = useState(
+    String(DEFAULT_ACTION_PERCENT),
+  );
+  const actionPercent = /^(0|[1-9]\d{0,2})$/.test(actionPercentText)
+    ? Math.min(100, Number(actionPercentText))
+    : 0;
   // Manual single-token entry (withdraw / repay). `amount` is human-decimal;
   // `isMaxAmount` flags a full close so submit sends bps=10000 instead.
   //
@@ -1565,6 +1572,15 @@ function ProtocolPositionActionDialogContent({
   const receiveLabel = isPercentAction ? resultLabel : sourceLabel;
   const currentSelectedAsset = selectedAssets[0];
 
+  const handleActionPercentChange = (next: string) => {
+    // Integers 0..100 only, no leading zeros; allow empty while editing.
+    // Reject other keystrokes outright (same convention as the token-amount
+    // input's validateAmountInput gate).
+    if (next !== '' && !/^(0|[1-9]\d{0,2})$/.test(next)) return;
+    if (next !== '' && Number(next) > 100) return;
+    setActionPercentText(next);
+  };
+
   const handleAmountChange = (next: string) => {
     // Project convention: reject keystrokes that exceed the token's decimals
     // (same gate as Send), rather than silently truncating.
@@ -1722,7 +1738,8 @@ function ProtocolPositionActionDialogContent({
     actionBody = (
       <YStack gap="$5">
         <ProtocolPositionActionPercentHero
-          percent={actionPercent}
+          percentText={actionPercentText}
+          onChangePercentText={handleActionPercentChange}
           value={outputValueState.value}
           isUnavailable={outputValueState.isUnavailable}
           showPriceUnavailableTooltip={
@@ -1769,7 +1786,9 @@ function ProtocolPositionActionDialogContent({
         <ProtocolPositionActionPercentPresetRow
           percent={actionPercent}
           maxLabel={maxLabel}
-          onChange={setActionPercent}
+          onChange={(presetPercent) =>
+            setActionPercentText(String(presetPercent))
+          }
         />
         <ProtocolPositionActionReceive
           label={resultLabel}
