@@ -1116,6 +1116,10 @@ function StockAmountInput({
         }}
         tokenSelectorTriggerProps={{
           testID: SwapTestIDs.fromTokenSelector,
+          m: '$1.5',
+          mb: '$0',
+          p: '$2',
+          borderRadius: '$2',
           minWidth: 132,
           justifyContent: 'flex-end',
           loading: showTokenSelectorLoading,
