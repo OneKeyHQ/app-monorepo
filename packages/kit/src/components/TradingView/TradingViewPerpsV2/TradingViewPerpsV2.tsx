@@ -25,6 +25,7 @@ import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import { EDesktopWebViewPreloadKind } from '../../WebView/types';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
+import { useChartProtocolBridge } from '../protocol/useChartProtocolBridge';
 
 import { MESSAGE_TYPES } from './constants/messageTypes';
 import { useChartLines, useTradeUpdates } from './hooks';
@@ -70,6 +71,7 @@ const useSymbolSync = ({
   displayCoin,
   isChartReady,
   enabled,
+  sendProtocolRequest,
   syncOnReady = enabled,
 }: {
   webRef: React.RefObject<IWebViewRef | null>;
@@ -78,6 +80,7 @@ const useSymbolSync = ({
   displayCoin: string | undefined;
   isChartReady: boolean;
   enabled: boolean;
+  sendProtocolRequest?: (method: string, params?: unknown) => Promise<unknown>;
   syncOnReady?: boolean;
 }) => {
   const prevParamsRef = useRef({
@@ -102,6 +105,22 @@ const useSymbolSync = ({
     [displayCoin, displayPair, symbol, webRef],
   );
 
+  const sendProtocolSymbolPatch = useCallback(() => {
+    void sendProtocolRequest?.('chart.applyConfig', {
+      mode: 'patch',
+      config: {
+        symbol,
+        displayPair,
+        displayCoin,
+      },
+    }).catch((error) => {
+      console.error(
+        '[TradingViewPerpsV2] chart.applyConfig patch failed:',
+        error,
+      );
+    });
+  }, [displayCoin, displayPair, sendProtocolRequest, symbol]);
+
   useEffect(() => {
     if (!enabled) {
       prevParamsRef.current = {
@@ -119,8 +138,12 @@ const useSymbolSync = ({
       prevParams.displayCoin !== displayCoin;
 
     if ((hasSymbolChanged || hasDisplayParamsChanged) && webRef.current) {
-      // Sync symbol changes via message communication instead of WebView reload
-      sendSymbolChange({ force: hasSymbolChanged });
+      if (sendProtocolRequest) {
+        sendProtocolSymbolPatch();
+      } else {
+        // Sync symbol changes via message communication instead of WebView reload
+        sendSymbolChange({ force: hasSymbolChanged });
+      }
 
       prevParamsRef.current = {
         displayCoin,
@@ -147,12 +170,18 @@ const useSymbolSync = ({
       return;
     }
 
-    sendSymbolChange({ force: false });
+    if (sendProtocolRequest) {
+      sendProtocolSymbolPatch();
+    } else {
+      sendSymbolChange({ force: false });
+    }
     readySyncKeyRef.current = readySyncKey;
   }, [
     displayCoin,
     displayPair,
     isChartReady,
+    sendProtocolRequest,
+    sendProtocolSymbolPatch,
     sendSymbolChange,
     symbol,
     syncOnReady,
@@ -358,7 +387,7 @@ export function TradingViewPerpsV2(
     [enablePerpsTradingUi, urlSymbol],
   );
 
-  const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
+  const { finalUrl: staticTradingViewUrl, isOfflineChart } = useTradingViewUrl({
     additionalParams,
   });
   const isSpotDisplayNameSyncRequired =
@@ -371,6 +400,88 @@ export function TradingViewPerpsV2(
     [tradingViewBackgroundColor],
   );
 
+  const onChartLinesReady = useCallback(() => {
+    hasPerpsReadyRef.current = true;
+    setChartContentReadyWebviewKey(_webviewKey);
+    setChartLinesReadyWebviewKey(_webviewKey);
+  }, [_webviewKey]);
+
+  const onChartReady = useCallback(() => {
+    setChartContentReadyWebviewKey(_webviewKey);
+  }, [_webviewKey]);
+
+  const handleProtocolWidgetReady = useCallback(() => {
+    setChartContentReadyWebviewKey(_webviewKey);
+  }, [_webviewKey]);
+
+  const handleProtocolFeatureReady = useCallback(
+    (params: unknown) => {
+      const feature = (params as { feature?: string } | undefined)?.feature;
+      if (feature === 'perps-lines') {
+        onChartLinesReady();
+      }
+    },
+    [onChartLinesReady],
+  );
+
+  const {
+    handleProtocolMessage,
+    isRuntimeReady: isChartProtocolRuntimeReady,
+    sendNotification: sendChartProtocolNotification,
+    sendRequest: sendChartProtocolRequest,
+  } = useChartProtocolBridge({
+    webRef,
+    enabled: isOfflineChart,
+    onWidgetReady: handleProtocolWidgetReady,
+    onFeatureReady: handleProtocolFeatureReady,
+    onRenderReady: handleProtocolWidgetReady,
+  });
+
+  const offlineRuntimeConfig = useMemo(
+    () => ({
+      symbol,
+      displayPair,
+      displayCoin,
+      type: 'perps' as const,
+      storageNamespace: 'perps',
+      enablePerpsTradingUi: Boolean(enablePerpsTradingUi),
+    }),
+    [displayCoin, displayPair, enablePerpsTradingUi, symbol],
+  );
+
+  const lastOfflineConfigKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isOfflineChart) {
+      lastOfflineConfigKeyRef.current = null;
+      return;
+    }
+    if (!isChartProtocolRuntimeReady || !webRef.current) {
+      return;
+    }
+
+    const configKey = JSON.stringify(offlineRuntimeConfig);
+    if (lastOfflineConfigKeyRef.current === configKey) {
+      return;
+    }
+
+    const mode = lastOfflineConfigKeyRef.current ? 'patch' : 'replace';
+    lastOfflineConfigKeyRef.current = configKey;
+    void sendChartProtocolRequest('chart.applyConfig', {
+      mode,
+      config: offlineRuntimeConfig,
+    }).catch((error) => {
+      lastOfflineConfigKeyRef.current = null;
+      console.error('[TradingViewPerpsV2] chart.applyConfig failed:', error);
+    });
+  }, [
+    isChartProtocolRuntimeReady,
+    isOfflineChart,
+    offlineRuntimeConfig,
+    sendChartProtocolRequest,
+    webRef,
+  ]);
+
   // Optimization: Dynamic symbol parameter sync mechanism
   useSymbolSync({
     webRef,
@@ -380,7 +491,10 @@ export function TradingViewPerpsV2(
     isChartReady: reloadOnSymbolChange
       ? isChartContentReady
       : isChartLinesReady,
-    enabled: !reloadOnSymbolChange,
+    enabled: !reloadOnSymbolChange && !isOfflineChart,
+    sendProtocolRequest: isOfflineChart
+      ? (method, params) => sendChartProtocolRequest(method, params)
+      : undefined,
     syncOnReady: !reloadOnSymbolChange || isSpotDisplayNameSyncRequired,
   });
 
@@ -402,10 +516,16 @@ export function TradingViewPerpsV2(
     processedCollapseChartExpandSignalRef.current = collapseChartExpandSignal;
 
     const syncChartCollapsed = () => {
-      webRef.current?.sendMessageViaInjectedScript({
-        type: MESSAGE_TYPES.PERPS_TV_CHART_EXPAND_SYNC,
-        payload: { expanded: false },
-      });
+      if (isOfflineChart) {
+        sendChartProtocolNotification('chart.setExpandState', {
+          expanded: false,
+        });
+      } else {
+        webRef.current?.sendMessageViaInjectedScript({
+          type: MESSAGE_TYPES.PERPS_TV_CHART_EXPAND_SYNC,
+          payload: { expanded: false },
+        });
+      }
     };
 
     syncChartCollapsed();
@@ -414,16 +534,25 @@ export function TradingViewPerpsV2(
     return () => {
       clearTimeout(retryTimer);
     };
-  }, [collapseChartExpandSignal, isChartContentReady]);
+  }, [
+    collapseChartExpandSignal,
+    isChartContentReady,
+    isOfflineChart,
+    sendChartProtocolNotification,
+  ]);
 
   const pendingRecoverRef = useRef(false);
 
   useEffect(() => {
     const handler = () => {
       if (isChartLinesReady && webRef.current) {
-        webRef.current.sendMessageViaInjectedScript({
-          type: 'FORCE_RECOVER_WS',
-        });
+        if (isOfflineChart) {
+          sendChartProtocolNotification('chart.forceRecoverWs');
+        } else {
+          webRef.current.sendMessageViaInjectedScript({
+            type: 'FORCE_RECOVER_WS',
+          });
+        }
       } else {
         pendingRecoverRef.current = true;
       }
@@ -432,16 +561,30 @@ export function TradingViewPerpsV2(
     return () => {
       appEventBus.off(EAppEventBusNames.PerpsWebSocketRecovered, handler);
     };
-  }, [isChartLinesReady, webRef]);
+  }, [
+    isChartLinesReady,
+    isOfflineChart,
+    sendChartProtocolNotification,
+    webRef,
+  ]);
 
   useEffect(() => {
     if (isChartLinesReady && pendingRecoverRef.current) {
       pendingRecoverRef.current = false;
-      webRef.current?.sendMessageViaInjectedScript({
-        type: 'FORCE_RECOVER_WS',
-      });
+      if (isOfflineChart) {
+        sendChartProtocolNotification('chart.forceRecoverWs');
+      } else {
+        webRef.current?.sendMessageViaInjectedScript({
+          type: 'FORCE_RECOVER_WS',
+        });
+      }
     }
-  }, [isChartLinesReady, webRef]);
+  }, [
+    isChartLinesReady,
+    isOfflineChart,
+    sendChartProtocolNotification,
+    webRef,
+  ]);
 
   useEffect(() => {
     if (restoreNonce <= 0) {
@@ -459,16 +602,6 @@ export function TradingViewPerpsV2(
       webRef.current?.reload();
     }
   }, [restoreNonce]);
-
-  const onChartLinesReady = useCallback(() => {
-    hasPerpsReadyRef.current = true;
-    setChartContentReadyWebviewKey(_webviewKey);
-    setChartLinesReadyWebviewKey(_webviewKey);
-  }, [_webviewKey]);
-
-  const onChartReady = useCallback(() => {
-    setChartContentReadyWebviewKey(_webviewKey);
-  }, [_webviewKey]);
 
   const onOrderCancel = useCallback(
     async (payload: ITVOrderCancelPayload) => {
@@ -536,20 +669,35 @@ export function TradingViewPerpsV2(
     [displayCoin, displayPair, enablePerpsTradingUi, intl, symbol],
   );
 
+  const rejectOrderPriceUpdate = useCallback(
+    (payload: ITVOrderPriceUpdatePayload) => {
+      const rejectPayload = {
+        requestId: payload.requestId,
+        lineId: payload.lineId,
+        symbol: payload.symbol,
+        orderId: payload.orderId,
+      };
+      if (isOfflineChart) {
+        sendChartProtocolNotification(
+          'chart.perpsOrder.rejectPriceUpdate',
+          rejectPayload,
+        );
+      } else {
+        webRef.current?.sendMessageViaInjectedScript({
+          type: MESSAGE_TYPES.PERPS_TV_ORDER_PRICE_UPDATE_REJECTED,
+          payload: rejectPayload,
+        });
+      }
+    },
+    [isOfflineChart, sendChartProtocolNotification, webRef],
+  );
+
   const onOrderPriceUpdate = useCallback(
     async (payload: ITVOrderPriceUpdatePayload) => {
       const oid = Number.parseInt(payload.orderId ?? '', 10);
       if (!Number.isFinite(oid)) return;
       if (!enablePerpsTradingUi) {
-        webRef.current?.sendMessageViaInjectedScript({
-          type: MESSAGE_TYPES.PERPS_TV_ORDER_PRICE_UPDATE_REJECTED,
-          payload: {
-            requestId: payload.requestId,
-            lineId: payload.lineId,
-            symbol: payload.symbol,
-            orderId: payload.orderId,
-          },
-        });
+        rejectOrderPriceUpdate(payload);
         return;
       }
 
@@ -561,33 +709,36 @@ export function TradingViewPerpsV2(
           newPrice: payload.price,
         });
       } catch {
-        webRef.current?.sendMessageViaInjectedScript({
-          type: MESSAGE_TYPES.PERPS_TV_ORDER_PRICE_UPDATE_REJECTED,
-          payload: {
-            requestId: payload.requestId,
-            lineId: payload.lineId,
-            symbol: payload.symbol,
-            orderId: payload.orderId,
-          },
-        });
+        rejectOrderPriceUpdate(payload);
       }
     },
-    [actions, enablePerpsTradingUi, webRef],
+    [actions, enablePerpsTradingUi, rejectOrderPriceUpdate],
   );
 
-  const { customReceiveHandler } = usePerpsTradingViewMessageHandler({
-    symbol,
-    userAddress,
-    webRef,
-    onChartReady,
-    onChartLinesReady,
-    onOrderCancel,
-    onOrderDraftCreate,
-    onOrderPriceUpdate,
-    onChartOrderIntent,
-    onTouchScroll,
-    onInteractionOverlayOpenChange,
-  });
+  const { customReceiveHandler: legacyReceiveHandler } =
+    usePerpsTradingViewMessageHandler({
+      symbol,
+      userAddress,
+      webRef,
+      onChartReady,
+      onChartLinesReady,
+      onOrderCancel,
+      onOrderDraftCreate,
+      onOrderPriceUpdate,
+      onChartOrderIntent,
+      onTouchScroll,
+      onInteractionOverlayOpenChange,
+    });
+
+  const customReceiveHandler = useCallback<IJsBridgeReceiveHandler>(
+    async (payload) => {
+      if (handleProtocolMessage(payload)) {
+        return;
+      }
+      await legacyReceiveHandler(payload);
+    },
+    [handleProtocolMessage, legacyReceiveHandler],
+  );
 
   // Chart lines management (liquidation, position, orders)
   useChartLines({
@@ -596,6 +747,9 @@ export function TradingViewPerpsV2(
     userAddress,
     webRef,
     isReady: isChartLinesReady,
+    sendProtocolNotification: isOfflineChart
+      ? sendChartProtocolNotification
+      : undefined,
   });
 
   // trade update push

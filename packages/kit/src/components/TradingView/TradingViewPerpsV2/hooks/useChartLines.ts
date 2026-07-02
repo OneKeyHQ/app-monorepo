@@ -32,6 +32,7 @@ interface IUseChartLinesParams {
   userAddress: string | undefined | null;
   webRef: React.RefObject<IWebViewRef | null>;
   isReady: boolean; // Whether iframe is ready to receive messages
+  sendProtocolNotification?: (method: string, params?: unknown) => void;
 }
 
 interface IUseChartLinesReturn {
@@ -130,6 +131,7 @@ export function useChartLines({
   userAddress,
   webRef,
   isReady,
+  sendProtocolNotification,
 }: IUseChartLinesParams): IUseChartLinesReturn {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const perpsPositions = usePerpsAccountScopedActivePositions();
@@ -247,17 +249,22 @@ export function useChartLines({
   const sendLinesSync = useCallback(() => {
     if (!webRef.current || !isReady) return;
 
-    webRef.current.sendMessageViaInjectedScript({
-      type: MESSAGE_TYPES.PERPS_TV_LINES_SYNC,
-      payload: {
-        symbol,
-        revision: getNextRevision(),
-        lines: currentLines,
-      },
-    });
+    const payload = {
+      symbol,
+      revision: getNextRevision(),
+      lines: currentLines,
+    };
+    if (sendProtocolNotification) {
+      sendProtocolNotification('chart.perpsLines.sync', payload);
+    } else {
+      webRef.current.sendMessageViaInjectedScript({
+        type: MESSAGE_TYPES.PERPS_TV_LINES_SYNC,
+        payload,
+      });
+    }
 
     prevLinesRef.current = new Map(currentLines.map((line) => [line.id, line]));
-  }, [webRef, isReady, symbol, currentLines]);
+  }, [webRef, isReady, sendProtocolNotification, symbol, currentLines]);
 
   // Send clear
   const sendLinesClear = useCallback(() => {
@@ -265,16 +272,21 @@ export function useChartLines({
       return;
     }
 
-    webRef.current.sendMessageViaInjectedScript({
-      type: MESSAGE_TYPES.PERPS_TV_LINES_CLEAR,
-      payload: {
-        symbol,
-      },
-    });
+    const payload = {
+      symbol,
+    };
+    if (sendProtocolNotification) {
+      sendProtocolNotification('chart.perpsLines.clear', payload);
+    } else {
+      webRef.current.sendMessageViaInjectedScript({
+        type: MESSAGE_TYPES.PERPS_TV_LINES_CLEAR,
+        payload,
+      });
+    }
 
     // Clear prev lines reference
     prevLinesRef.current.clear();
-  }, [webRef, symbol]);
+  }, [webRef, sendProtocolNotification, symbol]);
 
   // Internal function to actually send patch
   const doSendPatch = useCallback(
@@ -283,10 +295,14 @@ export function useChartLines({
         return;
       }
 
-      webRef.current.sendMessageViaInjectedScript({
-        type: MESSAGE_TYPES.PERPS_TV_LINES_PATCH,
-        payload: patch,
-      });
+      if (sendProtocolNotification) {
+        sendProtocolNotification('chart.perpsLines.patch', patch);
+      } else {
+        webRef.current.sendMessageViaInjectedScript({
+          type: MESSAGE_TYPES.PERPS_TV_LINES_PATCH,
+          payload: patch,
+        });
+      }
 
       // Update prev lines reference
       const newPrevLines = new Map(prevLinesRef.current);
@@ -302,7 +318,7 @@ export function useChartLines({
       prevLinesRef.current = newPrevLines;
       lastPnlUpdateTimeRef.current = Date.now();
     },
-    [webRef, isReady],
+    [webRef, isReady, sendProtocolNotification],
   );
 
   // Send patch with throttling for PNL-only updates

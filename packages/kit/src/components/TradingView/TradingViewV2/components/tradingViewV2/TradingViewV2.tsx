@@ -30,6 +30,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
+import { useChartProtocolBridge } from '../../../protocol/useChartProtocolBridge';
 import {
   type ICalendarPanelSubmitPayload,
   type ITradingViewNativeChartTypeControlMode,
@@ -140,6 +141,9 @@ export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
 
 export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const webRef = useRef<IWebViewRef | null>(null);
+  const sendChartCommandRef = useRef<
+    (legacyType: string, protocolMethod: string, payload?: unknown) => void
+  >(() => undefined);
   const marksTimeRange = useRef<IMarksTimeRange | null>(null);
   const currentKLineResolution = useRef(DEFAULT_TRADING_VIEW_KLINE_RESOLUTION);
   const [activeKLineResolution, setActiveKLineResolution] = useState(
@@ -232,12 +236,13 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           : prev,
       );
       handleCurrentKLineResolutionChange(interval);
-      webRef.current?.sendMessageViaInjectedScript({
-        type: TRADINGVIEW_INTERVAL_CHANGE_MESSAGE,
-        payload: {
+      sendChartCommandRef.current(
+        TRADINGVIEW_INTERVAL_CHANGE_MESSAGE,
+        'chart.setInterval',
+        {
           interval,
         },
-      });
+      );
     },
     [handleCurrentKLineResolutionChange],
   );
@@ -257,13 +262,14 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
   const handleNativeIndicatorSelect = useCallback(
     (indicatorName: string, desiredActive: boolean) => {
-      webRef.current?.sendMessageViaInjectedScript({
-        type: TRADINGVIEW_INDICATOR_SELECT_MESSAGE,
-        payload: {
+      sendChartCommandRef.current(
+        TRADINGVIEW_INDICATOR_SELECT_MESSAGE,
+        'chart.selectIndicator',
+        {
           indicatorName,
           desiredActive,
         },
-      });
+      );
     },
     [],
   );
@@ -276,18 +282,20 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           }
         : prev,
     );
-    webRef.current?.sendMessageViaInjectedScript({
-      type: TRADINGVIEW_CHART_TYPE_CHANGE_MESSAGE,
-      payload: {
+    sendChartCommandRef.current(
+      TRADINGVIEW_CHART_TYPE_CHANGE_MESSAGE,
+      'chart.setChartType',
+      {
         chartType,
       },
-    });
+    );
   }, []);
   const handleNativeResetLayout = useCallback(() => {
-    webRef.current?.sendMessageViaInjectedScript({
-      type: TRADINGVIEW_RESET_LAYOUT_MESSAGE,
-      payload: {},
-    });
+    sendChartCommandRef.current(
+      TRADINGVIEW_RESET_LAYOUT_MESSAGE,
+      'chart.resetLayout',
+      {},
+    );
   }, []);
   const handleNativePriceScaleModeChange = useCallback(
     (priceScaleMode: ITradingViewPriceScaleMode) => {
@@ -302,12 +310,13 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
             }
           : prev,
       );
-      webRef.current?.sendMessageViaInjectedScript({
-        type: TRADINGVIEW_PRICE_SCALE_CHANGE_MESSAGE,
-        payload: {
+      sendChartCommandRef.current(
+        TRADINGVIEW_PRICE_SCALE_CHANGE_MESSAGE,
+        'chart.setPriceScale',
+        {
           priceScaleMode,
         },
-      });
+      );
     },
     [],
   );
@@ -324,12 +333,13 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
             }
           : prev,
       );
-      webRef.current?.sendMessageViaInjectedScript({
-        type: TRADINGVIEW_PRICE_MARKET_CAP_CHANGE_MESSAGE,
-        payload: {
+      sendChartCommandRef.current(
+        TRADINGVIEW_PRICE_MARKET_CAP_CHANGE_MESSAGE,
+        'chart.setPriceMarketCap',
+        {
           priceMarketCapMode,
         },
-      });
+      );
     },
     [],
   );
@@ -355,35 +365,36 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     });
   }, []);
 
-  const { customReceiveHandler } = useTradingViewMessageHandler({
-    tokenAddress,
-    networkId,
-    webRef,
-    onPanesCountChange,
-    accountAddress,
-    tokenSymbol: symbol,
-    marksTimeRange,
-    currentKLineResolution,
-    onCurrentKLineResolutionChange: handleCurrentKLineResolutionChange,
-    onTouchScroll,
-    onIndicatorsDialogOpenChange,
-    onInteractionOverlayOpenChange,
-    forceEmptyKLineData,
-    emptyKLineDataOnError,
-    kLineDataFallback,
-    primaryKLineDataUnavailable,
-    onPrimaryKLineDataUnavailable,
-    onPriceUpdate,
-    onIntervalConfigChange: enableNativeIntervalSelector
-      ? handleIntervalConfigChange
-      : undefined,
-    onNativeChartControlsConfigChange: enableNativeChartControls
-      ? handleNativeChartControlsConfigChange
-      : undefined,
-    onKLineDataReady,
-    onKLineLoadError,
-    onKLinePeriodChange,
-  });
+  const { customReceiveHandler: legacyReceiveHandler } =
+    useTradingViewMessageHandler({
+      tokenAddress,
+      networkId,
+      webRef,
+      onPanesCountChange,
+      accountAddress,
+      tokenSymbol: symbol,
+      marksTimeRange,
+      currentKLineResolution,
+      onCurrentKLineResolutionChange: handleCurrentKLineResolutionChange,
+      onTouchScroll,
+      onIndicatorsDialogOpenChange,
+      onInteractionOverlayOpenChange,
+      forceEmptyKLineData,
+      emptyKLineDataOnError,
+      kLineDataFallback,
+      primaryKLineDataUnavailable,
+      onPrimaryKLineDataUnavailable,
+      onPriceUpdate,
+      onIntervalConfigChange: enableNativeIntervalSelector
+        ? handleIntervalConfigChange
+        : undefined,
+      onNativeChartControlsConfigChange: enableNativeChartControls
+        ? handleNativeChartControlsConfigChange
+        : undefined,
+      onKLineDataReady,
+      onKLineLoadError,
+      onKLinePeriodChange,
+    });
 
   const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
     useHyperLiquidKlineSource(networkId, tokenAddress);
@@ -429,11 +440,118 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     useHyperLiquid,
   ]);
 
-  const { finalUrl: tradingViewUrlWithParams, timezone: tradingViewTimezone } =
-    useTradingViewUrl({
-      additionalParams,
-      disabledFeatures,
+  const {
+    finalUrl: tradingViewUrlWithParams,
+    isOfflineChart,
+    timezone: tradingViewTimezone,
+  } = useTradingViewUrl({
+    additionalParams,
+    disabledFeatures,
+  });
+
+  const {
+    handleProtocolMessage,
+    isRuntimeReady: isChartProtocolRuntimeReady,
+    sendRequest: sendChartProtocolRequest,
+  } = useChartProtocolBridge({
+    webRef,
+    enabled: isOfflineChart,
+  });
+
+  useEffect(() => {
+    sendChartCommandRef.current = (legacyType, protocolMethod, payload) => {
+      if (isOfflineChart) {
+        void sendChartProtocolRequest(protocolMethod, payload).catch(
+          (error) => {
+            console.error(
+              '[TradingViewV2] chart protocol command failed:',
+              error,
+            );
+          },
+        );
+        return;
+      }
+
+      webRef.current?.sendMessageViaInjectedScript({
+        type: legacyType,
+        payload,
+      });
+    };
+  }, [isOfflineChart, sendChartProtocolRequest]);
+
+  const offlineRuntimeConfig = useMemo(() => {
+    const finalStorageNamespace =
+      storageNamespace?.trim() ||
+      (useHyperLiquid ? 'market-hyperliquid' : 'market');
+
+    return {
+      decimal,
+      networkId,
+      address: tokenAddress,
+      symbol: chartSymbol,
+      type: 'market' as const,
+      scene: useHyperLiquid ? ('market-hyperliquid' as const) : undefined,
+      storageNamespace: finalStorageNamespace,
+      disabledFeatures: disabledFeatures ? [...disabledFeatures] : undefined,
+      nativeChartControls: enableNativeChartControls,
+      nativeIntervalSelector: enableNativeIntervalSelector,
+      timezone: tradingViewTimezone,
+    };
+  }, [
+    chartSymbol,
+    decimal,
+    disabledFeatures,
+    enableNativeChartControls,
+    enableNativeIntervalSelector,
+    networkId,
+    storageNamespace,
+    tokenAddress,
+    tradingViewTimezone,
+    useHyperLiquid,
+  ]);
+
+  const lastOfflineConfigKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isOfflineChart) {
+      lastOfflineConfigKeyRef.current = null;
+      return;
+    }
+    if (!isChartProtocolRuntimeReady || !webRef.current) {
+      return;
+    }
+
+    const configKey = JSON.stringify(offlineRuntimeConfig);
+    if (lastOfflineConfigKeyRef.current === configKey) {
+      return;
+    }
+
+    const mode = lastOfflineConfigKeyRef.current ? 'patch' : 'replace';
+    lastOfflineConfigKeyRef.current = configKey;
+    void sendChartProtocolRequest('chart.applyConfig', {
+      mode,
+      config: offlineRuntimeConfig,
+    }).catch((error) => {
+      lastOfflineConfigKeyRef.current = null;
+      console.error('[TradingViewV2] chart.applyConfig failed:', error);
     });
+  }, [
+    isChartProtocolRuntimeReady,
+    isOfflineChart,
+    offlineRuntimeConfig,
+    sendChartProtocolRequest,
+    webRef,
+  ]);
+
+  const customReceiveHandler = useCallback(
+    async (payload: ICustomReceiveHandlerData) => {
+      if (handleProtocolMessage(payload)) {
+        return;
+      }
+      await legacyReceiveHandler(payload);
+    },
+    [handleProtocolMessage, legacyReceiveHandler],
+  );
   const tradingViewWebViewStyleProps = useMemo(
     () => ({
       containerStyle: { backgroundColor: tradingViewBackgroundColor },

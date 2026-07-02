@@ -10,6 +10,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebView from '../../WebView';
 import { useTradingViewUrl } from '../hooks';
+import { useChartProtocolBridge } from '../protocol/useChartProtocolBridge';
 
 import { useChartMigration } from './useChartMigration';
 import {
@@ -125,12 +126,20 @@ function RestoreHost({ blob }: { blob: Record<string, string> }) {
   const requestIdRef = useRef<string>('');
   const ackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { finalUrl } = useTradingViewUrl({
+  const { finalUrl, isOfflineChart } = useTradingViewUrl({
     additionalParams: {
       symbol: 'BTC',
       type: 'market',
       storageNamespace: 'market',
     },
+  });
+  const {
+    handleProtocolMessage,
+    isRuntimeReady: isChartProtocolRuntimeReady,
+    sendRequest: sendChartProtocolRequest,
+  } = useChartProtocolBridge({
+    webRef,
+    enabled: isOfflineChart,
   });
 
   const sendRestore = useCallback(() => {
@@ -145,9 +154,37 @@ function RestoreHost({ blob }: { blob: Record<string, string> }) {
 
     const requestId = nextChartMigrationRequestId();
     requestIdRef.current = requestId;
-    ref.sendMessageViaInjectedScript(
-      buildRestoreStorageMessage({ requestId, items: blob }),
-    );
+    const restoreMessage = buildRestoreStorageMessage({
+      requestId,
+      items: blob,
+    });
+    if (isOfflineChart) {
+      if (!isChartProtocolRuntimeReady) {
+        return;
+      }
+      sentRef.current = true;
+      void sendChartProtocolRequest(
+        'chart.restoreStorage',
+        { payload: restoreMessage.payload },
+        CHART_MIGRATION_RESTORE_ACK_TIMEOUT_MS,
+      )
+        .then(async () => {
+          doneRef.current = true;
+          if (ackTimerRef.current) {
+            clearTimeout(ackTimerRef.current);
+          }
+          await backgroundApiProxy.serviceApp.setTradingViewChartMigrationDone();
+        })
+        .catch((error) => {
+          if (!doneRef.current) {
+            sentRef.current = false;
+            console.error('[ChartMigration] restoreStorage failed:', error);
+          }
+        });
+      return;
+    }
+
+    ref.sendMessageViaInjectedScript(restoreMessage);
     sentRef.current = true;
 
     if (ackTimerRef.current) {
@@ -158,33 +195,54 @@ function RestoreHost({ blob }: { blob: Record<string, string> }) {
         sentRef.current = false;
       }
     }, CHART_MIGRATION_RESTORE_ACK_TIMEOUT_MS);
-  }, [blob]);
+  }, [
+    blob,
+    isChartProtocolRuntimeReady,
+    isOfflineChart,
+    sendChartProtocolRequest,
+  ]);
 
-  const customReceiveHandler = useCallback(async (payload: unknown) => {
-    if (doneRef.current) {
-      return;
+  useEffect(() => {
+    if (isOfflineChart && isChartProtocolRuntimeReady) {
+      sendRestore();
     }
+  }, [isChartProtocolRuntimeReady, isOfflineChart, sendRestore]);
 
-    const ack = parseRestoreAck(payload);
-    if (!ack) {
-      return;
-    }
-
-    if (ack.requestId !== undefined && ack.requestId !== requestIdRef.current) {
-      return;
-    }
-    if (ack.requestId === undefined && !sentRef.current) {
-      return;
-    }
-
-    if (ack.ok) {
-      doneRef.current = true;
-      if (ackTimerRef.current) {
-        clearTimeout(ackTimerRef.current);
+  const customReceiveHandler = useCallback(
+    async (payload: unknown) => {
+      if (doneRef.current) {
+        return;
       }
-      await backgroundApiProxy.serviceApp.setTradingViewChartMigrationDone();
-    }
-  }, []);
+
+      if (handleProtocolMessage(payload)) {
+        return;
+      }
+
+      const ack = parseRestoreAck(payload);
+      if (!ack) {
+        return;
+      }
+
+      if (
+        ack.requestId !== undefined &&
+        ack.requestId !== requestIdRef.current
+      ) {
+        return;
+      }
+      if (ack.requestId === undefined && !sentRef.current) {
+        return;
+      }
+
+      if (ack.ok) {
+        doneRef.current = true;
+        if (ackTimerRef.current) {
+          clearTimeout(ackTimerRef.current);
+        }
+        await backgroundApiProxy.serviceApp.setTradingViewChartMigrationDone();
+      }
+    },
+    [handleProtocolMessage],
+  );
 
   const handleWebViewRef = useCallback((ref: IWebViewRef | null) => {
     webRef.current = ref;

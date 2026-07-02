@@ -56,6 +56,9 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
     localTradingViewUrl,
   ]);
 
+  const isOfflineChart =
+    desktopOfflineChartReady && baseUrl === DESKTOP_OFFLINE_CHART_ENTRY_URL;
+
   const timezone = useMemo(
     () => getTradingViewTimezone(calendars),
     [calendars],
@@ -73,7 +76,7 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
       result.appVersion = platformEnv.version;
     }
 
-    if (additionalParams) {
+    if (!isOfflineChart && additionalParams) {
       Object.entries(additionalParams).forEach(([key, value]) => {
         result[key] = value;
       });
@@ -84,13 +87,20 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
         (feature, index, features) => features.indexOf(feature) === index,
       )
       .join(',');
-    if (serializedDisabledFeatures) {
+    if (!isOfflineChart && serializedDisabledFeatures) {
       result[TRADING_VIEW_DISABLED_FEATURES_URL_PARAM] =
         serializedDisabledFeatures;
     }
 
     return result;
-  }, [additionalParams, disabledFeatures, systemLocale, theme, timezone]);
+  }, [
+    additionalParams,
+    disabledFeatures,
+    isOfflineChart,
+    systemLocale,
+    theme,
+    timezone,
+  ]);
 
   const finalUrl = useMemo(() => {
     const url = new URL(baseUrl);
@@ -103,6 +113,7 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
   return {
     baseUrl,
     finalUrl,
+    isOfflineChart,
     params,
     timezone,
   };
