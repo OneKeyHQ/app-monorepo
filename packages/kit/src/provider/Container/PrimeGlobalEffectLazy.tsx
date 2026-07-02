@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
 
 import {
@@ -12,6 +12,7 @@ type IPrimeGlobalEffectComponent = ComponentType;
 
 function PrimeGlobalEffectLazyCmp() {
   const [shouldMount, setShouldMount] = useState(false);
+  const [loadRequestSeq, setLoadRequestSeq] = useState(0);
   const [ContainerImpl, setContainerImpl] =
     useState<IPrimeGlobalEffectComponent | null>(null);
   const containerLoadedRef = useRef(false);
@@ -22,14 +23,19 @@ function PrimeGlobalEffectLazyCmp() {
     containerLoadedRef.current = !!ContainerImpl;
   }, [ContainerImpl]);
 
+  const requestMount = useCallback(() => {
+    setShouldMount(true);
+    setLoadRequestSeq((value) => value + 1);
+  }, []);
+
   useEffect(() => {
     const timer = setTimeout(() => {
-      setShouldMount(true);
+      requestMount();
     }, PRIME_GLOBAL_EFFECT_DELAY_MS);
     return () => {
       clearTimeout(timer);
     };
-  }, []);
+  }, [requestMount]);
 
   useEffect(() => {
     const handleInvalidToken = () => {
@@ -37,7 +43,7 @@ function PrimeGlobalEffectLazyCmp() {
         return;
       }
       hasPendingInvalidTokenEventRef.current = true;
-      setShouldMount(true);
+      requestMount();
     };
     appEventBus.on(
       EAppEventBusNames.PrimeLoginInvalidToken,
@@ -49,7 +55,7 @@ function PrimeGlobalEffectLazyCmp() {
         handleInvalidToken,
       );
     };
-  }, []);
+  }, [requestMount]);
 
   useEffect(() => {
     if (!shouldMount || ContainerImpl) {
@@ -68,7 +74,7 @@ function PrimeGlobalEffectLazyCmp() {
     return () => {
       isMounted = false;
     };
-  }, [ContainerImpl, shouldMount]);
+  }, [ContainerImpl, loadRequestSeq, shouldMount]);
 
   useEffect(() => {
     if (!ContainerImpl || !hasPendingInvalidTokenEventRef.current) {

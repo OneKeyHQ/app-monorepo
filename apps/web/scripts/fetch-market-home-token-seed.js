@@ -7,7 +7,10 @@ const webDir = path.resolve(__dirname, '..');
 const outFile =
   process.env.MARKET_HOME_TOKEN_SEED_OUT ||
   path.join(webDir, 'web-build', 'static', 'market-home-token-seed-v1.json');
-const seedUrl = process.env.MARKET_HOME_TOKEN_SEED_URL;
+const DEFAULT_MARKET_HOME_TOKEN_SEED_URL =
+  'https://app.onekey.so/static/market-home-token-seed-v1.json';
+const seedUrl =
+  process.env.MARKET_HOME_TOKEN_SEED_URL || DEFAULT_MARKET_HOME_TOKEN_SEED_URL;
 const timeoutMs = Number(
   process.env.MARKET_HOME_TOKEN_SEED_TIMEOUT_MS || 30_000,
 );

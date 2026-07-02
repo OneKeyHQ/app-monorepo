@@ -23,8 +23,18 @@ type ISupabaseClientUtils =
 let supabaseClientUtilsPromise: Promise<ISupabaseClientUtils> | undefined;
 
 const loadSupabaseClientUtils = () => {
-  supabaseClientUtilsPromise ??=
-    import('@onekeyhq/shared/src/utils/supabaseClientUtils');
+  if (!supabaseClientUtilsPromise) {
+    const promise =
+      import('@onekeyhq/shared/src/utils/supabaseClientUtils').catch(
+        (error: unknown) => {
+          if (supabaseClientUtilsPromise === promise) {
+            supabaseClientUtilsPromise = undefined;
+          }
+          throw error;
+        },
+      );
+    supabaseClientUtilsPromise = promise;
+  }
   return supabaseClientUtilsPromise;
 };
 

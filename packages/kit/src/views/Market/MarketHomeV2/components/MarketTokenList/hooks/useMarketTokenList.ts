@@ -7,14 +7,9 @@ import { markMarketReactPerf } from '@onekeyhq/kit/src/views/Market/utils/market
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type {
-  IMarketTokenListItem,
-  IMarketTokenListResponse,
-} from '@onekeyhq/shared/types/marketV2';
 
 import { TIME_RANGE_TO_API_MAP } from '../../../types';
 import {
-  getNativeTokenInfo,
   getNetworkLogoUri,
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
@@ -34,72 +29,6 @@ interface IUseMarketTokenListParams {
   timeRange?: IMarketTimeRangeValue;
   pollingInterval?: number;
 }
-
-const MARKET_HOME_STABLE_REMOTE_MERGE_ROW_COUNT = 12;
-
-const MARKET_HOME_STABLE_REMOTE_PATCH_FIELDS: readonly (keyof IMarketTokenListItem)[] =
-  [
-    'price',
-    'marketCap',
-    'fdv',
-    'tvl',
-    'holders',
-    'priceChange1mPercent',
-    'priceChange5mPercent',
-    'priceChange30mPercent',
-    'priceChange1hPercent',
-    'priceChange2hPercent',
-    'priceChange4hPercent',
-    'priceChange8hPercent',
-    'priceChange24hPercent',
-    'trade1mCount',
-    'trade5mCount',
-    'trade30mCount',
-    'trade1hCount',
-    'trade2hCount',
-    'trade4hCount',
-    'trade8hCount',
-    'trade24hCount',
-    'buy1mCount',
-    'buy5mCount',
-    'buy30mCount',
-    'buy1hCount',
-    'buy2hCount',
-    'buy4hCount',
-    'buy8hCount',
-    'buy24hCount',
-    'sell1mCount',
-    'sell5mCount',
-    'sell30mCount',
-    'sell1hCount',
-    'sell2hCount',
-    'sell4hCount',
-    'sell8hCount',
-    'sell24hCount',
-    'uniqueWallet1m',
-    'uniqueWallet5m',
-    'uniqueWallet30m',
-    'uniqueWallet1h',
-    'uniqueWallet2h',
-    'uniqueWallet4h',
-    'uniqueWallet8h',
-    'uniqueWallet24h',
-    'volume1m',
-    'volume5m',
-    'volume30m',
-    'volume1h',
-    'volume2h',
-    'volume4h',
-    'volume8h',
-    'volume24h',
-    'volume1hChangePercent',
-    'volume2hChangePercent',
-    'volume4hChangePercent',
-    'volume8hChangePercent',
-    'volume24hChangePercent',
-    'liquidity',
-    'communityRecognized',
-  ];
 
 const MARKET_TOKEN_PRIMITIVE_REUSE_FIELDS = [
   'id',
@@ -130,64 +59,6 @@ const MARKET_TOKEN_PRIMITIVE_REUSE_FIELDS = [
   IMarketToken,
   'tokenImageUris' | 'walletInfo' | 'stock'
 >)[];
-
-function getMarketTokenListItemStableKey(item: IMarketTokenListItem) {
-  const { isNative, normalizedAddress } = getNativeTokenInfo(
-    item.isNative,
-    item.address,
-  );
-  const tokenNetworkId = item.networkId || item.chainId || '';
-  return `${tokenNetworkId}:${isNative ? 'native' : normalizedAddress}`;
-}
-
-function patchMarketTokenListItemVolatileFields(
-  seedItem: IMarketTokenListItem,
-  remoteItem: IMarketTokenListItem,
-): IMarketTokenListItem {
-  const volatilePatch = Object.fromEntries(
-    MARKET_HOME_STABLE_REMOTE_PATCH_FIELDS.map((field) => [
-      field,
-      remoteItem[field],
-    ]),
-  ) as Partial<IMarketTokenListItem>;
-  return {
-    ...seedItem,
-    ...volatilePatch,
-  };
-}
-
-function mergeSeedFirstRowsWithRemote({
-  seedResponse,
-  remoteResponse,
-}: {
-  seedResponse: IMarketTokenListResponse;
-  remoteResponse: IMarketTokenListResponse;
-}): IMarketTokenListResponse {
-  const remoteByKey = new Map(
-    remoteResponse.list.map((item) => [
-      getMarketTokenListItemStableKey(item),
-      item,
-    ]),
-  );
-  const stableKeys = new Set<string>();
-  const stableSeedRows = seedResponse.list
-    .slice(0, MARKET_HOME_STABLE_REMOTE_MERGE_ROW_COUNT)
-    .map((seedItem) => {
-      const key = getMarketTokenListItemStableKey(seedItem);
-      stableKeys.add(key);
-      const remoteItem = remoteByKey.get(key);
-      return remoteItem
-        ? patchMarketTokenListItemVolatileFields(seedItem, remoteItem)
-        : seedItem;
-    });
-  const remoteRows = remoteResponse.list.filter(
-    (item) => !stableKeys.has(getMarketTokenListItemStableKey(item)),
-  );
-  return {
-    list: [...stableSeedRows, ...remoteRows],
-    total: remoteResponse.total,
-  };
-}
 
 function isSameStringArray(a?: string[], b?: string[]) {
   if (a === b) {
@@ -315,13 +186,6 @@ export function useMarketTokenList({
   const currentQueryKeyRef = useRef(currentQueryKey);
   currentQueryKeyRef.current = currentQueryKey;
   const forceRemoteOnceRef = useRef(false);
-  const seedApiResultRef = useRef<
-    | {
-        queryKey: string;
-        response: IMarketTokenListResponse;
-      }
-    | undefined
-  >(undefined);
 
   const {
     result: apiResult,
@@ -349,31 +213,12 @@ export function useMarketTokenList({
         { forceRemote },
       );
       const responseWithSource = response as IMarketTokenListResponseWithSource;
-      const seedApiResult = seedApiResultRef.current;
-      const isCurrentRequest = currentQueryKeyRef.current === requestQueryKey;
-      const shouldStableMergeRemote =
-        platformEnv.isWeb &&
-        forceRemote &&
-        isCurrentRequest &&
-        !responseWithSource.__fromSeed &&
-        seedApiResult?.queryKey === requestQueryKey;
-      const displayResponse = shouldStableMergeRemote
-        ? mergeSeedFirstRowsWithRemote({
-            seedResponse: seedApiResult.response,
-            remoteResponse: response,
-          })
-        : response;
-      if (responseWithSource.__fromSeed && isCurrentRequest) {
-        seedApiResultRef.current = {
-          queryKey: requestQueryKey,
-          response,
-        };
-      } else if (shouldStableMergeRemote) {
-        seedApiResultRef.current = undefined;
+      if (currentQueryKeyRef.current !== requestQueryKey) {
+        return undefined;
       }
       return {
-        list: displayResponse.list,
-        total: displayResponse.total,
+        list: response.list,
+        total: response.total,
         __fromSeed: responseWithSource.__fromSeed,
       };
     },

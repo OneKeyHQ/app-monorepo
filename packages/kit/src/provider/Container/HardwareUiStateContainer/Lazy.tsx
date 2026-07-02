@@ -24,6 +24,7 @@ type IHardwareUiPendingEvent =
 
 function HardwareUiStateContainerLazyCmp() {
   const [shouldMount, setShouldMount] = useState(false);
+  const [loadRequestSeq, setLoadRequestSeq] = useState(0);
   const [ContainerImpl, setContainerImpl] =
     useState<IHardwareUiStateContainerComponent | null>(null);
   const [AtomWatcherImpl, setAtomWatcherImpl] =
@@ -33,6 +34,7 @@ function HardwareUiStateContainerLazyCmp() {
   const replayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestMount = useCallback(() => {
     setShouldMount(true);
+    setLoadRequestSeq((value) => value + 1);
   }, []);
 
   useEffect(() => {
@@ -56,7 +58,7 @@ function HardwareUiStateContainerLazyCmp() {
     return () => {
       isMounted = false;
     };
-  }, [AtomWatcherImpl]);
+  }, [AtomWatcherImpl, loadRequestSeq]);
 
   useEffect(() => {
     const enqueueEvent = (event: IHardwareUiPendingEvent) => {
@@ -119,7 +121,7 @@ function HardwareUiStateContainerLazyCmp() {
     return () => {
       isMounted = false;
     };
-  }, [ContainerImpl, shouldMount]);
+  }, [ContainerImpl, loadRequestSeq, shouldMount]);
 
   useEffect(() => {
     if (!ContainerImpl || pendingEventsRef.current.length === 0) {

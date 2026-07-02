@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
 
 import {
@@ -14,6 +14,7 @@ type IRookieSharePendingEvent =
 
 function RookieShareContainerLazyCmp() {
   const [shouldMount, setShouldMount] = useState(false);
+  const [loadRequestSeq, setLoadRequestSeq] = useState(0);
   const [ContainerImpl, setContainerImpl] =
     useState<IRookieShareContainerComponent | null>(null);
   const containerLoadedRef = useRef(false);
@@ -24,19 +25,24 @@ function RookieShareContainerLazyCmp() {
     containerLoadedRef.current = !!ContainerImpl;
   }, [ContainerImpl]);
 
+  const requestMount = useCallback(() => {
+    setShouldMount(true);
+    setLoadRequestSeq((value) => value + 1);
+  }, []);
+
   useEffect(() => {
     const handleShowRookieShare = (payload: IRookieSharePendingEvent) => {
       if (containerLoadedRef.current) {
         return;
       }
       pendingEventsRef.current.push(payload);
-      setShouldMount(true);
+      requestMount();
     };
     appEventBus.on(EAppEventBusNames.ShowRookieShare, handleShowRookieShare);
     return () => {
       appEventBus.off(EAppEventBusNames.ShowRookieShare, handleShowRookieShare);
     };
-  }, []);
+  }, [requestMount]);
 
   useEffect(() => {
     if (!shouldMount || ContainerImpl) {
@@ -55,7 +61,7 @@ function RookieShareContainerLazyCmp() {
     return () => {
       isMounted = false;
     };
-  }, [ContainerImpl, shouldMount]);
+  }, [ContainerImpl, loadRequestSeq, shouldMount]);
 
   useEffect(() => {
     if (!ContainerImpl || pendingEventsRef.current.length === 0) {

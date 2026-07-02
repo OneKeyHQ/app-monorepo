@@ -21,6 +21,9 @@ const developmentConsts = require('../developmentConsts') as {
   };
 };
 
+const WEB_RETRY_CHUNK_LOAD_DELAY_CODE =
+  'function() { return 1000 + Math.floor(Math.random() * 2001); }';
+
 interface IProdConfigOptions {
   platform: string;
   basePath: string;
@@ -54,7 +57,10 @@ export function createProductionConfig({
       // (the npm plugin is incompatible with rspack's Compilation). ext keeps
       // its own code-splitting and is unaffected (guard drops to `false`).
       isWeb &&
-        new RetryChunkLoadRspackPlugin({ retryDelay: 3000, maxRetries: 5 }),
+        new RetryChunkLoadRspackPlugin({
+          retryDelay: WEB_RETRY_CHUNK_LOAD_DELAY_CODE,
+          maxRetries: 5,
+        }),
     ].filter(Boolean) as RspackPluginInstance[],
     optimization: {
       minimizer: [

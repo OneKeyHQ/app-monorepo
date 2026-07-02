@@ -104,7 +104,6 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
         const {
           data: { subscription },
         } = supabaseClient.auth.onAuthStateChange((_event, nextSession) => {
-          console.log('Auth state changed:', { event: _event, nextSession });
           setSession(nextSession);
         });
         unsubscribe = () => subscription.unsubscribe();

@@ -26,10 +26,20 @@ type IZxcvbn = typeof import('zxcvbn');
 let zxcvbnPromise: Promise<IZxcvbn> | undefined;
 
 async function loadZxcvbn(): Promise<IZxcvbn> {
-  zxcvbnPromise ??= import('zxcvbn').then((module) => {
-    const zxcvbnModule = module as { default?: IZxcvbn };
-    return zxcvbnModule.default ?? (module as unknown as IZxcvbn);
-  });
+  if (!zxcvbnPromise) {
+    const promise = import('zxcvbn')
+      .then((module) => {
+        const zxcvbnModule = module as { default?: IZxcvbn };
+        return zxcvbnModule.default ?? (module as unknown as IZxcvbn);
+      })
+      .catch((error: unknown) => {
+        if (zxcvbnPromise === promise) {
+          zxcvbnPromise = undefined;
+        }
+        throw error;
+      });
+    zxcvbnPromise = promise;
+  }
   return zxcvbnPromise;
 }
 

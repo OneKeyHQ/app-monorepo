@@ -1,12 +1,4 @@
-import {
-  Suspense,
-  lazy,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
@@ -31,6 +23,7 @@ import {
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -44,7 +37,7 @@ import CommunicatingLottieView from './CommunicatingLottieView';
 import type { IEnterPhaseProps } from './HardwareEnterPhase';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
-const LazyEnterPhase = lazy(() =>
+const LazyEnterPhase = LazyLoad<IEnterPhaseProps>(() =>
   import('./HardwareEnterPhase').then((m) => ({
     default: m.EnterPhase,
   })),
@@ -813,11 +806,7 @@ export function EnterPin({
 }
 
 export function EnterPhase(props: IEnterPhaseProps) {
-  return (
-    <Suspense fallback={null}>
-      <LazyEnterPhase {...props} />
-    </Suspense>
-  );
+  return <LazyEnterPhase {...props} />;
 }
 
 export function EnterPassphraseOnDevice({

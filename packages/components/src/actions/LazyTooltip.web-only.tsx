@@ -12,10 +12,20 @@ let loadedTooltip: ILazyTooltipComponent | undefined;
 let loadTooltipPromise: Promise<ILazyTooltipComponent> | undefined;
 
 function loadTooltip() {
-  loadTooltipPromise ??= import('./Tooltip').then((module) => {
-    loadedTooltip = module.Tooltip;
-    return module.Tooltip;
-  });
+  if (!loadTooltipPromise) {
+    const promise = import('./Tooltip')
+      .then((module) => {
+        loadedTooltip = module.Tooltip;
+        return module.Tooltip;
+      })
+      .catch((error: unknown) => {
+        if (loadTooltipPromise === promise) {
+          loadTooltipPromise = undefined;
+        }
+        throw error;
+      });
+    loadTooltipPromise = promise;
+  }
   return loadTooltipPromise;
 }
 
@@ -25,9 +35,13 @@ function LazyTooltipFrame(props: ITooltipProps) {
   >(loadedTooltip);
 
   const ensureLoaded = useCallback(() => {
-    void loadTooltip().then((Component) => {
-      setTooltipComponent(() => Component);
-    });
+    void loadTooltip()
+      .then((Component) => {
+        setTooltipComponent(() => Component);
+      })
+      .catch((error: Error) => {
+        console.error('Failed to load Tooltip:', error);
+      });
   }, []);
 
   useEffect(() => {

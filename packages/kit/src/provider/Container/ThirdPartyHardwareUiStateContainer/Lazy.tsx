@@ -16,6 +16,7 @@ type IShowThirdPartyHardwarePermissionDialogPayload =
 
 function ThirdPartyHardwareUiStateContainerLazyCmp() {
   const [shouldMount, setShouldMount] = useState(false);
+  const [loadRequestSeq, setLoadRequestSeq] = useState(0);
   const [ContainerImpl, setContainerImpl] =
     useState<IThirdPartyHardwareUiStateContainerComponent | null>(null);
   const [AtomWatcherImpl, setAtomWatcherImpl] =
@@ -28,6 +29,7 @@ function ThirdPartyHardwareUiStateContainerLazyCmp() {
   > | null>(null);
   const requestMount = useCallback(() => {
     setShouldMount(true);
+    setLoadRequestSeq((value) => value + 1);
   }, []);
 
   useEffect(() => {
@@ -50,7 +52,7 @@ function ThirdPartyHardwareUiStateContainerLazyCmp() {
     return () => {
       isMounted = false;
     };
-  }, [AtomWatcherImpl]);
+  }, [AtomWatcherImpl, loadRequestSeq]);
 
   useEffect(() => {
     const handlePermissionDialog = (
@@ -91,7 +93,7 @@ function ThirdPartyHardwareUiStateContainerLazyCmp() {
     return () => {
       isMounted = false;
     };
-  }, [ContainerImpl, shouldMount]);
+  }, [ContainerImpl, loadRequestSeq, shouldMount]);
 
   useEffect(() => {
     if (!ContainerImpl || !pendingPermissionPayloadRef.current) {

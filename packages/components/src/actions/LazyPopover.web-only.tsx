@@ -15,10 +15,20 @@ let loadedPopover: ILazyPopoverComponent | undefined;
 let loadPopoverPromise: Promise<ILazyPopoverComponent> | undefined;
 
 function loadPopover() {
-  loadPopoverPromise ??= import('./Popover').then((module) => {
-    loadedPopover = module.Popover;
-    return module.Popover;
-  });
+  if (!loadPopoverPromise) {
+    const promise = import('./Popover')
+      .then((module) => {
+        loadedPopover = module.Popover;
+        return module.Popover;
+      })
+      .catch((error: unknown) => {
+        if (loadPopoverPromise === promise) {
+          loadPopoverPromise = undefined;
+        }
+        throw error;
+      });
+    loadPopoverPromise = promise;
+  }
   return loadPopoverPromise;
 }
 
@@ -43,12 +53,16 @@ function LazyPopoverFrame(props: IPopoverProps) {
 
   const ensureLoaded = useCallback(
     (nextOpen?: boolean) => {
-      void loadPopover().then((Component) => {
-        setPopoverComponent(() => Component);
-        if (nextOpen !== undefined) {
-          handleOpenChange(nextOpen);
-        }
-      });
+      void loadPopover()
+        .then((Component) => {
+          setPopoverComponent(() => Component);
+          if (nextOpen !== undefined) {
+            handleOpenChange(nextOpen);
+          }
+        })
+        .catch((error: Error) => {
+          console.error('Failed to load Popover:', error);
+        });
     },
     [handleOpenChange],
   );

@@ -1,10 +1,8 @@
 import type { ComponentProps, ForwardedRef } from 'react';
 import {
-  Suspense,
   cloneElement,
   createRef,
   forwardRef,
-  lazy,
   useCallback,
   useContext,
   useEffect,
@@ -31,6 +29,7 @@ import {
   TMDialog,
 } from '@onekeyhq/components/src/shared/tamagui';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -96,30 +95,24 @@ type IDialogFormFieldProps = ComponentProps<
   (typeof import('./DialogForm'))['DialogFormField']
 >;
 
-const LazyDialogFormComponent = lazy(async () => {
+const LazyDialogFormComponent = LazyLoad<IDialogFormProps>(async () => {
   const { DialogForm } = await import('./DialogForm');
   return { default: DialogForm };
 });
 
 function LazyDialogForm(props: IDialogFormProps) {
-  return (
-    <Suspense fallback={null}>
-      <LazyDialogFormComponent {...props} />
-    </Suspense>
-  );
+  return <LazyDialogFormComponent {...props} />;
 }
 
-const LazyDialogFormFieldComponent = lazy(async () => {
-  const { DialogFormField } = await import('./DialogForm');
-  return { default: DialogFormField };
-});
+const LazyDialogFormFieldComponent = LazyLoad<IDialogFormFieldProps>(
+  async () => {
+    const { DialogFormField } = await import('./DialogForm');
+    return { default: DialogFormField };
+  },
+);
 
 function LazyDialogFormField(props: IDialogFormFieldProps) {
-  return (
-    <Suspense fallback={null}>
-      <LazyDialogFormFieldComponent {...props} />
-    </Suspense>
-  );
+  return <LazyDialogFormFieldComponent {...props} />;
 }
 
 export * from './dialogInstances';

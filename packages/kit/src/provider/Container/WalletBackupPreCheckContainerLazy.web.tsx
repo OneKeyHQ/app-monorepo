@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
 
 import {
@@ -14,6 +14,7 @@ type IWalletBackupPreCheckPendingEvent =
 
 function WalletBackupPreCheckContainerLazyCmp() {
   const [shouldMount, setShouldMount] = useState(false);
+  const [loadRequestSeq, setLoadRequestSeq] = useState(0);
   const [ContainerImpl, setContainerImpl] =
     useState<IWalletBackupPreCheckContainerComponent | null>(null);
   const containerLoadedRef = useRef(false);
@@ -24,6 +25,11 @@ function WalletBackupPreCheckContainerLazyCmp() {
     containerLoadedRef.current = !!ContainerImpl;
   }, [ContainerImpl]);
 
+  const requestMount = useCallback(() => {
+    setShouldMount(true);
+    setLoadRequestSeq((value) => value + 1);
+  }, []);
+
   useEffect(() => {
     const handleCheckWalletBackupStatus = (
       payload: IWalletBackupPreCheckPendingEvent,
@@ -32,7 +38,7 @@ function WalletBackupPreCheckContainerLazyCmp() {
         return;
       }
       pendingEventsRef.current.push(payload);
-      setShouldMount(true);
+      requestMount();
     };
     appEventBus.on(
       EAppEventBusNames.CheckWalletBackupStatus,
@@ -44,7 +50,7 @@ function WalletBackupPreCheckContainerLazyCmp() {
         handleCheckWalletBackupStatus,
       );
     };
-  }, []);
+  }, [requestMount]);
 
   useEffect(() => {
     if (!shouldMount || ContainerImpl) {
@@ -63,7 +69,7 @@ function WalletBackupPreCheckContainerLazyCmp() {
     return () => {
       isMounted = false;
     };
-  }, [ContainerImpl, shouldMount]);
+  }, [ContainerImpl, loadRequestSeq, shouldMount]);
 
   useEffect(() => {
     if (!ContainerImpl || pendingEventsRef.current.length === 0) {

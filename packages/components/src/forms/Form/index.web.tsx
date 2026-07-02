@@ -1,5 +1,6 @@
 import type { ComponentProps, ComponentType } from 'react';
-import { Suspense, lazy } from 'react';
+
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
 type IFormComponent = typeof import('./FormBase').Form;
 type IFormProps = ComponentProps<IFormComponent>;
@@ -8,45 +9,36 @@ type IFormFieldDescriptionProps = ComponentProps<
   IFormComponent['FieldDescription']
 >;
 
-const LazyFormComponent = lazy(async () => {
+const LazyFormComponent = LazyLoad<IFormProps>(async () => {
   const { Form } = await import('./FormBase');
   return { default: Form as ComponentType<IFormProps> };
 });
 
 function LazyForm(props: IFormProps) {
-  return (
-    <Suspense fallback={null}>
-      <LazyFormComponent {...props} />
-    </Suspense>
-  );
+  return <LazyFormComponent {...props} />;
 }
 
-const LazyFormFieldComponent = lazy(async () => {
+const LazyFormFieldComponent = LazyLoad<IFormFieldProps>(async () => {
   const { Form } = await import('./FormBase');
   return { default: Form.Field as ComponentType<IFormFieldProps> };
 });
 
 function LazyFormField(props: IFormFieldProps) {
-  return (
-    <Suspense fallback={null}>
-      <LazyFormFieldComponent {...props} />
-    </Suspense>
-  );
+  return <LazyFormFieldComponent {...props} />;
 }
 
-const LazyFormFieldDescriptionComponent = lazy(async () => {
-  const { Form } = await import('./FormBase');
-  return {
-    default: Form.FieldDescription as ComponentType<IFormFieldDescriptionProps>,
-  };
-});
+const LazyFormFieldDescriptionComponent = LazyLoad<IFormFieldDescriptionProps>(
+  async () => {
+    const { Form } = await import('./FormBase');
+    return {
+      default:
+        Form.FieldDescription as ComponentType<IFormFieldDescriptionProps>,
+    };
+  },
+);
 
 function LazyFormFieldDescription(props: IFormFieldDescriptionProps) {
-  return (
-    <Suspense fallback={null}>
-      <LazyFormFieldDescriptionComponent {...props} />
-    </Suspense>
-  );
+  return <LazyFormFieldDescriptionComponent {...props} />;
 }
 
 export const Form = Object.assign(LazyForm, {

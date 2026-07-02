@@ -196,6 +196,7 @@ jobs:
       - name: Build Target
         env:
           PUBLIC_URL: ${{ env.PUBLIC_URL }}
+          MARKET_HOME_TOKEN_SEED_URL: https://app.onekey.so/static/market-home-token-seed-v1.json
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn app:web:build
@@ -400,6 +401,7 @@ jobs:
       - name: Build Target
         env:
           PUBLIC_URL: ${{ env.PUBLIC_URL }}
+          MARKET_HOME_TOKEN_SEED_URL: https://app.onekey.so/static/market-home-token-seed-v1.json
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn app:web:build
