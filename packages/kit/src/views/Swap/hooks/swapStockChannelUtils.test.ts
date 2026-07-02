@@ -7,6 +7,7 @@ import {
   filterStockPayTokenCandidates,
   isStockPayTokenReadyForTradeInput,
   resolveStockChannelSwapPair,
+  resolveStockKLineToken,
   shouldLoadDefaultStockToken,
   shouldRenderStockTradeInputSkeleton,
   shouldResetStockTradeReceiveAmount,
@@ -122,6 +123,39 @@ describe('swapStockChannelUtils', () => {
         toToken: usdcToken,
       }),
     ).toEqual({});
+  });
+
+  it('keeps the stock K-line token from the stable selected owner', () => {
+    expect(
+      resolveStockKLineToken({
+        stockSelectedToken: appleStockToken,
+        executionFromToken: usdcToken,
+        fromToken: usdcToken,
+        toToken: usdcToken,
+      }),
+    ).toBe(appleStockToken);
+  });
+
+  it('falls back to the stock execution pair for the K-line token', () => {
+    expect(
+      resolveStockKLineToken({
+        executionFromToken: usdcToken,
+        executionToToken: appleStockToken,
+        fromToken: ethToken,
+        toToken: usdcToken,
+      }),
+    ).toBe(appleStockToken);
+  });
+
+  it('falls back to the visible stock pair when execution tokens have no stock', () => {
+    expect(
+      resolveStockKLineToken({
+        executionFromToken: ethToken,
+        executionToToken: usdcToken,
+        fromToken: usdtToken,
+        toToken: appleStockToken,
+      }),
+    ).toBe(appleStockToken);
   });
 
   it('resets only the derived receive amount when selecting another stock token', () => {
