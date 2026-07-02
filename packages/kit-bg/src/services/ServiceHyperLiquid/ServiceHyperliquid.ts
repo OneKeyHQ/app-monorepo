@@ -995,6 +995,11 @@ export default class ServiceHyperliquid extends ServiceBase {
         infoClient.spotClearinghouseState({ user }),
       ]);
       const clearinghouse = aggregateClearinghouseStates(clearinghouseStates);
+      if (!clearinghouse) {
+        throw new OneKeyLocalError(
+          'Hyperliquid portfolio clearinghouse state unavailable',
+        );
+      }
       await this._ensureSpotMappings();
       const needsPrices = spotNeedsPrices(spot);
       const needsSpotMeta =

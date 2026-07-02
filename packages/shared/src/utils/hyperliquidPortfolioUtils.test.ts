@@ -291,6 +291,34 @@ describe('aggregateClearinghouseStates', () => {
     ]);
     expect(xyz.assetPositions[0].position.coin).toBe('NVDA');
   });
+
+  it('does not produce an authoritative aggregate when a requested dex is missing', () => {
+    const main = {
+      marginSummary: {
+        accountValue: '100',
+        totalNtlPos: '50',
+        totalRawUsd: '100',
+        totalMarginUsed: '10',
+      },
+      crossMarginSummary: {
+        accountValue: '80',
+        totalNtlPos: '40',
+        totalRawUsd: '80',
+        totalMarginUsed: '8',
+      },
+      crossMaintenanceMarginUsed: '1',
+      withdrawable: '90',
+      assetPositions: [buildPosition('BTC', '3')],
+      time: 100,
+    };
+
+    expect(
+      aggregateClearinghouseStates([
+        { dex: '', state: main as any },
+        { dex: 'xyz', state: undefined },
+      ]),
+    ).toBeUndefined();
+  });
 });
 
 describe('assembleHyperliquidSnapshot', () => {

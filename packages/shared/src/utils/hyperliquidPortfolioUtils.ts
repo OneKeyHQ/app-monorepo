@@ -71,6 +71,10 @@ function getDexPrefixedCoin(coin: string, dex: string | undefined): string {
 export function aggregateClearinghouseStates(
   inputs: IAggregateClearinghouseStateInput[],
 ): IClearinghouseStateResponse | undefined {
+  if (inputs.length === 0 || inputs.some((input) => !input.state)) {
+    return undefined;
+  }
+
   const validInputs = inputs.filter(
     (
       input,
@@ -79,10 +83,6 @@ export function aggregateClearinghouseStates(
       state: IClearinghouseStateResponse;
     } => Boolean(input.state),
   );
-  if (validInputs.length === 0) {
-    return undefined;
-  }
-
   const marginSummary = createEmptyClearinghouseSummary();
   const crossMarginSummary = createEmptyClearinghouseSummary();
   const assetPositions: IClearinghouseStateResponse['assetPositions'] = [];

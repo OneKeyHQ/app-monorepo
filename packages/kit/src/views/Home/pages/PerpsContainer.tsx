@@ -66,16 +66,46 @@ function isTradableSpotHolding(holding: IPerpsHomeHolding) {
   );
 }
 
+function useEnsureHomePerpsAccount() {
+  const {
+    activeAccount: { account, indexedAccount, wallet },
+  } = useActiveAccount({ num: 0 });
+
+  return useCallback(async () => {
+    if (!account?.id && !indexedAccount?.id) {
+      return undefined;
+    }
+    const deriveType =
+      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId: PERPS_NETWORK_ID,
+      });
+    return backgroundApiProxy.serviceHyperliquid.changeActivePerpsAccount({
+      indexedAccountId: indexedAccount?.id ?? null,
+      accountId: account?.id ?? null,
+      walletId: wallet?.id ?? null,
+      deriveType: deriveType ?? 'default',
+    });
+  }, [account?.id, indexedAccount?.id, wallet?.id]);
+}
+
 // Jump into the Perps tab (optionally focusing a coin), mirroring UniversalSearchPerpItem.
 function useOpenPerpAsset() {
   const navigation = useAppNavigation();
+  const ensureHomePerpsAccount = useEnsureHomePerpsAccount();
   return useCallback(
     (coin?: string, mode: TPerpsTradeMode = 'perp') => {
-      navigation.switchTab(ETabRoutes.Perp);
-      if (!coin) {
-        return;
-      }
       void (async () => {
+        const activePerpsAccount = await ensureHomePerpsAccount();
+        if (!activePerpsAccount) {
+          return;
+        }
+        if (coin && !activePerpsAccount?.accountAddress) {
+          return;
+        }
+        navigation.switchTab(ETabRoutes.Perp);
+        if (!coin) {
+          return;
+        }
         try {
           if (mode === 'perp') {
             await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
@@ -100,7 +130,7 @@ function useOpenPerpAsset() {
         }
       })();
     },
-    [navigation],
+    [ensureHomePerpsAccount, navigation],
   );
 }
 
@@ -529,36 +559,18 @@ function PerpsDepositButton({
 }) {
   const intl = useIntl();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
-  const {
-    activeAccount: { account, indexedAccount, wallet },
-  } = useActiveAccount({ num: 0 });
+  const ensureHomePerpsAccount = useEnsureHomePerpsAccount();
 
   const handleDeposit = useCallback(async () => {
-    if (!canDeposit || (!account?.id && !indexedAccount?.id)) {
+    if (!canDeposit) {
       return;
     }
-    const deriveType =
-      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-        networkId: PERPS_NETWORK_ID,
-      });
-    const activePerpsAccount =
-      await backgroundApiProxy.serviceHyperliquid.changeActivePerpsAccount({
-        indexedAccountId: indexedAccount?.id ?? null,
-        accountId: account?.id ?? null,
-        walletId: wallet?.id ?? null,
-        deriveType: deriveType ?? 'default',
-      });
+    const activePerpsAccount = await ensureHomePerpsAccount();
     if (!activePerpsAccount?.accountId || !activePerpsAccount.accountAddress) {
       return;
     }
     await showDepositWithdrawModal('deposit');
-  }, [
-    account?.id,
-    canDeposit,
-    indexedAccount?.id,
-    showDepositWithdrawModal,
-    wallet?.id,
-  ]);
+  }, [canDeposit, ensureHomePerpsAccount, showDepositWithdrawModal]);
 
   if (!canDeposit) {
     return null;

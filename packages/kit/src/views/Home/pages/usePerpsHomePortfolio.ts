@@ -131,9 +131,12 @@ export function usePerpsHomePortfolio(): {
           await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
             { address },
           );
+        if (!snapshot) {
+          return { address, view: undefined, requestResolved: false };
+        }
         return {
           address,
-          view: snapshot ? mapSnapshotToPerpsHomeView(snapshot) : undefined,
+          view: mapSnapshotToPerpsHomeView(snapshot),
           requestResolved: true,
         };
       },
