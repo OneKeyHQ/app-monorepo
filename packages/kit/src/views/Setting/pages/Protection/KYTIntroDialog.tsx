@@ -160,14 +160,18 @@ function useKYTIntroDialog() {
   onekeyUserIdRef.current = onekeyUserId;
 
   const showDialog = useCallback(() => {
+    const title = `${intl.formatMessage({
+      id: ETranslations.prime_status_prime,
+    })} ${intl.formatMessage({
+      id: ETranslations.prime_feature_receive_risk_monitoring__title,
+    })}`;
+
     defaultLogger.prime.usage.primeReceiveKytIntroShown(
       receiveKytIntroTrackingParams,
     );
     Dialog.show({
       icon: 'ShieldCheckDoneOutline',
-      title: intl.formatMessage({
-        id: ETranslations.prime_feature_receive_risk_monitoring__title,
-      }),
+      title,
       showFooter: true,
       onConfirmText: intl.formatMessage({
         id: ETranslations.kyt_receive_risk_monitoring_enable__action,
