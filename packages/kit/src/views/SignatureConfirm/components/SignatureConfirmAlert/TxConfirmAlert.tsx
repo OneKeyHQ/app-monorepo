@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { flatMap, map } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IAlertType } from '@onekeyhq/components';
@@ -9,6 +10,7 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useCustomRpcStatusAtom,
+  useDecodedTxsAtom,
   useNativeTokenInfoAtom,
   usePayWithTokenInfoAtom,
   usePreCheckTxStatusAtom,
@@ -44,6 +46,7 @@ function TxConfirmAlert(props: IProps) {
 
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const [{ decodedTxs }] = useDecodedTxsAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
   const [sendTxStatus] = useSendTxStatusAtom();
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
@@ -91,6 +94,21 @@ function TxConfirmAlert(props: IProps) {
     network?.symbol,
     payWithTokenInfo.symbol,
   ]);
+
+  const renderDecodedTxsAlert = useCallback(() => {
+    const alerts = flatMap(
+      map(decodedTxs, (tx) => tx.txDisplay?.alerts),
+    ).filter(Boolean);
+
+    return alerts.map((alert) => (
+      <Alert
+        key={alert}
+        description={alert}
+        type="warning"
+        icon="InfoSquareOutline"
+      />
+    ));
+  }, [decodedTxs]);
 
   // Keep the last error message across retry cycles. The estimate flow resets
   // `errMessage` to '' the moment it flips to Loading, which would otherwise
@@ -402,6 +420,7 @@ function TxConfirmAlert(props: IProps) {
       {renderCustomRpcUnavailableAlert()}
       {renderTxFeeAlert()}
       {renderInsufficientNativeBalanceAlert()}
+      {renderDecodedTxsAlert()}
       {renderPreCheckTxAlert()}
       {renderChainSpecialAlert()}
     </>
