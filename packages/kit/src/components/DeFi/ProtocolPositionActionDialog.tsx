@@ -244,7 +244,7 @@ function buildSelectedAssetPreviewAssets({
         : asset.value,
       minAmount:
         isPercentAction && minAmount
-          ? scaleAmountByPercent(minAmount, percent)
+          ? getPositiveAmount(scaleAmountByPercent(minAmount, percent))
           : minAmount,
     };
   });
@@ -1145,6 +1145,7 @@ function ProtocolPositionActionPercentHero({
       value={percentText}
       onChange={onChangePercentText}
       tokenSymbol="%"
+      inputProps={{ keyboardType: 'number-pad' }}
       extraContent={
         <XStack
           alignItems="center"
@@ -1913,6 +1914,7 @@ function ProtocolPositionActionDialogContent({
       {submitError ? (
         <Alert
           type="critical"
+          icon="ErrorOutline"
           title={intl.formatMessage({
             id: ETranslations.global_an_error_occurred,
           })}
