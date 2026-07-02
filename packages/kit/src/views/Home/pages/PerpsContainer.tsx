@@ -56,12 +56,17 @@ const HYPER_EVM_LOGO_URI =
   'https://uni.onekey-asset.com/static/chain/hyper-evm.png';
 const SPAN_1: React.CSSProperties = { gridColumnEnd: 'span 1' };
 const noop = () => undefined;
+type TPerpsTradeMode = 'perp' | 'spot';
+
+function isTradableSpotHolding(holding: IPerpsHomeHolding) {
+  return holding.symbol.toUpperCase() !== 'USDC';
+}
 
 // Jump into the Perps tab (optionally focusing a coin), mirroring UniversalSearchPerpItem.
 function useOpenPerpAsset() {
   const navigation = useAppNavigation();
   return useCallback(
-    (coin?: string) => {
+    (coin?: string, mode: TPerpsTradeMode = 'perp') => {
       navigation.switchTab(ETabRoutes.Perp);
       if (!coin) {
         return;
@@ -72,7 +77,7 @@ function useOpenPerpAsset() {
             coin,
           });
           appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
-            mode: 'perp',
+            mode,
             coin,
           });
         } catch {
@@ -143,10 +148,13 @@ function PerpsSignedUsd({
 function PerpsHoldingCard({
   holding,
   hyperEvmLogoUri,
+  onPress,
 }: {
   holding: IPerpsHomeHolding;
   hyperEvmLogoUri: string;
+  onPress?: () => void;
 }) {
+  const isPressable = Boolean(onPress);
   return (
     <XStack
       flex={1}
@@ -156,22 +164,22 @@ function PerpsHoldingCard({
       py="$2.5"
       alignItems="center"
       gap="$2.5"
-      cursor="default"
-      focusable
+      cursor={isPressable ? 'pointer' : 'default'}
+      focusable={isPressable}
       focusVisibleStyle={{
         outlineColor: '$focusRing',
         outlineStyle: 'solid',
         outlineWidth: 2,
       }}
-      hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
+      hoverStyle={isPressable ? { bg: '$bgHover' } : undefined}
+      pressStyle={isPressable ? { bg: '$bgActive' } : undefined}
       $platform-web={{ boxShadow: OVERVIEW_TILE_SHADOW }}
       $platform-native={{
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: '$borderSubdued',
       }}
-      onPress={noop}
-      role="button"
+      onPress={onPress ?? noop}
+      role={isPressable ? 'button' : undefined}
     >
       <Stack
         width={36}
@@ -238,6 +246,7 @@ function PerpsHoldingsBlock({
   hyperEvmLogoUri: string;
 }) {
   const media = useMedia();
+  const openPerp = useOpenPerpAsset();
   const cols = useMemo(
     () =>
       resolveOverviewCols({
@@ -260,6 +269,11 @@ function PerpsHoldingsBlock({
           <PerpsHoldingCard
             holding={holding}
             hyperEvmLogoUri={hyperEvmLogoUri}
+            onPress={
+              isTradableSpotHolding(holding)
+                ? () => openPerp(holding.symbol, 'spot')
+                : undefined
+            }
           />
         </XStack>
       ))}
@@ -416,6 +430,23 @@ function PerpsLoadingState() {
   );
 }
 
+function PerpsPositionsEmptyContent() {
+  const intl = useIntl();
+
+  return (
+    <Empty
+      py="$8"
+      illustration="Orders"
+      title={intl.formatMessage({
+        id: ETranslations.perp_position_empty,
+      })}
+      description={intl.formatMessage({
+        id: ETranslations.perp_position_empty_desc,
+      })}
+    />
+  );
+}
+
 function PerpsEmptyState() {
   const intl = useIntl();
 
@@ -454,16 +485,7 @@ function PerpsEmptyState() {
           plainContentContainer
         />
       </YStack>
-      <Empty
-        py="$8"
-        illustration="Orders"
-        title={intl.formatMessage({
-          id: ETranslations.perp_position_empty,
-        })}
-        description={intl.formatMessage({
-          id: ETranslations.perp_position_empty_desc,
-        })}
-      />
+      <PerpsPositionsEmptyContent />
     </>
   );
 }
@@ -519,9 +541,25 @@ function PerpsHeaderActions() {
   );
 }
 
-function PerpsMobileHoldingRow({ holding }: { holding: IPerpsHomeHolding }) {
+function PerpsMobileHoldingRow({
+  holding,
+  onPress,
+}: {
+  holding: IPerpsHomeHolding;
+  onPress?: () => void;
+}) {
+  const isPressable = Boolean(onPress);
   return (
-    <XStack py="$2" alignItems="center" justifyContent="space-between" gap="$3">
+    <XStack
+      py="$2"
+      alignItems="center"
+      justifyContent="space-between"
+      gap="$3"
+      cursor={isPressable ? 'pointer' : 'default'}
+      pressStyle={isPressable ? { bg: '$bgActive' } : undefined}
+      onPress={onPress ?? noop}
+      role={isPressable ? 'button' : undefined}
+    >
       <XStack
         flexGrow={1}
         flexBasis={0}
@@ -573,6 +611,7 @@ function PerpsMobileHoldingsSummary({
   holdings: IPerpsHomeHolding[];
 }) {
   const intl = useIntl();
+  const openPerp = useOpenPerpAsset();
 
   return (
     <YStack display="flex" $gtMd={{ display: 'none' }} gap="$3" py="$2">
@@ -625,7 +664,15 @@ function PerpsMobileHoldingsSummary({
         </XStack>
         <YStack>
           {holdings.map((holding) => (
-            <PerpsMobileHoldingRow key={holding.symbol} holding={holding} />
+            <PerpsMobileHoldingRow
+              key={holding.symbol}
+              holding={holding}
+              onPress={
+                isTradableSpotHolding(holding)
+                  ? () => openPerp(holding.symbol, 'spot')
+                  : undefined
+              }
+            />
           ))}
         </YStack>
       </YStack>
@@ -741,7 +788,6 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
         py: '$4',
       }}
       gap="$4"
-      onPress={() => openPerp(position.coin)}
     >
       <XStack justifyContent="space-between" flex={1} position="relative">
         <XStack flex={1} gap="$2" alignItems="center">
@@ -928,12 +974,16 @@ export function PerpsContainer() {
               />
             </YStack>
             <YStack gap="$3">
-              {view.positions.map((position) => (
-                <PerpsPositionCard
-                  key={`${position.coin}-${position.side}`}
-                  position={position}
-                />
-              ))}
+              {view.positions.length > 0 ? (
+                view.positions.map((position) => (
+                  <PerpsPositionCard
+                    key={`${position.coin}-${position.side}`}
+                    position={position}
+                  />
+                ))
+              ) : (
+                <PerpsPositionsEmptyContent />
+              )}
             </YStack>
           </>
         ) : null}
