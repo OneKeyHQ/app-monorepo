@@ -17,6 +17,7 @@ import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token, TokenGroup } from '@onekeyhq/kit/src/components/Token';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { SendAutoSizeAmountInput } from '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput';
@@ -1433,11 +1434,44 @@ function ProtocolPositionActionDialogContent({
     (next: string) => validateAmountInput(next, amountDecimals),
     [amountDecimals],
   );
+  // Repay spends tokens from the wallet, but `availableAmount` above is the
+  // DEBT size — the user may hold less than the debt. Fetch the wallet
+  // balance so over-spend fails here instead of at tx-confirm simulation.
+  // `address` is '' for the native token; the API handles both uniformly.
+  const isRepayAction = action.action === EDeFiPositionAction.Repay;
+  const repayTokenAddress =
+    manualAmountAsset?.tokenAddress ?? manualAmountAsset?.asset.address;
+  const { result: repayWalletBalance } = usePromiseResult(
+    async () => {
+      if (!isRepayAction || repayTokenAddress === undefined) return undefined;
+      const details =
+        await backgroundApiProxy.serviceToken.fetchTokensDetails({
+          accountId,
+          networkId,
+          contractList: [repayTokenAddress],
+        });
+      return details?.[0]?.balanceParsed;
+    },
+    [accountId, isRepayAction, networkId, repayTokenAddress],
+  );
   const amountBN = new BigNumber(amount || '0');
   const availableBN = new BigNumber(availableAmount || '0');
   const isAmountPositive = amountBN.isFinite() && amountBN.gt(0);
+  // While the wallet balance is still loading (undefined) the check is
+  // skipped — behavior degrades to today's, and tx-confirm still catches it.
+  const repayWalletBalanceBN =
+    isRepayAction && repayWalletBalance !== undefined
+      ? new BigNumber(repayWalletBalance)
+      : undefined;
   const isAmountInsufficient =
-    amountBN.isFinite() && availableBN.isFinite() && amountBN.gt(availableBN);
+    (amountBN.isFinite() &&
+      availableBN.isFinite() &&
+      amountBN.gt(availableBN)) ||
+    Boolean(
+      repayWalletBalanceBN?.isFinite() &&
+        amountBN.isFinite() &&
+        amountBN.gt(repayWalletBalanceBN),
+    );
   const isAmountValid = isAmountPositive && !isAmountInsufficient;
   const amountFiatValue = isAmountPositive
     ? amountBN.multipliedBy(manualAmountAsset?.asset.price ?? 0).toFixed()
