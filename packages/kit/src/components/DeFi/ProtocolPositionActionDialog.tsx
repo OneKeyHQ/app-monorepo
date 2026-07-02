@@ -523,6 +523,31 @@ function buildDeFiActionTxConfirmInfo({
   intl: ReturnType<typeof useIntl>;
   hasRewards?: boolean;
 }): IDeFiActionTxConfirmInfo {
+  // LP removes redeem the position as one unit; any per-token amount here is
+  // a preview estimate, so show only the pool pair + percent and let the
+  // decoded tx details carry the real amounts.
+  if (action.action === EDeFiPositionAction.RemoveLiquidity) {
+    const underlyingLogoUrls = (selectedAsset.underlyingAssets ?? [])
+      .map((item) => item.meta?.logoUrl)
+      .filter((logoUrl): logoUrl is string => Boolean(logoUrl));
+    return {
+      actionLabel: getActionLabel({ action: action.action, intl, hasRewards }),
+      protocolId: action.protocolId,
+      assetSymbol: getSelectedAssetDisplaySymbol({
+        action: action.action,
+        selectedAsset,
+      }),
+      assetLogoUrl: selectedAsset.asset.meta?.logoUrl,
+      assetLogoUrls:
+        underlyingLogoUrls.length > 1 ? underlyingLogoUrls : undefined,
+      extraLabel: getActionExtraLabel({
+        action: action.action,
+        asset: selectedAsset,
+        percent,
+      }),
+    };
+  }
+
   const explicitAmount = amount !== undefined && amount.trim() !== '';
   let assetAmount: string;
   if (explicitAmount) {

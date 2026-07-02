@@ -8,6 +8,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { TokenGroup } from '@onekeyhq/kit/src/components/Token';
 import type { IDeFiActionTxConfirmInfo } from '@onekeyhq/shared/types/defi';
 
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
@@ -53,7 +54,18 @@ function DeFiActionInfo(props: IProps) {
             {info.actionLabel}
           </SignatureConfirmItem.Label>
           <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
-            {info.assetLogoUrl ? (
+            {info.assetLogoUrls && info.assetLogoUrls.length > 1 ? (
+              <TokenGroup
+                tokens={info.assetLogoUrls.map((logoUrl) => ({
+                  tokenImageUri: logoUrl,
+                }))}
+                size="xs"
+                variant="overlapped"
+                wrapperStyle="border"
+                wrapperBorderColor="$bgSubdued"
+              />
+            ) : null}
+            {!info.assetLogoUrls?.length && info.assetLogoUrl ? (
               <Image
                 borderRadius="$1"
                 w="$5"
@@ -63,13 +75,15 @@ function DeFiActionInfo(props: IProps) {
             ) : null}
             <YStack minWidth={0} flex={1} gap="$0.5">
               <XStack alignItems="center" gap="$1" minWidth={0}>
-                <NumberSizeableText
-                  size="$bodyMd"
-                  formatter="balance"
-                  numberOfLines={1}
-                >
-                  {info.assetAmount}
-                </NumberSizeableText>
+                {info.assetAmount ? (
+                  <NumberSizeableText
+                    size="$bodyMd"
+                    formatter="balance"
+                    numberOfLines={1}
+                  >
+                    {info.assetAmount}
+                  </NumberSizeableText>
+                ) : null}
                 <SizableText size="$bodyMd" numberOfLines={1} flexShrink={1}>
                   {info.assetSymbol}
                 </SizableText>
