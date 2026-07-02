@@ -278,7 +278,7 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xpool');
   });
 
-  it('matches Debank stakedao ids with Stake DAO supported actions', () => {
+  it('remaps Stake DAO withdraw to a RemoveLiquidity display action', () => {
     const poolAddress = '0xee26a99688474bbde401e784a01d89833c46aa14';
     const sourcePosition = makeSourcePosition({
       protocol: 'stakedao',
@@ -318,8 +318,147 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     });
 
     expect(actions).toHaveLength(1);
+    expect(actions[0].action).toBe(EDeFiPositionAction.RemoveLiquidity);
+    expect(actions[0].buildAction).toBe(EDeFiPositionAction.Withdraw);
     expect(actions[0].protocolId).toBe('stake-dao');
+    expect(actions[0].assets).toHaveLength(1);
     expect(actions[0].assets[0].extraParams?.poolAddress).toBe(poolAddress);
+    expect(
+      actions[0].assets[0].underlyingAssets?.map((asset) => asset.symbol),
+    ).toEqual(['CRV']);
+  });
+
+  it('collapses a multi-asset Stake DAO pool into one remove unit', () => {
+    const poolAddress = '0xd4467fbcbd3511112d2fd1af667e745d4987c8eb';
+    const sourcePosition = makeSourcePosition({
+      protocol: 'stakedao',
+      protocolName: 'Stake DAO',
+      category: 'yield',
+      groupId: poolAddress,
+      name: 'Stake DAO Yield: crvUSD/USDC Pool',
+      contracts: {
+        pool: poolAddress,
+      },
+      assets: [
+        makeAsset({
+          symbol: 'crvUSD',
+          address: '0xcrvusd',
+          amount: '0.11',
+          category: 'deposit',
+        }),
+        makeAsset({
+          symbol: 'USDC',
+          address: '0xusdc2',
+          amount: '0.16',
+          category: 'deposit',
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'stake-dao',
+        networkId: 'evm--1',
+        positionCategory: 'yield',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.Withdraw,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'stakedao',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    // One removable unit for the whole pool — never a per-token A/B pick.
+    expect(actions).toHaveLength(1);
+    expect(actions[0].assets).toHaveLength(1);
+    expect(
+      actions[0].assets[0].underlyingAssets?.map((asset) => asset.symbol),
+    ).toEqual(['crvUSD', 'USDC']);
+    expect(actions[0].assets[0].extraParams?.poolAddress).toBe(poolAddress);
+  });
+
+  it('hides the Stake DAO remove unit when pool metadata is missing', () => {
+    const sourcePosition = makeSourcePosition({
+      protocol: 'stakedao',
+      protocolName: 'Stake DAO',
+      category: 'yield',
+      groupId: 'stake-dao-position-1',
+      assets: [
+        makeAsset({
+          symbol: 'crvUSD',
+          address: '0xcrvusd',
+          amount: '0.11',
+          category: 'deposit',
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'stake-dao',
+        networkId: 'evm--1',
+        positionCategory: 'yield',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.Withdraw,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'stakedao',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(0);
+  });
+
+  it('does not report a resolved Stake DAO remove as an unresolved debug candidate', () => {
+    const poolAddress = '0xee26a99688474bbde401e784a01d89833c46aa14';
+    const sourcePosition = makeSourcePosition({
+      protocol: 'stakedao',
+      protocolName: 'Stake DAO',
+      category: 'yield',
+      groupId: poolAddress,
+      contracts: {
+        pool: poolAddress,
+      },
+      assets: [
+        makeAsset({
+          symbol: 'CRV',
+          address: '0xcrv',
+          amount: '1',
+          category: 'deposit',
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'stake-dao',
+        networkId: 'evm--1',
+        positionCategory: 'yield',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.Withdraw,
+      },
+    ];
+
+    const debugCandidates =
+      defiActionUtils.resolveDeFiPositionActionDebugCandidates({
+        protocol: {
+          networkId: 'evm--1',
+          protocol: 'stakedao',
+        },
+        position: makePosition(sourcePosition),
+        supportedActions,
+      });
+
+    expect(debugCandidates).toHaveLength(0);
   });
 
   it('resolves Aave repay from debtCategory debts instead of collateral assets', () => {

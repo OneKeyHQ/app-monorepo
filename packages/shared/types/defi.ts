@@ -250,6 +250,9 @@ export type IResolvedDeFiPositionActionAsset = {
 
 export type IResolvedDeFiPositionAction = {
   action: EDeFiPositionAction;
+  // Wire action for build-transaction when it differs from the displayed
+  // action (e.g. Stake DAO renders RemoveLiquidity but builds withdraw).
+  buildAction?: EDeFiPositionAction;
   protocolId: string;
   networkId: string;
   positionCategory: string;
