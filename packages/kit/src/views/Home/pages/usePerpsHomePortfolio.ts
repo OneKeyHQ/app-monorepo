@@ -83,7 +83,7 @@ function isCurrentAccountConfirmedPerpsTx({
   indexedAccountId: string | undefined;
 }) {
   if (
-    payload.networkId !== PERPS_NETWORK_ID ||
+    !payload.isPerpsDepositTx ||
     payload.status !== EDecodedTxStatus.Confirmed
   ) {
     return false;
@@ -271,8 +271,8 @@ export function usePerpsHomePortfolio(): {
           snapshotLoaded: true,
         });
       }
-      // LocalPendingTxConfirmed does not carry the deposit amount, so a
-      // non-empty snapshot cannot prove the newly confirmed deposit is visible.
+      // The event carries a Perps deposit source marker but not the deposit
+      // amount, so a non-empty snapshot cannot prove the new deposit is visible.
       if (attempt < DEPOSIT_CONFIRMATION_RETRY_MAX_ATTEMPTS) {
         depositRetryTimerRef.current = setTimeout(() => {
           void forceRefreshAfterDeposit({

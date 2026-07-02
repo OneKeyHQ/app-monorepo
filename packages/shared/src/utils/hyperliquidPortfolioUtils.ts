@@ -142,13 +142,24 @@ export function buildSpotPriceMap(
     const px = ctxByCoin.get(uni.name)?.markPx;
     if (!px || !new BigNumber(px).isFinite() || new BigNumber(px).lte(0))
       return;
-    // Prefer the USDC-quoted market so token/token pairs never override a USD price.
-    const isUsdcQuoted = (quoteToken?.name ?? USDC) === USDC;
-    if (isUsdcQuoted || priceMap[baseName] === undefined) {
-      priceMap[baseName] = px;
-    }
+    // Token/token markPx is quote-token denominated, so only store USD prices.
+    if (quoteToken?.name !== USDC) return;
+    priceMap[baseName] = px;
   });
   return priceMap;
+}
+
+export function spotBalancesNeedPriceRefresh(
+  spotBalances: IHyperliquidSpotBalanceSnapshot[] | undefined,
+): boolean {
+  return Boolean(
+    spotBalances?.some(
+      (b) =>
+        b.token !== 0 &&
+        !isHyperliquidSpotStableCoin(b.coin) &&
+        safeBN(b.total).gt(0),
+    ),
+  );
 }
 
 export function spotNeedsPrices(

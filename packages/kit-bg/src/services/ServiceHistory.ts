@@ -24,6 +24,7 @@ import {
   isHistoryCursorAdvanced,
   sortHistoryTxsByTime,
 } from '@onekeyhq/shared/src/utils/historyUtils';
+import { isHyperliquidDirectDepositTx } from '@onekeyhq/shared/src/utils/hyperliquidDepositUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   PROMISE_CONCURRENCY_LIMIT,
@@ -72,6 +73,7 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
+import { perpsDepositOrderAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -105,6 +107,10 @@ type IPrivateSendDisplayPriceTarget = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function normalizeTxId(txid: string | undefined): string | undefined {
+  return txid?.toLowerCase();
 }
 
 function shouldPreferPrivateSendSwapHistory(
@@ -152,6 +158,24 @@ function mergeNullishRecordFields<T extends Record<string, unknown>>({
     }
   });
   return result as T;
+}
+
+async function isKnownPerpsDepositOrderTx({
+  txid,
+  originalTxId,
+}: {
+  txid: string | undefined;
+  originalTxId: string | undefined;
+}) {
+  const txIds = new Set([normalizeTxId(txid), normalizeTxId(originalTxId)]);
+  txIds.delete(undefined);
+  if (txIds.size === 0) {
+    return false;
+  }
+  const perpsDepositOrder = await perpsDepositOrderAtom.get();
+  return perpsDepositOrder.orders.some((order) =>
+    txIds.has(normalizeTxId(order.fromTxId)),
+  );
 }
 
 function mergePrivateSendPayloadFields({
@@ -1380,12 +1404,19 @@ class ServiceHistory extends ServiceBase {
         await this.backgroundApi.serviceAccount.getDBAccountSafe({
           accountId: txAccountId,
         });
+      const isPerpsDepositTx =
+        isHyperliquidDirectDepositTx(tx.decodedTx) ||
+        (await isKnownPerpsDepositOrderTx({
+          txid: tx.decodedTx.txid,
+          originalTxId: tx.decodedTx.originalTxId,
+        }));
       appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
         accountId: txAccountId,
         indexedAccountId: txDBAccount?.indexedAccountId,
         networkId: tx.decodedTx.networkId,
         txid: tx.decodedTx.txid,
         status: tx.decodedTx.status,
+        isPerpsDepositTx,
       });
     }
 

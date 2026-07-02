@@ -282,6 +282,7 @@ export interface IAppEventBusPayload {
     networkId: string;
     txid: string;
     status: EDecodedTxStatus;
+    isPerpsDepositTx?: boolean;
   };
   [EAppEventBusNames.DeFiPositionRefreshed]: {
     accountId: string;

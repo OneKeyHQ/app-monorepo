@@ -4,6 +4,7 @@ import {
   aggregateClearinghouseStates,
   assembleHyperliquidSnapshot,
   buildSpotPriceMap,
+  spotBalancesNeedPriceRefresh,
   spotHasPositiveBalance,
   spotNeedsPrices,
 } from './hyperliquidPortfolioUtils';
@@ -88,6 +89,82 @@ describe('buildSpotPriceMap', () => {
     expect(m.USDC).toBe('1');
     expect(m.PURR).toBeUndefined();
     expect(m.HYPE).toBeUndefined();
+  });
+  it('does not treat token/token markPx as USD', () => {
+    const tokenQuotedMeta = {
+      ...meta,
+      universe: [
+        { tokens: [1, 2], name: 'PURR/HYPE', index: 7, isCanonical: true },
+      ],
+    };
+    const tokenQuotedCtxs = [
+      {
+        coin: 'PURR/HYPE',
+        markPx: '2',
+        midPx: '2',
+        prevDayPx: '1.8',
+        dayNtlVlm: '0',
+        circulatingSupply: '0',
+        totalSupply: '0',
+        dayBaseVlm: '0',
+      },
+    ];
+    const m = buildSpotPriceMap([tokenQuotedMeta, tokenQuotedCtxs] as any);
+    expect(m.USDC).toBe('1');
+    expect(m.PURR).toBeUndefined();
+  });
+});
+
+describe('spotBalancesNeedPriceRefresh', () => {
+  it('only treats non-stable positive spot balances as active', () => {
+    expect(
+      spotBalancesNeedPriceRefresh([
+        {
+          coin: 'USDC',
+          token: 0,
+          total: '100',
+          hold: '0',
+          entryNtl: '0',
+          priceUsd: '1',
+          valueUsd: '100',
+        },
+        {
+          coin: 'USDT',
+          token: 3,
+          total: '10',
+          hold: '0',
+          entryNtl: '0',
+          priceUsd: '1',
+          valueUsd: '10',
+        },
+      ]),
+    ).toBe(false);
+    expect(
+      spotBalancesNeedPriceRefresh([
+        {
+          coin: 'HYPE',
+          token: 2,
+          total: '0',
+          hold: '0',
+          entryNtl: '0',
+          priceUsd: '30',
+          valueUsd: '0',
+        },
+      ]),
+    ).toBe(false);
+    expect(
+      spotBalancesNeedPriceRefresh([
+        {
+          coin: 'HYPE',
+          token: 2,
+          total: '3',
+          hold: '0',
+          entryNtl: '0',
+          priceUsd: '30',
+          valueUsd: '90',
+        },
+      ]),
+    ).toBe(true);
   });
 });
 

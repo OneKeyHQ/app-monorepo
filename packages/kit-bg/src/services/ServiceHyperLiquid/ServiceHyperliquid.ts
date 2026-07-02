@@ -42,6 +42,7 @@ import {
   aggregateClearinghouseStates,
   assembleHyperliquidSnapshot,
   buildSpotPriceMap,
+  spotBalancesNeedPriceRefresh,
   spotHasPositiveBalance,
   spotNeedsPrices,
 } from '@onekeyhq/shared/src/utils/hyperliquidPortfolioUtils';
@@ -1062,8 +1063,11 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
     if (!force && cached) {
       let maxAge = PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_AGE_MS;
-      if (cached.perpPositions.length > 0) {
-        // Open positions move with mark price, so keep them close to live.
+      if (
+        cached.perpPositions.length > 0 ||
+        spotBalancesNeedPriceRefresh(cached.spotBalances)
+      ) {
+        // Open perp positions and non-stable spot holdings move with mark price.
         maxAge = PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS;
       }
       if (allowCachedFallback && Date.now() - cached.fetchedAt <= maxAge) {
