@@ -14,6 +14,7 @@ export interface IHyperliquidPerpPositionSnapshot {
 
 export interface IHyperliquidSpotBalanceSnapshot {
   coin: string;
+  spotUniverseName?: string;
   token: number;
   total: string;
   hold: string;

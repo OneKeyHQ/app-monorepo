@@ -47,6 +47,7 @@ const snap: any = {
     },
     {
       coin: 'HYPE',
+      spotUniverseName: 'HYPE/USDC',
       token: 2,
       total: '1.24',
       hold: '0',
@@ -93,6 +94,7 @@ describe('mapSnapshotToPerpsHomeView', () => {
   it('maps holdings with spot pnl = value - entryNtl, undefined when price missing', () => {
     const v = mapSnapshotToPerpsHomeView(snap);
     const hype = v.holdings.find((h) => h.symbol === 'HYPE');
+    expect(hype?.spotUniverseName).toBe('HYPE/USDC');
     expect(hype?.valueUsd).toBeCloseTo(28.16);
     expect(hype?.pnlUsd).toBeCloseTo(1.16); // 28.16 - 27.0
     const usdc = v.holdings.find((h) => h.symbol === 'USDC');

@@ -4,6 +4,7 @@ import type { IHyperliquidPortfolioSnapshot } from '../../types/hyperliquid/port
 
 export interface IPerpsHomeHolding {
   symbol: string;
+  spotUniverseName?: string;
   balance: string; // token amount
   valueUsd: number | undefined; // undefined => price unavailable
   pnlUsd: number | undefined; // value - entryNtl; undefined if no price
@@ -67,7 +68,13 @@ export function mapSnapshotToPerpsHomeView(
               new BigNumber(b.valueUsd as string).minus(b.entryNtl).toFixed(),
             )
           : undefined;
-      return { symbol: b.coin, balance: b.total, valueUsd, pnlUsd };
+      return {
+        symbol: b.coin,
+        spotUniverseName: b.spotUniverseName,
+        balance: b.total,
+        valueUsd,
+        pnlUsd,
+      };
     });
 
   return {

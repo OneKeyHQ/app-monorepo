@@ -61,7 +61,9 @@ const noop = () => undefined;
 type TPerpsTradeMode = 'perp' | 'spot';
 
 function isTradableSpotHolding(holding: IPerpsHomeHolding) {
-  return holding.symbol.toUpperCase() !== 'USDC';
+  return Boolean(
+    holding.symbol.toUpperCase() !== 'USDC' && holding.spotUniverseName,
+  );
 }
 
 // Jump into the Perps tab (optionally focusing a coin), mirroring UniversalSearchPerpItem.
@@ -75,9 +77,11 @@ function useOpenPerpAsset() {
       }
       void (async () => {
         try {
-          await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-            coin,
-          });
+          if (mode === 'perp') {
+            await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
+              coin,
+            });
+          }
           appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
             mode,
             coin,
@@ -294,7 +298,7 @@ function PerpsHoldingsBlock({
             hyperEvmLogoUri={hyperEvmLogoUri}
             onPress={
               isTradableSpotHolding(holding)
-                ? () => openPerp(holding.symbol, 'spot')
+                ? () => openPerp(holding.spotUniverseName, 'spot')
                 : undefined
             }
           />
@@ -714,7 +718,7 @@ function PerpsMobileHoldingsSummary({
               holding={holding}
               onPress={
                 isTradableSpotHolding(holding)
-                  ? () => openPerp(holding.symbol, 'spot')
+                  ? () => openPerp(holding.spotUniverseName, 'spot')
                   : undefined
               }
             />
@@ -964,8 +968,8 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
             <PerpsMetric
               labelId={ETranslations.perp_position_liq_price}
               value={position.liqPx ?? '--'}
-              formatter="price"
-              formatterOptions={{ currency: '$' }}
+              formatter={position.liqPx ? 'price' : undefined}
+              formatterOptions={position.liqPx ? { currency: '$' } : undefined}
               align="right"
               column="right"
             />

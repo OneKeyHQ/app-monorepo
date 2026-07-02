@@ -990,6 +990,8 @@ export default class ServiceHyperliquid extends ServiceBase {
         priceMap,
         getSpotMarkPrice: (coin) =>
           this.getSpotBalanceMarkPrice(coin, mids) ?? priceMap[coin],
+        getSpotUniverseName: (coin) =>
+          this._spotMappings.baseNameToPairName[coin],
         abstractionMode,
         now: Date.now(),
       });

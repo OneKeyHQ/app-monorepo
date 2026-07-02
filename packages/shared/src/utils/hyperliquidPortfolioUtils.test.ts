@@ -220,6 +220,8 @@ describe('assembleHyperliquidSnapshot', () => {
       } as any,
       priceMap: {},
       getSpotMarkPrice: (coin) => (coin === 'HYPE' ? '30' : undefined),
+      getSpotUniverseName: (coin) =>
+        coin === 'HYPE' ? 'HYPE/USDC' : undefined,
       now: 1,
     });
 
@@ -229,6 +231,9 @@ describe('assembleHyperliquidSnapshot', () => {
     expect(snap.spotBalances.find((b) => b.coin === 'USDT')?.priceUsd).toBe(
       '1',
     );
+    expect(
+      snap.spotBalances.find((b) => b.coin === 'HYPE')?.spotUniverseName,
+    ).toBe('HYPE/USDC');
   });
   it('uses spot-side account value and withdrawable for unified accounts', () => {
     const snap = assembleHyperliquidSnapshot({

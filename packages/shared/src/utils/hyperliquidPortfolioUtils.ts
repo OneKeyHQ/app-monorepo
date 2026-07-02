@@ -78,10 +78,18 @@ export function assembleHyperliquidSnapshot(args: {
   spot: ISpotClearinghouseStateResponse | undefined;
   priceMap: Record<string, string>;
   getSpotMarkPrice?: (coin: string) => string | undefined;
+  getSpotUniverseName?: (coin: string) => string | undefined;
   abstractionMode?: EHyperLiquidAbstractionMode | string | undefined;
   now: number;
 }): IHyperliquidPortfolioSnapshot {
-  const { clearinghouse, spot, priceMap, getSpotMarkPrice, now } = args;
+  const {
+    clearinghouse,
+    spot,
+    priceMap,
+    getSpotMarkPrice,
+    getSpotUniverseName,
+    now,
+  } = args;
   const address = (args.address || '').toLowerCase();
   const clearinghouseAccountValue =
     clearinghouse?.marginSummary?.accountValue ?? '0';
@@ -134,6 +142,7 @@ export function assembleHyperliquidSnapshot(args: {
       if (!priceUsable && totalBN.gt(0)) degraded = true;
       return {
         coin: b.coin,
+        spotUniverseName: getSpotUniverseName?.(b.coin),
         token: b.token,
         total: b.total,
         hold: b.hold,
