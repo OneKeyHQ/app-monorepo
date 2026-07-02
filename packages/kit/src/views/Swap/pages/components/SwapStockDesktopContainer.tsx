@@ -90,7 +90,6 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapDirectionType,
-  ESwapLimitOrderStatus,
   ESwapTabSwitchType,
   type IFetchQuoteResult,
   type ISwapAlertState,
@@ -116,8 +115,9 @@ import { SwapTestIDs } from '../../testIDs';
 import {
   type ISwapRecentTokenPair,
   buildSwapRecentTokenPairsFromHistory,
-  getSwapMarketPendingHistoryCount,
   getSwapMarketPendingHistoryKey,
+  getSwapMarketPendingHistoryList,
+  isStockSwapHistoryItem,
 } from '../../utils/swapMarketHistory';
 import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
 import {
@@ -1116,6 +1116,10 @@ function StockAmountInput({
         }}
         tokenSelectorTriggerProps={{
           testID: SwapTestIDs.fromTokenSelector,
+          m: '$1.5',
+          mb: '$0',
+          p: '$2',
+          borderRadius: '$2',
           minWidth: 132,
           justifyContent: 'flex-end',
           loading: showTokenSelectorLoading,
@@ -1276,7 +1280,13 @@ function StockMarketHeaderSkeleton() {
           </YStack>
         </XStack>
       </XStack>
-      <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
+      <YStack
+        alignItems="flex-end"
+        w="$20"
+        minWidth={0}
+        flexShrink={0}
+        gap="$1"
+      >
         <Skeleton h="$6" w="$16" />
         <Skeleton h="$4" w="$12" />
       </YStack>
@@ -2011,29 +2021,17 @@ function SwapStockDesktopContent({
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
-  const [{ swapHistoryPendingList, swapLimitOrders }] =
-    useInAppNotificationAtom();
+  const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const stockChannel = useSwapStockTradeContext();
   const stockRecentTokenPairs = useSwapStockRecentTokenPairs();
-  const swapMarketPendingHistoryCount = useMemo(
+  const historyBadgeCount = useMemo(
     () =>
-      getSwapMarketPendingHistoryCount(
+      getSwapMarketPendingHistoryList(
         swapHistoryPendingList,
         EProtocolOfExchange.SWAP,
-      ),
+      ).filter(isStockSwapHistoryItem).length,
     [swapHistoryPendingList],
   );
-  const limitPendingHistoryCount = useMemo(
-    () =>
-      swapLimitOrders.filter(
-        (item) =>
-          item.status === ESwapLimitOrderStatus.OPEN ||
-          item.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
-      ).length,
-    [swapLimitOrders],
-  );
-  const historyBadgeCount =
-    swapMarketPendingHistoryCount + limitPendingHistoryCount;
 
   const handleTradeSideChange = useCallback(
     (nextTradeSide: ESwapStockTradeSide) => {
@@ -2110,6 +2108,7 @@ function SwapStockDesktopContent({
                       iconSize="$5"
                       iconColor="$iconStrong"
                       compact
+                      showCustomSlippageValue
                     />
                     {historyBadgeCount > 0 ? (
                       <Stack

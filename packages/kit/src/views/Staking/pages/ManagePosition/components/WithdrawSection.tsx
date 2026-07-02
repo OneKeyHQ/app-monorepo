@@ -114,6 +114,17 @@ export const WithdrawSection = ({
     () => earnUtils.isNativeProvider({ providerName }),
     [providerName],
   );
+  const borrowProviderDisplayName = useMemo(() => {
+    if (
+      protocolInfo?.providerDetail.name &&
+      protocolInfo.providerDetail.name !== providerName
+    ) {
+      return protocolInfo.providerDetail.name;
+    }
+    return earnUtils.getEarnProviderName({
+      providerName,
+    });
+  }, [protocolInfo?.providerDetail.name, providerName]);
 
   const approveSpenderAddress = useMemo(() => {
     if (isNativeProvider) {
@@ -759,9 +770,7 @@ export const WithdrawSection = ({
           stakingInfo: effectiveToken
             ? {
                 label: EEarnLabels.Repay,
-                protocol: earnUtils.getEarnProviderName({
-                  providerName: provider,
-                }),
+                protocol: borrowProviderDisplayName,
                 protocolLogoURI: protocolInfo?.providerDetail.logoURI,
                 send: { token: effectiveToken, amount },
                 tags: buildTags('repay'),
@@ -783,9 +792,7 @@ export const WithdrawSection = ({
         stakingInfo: effectiveToken
           ? {
               label: EEarnLabels.Withdraw,
-              protocol: earnUtils.getEarnProviderName({
-                providerName: provider,
-              }),
+              protocol: borrowProviderDisplayName,
               protocolLogoURI: protocolInfo?.providerDetail.logoURI,
               receive: { token: effectiveToken, amount },
               tags: buildTags('withdraw'),
@@ -798,6 +805,7 @@ export const WithdrawSection = ({
     },
     [
       borrowApiCtx,
+      borrowProviderDisplayName,
       effectiveReserveAddress,
       effectiveToken,
       handleBorrowRepay,
@@ -914,9 +922,7 @@ export const WithdrawSection = ({
         routeKey,
         stakingInfo: {
           label: EEarnLabels.Repay,
-          protocol: earnUtils.getEarnProviderName({
-            providerName: provider,
-          }),
+          protocol: borrowProviderDisplayName,
           protocolLogoURI: protocolInfo?.providerDetail.logoURI,
           send: {
             token: {
@@ -936,6 +942,7 @@ export const WithdrawSection = ({
     },
     [
       borrowApiCtx,
+      borrowProviderDisplayName,
       effectiveReserveAddress,
       handleBorrowRepayWithCollateral,
       networkId,

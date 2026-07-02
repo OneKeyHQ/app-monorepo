@@ -85,6 +85,7 @@ export type IModalStakingParamList = {
     reserveAddress: string;
     symbol: string;
     logoURI?: string;
+    providerDisplayName?: string;
     providerLogoURI?: string;
     type?: EManagePositionType;
   };
