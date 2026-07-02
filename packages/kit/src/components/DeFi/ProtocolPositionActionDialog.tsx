@@ -345,12 +345,16 @@ function ProtocolPositionActionAssetRow({
       gap="$3"
       py="$3"
       px="$3"
-      borderRadius="$2"
+      borderRadius="$3"
       bg={isSelected ? '$bgActive' : '$bgSubdued'}
       borderWidth="$px"
       borderColor={isSelected ? '$borderActive' : '$borderSubdued'}
       cursor={selectable ? 'pointer' : 'default'}
       userSelect="none"
+      {...(selectable && {
+        hoverStyle: { bg: isSelected ? '$bgActive' : '$bgStrong' },
+        pressStyle: { bg: isSelected ? '$bgActive' : '$bgStrong' },
+      })}
       onPress={() => {
         if (selectable) {
           onSelect(index, !isSelected);
@@ -1229,6 +1233,18 @@ function ProtocolPositionActionAmountInput({
           currency: currencySymbol,
           formatter: 'value',
         }}
+        extraContent={
+          // Reserved-height error slot right under the amount (same shape as
+          // the Perp deposit/withdraw modal): the message toggles without
+          // shifting the hero, keeping the dialog height stable.
+          <Stack h="$6" justifyContent="center" alignItems="center">
+            {isInsufficient ? (
+              <SizableText size="$bodySm" color="$textCritical">
+                {insufficientLabel}
+              </SizableText>
+            ) : null}
+          </Stack>
+        }
       />
       <ProtocolPositionActionAnchor
         label={availableLabel}
@@ -1254,11 +1270,6 @@ function ProtocolPositionActionAmountInput({
         maxLabel={maxLabel}
         onChange={onSelectPercent}
       />
-      {isInsufficient ? (
-        <SizableText size="$bodySm" color="$textCritical" textAlign="center">
-          {insufficientLabel}
-        </SizableText>
-      ) : null}
     </YStack>
   );
 }
