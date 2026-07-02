@@ -1,6 +1,8 @@
 import type { Analytics } from '@onekeyhq/shared/src/analytics';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+// Jest maps the generic logger entry to the sync implementation for regular tests.
+// Import the web-only wrapper explicitly so this test still covers lazy queue flushing.
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger.web-only';
 import { loggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
 import type { ISwapOrderLongPendingWarningPayload } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
