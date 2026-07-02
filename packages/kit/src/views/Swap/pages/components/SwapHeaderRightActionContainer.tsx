@@ -41,6 +41,8 @@ import {
   useSwapProTradeTypeAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapStockExecutionTokensAtom,
+  useSwapStockSelectedTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
@@ -76,6 +78,7 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { resolveStockKLineToken } from '../../hooks/swapStockChannelUtils';
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapRecipientAddressSettingsUpdate } from '../../utils/incognitoSettings';
@@ -502,15 +505,23 @@ const StockKLineHeaderButton = ({
   const navigation = useAppNavigation();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [stockExecutionTokens] = useSwapStockExecutionTokensAtom();
+  const [stockSelectedToken] = useSwapStockSelectedTokenAtom();
   const stockToken = useMemo(() => {
-    if (fromToken?.isStock) {
-      return fromToken;
-    }
-    if (toToken?.isStock) {
-      return toToken;
-    }
-    return undefined;
-  }, [fromToken, toToken]);
+    return resolveStockKLineToken({
+      stockSelectedToken,
+      executionFromToken: stockExecutionTokens?.fromToken,
+      executionToToken: stockExecutionTokens?.toToken,
+      fromToken,
+      toToken,
+    });
+  }, [
+    fromToken,
+    stockExecutionTokens?.fromToken,
+    stockExecutionTokens?.toToken,
+    stockSelectedToken,
+    toToken,
+  ]);
   const isNative = stockToken?.isNative;
   const networkId = stockToken?.networkId ?? '';
   const tokenAddress = stockToken?.contractAddress ?? '';
@@ -614,6 +625,7 @@ type ISwapSettingsHeaderButtonProps = {
   iconSize?: number | `$${string}`;
   iconColor?: ColorTokens;
   compact?: boolean;
+  showCustomSlippageValue?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
 };
 
@@ -622,6 +634,7 @@ export function SwapSettingsHeaderButton({
   iconSize,
   iconColor,
   compact,
+  showCustomSlippageValue,
   marketPresetSettings,
 }: ISwapSettingsHeaderButtonProps) {
   const intl = useIntl();
@@ -638,10 +651,11 @@ export function SwapSettingsHeaderButton({
     (!marketPresetSettings ||
       (!marketPresetSettings.enabled && !marketPresetSettings.isLoading));
   const showHeaderSlippageValue =
-    !compact &&
-    ((swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
-      swapTypeSwitch !== ESwapTabSwitchType.STOCK) ||
-      showSwapProSlippageSetting);
+    showCustomSlippageValue ||
+    (!compact &&
+      ((swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+        swapTypeSwitch !== ESwapTabSwitchType.STOCK) ||
+        showSwapProSlippageSetting));
   const slippageTitle = useMemo(() => {
     if (!showHeaderSlippageValue) {
       return null;

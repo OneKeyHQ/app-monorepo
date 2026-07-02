@@ -90,7 +90,6 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapDirectionType,
-  ESwapLimitOrderStatus,
   ESwapTabSwitchType,
   type IFetchQuoteResult,
   type ISwapAlertState,
@@ -116,8 +115,9 @@ import { SwapTestIDs } from '../../testIDs';
 import {
   type ISwapRecentTokenPair,
   buildSwapRecentTokenPairsFromHistory,
-  getSwapMarketPendingHistoryCount,
   getSwapMarketPendingHistoryKey,
+  getSwapMarketPendingHistoryList,
+  isStockSwapHistoryItem,
 } from '../../utils/swapMarketHistory';
 import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
 import {
@@ -2021,29 +2021,17 @@ function SwapStockDesktopContent({
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
-  const [{ swapHistoryPendingList, swapLimitOrders }] =
-    useInAppNotificationAtom();
+  const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const stockChannel = useSwapStockTradeContext();
   const stockRecentTokenPairs = useSwapStockRecentTokenPairs();
-  const swapMarketPendingHistoryCount = useMemo(
+  const historyBadgeCount = useMemo(
     () =>
-      getSwapMarketPendingHistoryCount(
+      getSwapMarketPendingHistoryList(
         swapHistoryPendingList,
         EProtocolOfExchange.SWAP,
-      ),
+      ).filter(isStockSwapHistoryItem).length,
     [swapHistoryPendingList],
   );
-  const limitPendingHistoryCount = useMemo(
-    () =>
-      swapLimitOrders.filter(
-        (item) =>
-          item.status === ESwapLimitOrderStatus.OPEN ||
-          item.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
-      ).length,
-    [swapLimitOrders],
-  );
-  const historyBadgeCount =
-    swapMarketPendingHistoryCount + limitPendingHistoryCount;
 
   const handleTradeSideChange = useCallback(
     (nextTradeSide: ESwapStockTradeSide) => {
@@ -2120,6 +2108,7 @@ function SwapStockDesktopContent({
                       iconSize="$5"
                       iconColor="$iconStrong"
                       compact
+                      showCustomSlippageValue
                     />
                     {historyBadgeCount > 0 ? (
                       <Stack
