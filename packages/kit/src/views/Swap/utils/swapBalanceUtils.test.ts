@@ -197,6 +197,24 @@ describe('getSwapRequiredNativeBalanceAmount', () => {
     ).toBeUndefined();
   });
 
+  it('excludes sponsored (megafuelEligible) gas from the requirement', () => {
+    expect(
+      getSwapRequiredNativeBalanceAmount({
+        gasInfos: [
+          {
+            gasInfo: {
+              ...evmGasInfo,
+              megafuelEligible: { sponsorable: true, sponsorName: 'OneKey' },
+            },
+          },
+        ],
+        networkId: 'evm--56',
+        fromToken: usdcToken,
+        fromAmount: '12',
+      }),
+    ).toBeUndefined();
+  });
+
   it('still requires the native sending amount even when gas is sponsored', () => {
     // Gas is sponsored, but the native token being swapped is still required.
     expect(
