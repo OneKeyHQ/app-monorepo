@@ -107,15 +107,6 @@ const SITE_RISK_FINDING_CONFIG: Partial<
   },
 };
 
-const TX_CONFIRMATION_REQUIRED_DESCRIPTION =
-  'Transaction analysis flagged this request for extra review.';
-const MESSAGE_CONFIRMATION_REQUIRED_DESCRIPTION =
-  'Signature analysis flagged this request for extra review.';
-const TYPED_DATA_SIGNATURE_DESCRIPTION =
-  'Review the structured data carefully before signing.';
-const MESSAGE_PARSE_FALLBACK_DESCRIPTION =
-  'Only basic message details are available. Review the raw data carefully before signing.';
-
 function shouldExpandByDefault(findings: ISecurityCheckFinding[]) {
   return findings.some(
     (finding) =>
@@ -483,7 +474,9 @@ function getOperationFindings({
           id: 'message-permit',
           category: 'operation',
           status: 'warning',
-          title: 'Permit signature request',
+          title: intl.formatMessage({
+            id: ETranslations.dapp_connect_security_checks_permit_signature_request__title,
+          }),
           description: intl.formatMessage({
             id: ETranslations.dapp_connect_permit_sign_alert,
           }),
@@ -493,9 +486,11 @@ function getOperationFindings({
           id: 'message-order',
           category: 'operation',
           status: 'warning',
-          title: 'Order signature request',
+          title: intl.formatMessage({
+            id: ETranslations.dapp_connect_security_checks_order_signature_request__title,
+          }),
           description: intl.formatMessage({
-            id: ETranslations.dapp_connect_order_alert,
+            id: ETranslations.dapp_connect_security_checks_order_signature_request__desc,
           }),
         });
       } else {
@@ -503,8 +498,12 @@ function getOperationFindings({
           id: 'message-typed-data',
           category: 'operation',
           status: isRiskSignMethod ? 'warning' : 'info',
-          title: 'Typed data signature request',
-          description: TYPED_DATA_SIGNATURE_DESCRIPTION,
+          title: intl.formatMessage({
+            id: ETranslations.dapp_connect_security_checks_typed_data_signature_request__title,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.dapp_connect_security_checks_typed_data_signature_request__desc,
+          }),
         });
       }
     }
@@ -515,6 +514,9 @@ function getOperationFindings({
         category: 'operation',
         status: 'critical',
         title: intl.formatMessage({
+          id: ETranslations.dapp_connect_security_checks_risky_signature_method__title,
+        }),
+        description: intl.formatMessage({
           id: ETranslations.dapp_connect_risk_sign,
         }),
       });
@@ -547,8 +549,12 @@ function getOperationFindings({
       id: 'tx-confirmation-required',
       category: 'operation',
       status: 'warning',
-      title: 'Risk review required',
-      description: TX_CONFIRMATION_REQUIRED_DESCRIPTION,
+      title: intl.formatMessage({
+        id: ETranslations.dapp_connect_security_checks_risk_review_required__title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.dapp_connect_security_checks_tx_review_required__desc,
+      }),
     });
   }
 
@@ -557,8 +563,12 @@ function getOperationFindings({
       id: 'message-confirmation-required',
       category: 'operation',
       status: 'warning',
-      title: 'Risk review required',
-      description: MESSAGE_CONFIRMATION_REQUIRED_DESCRIPTION,
+      title: intl.formatMessage({
+        id: ETranslations.dapp_connect_security_checks_risk_review_required__title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.dapp_connect_security_checks_signature_review_required__desc,
+      }),
     });
   }
 
@@ -569,8 +579,12 @@ function getOperationFindings({
       id: 'message-parse-fallback',
       category: 'operation',
       status: 'unknown',
-      title: 'Review raw message data',
-      description: MESSAGE_PARSE_FALLBACK_DESCRIPTION,
+      title: intl.formatMessage({
+        id: ETranslations.dapp_connect_security_checks_review_raw_message_data__title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.dapp_connect_security_checks_review_raw_message_data__desc,
+      }),
     });
   }
 
@@ -890,9 +904,16 @@ function SecurityCheckCard(props: IProps) {
     ).length;
     let title = '';
     if (criticalCount > 0) {
-      title = `${criticalCount + warningCount} ${intl.formatMessage({
+      const riskTitle = `${criticalCount} ${intl.formatMessage({
         id: ETranslations.global_risk,
       })}`;
+      const warningTitle =
+        warningCount > 0
+          ? `${warningCount} ${intl.formatMessage({
+              id: ETranslations.global_warning,
+            })}`
+          : '';
+      title = [riskTitle, warningTitle].filter(Boolean).join(' · ');
     } else if (warningCount > 0) {
       title = `${warningCount} ${intl.formatMessage({
         id: ETranslations.global_warning,
@@ -941,7 +962,9 @@ function SecurityCheckCard(props: IProps) {
             </SizableText>
           </YStack>
           <Badge badgeType="success" badgeSize="sm" flexShrink={0}>
-            No issues detected
+            {intl.formatMessage({
+              id: ETranslations.dapp_connect_security_checks_no_issues_detected__text,
+            })}
           </Badge>
         </XStack>
       </YStack>
