@@ -1165,6 +1165,7 @@ const icons = {
   UfoOutline: () => import("./react/outline/Ufo"),
   UnderlineOutline: () => import("./react/outline/Underline"),
   UndoOutline: () => import("./react/outline/Undo"),
+  UndoFlipHorOutline: () => import("./react/outline/UndoFlipHor"),
   UndockOutline: () => import("./react/outline/Undock"),
   UnityOutline: () => import("./react/outline/Unity"),
   UnlockedOutline: () => import("./react/outline/Unlocked"),
