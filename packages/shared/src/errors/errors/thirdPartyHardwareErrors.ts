@@ -355,7 +355,7 @@ export class ThirdPartyThpPairingFailed extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslations.transfer_invalid_code,
+        defaultKey: ETranslations.trezor_thp_pairing_failed__msg,
         defaultAutoToast: true,
       }),
     );

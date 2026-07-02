@@ -293,20 +293,23 @@ function RewardCenterDetails() {
             body: {
               method: 'get',
               url: '/api/account',
-              // The TRX resource proxy expects this GET payload in data.
-              data: {
+              data: {},
+              params: {
                 fromAddress: account.address,
               },
-              params: {},
             },
             returnRawData: true,
           });
 
         if (resp.code !== 0) {
-          return { isActived: false };
+          return undefined;
         }
 
-        return { isActived: resp.data?.isActived === true };
+        if (typeof resp.data?.isActived !== 'boolean') {
+          return undefined;
+        }
+
+        return { isActived: resp.data.isActived };
       } catch (_error) {
         return undefined;
       }
@@ -778,10 +781,9 @@ function RewardCenterDetails() {
     isAccountNotActivated,
   ]);
 
-  // Top-of-page alert, by priority: unsupported account > inactive account
-  // (with a Top up action) > IP monthly claim limit reached > account monthly
-  // claim limit reached. The claim button stays labelled as-is and just
-  // disabled; the reason is surfaced here.
+  // Top-of-page alert, by priority: unsupported account > hard claim limits >
+  // inactive account (with a Top up action). The claim button stays labelled
+  // as-is and just disabled; the reason is surfaced here.
   const renderTopAlert = useCallback(() => {
     if (isWatchingAccountNotClaimable) {
       return (
@@ -793,29 +795,6 @@ function RewardCenterDetails() {
           })}
           closable={false}
           mb="$5"
-        />
-      );
-    }
-
-    if (isAccountNotActivated && isClaimResourceAvailable) {
-      return (
-        <Alert
-          type="warning"
-          icon="InfoCircleOutline"
-          title={intl.formatMessage({
-            id: ETranslations.tron_energy_account_inactive_deposit_notice,
-          })}
-          closable={false}
-          mb="$5"
-          action={{
-            primary: intl.formatMessage({
-              id: ETranslations.global_top_up,
-            }),
-            primaryTestID: RewardCenterTestIDs.topUpBtn,
-            onPrimaryPress: handleTopUp,
-            isPrimaryLoading: isNativeTokenLoading && !nativeToken,
-            isPrimaryDisabled: !nativeToken,
-          }}
         />
       );
     }
@@ -844,6 +823,29 @@ function RewardCenterDetails() {
           })}
           closable={false}
           mb="$5"
+        />
+      );
+    }
+
+    if (isAccountNotActivated && isClaimResourceAvailable) {
+      return (
+        <Alert
+          type="warning"
+          icon="InfoCircleOutline"
+          title={intl.formatMessage({
+            id: ETranslations.tron_energy_account_inactive_deposit_notice,
+          })}
+          closable={false}
+          mb="$5"
+          action={{
+            primary: intl.formatMessage({
+              id: ETranslations.global_top_up,
+            }),
+            primaryTestID: RewardCenterTestIDs.topUpBtn,
+            onPrimaryPress: handleTopUp,
+            isPrimaryLoading: isNativeTokenLoading && !nativeToken,
+            isPrimaryDisabled: !nativeToken,
+          }}
         />
       );
     }
