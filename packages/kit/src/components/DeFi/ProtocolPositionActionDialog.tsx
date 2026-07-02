@@ -158,6 +158,7 @@ type IProtocolPositionActionPreviewAsset = {
   symbol: string;
   value: number;
   metaLabel?: string;
+  minAmount?: string;
 };
 
 function getPercentScale(percent?: number) {
@@ -218,8 +219,21 @@ function buildSelectedAssetPreviewAssets({
   percent?: number;
 }): IProtocolPositionActionPreviewAsset[] {
   const isPercentAction = isPercentageAction(action);
-  return getOutputPreviewSourceAssets({ action, selectedAsset }).map(
-    (asset) => ({
+  const sourceAssets = getOutputPreviewSourceAssets({ action, selectedAsset });
+  // Uniswap-style removes carry human-decimal slippage floors positionally:
+  // amount0Min -> underlyingAssets[0], amount1Min -> underlyingAssets[1].
+  // The underlying list is positive-amount filtered, so positional trust
+  // requires exactly the pool's two tokens to be present.
+  const minAmounts =
+    action === EDeFiPositionAction.RemoveLiquidity && sourceAssets.length === 2
+      ? [
+          getPositiveAmount(selectedAsset.extraParams?.amount0Min),
+          getPositiveAmount(selectedAsset.extraParams?.amount1Min),
+        ]
+      : [];
+  return sourceAssets.map((asset, index) => {
+    const minAmount = minAmounts[index];
+    return {
       asset,
       amount: isPercentAction
         ? scaleAmountByPercent(asset.amount, percent)
@@ -228,8 +242,12 @@ function buildSelectedAssetPreviewAssets({
       value: isPercentAction
         ? scaleValueByPercent(asset.value, percent)
         : asset.value,
-    }),
-  );
+      minAmount:
+        isPercentAction && minAmount
+          ? scaleAmountByPercent(minAmount, percent)
+          : minAmount,
+    };
+  });
 }
 
 function getPreviewAssetKey(asset: IProtocolPositionActionPreviewAsset) {
@@ -255,6 +273,9 @@ function aggregatePreviewAssets(assets: IProtocolPositionActionPreviewAsset[]) {
     const value = existing.value + asset.value;
     result[existingIndex] = {
       ...existing,
+      // A merged row sums amounts across pools; a single pool's floor no
+      // longer applies, so it is dropped rather than shown misleadingly.
+      minAmount: undefined,
       amount: amount.isFinite() ? amount.toFixed() : existing.amount,
       value,
       asset: {
@@ -1167,29 +1188,51 @@ function ProtocolPositionActionReceiveRow({
     <XStack alignItems="center" justifyContent="space-between" gap="$3">
       <XStack alignItems="center" gap="$2.5" flexShrink={1} minWidth={0}>
         <Token size="sm" tokenImageUri={asset.asset.meta?.logoUrl} bg="$bg" />
-        <XStack alignItems="center" gap="$1" flexShrink={1} minWidth={0}>
-          <NumberSizeableTextWrapper
-            hideValue
-            size="$bodyLgMedium"
-            formatter="balance"
-            numberOfLines={1}
-          >
-            {asset.amount}
-          </NumberSizeableTextWrapper>
-          <SizableText
-            size="$bodyLgMedium"
-            color="$text"
-            numberOfLines={1}
-            flexShrink={1}
-          >
-            {asset.symbol}
-          </SizableText>
-        </XStack>
-        {asset.metaLabel ? (
-          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-            {asset.metaLabel}
-          </SizableText>
-        ) : null}
+        <YStack flexShrink={1} minWidth={0} gap="$0.5">
+          <XStack alignItems="center" gap="$1" flexShrink={1} minWidth={0}>
+            <NumberSizeableTextWrapper
+              hideValue
+              size="$bodyLgMedium"
+              formatter="balance"
+              numberOfLines={1}
+            >
+              {asset.amount}
+            </NumberSizeableTextWrapper>
+            <SizableText
+              size="$bodyLgMedium"
+              color="$text"
+              numberOfLines={1}
+              flexShrink={1}
+            >
+              {asset.symbol}
+            </SizableText>
+            {asset.metaLabel ? (
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {asset.metaLabel}
+              </SizableText>
+            ) : null}
+          </XStack>
+          {asset.minAmount ? (
+            <XStack alignItems="center" gap="$1" minWidth={0}>
+              <SizableText size="$bodySm" color="$textSubdued">
+                ≥
+              </SizableText>
+              <NumberSizeableTextWrapper
+                hideValue
+                size="$bodySm"
+                color="$textSubdued"
+                formatter="balance"
+                numberOfLines={1}
+              >
+                {asset.minAmount}
+              </NumberSizeableTextWrapper>
+            </XStack>
+          ) : null}
+        </YStack>
       </XStack>
       {showValue ? (
         <ProtocolValueCell
