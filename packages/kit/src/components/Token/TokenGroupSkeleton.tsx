@@ -1,7 +1,7 @@
-import type { IXStackProps, SizeTokens } from '@onekeyhq/components';
+import type { IXStackProps } from '@onekeyhq/components';
 import { Skeleton, Stack, XStack } from '@onekeyhq/components';
 
-type ITokenSize = 'xl' | 'lg' | 'md' | 'sm' | 'xs' | 'xxs';
+import { type ITokenSize, TOKEN_SIZE_MAP } from './tokenSize';
 
 export type ITokenGroupSkeletonProps = {
   /** Token size */
@@ -22,16 +22,6 @@ export type ITokenGroupSkeletonProps = {
   /** Border color for 'border' wrapperStyle */
   wrapperBorderColor?: string;
 } & Omit<IXStackProps, 'children'>;
-
-// Token size to image size mapping (from Token.tsx)
-const tokenSizeMap: Record<ITokenSize, SizeTokens> = {
-  xl: '$12',
-  lg: '$10',
-  md: '$8',
-  sm: '$6',
-  xs: '$5',
-  xxs: '$4',
-};
 
 // Default overlap offsets based on token size (from TokenGroup.tsx)
 const defaultOverlapOffsets: Record<ITokenSize, string> = {
@@ -83,7 +73,7 @@ export function TokenGroupSkeleton({
   wrapperBorderColor = '$bgApp',
   ...rest
 }: ITokenGroupSkeletonProps) {
-  const tokenImageSize = tokenSizeMap[size];
+  const tokenImageSize = TOKEN_SIZE_MAP[size].tokenImageSize;
   const effectiveOffset = overlapOffset || defaultOverlapOffsets[size];
 
   return (

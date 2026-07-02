@@ -1102,7 +1102,9 @@ function BasePerpTokenSelectorContent({
   ]);
 
   useEffect(() => {
-    void prewarmPerpsTokenSelectorImages(activeTabData);
+    void prewarmPerpsTokenSelectorImages(activeTabData, {
+      tokenSizes: ['sm', 'md'],
+    });
   }, [activeTabData]);
 
   usePerpActiveTabValidation({

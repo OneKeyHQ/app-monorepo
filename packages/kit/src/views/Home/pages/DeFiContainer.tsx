@@ -42,7 +42,7 @@ import {
 import { ProviderJotaiContextHistoryList } from '../../../states/jotai/contexts/historyList';
 import {
   buildProtocolDisplayInfo,
-  collectDeFiImageUrls,
+  collectDeFiImagePreloadSources,
 } from '../../../utils/defiPositionUtils';
 import useActiveTabDAppInfo from '../../DAppConnection/hooks/useActiveTabDAppInfo';
 import {
@@ -76,9 +76,24 @@ import {
 // Page.Container is now layout="full" so the scroll container fills the
 // viewport, and visual max-width is enforced one level down per content block.
 const DEFI_CONTAINER_CONTENT_MAX_WIDTH = 1140;
-const DEFI_IMAGE_PRELOAD_RESIZE_WIDTH = 32;
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 const PROTOCOL_NAV_PENDING_TARGET_TIMEOUT_MS = 5000;
+
+function getPreloadSourceKey(source: {
+  uri?: string;
+  resizeWidth?: number;
+  width?: number;
+  height?: number;
+  optimize?: boolean;
+}) {
+  return [
+    source.optimize === false ? 'raw' : 'optimized',
+    source.uri,
+    source.resizeWidth ?? '',
+    source.width ?? '',
+    source.height ?? '',
+  ].join('|');
+}
 
 function scrollToAnchor(
   anchor: HTMLElement,
@@ -145,16 +160,18 @@ function DeFiContainer() {
   // the image fetches.
   const preloadedUrlsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    const allUrls = collectDeFiImageUrls({ protocols, protocolMap });
-    const fresh = allUrls.filter((u) => !preloadedUrlsRef.current.has(u));
-    if (fresh.length === 0) return;
-    fresh.forEach((u) => preloadedUrlsRef.current.add(u));
-    void Image.preloadImages(
-      fresh.map((uri) => ({
-        resizeWidth: DEFI_IMAGE_PRELOAD_RESIZE_WIDTH,
-        uri,
-      })),
+    const allSources = collectDeFiImagePreloadSources({
+      protocols,
+      protocolMap,
+    });
+    const fresh = allSources.filter(
+      (source) => !preloadedUrlsRef.current.has(getPreloadSourceKey(source)),
     );
+    if (fresh.length === 0) return;
+    fresh.forEach((source) =>
+      preloadedUrlsRef.current.add(getPreloadSourceKey(source)),
+    );
+    void Image.preloadImages(fresh);
   }, [protocols, protocolMap]);
   // Reset the dedup memo on account/network change. expo-image's own
   // cache survives the reset (we're only clearing our "already asked"

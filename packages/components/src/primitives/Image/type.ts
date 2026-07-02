@@ -57,9 +57,30 @@ export type IPreloadImageOptions = {
   optimize?: boolean;
 };
 
-export type IPreloadImageSource = {
+type IPreloadImageSourceBase = {
   uri?: string;
-} & IPreloadImageOptions;
+  pixelRatio?: number;
+};
+
+export type IPreloadImageSource =
+  | (IPreloadImageSourceBase & {
+      optimize?: true;
+      resizeWidth: number;
+      width?: never;
+      height?: never;
+    })
+  | (IPreloadImageSourceBase & {
+      optimize?: true;
+      resizeWidth?: never;
+      width: number;
+      height: number;
+    })
+  | (IPreloadImageSourceBase & {
+      optimize: false;
+      resizeWidth?: number;
+      width?: number;
+      height?: number;
+    });
 
 export type IPreloadImagesFunc = (
   sources: IPreloadImageSource[],

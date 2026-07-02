@@ -28,6 +28,7 @@ import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import { s } from '@onekeyhq/components/src/utils/scale';
 import { EarnTestIDs } from '@onekeyhq/kit/src/views/Earn/testIDs';
 import { EarnIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnIcon';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
@@ -50,7 +51,14 @@ import type {
   IEarnText,
 } from '@onekeyhq/shared/types/staking';
 
-const PROTOCOL_INTRO_IMAGE_PRELOAD_RESIZE_WIDTH = 64;
+const PROTOCOL_INTRO_PROTOCOL_LOGO_PRELOAD_RESIZE_WIDTHS = [24, 28] as const;
+const PROTOCOL_INTRO_MEMBER_AVATAR_PRELOAD_RESIZE_WIDTHS = [20, 24] as const;
+const PROTOCOL_INTRO_AUDIT_LOGO_PRELOAD_RESIZE_WIDTHS = [20, s(20)] as const;
+
+type IImagePreloadSourceWithResizeWidth = {
+  uri: string;
+  resizeWidth: number;
+};
 
 function toEarnText(text?: IEarnProtocolIntroText): IEarnText | undefined {
   if (!text) {
@@ -824,28 +832,60 @@ function getAudits(audits?: IEarnProtocolIntroAudits) {
     : audits?.items || [];
 }
 
-function addProtocolIntroImageUrl(urls: Set<string>, url?: string | null) {
+function addProtocolIntroImagePreloadSources(
+  sources: Map<string, Set<number>>,
+  url: string | null | undefined,
+  resizeWidths: readonly number[],
+) {
   const safeUrl = getSafeExternalUrl(url);
   if (safeUrl) {
-    urls.add(safeUrl);
+    const sourceResizeWidths = sources.get(safeUrl) ?? new Set<number>();
+    resizeWidths.forEach((resizeWidth) => {
+      if (resizeWidth > 0) {
+        sourceResizeWidths.add(resizeWidth);
+      }
+    });
+    if (sourceResizeWidths.size > 0) {
+      sources.set(safeUrl, sourceResizeWidths);
+    }
   }
 }
 
-function collectProtocolIntroImageUrls(
+function collectProtocolIntroImagePreloadSources(
   item: IEarnProtocolIntroItem,
-  urls: Set<string>,
+  sources: Map<string, Set<number>>,
 ) {
-  addProtocolIntroImageUrl(urls, getProtocolLogoURI(item));
+  addProtocolIntroImagePreloadSources(
+    sources,
+    getProtocolLogoURI(item),
+    PROTOCOL_INTRO_PROTOCOL_LOGO_PRELOAD_RESIZE_WIDTHS,
+  );
 
   [item.team, item.teamMembers].forEach((team) => {
     getTeamMembers(team).forEach((member) => {
-      addProtocolIntroImageUrl(urls, getMemberAvatar(member));
+      addProtocolIntroImagePreloadSources(
+        sources,
+        getMemberAvatar(member),
+        PROTOCOL_INTRO_MEMBER_AVATAR_PRELOAD_RESIZE_WIDTHS,
+      );
     });
   });
 
   getAudits(item.audits).forEach((audit) => {
-    addProtocolIntroImageUrl(urls, audit.auditorLogoUrl || audit.logoURI);
+    addProtocolIntroImagePreloadSources(
+      sources,
+      audit.auditorLogoUrl || audit.logoURI,
+      PROTOCOL_INTRO_AUDIT_LOGO_PRELOAD_RESIZE_WIDTHS,
+    );
   });
+}
+
+function toProtocolIntroImagePreloadSources(
+  sources: Map<string, Set<number>>,
+): IImagePreloadSourceWithResizeWidth[] {
+  return Array.from(sources.entries()).flatMap(([uri, resizeWidths]) =>
+    Array.from(resizeWidths).map((resizeWidth) => ({ uri, resizeWidth })),
+  );
 }
 
 function getInvestorTitle(round?: IEarnProtocolIntroInvestorRound) {
@@ -1503,23 +1543,20 @@ function ProtocolIntroSectionComponent({
       : protocolInfo?.items;
     return (items ?? []).filter(hasProtocolIntroItemContent);
   }, [protocolInfo]);
-  const imageUrls = useMemo(() => {
-    const urls = new Set<string>();
-    protocolItems.forEach((item) => collectProtocolIntroImageUrls(item, urls));
-    return Array.from(urls);
+  const imageSources = useMemo(() => {
+    const sources = new Map<string, Set<number>>();
+    protocolItems.forEach((item) =>
+      collectProtocolIntroImagePreloadSources(item, sources),
+    );
+    return toProtocolIntroImagePreloadSources(sources);
   }, [protocolItems]);
 
   useEffect(() => {
-    if (!imageUrls.length) {
+    if (!imageSources.length) {
       return;
     }
-    void Image.preloadImages(
-      imageUrls.map((uri) => ({
-        resizeWidth: PROTOCOL_INTRO_IMAGE_PRELOAD_RESIZE_WIDTH,
-        uri,
-      })),
-    ).catch(() => undefined);
-  }, [imageUrls]);
+    void Image.preloadImages(imageSources).catch(() => undefined);
+  }, [imageSources]);
 
   const selectedIndex =
     selection.protocolInfo === protocolInfo &&
