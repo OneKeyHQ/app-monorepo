@@ -1244,6 +1244,7 @@ function ProtocolPositionActionAmountInput({
   availableLabel,
   maxLabel,
   insufficientLabel,
+  validator,
 }: {
   amount: string;
   onChangeAmount: (value: string) => void;
@@ -1258,6 +1259,7 @@ function ProtocolPositionActionAmountInput({
   availableLabel: string;
   maxLabel: string;
   insufficientLabel: string;
+  validator?: (value: string) => boolean;
 }) {
   return (
     <YStack gap="$5">
@@ -1267,6 +1269,7 @@ function ProtocolPositionActionAmountInput({
         maxFontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
         value={amount}
         onChange={onChangeAmount}
+        validator={validator}
         tokenSymbol={symbol}
         valueProps={{
           value: fiatValue,
@@ -1397,6 +1400,10 @@ function ProtocolPositionActionDialogContent({
     isManualAmountAction && !selectable && Boolean(manualAmountAsset);
   const availableAmount = manualAmountAsset?.amount ?? '0';
   const amountDecimals = manualAmountAsset?.asset.meta?.decimals;
+  const validateManualAmountInput = useCallback(
+    (next: string) => validateAmountInput(next, amountDecimals),
+    [amountDecimals],
+  );
   const amountBN = new BigNumber(amount || '0');
   const availableBN = new BigNumber(availableAmount || '0');
   const isAmountPositive = amountBN.isFinite() && amountBN.gt(0);
@@ -1470,7 +1477,7 @@ function ProtocolPositionActionDialogContent({
   const handleAmountChange = (next: string) => {
     // Project convention: reject keystrokes that exceed the token's decimals
     // (same gate as Send), rather than silently truncating.
-    if (!validateAmountInput(next, amountDecimals)) {
+    if (!validateManualAmountInput(next)) {
       return;
     }
     setAmount(next);
@@ -1602,6 +1609,7 @@ function ProtocolPositionActionDialogContent({
       <ProtocolPositionActionAmountInput
         amount={amount}
         onChangeAmount={handleAmountChange}
+        validator={validateManualAmountInput}
         onSelectPercent={handleSelectPercent}
         selectedPercent={selectedAmountPercent}
         symbol={manualAmountAsset?.symbol ?? ''}
