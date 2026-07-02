@@ -8,10 +8,15 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   useHistoryListActions,
   withHistoryListProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
+import {
+  FrozenTopHistoryScrollObserver,
+  useFrozenTopHistoryData,
+} from '@onekeyhq/kit/src/views/Home/pages/hooks/useFrozenTopHistoryData';
 import { useHistoryListLoadMore } from '@onekeyhq/kit/src/views/Home/pages/hooks/useHistoryListLoadMore';
 import { maybeOpenPrivateSendHistoryDetail } from '@onekeyhq/kit/src/views/Swap/utils/privateSendHistory';
 import {
@@ -59,6 +64,7 @@ function TokenDetailsHistoryContent({
   } = props;
 
   const ListComponentRef = useRef<typeof SectionList>(null);
+  const isRouteFocused = useRouteIsFocused();
 
   const recomputeLayout = useCallback(() => {
     if (!platformEnv.isNative) {
@@ -207,6 +213,18 @@ function TokenDetailsHistoryContent({
       ? unionBy([...firstPageHistory, ...appendedTxs], (tx) => tx.id)
       : firstPageHistory;
   }, [tokenHistory, cachedHistory, appendedTxs]);
+
+  // OK-57070: same native top-insertion jitter fix as the wallet history tab.
+  // Only engages inside the collapsible tab (where the scroll position is
+  // meaningful and the user can be scrolled deep); a pass-through otherwise.
+  // `inTabList` also gates the scroll observer mount below, so the tab-context
+  // hook never runs on the non-tab single-token detail path.
+  const frozenTopEnabled = !!inTabList && focusParam && isRouteFocused;
+  // `historyCacheKey` doubles as the freeze identity: it changes exactly when
+  // the rows switch to a different history stream (account / network / token /
+  // filters / currency), which must drop the frozen baseline.
+  const { displayedHistoryData: displayedHistory, onAwayFromTopChange } =
+    useFrozenTopHistoryData(resolvedHistory, frozenTopEnabled, historyCacheKey);
   // Derive initialized synchronously to avoid one-frame flash of empty history
   // when historyCacheKey changes and cachedHistory becomes undefined
   const effectiveInit = historyInit || cachedHistory !== undefined;
@@ -269,24 +287,32 @@ function TokenDetailsHistoryContent({
   }, [run]);
 
   return (
-    <TxHistoryListView
-      ref={ListComponentRef}
-      hideValue
-      showFooter
-      walletId={walletId}
-      accountId={accountId}
-      networkId={networkId}
-      indexedAccountId={indexedAccountId}
-      inTabList={inTabList}
-      initialized={effectiveInit}
-      data={resolvedHistory}
-      onPressHistory={handleHistoryItemPress}
-      ListHeaderComponent={ListHeaderComponent as React.ReactElement}
-      isSingleAccount
-      onEndReached={loadMore}
-      isLoadingMore={isLoadingMore}
-      hasMore={loadMoreHasMore}
-    />
+    <>
+      {inTabList ? (
+        <FrozenTopHistoryScrollObserver
+          enabled={frozenTopEnabled}
+          onAwayFromTopChange={onAwayFromTopChange}
+        />
+      ) : null}
+      <TxHistoryListView
+        ref={ListComponentRef}
+        hideValue
+        showFooter
+        walletId={walletId}
+        accountId={accountId}
+        networkId={networkId}
+        indexedAccountId={indexedAccountId}
+        inTabList={inTabList}
+        initialized={effectiveInit}
+        data={displayedHistory}
+        onPressHistory={handleHistoryItemPress}
+        ListHeaderComponent={ListHeaderComponent as React.ReactElement}
+        isSingleAccount
+        onEndReached={loadMore}
+        isLoadingMore={isLoadingMore}
+        hasMore={loadMoreHasMore}
+      />
+    </>
   );
 }
 
