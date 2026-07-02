@@ -200,7 +200,7 @@ export function usePerpsHomePortfolio(): {
       clearDepositRetry();
       depositRetryNonceRef.current += 1;
       const nonce = depositRetryNonceRef.current;
-      const address = result?.address;
+      const address = latestAddressRef.current;
       if (!address) {
         void run({ alwaysSetState: true });
         return;
@@ -238,7 +238,7 @@ export function usePerpsHomePortfolio(): {
         return;
       }
       pendingRevalidateReasonRef.current = undefined;
-      const address = result?.address;
+      const address = latestAddressRef.current;
       if (!address) {
         void run();
         return;
@@ -280,7 +280,7 @@ export function usePerpsHomePortfolio(): {
       clearAccountRevalidate();
       depositRetryNonceRef.current += 1;
     };
-  }, [focusedRevalidateNonce, result?.address, run, setResult]);
+  }, [focusedRevalidateNonce, run, setResult]);
 
   const view = result?.view;
   const viewState = useMemo<'ready' | 'loading' | 'empty'>(() => {

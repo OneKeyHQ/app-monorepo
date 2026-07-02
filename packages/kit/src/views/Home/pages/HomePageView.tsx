@@ -49,6 +49,8 @@ import { RiskApprovalAlert } from '../../../components/RiskApprovalAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WatchOnlyAlert } from '../../../components/WatchOnlyAlert';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { usePerpTabConfig } from '../../../hooks/usePerpTabConfig';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import {
@@ -159,6 +161,14 @@ function HomeTabContentMaxWidth({ children }: { children: React.ReactNode }) {
       {children}
     </Stack>
   );
+}
+
+function HomePerpsWebEntryRedirect() {
+  const navigation = useAppNavigation();
+  useEffect(() => {
+    navigation.switchTab(ETabRoutes.WebviewPerpTrade);
+  }, [navigation]);
+  return null;
 }
 
 // Tabs.Container mounts all 4 home tabs (Spot, DeFi, NFT, History) as
@@ -314,6 +324,7 @@ export function HomePageView({
       swrKey: network?.id ? swrKeys.defiEnabled(network.id) : undefined,
     },
   );
+  const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -470,18 +481,24 @@ export function HomePageView({
         testID: HomeTestIDs.tabPortfolio,
         component: <PortfolioContainerWithProvider />,
       },
-      {
-        id: EHomeWalletTab.Perps,
-        name: intl.formatMessage({
-          id: ETranslations.global_perp,
-        }),
-        testID: HomeTestIDs.tabPerps,
-        component: (
-          <HomeTabContentMaxWidth>
-            <PerpsContainer />
-          </HomeTabContentMaxWidth>
-        ),
-      },
+      !perpDisabled
+        ? {
+            id: EHomeWalletTab.Perps,
+            name: intl.formatMessage({
+              id: ETranslations.global_perp,
+            }),
+            testID: HomeTestIDs.tabPerps,
+            component: (
+              <HomeTabContentMaxWidth>
+                {perpTabShowWeb ? (
+                  <HomePerpsWebEntryRedirect />
+                ) : (
+                  <PerpsContainer />
+                )}
+              </HomeTabContentMaxWidth>
+            ),
+          }
+        : undefined,
       isDeFiEnabled
         ? {
             id: EHomeWalletTab.DeFi,
@@ -519,7 +536,7 @@ export function HomePageView({
         ),
       },
     ].filter(Boolean);
-  }, [intl, isDeFiEnabled, isNFTEnabled]);
+  }, [intl, isDeFiEnabled, isNFTEnabled, perpDisabled, perpTabShowWeb]);
 
   const tabTestIDMap = useMemo(() => {
     const map: Record<string, string> = {};

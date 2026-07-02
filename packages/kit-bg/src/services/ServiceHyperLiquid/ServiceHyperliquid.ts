@@ -24,7 +24,6 @@ import {
 } from '@onekeyhq/shared/src/consts/perp';
 import {
   PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
-  PERPS_HL_PORTFOLIO_EMPTY_MAX_AGE_MS,
   PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_AGE_MS,
 } from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -90,6 +89,7 @@ import type {
   IPerpsActiveAssetDataRaw,
   IPerpsUniverse,
   IRecentTrade,
+  ISpotMetaAndAssetCtxsResponse,
   ISpotUniverse,
   ITwapHistoryParameters,
   ITwapHistoryRecord,
@@ -911,10 +911,12 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   // Shared across addresses: non-USDC spot pricing is account-independent.
   _getSpotPriceMapMemo = cacheUtils.memoizee(
-    async () =>
-      buildSpotPriceMap(
-        await hyperLiquidApiClients.infoClient.spotMetaAndAssetCtxs(),
-      ),
+    async () => {
+      const result =
+        await hyperLiquidApiClients.infoClient.spotMetaAndAssetCtxs();
+      await this._applySpotMetaAndAssetCtxsResult(result);
+      return buildSpotPriceMap(result);
+    },
     {
       max: 1,
       maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
@@ -1044,8 +1046,6 @@ export default class ServiceHyperliquid extends ServiceBase {
       if (cached.perpPositions.length > 0) {
         // Open positions move with mark price, so keep them close to live.
         maxAge = PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS;
-      } else if (cached.isEmpty) {
-        maxAge = PERPS_HL_PORTFOLIO_EMPTY_MAX_AGE_MS;
       }
       if (allowCachedFallback && Date.now() - cached.fetchedAt <= maxAge) {
         return cached;
@@ -2128,6 +2128,53 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
   }
 
+  private _buildSpotMetaFromResponse(result: ISpotMetaAndAssetCtxsResponse) {
+    const meta = result[0];
+    if (!meta?.tokens || !meta?.universe) {
+      return undefined;
+    }
+
+    const tokens = meta.tokens;
+    // Look up by token `index`, not array position: newer tokens have an
+    // index beyond the array length, so positional access yields an empty
+    // baseName ("/USDC").
+    const tokenByIndex = new Map(tokens.map((token) => [token.index, token]));
+    const universes: ISpotUniverse[] = meta.universe.map((item) => {
+      const baseTokenIdx = item.tokens[0];
+      const quoteTokenIdx = item.tokens[1];
+      const baseToken = tokenByIndex.get(baseTokenIdx);
+      const quoteToken = tokenByIndex.get(quoteTokenIdx);
+      const baseName = baseToken?.name ?? '';
+      const quoteName = quoteToken?.name ?? 'USDC';
+      return {
+        ...item,
+        assetId: SPOT_ASSET_ID_OFFSET + item.index,
+        baseName,
+        quoteName,
+        displayName: perpsUtils.getSpotTokenDisplayName(baseName),
+        baseSzDecimals: baseToken?.szDecimals ?? 0,
+      };
+    });
+    return { tokens, universes };
+  }
+
+  private async _applySpotMetaAndAssetCtxsResult(
+    result: ISpotMetaAndAssetCtxsResponse,
+  ) {
+    const spotMeta = this._buildSpotMetaFromResponse(result);
+    if (spotMeta) {
+      await this.backgroundApi.simpleDb.perp.setSpotMeta(spotMeta);
+      this._rebuildSpotMappings(spotMeta.universes);
+    }
+
+    // Reuse the assetCtxs from this REST call so the first spot view doesn't
+    // wait 2-3s for the WS SPOT_ASSET_CTXS message and flash a skeleton.
+    const assetCtxs = result[1];
+    if (Array.isArray(assetCtxs) && assetCtxs.length > 0) {
+      void this.updateSpotAssetCtxsMap(assetCtxs);
+    }
+  }
+
   private _rebuildSpotMappings(universes: ISpotUniverse[]) {
     const pairToBaseName: Record<string, string> = {};
     const baseNameToAssetId: Record<string, number> = {};
@@ -2238,41 +2285,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       universeCount: result[0]?.universe?.length ?? 0,
       assetCtxCount: result[1]?.length ?? 0,
     });
-    const meta = result[0];
-    if (meta?.tokens && meta?.universe) {
-      const tokens = meta.tokens;
-      // Look up by token `index`, not array position: newer tokens have an
-      // index beyond the array length, so positional access yields an empty
-      // baseName ("/USDC").
-      const tokenByIndex = new Map(tokens.map((token) => [token.index, token]));
-      const universes: ISpotUniverse[] = meta.universe.map((item) => {
-        const baseTokenIdx = item.tokens[0];
-        const quoteTokenIdx = item.tokens[1];
-        const baseToken = tokenByIndex.get(baseTokenIdx);
-        const quoteToken = tokenByIndex.get(quoteTokenIdx);
-        const baseName = baseToken?.name ?? '';
-        const quoteName = quoteToken?.name ?? 'USDC';
-        return {
-          ...item,
-          assetId: SPOT_ASSET_ID_OFFSET + item.index,
-          baseName,
-          quoteName,
-          displayName: perpsUtils.getSpotTokenDisplayName(baseName),
-          baseSzDecimals: baseToken?.szDecimals ?? 0,
-        };
-      });
-      await this.backgroundApi.simpleDb.perp.setSpotMeta({
-        tokens,
-        universes,
-      });
-      this._rebuildSpotMappings(universes);
-    }
-    // Reuse the assetCtxs from this REST call so the first spot view doesn't
-    // wait 2-3s for the WS SPOT_ASSET_CTXS message and flash a skeleton.
-    const assetCtxs = result[1];
-    if (Array.isArray(assetCtxs) && assetCtxs.length > 0) {
-      void this.updateSpotAssetCtxsMap(assetCtxs);
-    }
+    await this._applySpotMetaAndAssetCtxsResult(result);
     void this.refreshSpotExternalMarketCaps();
     markPerpsColdStartPerf('service_refresh_spot_meta_end');
   }
