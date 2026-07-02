@@ -278,6 +278,189 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xpool');
   });
 
+  it('remaps Stake DAO withdraw to a RemoveLiquidity display action', () => {
+    const poolAddress = '0xee26a99688474bbde401e784a01d89833c46aa14';
+    const sourcePosition = makeSourcePosition({
+      protocol: 'stakedao',
+      protocolName: 'Stake DAO',
+      category: 'yield',
+      groupId: poolAddress,
+      name: 'Stake DAO Yield: CRV/cvxCRV Pool',
+      contracts: {
+        pool: poolAddress,
+      },
+      assets: [
+        makeAsset({
+          symbol: 'CRV',
+          address: '0xd533a949740bb3306d119cc777fa900ba034cd52',
+          amount: '1.3371022039162819',
+          category: 'deposit',
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'stake-dao',
+        networkId: 'evm--1',
+        positionCategory: 'yield',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.Withdraw,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'stakedao',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0].action).toBe(EDeFiPositionAction.RemoveLiquidity);
+    expect(actions[0].buildAction).toBe(EDeFiPositionAction.Withdraw);
+    expect(actions[0].protocolId).toBe('stake-dao');
+    expect(actions[0].assets).toHaveLength(1);
+    expect(actions[0].assets[0].extraParams?.poolAddress).toBe(poolAddress);
+    expect(
+      actions[0].assets[0].underlyingAssets?.map((asset) => asset.symbol),
+    ).toEqual(['CRV']);
+  });
+
+  it('collapses a multi-asset Stake DAO pool into one remove unit', () => {
+    const poolAddress = '0xd4467fbcbd3511112d2fd1af667e745d4987c8eb';
+    const sourcePosition = makeSourcePosition({
+      protocol: 'stakedao',
+      protocolName: 'Stake DAO',
+      category: 'yield',
+      groupId: poolAddress,
+      name: 'Stake DAO Yield: crvUSD/USDC Pool',
+      contracts: {
+        pool: poolAddress,
+      },
+      assets: [
+        makeAsset({
+          symbol: 'crvUSD',
+          address: '0xcrvusd',
+          amount: '0.11',
+          category: 'deposit',
+        }),
+        makeAsset({
+          symbol: 'USDC',
+          address: '0xusdc2',
+          amount: '0.16',
+          category: 'deposit',
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'stake-dao',
+        networkId: 'evm--1',
+        positionCategory: 'yield',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.Withdraw,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'stakedao',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    // One removable unit for the whole pool — never a per-token A/B pick.
+    expect(actions).toHaveLength(1);
+    expect(actions[0].assets).toHaveLength(1);
+    expect(
+      actions[0].assets[0].underlyingAssets?.map((asset) => asset.symbol),
+    ).toEqual(['crvUSD', 'USDC']);
+    expect(actions[0].assets[0].extraParams?.poolAddress).toBe(poolAddress);
+  });
+
+  it('hides the Stake DAO remove unit when pool metadata is missing', () => {
+    const sourcePosition = makeSourcePosition({
+      protocol: 'stakedao',
+      protocolName: 'Stake DAO',
+      category: 'yield',
+      groupId: 'stake-dao-position-1',
+      assets: [
+        makeAsset({
+          symbol: 'crvUSD',
+          address: '0xcrvusd',
+          amount: '0.11',
+          category: 'deposit',
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'stake-dao',
+        networkId: 'evm--1',
+        positionCategory: 'yield',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.Withdraw,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'stakedao',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(0);
+  });
+
+  it('does not report a resolved Stake DAO remove as an unresolved debug candidate', () => {
+    const poolAddress = '0xee26a99688474bbde401e784a01d89833c46aa14';
+    const sourcePosition = makeSourcePosition({
+      protocol: 'stakedao',
+      protocolName: 'Stake DAO',
+      category: 'yield',
+      groupId: poolAddress,
+      contracts: {
+        pool: poolAddress,
+      },
+      assets: [
+        makeAsset({
+          symbol: 'CRV',
+          address: '0xcrv',
+          amount: '1',
+          category: 'deposit',
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'stake-dao',
+        networkId: 'evm--1',
+        positionCategory: 'yield',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.Withdraw,
+      },
+    ];
+
+    const debugCandidates =
+      defiActionUtils.resolveDeFiPositionActionDebugCandidates({
+        protocol: {
+          networkId: 'evm--1',
+          protocol: 'stakedao',
+        },
+        position: makePosition(sourcePosition),
+        supportedActions,
+      });
+
+    expect(debugCandidates).toHaveLength(0);
+  });
+
   it('resolves Aave repay from debtCategory debts instead of collateral assets', () => {
     const sourcePosition = makeSourcePosition({
       protocol: 'aave-v3',
@@ -579,7 +762,7 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions).toHaveLength(0);
   });
 
-  it('hides Uniswap V4 removeLiquidity when currency metadata is missing', () => {
+  it('resolves Uniswap V4 removeLiquidity without currency metadata', () => {
     const sourcePosition = makeSourcePosition({
       protocol: 'uniswap-v4',
       protocolName: 'Uniswap V4',
@@ -611,7 +794,73 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
       supportedActions,
     });
 
-    expect(actions).toHaveLength(0);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].assets[0].extraParams).toEqual(
+      expect.objectContaining({
+        amount0Min: '1',
+        amount1Min: '1',
+        groupId: '0x1111111111111111111111111111111111111111#123',
+        tokenId: '123',
+      }),
+    );
+    expect(actions[0].assets[0].extraParams).not.toHaveProperty('currency0');
+    expect(actions[0].assets[0].extraParams).not.toHaveProperty('currency1');
+  });
+
+  it('resolves Uniswap V4 removeLiquidity when one currency is the native empty address', () => {
+    const tokenAddress = '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359';
+    const sourcePosition = makeSourcePosition({
+      networkId: 'evm--137',
+      protocol: 'uniswap-v4',
+      protocolName: 'Uniswap V4',
+      category: 'liquidity',
+      groupId: '0x1ec2ebf4f37e7363fdfe3551602425af0b3ceef9#23973',
+      name: 'Uniswap V4 POL/USDC Pool (#23973)',
+      assets: [
+        makeAsset({
+          symbol: 'POL',
+          address: '',
+          amount: '8.228050923106608',
+          value: 1,
+          price: 1,
+        }),
+        makeAsset({
+          symbol: 'USDC',
+          address: tokenAddress,
+          amount: '0.573641',
+          value: 1,
+          price: 1,
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'uniswap-v4',
+        networkId: 'evm--137',
+        positionCategory: 'liquidity',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.RemoveLiquidity,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--137',
+        protocol: 'uniswap-v4',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0].assets[0].extraParams).toEqual(
+      expect.objectContaining({
+        groupId: '0x1ec2ebf4f37e7363fdfe3551602425af0b3ceef9#23973',
+        tokenId: '23973',
+      }),
+    );
+    expect(actions[0].assets[0].extraParams).not.toHaveProperty('currency0');
+    expect(actions[0].assets[0].extraParams).not.toHaveProperty('currency1');
   });
 
   it('resolves grouped Uniswap removeLiquidity source positions independently', () => {
@@ -1215,6 +1464,46 @@ describe('defiActionUtils.scopeResolvedActionToAsset', () => {
       defiActionUtils.scopeResolvedActionToAsset({
         action,
         tokenAddress: undefined,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('matches a collapsed LP unit by any underlying asset and keeps the whole unit', () => {
+    const lpAction = {
+      action: EDeFiPositionAction.RemoveLiquidity,
+      buildAction: EDeFiPositionAction.Withdraw,
+      protocolId: 'stake_dao',
+      networkId: 'evm--1',
+      positionCategory: 'yield',
+      assets: [
+        {
+          asset: makeAsset({ address: '0xCRVUSD', symbol: 'crvUSD' }),
+          amount: '10',
+          symbol: 'crvUSD',
+          tokenAddress: '0xCRVUSD',
+          underlyingAssets: [
+            makeAsset({ address: '0xCRVUSD', symbol: 'crvUSD' }),
+            makeAsset({ address: '0xUSDC', symbol: 'USDC' }),
+          ],
+        },
+      ],
+    };
+
+    // The second underlying's row must still find the action…
+    const scoped = defiActionUtils.scopeResolvedActionToAsset({
+      action: lpAction,
+      tokenAddress: '0xusdc',
+    });
+    // …and it operates on the whole unit, not a per-token slice.
+    expect(scoped?.assets).toHaveLength(1);
+    expect(scoped?.assets[0].symbol).toBe('crvUSD');
+    expect(scoped?.assets[0].underlyingAssets).toHaveLength(2);
+
+    // Unrelated addresses still miss.
+    expect(
+      defiActionUtils.scopeResolvedActionToAsset({
+        action: lpAction,
+        tokenAddress: '0xDEAD',
       }),
     ).toBeUndefined();
   });

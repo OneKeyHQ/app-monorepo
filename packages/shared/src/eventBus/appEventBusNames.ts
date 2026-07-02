@@ -29,6 +29,7 @@ export enum EAppEventBusNames {
   ShowDialogLoading = 'ShowDialogLoading',
   HideDialogLoading = 'HideDialogLoading',
   ShowToast = 'ShowToast',
+  ShowLocalSecretEnvelopeErrorDialog = 'ShowLocalSecretEnvelopeErrorDialog',
   ShowAirGapQrcode = 'ShowAirGapQrcode',
   HideAirGapQrcode = 'HideAirGapQrcode',
   RealmInit = 'RealmInit',
@@ -84,7 +85,12 @@ export enum EAppEventBusNames {
   SidePanel_UIToBg = 'SidePanel_UIToBg',
   SwapQuoteEvent = 'SwapQuoteEvent',
   ShowSystemDiskFullWarning = 'ShowSystemDiskFullWarning',
+  ShowLinuxBundleUdevGuide = 'ShowLinuxBundleUdevGuide',
   SwapTxHistoryStatusUpdate = 'SwapTxHistoryStatusUpdate',
+  // Fired after the swap history store is mutated in a way the pending-status
+  // refresh key cannot detect (e.g. clearing finished orders), so list views
+  // re-fetch instead of showing stale rows.
+  RefreshSwapHistoryList = 'RefreshSwapHistoryList',
   SwapApprovingSuccess = 'SwapApprovingSuccess',
   SwapSpeedApprovingReset = 'SwapSpeedApprovingReset',
   SwapSpeedBalanceUpdate = 'SwapSpeedBalanceUpdate',

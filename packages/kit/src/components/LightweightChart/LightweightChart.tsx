@@ -117,6 +117,7 @@ export function LightweightChart({
     let chart: IChartApi | undefined;
     let lastPointPositionUpdater: (() => void) | undefined;
     let lastPointRafId: number | undefined;
+    let resizeRafId: number | undefined;
 
     // Capture container for cleanup
     const container = chartContainerRef.current;
@@ -311,7 +312,19 @@ export function LightweightChart({
           if (entries.length === 0 || entries[0].target !== container) return;
           const { width: newWidth } = entries[0].contentRect;
           chart?.applyOptions({ width: newWidth });
-          lastPointPositionUpdater?.();
+          // applyOptions relays out the chart (bar spacing / right-edge anchor)
+          // on the next paint frame; reading coordinates synchronously here
+          // returns the pre-resize layout, so the pulse dot would freeze at its
+          // old x. lockVisibleTimeRangeOnResize also means the visible-range
+          // subscription never fires on resize to correct it. Recompute after
+          // the frame settles, mirroring the init path's rAF fallback.
+          if (resizeRafId !== undefined) {
+            cancelAnimationFrame(resizeRafId);
+          }
+          resizeRafId = requestAnimationFrame(() => {
+            if (cancelled) return;
+            lastPointPositionUpdater?.();
+          });
         });
 
         resizeObserver.observe(container);
@@ -323,6 +336,9 @@ export function LightweightChart({
       // Cleanup in correct order
       if (lastPointRafId !== undefined) {
         cancelAnimationFrame(lastPointRafId);
+      }
+      if (resizeRafId !== undefined) {
+        cancelAnimationFrame(resizeRafId);
       }
       resizeObserver?.disconnect();
       chart?.remove();

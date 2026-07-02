@@ -146,7 +146,15 @@ const useSafeKeyboardAnimationStyle = () => {
       keyboardHeightValue.value = 0;
     },
   });
-  return platformEnv.isNative ? animatedStyles : undefined;
+  // On web there is no reanimated keyboard tracking, but notched iOS
+  // Safari/PWA still reports a bottom inset via env(safe-area-inset-bottom).
+  // The frame must apply it as a static paddingBottom so bottom-sheet dialogs
+  // clear the home indicator there too — footers only carry their design
+  // padding now, and rely on the frame for the inset on every platform.
+  if (!platformEnv.isNative) {
+    return bottom ? { paddingBottom: bottom } : undefined;
+  }
+  return animatedStyles;
 };
 
 /**
@@ -342,7 +350,11 @@ function DialogFrame({
           testID={testID}
           borderTopLeftRadius="$6"
           borderTopRightRadius="$6"
-          bg="$bg"
+          // Match the sheet frame to the content surface so the bottom
+          // safe-area inset region (applied as paddingBottom on the wrapper,
+          // below the footer) doesn't reveal the default `$bg` as a seam when a
+          // dialog overrides its content background (e.g. Prime feature intro).
+          bg={(contentContainerProps as { bg?: IColorTokens })?.bg ?? '$bg'}
           borderCurve="continuous"
           disableHideBottomOverflow
           // Fix width issue for portrait iPad mini - ensure proper dialog width

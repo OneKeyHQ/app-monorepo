@@ -9,6 +9,7 @@ import { isHistoryCursorAdvanced } from '@onekeyhq/shared/src/utils/historyUtils
 import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 const NATIVE_LOAD_MORE_HARD_LIMIT = 30;
 
@@ -37,6 +38,30 @@ function normalizeCursor(input: unknown): string | undefined {
   const value = typeof input === 'string' ? input : String(input);
   return value.length > 0 ? value : undefined;
 }
+
+function getTxIdSet(txs: IAccountHistoryTx[]): Set<string> {
+  return new Set(txs.map((tx) => tx.id));
+}
+
+// A local pending tx (just-broadcast, not yet on chain) that drops out of a
+// refreshed first page was replaced (RBF / speed-up / cancel) or confirmed
+// under a new id. `appendedTxs` holds on-chain pages, where a local pending
+// never legitimately belongs, so such a row must NOT be carried forward as a
+// displaced entry — otherwise the stale pending lingers forever beside its
+// replacement. A still-valid pending keeps its id on the refreshed first page,
+// stays in the overlap, and is filtered as an ordinary first-page row instead.
+// Written with optional chaining so it is safe on partially-shaped txs.
+function isLocalPendingTx(tx: IAccountHistoryTx): boolean {
+  const status = tx.displayStatus ?? tx.decodedTx?.status;
+  return !!tx.isLocalCreated && status === EDecodedTxStatus.Pending;
+}
+
+type IFirstPageResponseMeta = {
+  txs: IAccountHistoryTx[];
+  next?: string;
+  hasMore?: boolean;
+  isIndexer?: boolean;
+};
 
 export type IUseHistoryListLoadMoreParams = {
   enabled: boolean;
@@ -83,6 +108,9 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
+  const firstPageTxsRef = useRef<IAccountHistoryTx[]>([]);
+  const firstPageIdsRef = useRef<Set<string>>(new Set());
+  const appendedTxsRef = useRef<IAccountHistoryTx[]>([]);
   const initializedRef = useRef(false);
   const pageRef = useRef(1);
   const cursorRef = useRef<string | undefined>(undefined);
@@ -108,21 +136,15 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
   // (duplicate-emit / chain reorg) without taking a stale state closure.
   const appendedIdsRef = useRef<Set<string>>(new Set());
 
-  // Begin a fresh pagination generation: bump `generationRef` (which orphans
-  // any in-flight load-more, since its response handler and finally-block are
-  // gated on a matching generation) and clear all cursor-independent progress —
-  // page counter, load count, appended-row set/state, the in-flight lock, and
-  // the loading spinner. Both reset() (teardown) and onFirstPageResponse
-  // (re-arm to a new first-page boundary) start from this clean slate before
-  // layering on their own cursor / hasMore semantics. Sharing it keeps the two
-  // call sites from drifting: the stuck-spinner bug was exactly
-  // onFirstPageResponse forgetting to release inFlightRef / isLoadingMore the
-  // way reset() does, so the orphaned load-more could never clear them.
+  // Begin a hard pagination generation: clear cursor-independent progress and
+  // release loading flags. Identity/filter resets always use this path; a
+  // first-page refresh only uses it while no loaded range needs preserving.
   const startNewPaginationGeneration = useCallback(() => {
     pageRef.current = 1;
     loadCountRef.current = 0;
     generationRef.current += 1;
     inFlightRef.current = false;
+    appendedTxsRef.current = [];
     appendedIdsRef.current = new Set();
     setAppendedTxs([]);
     setIsLoadingMore(false);
@@ -130,6 +152,8 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
 
   const reset = useCallback(() => {
     startNewPaginationGeneration();
+    firstPageTxsRef.current = [];
+    firstPageIdsRef.current = new Set();
     initializedRef.current = false;
     cursorRef.current = undefined;
     isIndexerCursorRef.current = false;
@@ -138,25 +162,58 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
   }, [startNewPaginationGeneration]);
 
   const onFirstPageResponse = useCallback(
-    (meta: { next?: string; hasMore?: boolean; isIndexer?: boolean }) => {
+    (meta: IFirstPageResponseMeta) => {
       if (!enabled) {
         setHasMore(false);
         return;
       }
-      // Every first-page response defines a fresh pagination generation:
-      // polling / HistoryTxStatusChanged / visibility refresh can shift the
-      // first-page boundary, so any previously-appended load-more rows are
-      // no longer aligned with the new `meta.next` cursor (gap on the new
-      // boundary tx, or dupes against the new first page).
-      // startNewPaginationGeneration() clears the cursor-independent progress,
-      // bumps `generationRef` to orphan any in-flight load-more anchored to the
-      // previous generation, and releases its loading flags; we then stamp the
-      // cursor + hasMore from exactly this response.
-      startNewPaginationGeneration();
+
+      const nextFirstPageTxs = meta.txs;
+      const nextFirstPageIds = getTxIdSet(nextFirstPageTxs);
+      // The displaced-rows bridge only stays gap-free while the refreshed first
+      // page still overlaps the previous one (i.e. fewer than HISTORY_PAGE_SIZE
+      // new txs arrived since the last first page). When the two first pages are
+      // fully disjoint, an unknown number of txs sit between the new first page
+      // and the loaded range, so preserving would render a hole in the middle
+      // of history with no cursor that can ever backfill it. In that rare case
+      // fall back to a hard reset: a one-time scroll-to-top is strictly safer
+      // than silently dropping a contiguous slice of history.
+      // Anchor overlap on a non-sticky row only. A long-lived local pending
+      // (still unconfirmed across refreshes) sits on top of every first page,
+      // so counting it as "overlap" would mask a fully-disjoint on-chain range
+      // (HISTORY_PAGE_SIZE+ new txs since the last refresh) and let the bridge
+      // render a hole in the middle of history — the exact case the disjoint
+      // hard-reset below is meant to catch.
+      const overlapsPreviousFirstPage = firstPageTxsRef.current.some(
+        (tx) => !isLocalPendingTx(tx) && nextFirstPageIds.has(tx.id),
+      );
+      const shouldPreserveLoadedRange =
+        (appendedTxsRef.current.length > 0 || inFlightRef.current) &&
+        overlapsPreviousFirstPage;
+
+      if (shouldPreserveLoadedRange) {
+        // Polling refreshes only the first page. Keep the already-visible
+        // loaded range stable by moving rows displaced from the previous first
+        // page into appendedTxs instead of shrinking the list back to page 1.
+        // Drop local pending rows that fell out of the new first page (see
+        // isLocalPendingTx) so a replaced/confirmed pending can't linger.
+        const nextAppendedTxs = unionBy(
+          [...firstPageTxsRef.current, ...appendedTxsRef.current],
+          (tx) => tx.id,
+        ).filter((tx) => !nextFirstPageIds.has(tx.id) && !isLocalPendingTx(tx));
+
+        appendedTxsRef.current = nextAppendedTxs;
+        appendedIdsRef.current = getTxIdSet(nextAppendedTxs);
+        setAppendedTxs(nextAppendedTxs);
+      } else {
+        startNewPaginationGeneration();
+        cursorRef.current = normalizeCursor(meta.next);
+        isIndexerCursorRef.current = !!meta.isIndexer;
+      }
+
+      firstPageTxsRef.current = nextFirstPageTxs;
+      firstPageIdsRef.current = nextFirstPageIds;
       initializedRef.current = true;
-      // Indexer chains return a timestamp; non-indexer return opaque.
-      cursorRef.current = normalizeCursor(meta.next);
-      isIndexerCursorRef.current = !!meta.isIndexer;
       // Preserve any pending replay intent when there's still a next page:
       // if onEndReached fired before pagination was armed (short list / fast
       // scroll), RN's SectionList won't refire and the effect below is the
@@ -265,7 +322,9 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
       }
       const incomingTxs = r.txs ?? [];
       const newRows = incomingTxs.filter(
-        (tx) => !appendedIdsRef.current.has(tx.id),
+        (tx) =>
+          !firstPageIdsRef.current.has(tx.id) &&
+          !appendedIdsRef.current.has(tx.id),
       );
       // Stop conditions (any one of these terminates pagination):
       //   - backend says no more
@@ -284,8 +343,13 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
         !!r.hasMoreOnChainHistory && gotItems && addedNewRows && cursorAdvanced,
       );
       if (addedNewRows) {
-        for (const tx of newRows) appendedIdsRef.current.add(tx.id);
-        setAppendedTxs((prev) => unionBy([...prev, ...newRows], (tx) => tx.id));
+        const nextAppendedTxs = unionBy(
+          [...appendedTxsRef.current, ...newRows],
+          (tx) => tx.id,
+        );
+        appendedTxsRef.current = nextAppendedTxs;
+        appendedIdsRef.current = getTxIdSet(nextAppendedTxs);
+        setAppendedTxs(nextAppendedTxs);
       }
     } catch (error) {
       console.error('History loadMore failed:', error);

@@ -236,6 +236,7 @@ checkbox
 Checkbox
 checksum
 Checksum
+chokepoint
 cip
 ciphertext
 ckb
@@ -399,6 +400,7 @@ focusable
 Formatjs
 formatter
 frontend
+frontmost
 fs
 fucntion
 func
@@ -471,6 +473,7 @@ integrations
 Integrations
 Interpolator
 ints
+inversifyjs
 invoker
 ipc
 Ipc
@@ -828,6 +831,7 @@ terra
 terra2
 testnet
 Testnet
+devnet
 textarea
 textgroup
 Themeable
@@ -1527,6 +1531,15 @@ pems
 Reqs
 unparseable
 unsalvageable
+# Desktop main-bundle slim perf tooling
+openpgp
+whatwg
+IDNA
+heapstats
+minidump
+footgun
+jank
+hotspot
 
 # @mysten/sui 2.x package name
 mysten

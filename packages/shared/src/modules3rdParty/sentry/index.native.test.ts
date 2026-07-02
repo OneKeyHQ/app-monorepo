@@ -8,7 +8,6 @@ jest.mock('@sentry/react-native', () => ({
   init: initMock,
   nativeCrash: jest.fn(),
   reactNavigationIntegration: jest.fn(() => 'navigationIntegration'),
-  reactNativeTracingIntegration: jest.fn(() => 'reactNativeTracingIntegration'),
   withErrorBoundary: jest.fn(passthrough),
   withProfiler: jest.fn(passthrough),
   wrap: jest.fn(passthrough),
@@ -27,7 +26,7 @@ describe('initSentry', () => {
     process.env.NODE_ENV = originalNodeEnv;
   });
 
-  test('omits profilesSampleRate for React Native production init', () => {
+  test('omits tracesSampleRate and profilesSampleRate for React Native production init', () => {
     jest.isolateModules(() => {
       // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
       const {
@@ -40,11 +39,7 @@ describe('initSentry', () => {
     });
 
     expect(initMock).toHaveBeenCalledTimes(1);
-    expect(initMock.mock.calls[0][0]).toEqual(
-      expect.objectContaining({
-        tracesSampleRate: 0.1,
-      }),
-    );
+    expect(initMock.mock.calls[0][0].tracesSampleRate).toBeUndefined();
     expect(initMock.mock.calls[0][0].profilesSampleRate).toBeUndefined();
   });
 });

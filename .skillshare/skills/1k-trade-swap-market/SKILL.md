@@ -39,6 +39,23 @@ For broad Swap or Trade bugs, analyze in this order before changing code:
 This order applies to Swap page work and to Home Token, Send, Market, Earn, or
 Buy entries that launch or prefill Swap.
 
+## Evidence-Driven Intake
+
+When a Trade/Swap/Market task comes from Jira, Slack, a review thread, or a
+local todo ledger, treat the title as a routing clue only. Before changing code,
+verify the current source-of-truth packet:
+
+- Jira issue text, latest comments, priority/status, and attachments when an
+  issue key exists.
+- Slack thread or DM context when it contains late corrections, screenshots,
+  videos, QA notes, or owner decisions.
+- Current client branch and the closest existing implementation in this repo.
+- Server branch/ref/commit when provider fields, stock/order status, fees,
+  quote/build semantics, or history DTOs are part of the behavior.
+
+If source evidence conflicts, stop and name the conflict before picking a fix
+shape.
+
 ## Protocol Channel Model
 
 Before adding or reviewing any provider channel, define this contract:
@@ -60,14 +77,17 @@ PrivateSend-like channels and future stock-trading channels should be evaluated 
 2. Classify the integration style: standard swap provider, order-backed privacy channel, stock/order channel, limit order, or cross-module funding handoff.
 3. Map framework, state machine, and hooks before editing when the change spans
    route, modal, Home Token, Send, Market, Earn, Buy, or shared Swap state.
-4. Read [app-architecture.md](references/app-architecture.md) and [code-map.md](references/code-map.md) before editing.
-5. Fill the provider/channel contract in [provider-contracts.md](references/provider-contracts.md).
-6. For any non-standard channel, fill [channel-state-model.md](references/channel-state-model.md) before touching history, status polling, or local replay.
-7. Run the durable checklist in [checklists.md](references/checklists.md),
+4. Identify the closest valid repo pattern before inventing a new hook, atom,
+   adapter, modal, or channel abstraction. Reuse the shell only when account,
+   network, token, provider, route, and execution semantics match.
+5. Read [app-architecture.md](references/app-architecture.md) and [code-map.md](references/code-map.md) before editing.
+6. Fill the provider/channel contract in [provider-contracts.md](references/provider-contracts.md).
+7. For any non-standard channel, fill [channel-state-model.md](references/channel-state-model.md) before touching history, status polling, or local replay.
+8. Run the durable checklist in [checklists.md](references/checklists.md),
    especially async identity, token/account identity, frozen review data, and
    history/status.
-8. Validate with [validation.md](references/validation.md), including a readiness drill when the change is a new channel.
-9. For cold start, token selector flicker, default-token bring-in, tab stability,
+9. Validate with [validation.md](references/validation.md), including a readiness drill when the change is a new channel.
+10. For cold start, token selector flicker, default-token bring-in, tab stability,
    or Wallet handoff regressions, run
    [swap-cold-start-frame-checklist.md](references/swap-cold-start-frame-checklist.md).
 
@@ -117,6 +137,12 @@ If a drill cannot be completed from the references, update the abstraction inste
 - Do not mark transaction behavior validated from static diff alone; inspect the actual App path, payload, pending row, or visible state.
 - Do not validate cold-start or flicker fixes from the final settled screenshot only; inspect the first frames and tab/token transitions.
 - Do not edit generated locale files directly; use the repository i18n workflow.
+- Do not create a new abstraction, hook, or state owner until the closest
+  existing repo pattern and its semantic mismatch have been named.
+- Do not leave route/provider/listener/quote/history side effects inside one
+  oversized render hook. Split stateful business logic by stable responsibility:
+  data loading, selection/route sync, quote/review state machine,
+  listener/history bridge, and view model.
 
 ## Related Skills
 

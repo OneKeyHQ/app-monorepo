@@ -21,7 +21,6 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -39,13 +38,16 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { useSwapMarketHistoryList } from '../../hooks/useSwapMarketHistoryList';
 import {
+  SWAP_CLEAN_EXCLUDE_PROTOCOLS,
+  SWAP_HISTORY_PENDING_STATUSES,
   filterSwapMarketHistoryItems,
   getSwapHistoryListTitleId,
-  getSwapMarketPendingHistoryKey,
   getSwapMarketPendingHistoryList,
   isStockSwapHistoryItem,
 } from '../../utils/swapMarketHistory';
+import SwapHistoryClearButton from '../components/SwapHistoryClearButton';
 import SwapMarketHistoryList from '../components/SwapMarketHistoryList';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -73,34 +75,26 @@ const SwapHistoryListModal = ({
     useState<EProtocolOfExchange>(initialHistoryType);
   const [{ swapHistoryPendingList, swapLimitOrders }] =
     useInAppNotificationAtom();
-  const marketPendingKey = useMemo(
-    () =>
-      getSwapMarketPendingHistoryKey(
-        swapHistoryPendingList,
-        EProtocolOfExchange.SWAP,
-      ),
-    [swapHistoryPendingList],
-  );
-
   useEffect(() => {
     void backgroundApiProxy.serviceSwap.refreshSwapHistoryPendingStatusOnce();
   }, []);
 
-  const { result: swapTxHistoryList } = usePromiseResult(
-    async () => {
-      const histories =
-        await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
-      return histories;
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [marketPendingKey],
+  // Shares the list view's hook so the savings total and clear-button guards
+  // below re-fetch on the RefreshSwapHistoryList signal too — otherwise they
+  // would go stale after a finished-order clear while the rendered list updates.
+  const { swapTxHistoryList } = useSwapMarketHistoryList(
+    EProtocolOfExchange.SWAP,
   );
+  // Non-stock Swap & Bridge history only: the SWAP bucket also carries stock
+  // orders, but the visible Swap & Bridge list hides them and the clear uses
+  // excludeStock. Drive savings and the clear guards off the same scoped set so
+  // an all-stock state doesn't show savings or pop a clear that deletes nothing.
   const swapMarketTxHistoryList = useMemo(
     () =>
       filterSwapMarketHistoryItems({
         items: swapTxHistoryList ?? [],
         protocol: EProtocolOfExchange.SWAP,
-      }),
+      }).filter((item) => !isStockSwapHistoryItem(item)),
     [swapTxHistoryList],
   );
 
@@ -192,11 +186,6 @@ const SwapHistoryListModal = ({
   const historyTypeTitle = useMemo(
     () => intl.formatMessage({ id: getSwapHistoryListTitleId(historyType) }),
     [historyType, intl],
-  );
-
-  const cleanExcludeProtocols = useMemo(
-    () => [EProtocolOfExchange.LIMIT, EProtocolOfExchange.PRIVATE_SEND],
-    [],
   );
 
   const renderHistoryTypeBadge = useCallback((count: number) => {
@@ -369,7 +358,7 @@ const SwapHistoryListModal = ({
       }),
       onConfirm: async () => {
         await backgroundApiProxy.serviceSwap.cleanSwapHistoryItems(undefined, {
-          excludeProtocols: cleanExcludeProtocols,
+          excludeProtocols: SWAP_CLEAN_EXCLUDE_PROTOCOLS,
           // The Swap & Bridge tab hides stock trades, so its Clear must not
           // delete stock history the user can't see here.
           excludeStock: true,
@@ -389,13 +378,13 @@ const SwapHistoryListModal = ({
       }),
       onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
     });
-  }, [cleanExcludeProtocols, intl, swapMarketTxHistoryList.length]);
+  }, [intl, swapMarketTxHistoryList.length]);
 
   const onDeletePendingHistory = useCallback(() => {
     // dialog
     if (
-      !swapMarketTxHistoryList.some(
-        (item) => item.status === ESwapTxHistoryStatus.PENDING,
+      !swapMarketTxHistoryList.some((item) =>
+        SWAP_HISTORY_PENDING_STATUSES.includes(item.status),
       )
     )
       return;
@@ -409,8 +398,11 @@ const SwapHistoryListModal = ({
       }),
       onConfirm: () => {
         void backgroundApiProxy.serviceSwap.cleanSwapHistoryItems(
-          [ESwapTxHistoryStatus.PENDING],
-          { excludeProtocols: cleanExcludeProtocols, excludeStock: true },
+          SWAP_HISTORY_PENDING_STATUSES,
+          {
+            excludeProtocols: SWAP_CLEAN_EXCLUDE_PROTOCOLS,
+            excludeStock: true,
+          },
         );
         defaultLogger.swap.cleanSwapOrder.cleanSwapOrder({
           cleanFrom: ESwapCleanHistorySource.LIST,
@@ -421,7 +413,7 @@ const SwapHistoryListModal = ({
       }),
       onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
     });
-  }, [cleanExcludeProtocols, intl, swapMarketTxHistoryList]);
+  }, [intl, swapMarketTxHistoryList]);
 
   const savingsPopoverContent = useMemo(
     () => (
@@ -587,6 +579,22 @@ const SwapHistoryListModal = ({
     ],
   );
 
+  const stockDeleteButton = useCallback(
+    () => <SwapHistoryClearButton scope="stock" triggerVariant="text" />,
+    [],
+  );
+
+  // Limit has no clear; Stock clears its own dataset; everything else (Swap &
+  // Bridge) uses the savings-aware clear button.
+  const headerRightButton = useMemo(() => {
+    if (historyType === EProtocolOfExchange.LIMIT) {
+      return undefined;
+    }
+    return historyType === EProtocolOfExchange.STOCK
+      ? stockDeleteButton
+      : deleteButton;
+  }, [deleteButton, historyType, stockDeleteButton]);
+
   const headerSelectType = useCallback(
     () => (
       // Render the ActionList directly (not via LazyHeaderTitle): on iOS the
@@ -672,12 +680,7 @@ const SwapHistoryListModal = ({
   return (
     <Page>
       <Page.Header
-        headerRight={
-          historyType === EProtocolOfExchange.LIMIT ||
-          historyType === EProtocolOfExchange.STOCK
-            ? undefined
-            : deleteButton
-        }
+        headerRight={headerRightButton}
         headerRightNoGlass
         headerTitleAlign={gtMd ? 'left' : 'center'}
         headerTitle={headerSelectType}

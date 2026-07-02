@@ -7,6 +7,7 @@
     "i18n:pull": "node ../../development/scripts/i18n/i18n-pull.js",
     "i18n:search": "node ../../development/scripts/i18n/i18n-search.js",
     "i18n:add": "node ../../development/scripts/i18n/i18n-add.js",
+    "i18n:unused": "node ../../development/scripts/i18n/i18n-unused.js",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
   },
@@ -23,7 +24,7 @@
     "jsonschema": "^1.4.1",
     "localforage": "^1.10.0",
     "ms": "^2.1.3",
-    "posthog-js": "1.364.1",
+    "posthog-js": "1.379.1",
     "react-native-url-polyfill": "^1.3.0",
     "react-native-uuid": "^2.0.1",
     "redux-persist": "^6.0.0",

@@ -48,6 +48,7 @@ type IDeFiPermitData = NonNullable<IDeFiBuildTransactionResp['permit']>;
 type IDeFiBuildTransactionApiResp = {
   tx?: IDeFiEvmTransaction | string;
   approvalTx?: IDeFiEvmTransaction | string;
+  orderId?: string;
   permit?: IDeFiPermitData | string;
 };
 
@@ -81,6 +82,7 @@ function normalizeDeFiBuildTransactionResp(
   resp: IDeFiBuildTransactionApiResp,
 ): IDeFiBuildTransactionResp {
   return {
+    orderId: resp.orderId,
     tx: parseDeFiJsonField<IDeFiEvmTransaction>({
       fieldName: 'tx',
       value: resp.tx,
@@ -379,14 +381,6 @@ class ServiceDeFi extends ServiceBase {
   @backgroundMethod()
   public async buildDeFiTransaction(params: IDeFiBuildTransactionParams) {
     const { accountId, ...rest } = params;
-    if (
-      accountUtils.isUrlAccountFn({ accountId }) ||
-      accountUtils.isWatchingAccount({ accountId })
-    ) {
-      throw new OneKeyLocalError(
-        'DeFi actions are not available for URL or watch-only accounts',
-      );
-    }
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({

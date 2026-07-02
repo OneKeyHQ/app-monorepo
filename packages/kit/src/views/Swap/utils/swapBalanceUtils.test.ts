@@ -1,8 +1,12 @@
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
   checkSwapLatestBalanceSufficient,
+  getSwapEncodedTxSize,
   getSwapRequiredNativeBalanceAmount,
+  validateSwapBtcOutputs,
 } from './swapBalanceUtils';
 
 type IFetchSwapTokenDetailsParams = {
@@ -63,6 +67,26 @@ const evmGasInfo = {
   gas: {
     gasLimit: '21000',
     gasPrice: '1',
+  },
+};
+
+const btcToken = {
+  networkId: 'btc--0',
+  contractAddress: '',
+  symbol: 'BTC',
+  decimals: 8,
+  isNative: true,
+} as ISwapToken;
+
+const btcGasInfo = {
+  common: {
+    feeDecimals: 0,
+    feeSymbol: 'sat/vB',
+    nativeDecimals: 8,
+    nativeSymbol: 'BTC',
+  },
+  feeUTXO: {
+    feeRate: '1',
   },
 };
 
@@ -161,6 +185,53 @@ describe('getSwapRequiredNativeBalanceAmount', () => {
     });
   });
 
+  it('excludes sponsored (gasAccountEligible) gas from the requirement', () => {
+    // Non-native swap fully sponsored by Gas Account: no native is needed.
+    expect(
+      getSwapRequiredNativeBalanceAmount({
+        gasInfos: [{ gasInfo: { ...evmGasInfo, gasAccountEligible: true } }],
+        networkId: 'evm--1',
+        fromToken: usdcToken,
+        fromAmount: '12',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('excludes sponsored (megafuelEligible) gas from the requirement', () => {
+    expect(
+      getSwapRequiredNativeBalanceAmount({
+        gasInfos: [
+          {
+            gasInfo: {
+              ...evmGasInfo,
+              megafuelEligible: { sponsorable: true, sponsorName: 'OneKey' },
+            },
+          },
+        ],
+        networkId: 'evm--56',
+        fromToken: usdcToken,
+        fromAmount: '12',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('still requires the native sending amount even when gas is sponsored', () => {
+    // Gas is sponsored, but the native token being swapped is still required.
+    expect(
+      getSwapRequiredNativeBalanceAmount({
+        gasInfos: [{ gasInfo: { ...evmGasInfo, gasAccountEligible: true } }],
+        networkId: 'evm--1',
+        fromToken: ethToken,
+        fromAmount: '0.1',
+      }),
+    ).toEqual({
+      token: ethToken,
+      amount: '0.1',
+      reserveAmount: '0',
+      includesFromAmount: true,
+    });
+  });
+
   it('adds the sending amount when the from token is native', () => {
     expect(
       getSwapRequiredNativeBalanceAmount({
@@ -173,6 +244,22 @@ describe('getSwapRequiredNativeBalanceAmount', () => {
       token: ethToken,
       amount: '0.100021',
       reserveAmount: '0.000021',
+      includesFromAmount: true,
+    });
+  });
+
+  it('adds UTXO fee-rate reserve using transaction size for native BTC swaps', () => {
+    expect(
+      getSwapRequiredNativeBalanceAmount({
+        gasInfos: [{ gasInfo: btcGasInfo, txSize: 220 }],
+        networkId: 'btc--0',
+        fromToken: btcToken,
+        fromAmount: '0.0018',
+      }),
+    ).toEqual({
+      token: btcToken,
+      amount: '0.0018022',
+      reserveAmount: '0.0000022',
       includesFromAmount: true,
     });
   });
@@ -214,5 +301,163 @@ describe('getSwapRequiredNativeBalanceAmount', () => {
       reserveAmount: '0.020021',
       includesFromAmount: true,
     });
+  });
+});
+
+describe('getSwapEncodedTxSize', () => {
+  it('reads rebuilt UTXO txSize from encodedTx only when valid', () => {
+    expect(getSwapEncodedTxSize({ txSize: 220 } as IEncodedTx)).toBe(220);
+    expect(getSwapEncodedTxSize({ txSize: 0 } as IEncodedTx)).toBeUndefined();
+    expect(getSwapEncodedTxSize({ txSize: -1 } as IEncodedTx)).toBeUndefined();
+    expect(getSwapEncodedTxSize('raw-tx' as IEncodedTx)).toBeUndefined();
+  });
+});
+
+describe('validateSwapBtcOutputs', () => {
+  const btcTransferInfo = {
+    from: 'bc1from',
+    to: 'bc1provider',
+    amount: '0.00179536',
+    tokenInfo: {
+      networkId: 'btc--0',
+      address: '',
+      symbol: 'BTC',
+      decimals: 8,
+      isNative: true,
+    },
+  } as ITransferInfo;
+
+  it('blocks UTXO swap transactions when the provider payment output is missing', () => {
+    expect(
+      validateSwapBtcOutputs({
+        networkId: 'btc--0',
+        encodedTx: {
+          outputs: [
+            {
+              address: 'bc1change',
+              value: '1000',
+            },
+          ],
+        } as IEncodedTx,
+        transferInfo: btcTransferInfo,
+      }),
+    ).toEqual({
+      type: 'payment_output_missing',
+      expectedAmount: '0.00179536',
+      actualAmount: '0',
+      expectedAmountBase: '179536',
+      actualAmountBase: '0',
+    });
+  });
+
+  it('blocks UTXO swap transactions when SendMax reduces the provider output', () => {
+    expect(
+      validateSwapBtcOutputs({
+        networkId: 'btc--0',
+        encodedTx: {
+          outputs: [
+            {
+              address: 'bc1provider',
+              value: '179316',
+            },
+          ],
+        } as IEncodedTx,
+        transferInfo: btcTransferInfo,
+      }),
+    ).toEqual({
+      type: 'payment_output_less_than_order_amount',
+      expectedAmount: '0.00179536',
+      actualAmount: '0.00179316',
+      expectedAmountBase: '179536',
+      actualAmountBase: '179316',
+    });
+  });
+
+  it('allows UTXO swap transactions when the provider output matches the order amount', () => {
+    expect(
+      validateSwapBtcOutputs({
+        networkId: 'btc--0',
+        encodedTx: {
+          outputs: [
+            {
+              address: 'bc1provider',
+              value: '179536',
+            },
+            {
+              address: 'bc1change',
+              value: '1000',
+            },
+          ],
+        } as IEncodedTx,
+        transferInfo: btcTransferInfo,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('blocks BTC swap transactions when required OP_RETURN output is missing', () => {
+    expect(
+      validateSwapBtcOutputs({
+        networkId: 'btc--0',
+        encodedTx: {
+          outputs: [
+            {
+              address: 'bc1provider',
+              value: '179536',
+            },
+          ],
+        } as IEncodedTx,
+        transferInfo: {
+          ...btcTransferInfo,
+          opReturn: '=:BNB.BNB:bnb1recipient',
+        } as ITransferInfo,
+      }),
+    ).toEqual({
+      type: 'op_return_missing',
+      expectedOpReturn: '=:BNB.BNB:bnb1recipient',
+    });
+  });
+
+  it('allows BTC swap transactions when required OP_RETURN output exists', () => {
+    expect(
+      validateSwapBtcOutputs({
+        networkId: 'btc--0',
+        encodedTx: {
+          outputs: [
+            {
+              address: 'bc1provider',
+              value: '179536',
+            },
+            {
+              address: '',
+              value: '0',
+              payload: {
+                opReturn: '=:BNB.BNB:bnb1recipient',
+              },
+            },
+          ],
+        } as IEncodedTx,
+        transferInfo: {
+          ...btcTransferInfo,
+          opReturn: '=:BNB.BNB:bnb1recipient',
+        } as ITransferInfo,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('skips exact-output validation for non-BTC networks', () => {
+    expect(
+      validateSwapBtcOutputs({
+        networkId: 'ada--0',
+        encodedTx: {
+          outputs: [
+            {
+              address: 'bc1provider',
+              amount: '179536',
+            },
+          ],
+        } as IEncodedTx,
+        transferInfo: btcTransferInfo,
+      }),
+    ).toBeUndefined();
   });
 });

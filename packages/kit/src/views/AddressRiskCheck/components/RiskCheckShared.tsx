@@ -3,7 +3,13 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { ColorTokens } from '@onekeyhq/components';
-import { Divider, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Divider,
+  Popover,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { IBadgeType } from '@onekeyhq/components/src/content/Badge';
 import { formatKytRiskFactorCategory } from '@onekeyhq/kit/src/utils/kytRiskFactorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -69,15 +75,27 @@ export const LEVEL_TITLE: Record<EKytRiskLevel, ETranslations> = {
 export function CardRow({
   label,
   children,
+  tooltip,
 }: {
   label: string;
   children: React.ReactNode;
+  tooltip?: string;
 }) {
   return (
     <XStack px="$4" py="$2.5" ai="center" jc="space-between" gap="$2">
-      <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
-        {label}
-      </SizableText>
+      <XStack ai="center" gap="$1" flexShrink={0}>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {label}
+        </SizableText>
+        {tooltip ? (
+          <Popover.Tooltip
+            title={label}
+            tooltip={tooltip}
+            placement="bottom"
+            iconSize="$4"
+          />
+        ) : null}
+      </XStack>
       {children}
     </XStack>
   );
@@ -85,7 +103,7 @@ export function CardRow({
 
 export function RiskFactorCard({ factor }: { factor: IKytRiskFactor }) {
   const intl = useIntl();
-  const rows: { label: string; value: string }[] = [];
+  const rows: { label: string; value: string; tooltip?: string }[] = [];
   if (factor.entity) {
     rows.push({
       label: intl.formatMessage({
@@ -100,6 +118,9 @@ export function RiskFactorCard({ factor }: { factor: IKytRiskFactor }) {
         id: ETranslations.kyt_risk_factor_exposure__title,
       }),
       value: factor.exposureType,
+      tooltip: intl.formatMessage({
+        id: ETranslations.address_risk_check_exposure_type_tooltip__desc,
+      }),
     });
   }
   if (factor.hops !== undefined) {
@@ -111,6 +132,9 @@ export function RiskFactorCard({ factor }: { factor: IKytRiskFactor }) {
         { id: ETranslations.kyt_risk_factor_distance_hops__msg },
         { count: factor.hops },
       ),
+      tooltip: intl.formatMessage({
+        id: ETranslations.address_risk_check_distance_tooltip__desc,
+      }),
     });
   }
   // Exposure amount and share are shown together on one "Exposure / Share" row.
@@ -131,6 +155,9 @@ export function RiskFactorCard({ factor }: { factor: IKytRiskFactor }) {
         id: ETranslations.address_risk_check_exposure_share__title,
       }),
       value: exposureShareValue,
+      tooltip: intl.formatMessage({
+        id: ETranslations.address_risk_check_exposure_share_tooltip__desc,
+      }),
     });
   }
 
@@ -149,7 +176,7 @@ export function RiskFactorCard({ factor }: { factor: IKytRiskFactor }) {
       {rows.map((row) => (
         <YStack key={row.label}>
           <Divider />
-          <CardRow label={row.label}>
+          <CardRow label={row.label} tooltip={row.tooltip}>
             <SizableText size="$bodyMdMedium" textAlign="right">
               {row.value}
             </SizableText>

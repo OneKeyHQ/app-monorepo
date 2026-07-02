@@ -98,7 +98,9 @@ import {
   buildSwapTokenSelectorDisableNetworks,
   getSwapStockTokenDisplayName,
   isSwapStockMetadataPending,
+  isSwapStockTokenSearchMatch,
   isSwapTokenSelectorFromNetworkBridgeOnly,
+  normalizeSwapStockSelectableToken,
 } from './SwapTokenSelectModal.utils';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -126,6 +128,37 @@ const getRawSwapToken = (item: ISwapToken | IFuseResult<ISwapToken>) =>
     : (item as ISwapToken);
 
 const EMPTY_SWAP_TOKEN_LIST: (ISwapToken | IFuseResult<ISwapToken>)[] = [];
+const TOKEN_SELECTOR_LOADING_ROW_COUNT = 5;
+
+function SwapTokenSelectListSkeletonItem() {
+  return (
+    <ListItem>
+      <Skeleton w="$10" h="$10" radius="round" />
+      <YStack>
+        <YStack py="$1">
+          <Skeleton h="$4" w="$32" />
+        </YStack>
+        <YStack py="$1">
+          <Skeleton h="$3" w="$24" />
+        </YStack>
+      </YStack>
+    </ListItem>
+  );
+}
+
+function SwapTokenSelectListSkeleton() {
+  return (
+    <>
+      {Array.from({ length: TOKEN_SELECTOR_LOADING_ROW_COUNT }).map(
+        (_, index) => (
+          <SwapTokenSelectListSkeletonItem
+            key={`swap-token-select-skeleton-${index}`}
+          />
+        ),
+      )}
+    </>
+  );
+}
 
 const SwapTokenSelectPage = ({
   autoSearch = false,
@@ -153,6 +186,7 @@ const SwapTokenSelectPage = ({
   const requestedSearchKeyword = searchKeyword
     ? searchKeywordDebounce
     : searchKeyword;
+  const isSearchKeywordSettling = searchKeyword !== requestedSearchKeyword;
   const [rawSwapNetworks] = useSwapNetworksAtom();
   const [swapNetworksIncludeAllNetworkBase] =
     useSwapNetworksIncludeAllNetworkAtom();
@@ -392,10 +426,42 @@ const SwapTokenSelectPage = ({
     searchAnalyticsOverride,
     swapNetworksIncludeAllNetwork,
   );
+  const stockSearchBaseNetworkId = currentSelectNetwork?.networkId;
+  const stockSearchBaseTokensRef = useRef<{
+    networkId?: string;
+    tokens: (ISwapToken | IFuseResult<ISwapToken>)[];
+  }>({
+    tokens: [],
+  });
+  useEffect(() => {
+    if (
+      isSwapStockSelectTarget &&
+      !requestedSearchKeyword &&
+      currentTokens.length > 0
+    ) {
+      stockSearchBaseTokensRef.current = {
+        networkId: stockSearchBaseNetworkId,
+        tokens: currentTokens,
+      };
+    }
+  }, [
+    currentTokens,
+    isSwapStockSelectTarget,
+    requestedSearchKeyword,
+    stockSearchBaseNetworkId,
+  ]);
+  const stockSearchBaseTokens =
+    stockSearchBaseTokensRef.current.networkId === stockSearchBaseNetworkId
+      ? stockSearchBaseTokensRef.current.tokens
+      : EMPTY_SWAP_TOKEN_LIST;
   const stockMetadataRequestSnapshot = useMemo<IStockMetadataRequest>(() => {
     if (!isSwapStockSelectTarget) {
       return { tokenAddressEntries: [], tokenKey: '' };
     }
+    const metadataSourceTokens =
+      requestedSearchKeyword && currentTokens.length === 0
+        ? stockSearchBaseTokens
+        : currentTokens;
     const tokenAddressMap = new Map<
       string,
       {
@@ -404,7 +470,7 @@ const SwapTokenSelectPage = ({
         isNative: boolean;
       }
     >();
-    for (const item of currentTokens) {
+    for (const item of metadataSourceTokens) {
       const rawItem = getRawSwapToken(item);
       const key = buildSwapStockMetadataKey({
         contractAddress: rawItem.contractAddress,
@@ -423,7 +489,12 @@ const SwapTokenSelectPage = ({
       tokenAddressEntries,
       tokenKey: tokenAddressEntries.map(([key]) => key).join(','),
     };
-  }, [currentTokens, isSwapStockSelectTarget]);
+  }, [
+    currentTokens,
+    isSwapStockSelectTarget,
+    requestedSearchKeyword,
+    stockSearchBaseTokens,
+  ]);
   const stockMetadataRequestRef = useRef<IStockMetadataRequest>(
     stockMetadataRequestSnapshot,
   );
@@ -492,10 +563,50 @@ const SwapTokenSelectPage = ({
     stockMetadataLoading,
     stockMetadataTokenKey,
   });
+  const stockSearchFallbackTokens = useMemo(() => {
+    if (
+      !isSwapStockSelectTarget ||
+      !requestedSearchKeyword ||
+      currentTokens.length > 0 ||
+      stockMetadataPending
+    ) {
+      return EMPTY_SWAP_TOKEN_LIST;
+    }
+
+    return stockSearchBaseTokens.filter((item) => {
+      const rawItem = getRawSwapToken(item);
+      const stock =
+        rawItem.contractAddress && rawItem.networkId
+          ? stockMetadataMap?.[
+              buildSwapStockMetadataKey({
+                contractAddress: rawItem.contractAddress,
+                networkId: rawItem.networkId,
+              })
+            ]
+          : undefined;
+      return isSwapStockTokenSearchMatch({
+        keyword: requestedSearchKeyword,
+        stock,
+        token: rawItem,
+      });
+    });
+  }, [
+    currentTokens.length,
+    isSwapStockSelectTarget,
+    requestedSearchKeyword,
+    stockMetadataMap,
+    stockMetadataPending,
+    stockSearchBaseTokens,
+  ]);
+  const tokensForDisplay =
+    stockSearchFallbackTokens.length > 0
+      ? stockSearchFallbackTokens
+      : currentTokens;
   const displayTokens = stockMetadataPending
     ? EMPTY_SWAP_TOKEN_LIST
-    : currentTokens;
-  const tokenListLoading = fetchLoading || stockMetadataPending;
+    : tokensForDisplay;
+  const tokenListLoading =
+    fetchLoading || stockMetadataPending || isSearchKeywordSettling;
   const alertIndex = useMemo(
     () =>
       displayTokens.findIndex((item) => {
@@ -660,9 +771,11 @@ const SwapTokenSelectPage = ({
               })
             ])
           : undefined;
-      const displayItem: ISwapTokenWithStock = stock
-        ? { ...rawItem, stock }
-        : rawItem;
+      const displayItem: ISwapTokenWithStock =
+        normalizeSwapStockSelectableToken({
+          stock,
+          token: rawItem,
+        });
       const balanceBN = new BigNumber(rawItem.balanceParsed ?? 0);
       const fiatValueBN = new BigNumber(rawItem.fiatValue ?? 0);
       const contractAddressDisplay = md
@@ -873,6 +986,23 @@ const SwapTokenSelectPage = ({
     !isSwapStockSelectTarget &&
     currentNetworkPopularTokens.length > 0 &&
     !requestedSearchKeyword;
+  const tokenListEmptyComponent = useMemo(() => {
+    if (tokenListLoading) {
+      return <SwapTokenSelectListSkeleton />;
+    }
+
+    return (
+      <Empty
+        illustration="TwoBlocks"
+        title={intl.formatMessage({
+          id: ETranslations.global_no_results,
+        })}
+        description={intl.formatMessage({
+          id: ETranslations.token_no_search_results_desc,
+        })}
+      />
+    );
+  }, [intl, tokenListLoading]);
   return (
     <Page lazyLoad={!platformEnv.isNativeIOS} safeAreaEnabled={false}>
       <Page.Header
@@ -988,35 +1118,7 @@ const SwapTokenSelectPage = ({
               ) : null
             }
             ListFooterComponent={<Stack h={bottom || '$2'} />}
-            ListEmptyComponent={
-              tokenListLoading ? (
-                <>
-                  {Array.from({ length: 5 }).map((_, index) => (
-                    <ListItem key={String(index)}>
-                      <Skeleton w="$10" h="$10" radius="round" />
-                      <YStack>
-                        <YStack py="$1">
-                          <Skeleton h="$4" w="$32" />
-                        </YStack>
-                        <YStack py="$1">
-                          <Skeleton h="$3" w="$24" />
-                        </YStack>
-                      </YStack>
-                    </ListItem>
-                  ))}
-                </>
-              ) : (
-                <Empty
-                  illustration="TwoBlocks"
-                  title={intl.formatMessage({
-                    id: ETranslations.global_no_results,
-                  })}
-                  description={intl.formatMessage({
-                    id: ETranslations.token_no_search_results_desc,
-                  })}
-                />
-              )
-            }
+            ListEmptyComponent={tokenListEmptyComponent}
           />
         </YStack>
       </Page.Body>

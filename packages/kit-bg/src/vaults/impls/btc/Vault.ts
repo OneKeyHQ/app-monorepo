@@ -849,14 +849,10 @@ export default class VaultBtc extends VaultBase {
     } = await this._buildTransferParamsWithCoinSelector(params);
 
     if (!inputs || !outputs || isNil(fee)) {
-      const insufficientBalance = appLocale.intl.formatMessage({
-        id: ETranslations.earn_insufficient_balance,
-      });
-      const description = appLocale.intl.formatMessage({
-        id: ETranslations.send_toast_btc_fork_insufficient_fund,
-      });
       throw new InsufficientBalance({
-        message: `${insufficientBalance} ${description}`,
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.send_toast_btc_fork_insufficient_fund,
+        }),
       });
     }
 

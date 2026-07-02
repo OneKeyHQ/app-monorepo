@@ -3,6 +3,7 @@
 /* oxlint-disable import-js/order */
 // check  polyfillsPlatform.ext.ts  or   polyfillsPlatform.native.js
 import './setimmediateShim';
+import './requestIdleCallbackShim';
 import './globalShim';
 import './indexedDBShim/indexedDBShim';
 

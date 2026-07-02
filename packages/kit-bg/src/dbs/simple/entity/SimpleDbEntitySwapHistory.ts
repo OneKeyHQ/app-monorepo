@@ -122,6 +122,9 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
       // isStock flag, so clearing it must use the same rule (protocol exclusion
       // alone would delete stock orders the user can't see on that tab).
       excludeStock?: boolean;
+      // Mirror of excludeStock for the Stock history surface: only clear stock
+      // trades, keeping everything the Swap/Bridge list owns.
+      onlyStock?: boolean;
     },
   ) {
     const shouldKeepHistory = (history: ISwapTxHistory) => {
@@ -134,6 +137,9 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
         return true;
       }
       if (options?.excludeStock && isStockSwapHistoryItem(history)) {
+        return true;
+      }
+      if (options?.onlyStock && !isStockSwapHistoryItem(history)) {
         return true;
       }
       return statuses ? !statuses.includes(history.status) : false;

@@ -173,6 +173,9 @@ const NS = {
   perpsOrderBookTickOptions: 'perpsOrderBookTicks',
   perpsL2BookSnapshot: 'perpsL2Book',
   historyTxDetail: 'historyTxDetail',
+  swapStockTokenDetail: 'swapStockTokenDetail',
+  swapStockSpeedConfig: 'swapStockSpeedConfig',
+  swapStockPayTokenDetails: 'swapStockPayTokenDetails',
 } as const;
 export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
 export const swrCacheNamespaces = NS;
@@ -377,6 +380,12 @@ export const swrKeys = {
     txid: string;
   }) =>
     [NS.historyTxDetail, 'v1', networkId, accountAddress ?? '', txid].join(':'),
+  swapStockTokenDetail: ({ tokenScope }: { tokenScope: string }) =>
+    [NS.swapStockTokenDetail, 'v1', tokenScope].join(':'),
+  swapStockSpeedConfig: ({ networkId }: { networkId: string }) =>
+    [NS.swapStockSpeedConfig, 'v1', networkId].join(':'),
+  swapStockPayTokenDetails: ({ scope }: { scope: string }) =>
+    [NS.swapStockPayTokenDetails, 'v1', scope].join(':'),
 };
 
 function uniqueCacheKeys(keys: string[]) {
