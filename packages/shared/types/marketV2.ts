@@ -18,6 +18,13 @@ export interface IBtcMetadata {
   stale: boolean;
 }
 
+export interface IMarketTokenHistoricalPriceFields {
+  price5mAgo?: string;
+  price1hAgo?: string;
+  price4hAgo?: string;
+  price24hAgo?: string;
+}
+
 export interface IMarketTokenDetail {
   networkId?: string;
   isNative?: boolean;
@@ -175,7 +182,7 @@ export interface IMarketStockInfo {
   underlyingAssetName?: string;
 }
 
-export interface IMarketTokenListItem {
+export interface IMarketTokenListItem extends IMarketTokenHistoricalPriceFields {
   address: string;
   logoUrl?: string;
   logoUrls?: string[];
