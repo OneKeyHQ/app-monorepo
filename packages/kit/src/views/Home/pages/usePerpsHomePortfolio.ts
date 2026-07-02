@@ -97,7 +97,7 @@ function isCurrentAccountConfirmedPerpsTx({
 interface IPerpsHomePortfolioResult {
   address: string;
   view: IPerpsHomeView | undefined;
-  snapshotLoaded: boolean;
+  requestResolved: boolean;
 }
 
 export function usePerpsHomePortfolio(): {
@@ -137,10 +137,10 @@ export function usePerpsHomePortfolio(): {
     usePromiseResult<IPerpsHomePortfolioResult>(
       async () => {
         if (!accountId && !indexedAccountId) {
-          return { address: '', view: undefined, snapshotLoaded: true };
+          return { address: '', view: undefined, requestResolved: true };
         }
         if (!perpsDeriveType) {
-          return { address: '', view: undefined, snapshotLoaded: false };
+          return { address: '', view: undefined, requestResolved: false };
         }
         let address = '';
         try {
@@ -155,10 +155,10 @@ export function usePerpsHomePortfolio(): {
           address = acc?.addressDetail?.normalizedAddress || acc?.address || '';
         } catch {
           // account has no Arbitrum derivation, so there is no HL address to query
-          return { address: '', view: undefined, snapshotLoaded: true };
+          return { address: '', view: undefined, requestResolved: true };
         }
         if (!address) {
-          return { address: '', view: undefined, snapshotLoaded: true };
+          return { address: '', view: undefined, requestResolved: true };
         }
         const snapshot =
           await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
@@ -167,7 +167,7 @@ export function usePerpsHomePortfolio(): {
         return {
           address,
           view: snapshot ? mapSnapshotToPerpsHomeView(snapshot) : undefined,
-          snapshotLoaded: Boolean(snapshot),
+          requestResolved: true,
         };
       },
       [accountId, indexedAccountId, perpsDeriveType],
@@ -268,7 +268,7 @@ export function usePerpsHomePortfolio(): {
         setResult({
           address,
           view: mapSnapshotToPerpsHomeView(snapshot),
-          snapshotLoaded: true,
+          requestResolved: true,
         });
       }
       // The event carries a Perps deposit source marker but not the deposit
@@ -323,7 +323,7 @@ export function usePerpsHomePortfolio(): {
         setResult({
           address,
           view: mapSnapshotToPerpsHomeView(snapshot),
-          snapshotLoaded: true,
+          requestResolved: true,
         });
       }
     };
@@ -423,7 +423,7 @@ export function usePerpsHomePortfolio(): {
   const viewState = useMemo<'ready' | 'loading' | 'empty'>(() => {
     // result is undefined until a fetch resolves for the current account key (swrKey
     // resets it synchronously on switch), so an unresolved key reads as loading, not empty.
-    if (result === undefined || !result.snapshotLoaded) {
+    if (result === undefined || !result.requestResolved) {
       return 'loading';
     }
     return view && !view.isEmpty ? 'ready' : 'empty';

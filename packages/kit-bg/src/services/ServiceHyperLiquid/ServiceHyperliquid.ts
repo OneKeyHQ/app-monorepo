@@ -969,10 +969,19 @@ export default class ServiceHyperliquid extends ServiceBase {
     const { infoClient } = hyperLiquidApiClients;
     const dexes = ['', ...DEX_PREFIXES];
     return Promise.all(
-      dexes.map(async (dex) => ({
-        dex,
-        state: await infoClient.clearinghouseState({ user, dex }),
-      })),
+      dexes.map(async (dex) => {
+        try {
+          return {
+            dex,
+            state: await infoClient.clearinghouseState({ user, dex }),
+          };
+        } catch (error) {
+          if (!dex) {
+            throw error;
+          }
+          return { dex, state: undefined };
+        }
+      }),
     );
   }
 
