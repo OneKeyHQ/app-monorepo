@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/shared/src/utils/uriUtils';
 
 import ErrorView from './ErrorView';
+import { EDesktopWebViewPreloadKind } from './types';
 import { WEBVIEW_LOAD_TIMEOUT_MS, createMessageInjectedScript } from './utils';
 
 import type {
@@ -56,13 +57,62 @@ type IDesktopDidFailLoadEvent = DidFailLoadEvent & {
   url?: string;
 };
 
-let preloadJsUrl = '';
+type IBridgePreloadKind = Exclude<
+  EDesktopWebViewPreloadKind,
+  EDesktopWebViewPreloadKind.None
+>;
 
-void globalThis.desktopApiProxy.webview
-  .getPreloadJsContent()
-  .then((url: string) => {
-    preloadJsUrl = url;
-  });
+const DEFAULT_PRELOAD_KIND: IBridgePreloadKind =
+  EDesktopWebViewPreloadKind.Dapp;
+
+const preloadJsUrls: Partial<Record<IBridgePreloadKind, string>> = {};
+const preloadJsUrlLoadErrors: Partial<Record<IBridgePreloadKind, unknown>> = {};
+const preloadJsUrlPromises: Partial<
+  Record<IBridgePreloadKind, Promise<string>>
+> = {};
+
+const getPreloadJsContent = (kind: IBridgePreloadKind) =>
+  kind === EDesktopWebViewPreloadKind.Chart
+    ? globalThis.desktopApiProxy.webview.getChartPreloadJsContent()
+    : globalThis.desktopApiProxy.webview.getPreloadJsContent();
+
+const loadPreloadJsUrl = (kind: IBridgePreloadKind, force = false) => {
+  if (!force && preloadJsUrlPromises[kind]) {
+    return preloadJsUrlPromises[kind];
+  }
+  preloadJsUrlPromises[kind] = getPreloadJsContent(kind)
+    .then((url: string) => {
+      preloadJsUrls[kind] = url;
+      preloadJsUrlLoadErrors[kind] = undefined;
+      return url;
+    })
+    .catch((error: unknown) => {
+      preloadJsUrlLoadErrors[kind] = error;
+      console.error(
+        `DesktopWebView: failed to resolve ${kind} preload url`,
+        error,
+      );
+      return '';
+    });
+  return preloadJsUrlPromises[kind];
+};
+
+void loadPreloadJsUrl(DEFAULT_PRELOAD_KIND);
+
+function getDesktopWebViewOrigin(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.origin && parsed.origin !== 'null') {
+      return parsed.origin;
+    }
+    if (parsed.protocol && parsed.host) {
+      return `${parsed.protocol}//${parsed.host}`;
+    }
+  } catch {
+    // noop
+  }
+  return '';
+}
 
 // Used for webview type referencing
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -76,6 +126,7 @@ const DesktopWebView = forwardRef(
       receiveHandler,
       allowpopups,
       disableBridge,
+      preloadKind = DEFAULT_PRELOAD_KIND,
       partition: partitionProp,
       onDidStartLoading,
       onDidStartNavigation,
@@ -95,8 +146,18 @@ const DesktopWebView = forwardRef(
       IInpageProviderWebViewProps,
     ref: any,
   ) => {
+    const bridgeDisabled =
+      disableBridge || preloadKind === EDesktopWebViewPreloadKind.None;
+    const bridgePreloadKind =
+      preloadKind === EDesktopWebViewPreloadKind.None
+        ? DEFAULT_PRELOAD_KIND
+        : preloadKind;
     const [isWebviewReady, setIsWebviewReady] = useState(false);
     const [isDomReady, setIsDomReady] = useState(false);
+    const [, setPreloadLoadVersion] = useState(0);
+    const [preloadJsLoadFailed, setPreloadJsLoadFailed] = useState(
+      Boolean(preloadJsUrlLoadErrors[bridgePreloadKind]),
+    );
     const webviewRef = useRef<IElectronWebView | null>(null);
     const pendingScriptsRef = useRef<string[]>([]);
     const [devToolsAtLeft, setDevToolsAtLeft] = useState(false);
@@ -131,6 +192,39 @@ const DesktopWebView = forwardRef(
         }
       }, WEBVIEW_LOAD_TIMEOUT_MS);
     }, [clearLoadTimeout]);
+
+    useEffect(() => {
+      if (bridgeDisabled) {
+        return;
+      }
+      setPreloadJsLoadFailed(
+        Boolean(preloadJsUrlLoadErrors[bridgePreloadKind]),
+      );
+      if (preloadJsUrls[bridgePreloadKind]) {
+        setPreloadLoadVersion((v) => v + 1);
+      }
+    }, [bridgeDisabled, bridgePreloadKind]);
+
+    useEffect(() => {
+      if (bridgeDisabled || preloadJsUrls[bridgePreloadKind]) {
+        return;
+      }
+      let cancelled = false;
+      void loadPreloadJsUrl(bridgePreloadKind).then((url) => {
+        if (cancelled) {
+          return;
+        }
+        if (url) {
+          setPreloadJsLoadFailed(false);
+        } else {
+          setPreloadJsLoadFailed(true);
+        }
+        setPreloadLoadVersion((v) => v + 1);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, [bridgeDisabled, bridgePreloadKind]);
 
     const flushPendingScripts = useCallback(() => {
       if (!isDomReady || !webviewRef.current) {
@@ -418,7 +512,7 @@ const DesktopWebView = forwardRef(
 
     useEffect(() => {
       const webview = webviewRef.current;
-      if (!webview || !isWebviewReady || disableBridge) {
+      if (!webview || !isWebviewReady || bridgeDisabled) {
         return;
       }
 
@@ -451,12 +545,7 @@ const DesktopWebView = forwardRef(
                 const url3 = src;
                 const url = url1 || url2 || url3;
                 if (url) {
-                  try {
-                    const uri = new URL(url);
-                    originInUrl = uri?.origin || '';
-                  } catch {
-                    // noop
-                  }
+                  originInUrl = getDesktopWebViewOrigin(url);
                 }
                 if (
                   originInUrl &&
@@ -489,13 +578,33 @@ const DesktopWebView = forwardRef(
       return () => {
         webview.removeEventListener('ipc-message', handleMessage);
       };
-    }, [jsBridgeHost, isWebviewReady, src, disableBridge]);
+    }, [jsBridgeHost, isWebviewReady, src, bridgeDisabled]);
 
     useEffect(() => {
       flushPendingScripts();
     }, [flushPendingScripts, isWebviewReady]);
 
-    if (!preloadJsUrl && !disableBridge) {
+    const effectivePreloadJsUrl = bridgeDisabled
+      ? ''
+      : preloadJsUrls[bridgePreloadKind] || '';
+
+    if (!effectivePreloadJsUrl && !bridgeDisabled) {
+      if (preloadJsLoadFailed) {
+        return (
+          <ErrorView
+            onRefresh={() => {
+              setPreloadJsLoadFailed(false);
+              void loadPreloadJsUrl(bridgePreloadKind, true).then((url) => {
+                if (url) {
+                  setPreloadLoadVersion((v) => v + 1);
+                } else {
+                  setPreloadJsLoadFailed(true);
+                }
+              });
+            }}
+          />
+        );
+      }
       return null;
     }
 
@@ -523,7 +632,7 @@ const DesktopWebView = forwardRef(
         ) : null}
         <webview
           ref={initWebviewByRef}
-          {...(disableBridge ? {} : { preload: preloadJsUrl })}
+          {...(bridgeDisabled ? {} : { preload: effectivePreloadJsUrl })}
           src={src}
           partition={partitionProp ?? 'persist:onekey'}
           style={{

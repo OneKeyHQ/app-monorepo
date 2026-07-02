@@ -34,6 +34,10 @@ const baseElectronBuilderConfig = {
       'from': 'app/build/static/preload.js',
       'to': 'static/preload.js',
     },
+    {
+      'from': 'app/build/static/desktop-chart-preload.js',
+      'to': 'static/desktop-chart-preload.js',
+    },
   ],
   'publish': {
     'provider': 'github',

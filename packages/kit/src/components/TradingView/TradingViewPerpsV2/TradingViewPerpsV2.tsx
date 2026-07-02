@@ -23,6 +23,7 @@ import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { useNetworkRestore } from '../../../hooks/useNetworkRestore';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
+import { EDesktopWebViewPreloadKind } from '../../WebView/types';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
 import { MESSAGE_TYPES } from './constants/messageTypes';
@@ -625,6 +626,9 @@ export function TradingViewPerpsV2(
         onWebViewRef={onWebViewRef}
         onLoadEnd={onLoadEnd}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+        preloadKind={
+          platformEnv.isDesktop ? EDesktopWebViewPreloadKind.Chart : undefined
+        }
         nativeInjectedJavaScriptBeforeContentLoaded={
           platformEnv.isNativeAndroid
             ? hideTradingViewBuiltInLoadingScript

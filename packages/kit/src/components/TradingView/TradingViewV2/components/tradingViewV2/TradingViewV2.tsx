@@ -15,7 +15,10 @@ import {
   useTradingViewUrl,
 } from '@onekeyhq/kit/src/components/TradingView/hooks';
 import WebView from '@onekeyhq/kit/src/components/WebView';
-import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
+import {
+  EDesktopWebViewPreloadKind,
+  type IWebViewRef,
+} from '@onekeyhq/kit/src/components/WebView/types';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
@@ -668,6 +671,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         allowsBackForwardNavigationGestures={false}
         onLoadStart={handleLoadStart}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+        preloadKind={
+          platformEnv.isDesktop ? EDesktopWebViewPreloadKind.Chart : undefined
+        }
         displayProgressBar={false}
         pullToRefreshEnabled={false}
         scrollEnabled={false}

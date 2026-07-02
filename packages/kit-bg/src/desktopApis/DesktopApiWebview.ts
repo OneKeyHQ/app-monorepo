@@ -81,6 +81,36 @@ export function getFiatPaySiteWhitelistDomainKeys(): Set<string> {
   return fiatPaySiteWhitelistDomainKeys;
 }
 
+async function getStaticPreloadJsContent(filename: string): Promise<string> {
+  const staticPath = getStaticPath();
+  const preloadJsPath = path.join(staticPath, filename);
+  logger.info('getStaticPreloadJsContent', preloadJsPath);
+  if (globalThis.$desktopMainAppFunctions?.useJsBundle?.()) {
+    const bundleDirPath = getBundleDirPath();
+    const bundleData = store.getUpdateBundleData();
+    const metadata = bundleDirPath
+      ? await getMetadata({
+          bundleDir: bundleDirPath,
+          appVersion: bundleData.appVersion,
+          bundleVersion: bundleData.bundleVersion,
+          signature: bundleData.signature,
+        })
+      : {};
+    const driveLetter = getDriveLetter();
+    checkFileHash({
+      bundleDirPath,
+      metadata,
+      driveLetter,
+      url: preloadJsPath.replace(`${bundleDirPath}/`, ''),
+    });
+  }
+  // ref: https://github.com/electron/electron/blob/7e031f7e33dcc66cbe5e0e4153a0fc0544618612/lib/sandboxed_renderer/preload.ts#L47
+  // Add timestamp to prevent Node.js require cache from loading the same file only once
+  return isDev
+    ? `file://${preloadJsPath}?t=${Date.now()}`
+    : `file://${preloadJsPath}`;
+}
+
 class DesktopApiNetwork {
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
@@ -115,33 +145,11 @@ class DesktopApiNetwork {
   }
 
   async getPreloadJsContent(): Promise<string> {
-    const staticPath = getStaticPath();
-    const preloadJsPath = path.join(staticPath, 'preload.js');
-    logger.info('getPreloadJsContent', preloadJsPath);
-    if (globalThis.$desktopMainAppFunctions?.useJsBundle?.()) {
-      const bundleDirPath = getBundleDirPath();
-      const bundleData = store.getUpdateBundleData();
-      const metadata = bundleDirPath
-        ? await getMetadata({
-            bundleDir: bundleDirPath,
-            appVersion: bundleData.appVersion,
-            bundleVersion: bundleData.bundleVersion,
-            signature: bundleData.signature,
-          })
-        : {};
-      const driveLetter = getDriveLetter();
-      checkFileHash({
-        bundleDirPath,
-        metadata,
-        driveLetter,
-        url: preloadJsPath.replace(`${bundleDirPath}/`, ''),
-      });
-    }
-    // ref: https://github.com/electron/electron/blob/7e031f7e33dcc66cbe5e0e4153a0fc0544618612/lib/sandboxed_renderer/preload.ts#L47
-    // Add timestamp to prevent Node.js require cache from loading the same file only once
-    return isDev
-      ? `file://${preloadJsPath}?t=${Date.now()}`
-      : `file://${preloadJsPath}`;
+    return getStaticPreloadJsContent('preload.js');
+  }
+
+  async getChartPreloadJsContent(): Promise<string> {
+    return getStaticPreloadJsContent('desktop-chart-preload.js');
   }
 
   async getInjectedJsContent(): Promise<string> {

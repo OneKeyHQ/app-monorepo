@@ -68,6 +68,15 @@ class FileHashMetadataPlugin implements RspackPluginInstance {
           );
         }
 
+        if (
+          !fs.existsSync(path.join(destStaticPath, 'desktop-chart-preload.js'))
+        ) {
+          fs.copyFileSync(
+            path.join(srcStaticPath, 'desktop-chart-preload.js'),
+            path.join(destStaticPath, 'desktop-chart-preload.js'),
+          );
+        }
+
         const metadata: Record<string, string> = {};
 
         const isIgnoreFile = (filePath: string): boolean => {

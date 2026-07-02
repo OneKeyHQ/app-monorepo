@@ -9,6 +9,7 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import InpageProviderWebView from './InpageProviderWebView';
 
 import type {
+  EDesktopWebViewPreloadKind,
   IElectronWebViewEvents,
   IWebViewOnScroll,
   IWebViewRef,
@@ -84,6 +85,11 @@ export interface IWebViewProps
    * @see IInpageProviderWebViewProps.disableBridge
    */
   disableBridge?: boolean;
+  /** @platform desktop
+   * @description Selects the Electron preload script.
+   * @see IInpageProviderWebViewProps.preloadKind
+   */
+  preloadKind?: EDesktopWebViewPreloadKind;
   /** @platform desktop
    * @description Electron <webview> partition string.
    * @see IInpageProviderWebViewProps.partition

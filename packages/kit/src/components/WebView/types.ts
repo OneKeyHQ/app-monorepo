@@ -29,6 +29,12 @@ export type IWebViewOnScroll = WebViewSharedProps['onScroll'];
 export type IWebViewOnScrollEvent =
   IFirstParameterOrUndefined<IWebViewOnScroll>;
 
+export enum EDesktopWebViewPreloadKind {
+  Dapp = 'dapp',
+  Chart = 'chart',
+  None = 'none',
+}
+
 export interface IInpageProviderWebViewProps
   extends IElectronWebViewEvents, InpageWebViewProps {
   id?: string;
@@ -102,6 +108,11 @@ export interface IInpageProviderWebViewProps
    * - Desktop: skips preload script and backgroundApiProxy.connectBridge()
    */
   disableBridge?: boolean;
+  /** @platform desktop
+   * @description Selects the Electron preload script. Defaults to `dapp`.
+   * Use `chart` for first-party chart WebViews and `none` to skip preload injection.
+   */
+  preloadKind?: EDesktopWebViewPreloadKind;
   /** @platform desktop
    * @description Electron <webview> partition string. Defaults to the shared
    * Discovery / wallet partition. Overlay pages opened from deeplink /

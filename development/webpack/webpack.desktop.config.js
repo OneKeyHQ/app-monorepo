@@ -62,6 +62,15 @@ class FileHashMetadataPlugin {
           );
         }
 
+        if (
+          !fs.existsSync(path.join(destStaticPath, 'desktop-chart-preload.js'))
+        ) {
+          fs.copyFileSync(
+            path.join(srcStaticPath, 'desktop-chart-preload.js'),
+            path.join(destStaticPath, 'desktop-chart-preload.js'),
+          );
+        }
+
         const metadata = {};
 
         const isIgnoreFile = (filePath) => {
