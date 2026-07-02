@@ -218,8 +218,11 @@ function TokenDetailsHistoryContent({
   // `inTabList` also gates the scroll observer mount below, so the tab-context
   // hook never runs on the non-tab single-token detail path.
   const frozenTopEnabled = !!inTabList && focusParam;
+  // `historyCacheKey` doubles as the freeze identity: it changes exactly when
+  // the rows switch to a different history stream (account / network / token /
+  // filters / currency), which must drop the frozen baseline.
   const { displayedHistoryData: displayedHistory, onAwayFromTopChange } =
-    useFrozenTopHistoryData(resolvedHistory, frozenTopEnabled);
+    useFrozenTopHistoryData(resolvedHistory, frozenTopEnabled, historyCacheKey);
   // Derive initialized synchronously to avoid one-frame flash of empty history
   // when historyCacheKey changes and cachedHistory becomes undefined
   const effectiveInit = historyInit || cachedHistory !== undefined;

@@ -16,6 +16,7 @@ const noopOnAwayFromTopChange = () => {};
 export function useFrozenTopHistoryData(
   combined: IAccountHistoryTx[],
   _enabled: boolean,
+  _identityKey: string,
 ): IUseFrozenTopHistoryDataResult {
   return {
     displayedHistoryData: combined,

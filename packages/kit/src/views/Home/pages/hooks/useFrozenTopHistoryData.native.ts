@@ -37,11 +37,13 @@ import type { SharedValue } from 'react-native-reanimated';
 export function useFrozenTopHistoryData(
   combined: IAccountHistoryTx[],
   enabled: boolean,
+  identityKey: string,
 ): IUseFrozenTopHistoryDataResult {
   const [displayed, setDisplayed] = useState<IAccountHistoryTx[]>(combined);
   const displayedRef = useRef(displayed);
   const combinedRef = useRef(combined);
   const isAwayFromTopRef = useRef(false);
+  const identityKeyRef = useRef(identityKey);
 
   const apply = useCallback(() => {
     const next = selectVisibleHistoryRows({
@@ -68,8 +70,24 @@ export function useFrozenTopHistoryData(
   // Re-evaluate whenever the upstream merged list changes (poll / load-more).
   useEffect(() => {
     combinedRef.current = combined;
+    // An identity switch (account / network / all-networks scope / filter
+    // toggle) replaces the history stream instead of refreshing it, so the
+    // previous displayed-id baseline must stop acting as a freeze anchor: tx
+    // ids the new context happens to reuse would otherwise count as "already
+    // displayed" and its legitimate top rows would be withheld until the user
+    // scrolls back up (`selectVisibleHistoryRows`' wholesale-replacement
+    // bail-out only covers streams with zero id overlap). Dropping the away
+    // state makes `apply` render the incoming stream live and rebase
+    // `displayed` on it. The observer's worklet mirror is intentionally NOT
+    // re-synced here: while it stays stale no away=true crossing can fire, so
+    // freezing stays off for the new stream until the user returns near the
+    // top once — by which point the baseline belongs to the new stream.
+    if (identityKeyRef.current !== identityKey) {
+      identityKeyRef.current = identityKey;
+      isAwayFromTopRef.current = false;
+    }
     apply();
-  }, [combined, apply]);
+  }, [combined, identityKey, apply]);
 
   // When the gate turns off (list not being viewed) force the live list and
   // clear any stale "away" state so re-focusing always starts unfrozen. The

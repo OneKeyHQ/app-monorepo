@@ -602,9 +602,26 @@ function TxHistoryListContainer(
   const isFrozenTopTabScenario = !plainMode && !limit;
   const frozenTopEnabled =
     isFocused && isRouteFocused && isFrozenTopTabScenario;
+  // Freeze identity: the shared `identityKey` tuple plus the history filter
+  // toggles (which swap the visible row set with heavy id overlap). When it
+  // changes the hook drops its frozen baseline so the new stream renders live.
+  const frozenTopIdentityKey = useMemo(
+    () =>
+      [
+        identityKey,
+        settings.isFilterScamHistoryEnabled ? '1' : '0',
+        settings.isFilterLowValueHistoryEnabled ? '1' : '0',
+      ].join('|'),
+    [
+      identityKey,
+      settings.isFilterScamHistoryEnabled,
+      settings.isFilterLowValueHistoryEnabled,
+    ],
+  );
   const { displayedHistoryData, onAwayFromTopChange } = useFrozenTopHistoryData(
     combinedHistoryData,
     frozenTopEnabled,
+    frozenTopIdentityKey,
   );
 
   const lastVisibilityRefreshAtRef = useRef(0);
