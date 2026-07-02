@@ -54,7 +54,7 @@ function DeFiActionInfo(props: IProps) {
             {info.actionLabel}
           </SignatureConfirmItem.Label>
           <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
-            {info.assetLogoUrls && info.assetLogoUrls.length > 1 ? (
+            {info.assetLogoUrls?.length ? (
               <TokenGroup
                 tokens={info.assetLogoUrls.map((logoUrl) => ({
                   tokenImageUri: logoUrl,

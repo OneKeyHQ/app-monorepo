@@ -737,7 +737,7 @@ function scopeResolvedActionToAsset<T extends IResolvedDeFiPositionAction>({
     // representative token's. A row rendering any underlying must still find
     // the action — and it operates on the whole unit, so keep the full asset.
     return (item.underlyingAssets ?? []).some(
-      (underlying) => underlying.address.trim().toLowerCase() === target,
+      (underlying) => underlying.address?.trim().toLowerCase() === target,
     );
   });
   if (assets.length === 0) return undefined;

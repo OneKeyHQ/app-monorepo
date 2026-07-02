@@ -527,7 +527,8 @@ function buildDeFiActionTxConfirmInfo({
   // a preview estimate, so show only the pool pair + percent and let the
   // decoded tx details carry the real amounts.
   if (action.action === EDeFiPositionAction.RemoveLiquidity) {
-    const underlyingLogoUrls = (selectedAsset.underlyingAssets ?? [])
+    const underlyingAssets = selectedAsset.underlyingAssets ?? [];
+    const underlyingLogoUrls = underlyingAssets
       .map((item) => item.meta?.logoUrl)
       .filter((logoUrl): logoUrl is string => Boolean(logoUrl));
     return {
@@ -538,8 +539,12 @@ function buildDeFiActionTxConfirmInfo({
         selectedAsset,
       }),
       assetLogoUrl: selectedAsset.asset.meta?.logoUrl,
+      // Same threshold as the joined pair symbol (>1 underlying), so the
+      // icons always match the text; missing logos degrade to fewer icons.
       assetLogoUrls:
-        underlyingLogoUrls.length > 1 ? underlyingLogoUrls : undefined,
+        underlyingAssets.length > 1 && underlyingLogoUrls.length > 0
+          ? underlyingLogoUrls
+          : undefined,
       extraLabel: getActionExtraLabel({
         action: action.action,
         asset: selectedAsset,
