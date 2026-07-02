@@ -54,6 +54,17 @@ import {
 
 const DEFAULT_ACTION_PERCENT = 100;
 const PERCENTAGE_PRESET_VALUES = [25, 50, 75, 100] as const;
+
+// Both action heroes (typed-amount and percentage) reserve this height and
+// center their content, so the Dialog stays the same size in either mode and
+// never resizes as the typed amount changes length. 128px matches the
+// percentage hero's natural height ($heading5xl value + fiat row + $6 breathing).
+const DEFI_ACTION_HERO_MIN_HEIGHT = 128;
+
+// Cap the typed-amount font to the percentage hero's $heading5xl (40px) so the
+// two heroes read as one, and so a short amount can't grow past the reserved
+// height (SendAutoSizeAmountInput otherwise ramps up to ~84px on desktop).
+const MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE = 40;
 const resolveActionTxAmount = resolveDeFiActionTxAmount as (params: {
   percentageAction: boolean;
   percent?: number;
@@ -1012,10 +1023,15 @@ function ProtocolPositionActionPercentHero({
   const normalizedPercent = normalizeActionPercent(percent);
   // Mirror the typed-amount hero (SendAutoSizeAmountInput): no top label — the
   // Dialog.Title already carries the verb — a large centered value with the
-  // fiat at $headingLg beneath, and the same py="$6" breathing room, so the
+  // fiat at $headingLg beneath, sharing DEFI_ACTION_HERO_MIN_HEIGHT so the
   // percentage and typed-amount flows read as one hero, not two screens.
   return (
-    <YStack gap="$2" alignItems="center" py="$6">
+    <YStack
+      gap="$2"
+      alignItems="center"
+      justifyContent="center"
+      minHeight={DEFI_ACTION_HERO_MIN_HEIGHT}
+    >
       <SizableText
         size="$heading5xl"
         color="$text"
@@ -1191,7 +1207,9 @@ function ProtocolPositionActionAmountInput({
   return (
     <YStack gap="$5">
       <SendAutoSizeAmountInput
-        py="$6"
+        minHeight={DEFI_ACTION_HERO_MIN_HEIGHT}
+        justifyContent="center"
+        maxFontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
         value={amount}
         onChange={onChangeAmount}
         tokenSymbol={symbol}
@@ -1310,12 +1328,11 @@ function ProtocolPositionActionDialogContent({
     action.action === EDeFiPositionAction.Repay;
   const manualAmountAsset = selectedAssets[0];
   // Manual entry only applies to a single fungible token; a multi-asset
-  // selection or Lido's permit withdraw keep the percentage slider.
+  // selection keeps the percentage slider. Lido's permit withdraw still uses
+  // manual amount input — the permit signature is handled at submit time and
+  // does not affect the input UI.
   const useManualAmountInput =
-    isManualAmountAction &&
-    !selectable &&
-    !isLidoProtocol(action.protocolId) &&
-    Boolean(manualAmountAsset);
+    isManualAmountAction && !selectable && Boolean(manualAmountAsset);
   const availableAmount = manualAmountAsset?.amount ?? '0';
   const amountDecimals = manualAmountAsset?.asset.meta?.decimals;
   const amountBN = new BigNumber(amount || '0');
