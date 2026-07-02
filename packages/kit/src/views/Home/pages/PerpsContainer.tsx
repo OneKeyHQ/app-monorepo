@@ -28,6 +28,10 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
+import {
+  spotActiveAssetAtom,
+  tradingModeAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import {
   EAppEventBusNames,
@@ -102,16 +106,28 @@ function useOpenPerpAsset() {
         if (coin && !activePerpsAccount?.accountAddress) {
           return;
         }
+        try {
+          if (coin && mode === 'perp') {
+            await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
+              coin,
+            });
+            await tradingModeAtom.set('perp');
+          } else if (coin && mode === 'spot') {
+            await spotActiveAssetAtom.set({
+              coin,
+              assetId: undefined,
+              universe: undefined,
+            });
+            await tradingModeAtom.set('spot');
+          }
+        } catch {
+          return;
+        }
         navigation.switchTab(ETabRoutes.Perp);
         if (!coin) {
           return;
         }
         try {
-          if (mode === 'perp') {
-            await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-              coin,
-            });
-          }
           appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
             mode,
             coin,
