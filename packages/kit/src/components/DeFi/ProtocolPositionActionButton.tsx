@@ -390,10 +390,9 @@ function getManageActionLabel({
   return intl.formatMessage({ id: ETranslations.global_withdraw });
 }
 
-// Brand-green soft chips (Radix soft recipe: fill 3, hover 4, press 5, text
-// 11 — resolved per light/dark theme). Mid-ramp green borders read muddy on
-// light surfaces, so the chip is a tinted fill with no visible border; the
-// transparent border keeps the box size identical to the old outline.
+// Brand-green outline chips. Border sits at ramp step 7 (not 6 — the green
+// ramp's low-mid steps read muddy as hairlines on light surfaces); hover and
+// press deepen the border to 8 over a faint 2/3 tint. Text is step 11.
 const INFO_OUTLINE_BUTTON_PROPS = {
   variant: 'link',
   childrenAsText: false,
@@ -401,10 +400,10 @@ const INFO_OUTLINE_BUTTON_PROPS = {
   py: '$0.5',
   borderRadius: '$2',
   borderWidth: '$px',
-  borderColor: '$transparent',
-  bg: '$brand3',
-  hoverStyle: { bg: '$brand4' },
-  pressStyle: { bg: '$brand5' },
+  borderColor: '$brand7',
+  bg: '$transparent',
+  hoverStyle: { bg: '$brand2', borderColor: '$brand8' },
+  pressStyle: { bg: '$brand3', borderColor: '$brand8' },
 } as const;
 
 const SOLID_BUTTON_PROPS = {
@@ -413,7 +412,7 @@ const SOLID_BUTTON_PROPS = {
 
 // Full-width action(s) stacked below a position (the unified/simple layout):
 // one button fills the row, two (e.g. Withdraw + Claim) split it evenly via
-// flex. Same brand-green soft chip as the inline buttons, sized up.
+// flex. Same brand-green outline as the inline buttons, sized up.
 const BLOCK_OUTLINE_BUTTON_PROPS = {
   variant: 'link',
   childrenAsText: false,
@@ -421,10 +420,10 @@ const BLOCK_OUTLINE_BUTTON_PROPS = {
   py: '$3',
   borderRadius: '$3',
   borderWidth: '$px',
-  borderColor: '$transparent',
-  bg: '$brand3',
-  hoverStyle: { bg: '$brand4' },
-  pressStyle: { bg: '$brand5' },
+  borderColor: '$brand7',
+  bg: '$transparent',
+  hoverStyle: { bg: '$brand2', borderColor: '$brand8' },
+  pressStyle: { bg: '$brand3', borderColor: '$brand8' },
 } as const;
 
 function getActionButtonFrameProps({
