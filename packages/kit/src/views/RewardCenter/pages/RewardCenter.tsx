@@ -319,6 +319,7 @@ function RewardCenterDetails() {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 15 }),
       revalidateOnFocus: true,
       undefinedResultIfError: true,
+      undefinedResultIfReRun: true,
     },
   );
 
@@ -624,6 +625,7 @@ function RewardCenterDetails() {
       {
         watchLoading: true,
         undefinedResultIfError: true,
+        undefinedResultIfReRun: true,
       },
     );
 
