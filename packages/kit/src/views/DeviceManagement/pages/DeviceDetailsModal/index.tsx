@@ -11,6 +11,7 @@ import {
   useDeviceDetailsActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -24,7 +25,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { useDeviceBackNavigation } from '../../hooks/useDeviceBackNavigation';
 import { useDeviceManagerModalStyle } from '../../hooks/useDeviceManagerModalStyle';
@@ -39,6 +40,7 @@ import DeviceSectionGeneral from './DeviceSectionGeneral';
 import DeviceSectionQrInfo from './DeviceSectionQrInfo';
 import DeviceSectionSecurity from './DeviceSectionSecurity';
 import DeviceSectionSupport from './DeviceSectionSupport';
+import DeviceSectionTrezorDebug from './DeviceSectionTrezorDebug';
 import { DeviceUpdateAlert } from './DeviceUpdateAlert';
 import { buildDeviceDetailsVisibility } from './utils';
 
@@ -73,7 +75,11 @@ function DeviceDetailsModalV2Cmp({
 
   const isQrWallet = accountUtils.isQrWallet({ walletId });
   const [device] = useDeviceAtom();
+  const [devSettings] = useDevSettingsPersistAtom();
   const deviceVendor = device?.vendor ?? initialDeviceVendor;
+  // DEV-ONLY Trezor THP debug tools, shown only in developer mode.
+  const showTrezorDebug =
+    devSettings.enabled && deviceVendor === EHardwareVendor.trezor;
   const hasLoadedDevice = isQrWallet || Boolean(device);
   const {
     vendorProfile,
@@ -167,13 +173,18 @@ function DeviceDetailsModalV2Cmp({
                 <>
                   <DeviceSectionGeneral />
                   <DeviceSectionSecurity />
-                  <DeviceSectionDangerZone
-                    onPressCheckForUpdates={onPressCheckForUpdates}
-                  />
+                  {/* Wipe device is a OneKey-SDK op; the danger zone is wipe-only
+                      for third-party (Trezor/Ledger), so hide it for them. */}
+                  {vendorProfile?.isThirdParty ? null : (
+                    <DeviceSectionDangerZone
+                      onPressCheckForUpdates={onPressCheckForUpdates}
+                    />
+                  )}
                 </>
               ) : null}
               {showPassphraseSettings ? <DeviceSectionAdvance /> : null}
               {showDeviceConnection ? <DeviceSectionDeviceConnect /> : null}
+              {showTrezorDebug ? <DeviceSectionTrezorDebug /> : null}
             </YStack>
             <DeviceGetStartedLayout visible={showDeviceSettings} />
           </XStack>

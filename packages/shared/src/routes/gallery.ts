@@ -117,4 +117,5 @@ export enum EGalleryRoutes {
   ComponentOneKeyID = 'component-OneKeyID',
   ComponentStorage = 'component-Storage',
   ComponentTrezorMultiTransport = 'component-TrezorMultiTransport',
+  ComponentThirdPartyHardwareActions = 'component-ThirdPartyHardwareActions',
 }

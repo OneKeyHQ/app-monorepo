@@ -6,7 +6,10 @@ import {
   HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '../../eventBus/appEventBus';
-import { THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE } from '../errors/thirdPartyHardwareErrors';
+import {
+  THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE,
+  THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE,
+} from '../errors/thirdPartyHardwareErrors';
 
 import { convertDeviceError } from './deviceErrorUtils';
 import {
@@ -123,6 +126,17 @@ describe('convertThirdPartyDeviceError', () => {
 
     expect(error.code).toBe(ThirdPartyHwErrorCode.PinCancelled);
     expect(error.name).toBe('ThirdPartyHardwareError');
+  });
+
+  it('maps third-party forbidden path failures to the dedicated path message', () => {
+    const error = convertThirdPartyDeviceError({
+      code: THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE,
+      error: 'Forbidden key path',
+    });
+
+    expect(error.code).toBe(THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE);
+    expect(error.name).toBe('ThirdPartyHardwareError');
+    expect(error.key).toBe('hardware_third_party_path_not_supported__msg');
   });
 });
 
