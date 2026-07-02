@@ -49,6 +49,7 @@ import {
   isIndexedDbCryptoKeyLocalSecretEnvelopeLayerAvailable,
   isLocalSecretEnvelopeString,
   isSecureStorageLocalSecretEnvelopeLayerAvailable,
+  localSecretEnvelopeService,
   parseLocalSecretEnvelopeV1,
   resetSecureStorageLocalSecretEnvelopeProbeCache,
   stripLocalSecretPrefix,
@@ -103,6 +104,21 @@ type ILocalSecretEnvelopeE2ESelfTestOptions = {
   expectedCredentialLayerKinds?: ILocalSecretEnvelopeLayerKind[];
   expectedRuntimePlatform?: ILocalSecretEnvelopeRuntimePlatform;
   expectedStrength?: ILocalSecretEnvelopeStrength;
+};
+
+export type ILocalSecretEnvelopeSimulatedKeyLossLayer = {
+  kind: ILocalSecretEnvelopeLayerKind;
+  keyRef: string;
+  recordCount: number;
+};
+
+export type ILocalSecretEnvelopeSimulatedKeyLossResult = {
+  credentialCount: number;
+  deletedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[];
+  lseCredentialCount: number;
+  preservedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[];
+  runtimePlatform: ILocalSecretEnvelopeRuntimePlatform;
+  skippedUnsupportedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[];
 };
 
 export type ILocalSecretEnvelopeE2ECheckpointStatus =
@@ -473,14 +489,24 @@ type ILocalSecretEnvelopeE2EReporter = ReturnType<
   typeof createLocalSecretEnvelopeE2EReporter
 >;
 
+type ILocalSecretEnvelopeLayerKeyRef = Pick<
+  ILocalSecretEnvelopeV1['wrappingLayers'][number],
+  'keyRef' | 'kind'
+>;
+
 async function removeLocalSecretEnvelopeLayerKey({
   keyRef,
   kind,
-}: ILocalSecretEnvelopeV1['wrappingLayers'][number]) {
+}: ILocalSecretEnvelopeLayerKeyRef) {
   if (kind === 'indexeddb-cryptokey') {
     await deleteIndexedDbCryptoKeyForLocalSecretEnvelope({
       keyRef,
     });
+    return;
+  }
+  if (kind === 'secure-storage') {
+    await secureStorageInstance.removeSecureItem(keyRef);
+    resetSecureStorageLocalSecretEnvelopeProbeCache();
   }
 }
 
@@ -685,6 +711,80 @@ class ServiceE2E extends ServiceBase {
     await localDb.clearRecords({
       name: ELocalDBStoreNames.ConnectedSite,
     });
+  }
+
+  @backgroundMethodForDev()
+  async simulateLocalSecretEnvelopeCredentialKeyLoss(
+    params: IBackgroundMethodWithDevOnlyPassword,
+  ): Promise<ILocalSecretEnvelopeSimulatedKeyLossResult> {
+    checkDevOnlyPassword(params);
+    const credentials = await localDb.getAllCredentials();
+    const layersByKey = new Map<
+      string,
+      ILocalSecretEnvelopeSimulatedKeyLossLayer
+    >();
+    let lseCredentialCount = 0;
+
+    for (const credential of credentials) {
+      if (isLocalSecretEnvelopeString(credential.credential)) {
+        let envelope: ILocalSecretEnvelopeV1 | undefined;
+        try {
+          envelope = parseLocalSecretEnvelopeV1(credential.credential);
+        } catch {
+          envelope = undefined;
+        }
+        if (envelope?.dataType === 'credential') {
+          lseCredentialCount += 1;
+          for (const layer of envelope.wrappingLayers) {
+            const key = `${layer.kind}:${layer.keyRef}`;
+            const existing = layersByKey.get(key);
+            if (existing) {
+              existing.recordCount += 1;
+            } else {
+              layersByKey.set(key, {
+                keyRef: layer.keyRef,
+                kind: layer.kind,
+                recordCount: 1,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    const deletedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[] = [];
+    const preservedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[] = [];
+    const skippedUnsupportedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[] =
+      [];
+    const supportedLayers = [...layersByKey.values()].filter(
+      (layer) =>
+        layer.kind === 'indexeddb-cryptokey' || layer.kind === 'secure-storage',
+    );
+    const hasSecureStorageLayer = supportedLayers.some(
+      (layer) => layer.kind === 'secure-storage',
+    );
+    for (const layer of layersByKey.values()) {
+      const isSupportedLayer =
+        layer.kind === 'indexeddb-cryptokey' || layer.kind === 'secure-storage';
+      if (!isSupportedLayer) {
+        skippedUnsupportedLayers.push(layer);
+      } else if (hasSecureStorageLayer && layer.kind !== 'secure-storage') {
+        preservedLayers.push(layer);
+      } else {
+        await removeLocalSecretEnvelopeLayerKey(layer);
+        deletedLayers.push(layer);
+      }
+    }
+    localSecretEnvelopeService.clearCredentialMigrationConfigCache();
+
+    return {
+      credentialCount: credentials.length,
+      deletedLayers,
+      lseCredentialCount,
+      preservedLayers,
+      runtimePlatform: detectLocalSecretEnvelopeRuntimePlatform(),
+      skippedUnsupportedLayers,
+    };
   }
 
   async resetLocalSecretEnvelopeE2ESelfTestState(
@@ -1341,7 +1441,7 @@ class ServiceE2E extends ServiceBase {
         return reporter.toReport({ runtimePlatform, testName });
       }
 
-      // Verify-string round trip.
+      // Legacy verify-string LSE compatibility round trip.
       try {
         const verifyStringInner = await encryptVerifyString({ password });
         const wrappedVerifyString = await wrapLocalSecretEnvelopeV1({
@@ -1355,8 +1455,8 @@ class ServiceE2E extends ServiceBase {
         const actualLayerKinds =
           getLocalSecretEnvelopeLayerKinds(verifyStringEnvelope);
         reporter.check(
-          'Verify string',
-          'Wrapped as LSE with expected layers',
+          'Legacy verify string',
+          'Legacy LSE unwrap uses expected layers',
           localSecretEnvelopeLayerKindsEqual(
             actualLayerKinds,
             expectedLayerKinds,
@@ -1366,8 +1466,8 @@ class ServiceE2E extends ServiceBase {
           )}`,
         );
         reporter.check(
-          'Verify string',
-          'Strength matches expected',
+          'Legacy verify string',
+          'Legacy LSE strength matches expected',
           verifyStringEnvelope.strength === expectedStrength,
           `expected ${expectedStrength}, got ${verifyStringEnvelope.strength}`,
         );
@@ -1385,15 +1485,15 @@ class ServiceE2E extends ServiceBase {
           verifyString: innerVerifyString,
         });
         reporter.check(
-          'Verify string',
-          'Decrypts back to default verify string',
+          'Legacy verify string',
+          'Legacy LSE decrypts back to default verify string',
           decryptedVerifyString.plaintext === DEFAULT_VERIFY_STRING &&
             !decryptedVerifyString.needsUpgrade,
         );
       } catch (error) {
         reporter.fail(
-          'Verify string',
-          'Verify string round trip',
+          'Legacy verify string',
+          'Legacy LSE round trip',
           getLocalSecretEnvelopeE2EErrorMessage(error),
         );
       }
@@ -1488,11 +1588,14 @@ class ServiceE2E extends ServiceBase {
         runtimePlatform,
         secureStorageDeletionBlocksUnwrap:
           layerDeletionBlocksUnwrap['secure-storage'] === true,
-        verifyStringIsLse: Boolean(verifyStringEnvelope),
-        verifyStringLayerKinds: verifyStringEnvelope
+        legacyVerifyStringIsLse: Boolean(verifyStringEnvelope),
+        legacyVerifyStringLayerKinds: verifyStringEnvelope
           ? getLocalSecretEnvelopeLayerKinds(verifyStringEnvelope)
           : [],
-        verifyStringStrength: verifyStringEnvelope?.strength,
+        legacyVerifyStringStrength: verifyStringEnvelope?.strength,
+        verifyStringIsLse: false,
+        verifyStringLayerKinds: [],
+        verifyStringStrength: 'unavailable',
       };
 
       return reporter.toReport({ runtimePlatform, summary, testName });
@@ -1526,7 +1629,6 @@ class ServiceE2E extends ServiceBase {
     options: ILocalSecretEnvelopeE2ESelfTestOptions = {},
   ): Promise<ILocalSecretEnvelopeE2ESelfTestResult> {
     checkDevOnlyPassword(params);
-    let verifyStringEnvelope: ILocalSecretEnvelopeV1 | undefined;
     const credentialEnvelopes: ILocalSecretEnvelopeV1[] = [];
     const runId = `${Date.now().toString(36)}-${generateUUID({
       removeDashes: true,
@@ -1582,24 +1684,8 @@ class ServiceE2E extends ServiceBase {
 
       const context = await localDb.getContext();
       assertLocalSecretEnvelopeE2E(
-        isLocalSecretEnvelopeString(context.verifyString),
-        'E2E verifyString was not wrapped by local secret envelope',
-      );
-      verifyStringEnvelope = parseLocalSecretEnvelopeV1(context.verifyString);
-      assertLocalSecretEnvelopeE2E(
-        verifyStringEnvelope.recordId === DB_MAIN_CONTEXT_ID &&
-          verifyStringEnvelope.dataType === 'verify-string',
-        'E2E verifyString local secret envelope metadata mismatch',
-      );
-      assertLocalSecretEnvelopeLayerKinds({
-        actualLayerKinds:
-          getLocalSecretEnvelopeLayerKinds(verifyStringEnvelope),
-        expectedLayerKinds,
-        label: 'verifyString',
-      });
-      assertLocalSecretEnvelopeE2E(
-        verifyStringEnvelope.strength === expectedStrength,
-        `Local secret envelope verifyString strength mismatch: expected ${expectedStrength}, got ${verifyStringEnvelope.strength}`,
+        !isLocalSecretEnvelopeString(context.verifyString),
+        'E2E verifyString should remain portable, not LSE-wrapped',
       );
       const innerVerifyString = await localDb.getContextVerifyStringInner({
         context,
@@ -1679,13 +1765,11 @@ class ServiceE2E extends ServiceBase {
         runtimePlatform,
         secureStorageDeletionBlocksUnwrap:
           layerDeletionBlocksUnwrap['secure-storage'] === true,
-        verifyStringIsLse: true,
-        verifyStringLayerKinds:
-          getLocalSecretEnvelopeLayerKinds(verifyStringEnvelope),
-        verifyStringStrength: verifyStringEnvelope.strength,
+        verifyStringIsLse: false,
+        verifyStringLayerKinds: [],
+        verifyStringStrength: 'unavailable',
       };
     } finally {
-      await removeLocalSecretEnvelopeLayerKeys(verifyStringEnvelope);
       for (const envelope of credentialEnvelopes) {
         await removeLocalSecretEnvelopeLayerKeys(envelope);
       }

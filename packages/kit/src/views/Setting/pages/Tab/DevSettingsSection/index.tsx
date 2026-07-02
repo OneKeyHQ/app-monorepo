@@ -54,6 +54,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import appDeviceInfo from '@onekeyhq/shared/src/appDeviceInfo/appDeviceInfo';
+import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   ONEKEY_API_HOST,
   ONEKEY_TEST_API_HOST,
@@ -131,6 +132,27 @@ const LazyNavigationDiagnosticsSection = LazyLoad(async () => {
 });
 
 export { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
+
+type ILocalSecretEnvelopeSimulatedKeyLossResult = {
+  credentialCount: number;
+  deletedLayers: Array<{
+    kind: string;
+    keyRef: string;
+    recordCount: number;
+  }>;
+  lseCredentialCount: number;
+  preservedLayers: Array<{
+    kind: string;
+    keyRef: string;
+    recordCount: number;
+  }>;
+};
+
+type IServiceE2EWithLocalSecretEnvelopeDevTools = {
+  simulateLocalSecretEnvelopeCredentialKeyLoss: (
+    params: IBackgroundMethodWithDevOnlyPassword,
+  ) => Promise<ILocalSecretEnvelopeSimulatedKeyLossResult>;
+};
 
 const DevSettingsAccordionTrigger = ({
   title,
@@ -516,6 +538,37 @@ const BaseDevSettingsSection = () => {
       { testKind: 'diagnostic' },
     );
   }, [navigation]);
+
+  const handleSimulateLocalSecretEnvelopeCredentialKeyLoss = useCallback(() => {
+    showDevOnlyPasswordDialog({
+      title: 'Danger Zone: Simulate LSE Credential Key Loss',
+      description:
+        'Deletes secure-storage / Keychain layer keys referenced by current LSE credentials when present. Falls back to CryptoKey only when there is no secure-storage layer. This simulates a migrated device missing non-portable local LSE material and may make affected wallets inaccessible until restored again.',
+      confirmButtonProps: {
+        testID: SettingTestIDs.localSecretEnvelopeSimulateKeyLossConfirm,
+      },
+      onConfirm: async (params) => {
+        const serviceE2E =
+          backgroundApiProxy.serviceE2E as unknown as IServiceE2EWithLocalSecretEnvelopeDevTools;
+        const result =
+          await serviceE2E.simulateLocalSecretEnvelopeCredentialKeyLoss(params);
+        if (result.deletedLayers.length) {
+          Toast.success({
+            title: 'LSE local keys deleted',
+            message: `${result.deletedLayers.length} key(s), ${result.lseCredentialCount} LSE credential(s) affected`,
+          });
+        } else {
+          Toast.message({
+            title: 'No LSE credential local keys found',
+            message: `${result.credentialCount} credential(s) scanned`,
+          });
+        }
+        Dialog.debugMessage({
+          debugMessage: result,
+        });
+      },
+    });
+  }, []);
 
   const handleTriggerReferralBindGuardIn10s = useCallback(() => {
     Toast.message({
@@ -1139,6 +1192,19 @@ const BaseDevSettingsSection = () => {
                         searchKeywords="Local Secret Envelope LSE migration diagnostic encryption method KDF iterations scan inventory"
                         onPress={
                           handleOpenLocalSecretEnvelopeMigrationDiagnostic
+                        }
+                      />
+
+                      <SectionPressItem
+                        icon="DeleteOutline"
+                        title="Simulate LSE Credential Key Loss"
+                        subtitle="Prefer deleting Keychain / secure-storage LSE keys; fallback to CryptoKey only when no secure-storage layer exists"
+                        testID={
+                          SettingTestIDs.localSecretEnvelopeSimulateKeyLossButton
+                        }
+                        searchKeywords="Local Secret Envelope LSE simulate migration new device key loss delete Keychain CryptoKey secureStorage IndexedDB credential"
+                        onPress={
+                          handleSimulateLocalSecretEnvelopeCredentialKeyLoss
                         }
                       />
 
