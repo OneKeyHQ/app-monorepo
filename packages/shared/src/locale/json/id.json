@@ -4191,6 +4191,8 @@
   "trezor_ble_connect_failed__msg": "Couldn't connect to this Bluetooth device. Check the device, or re-pair it.",
   "trezor_connect_failed_before_wallet_creation__msg": "Koneksi perangkat Trezor gagal sebelum pembuatan dompet.",
   "trezor_device_id_required_before_wallet_creation__msg": "ID perangkat Trezor diperlukan sebelum pembuatan dompet.",
+  "trezor_device_not_initialized__desc": "Perangkat ini belum memiliki dompet. Selesaikan pengaturan pada perangkat, lalu sambungkan kembali.",
+  "trezor_device_not_initialized__title": "Perangkat belum disiapkan",
   "trezor_get_passphrase_state_failed__msg": "Gagal mendapatkan status frasa sandi (passphrase) Trezor.",
   "trezor_onboarding_scan_timeout__msg": "Trezor tidak ditemukan. Pastikan perangkat menyala dan tidak terkunci, lalu coba lagi.",
   "trezor_onboarding_unlock_after_power_on__desc": "Anda perlu membuka kunci Trezor sebelum dapat terdeteksi.",

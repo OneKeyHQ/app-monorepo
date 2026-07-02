@@ -4191,6 +4191,8 @@
   "trezor_ble_connect_failed__msg": "无法连接此蓝牙设备，请检查设备或重新配对",
   "trezor_connect_failed_before_wallet_creation__msg": "在创建钱包前，Trezor 设备连接失败。",
   "trezor_device_id_required_before_wallet_creation__msg": "在创建钱包前，需要 Trezor 设备 ID。",
+  "trezor_device_not_initialized__desc": "此设备还没有创建钱包。请先在设备上完成初始化设置，然后重新连接。",
+  "trezor_device_not_initialized__title": "设备尚未初始化",
   "trezor_get_passphrase_state_failed__msg": "获取 Trezor 口令（passphrase）状态失败。",
   "trezor_onboarding_scan_timeout__msg": "未找到 Trezor。请确认设备已开机并解锁，然后重试。",
   "trezor_onboarding_unlock_after_power_on__desc": "需要先解锁 Trezor 才能扫描到设备。",

@@ -4191,6 +4191,8 @@
   "trezor_ble_connect_failed__msg": "Couldn't connect to this Bluetooth device. Check the device, or re-pair it.",
   "trezor_connect_failed_before_wallet_creation__msg": "การเชื่อมต่ออุปกรณ์ Trezor ล้มเหลวก่อนการสร้างกระเป๋าเงิน",
   "trezor_device_id_required_before_wallet_creation__msg": "ต้องมี ID อุปกรณ์ Trezor ก่อนการสร้างกระเป๋าเงิน",
+  "trezor_device_not_initialized__desc": "อุปกรณ์นี้ยังไม่มีกระเป๋าเงินดิจิทัล โปรดตั้งค่าอุปกรณ์ให้เรียบร้อย แล้วเชื่อมต่ออีกครั้ง",
+  "trezor_device_not_initialized__title": "อุปกรณ์ยังไม่ได้ตั้งค่า",
   "trezor_get_passphrase_state_failed__msg": "ไม่สามารถดึงสถานะ passphrase ของ Trezor ได้",
   "trezor_onboarding_scan_timeout__msg": "ไม่พบ Trezor โปรดตรวจสอบว่าอุปกรณ์เปิดเครื่องและปลดล็อกแล้ว จากนั้นลองอีกครั้ง",
   "trezor_onboarding_unlock_after_power_on__desc": "คุณต้องปลดล็อก Trezor ก่อนจึงจะตรวจพบอุปกรณ์ได้",

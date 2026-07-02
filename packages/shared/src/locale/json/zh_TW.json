@@ -4191,6 +4191,8 @@
   "trezor_ble_connect_failed__msg": "Couldn't connect to this Bluetooth device. Check the device, or re-pair it.",
   "trezor_connect_failed_before_wallet_creation__msg": "在建立錢包前，Trezor 裝置連線失敗。",
   "trezor_device_id_required_before_wallet_creation__msg": "在建立錢包前，需要 Trezor 裝置 ID。",
+  "trezor_device_not_initialized__desc": "此設備尚未連接錢包。請完成設備上的設置，然後重新連接。",
+  "trezor_device_not_initialized__title": "設備未設定",
   "trezor_get_passphrase_state_failed__msg": "取得 Trezor 密語（passphrase）狀態失敗。",
   "trezor_onboarding_scan_timeout__msg": "找不到 Trezor。請確認裝置已開機並解鎖，然後重試。",
   "trezor_onboarding_unlock_after_power_on__desc": "需要先解鎖 Trezor 才能掃描到裝置。",

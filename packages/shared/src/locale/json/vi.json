@@ -4191,6 +4191,8 @@
   "trezor_ble_connect_failed__msg": "Couldn't connect to this Bluetooth device. Check the device, or re-pair it.",
   "trezor_connect_failed_before_wallet_creation__msg": "Kết nối thiết bị Trezor thất bại trước khi tạo ví.",
   "trezor_device_id_required_before_wallet_creation__msg": "Cần có ID thiết bị Trezor trước khi tạo ví.",
+  "trezor_device_not_initialized__desc": "Thiết bị này chưa có ví điện tử. Hãy hoàn tất thiết lập trên thiết bị, sau đó kết nối lại.",
+  "trezor_device_not_initialized__title": "Thiết bị chưa được thiết lập",
   "trezor_get_passphrase_state_failed__msg": "Không lấy được trạng thái cụm mật khẩu (passphrase) của Trezor.",
   "trezor_onboarding_scan_timeout__msg": "Không tìm thấy Trezor. Hãy đảm bảo thiết bị đã được bật nguồn và mở khóa, sau đó thử lại.",
   "trezor_onboarding_unlock_after_power_on__desc": "Bạn cần mở khóa Trezor trước khi có thể phát hiện được thiết bị.",

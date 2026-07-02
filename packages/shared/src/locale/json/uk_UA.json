@@ -4191,6 +4191,8 @@
   "trezor_ble_connect_failed__msg": "Couldn't connect to this Bluetooth device. Check the device, or re-pair it.",
   "trezor_connect_failed_before_wallet_creation__msg": "Не вдалося підключити пристрій Trezor до створення гаманця.",
   "trezor_device_id_required_before_wallet_creation__msg": "Перед створенням гаманця потрібен ідентифікатор пристрою Trezor.",
+  "trezor_device_not_initialized__desc": "Цей пристрій ще не має гаманця. Завершіть налаштування на пристрої, а потім підключіться знову.",
+  "trezor_device_not_initialized__title": "Пристрій не налаштовано",
   "trezor_get_passphrase_state_failed__msg": "Не вдалося отримати стан парольної фрази Trezor.",
   "trezor_onboarding_scan_timeout__msg": "Trezor не знайдено. Переконайтеся, що пристрій увімкнено та розблоковано, потім повторіть спробу.",
   "trezor_onboarding_unlock_after_power_on__desc": "Потрібно розблокувати Trezor, перш ніж його можна буде виявити.",

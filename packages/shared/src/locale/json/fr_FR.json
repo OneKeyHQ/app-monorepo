@@ -4191,6 +4191,8 @@
   "trezor_ble_connect_failed__msg": "Couldn't connect to this Bluetooth device. Check the device, or re-pair it.",
   "trezor_connect_failed_before_wallet_creation__msg": "La connexion de l'appareil Trezor a échoué avant la création du portefeuille.",
   "trezor_device_id_required_before_wallet_creation__msg": "L'identifiant de l'appareil Trezor est requis avant la création du portefeuille.",
+  "trezor_device_not_initialized__desc": "Cet appareil ne possède pas encore de portefeuille. Terminez la configuration sur l'appareil, puis reconnectez-vous.",
+  "trezor_device_not_initialized__title": "Appareil non configuré",
   "trezor_get_passphrase_state_failed__msg": "Échec de l'obtention de l'état de la phrase secrète Trezor.",
   "trezor_onboarding_scan_timeout__msg": "Aucun Trezor trouvé. Assurez-vous que l'appareil est allumé et déverrouillé, puis réessayez.",
   "trezor_onboarding_unlock_after_power_on__desc": "Vous devez déverrouiller votre Trezor avant qu'il puisse être détecté.",
