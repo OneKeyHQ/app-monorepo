@@ -8,10 +8,12 @@ const defaultBootstrapDataOutFile = path.join(
   webDir,
   '.generated/bootstrap-data.json',
 );
-const defaultSeedUrl = new URL(
-  'https://utility.onekeycn.com/utility/v2/market/token/list',
-);
-Object.entries({
+
+const MARKET_HOME_TOKEN_SEED_ENV_ORIGINS = {
+  production: 'https://utility.onekeycn.com',
+  test: 'https://utility.onekeytest.com',
+};
+const MARKET_HOME_TOKEN_SEED_QUERY = {
   networkId: '',
   sortBy: 'v24hUSD',
   sortType: 'desc',
@@ -21,10 +23,7 @@ Object.entries({
   type: 'trending',
   timeFrame: '2',
   currency: 'usd',
-}).forEach(([key, value]) => defaultSeedUrl.searchParams.set(key, value));
-const DEFAULT_MARKET_HOME_TOKEN_SEED_URL = defaultSeedUrl.toString();
-const seedUrl =
-  process.env.MARKET_HOME_TOKEN_SEED_URL || DEFAULT_MARKET_HOME_TOKEN_SEED_URL;
+};
 const bootstrapDataOutFile = process.env.ONEKEY_BOOTSTRAP_DATA_OUT
   ? path.resolve(webDir, process.env.ONEKEY_BOOTSTRAP_DATA_OUT)
   : defaultBootstrapDataOutFile;
@@ -96,17 +95,53 @@ function removeGeneratedBootstrapData() {
   }
 }
 
-function hasSeedUrl() {
-  if (!seedUrl) {
-    warnAndSkip(
+function createSeedUrl(origin) {
+  const url = new URL('/utility/v2/market/token/list', origin);
+  Object.entries(MARKET_HOME_TOKEN_SEED_QUERY).forEach(([key, value]) =>
+    url.searchParams.set(key, value),
+  );
+  return url.toString();
+}
+
+function resolveSeedUrl() {
+  if (process.env.MARKET_HOME_TOKEN_SEED_URL) {
+    return process.env.MARKET_HOME_TOKEN_SEED_URL;
+  }
+
+  const seedEnv = process.env.MARKET_HOME_TOKEN_SEED_ENV;
+  if (!seedEnv) {
+    return undefined;
+  }
+
+  const origin = MARKET_HOME_TOKEN_SEED_ENV_ORIGINS[seedEnv];
+  if (!origin) {
+    throw new MarketHomeTokenSeedError(
       [
-        'MARKET_HOME_TOKEN_SEED_URL is not set.',
-        'Market home will fall back to the remote token list at runtime.',
+        `Unsupported MARKET_HOME_TOKEN_SEED_ENV: ${seedEnv}.`,
+        `Expected one of: ${Object.keys(MARKET_HOME_TOKEN_SEED_ENV_ORIGINS).join(
+          ', ',
+        )}.`,
       ].join(' '),
     );
-    return false;
   }
-  return true;
+  return createSeedUrl(origin);
+}
+
+function getRequiredSeedUrl() {
+  const seedUrl = resolveSeedUrl();
+  if (seedUrl) {
+    return seedUrl;
+  }
+
+  const message = [
+    'MARKET_HOME_TOKEN_SEED_URL or MARKET_HOME_TOKEN_SEED_ENV is not set.',
+    'Market home will fall back to the remote token list at runtime.',
+  ].join(' ');
+  if (seedRequired) {
+    throw new MarketHomeTokenSeedError(message);
+  }
+  warnAndSkip(message);
+  return undefined;
 }
 
 function getSeedData(payload) {
@@ -358,7 +393,8 @@ function writeBootstrapData(seed) {
 }
 
 async function main() {
-  if (!hasSeedUrl()) {
+  const seedUrl = getRequiredSeedUrl();
+  if (!seedUrl) {
     removeGeneratedBootstrapData();
     return;
   }

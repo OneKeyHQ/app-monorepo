@@ -196,7 +196,7 @@ jobs:
       - name: Build Target
         env:
           PUBLIC_URL: ${{ env.PUBLIC_URL }}
-          MARKET_HOME_TOKEN_SEED_URL: 'https://utility.onekeytest.com/utility/v2/market/token/list?networkId=&sortBy=v24hUSD&sortType=desc&page=1&limit=20&minLiquidity=5000&type=trending&timeFrame=2&currency=usd'
+          MARKET_HOME_TOKEN_SEED_ENV: 'test'
           MARKET_HOME_TOKEN_SEED_REQUIRED: '1'
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
@@ -407,7 +407,7 @@ jobs:
       - name: Build Target
         env:
           PUBLIC_URL: ${{ env.PUBLIC_URL }}
-          MARKET_HOME_TOKEN_SEED_URL: 'https://utility.onekeycn.com/utility/v2/market/token/list?networkId=&sortBy=v24hUSD&sortType=desc&page=1&limit=20&minLiquidity=5000&type=trending&timeFrame=2&currency=usd'
+          MARKET_HOME_TOKEN_SEED_ENV: 'production'
           MARKET_HOME_TOKEN_SEED_REQUIRED: '1'
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |

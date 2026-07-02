@@ -9,6 +9,11 @@ type ILoggerQueuedCall = {
   path: ILoggerPathPart[];
 };
 
+type IWebLazyLoggerCallResult = {
+  queuedArgs: unknown[];
+  value: unknown;
+};
+
 const WEB_LAZY_LOGGER_DELAY_MS = 3000;
 const WEB_LAZY_LOGGER_QUEUE_LIMIT = 200;
 const WEB_LAZY_LOGGER_MARKER = Symbol('onekey.webLazyLogger');
@@ -16,6 +21,7 @@ const WEB_LAZY_LOGGER_MARKER = Symbol('onekey.webLazyLogger');
 let resolvedDefaultLogger: IDefaultLogger | undefined;
 let loggerLoadPromise: Promise<IDefaultLogger> | undefined;
 let loggerLoadTimer: ReturnType<typeof setTimeout> | undefined;
+let webLazySendFlowId: string | undefined;
 
 const queuedCalls: ILoggerQueuedCall[] = [];
 
@@ -45,6 +51,46 @@ async function loadDefaultLogger() {
   });
 
   return loggerLoadPromise;
+}
+
+function isLoggerPath(path: ILoggerPathPart[], expected: string[]) {
+  return (
+    path.length === expected.length &&
+    expected.every((part, index) => path[index] === part)
+  );
+}
+
+function getWebLazySendFlowId() {
+  const cryptoApi = globalThis.crypto;
+  if (typeof cryptoApi?.randomUUID === 'function') {
+    return cryptoApi.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function handleWebLazyLoggerCall(
+  path: ILoggerPathPart[],
+  args: unknown[],
+): IWebLazyLoggerCallResult | undefined {
+  if (isLoggerPath(path, ['transaction', 'send', 'startNewFlow'])) {
+    const requestedFlowId = typeof args[0] === 'string' ? args[0] : undefined;
+    const sendFlowId = requestedFlowId ?? getWebLazySendFlowId();
+    webLazySendFlowId = sendFlowId;
+    return {
+      queuedArgs: [sendFlowId],
+      value: sendFlowId,
+    };
+  }
+
+  if (isLoggerPath(path, ['transaction', 'send', 'clearFlow'])) {
+    webLazySendFlowId = undefined;
+    return {
+      queuedArgs: args,
+      value: undefined,
+    };
+  }
+
+  return undefined;
 }
 
 function getLoggerCallTarget(root: IDefaultLogger, path: ILoggerPathPart[]) {
@@ -113,9 +159,10 @@ function callLoggerPath(path: ILoggerPathPart[], args: unknown[]): unknown {
   if (queuedCalls.length >= WEB_LAZY_LOGGER_QUEUE_LIMIT) {
     queuedCalls.shift();
   }
-  queuedCalls.push({ args, path });
+  const lazyCallResult = handleWebLazyLoggerCall(path, args);
+  queuedCalls.push({ args: lazyCallResult?.queuedArgs ?? args, path });
   scheduleLoggerLoad();
-  return undefined;
+  return lazyCallResult?.value;
 }
 
 function createLoggerProxy(path: ILoggerPathPart[] = []): unknown {
@@ -131,7 +178,14 @@ function createLoggerProxy(path: ILoggerPathPart[] = []): unknown {
       if (prop === Symbol.toStringTag) {
         return 'WebLazyDefaultLogger';
       }
-      return createLoggerProxy([...path, prop]);
+      const nextPath = [...path, prop];
+      if (isLoggerPath(nextPath, ['transaction', 'send', 'sendFlowId'])) {
+        return (
+          resolvedDefaultLogger?.transaction.send.sendFlowId ??
+          webLazySendFlowId
+        );
+      }
+      return createLoggerProxy(nextPath);
     },
     apply(_target, _thisArg, args) {
       const result = callLoggerPath(path, args);
