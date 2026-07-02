@@ -40,6 +40,7 @@ import type {
   IAddressInfo,
 } from '@onekeyhq/shared/types/address';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
+import { DEFI_PORTFOLIO_ACTION_STAKING_TAG } from '@onekeyhq/shared/types/defi';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountHistoryTx,
@@ -1158,6 +1159,10 @@ class ServiceHistory extends ServiceBase {
         networkId: string;
       }[],
       accountsWithChangedTxs: [] as { accountId: string; networkId: string }[],
+      accountsWithCompletedDeFiPortfolioTxs: [] as {
+        accountId: string;
+        networkId: string;
+      }[],
     };
   }
 
@@ -1273,6 +1278,24 @@ class ServiceHistory extends ServiceBase {
     let confirmedTxs: IAccountHistoryTx[] = [];
     // Transactions still in pending status
     const pendingTxs: IAccountHistoryTx[] = [];
+    const accountsWithCompletedDeFiPortfolioTxs: {
+      accountId: string;
+      networkId: string;
+    }[] = [];
+    const addCompletedDeFiPortfolioTxAccount = (item: {
+      accountId: string;
+      networkId: string;
+    }) => {
+      if (
+        !accountsWithCompletedDeFiPortfolioTxs.some(
+          (account) =>
+            account.accountId === item.accountId &&
+            account.networkId === item.networkId,
+        )
+      ) {
+        accountsWithCompletedDeFiPortfolioTxs.push(item);
+      }
+    };
 
     // Fetch details of locally pending transactions
     const onChainHistoryTxsDetails = await promiseAllSettledEnhanced(
@@ -1581,8 +1604,20 @@ class ServiceHistory extends ServiceBase {
 
     if (changedPendingTxInfos.length > 0) {
       // Check if staking transaction status has changed, if so request backend to update order status
-      await this.backgroundApi.serviceStaking.updateEarnOrder({
-        txs: changedPendingTxInfos,
+      const updatedEarnOrders =
+        await this.backgroundApi.serviceStaking.updateEarnOrder({
+          txs: changedPendingTxInfos,
+        });
+      updatedEarnOrders.forEach(({ tx, order }) => {
+        if (
+          tx.status === EDecodedTxStatus.Confirmed &&
+          order.stakingTags?.includes(DEFI_PORTFOLIO_ACTION_STAKING_TAG)
+        ) {
+          addCompletedDeFiPortfolioTxAccount({
+            accountId: tx.accountId,
+            networkId: tx.networkId,
+          });
+        }
       });
     }
 
@@ -1635,6 +1670,7 @@ class ServiceHistory extends ServiceBase {
           networkId: n,
         };
       }),
+      accountsWithCompletedDeFiPortfolioTxs,
     };
   }
 
@@ -1751,6 +1787,10 @@ class ServiceHistory extends ServiceBase {
       string,
       { accountId: string; networkId: string }
     >();
+    const deFiPortfolioByKey = new Map<
+      string,
+      { accountId: string; networkId: string }
+    >();
     const aggregatedAllAccounts: IAllNetworkAccountInfo[] = [];
     const keyOf = (i: { accountId: string; networkId: string }) =>
       `${i.accountId}_${i.networkId}`;
@@ -1767,6 +1807,9 @@ class ServiceHistory extends ServiceBase {
         }
         for (const item of response.accountsWithChangedConfirmedTxs) {
           confirmedByKey.set(keyOf(item), item);
+        }
+        for (const item of response.accountsWithCompletedDeFiPortfolioTxs) {
+          deFiPortfolioByKey.set(keyOf(item), item);
         }
         aggregatedAllAccounts.push(...response.allAccounts);
 
@@ -1824,6 +1867,9 @@ class ServiceHistory extends ServiceBase {
       accountsWithChangedPendingTxs: dedupedPending,
       accountsWithChangedConfirmedTxs: dedupedConfirmed,
       accountsWithChangedTxs: dedupedAll,
+      accountsWithCompletedDeFiPortfolioTxs: Array.from(
+        deFiPortfolioByKey.values(),
+      ),
     };
   }
 

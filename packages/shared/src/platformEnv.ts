@@ -444,8 +444,9 @@ const isRuntimeChrome = checkIsRuntimeChrome();
 const isRuntimeEdge = checkIsRuntimeEdge();
 const isRuntimeBrave = checkIsRuntimeBrave();
 const isRuntimeMacOSBrowser = isDesktopMac || checkIsRuntimeMacOSBrowser();
-// Desktop (Electron) supports WebUSB through Chromium, except Linux which uses Bridge due to udev permission issues
-const isSupportWebUSB = isExtension || isWeb || (isDesktop && !isDesktopLinux);
+// Desktop (Electron) supports WebUSB through Chromium. Linux requires host udev
+// rules for device access, which the desktop app can request via PolicyKit.
+const isSupportWebUSB = isExtension || isWeb || isDesktop;
 
 const isSupportDesktopBle = isDesktopMac || isDesktopWin;
 

@@ -80,6 +80,29 @@ describe('ThirdPartyHardwareUiStateContainer utils', () => {
     });
   });
 
+  it('builds a Trezor PIN response from the matrix position string', () => {
+    expect(
+      buildThirdPartyHardwareUiResponse(
+        EThirdPartyHardwareUiAction.requestTrezorPin,
+        true,
+        { pin: '7913' },
+      ),
+    ).toEqual({
+      type: UI_RESPONSE.RECEIVE_PIN,
+      payload: '7913',
+    });
+  });
+
+  it('returns null for a cancelled Trezor PIN request', () => {
+    expect(
+      buildThirdPartyHardwareUiResponse(
+        EThirdPartyHardwareUiAction.requestTrezorPin,
+        false,
+        { pin: '7913' },
+      ),
+    ).toBeNull();
+  });
+
   it('does not clear a newer Trezor UI request when an older request finishes', async () => {
     const passphraseState: IThirdPartyHardwareUiState = {
       action: EThirdPartyHardwareUiAction.requestTrezorPassphrase,

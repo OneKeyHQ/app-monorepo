@@ -18,3 +18,14 @@ export async function sniRequest(
 export function isSniSupported(): boolean {
   return false;
 }
+
+/**
+ * Check if a platform proxy is active for the target URL.
+ * null means this platform cannot provide a reliable per-URL proxy preflight,
+ * so callers should preserve the legacy SNI path when SNI itself is supported.
+ */
+export async function isProxyActiveForUrl(
+  _url: string,
+): Promise<boolean | null> {
+  return null;
+}

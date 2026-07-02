@@ -104,6 +104,26 @@ export type IEventBusPayloadShowToast = {
   requestId?: string;
   diagnosticText?: string;
 };
+
+export type ILinuxUdevGuideReason =
+  | 'not-linux'
+  | 'snap'
+  | 'flatpak'
+  | 'missing-pkexec'
+  | 'cancelled'
+  | 'not-authorized'
+  | 'failed'
+  | 'webusb-access-denied'
+  | 'unknown';
+
+export type IEventBusPayloadShowLinuxUdevGuide = {
+  reason?: ILinuxUdevGuideReason;
+};
+
+export type IEventBusPayloadShowLocalSecretEnvelopeErrorDialog = {
+  technicalMessage: string;
+};
+
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: {
     num: number;
@@ -192,6 +212,7 @@ export interface IAppEventBusPayload {
     error: IOneKeyError;
   };
   [EAppEventBusNames.ShowToast]: IEventBusPayloadShowToast;
+  [EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog]: IEventBusPayloadShowLocalSecretEnvelopeErrorDialog;
   [EAppEventBusNames.ShowAirGapQrcode]: {
     title?: string;
     drawType: IQrcodeDrawType;
@@ -368,6 +389,7 @@ export interface IAppEventBusPayload {
     tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
   };
   [EAppEventBusNames.ShowSystemDiskFullWarning]: undefined;
+  [EAppEventBusNames.ShowLinuxBundleUdevGuide]: IEventBusPayloadShowLinuxUdevGuide;
   [EAppEventBusNames.SwapTxHistoryStatusUpdate]: {
     status: ESwapTxHistoryStatus;
     crossChainStatus?: ESwapCrossChainStatus;

@@ -68,6 +68,7 @@ import { registerInfoHandlers } from './libs/registerInfoHandlers';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import { getBackgroundColor } from './libs/utils';
+import { shouldGrantMainWindowDevicePermission } from './libs/webUsbDeviceSelection';
 // Logger initialization (file rotation, sanitization, rate limiting)
 import './logger';
 import initProcess from './process';
@@ -86,6 +87,48 @@ import { destroyTrayManager, initTrayManager } from './tray/TrayManager';
 import { destroyTrayWindow, getTrayWindow } from './tray/trayWindow';
 
 import type { IpcMainLike } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
+
+// cspell:ignore pkexec
+// Main-process (sender) side of the DESKTOP_API_CALL IPC boundary: normalize
+// errors/results so Electron's structured clone never throws "An object could
+// not be cloned" (notably for execFile/pkexec errors on Linux/flatpak). The
+// `.message` is preserved verbatim so the renderer-side counterpart,
+// `unwrapElectronIpcError` (packages/shared/src/errors/utils/electronIpcError.ts),
+// can still recover any `{ message, code, data }` payload encoded in it.
+function makeIpcSafeError(error: unknown, fallbackMessage: string): Error {
+  if (error instanceof Error) {
+    const safeError = new Error(error.message || fallbackMessage);
+    safeError.name = error.name || 'Error';
+    safeError.stack = error.stack;
+    return safeError;
+  }
+
+  if (typeof error === 'string' && error) {
+    return new Error(error);
+  }
+
+  return new Error(fallbackMessage);
+}
+
+// cspell:ignore pkexec
+// Main-process (sender) side of the DESKTOP_API_CALL IPC boundary: normalize
+// errors/results so Electron's structured clone never throws "An object could
+// not be cloned" (notably for execFile/pkexec errors on Linux/flatpak). The
+// `.message` is preserved verbatim so the renderer-side counterpart,
+// `unwrapElectronIpcError` (packages/shared/src/errors/utils/electronIpcError.ts),
+// can still recover any `{ message, code, data }` payload encoded in it.
+function makeIpcSafeResult(result: unknown): unknown {
+  try {
+    structuredClone(result);
+    return result;
+  } catch (error) {
+    try {
+      return JSON.parse(JSON.stringify(result)) as unknown;
+    } catch {
+      throw makeIpcSafeError(error, 'DESKTOP_API_CALL returned unsafe result');
+    }
+  }
+}
 
 // Perf: defer Sentry init off the synchronous module-init path. `@sentry/electron`
 // is external (~5MB); requiring + initializing it on the next tick keeps the
@@ -1145,13 +1188,22 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
           `DESKTOP_API_CALL: disallowed method "${method}"`,
         );
       }
-      const result: unknown = await desktopApi.callDesktopApiMethod({
-        type: 'DESKTOP_API_IPC_MESSAGE',
-        module: module as any,
-        method,
-        params,
-      });
-      return result;
+      try {
+        const result: unknown = await desktopApi.callDesktopApiMethod({
+          type: 'DESKTOP_API_IPC_MESSAGE',
+          module: module as any,
+          method,
+          params,
+        });
+        return makeIpcSafeResult(result);
+      } catch (error) {
+        logger.error('[DESKTOP_API_CALL] handler failed', {
+          module,
+          method,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw makeIpcSafeError(error, 'DESKTOP_API_CALL failed');
+      }
     },
   );
 
@@ -1284,15 +1336,11 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   // WebUSB permission handlers - Enable WebUSB support for hardware wallet connections
 
   browserWindow.webContents.session.setDevicePermissionHandler((details) => {
-    if (details.deviceType === 'usb') {
-      return true;
-    }
-    if (details.deviceType === 'hid') {
-      // WebHID has no protected-class blocklist (unlike WebUSB), so tighten
-      // to Ledger vendorId only.
-      return details.device?.vendorId === 0x2c_97;
-    }
-    return false;
+    // WebHID has no protected-class blocklist (unlike WebUSB), so tighten HID
+    // to Ledger vendorId only. USB is scoped to the trusted main window session;
+    // arbitrary dapp webviews use the separate persist:onekey deny-by-default
+    // session below.
+    return shouldGrantMainWindowDevicePermission(details);
   });
 
   // `session` here is the persistent defaultSession, which OUTLIVES the

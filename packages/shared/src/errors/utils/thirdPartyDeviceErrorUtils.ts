@@ -171,6 +171,12 @@ export function convertThirdPartyDeviceError(
     case ThirdPartyHwErrorCode.ThpPairingFailed:
       return new ThirdPartyErrors.ThirdPartyThpPairingFailed(props);
 
+    case ThirdPartyErrors.THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE:
+      return new ThirdPartyErrors.ThirdPartyPathForbidden(props);
+
+    case ThirdPartyErrors.THIRD_PARTY_HW_BLE_CONNECT_FAILED_CODE:
+      return new ThirdPartyErrors.ThirdPartyBleConnectFailed(props);
+
     case ThirdPartyHwErrorCode.MethodNotSupported:
       return new ThirdPartyErrors.ThirdPartyMethodNotSupported(props);
 
