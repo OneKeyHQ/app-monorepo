@@ -226,6 +226,39 @@ function positionHasRewards(
   );
 }
 
+// Whether the position carries outstanding debt (a positive borrowed balance
+// on the position itself or any of its source positions). Withdrawing
+// collateral from such a position raises liquidation risk, so the action
+// dialog shows a warning when this is true.
+function positionHasDebts(
+  position: IDeFiProtocol['positions'][number],
+): boolean {
+  const hasPositiveDebt = (debts: IDeFiAsset[] | undefined) =>
+    debts?.some((debt) => isPositiveAmount(debt.amount)) ?? false;
+  return (
+    hasPositiveDebt(position.debts) ||
+    (position.sourcePositions?.some((sourcePosition) =>
+      hasPositiveDebt(sourcePosition.debts),
+    ) ??
+      false)
+  );
+}
+
+// The position's claimable reward assets (positive amounts only). Prefers the
+// position-level aggregate and only falls back to source positions when it is
+// empty, so a reward mirrored at both levels is never counted twice.
+function getPositionRewardAssets(
+  position: IDeFiProtocol['positions'][number],
+): IDeFiAsset[] {
+  const positionRewards = (position.rewards ?? []).filter((reward) =>
+    isPositiveAmount(reward.amount),
+  );
+  if (positionRewards.length > 0) return positionRewards;
+  return (position.sourcePositions ?? [])
+    .flatMap((sourcePosition) => sourcePosition.rewards ?? [])
+    .filter((reward) => isPositiveAmount(reward.amount));
+}
+
 function asRecord(value: unknown): IDeFiUnknownRecord | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return undefined;
@@ -773,6 +806,8 @@ export function resolveDeFiActionTxAmount({
 
 export default {
   buildDeFiActionBps,
+  getPositionRewardAssets,
+  positionHasDebts,
   positionHasRewards,
   resolveDeFiActionTxAmount,
   resolveDeFiPositionActionDebugCandidates,
@@ -784,8 +819,10 @@ export {
   DEFI_ACTION_MAX_PERCENT,
   DEFI_ACTION_MIN_PERCENT,
   buildDeFiActionBps,
+  getPositionRewardAssets,
   normalizeCategoryForAction,
   normalizeDeFiActionPercent,
+  positionHasDebts,
   positionHasRewards,
   resolveDeFiPositionActionDebugCandidates,
   resolveDeFiPositionActions,
