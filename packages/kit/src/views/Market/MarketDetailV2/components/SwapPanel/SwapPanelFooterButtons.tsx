@@ -26,9 +26,8 @@ function SwapPanelFooterButtons({ onTrade, onInstant }: IProps) {
       <Button
         testID={MarketTestIDs.detailBuyButton}
         size="large"
-        variant="primary"
+        variant="accent"
         flex={1}
-        bg="$buttonSuccess"
         onPress={onInstant}
         icon="FlashSolid"
       >

@@ -831,6 +831,7 @@ terra
 terra2
 testnet
 Testnet
+devnet
 textarea
 textgroup
 Themeable
