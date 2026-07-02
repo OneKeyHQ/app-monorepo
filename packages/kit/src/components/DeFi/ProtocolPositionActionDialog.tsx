@@ -1811,6 +1811,18 @@ function ProtocolPositionActionDialogContent({
         />
       ) : null}
 
+      {selectedAssets.length > 1 ? (
+        // Each selected asset builds its own transaction (approvals discovered
+        // at build time may add more), so hardware-wallet users know how many
+        // confirmations to expect. Count shown is the business-tx floor.
+        <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
+          {intl.formatMessage(
+            { id: ETranslations.address_risk_check_txs__msg },
+            { count: selectedAssets.length },
+          )}
+        </SizableText>
+      ) : null}
+
       <Dialog.Footer
         showCancelButton={false}
         showConfirmButton
