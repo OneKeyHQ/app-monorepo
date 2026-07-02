@@ -458,11 +458,13 @@ export function NotificationListView({
     [ENotificationPushTopicTypes.coinPriceAlert]: [],
     [ENotificationPushTopicTypes.system]: [],
   });
+  const messageListMutationVersionRef = useRef(0);
   const { isLoading, run: reFetchList } = usePromiseResult(
     async () => {
       noop(lastReceivedTime);
       const topicType = tabs.find((tab) => tab.name === focusedTab.value)?.id;
       if (!topicType) return;
+      const requestMutationVersion = messageListMutationVersionRef.current;
       const cacheList = cacheListRef.current[topicType];
       setShouldShowMaxAccountLimitWarning(
         topicType !== ENotificationPushTopicTypes.system,
@@ -474,6 +476,10 @@ export function NotificationListView({
           ? undefined
           : [topicType],
       );
+      // Ignore responses from list requests started before mark-all-read completed.
+      if (requestMutationVersion !== messageListMutationVersionRef.current) {
+        return cacheListRef.current[topicType];
+      }
       if (topicType === ENotificationPushTopicTypes.all) {
         setUnreadMap(buildUnreadMap(r));
       }
@@ -501,6 +507,7 @@ export function NotificationListView({
   const { isVersionCompatible } = useVersionCompatible();
 
   const handleMarkAllReadSuccess = useCallback(() => {
+    messageListMutationVersionRef.current += 1;
     const allCachedItems = Object.values(cacheListRef.current).flat();
     const readedMessageMap = buildReadedMessageMap(allCachedItems);
     cacheListRef.current = {
@@ -530,7 +537,8 @@ export function NotificationListView({
       [ENotificationPushTopicTypes.accountActivity]: 0,
       [ENotificationPushTopicTypes.system]: 0,
     });
-  }, [setNotificationsData, setReadedMap, setUnreadMap]);
+    void reFetchList();
+  }, [reFetchList, setNotificationsData, setReadedMap, setUnreadMap]);
 
   const {
     markAllReadTitle,
