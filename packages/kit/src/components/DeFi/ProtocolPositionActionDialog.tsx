@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -1287,6 +1287,7 @@ function ProtocolPositionActionAmountInput({
   maxLabel,
   insufficientLabel,
   validator,
+  onFocus,
 }: {
   amount: string;
   onChangeAmount: (value: string) => void;
@@ -1302,6 +1303,7 @@ function ProtocolPositionActionAmountInput({
   maxLabel: string;
   insufficientLabel: string;
   validator?: (value: string) => boolean;
+  onFocus?: () => void;
 }) {
   return (
     <YStack gap="$5">
@@ -1313,6 +1315,7 @@ function ProtocolPositionActionAmountInput({
         onChange={onChangeAmount}
         validator={validator}
         tokenSymbol={symbol}
+        inputProps={{ onFocus }}
         valueProps={{
           value: fiatValue,
           currency: currencySymbol,
@@ -1602,7 +1605,20 @@ function ProtocolPositionActionDialogContent({
     setIsMaxAmount(false);
   };
 
+  // Withdraw prefills the full balance as an untouched Max default. First
+  // focus clears it — the user is here to type a custom amount and would
+  // otherwise delete the prefill by hand. A Max the user pressed deliberately
+  // (preset row) is never cleared; the ref marks that intent.
+  const hasUserSetMaxRef = useRef(false);
+  const handleAmountInputFocus = () => {
+    if (isMaxAmount && !hasUserSetMaxRef.current) {
+      setAmount('');
+      setIsMaxAmount(false);
+    }
+  };
+
   const handleMaxAmount = () => {
+    hasUserSetMaxRef.current = true;
     setAmount(clampAmountDecimals(availableAmount, amountDecimals));
     setIsMaxAmount(true);
   };
@@ -1748,6 +1764,7 @@ function ProtocolPositionActionDialogContent({
         availableLabel={availableLabel}
         maxLabel={maxLabel}
         insufficientLabel={insufficientLabel}
+        onFocus={handleAmountInputFocus}
       />
     );
   } else if (isPercentAction) {
