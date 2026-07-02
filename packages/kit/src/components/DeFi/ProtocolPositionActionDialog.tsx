@@ -2000,7 +2000,12 @@ function showProtocolPositionActionDialog({
 }
 
 export {
+  clampAmountDecimals,
   getActionLabel,
+  getErrorMessage,
+  isUserRejectedErrorMessage,
+  ProtocolPositionActionAmountInput,
+  ProtocolPositionActionAnchor,
   showProtocolPositionActionDialog,
   useProtocolPositionActionSubmit,
   type IProtocolPositionActionSuccessParams,

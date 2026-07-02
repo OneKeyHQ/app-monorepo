@@ -208,6 +208,14 @@ function isPositiveAmount(amount?: string) {
   return value.isFinite() && value.gt(0);
 }
 
+// Keep only the assets whose amount is a positive finite number — a selector
+// dropdown should never offer a zero or unparseable balance to act on.
+function filterPositiveActionAssets(
+  assets: IResolvedDeFiPositionActionAsset[],
+): IResolvedDeFiPositionActionAsset[] {
+  return assets.filter((asset) => isPositiveAmount(asset.amount));
+}
+
 // Whether the position currently holds claimable rewards (a positive reward
 // balance on the position itself or any of its source positions). Drives the
 // "Remove" vs "Remove & Claim rewards" labelling: removing an LP that has
@@ -806,6 +814,7 @@ export function resolveDeFiActionTxAmount({
 
 export default {
   buildDeFiActionBps,
+  filterPositiveActionAssets,
   getPositionRewardAssets,
   positionHasDebts,
   positionHasRewards,

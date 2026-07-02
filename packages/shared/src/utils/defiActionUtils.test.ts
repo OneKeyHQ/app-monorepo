@@ -1637,3 +1637,36 @@ describe('defiActionUtils.getPositionRewardAssets', () => {
     ).toEqual([]);
   });
 });
+
+describe('defiActionUtils.filterPositiveActionAssets', () => {
+  it('keeps only assets with a positive finite amount', () => {
+    const assets = [
+      {
+        asset: makeAsset({ address: '0xweth', symbol: 'WETH' }),
+        amount: '0.0001659',
+        symbol: 'WETH',
+      },
+      {
+        asset: makeAsset({ address: '0xusdc', symbol: 'USDC' }),
+        amount: '0',
+        symbol: 'USDC',
+      },
+      {
+        asset: makeAsset({ address: '0xdai', symbol: 'DAI' }),
+        amount: '',
+        symbol: 'DAI',
+      },
+      {
+        asset: makeAsset({ address: '0xusdt', symbol: 'USDT' }),
+        amount: 'not-a-number',
+        symbol: 'USDT',
+      },
+    ];
+    const result = defiActionUtils.filterPositiveActionAssets(assets);
+    expect(result.map((item) => item.symbol)).toEqual(['WETH']);
+  });
+
+  it('returns an empty array for empty input', () => {
+    expect(defiActionUtils.filterPositiveActionAssets([])).toEqual([]);
+  });
+});
