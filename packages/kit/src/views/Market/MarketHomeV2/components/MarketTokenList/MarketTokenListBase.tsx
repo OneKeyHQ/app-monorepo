@@ -485,21 +485,6 @@ function MarketTokenListBase({
       liveTokenOverrides: [liveTokenOverride],
     });
   }, [websocketData, liveTokenOverride]);
-  const limitInitialWebRows =
-    platformEnv.isWeb &&
-    webTabIntegrated &&
-    !enableDeferredWebFeatures &&
-    data.length > MARKET_HOME_WEB_INITIAL_RENDER_ROW_COUNT;
-  const tableData = useMemo(
-    () =>
-      limitInitialWebRows
-        ? data.slice(0, MARKET_HOME_WEB_INITIAL_RENDER_ROW_COUNT)
-        : data,
-    [data, limitInitialWebRows],
-  );
-  const estimatedTableDataLength = limitInitialWebRows
-    ? data.length
-    : undefined;
 
   // Listen to MarketWatchlistOnlyChanged event to update sort settings
   // Skip for clientSort mode — banner detail pages manage their own sort state
@@ -876,15 +861,12 @@ function MarketTokenListBase({
               onDragEnd={onDragEnd}
               columns={marketTokenColumns}
               onEndReached={webTabIntegrated ? undefined : handleEndReached}
-              dataSource={tableData}
-              estimatedDataLength={estimatedTableDataLength}
+              dataSource={data}
               keyExtractor={(item) => item.id}
               extraData={networkId}
               onHeaderRow={stableHandleHeaderRow}
               TableEmptyComponent={TableEmptyComponent}
-              TableFooterComponent={
-                limitInitialWebRows ? null : TableFooterComponent
-              }
+              TableFooterComponent={TableFooterComponent}
               estimatedItemSize={60}
               onRow={stableOnRow}
               rowProps={tableRowProps}
