@@ -44,6 +44,7 @@ const dragZoneStyle = {
 const MARKER_CLASS = 'app-region-drag';
 const SYN_ATTR = 'data-onekey-syn-region';
 const NEUTRALIZE_STYLE_ID = 'onekey-drag-region-neutralize';
+const MODAL_SCREEN_SELECTOR = '[data-testid="APP-Modal-Screen"]';
 const RECOMPUTE_DEBOUNCE = 200;
 // A continuous stream of triggers (e.g. live window resizing fires `resize`
 // rapidly) keeps resetting the debounce timer. MAX_WAIT guarantees a recompute
@@ -104,6 +105,10 @@ function ensureNeutralizeStyle() {
 // ACTIVE screen — which surfaced especially on external monitors (dpr=1). Only
 // visible zones get overlays; hidden ones contribute nothing.
 function isZoneShown(el: Element): boolean {
+  if (el.closest(MODAL_SCREEN_SELECTOR)) {
+    return false;
+  }
+
   let cur: Element | null = el;
   while (cur && cur !== document.body) {
     const cs = globalThis.getComputedStyle(cur);

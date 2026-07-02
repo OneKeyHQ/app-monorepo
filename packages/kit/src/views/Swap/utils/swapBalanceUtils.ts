@@ -295,6 +295,16 @@ export function getSwapRequiredNativeBalanceAmount({
         fromToken,
       });
 
+    // Gas Account sponsored tx: OneKey pays this tx's network fee, so it must
+    // not count toward the user's required native balance. estimate-fee only
+    // sets gasAccountEligible=true when sponsorship is actually available (and
+    // the global "use Gas Account" switch is on), so the original
+    // insufficient-gas block still applies whenever sponsorship is off or the
+    // backend rejects it.
+    if (item.gasInfo.gasAccountEligible) {
+      return acc;
+    }
+
     const { totalNative } = calculateFeeForSend({
       feeInfo: item.gasInfo as IFeeInfoUnit,
       nativeTokenPrice: item.gasInfo.common.nativeTokenPrice ?? 0,

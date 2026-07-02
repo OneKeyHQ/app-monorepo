@@ -1,6 +1,8 @@
 import {
   buildTrezorBleBindingCandidates,
+  findTrezorAutoFallbackConnectId,
   getTrezorBleBindingCandidateState,
+  getTrezorBleBindingScanOptions,
 } from './trezorBleBindingUtils';
 
 import type { ITrezorBleBindingScannedDevice } from './trezorBleBindingUtils';
@@ -25,6 +27,53 @@ function device({
 }
 
 describe('trezorBleBindingUtils', () => {
+  it('uses BLE-only search only for manual binding mode', () => {
+    expect(getTrezorBleBindingScanOptions('manual-binding')).toEqual({
+      resetSession: true,
+      transportType: 'ble',
+    });
+
+    expect(getTrezorBleBindingScanOptions('auto-fallback')).toEqual({
+      resetSession: true,
+      waitForAllTransports: true,
+    });
+  });
+
+  it('uses the known USB connectId as an automatic fallback when USB is discovered', () => {
+    expect(
+      findTrezorAutoFallbackConnectId({
+        mode: 'auto-fallback',
+        devices: [
+          device({
+            connectId: 'USB_CONNECT_ID',
+            name: 'Trezor USB',
+            connectionType: 'usb',
+          }),
+          device({
+            connectId: 'BLE_CONNECT_ID',
+            name: 'Trezor BLE',
+            connectionType: 'ble',
+          }),
+        ],
+        usbConnectId: 'USB_CONNECT_ID',
+      }),
+    ).toBe('USB_CONNECT_ID');
+
+    expect(
+      findTrezorAutoFallbackConnectId({
+        mode: 'manual-binding',
+        devices: [
+          device({
+            connectId: 'USB_CONNECT_ID',
+            name: 'Trezor USB',
+            connectionType: 'usb',
+          }),
+        ],
+        usbConnectId: 'USB_CONNECT_ID',
+      }),
+    ).toBeNull();
+  });
+
   it('keeps only BLE candidates that are not the known USB device and sorts them naturally', () => {
     const candidates = buildTrezorBleBindingCandidates({
       devices: [

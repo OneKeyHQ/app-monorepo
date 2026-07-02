@@ -1276,7 +1276,13 @@ function StockMarketHeaderSkeleton() {
           </YStack>
         </XStack>
       </XStack>
-      <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
+      <YStack
+        alignItems="flex-end"
+        w="$20"
+        minWidth={0}
+        flexShrink={0}
+        gap="$1"
+      >
         <Skeleton h="$6" w="$16" />
         <Skeleton h="$4" w="$12" />
       </YStack>

@@ -4,6 +4,7 @@ import 'globalthis';
 
 import './globalShim';
 import './setimmediateShim';
+import './requestIdleCallbackShim';
 import './extensionApiShim/extensionApiShim';
 import './indexedDBShim/indexedDBShim';
 import './xhrShim';

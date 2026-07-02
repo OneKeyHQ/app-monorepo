@@ -2,11 +2,14 @@ import axios, { AxiosHeaders } from 'axios';
 
 import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
+import platformEnv from '../../platformEnv';
 import { memoizee } from '../../utils/cacheUtils';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
-import { isSniSupported, sniRequest } from './sniRequest';
+import { isSniFailClosedError } from './sniFailClosedError';
+import { redactIpLiterals, safeSniLogValue } from './sniLogRedaction';
+import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
 
 import type {
   AxiosAdapter,
@@ -18,21 +21,72 @@ import type {
 /**
  * Debug logging helper - only logs in development mode
  */
-const DEBUG = false;
-const debugLog = (...args: any[]) => {
-  if (DEBUG) {
-    console.log(...args);
+const debugLog = (..._args: any[]) => {
+  // Intentionally no-op. Production diagnostics must go through defaultLogger.
+};
+const debugWarn = (..._args: any[]) => {
+  // Intentionally no-op. Production diagnostics must go through defaultLogger.
+};
+const debugError = (..._args: any[]) => {
+  // Intentionally no-op. Production diagnostics must go through defaultLogger.
+};
+
+type IpTableLogLevel = 'info' | 'warn' | 'error';
+
+function hashForLog(value: string | null | undefined): string {
+  if (!value) return 'none';
+  let hash = 0x81_1c_9d_c5;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 0x01_00_01_93) >>> 0;
   }
-};
-const debugWarn = (...args: any[]) => {
-  if (DEBUG) {
-    console.warn(...args);
+  return hash.toString(16).padStart(8, '0');
+}
+
+function getSniLogPlatform(): string {
+  if (platformEnv.isNativeIOS) return 'ios';
+  if (platformEnv.isNativeAndroid) return 'android';
+  if (platformEnv.isDesktop) return 'desktop';
+  if (platformEnv.isExtension) return 'extension';
+  if (platformEnv.isRuntimeBrowser) return 'web';
+  return 'unknown';
+}
+
+function getErrorCode(error: unknown): string {
+  if (error && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === 'string') return code;
   }
-};
-const debugError = (...args: any[]) => {
-  // Always log errors, even in production
-  console.error(...args);
-};
+  return 'none';
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function formatLogEvent(
+  event: string,
+  fields: Record<string, unknown> = {},
+): string {
+  return Object.entries({ event, ...fields })
+    .map(([key, value]) => `${key}=${safeSniLogValue(value)}`)
+    .join(' ');
+}
+
+function logIpTableEvent(
+  level: IpTableLogLevel,
+  event: string,
+  fields: Record<string, unknown> = {},
+): void {
+  const info = `[IpTableAdapter] ${formatLogEvent(event, fields)}`;
+  if (level === 'error') {
+    defaultLogger.ipTable.request.error({ info });
+  } else if (level === 'warn') {
+    defaultLogger.ipTable.request.warn({ info });
+  } else {
+    defaultLogger.ipTable.request.info({ info });
+  }
+}
 
 /**
  * Request failure callback parameters
@@ -116,9 +170,11 @@ async function shouldUseIpTable(): Promise<boolean> {
   } catch (error) {
     debugWarn('[IpTableAdapter] Failed to check IP Table permission:', error);
     defaultLogger.ipTable.request.warn({
-      info: `[IpTableAdapter] Failed to check IP Table permission: ${
-        error instanceof Error ? error.message : 'Unknown error'
-      }`,
+      info: redactIpLiterals(
+        `[IpTableAdapter] Failed to check IP Table permission: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      ),
     });
     return defaultEnabled;
   }
@@ -138,11 +194,21 @@ async function shouldUseIpTable(): Promise<boolean> {
 async function getSelectedIpForHostInternal(
   hostname: string,
 ): Promise<string | null> {
+  const rootDomain = extractRootDomain(hostname);
   try {
     // Check environment-based permission first
     const hasPermission = await shouldUseIpTable();
     if (!hasPermission) {
       debugLog('[IpTableAdapter] IP Table disabled by dev settings');
+      logIpTableEvent('info', 'iptable_selection', {
+        hostname,
+        rootDomain,
+        lookupDomain: rootDomain,
+        mapped: false,
+        strictMode: false,
+        runtimeEnabled: false,
+        decision: 'disabled',
+      });
       return null;
     }
 
@@ -150,11 +216,19 @@ async function getSelectedIpForHostInternal(
 
     // Check if config exists and is enabled
     if (!configWithRuntime || configWithRuntime.runtime?.enabled === false) {
+      logIpTableEvent('info', 'iptable_selection', {
+        hostname,
+        rootDomain,
+        lookupDomain: rootDomain,
+        mapped: false,
+        strictMode: false,
+        runtimeEnabled: configWithRuntime?.runtime?.enabled === true,
+        decision: configWithRuntime ? 'disabled' : 'no_config',
+      });
       return null;
     }
 
     const { config, runtime } = configWithRuntime;
-    const rootDomain = extractRootDomain(hostname);
 
     // For shared IP domains (e.g., onekey.so), use the current API environment's domain
     const mappedDomain = await getMappedDomainForIpLookup(rootDomain);
@@ -178,6 +252,16 @@ async function getSelectedIpForHostInternal(
       debugLog(
         `[IpTableAdapter] Using selected IP from runtime: ${lookupDomain} -> ${selectedIp}`,
       );
+      logIpTableEvent('info', 'iptable_selection', {
+        hostname,
+        rootDomain,
+        lookupDomain,
+        mapped: Boolean(mappedDomain),
+        strictMode: Boolean(strictMode),
+        runtimeEnabled: runtime?.enabled !== false,
+        decision: 'selected_ip',
+        selectedIpHash: hashForLog(selectedIp),
+      });
       return selectedIp;
     }
 
@@ -188,6 +272,15 @@ async function getSelectedIpForHostInternal(
         debugLog(
           `[IpTableAdapter] Explicitly using domain for: ${lookupDomain}`,
         );
+        logIpTableEvent('info', 'iptable_selection', {
+          hostname,
+          rootDomain,
+          lookupDomain,
+          mapped: Boolean(mappedDomain),
+          strictMode: false,
+          runtimeEnabled: runtime?.enabled !== false,
+          decision: 'domain',
+        });
         return null;
       }
       debugLog(
@@ -201,17 +294,51 @@ async function getSelectedIpForHostInternal(
       const endpoints = config.domains[lookupDomain].endpoints;
       if (endpoints && endpoints.length > 0) {
         const fallbackIp = endpoints[0].ip;
+        logIpTableEvent('info', 'iptable_selection', {
+          hostname,
+          rootDomain,
+          lookupDomain,
+          mapped: Boolean(mappedDomain),
+          strictMode: true,
+          runtimeEnabled: runtime?.enabled !== false,
+          decision: 'strict_fallback',
+          selectedIpHash: hashForLog(fallbackIp),
+        });
         return fallbackIp;
       }
     }
 
+    logIpTableEvent('info', 'iptable_selection', {
+      hostname,
+      rootDomain,
+      lookupDomain,
+      mapped: Boolean(mappedDomain),
+      strictMode: Boolean(strictMode),
+      runtimeEnabled: runtime?.enabled !== false,
+      decision: 'domain',
+      reason: 'no_selection',
+    });
     return null;
   } catch (error) {
     debugWarn('[IpTableAdapter] Failed to get IP table config:', error);
+    logIpTableEvent('warn', 'iptable_selection', {
+      hostname,
+      rootDomain,
+      lookupDomain: rootDomain,
+      mapped: false,
+      strictMode: false,
+      runtimeEnabled: 'unknown',
+      decision: 'domain',
+      reason: 'config_error',
+      errorCode: getErrorCode(error),
+      errorMessage: getErrorMessage(error),
+    });
     defaultLogger.ipTable.request.warn({
-      info: `[IpTableAdapter] Failed to get IP table config: ${
-        error instanceof Error ? error.message : 'Unknown error'
-      }`,
+      info: redactIpLiterals(
+        `[IpTableAdapter] Failed to get IP table config: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      ),
     });
     return null;
   }
@@ -267,6 +394,42 @@ function axiosHeadersToPlainObject(
   }
 
   return {};
+}
+
+function appendParamsToPath(
+  path: string,
+  params: InternalAxiosRequestConfig['params'],
+): string {
+  if (!params) {
+    return path;
+  }
+
+  const filteredParams: Record<string, string> = {};
+  Object.entries(params as Record<string, any>).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      filteredParams[key] = String(value);
+    }
+  });
+
+  const searchParams = new URLSearchParams(filteredParams);
+  const queryString = searchParams.toString();
+  if (!queryString) {
+    return path;
+  }
+  return `${path}${path.includes('?') ? '&' : '?'}${queryString}`;
+}
+
+function buildRelativeSniPath(
+  baseURL: string,
+  url: string,
+  params: InternalAxiosRequestConfig['params'],
+): string {
+  const baseUrlObj = new URL(baseURL);
+  const basePath = baseUrlObj.pathname.endsWith('/')
+    ? baseUrlObj.pathname.slice(0, -1)
+    : baseUrlObj.pathname;
+  const relativePath = url.startsWith('/') ? url : `/${url}`;
+  return appendParamsToPath(basePath + relativePath, params);
 }
 
 /**
@@ -406,6 +569,16 @@ export function createIpTableAdapter(
       }
 
       const rootDomain = hostname ? extractRootDomain(hostname) : undefined;
+      logIpTableEvent('info', 'sni_preflight_decision', {
+        platform: getSniLogPlatform(),
+        hostname: hostname ?? 'none',
+        rootDomain: rootDomain ?? 'none',
+        method: (config.method || 'GET').toUpperCase(),
+        sniSupported: false,
+        proxyActive: 'skipped',
+        decision: 'fallback',
+        fallbackReason: 'sni_unsupported',
+      });
 
       return callOriginalAdapter({
         config,
@@ -445,6 +618,89 @@ export function createIpTableAdapter(
     // Extract root domain for config lookup
     const rootDomain = extractRootDomain(hostname);
 
+    let targetUrl: string;
+    try {
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        targetUrl = new URL(url).toString();
+      } else if (config.baseURL) {
+        const baseUrlObj = new URL(config.baseURL);
+        const path = buildRelativeSniPath(config.baseURL, url, config.params);
+        targetUrl = `${baseUrlObj.origin}${path}`;
+      } else {
+        return callOriginalAdapter({
+          config,
+          isFallback: false,
+          hostname,
+          rootDomain,
+        });
+      }
+    } catch (_error) {
+      debugLog('[IpTableAdapter] Target URL build failed, using fallback');
+      return callOriginalAdapter({
+        config,
+        isFallback: false,
+        hostname,
+        rootDomain,
+      });
+    }
+
+    let proxyActive: boolean | null;
+    let preflightError: unknown;
+    try {
+      proxyActive = await isProxyActiveForUrl(targetUrl);
+    } catch (error) {
+      debugWarn(
+        '[IpTableAdapter] Proxy preflight failed, using fallback:',
+        error,
+      );
+      preflightError = error;
+      proxyActive = null;
+    }
+    const shouldUseSni = proxyActive !== true && !preflightError;
+    let fallbackReason = 'none';
+    let preflightReason = 'confirmed_direct';
+    if (proxyActive === true) {
+      fallbackReason = 'proxy_active';
+      preflightReason = 'proxy_active';
+    } else if (proxyActive === null) {
+      if (preflightError) {
+        fallbackReason = 'preflight_error';
+        preflightReason = 'preflight_error';
+      } else {
+        preflightReason = 'preflight_unsupported_legacy';
+      }
+    }
+    logIpTableEvent(shouldUseSni ? 'info' : 'warn', 'sni_preflight_decision', {
+      platform: getSniLogPlatform(),
+      hostname,
+      rootDomain,
+      method: (config.method || 'GET').toUpperCase(),
+      sniSupported,
+      proxyActive: proxyActive === null ? 'null' : proxyActive,
+      decision: shouldUseSni ? 'sni' : 'fallback',
+      fallbackReason,
+      preflightReason,
+      errorCode: preflightError ? getErrorCode(preflightError) : 'none',
+      errorMessage: preflightError ? getErrorMessage(preflightError) : 'none',
+    });
+    if (!shouldUseSni) {
+      let debugReason = 'unsupported';
+      if (proxyActive) {
+        debugReason = 'active';
+      } else if (preflightError) {
+        debugReason = 'error';
+      }
+      debugLog(
+        `[IpTableAdapter] Proxy preflight ${debugReason} for ${targetUrl}, using fallback`,
+      );
+      return callOriginalAdapter({
+        config,
+        isFallback: false,
+        hostname,
+        rootDomain,
+      });
+    }
+
     // Get selected IP for this hostname (async call)
     const selectedIp = await getSelectedIpForHost(hostname);
 
@@ -470,30 +726,11 @@ export function createIpTableAdapter(
     if (config.baseURL && !url.startsWith('http')) {
       // Combine baseURL and relative path
       const baseUrlObj = new URL(config.baseURL);
-      const basePath = baseUrlObj.pathname.endsWith('/')
-        ? baseUrlObj.pathname.slice(0, -1)
-        : baseUrlObj.pathname;
-      const relativePath = url.startsWith('/') ? url : `/${url}`;
-      fullPath = basePath + relativePath;
-
-      // Append query string if exists
-      if (config.params) {
-        // Filter out undefined and null values to match axios default behavior
-        const filteredParams: Record<string, string> = {};
-        Object.entries(config.params as Record<string, any>).forEach(
-          ([key, value]) => {
-            if (value !== undefined && value !== null) {
-              filteredParams[key] = String(value);
-            }
-          },
-        );
-
-        const searchParams = new URLSearchParams(filteredParams);
-        const queryString = searchParams.toString();
-        if (queryString) {
-          fullPath += `?${queryString}`;
-        }
-      }
+      fullPath = buildRelativeSniPath(
+        baseUrlObj.toString(),
+        url,
+        config.params,
+      );
     } else if (url.startsWith('http')) {
       // Extract path from full URL
       const urlObj = new URL(url);
@@ -509,10 +746,13 @@ export function createIpTableAdapter(
         try {
           requestBody = JSON.stringify(config.data);
         } catch (stringifyError) {
-          console.warn(
-            '[IpTableAdapter] Failed to stringify request data:',
-            stringifyError,
-          );
+          logIpTableEvent('warn', 'sni_request_prepare', {
+            hostname,
+            rootDomain,
+            selectedIpHash: hashForLog(selectedIp),
+            result: 'body_stringify_failed',
+            errorMessage: getErrorMessage(stringifyError),
+          });
           requestBody = String(config.data);
         }
       }
@@ -582,13 +822,14 @@ export function createIpTableAdapter(
 
       // Parse response body
       let responseData: any = null;
-      if (sniResponse.body) {
+      const responseBody = sniResponse.body ?? sniResponse.data;
+      if (responseBody) {
         try {
           // Check if body is already an object or a string
-          if (typeof sniResponse.body === 'string') {
-            responseData = JSON.parse(sniResponse.body);
+          if (typeof responseBody === 'string') {
+            responseData = JSON.parse(responseBody);
           } else {
-            responseData = sniResponse.body;
+            responseData = responseBody;
           }
         } catch (parseError) {
           debugWarn(
@@ -600,7 +841,7 @@ export function createIpTableAdapter(
               parseError instanceof Error ? parseError.message : 'Unknown error'
             }`,
           });
-          responseData = sniResponse.body;
+          responseData = responseBody;
         }
       }
 
@@ -608,13 +849,26 @@ export function createIpTableAdapter(
 
       return {
         data: responseData,
-        status: sniResponse.statusCode,
-        statusText: '', // SNI response doesn't provide statusText
+        status: sniResponse.statusCode ?? sniResponse.status ?? 0,
+        statusText: sniResponse.statusText ?? '',
         headers: sniResponse.headers,
         config,
         request: {},
       };
     } catch (error) {
+      if (isSniFailClosedError(error)) {
+        debugError('[IpTableAdapter] SNI fail-closed error:', error);
+        logIpTableEvent('error', 'sni_fail_closed', {
+          hostname,
+          rootDomain,
+          selectedIpHash: hashForLog(selectedIp),
+          code: getErrorCode(error),
+          messageClass: error instanceof Error ? error.name : typeof error,
+          decision: 'throw_no_fallback',
+        });
+        throw error;
+      }
+
       // Report IP failure if callback is registered
       if (reportRequestFailureCallback) {
         reportRequestFailureCallback({
@@ -631,9 +885,11 @@ export function createIpTableAdapter(
         error,
       );
       defaultLogger.ipTable.request.error({
-        info: `[IpTableAdapter] SNI request failed for ${hostname} (${selectedIp}), falling back: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
+        info: redactIpLiterals(
+          `[IpTableAdapter] SNI request failed for ${hostname} (ipHash=${hashForLog(selectedIp)}), falling back: ${
+            error instanceof Error ? error.message : 'Unknown error'
+          }`,
+        ),
       });
       // Fallback to domain (isFallback = true, so domain failure won't be counted)
       return callOriginalAdapter({
@@ -687,15 +943,19 @@ export async function testDomainSpeed(
     const latency = Date.now() - startTime;
     debugLog(`[IpTableAdapter] Domain test: ${fullUrl} -> ${latency}ms`);
     defaultLogger.ipTable.request.info({
-      info: `[IpTable] Domain speed test successful: ${fullUrl} : ${latency} ms`,
+      info: redactIpLiterals(
+        `[IpTable] Domain speed test successful: ${fullUrl} : ${latency} ms`,
+      ),
     });
     return latency;
   } catch (error) {
     debugWarn(`[IpTableAdapter] Domain test failed for ${domain}:`, error);
     defaultLogger.ipTable.request.warn({
-      info: `[IpTable] Domain speed test failed for ${domain}: ${
-        error instanceof Error ? error.message : 'Unknown error'
-      }`,
+      info: redactIpLiterals(
+        `[IpTable] Domain speed test failed for ${domain}: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      ),
     });
     return Infinity;
   }
@@ -724,6 +984,48 @@ export async function testIpSpeed(
 
     // SNI hostname should be: wallet.{domain}
     const sniHostname = `wallet.${domain}`;
+    const targetUrl = `https://${sniHostname}${path}`;
+
+    let proxyActive: boolean | null;
+    try {
+      proxyActive = await isProxyActiveForUrl(targetUrl);
+    } catch (error) {
+      logIpTableEvent('warn', 'sni_speed_preflight_decision', {
+        platform: getSniLogPlatform(),
+        hostname: sniHostname,
+        ipHash: hashForLog(ip),
+        proxyActive: 'null',
+        decision: 'skip_ip_speed',
+        reason: 'preflight_error',
+        errorCode: getErrorCode(error),
+        errorMessage: getErrorMessage(error),
+      });
+      return Infinity;
+    }
+
+    if (proxyActive === true) {
+      logIpTableEvent('warn', 'sni_speed_preflight_decision', {
+        platform: getSniLogPlatform(),
+        hostname: sniHostname,
+        ipHash: hashForLog(ip),
+        proxyActive,
+        decision: 'skip_ip_speed',
+        reason: 'proxy_active',
+      });
+      return Infinity;
+    }
+
+    logIpTableEvent('info', 'sni_speed_preflight_decision', {
+      platform: getSniLogPlatform(),
+      hostname: sniHostname,
+      ipHash: hashForLog(ip),
+      proxyActive: proxyActive === null ? 'null' : proxyActive,
+      decision: 'test_ip_speed',
+      reason:
+        proxyActive === null
+          ? 'preflight_unsupported_legacy'
+          : 'confirmed_direct',
+    });
 
     const response = await sniRequest({
       ip,
@@ -738,7 +1040,9 @@ export async function testIpSpeed(
     if (!response) {
       debugWarn(`[IpTableAdapter] IP test returned null for ${ip}`);
       defaultLogger.ipTable.request.warn({
-        info: `[IpTable] IP speed test returned null for ${ip}`,
+        info: redactIpLiterals(
+          `[IpTable] IP speed test returned null for ${ip}`,
+        ),
       });
       return Infinity;
     }
@@ -748,15 +1052,19 @@ export async function testIpSpeed(
       `[IpTableAdapter] IP test: ${ip} -> ${sniHostname}${path} -> ${latency}ms`,
     );
     defaultLogger.ipTable.request.info({
-      info: `[IpTable] IP speed test successful: ${ip} -> ${sniHostname}${path} : ${latency} ms`,
+      info: redactIpLiterals(
+        `[IpTable] IP speed test successful: ${ip} -> ${sniHostname}${path} : ${latency} ms`,
+      ),
     });
     return latency;
   } catch (error) {
     debugWarn(`[IpTableAdapter] IP test failed for ${ip}:`, error);
     defaultLogger.ipTable.request.warn({
-      info: `[IpTable] IP speed test failed for ${ip}: ${
-        error instanceof Error ? error.message : 'Unknown error'
-      }`,
+      info: redactIpLiterals(
+        `[IpTable] IP speed test failed for ${ip}: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      ),
     });
     return Infinity;
   }

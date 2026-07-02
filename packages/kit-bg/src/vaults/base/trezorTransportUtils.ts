@@ -81,31 +81,13 @@ export async function getTrezorAdapterFromBackgroundApi(
 
 /**
  * Run a Trezor hardware call, preferring the device's primary (USB) connectId
- * and falling back to a bound BLE connectId on a transport-disconnect failure.
- *
- * Trezor's fused connector routes by connectId, so picking the right connectId
- * IS the transport selection. This is the Trezor equivalent of OneKey's
- * `getCompatibleConnectId` / the Ledger fingerprint wrapper — kept Trezor-side
- * so the OneKey / Ledger paths are untouched, and so future Trezor chain
- * keyrings (btc / sol / tron) reuse one place. Extend here if more vendors need
- * the same.
+ * and recovering through BLE binding or auto-fallback discovery when transport
+ * is unavailable.
  *
  * Recovery ladder when the primary call fails:
- *  1. Bound-BLE fallback — primary transport down + a bound `bleConnectId` that
- *     is presumed still valid.
- *  2. Re-bind + retry — when the bound BLE handle also fails, or the failure is
- *     a stale bond / THP credential (`BleBondInvalid` / `ThpPairingFailed`):
- *     request a fresh binding (re-scan / re-pair), which overwrites the stale
- *     connectId, then retry the current call. Without this, an already-bound
- *     device whose BLE state went bad (wiped → new peripheral id, dropped bond)
- *     would loop on reconnect failures with no way back into binding.
- *     `BleBondInvalid` that can't be recovered (OS bond still present) ends up
- *     back as an error → the user is prompted to unpair in system settings.
- *
- * Until a device is bound over BLE (`dbDevice.bleConnectId` is empty) step 1 is
- * a no-op pass-through. Binding (how `bleConnectId` gets onto the record) is a
- * separate flow: `ServiceThirdPartyHardware.bindTrezorBleConnectId` + the
- * pairing UI.
+ *  1. Try saved BLE when the primary transport is down.
+ *  2. Request a fresh fallback connectId and retry; the result may be BLE or
+ *     the primary USB connectId if USB becomes available again.
  */
 export async function callTrezorWithBleFallback<T>(
   dbDevice: IDBDevice,
@@ -147,8 +129,8 @@ export async function callTrezorWithBleFallback<T>(
     result = bleResult;
   }
 
-  // 2) Re-bind + retry. Covers a no-longer-resolving bound BLE handle AND stale
-  // bond / THP credentials — both need a fresh binding, not the stored value.
+  // 2) Re-discover + retry. Covers a no-longer-resolving bound BLE handle,
+  // stale bond / THP credentials, and USB becoming available again.
   const finalPayload = result.payload as ITrezorTransportFailurePayload;
   if (
     options?.requestBleConnectId &&
@@ -160,11 +142,11 @@ export async function callTrezorWithBleFallback<T>(
     defaultLogger.hardware.sdkLog.log(
       `[3rdPartyHW][Trezor] connectId failed (code=${String(
         finalPayload?.code,
-      )}); requesting BLE (re)binding for device_id=${featuresDeviceId}`,
+      )}); requesting fallback discovery for device_id=${featuresDeviceId}`,
     );
-    let boundBleConnectId: string | null | undefined;
+    let fallbackConnectId: string | null | undefined;
     try {
-      boundBleConnectId = await options.requestBleConnectId({
+      fallbackConnectId = await options.requestBleConnectId({
         dbDevice,
         usbConnectId: dbDevice.usbConnectId || primaryConnectId,
         featuresDeviceId,
@@ -175,11 +157,13 @@ export async function callTrezorWithBleFallback<T>(
       // throwing a raw, unconverted non-Response error.
       return result;
     }
-    if (boundBleConnectId && boundBleConnectId !== primaryConnectId) {
+    if (fallbackConnectId) {
       defaultLogger.hardware.sdkLog.log(
-        `[3rdPartyHW][Trezor] retrying with (re)bound BLE ${boundBleConnectId}`,
+        fallbackConnectId === primaryConnectId
+          ? `[3rdPartyHW][Trezor] retrying with recovered primary USB ${fallbackConnectId}`
+          : `[3rdPartyHW][Trezor] retrying with (re)bound BLE ${fallbackConnectId}`,
       );
-      return fn(boundBleConnectId);
+      return fn(fallbackConnectId);
     }
   }
   return result;
