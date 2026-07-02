@@ -11,12 +11,15 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IPerpsHomeView } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
 import { mapSnapshotToPerpsHomeView } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 const ACCOUNT_REVALIDATING_SUBTYPES = new Set<ESubscriptionType>([
   ESubscriptionType.WEB_DATA2,
+  ESubscriptionType.ALL_DEXS_CLEARINGHOUSE_STATE,
   ESubscriptionType.USER_FILLS,
   ESubscriptionType.OPEN_ORDERS,
   ESubscriptionType.SPOT_STATE,
@@ -30,6 +33,8 @@ const DEPOSIT_CONFIRMATION_RETRY_INTERVAL_MS =
 const ACCOUNT_REVALIDATE_DEBOUNCE_MS = 1000;
 
 type IRevalidateReason = 'account' | 'accountForce' | 'deposit';
+type ILocalPendingTxConfirmedPayload =
+  IAppEventBusPayload[EAppEventBusNames.LocalPendingTxConfirmed];
 
 function getEventUserAddress(data: unknown): string | undefined {
   if (!data || typeof data !== 'object') {
@@ -52,6 +57,43 @@ function mergePendingReason(
   return 'account';
 }
 
+function getAccountScopeKey({
+  accountId,
+  indexedAccountId,
+}: {
+  accountId: string | undefined;
+  indexedAccountId: string | undefined;
+}) {
+  if (indexedAccountId) {
+    return `indexed:${indexedAccountId}`;
+  }
+  if (accountId) {
+    return `account:${accountId}`;
+  }
+  return undefined;
+}
+
+function isCurrentAccountConfirmedPerpsTx({
+  payload,
+  accountId,
+  indexedAccountId,
+}: {
+  payload: ILocalPendingTxConfirmedPayload;
+  accountId: string | undefined;
+  indexedAccountId: string | undefined;
+}) {
+  if (
+    payload.networkId !== PERPS_NETWORK_ID ||
+    payload.status !== EDecodedTxStatus.Confirmed
+  ) {
+    return false;
+  }
+  if (indexedAccountId) {
+    return payload.indexedAccountId === indexedAccountId;
+  }
+  return Boolean(accountId && payload.accountId === accountId);
+}
+
 interface IPerpsHomePortfolioResult {
   address: string;
   view: IPerpsHomeView | undefined;
@@ -67,6 +109,10 @@ export function usePerpsHomePortfolio(): {
   } = useActiveAccount({ num: 0 });
   const accountId = account?.id;
   const indexedAccountId = account?.indexedAccountId;
+  const currentAccountScopeKey = getAccountScopeKey({
+    accountId,
+    indexedAccountId,
+  });
   // Home tabs stay mounted while frozen, so gate polling on the Perps tab being active.
   const { isFocused: isTabFocused } = useTabIsRefreshingFocused();
   const isTabFocusedRef = useRef(isTabFocused);
@@ -147,6 +193,9 @@ export function usePerpsHomePortfolio(): {
   const pendingRevalidateReasonRef = useRef<IRevalidateReason | undefined>(
     undefined,
   );
+  const pendingRevalidateAccountScopeKeyRef = useRef<string | undefined>(
+    undefined,
+  );
   const latestAddressRef = useRef<string | undefined>(result?.address);
   latestAddressRef.current = result?.address;
 
@@ -167,13 +216,29 @@ export function usePerpsHomePortfolio(): {
   }, []);
 
   useEffect(() => {
-    if (isTabFocused && pendingRevalidateReasonRef.current) {
-      setFocusedRevalidateNonce((value) => value + 1);
+    if (!isTabFocused || !pendingRevalidateReasonRef.current) {
+      return;
     }
-  }, [isTabFocused]);
+    if (
+      pendingRevalidateAccountScopeKeyRef.current !== currentAccountScopeKey
+    ) {
+      pendingRevalidateReasonRef.current = undefined;
+      pendingRevalidateAccountScopeKeyRef.current = undefined;
+      return;
+    }
+    setFocusedRevalidateNonce((value) => value + 1);
+  }, [currentAccountScopeKey, isTabFocused]);
 
   // Refetch when Perps account data changes, the WS recovers, or a deposit confirms on-chain.
   useEffect(() => {
+    const setPendingRevalidateReason = (reason: IRevalidateReason) => {
+      const pendingScopeKey = pendingRevalidateAccountScopeKeyRef.current;
+      pendingRevalidateReasonRef.current =
+        pendingScopeKey === currentAccountScopeKey
+          ? mergePendingReason(pendingRevalidateReasonRef.current, reason)
+          : reason;
+      pendingRevalidateAccountScopeKeyRef.current = currentAccountScopeKey;
+    };
     const clearDepositRetry = () => {
       if (depositRetryTimerRef.current) {
         clearTimeout(depositRetryTimerRef.current);
@@ -220,10 +285,7 @@ export function usePerpsHomePortfolio(): {
     };
     const startDepositConfirmationRetry = () => {
       if (!isTabFocusedRef.current) {
-        pendingRevalidateReasonRef.current = mergePendingReason(
-          pendingRevalidateReasonRef.current,
-          'deposit',
-        );
+        setPendingRevalidateReason('deposit');
         return;
       }
       clearDepositRetry();
@@ -267,13 +329,11 @@ export function usePerpsHomePortfolio(): {
     };
     const scheduleAccountRevalidate = ({ force = false } = {}) => {
       if (!isTabFocusedRef.current) {
-        pendingRevalidateReasonRef.current = mergePendingReason(
-          pendingRevalidateReasonRef.current,
-          force ? 'accountForce' : 'account',
-        );
+        setPendingRevalidateReason(force ? 'accountForce' : 'account');
         return;
       }
       pendingRevalidateReasonRef.current = undefined;
+      pendingRevalidateAccountScopeKeyRef.current = undefined;
       const address = latestAddressRef.current;
       if (!address) {
         void run();
@@ -306,18 +366,38 @@ export function usePerpsHomePortfolio(): {
         scheduleAccountRevalidate({ force: true });
       }
     };
-    const onRecover = () => scheduleAccountRevalidate();
-    const onTxConfirmed = (p: { networkId: string }) => {
-      if (p.networkId === PERPS_NETWORK_ID) startDepositConfirmationRetry();
+    const onRecover = () => scheduleAccountRevalidate({ force: true });
+    const onTxConfirmed = (payload: ILocalPendingTxConfirmedPayload) => {
+      if (
+        isCurrentAccountConfirmedPerpsTx({
+          payload,
+          accountId,
+          indexedAccountId,
+        })
+      ) {
+        startDepositConfirmationRetry();
+      }
     };
     const pendingReason = pendingRevalidateReasonRef.current;
-    if (pendingReason && isTabFocusedRef.current) {
+    const pendingAccountScopeKey = pendingRevalidateAccountScopeKeyRef.current;
+    if (
+      pendingReason &&
+      isTabFocusedRef.current &&
+      pendingAccountScopeKey === currentAccountScopeKey
+    ) {
       pendingRevalidateReasonRef.current = undefined;
+      pendingRevalidateAccountScopeKeyRef.current = undefined;
       if (pendingReason === 'deposit') {
         startDepositConfirmationRetry();
       } else {
         scheduleAccountRevalidate({ force: pendingReason === 'accountForce' });
       }
+    } else if (
+      pendingReason &&
+      pendingAccountScopeKey !== currentAccountScopeKey
+    ) {
+      pendingRevalidateReasonRef.current = undefined;
+      pendingRevalidateAccountScopeKeyRef.current = undefined;
     }
     appEventBus.on(EAppEventBusNames.HyperliquidDataUpdate, onHl);
     appEventBus.on(EAppEventBusNames.PerpsWebSocketRecovered, onRecover);
@@ -330,7 +410,14 @@ export function usePerpsHomePortfolio(): {
       clearAccountRevalidate();
       depositRetryNonceRef.current += 1;
     };
-  }, [focusedRevalidateNonce, run, setResult]);
+  }, [
+    accountId,
+    currentAccountScopeKey,
+    focusedRevalidateNonce,
+    indexedAccountId,
+    run,
+    setResult,
+  ]);
 
   const view = result?.view;
   const viewState = useMemo<'ready' | 'loading' | 'empty'>(() => {
