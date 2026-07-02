@@ -9,6 +9,8 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 
+import { calculateMarketTokenLivePriceChange } from '../utils/tokenListHelpers';
+
 import type { IMarketToken } from '../MarketTokenData';
 
 export type IMarketTokenListLiveOverride = Partial<
@@ -29,12 +31,14 @@ export type IMarketTokenListLiveOverride = Partial<
 
 type IMarketTokenListStoredLiveOverride = IMarketTokenListLiveOverride & {
   basePrice?: IMarketToken['price'];
+  priceChangeBasePrice?: IMarketToken['priceChangeBasePrice'];
 };
 
 type IMarketHomeTokenSubscription = {
   key: string;
   networkId: string;
   address: string;
+  symbol: string;
   chartType: string;
   currency: string;
 };
@@ -94,6 +98,18 @@ function getLiveOverrideBasePrice(override: IMarketTokenListLiveOverride) {
   return (override as IMarketTokenListStoredLiveOverride).basePrice;
 }
 
+function getLiveOverridePriceChangeBasePrice(
+  override: IMarketTokenListLiveOverride,
+) {
+  return (override as IMarketTokenListStoredLiveOverride).priceChangeBasePrice;
+}
+
+function hasLiveOverridePriceChangeBasePriceSnapshot(
+  override: IMarketTokenListLiveOverride,
+) {
+  return Object.prototype.hasOwnProperty.call(override, 'priceChangeBasePrice');
+}
+
 function findTokenByLiveOverrideKey({
   tokens,
   liveOverrideKey,
@@ -129,10 +145,11 @@ export function buildMarketHomeTokenSubscriptions({
   const subscriptionMap = new Map<string, IMarketHomeTokenSubscription>();
 
   for (const token of tokens) {
-    if (!token.perpsCoin && token.networkId && token.address) {
+    if (!token.perpsCoin && token.networkId) {
       const subscription = {
         networkId: token.networkId,
         address: token.address,
+        symbol: token.symbol,
         chartType,
         currency,
       };
@@ -150,7 +167,7 @@ export function buildMarketHomeTokenSubscriptions({
   return [...subscriptionMap.values()];
 }
 
-function findMatchingSubscription({
+export function findMatchingSubscription({
   payload,
   subscriptions,
 }: {
@@ -159,7 +176,10 @@ function findMatchingSubscription({
 }) {
   const wsPriceData = isWsPriceData(payload.data) ? payload.data : undefined;
   const tokenAddress = payload.tokenAddress || wsPriceData?.address || '';
-  if (!tokenAddress) {
+  if (
+    !tokenAddress &&
+    (!payload.networkId || payload.isSubscriptionAmbiguous)
+  ) {
     return undefined;
   }
 
@@ -272,6 +292,26 @@ export function applyMarketTokenListLiveOverrides({
       return token;
     }
 
+    if (hasLiveOverridePriceChangeBasePriceSnapshot(override)) {
+      const priceChangeBasePrice =
+        getLiveOverridePriceChangeBasePrice(override);
+      if (token.priceChangeBasePrice !== priceChangeBasePrice) {
+        if (override.price === undefined) {
+          return token;
+        }
+
+        const nextPriceChange = calculateMarketTokenLivePriceChange({
+          price: override.price,
+          priceChangeBasePrice: token.priceChangeBasePrice,
+        });
+        hasMatchedToken = true;
+        return mergeLiveOverride(token, {
+          ...override,
+          change24h: nextPriceChange,
+        });
+      }
+    }
+
     hasMatchedToken = true;
     return mergeLiveOverride(token, override);
   });
@@ -376,20 +416,34 @@ export function useMarketHomeTokenListWebSocket({
   useEffect(() => {
     setLiveOverridesByKey((prev) => {
       let next: Record<string, IMarketTokenListStoredLiveOverride> | undefined;
-      const tokenPriceByKey = new Map(
-        tokens.map((token) => [getTokenLiveOverrideKey(token), token.price]),
+      const tokenByKey = new Map(
+        tokens.map((token) => [getTokenLiveOverrideKey(token), token]),
       );
 
       for (const [key, value] of Object.entries(prev)) {
         const basePrice = getLiveOverrideBasePrice(value);
-        const tokenPrice = tokenPriceByKey.get(key);
+        const token = tokenByKey.get(key);
+        const tokenPrice = token?.price;
+        const priceChangeBasePrice = getLiveOverridePriceChangeBasePrice(value);
         if (
-          basePrice !== undefined &&
-          tokenPrice !== undefined &&
-          tokenPrice !== basePrice
+          !token ||
+          (basePrice !== undefined &&
+            tokenPrice !== undefined &&
+            tokenPrice !== basePrice)
         ) {
           next ??= { ...prev };
           delete next[key];
+        } else if (token.priceChangeBasePrice !== priceChangeBasePrice) {
+          const nextPriceChange = calculateMarketTokenLivePriceChange({
+            price: value.price,
+            priceChangeBasePrice: token.priceChangeBasePrice,
+          });
+          next ??= { ...prev };
+          next[key] = {
+            ...value,
+            change24h: nextPriceChange,
+            priceChangeBasePrice: token.priceChangeBasePrice,
+          };
         }
       }
 
@@ -414,6 +468,7 @@ export function useMarketHomeTokenListWebSocket({
       await backgroundApiProxy.serviceMarketWS.subscribeOHLCV({
         networkId: subscription.networkId,
         tokenAddress: subscription.address,
+        symbol: subscription.symbol,
         chartType: subscription.chartType,
         currency: subscription.currency,
       });
@@ -585,11 +640,19 @@ export function useMarketHomeTokenListWebSocket({
         address: matchedSubscription.address,
       });
       const nextPrice = payload.data.c;
+      if (!Number.isFinite(nextPrice) || nextPrice <= 0) {
+        return;
+      }
       const baseToken = findTokenByLiveOverrideKey({
         tokens: tokensRef.current,
         liveOverrideKey,
       });
       const basePrice = baseToken?.price;
+      const priceChangeBasePrice = baseToken?.priceChangeBasePrice;
+      const nextPriceChange = calculateMarketTokenLivePriceChange({
+        price: nextPrice,
+        priceChangeBasePrice,
+      });
 
       if (basePrice === undefined) {
         setLiveOverridesByKey((prev) => {
@@ -605,7 +668,10 @@ export function useMarketHomeTokenListWebSocket({
         setLiveOverridesByKey((prev) => {
           if (
             prev[liveOverrideKey]?.price === nextPrice &&
-            prev[liveOverrideKey]?.basePrice === basePrice
+            prev[liveOverrideKey]?.basePrice === basePrice &&
+            prev[liveOverrideKey]?.priceChangeBasePrice ===
+              priceChangeBasePrice &&
+            prev[liveOverrideKey]?.change24h === nextPriceChange
           ) {
             return prev;
           }
@@ -616,7 +682,9 @@ export function useMarketHomeTokenListWebSocket({
               networkId: matchedSubscription.networkId,
               address: matchedSubscription.address,
               price: nextPrice,
+              change24h: nextPriceChange,
               basePrice,
+              priceChangeBasePrice,
             },
           };
         });
