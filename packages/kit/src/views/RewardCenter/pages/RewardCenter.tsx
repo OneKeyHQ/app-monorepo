@@ -278,33 +278,57 @@ function RewardCenterDetails() {
         return;
       }
 
-      const resp =
-        await backgroundApiProxy.serviceAccountProfile.sendProxyRequestWithTrxRes<{
-          isActived: boolean;
-        }>({
-          networkId: network.id,
-          body: {
-            method: 'get',
-            url: '/api/account',
-            data: {
-              fromAddress: account.address,
+      try {
+        const resp =
+          await backgroundApiProxy.serviceAccountProfile.sendProxyRequestWithTrxRes<{
+            code: number;
+            message?: string;
+            data?: {
+              isActived?: boolean;
+            };
+            success?: boolean;
+            error?: string;
+          }>({
+            networkId: network.id,
+            body: {
+              method: 'get',
+              url: '/api/account',
+              data: {},
+              params: {
+                fromAddress: account.address,
+              },
             },
-            params: {},
-          },
-        });
+            returnRawData: true,
+          });
 
-      return resp;
+        if (resp.code !== 0) {
+          return { isActived: false };
+        }
+
+        return { isActived: resp.data?.isActived === true };
+      } catch (_error) {
+        return undefined;
+      }
     },
     [account, network],
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 15 }),
       revalidateOnFocus: true,
+      undefinedResultIfError: true,
     },
   );
 
   // Only treat the account as inactive once the check has definitively
   // resolved to false, so we never flash the Receive state while loading.
   const isAccountNotActivated = accountActivation?.isActived === false;
+  const isWatchingAccountNotClaimable =
+    !isClaimResourceAvailable &&
+    Boolean(
+      account &&
+        accountUtils.isWatchingAccount({
+          accountId: account.id,
+        }),
+    );
 
   // Stop hammering the backend once activation is confirmed. Polling
   // auto-resumes when deps (account/network) change to another inactive one.
@@ -581,15 +605,23 @@ function RewardCenterDetails() {
     }
   }, [activeAccount, createAddress, network]);
 
-  const { result: nativeToken } = usePromiseResult(async () => {
-    if (!account || !network) {
-      return undefined;
-    }
-    return backgroundApiProxy.serviceToken.getNativeToken({
-      accountId: account.id,
-      networkId: network.id,
-    });
-  }, [account, network]);
+  const { result: nativeToken, isLoading: isNativeTokenLoading } =
+    usePromiseResult(
+      async () => {
+        if (!account || !network) {
+          return undefined;
+        }
+        return backgroundApiProxy.serviceToken.getNativeToken({
+          accountId: account.id,
+          networkId: network.id,
+        });
+      },
+      [account, network],
+      {
+        watchLoading: true,
+        undefinedResultIfError: true,
+      },
+    );
 
   // Same as the home Receive button: open the "choose receive mode" selector
   // (ReceiveSelector), scoped to this TRON account's native TRX, so the user can
@@ -745,12 +777,26 @@ function RewardCenterDetails() {
     isAccountNotActivated,
   ]);
 
-  // Top-of-page alert, by priority: inactive account (with a Top up action) >
-  // IP monthly claim limit reached > account monthly claim limit reached. The
-  // claim button stays labelled as-is and just disabled; the reason is surfaced
-  // here.
+  // Top-of-page alert, by priority: unsupported account > inactive account
+  // (with a Top up action) > IP monthly claim limit reached > account monthly
+  // claim limit reached. The claim button stays labelled as-is and just
+  // disabled; the reason is surfaced here.
   const renderTopAlert = useCallback(() => {
-    if (isAccountNotActivated) {
+    if (isWatchingAccountNotClaimable) {
+      return (
+        <Alert
+          type="warning"
+          icon="InfoCircleOutline"
+          title={intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_error_watching_account,
+          })}
+          closable={false}
+          mb="$5"
+        />
+      );
+    }
+
+    if (isAccountNotActivated && isClaimResourceAvailable) {
       return (
         <Alert
           type="warning"
@@ -766,6 +812,8 @@ function RewardCenterDetails() {
             }),
             primaryTestID: RewardCenterTestIDs.topUpBtn,
             onPrimaryPress: handleTopUp,
+            isPrimaryLoading: isNativeTokenLoading && !nativeToken,
+            isPrimaryDisabled: !nativeToken,
           }}
         />
       );
@@ -801,11 +849,15 @@ function RewardCenterDetails() {
 
     return null;
   }, [
+    isWatchingAccountNotClaimable,
     isAccountNotActivated,
+    isClaimResourceAvailable,
     result?.monthIPRemain,
     result?.monthRemain,
     intl,
     handleTopUp,
+    isNativeTokenLoading,
+    nativeToken,
   ]);
 
   const renderHeaderRight = useCallback(() => {
