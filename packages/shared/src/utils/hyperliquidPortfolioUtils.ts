@@ -63,6 +63,12 @@ export function spotNeedsPrices(
   );
 }
 
+export function spotHasPositiveBalance(
+  spot: ISpotClearinghouseStateResponse | undefined,
+): boolean {
+  return Boolean(spot?.balances?.some((b) => safeBN(b.total).gt(0)));
+}
+
 function isUnifiedPortfolioMode(
   mode: EHyperLiquidAbstractionMode | string | undefined,
 ) {

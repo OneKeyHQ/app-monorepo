@@ -163,14 +163,6 @@ function HomeTabContentMaxWidth({ children }: { children: React.ReactNode }) {
   );
 }
 
-function HomePerpsWebEntryRedirect() {
-  const navigation = useAppNavigation();
-  useEffect(() => {
-    navigation.switchTab(ETabRoutes.WebviewPerpTrade);
-  }, [navigation]);
-  return null;
-}
-
 // Tabs.Container mounts all 4 home tabs (Spot, DeFi, NFT, History) as
 // peer panes in a horizontal scroller, so React reconciles every block
 // on each Wallet unfreeze (or any HomePageView re-render) — including
@@ -204,6 +196,7 @@ export function HomePageView({
   const tabBarHeight = useScrollContentTabBarOffset();
   const tabContainerWidth = useTabContainerWidth();
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const {
     activeAccount: {
       account,
@@ -490,11 +483,7 @@ export function HomePageView({
             testID: HomeTestIDs.tabPerps,
             component: (
               <HomeTabContentMaxWidth>
-                {perpTabShowWeb ? (
-                  <HomePerpsWebEntryRedirect />
-                ) : (
-                  <PerpsContainer />
-                )}
+                {perpTabShowWeb ? null : <PerpsContainer />}
               </HomeTabContentMaxWidth>
             ),
           }
@@ -576,17 +565,53 @@ export function HomePageView({
   const [activeTabId, setActiveTabId] = useState<EHomeWalletTab | undefined>(
     initialTabId,
   );
+  const lastDisplayableTabNameRef = useRef(initialTabName);
 
   useEffect(() => {
     setActiveTabName((prev) =>
-      tabConfigs.some((tab) => tab.name === prev)
+      tabConfigs.some(
+        (tab) =>
+          tab.name === prev &&
+          !(perpTabShowWeb && tab.id === EHomeWalletTab.Perps),
+      )
         ? prev
         : (tabConfigs[0]?.name ?? ''),
     );
     setActiveTabId((prev) =>
-      tabConfigs.some((tab) => tab.id === prev) ? prev : tabConfigs[0]?.id,
+      tabConfigs.some(
+        (tab) =>
+          tab.id === prev &&
+          !(perpTabShowWeb && tab.id === EHomeWalletTab.Perps),
+      )
+        ? prev
+        : tabConfigs[0]?.id,
     );
-  }, [tabConfigs]);
+    const lastDisplayableTab = tabConfigs.find(
+      (tab) => tab.name === lastDisplayableTabNameRef.current,
+    );
+    if (
+      !lastDisplayableTab ||
+      (perpTabShowWeb && lastDisplayableTab.id === EHomeWalletTab.Perps)
+    ) {
+      lastDisplayableTabNameRef.current = tabConfigs[0]?.name ?? '';
+    }
+  }, [perpTabShowWeb, tabConfigs]);
+
+  useEffect(() => {
+    if (!perpTabShowWeb || activeTabId !== EHomeWalletTab.Perps) {
+      return;
+    }
+    const fallbackTabName = tabConfigs.find(
+      (tab) => tab.id !== EHomeWalletTab.Perps,
+    )?.name;
+    if (fallbackTabName) {
+      tabsRef.current?.jumpToTab(fallbackTabName);
+    }
+  }, [activeTabId, perpTabShowWeb, tabConfigs]);
+
+  const switchToPerpsWebTab = useCallback(() => {
+    navigation.switchTab(ETabRoutes.WebviewPerpTrade);
+  }, [navigation]);
 
   const renderToolbar = useCallback(
     ({ focusedTab }: { focusedTab: string }) => (
@@ -601,8 +626,13 @@ export function HomePageView({
     (tabBarProps: any) => {
       const handleTabPress = (name: string) => {
         const nextTab = tabConfigs.find((tab) => tab.name === name);
+        if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
+          switchToPerpsWebTab();
+          return;
+        }
         setActiveTabName(nextTab?.name ?? name);
         setActiveTabId(nextTab?.id);
+        lastDisplayableTabNameRef.current = nextTab?.name ?? name;
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         tabBarProps.onTabPress?.(name);
       };
@@ -659,6 +689,8 @@ export function HomePageView({
       stickyHostRefCallback,
       handleRenderItem,
       renderToolbar,
+      switchToPerpsWebTab,
+      perpTabShowWeb,
       tabConfigs,
     ],
   );
@@ -666,10 +698,20 @@ export function HomePageView({
   const handleTabChange = useCallback(
     (data: { tabName: string }) => {
       const nextTab = tabConfigs.find((tab) => tab.name === data.tabName);
+      if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
+        switchToPerpsWebTab();
+        const fallbackTabName =
+          lastDisplayableTabNameRef.current || tabConfigs[0]?.name;
+        if (fallbackTabName && fallbackTabName !== data.tabName) {
+          tabsRef.current?.jumpToTab(fallbackTabName);
+        }
+        return;
+      }
       setActiveTabName(nextTab?.name ?? data.tabName);
       setActiveTabId(nextTab?.id);
+      lastDisplayableTabNameRef.current = nextTab?.name ?? data.tabName;
     },
-    [tabConfigs],
+    [perpTabShowWeb, switchToPerpsWebTab, tabConfigs],
   );
 
   // When the user switches network while NOT on the wallet (token list) tab,
@@ -797,12 +839,16 @@ export function HomePageView({
 
   const handleSwitchWalletHomeTab = useCallback(
     (payload: { id: EHomeWalletTab }) => {
+      if (perpTabShowWeb && payload.id === EHomeWalletTab.Perps) {
+        switchToPerpsWebTab();
+        return;
+      }
       const name = tabConfigs.find((i) => i.id === payload.id)?.name;
       if (name) {
         tabsRef.current?.jumpToTab(name);
       }
     },
-    [tabConfigs],
+    [perpTabShowWeb, switchToPerpsWebTab, tabConfigs],
   );
 
   useEffect(() => {

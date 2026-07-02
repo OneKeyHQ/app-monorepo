@@ -3,6 +3,7 @@ import { EHyperLiquidAbstractionMode } from '../../types/hyperliquid';
 import {
   assembleHyperliquidSnapshot,
   buildSpotPriceMap,
+  spotHasPositiveBalance,
   spotNeedsPrices,
 } from './hyperliquidPortfolioUtils';
 
@@ -113,6 +114,26 @@ describe('spotNeedsPrices', () => {
         ],
       } as any),
     ).toBe(true);
+  });
+});
+
+describe('spotHasPositiveBalance', () => {
+  it('tracks stablecoin-only balances that still need universe mapping', () => {
+    expect(
+      spotHasPositiveBalance({
+        balances: [
+          { coin: 'USDT', token: 3, total: '100', hold: '0', entryNtl: '0' },
+        ],
+      } as any),
+    ).toBe(true);
+    expect(
+      spotHasPositiveBalance({
+        balances: [
+          { coin: 'USDB', token: 4, total: '0', hold: '0', entryNtl: '0' },
+        ],
+      } as any),
+    ).toBe(false);
+    expect(spotHasPositiveBalance({ balances: [] } as any)).toBe(false);
   });
 });
 

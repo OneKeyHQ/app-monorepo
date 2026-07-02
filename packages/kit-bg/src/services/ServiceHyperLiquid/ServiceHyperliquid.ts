@@ -41,6 +41,7 @@ import { hyperLiquidErrorResolver } from '@onekeyhq/shared/src/utils/hyperLiquid
 import {
   assembleHyperliquidSnapshot,
   buildSpotPriceMap,
+  spotHasPositiveBalance,
   spotNeedsPrices,
 } from '@onekeyhq/shared/src/utils/hyperliquidPortfolioUtils';
 import type {
@@ -969,8 +970,13 @@ export default class ServiceHyperliquid extends ServiceBase {
         infoClient.clearinghouseState({ user }),
         infoClient.spotClearinghouseState({ user }),
       ]);
+      await this._ensureSpotMappings();
       const needsPrices = spotNeedsPrices(spot);
-      const priceMapPromise: Promise<Record<string, string>> = needsPrices
+      const needsSpotMeta =
+        needsPrices ||
+        (spotHasPositiveBalance(spot) &&
+          Object.keys(this._spotMappings.baseNameToPairName).length === 0);
+      const priceMapPromise: Promise<Record<string, string>> = needsSpotMeta
         ? this._getSpotPriceMapMemo().catch(
             (): Record<string, string> => ({
               USDC: '1',
@@ -984,7 +990,6 @@ export default class ServiceHyperliquid extends ServiceBase {
           : Promise.resolve(undefined),
         this._getPortfolioAbstractionMode(user).catch(() => undefined),
       ]);
-      await this._ensureSpotMappings();
       return assembleHyperliquidSnapshot({
         address: user,
         clearinghouse,

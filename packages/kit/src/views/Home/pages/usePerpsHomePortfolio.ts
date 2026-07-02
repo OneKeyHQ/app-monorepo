@@ -15,17 +15,42 @@ import type { IPerpsHomeView } from '@onekeyhq/shared/src/utils/perpsHomeViewUti
 import { mapSnapshotToPerpsHomeView } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
-const ACCOUNT_INVALIDATING_SUBTYPES = new Set<ESubscriptionType>([
+const ACCOUNT_REVALIDATING_SUBTYPES = new Set<ESubscriptionType>([
   ESubscriptionType.WEB_DATA2,
   ESubscriptionType.USER_FILLS,
-  ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES,
   ESubscriptionType.OPEN_ORDERS,
   ESubscriptionType.SPOT_STATE,
+]);
+const ACCOUNT_FORCE_REVALIDATING_SUBTYPES = new Set<ESubscriptionType>([
+  ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES,
 ]);
 const DEPOSIT_CONFIRMATION_RETRY_MAX_ATTEMPTS = 5;
 const DEPOSIT_CONFIRMATION_RETRY_INTERVAL_MS =
   PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS;
 const ACCOUNT_REVALIDATE_DEBOUNCE_MS = 1000;
+
+type IRevalidateReason = 'account' | 'accountForce' | 'deposit';
+
+function getEventUserAddress(data: unknown): string | undefined {
+  if (!data || typeof data !== 'object') {
+    return undefined;
+  }
+  const user = (data as { user?: unknown }).user;
+  return typeof user === 'string' ? user.toLowerCase() : undefined;
+}
+
+function mergePendingReason(
+  current: IRevalidateReason | undefined,
+  next: IRevalidateReason,
+): IRevalidateReason {
+  if (current === 'deposit' || next === 'deposit') {
+    return 'deposit';
+  }
+  if (current === 'accountForce' || next === 'accountForce') {
+    return 'accountForce';
+  }
+  return 'account';
+}
 
 interface IPerpsHomePortfolioResult {
   address: string;
@@ -105,7 +130,8 @@ export function usePerpsHomePortfolio(): {
         swrKey: perpsDeriveType
           ? `perps-home:${indexedAccountId ?? accountId ?? ''}:${perpsDeriveType}`
           : undefined,
-        // Poll interval matches the active TTL; the orchestrator gates real HL network to positions=15s / idle=1m / empty=30m.
+        // Poll at the active cadence, while the bg snapshot cache keeps real HL
+        // network reads to active=15s / idle-or-empty=1m unless forced.
         pollingInterval: PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
         overrideIsFocused: (isPageFocused) => isPageFocused && isTabFocused,
       },
@@ -116,8 +142,9 @@ export function usePerpsHomePortfolio(): {
   const accountRevalidateTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
+  const accountRevalidateForceRef = useRef(false);
   const depositRetryNonceRef = useRef(0);
-  const pendingRevalidateReasonRef = useRef<'account' | 'deposit' | undefined>(
+  const pendingRevalidateReasonRef = useRef<IRevalidateReason | undefined>(
     undefined,
   );
   const latestAddressRef = useRef<string | undefined>(result?.address);
@@ -194,7 +221,10 @@ export function usePerpsHomePortfolio(): {
     };
     const startDepositConfirmationRetry = () => {
       if (!isTabFocusedRef.current) {
-        pendingRevalidateReasonRef.current = 'deposit';
+        pendingRevalidateReasonRef.current = mergePendingReason(
+          pendingRevalidateReasonRef.current,
+          'deposit',
+        );
         return;
       }
       clearDepositRetry();
@@ -212,11 +242,18 @@ export function usePerpsHomePortfolio(): {
         clearTimeout(accountRevalidateTimerRef.current);
         accountRevalidateTimerRef.current = undefined;
       }
+      accountRevalidateForceRef.current = false;
     };
-    const revalidateAccount = async (address: string) => {
+    const revalidateAccount = async ({
+      address,
+      force,
+    }: {
+      address: string;
+      force?: boolean;
+    }) => {
       const snapshot =
         await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
-          { address, force: true },
+          { address, force },
         );
       if (latestAddressRef.current !== address) {
         return;
@@ -229,12 +266,12 @@ export function usePerpsHomePortfolio(): {
         });
       }
     };
-    const scheduleAccountRevalidate = () => {
+    const scheduleAccountRevalidate = ({ force = false } = {}) => {
       if (!isTabFocusedRef.current) {
-        pendingRevalidateReasonRef.current =
-          pendingRevalidateReasonRef.current === 'deposit'
-            ? 'deposit'
-            : 'account';
+        pendingRevalidateReasonRef.current = mergePendingReason(
+          pendingRevalidateReasonRef.current,
+          force ? 'accountForce' : 'account',
+        );
         return;
       }
       pendingRevalidateReasonRef.current = undefined;
@@ -243,17 +280,31 @@ export function usePerpsHomePortfolio(): {
         void run();
         return;
       }
+      if (force) {
+        accountRevalidateForceRef.current = true;
+      }
       if (accountRevalidateTimerRef.current) {
         return;
       }
       accountRevalidateTimerRef.current = setTimeout(() => {
         accountRevalidateTimerRef.current = undefined;
-        void revalidateAccount(address);
+        const shouldForce = accountRevalidateForceRef.current;
+        accountRevalidateForceRef.current = false;
+        void revalidateAccount({ address, force: shouldForce });
       }, ACCOUNT_REVALIDATE_DEBOUNCE_MS);
     };
-    const onHl = (p: { subType: ESubscriptionType }) => {
-      if (ACCOUNT_INVALIDATING_SUBTYPES.has(p.subType)) {
+    const onHl = (p: { subType: ESubscriptionType; data?: unknown }) => {
+      const eventUser = getEventUserAddress(p.data);
+      const currentAddress = latestAddressRef.current?.toLowerCase();
+      if (eventUser && currentAddress && eventUser !== currentAddress) {
+        return;
+      }
+      if (ACCOUNT_REVALIDATING_SUBTYPES.has(p.subType)) {
         scheduleAccountRevalidate();
+        return;
+      }
+      if (ACCOUNT_FORCE_REVALIDATING_SUBTYPES.has(p.subType)) {
+        scheduleAccountRevalidate({ force: true });
       }
     };
     const onRecover = () => scheduleAccountRevalidate();
@@ -266,7 +317,7 @@ export function usePerpsHomePortfolio(): {
       if (pendingReason === 'deposit') {
         startDepositConfirmationRetry();
       } else {
-        scheduleAccountRevalidate();
+        scheduleAccountRevalidate({ force: pendingReason === 'accountForce' });
       }
     }
     appEventBus.on(EAppEventBusNames.HyperliquidDataUpdate, onHl);
