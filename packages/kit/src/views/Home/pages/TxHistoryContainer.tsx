@@ -275,6 +275,10 @@ function TxHistoryListContainer(
             accountId: string;
             networkId: string;
           }[];
+          accountsWithCompletedDeFiPortfolioTxs: {
+            accountId: string;
+            networkId: string;
+          }[];
           addressMap?: Record<string, IAddressBadge>;
           hasMoreOnChainHistory?: boolean;
           next?: string;
@@ -283,6 +287,7 @@ function TxHistoryListContainer(
           allAccounts: [],
           txs: [],
           accountsWithChangedTxs: [],
+          accountsWithCompletedDeFiPortfolioTxs: [],
           addressMap: {},
           hasMoreOnChainHistory: false,
           next: undefined,
@@ -363,6 +368,22 @@ function TxHistoryListContainer(
           appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
             accounts: r.accountsWithChangedTxs,
           });
+        }
+        if (r.accountsWithCompletedDeFiPortfolioTxs.length > 0) {
+          void Promise.all(
+            r.accountsWithCompletedDeFiPortfolioTxs.map(
+              ({
+                accountId: completedAccountId,
+                networkId: completedNetworkId,
+              }) =>
+                backgroundApiProxy.serviceDeFi.refreshAccountDeFiPositionsAfterAction(
+                  {
+                    accountId: completedAccountId,
+                    networkId: completedNetworkId,
+                  },
+                ),
+            ),
+          ).catch(console.error);
         }
       } finally {
         // Must clear unconditionally — otherwise the next polling tick would
