@@ -431,15 +431,15 @@ function SpotBalanceList({
             gap="$2"
             px="$3"
             h={28}
-            bg="$brand8"
+            bg="$bgAccent"
             onPress={
               currentUser?.accountAddress
                 ? () => void showDepositWithdrawModal('deposit')
                 : undefined
             }
           >
-            <Icon name="AlignBottomOutline" size="$4" color="$iconOnColor" />
-            <SizableText size="$bodySmMedium" color="$textOnColor">
+            <Icon name="AlignBottomOutline" size="$4" color="$iconInverse" />
+            <SizableText size="$bodySmMedium" color="$textInverse">
               {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
             </SizableText>
           </Badge>
