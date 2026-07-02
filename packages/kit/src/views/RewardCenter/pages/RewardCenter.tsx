@@ -325,9 +325,9 @@ function RewardCenterDetails() {
     !isClaimResourceAvailable &&
     Boolean(
       account &&
-        accountUtils.isWatchingAccount({
-          accountId: account.id,
-        }),
+      accountUtils.isWatchingAccount({
+        accountId: account.id,
+      }),
     );
 
   // Stop hammering the backend once activation is confirmed. Polling
