@@ -110,8 +110,35 @@ const usePerpDeposit = (
 
   const [perpDepositQuoteLoading, setPerpDepositQuoteLoading] = useState(false);
   const [, setPerpDepositOrder] = usePerpsDepositOrderAtom();
+  const getPerpsDepositTargetScope = useCallback(async () => {
+    if (!indexedAccountId && !selectedAccountId) {
+      return {};
+    }
+    try {
+      const perpsDeriveType =
+        (await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: PERPS_NETWORK_ID,
+        })) ?? 'default';
+      const perpsAccount =
+        await backgroundApiProxy.serviceAccount.getNetworkAccount({
+          accountId: indexedAccountId ? undefined : selectedAccountId,
+          indexedAccountId,
+          deriveType: perpsDeriveType,
+          networkId: PERPS_NETWORK_ID,
+        });
+      return {
+        perpsAccountAddress:
+          perpsAccount?.addressDetail?.normalizedAddress ||
+          perpsAccount?.addressDetail?.address ||
+          perpsAccount?.address,
+        perpsDeriveType: perpsDeriveType,
+      };
+    } catch {
+      return {};
+    }
+  }, [indexedAccountId, selectedAccountId]);
   const handlePerpDepositTxSuccess = useCallback(
-    ({
+    async ({
       fromAmount,
       toAmount,
       fromToken,
@@ -143,6 +170,7 @@ const usePerpDeposit = (
         });
       }
       const time = Date.now();
+      const perpsScope = await getPerpsDepositTargetScope();
       setPerpDepositOrder((prev) => {
         return {
           orders: [
@@ -156,6 +184,7 @@ const usePerpDeposit = (
               time,
               accountId: selectedAccountId,
               indexedAccountId,
+              ...perpsScope,
             },
           ],
         };
@@ -167,7 +196,13 @@ const usePerpDeposit = (
         });
       }, 200);
     },
-    [indexedAccountId, intl, selectedAccountId, setPerpDepositOrder],
+    [
+      getPerpsDepositTargetScope,
+      indexedAccountId,
+      intl,
+      selectedAccountId,
+      setPerpDepositOrder,
+    ],
   );
   const isArbitrumUsdcToken = useMemo(() => {
     return equalTokenNoCaseSensitive({

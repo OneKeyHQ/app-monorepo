@@ -281,6 +281,10 @@ export interface IAppEventBusPayload {
     indexedAccountId?: string;
     accountAddress?: string;
     deriveType?: string | IAccountDeriveTypes;
+    perpsAccountId?: string | null;
+    perpsIndexedAccountId?: string | null;
+    perpsAccountAddress?: string;
+    perpsDeriveType?: string | IAccountDeriveTypes;
     networkId: string;
     txid: string;
     status: EDecodedTxStatus;

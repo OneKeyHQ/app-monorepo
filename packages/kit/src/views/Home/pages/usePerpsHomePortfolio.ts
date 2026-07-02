@@ -78,30 +78,52 @@ function getCurrentConfirmedPerpsDepositScope({
     return undefined;
   }
   let isSameAccount = false;
+  const payloadAccountId = payload.perpsAccountId ?? payload.accountId;
+  const payloadIndexedAccountId =
+    payload.perpsIndexedAccountId ?? payload.indexedAccountId;
   if (indexedAccountId) {
-    isSameAccount = payload.indexedAccountId === indexedAccountId;
+    isSameAccount = payloadIndexedAccountId === indexedAccountId;
   } else {
-    isSameAccount = Boolean(accountId && payload.accountId === accountId);
+    isSameAccount = Boolean(accountId && payloadAccountId === accountId);
   }
   if (!isSameAccount) {
     return undefined;
   }
-  const payloadAddress = normalizePerpsAddress(payload.accountAddress);
+  const payloadAddress = normalizePerpsAddress(
+    payload.perpsAccountAddress ?? payload.accountAddress,
+  );
+  const payloadDeriveType = payload.perpsDeriveType ?? payload.deriveType;
   const currentNormalizedAddress = normalizePerpsAddress(currentAddress);
   if (
     !payloadAddress ||
-    payloadAddress !== currentNormalizedAddress ||
-    !payload.deriveType ||
+    (currentNormalizedAddress && payloadAddress !== currentNormalizedAddress) ||
+    !payloadDeriveType ||
     (currentDeriveType &&
-      !isSameDeriveType(payload.deriveType, currentDeriveType))
+      !isSameDeriveType(payloadDeriveType, currentDeriveType))
   ) {
     return undefined;
   }
   return {
     accountScopeKey: currentAccountScopeKey,
     address: payloadAddress,
-    deriveType: payload.deriveType as string | IAccountDeriveTypes,
+    deriveType: payloadDeriveType,
   };
+}
+
+function isPendingDepositRetryScopeAccountCurrent({
+  scope,
+  currentAccountScopeKey,
+  currentDeriveType,
+}: {
+  scope: IPendingDepositRetryScope;
+  currentAccountScopeKey: string | undefined;
+  currentDeriveType: IAccountDeriveTypes | undefined;
+}) {
+  return (
+    scope.accountScopeKey === currentAccountScopeKey &&
+    (!currentDeriveType ||
+      isSameDeriveType(scope.deriveType, currentDeriveType))
+  );
 }
 
 function isPendingDepositRetryScopeCurrent({
@@ -249,6 +271,19 @@ export function usePerpsHomePortfolio(): {
       return;
     }
     if (
+      !isPendingDepositRetryScopeAccountCurrent({
+        scope: pendingDepositRetryScope,
+        currentAccountScopeKey,
+        currentDeriveType: perpsDeriveType,
+      })
+    ) {
+      pendingDepositRetryScopeRef.current = undefined;
+      return;
+    }
+    if (!latestAddressRef.current) {
+      return;
+    }
+    if (
       !isPendingDepositRetryScopeCurrent({
         scope: pendingDepositRetryScope,
         currentAccountScopeKey,
@@ -260,7 +295,7 @@ export function usePerpsHomePortfolio(): {
       return;
     }
     setFocusedRevalidateNonce((value) => value + 1);
-  }, [currentAccountScopeKey, isTabFocused, perpsDeriveType]);
+  }, [currentAccountScopeKey, isTabFocused, perpsDeriveType, result?.address]);
 
   // Refetch only when a locally submitted Perps deposit confirms on-chain.
   useEffect(() => {
@@ -319,6 +354,20 @@ export function usePerpsHomePortfolio(): {
         return;
       }
       if (
+        !isPendingDepositRetryScopeAccountCurrent({
+          scope,
+          currentAccountScopeKey,
+          currentDeriveType: perpsDeriveType,
+        })
+      ) {
+        pendingDepositRetryScopeRef.current = undefined;
+        return;
+      }
+      if (!latestAddressRef.current) {
+        markPendingDepositRetry(scope);
+        return;
+      }
+      if (
         !isPendingDepositRetryScopeCurrent({
           scope,
           currentAccountScopeKey,
@@ -362,6 +411,7 @@ export function usePerpsHomePortfolio(): {
       pendingDepositRetryScope &&
       isTabFocusedRef.current &&
       perpsDeriveType &&
+      latestAddressRef.current &&
       isPendingDepositRetryScopeCurrent({
         scope: pendingDepositRetryScope,
         currentAccountScopeKey,
@@ -374,6 +424,17 @@ export function usePerpsHomePortfolio(): {
     } else if (
       pendingDepositRetryScope &&
       perpsDeriveType &&
+      !isPendingDepositRetryScopeAccountCurrent({
+        scope: pendingDepositRetryScope,
+        currentAccountScopeKey,
+        currentDeriveType: perpsDeriveType,
+      })
+    ) {
+      pendingDepositRetryScopeRef.current = undefined;
+    } else if (
+      pendingDepositRetryScope &&
+      perpsDeriveType &&
+      latestAddressRef.current &&
       !isPendingDepositRetryScopeCurrent({
         scope: pendingDepositRetryScope,
         currentAccountScopeKey,
