@@ -636,10 +636,10 @@ function FinalizeWalletSetupPage({
                 navigation.pop();
                 Dialog.show({
                   title: intl.formatMessage({
-                    id: ETranslations.trezor_device_not_initialized__title,
+                    id: ETranslations.setup_device_prompt,
                   }),
                   description: intl.formatMessage({
-                    id: ETranslations.trezor_device_not_initialized__desc,
+                    id: ETranslations.setup_recovery_phrase_follow_instructions,
                   }),
                   showCancelButton: false,
                   onConfirmText: intl.formatMessage({

@@ -803,7 +803,7 @@ function RewardCenterDetails() {
           type="warning"
           icon="InfoCircleOutline"
           title={intl.formatMessage({
-            id: ETranslations.feedback_address_not_activated_message,
+            id: ETranslations.tron_energy_account_inactive_deposit_notice,
           })}
           closable={false}
           mb="$5"
@@ -826,7 +826,7 @@ function RewardCenterDetails() {
           type="warning"
           icon="InfoCircleOutline"
           title={intl.formatMessage({
-            id: ETranslations.global_request_limit,
+            id: ETranslations.tron_energy_claim_limit_ip_reached_notice,
           })}
           closable={false}
           mb="$5"
@@ -840,7 +840,7 @@ function RewardCenterDetails() {
           type="warning"
           icon="InfoCircleOutline"
           title={intl.formatMessage({
-            id: ETranslations.wallet_subsidy_all_used,
+            id: ETranslations.tron_energy_claim_limit_reached_notice,
           })}
           closable={false}
           mb="$5"
