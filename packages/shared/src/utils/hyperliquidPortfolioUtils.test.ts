@@ -415,6 +415,17 @@ describe('assembleHyperliquidSnapshot', () => {
     });
     expect(snap.isEmpty).toBe(true);
     expect(snap.netWorthUsd).toBe('0');
+
+    const degradedSnap = assembleHyperliquidSnapshot({
+      address: '0x1',
+      clearinghouse: empty as any,
+      spot: { balances: [] } as any,
+      priceMap: {},
+      isDegraded: true,
+      now: 1,
+    });
+    expect(degradedSnap.isDegraded).toBe(true);
+    expect(degradedSnap.isEmpty).toBe(false);
   });
   it('carries upstream degraded state into the Home snapshot', () => {
     const snap = assembleHyperliquidSnapshot({

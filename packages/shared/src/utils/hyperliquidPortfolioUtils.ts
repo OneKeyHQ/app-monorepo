@@ -374,7 +374,7 @@ export function assembleHyperliquidSnapshot(args: {
 
   return {
     address,
-    isEmpty: !hasPerp && !hasSpot,
+    isEmpty: !degraded && !hasPerp && !hasSpot,
     accountValue,
     withdrawable,
     totalMarginUsed,
