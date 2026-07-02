@@ -390,6 +390,8 @@ function getManageActionLabel({
   return intl.formatMessage({ id: ETranslations.global_withdraw });
 }
 
+// Brand-green outline chips ($brand2/3/6/7/11 mirror the ramp steps the
+// semantic Info tokens map to, resolved per light/dark theme).
 const INFO_OUTLINE_BUTTON_PROPS = {
   variant: 'link',
   childrenAsText: false,
@@ -397,10 +399,10 @@ const INFO_OUTLINE_BUTTON_PROPS = {
   py: '$0.5',
   borderRadius: '$2',
   borderWidth: '$px',
-  borderColor: '$borderInfoSubdued',
+  borderColor: '$brand6',
   bg: '$transparent',
-  hoverStyle: { bg: '$bgInfoSubdued', borderColor: '$borderInfo' },
-  pressStyle: { bg: '$bgInfo', borderColor: '$borderInfo' },
+  hoverStyle: { bg: '$brand2', borderColor: '$brand7' },
+  pressStyle: { bg: '$brand3', borderColor: '$brand7' },
 } as const;
 
 const SOLID_BUTTON_PROPS = {
@@ -409,7 +411,7 @@ const SOLID_BUTTON_PROPS = {
 
 // Full-width action(s) stacked below a position (the unified/simple layout):
 // one button fills the row, two (e.g. Withdraw + Claim) split it evenly via
-// flex. Same info-blue outline as the inline buttons, sized up.
+// flex. Same brand-green outline as the inline buttons, sized up.
 const BLOCK_OUTLINE_BUTTON_PROPS = {
   variant: 'link',
   childrenAsText: false,
@@ -417,10 +419,10 @@ const BLOCK_OUTLINE_BUTTON_PROPS = {
   py: '$3',
   borderRadius: '$3',
   borderWidth: '$px',
-  borderColor: '$borderInfoSubdued',
+  borderColor: '$brand6',
   bg: '$transparent',
-  hoverStyle: { bg: '$bgInfoSubdued', borderColor: '$borderInfo' },
-  pressStyle: { bg: '$bgInfo', borderColor: '$borderInfo' },
+  hoverStyle: { bg: '$brand2', borderColor: '$brand7' },
+  pressStyle: { bg: '$brand3', borderColor: '$brand7' },
 } as const;
 
 function getActionButtonFrameProps({
@@ -447,7 +449,7 @@ function renderActionButtonLabel({
   return (
     <SizableText
       size={isBlock ? '$bodyMdMedium' : '$bodySmMedium'}
-      color="$textInfo"
+      color="$brand11"
       numberOfLines={1}
     >
       {label}

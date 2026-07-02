@@ -122,8 +122,12 @@ const ProtocolRow = memo(
               maxWidth={180}
             >
               {actionLabelIds.map((labelId) => (
-                <Badge key={labelId} badgeType="info" badgeSize="sm">
-                  {intl.formatMessage({ id: labelId })}
+                // Badge has no brand type; override to the brand ramp so the
+                // badge matches the brand-green action buttons it advertises.
+                <Badge key={labelId} badgeSize="sm" bg="$brand3">
+                  <Badge.Text color="$brand11">
+                    {intl.formatMessage({ id: labelId })}
+                  </Badge.Text>
                 </Badge>
               ))}
             </XStack>
