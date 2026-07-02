@@ -486,7 +486,7 @@ function WebModalNavigator({
               onPress={platformEnv.isNative ? stopPropagation : undefined}
               onPressIn={platformEnv.isNative ? undefined : onPagePressIn}
               testID="APP-Modal-Screen"
-              className="app-region-no-drag"
+              className="app-region-no-drag onekey-modal-screen"
               bg="$bgApp"
               overflow="hidden"
               width="100%"
