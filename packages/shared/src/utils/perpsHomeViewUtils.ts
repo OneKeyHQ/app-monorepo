@@ -1,9 +1,12 @@
 import BigNumber from 'bignumber.js';
 
+import { getSpotTokenDisplayName } from './perpsUtils';
+
 import type { IHyperliquidPortfolioSnapshot } from '../../types/hyperliquid/portfolio';
 
 export interface IPerpsHomeHolding {
   symbol: string;
+  displaySymbol: string;
   spotUniverseName?: string;
   balance: string; // token amount
   valueUsd: number | undefined; // undefined => price unavailable
@@ -70,6 +73,7 @@ export function mapSnapshotToPerpsHomeView(
           : undefined;
       return {
         symbol: b.coin,
+        displaySymbol: getSpotTokenDisplayName(b.coin),
         spotUniverseName: b.spotUniverseName,
         balance: b.total,
         valueUsd,

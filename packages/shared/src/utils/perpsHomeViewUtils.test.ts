@@ -56,6 +56,16 @@ const snap: any = {
       valueUsd: '28.16',
     },
     {
+      coin: 'UETH',
+      spotUniverseName: 'UETH/USDC',
+      token: 10,
+      total: '0.00019',
+      hold: '0',
+      entryNtl: '0.44',
+      priceUsd: '1631.57',
+      valueUsd: '0.31',
+    },
+    {
       coin: 'WEIRD',
       token: 9,
       total: '5',
@@ -94,10 +104,15 @@ describe('mapSnapshotToPerpsHomeView', () => {
   it('maps holdings with spot pnl = value - entryNtl, undefined when price missing', () => {
     const v = mapSnapshotToPerpsHomeView(snap);
     const hype = v.holdings.find((h) => h.symbol === 'HYPE');
+    expect(hype?.displaySymbol).toBe('HYPE');
     expect(hype?.spotUniverseName).toBe('HYPE/USDC');
     expect(hype?.valueUsd).toBeCloseTo(28.16);
     expect(hype?.pnlUsd).toBeCloseTo(1.16); // 28.16 - 27.0
+    const ueth = v.holdings.find((h) => h.symbol === 'UETH');
+    expect(ueth?.displaySymbol).toBe('ETH');
+    expect(ueth?.spotUniverseName).toBe('UETH/USDC');
     const usdc = v.holdings.find((h) => h.symbol === 'USDC');
+    expect(usdc?.displaySymbol).toBe('USDC');
     expect(usdc?.pnlUsd).toBeCloseTo(0);
     const weird = v.holdings.find((h) => h.symbol === 'WEIRD');
     expect(weird?.valueUsd).toBeUndefined();

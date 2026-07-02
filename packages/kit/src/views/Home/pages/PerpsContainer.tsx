@@ -252,7 +252,7 @@ function PerpsHoldingCard({
           numberOfLines={1}
           ellipsizeMode="tail"
         >
-          {holding.symbol}
+          {holding.displaySymbol}
         </SizableText>
         <PerpsUsd
           value={holding.valueUsd}
@@ -589,9 +589,11 @@ function PerpsHeaderActions() {
 
 function PerpsMobileHoldingRow({
   holding,
+  hyperEvmLogoUri,
   onPress,
 }: {
   holding: IPerpsHomeHolding;
+  hyperEvmLogoUri: string;
   onPress?: () => void;
 }) {
   const isPressable = Boolean(onPress);
@@ -613,13 +615,46 @@ function PerpsMobileHoldingRow({
         alignItems="center"
         gap="$3"
       >
-        <Token
-          size="lg"
-          tokenImageUri={getHyperliquidTokenImageUrl(holding.symbol)}
-        />
+        <Stack
+          width={44}
+          height={44}
+          flexShrink={0}
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Stack
+            width={40}
+            height={40}
+            borderRadius="$full"
+            bg="$bgApp"
+            alignItems="center"
+            justifyContent="center"
+            position="relative"
+          >
+            <Token
+              size="lg"
+              tokenImageUri={getHyperliquidTokenImageUrl(holding.symbol)}
+            />
+            <Stack
+              position="absolute"
+              right="$-1"
+              bottom="$-1"
+              p="$0.5"
+              bg="$bgApp"
+              borderRadius="$full"
+            >
+              <Image
+                source={{ uri: hyperEvmLogoUri }}
+                w="$3.5"
+                h="$3.5"
+                borderRadius="$full"
+              />
+            </Stack>
+          </Stack>
+        </Stack>
         <YStack flex={1} minWidth={0} gap="$0.5">
           <SizableText size="$bodyLgMedium" numberOfLines={1}>
-            {holding.symbol}
+            {holding.displaySymbol}
           </SizableText>
           <NumberSizeableText
             formatter="balance"
@@ -716,6 +751,7 @@ function PerpsMobileHoldingsSummary({
             <PerpsMobileHoldingRow
               key={holding.symbol}
               holding={holding}
+              hyperEvmLogoUri={HYPER_EVM_LOGO_URI}
               onPress={
                 isTradableSpotHolding(holding)
                   ? () => openPerp(holding.spotUniverseName, 'spot')
