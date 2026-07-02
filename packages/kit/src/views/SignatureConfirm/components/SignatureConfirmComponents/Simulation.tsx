@@ -102,6 +102,17 @@ function Simulation(props: IProps) {
         </XStack>
         <YStack gap="$3">
           {component.assets.map((asset, index) => {
+            if (asset.type === EParseTxComponentType.InternalAssets) {
+              return (
+                <Assets.InternalAssets
+                  hideLabel
+                  inSimulation
+                  key={index}
+                  component={asset}
+                  networkId={asset.networkId ?? ''}
+                />
+              );
+            }
             if (asset.type === EParseTxComponentType.NFT) {
               return (
                 // oxlint-disable-next-line react/jsx-pascal-case -- NFT is an acronym
