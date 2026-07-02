@@ -104,6 +104,16 @@ const TIME_RANGE_FIELD_SUFFIX_MAP: Record<
   '24h': '24h',
 };
 
+const TIME_RANGE_PRICE_BASE_FIELD_MAP: Record<
+  IMarketTimeRangeValue,
+  'price5mAgo' | 'price1hAgo' | 'price4hAgo' | 'price24hAgo'
+> = {
+  '5m': 'price5mAgo',
+  '1h': 'price1hAgo',
+  '4h': 'price4hAgo',
+  '24h': 'price24hAgo',
+};
+
 export function getNetworkLogoUri(chainOrNetworkId: string): string {
   const networks = getPresetNetworks();
   const network = networks.find((n) => n.id === chainOrNetworkId);
@@ -127,6 +137,22 @@ function safeNumber(value: string | undefined, fallback = 0): number {
   }
 }
 
+function safePositiveNumber(value: string | undefined): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    const bn = new BigNumber(value);
+    if (bn.isNaN() || !bn.isFinite() || bn.lte(0)) {
+      return undefined;
+    }
+    return bn.toNumber();
+  } catch {
+    return undefined;
+  }
+}
+
 function getMetricValueByTimeRange(
   item: IMarketTokenListItem,
   timeRange: IMarketTimeRangeValue | undefined,
@@ -139,6 +165,47 @@ function getMetricValueByTimeRange(
   const fallbackKey = `${baseKey}24h${suffix}` as keyof IMarketTokenListItem;
 
   return item[selectedKey] ?? item[fallbackKey];
+}
+
+function getPriceChangeBasePriceByTimeRange({
+  item,
+  timeRange,
+}: {
+  item: IMarketTokenListItem;
+  timeRange: IMarketTimeRangeValue | undefined;
+}) {
+  const selectedTimeRange = timeRange ?? '24h';
+  const selectedKey = TIME_RANGE_PRICE_BASE_FIELD_MAP[selectedTimeRange];
+  return safePositiveNumber(item[selectedKey]);
+}
+
+export function calculateMarketTokenLivePriceChange({
+  price,
+  priceChangeBasePrice,
+}: {
+  price: number | undefined;
+  priceChangeBasePrice: number | undefined;
+}): number | undefined {
+  if (price === undefined || priceChangeBasePrice === undefined) {
+    return undefined;
+  }
+
+  const priceBN = new BigNumber(price);
+  const priceChangeBasePriceBN = new BigNumber(priceChangeBasePrice);
+  if (
+    !priceBN.isFinite() ||
+    !priceChangeBasePriceBN.isFinite() ||
+    priceBN.lte(0) ||
+    priceChangeBasePriceBN.lte(0)
+  ) {
+    return undefined;
+  }
+
+  return priceBN
+    .minus(priceChangeBasePriceBN)
+    .div(priceChangeBasePriceBN)
+    .times(100)
+    .toNumber();
 }
 
 /**
@@ -196,6 +263,12 @@ export function transformApiItemToToken(
       | string
       | undefined,
   );
+  const priceChangeBasePrice = item.stock
+    ? safePositiveNumber(item.price24hAgo)
+    : getPriceChangeBasePriceByTimeRange({
+        item,
+        timeRange,
+      });
 
   return {
     id: `${item.address}${item.name}${tokenNetworkLogoUri}${item.symbol}`,
@@ -215,6 +288,7 @@ export function transformApiItemToToken(
     decimals: item.decimals,
     networkLogoUri: tokenNetworkLogoUri,
     networkId: tokenNetworkId,
+    priceChangeBasePrice,
     chainId: tokenNetworkId,
     firstTradeTime: item.firstTradeTime
       ? Number(item.firstTradeTime)
