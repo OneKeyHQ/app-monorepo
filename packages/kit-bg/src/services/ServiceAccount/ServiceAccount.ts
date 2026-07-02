@@ -3987,6 +3987,10 @@ class ServiceAccount extends ServiceBase {
         excludeKeylessWallet: true,
       });
       if (existsSameHashWallet) {
+        await localDb.replaceCredentialWithLocalSecretEnvelopeIfNeeded({
+          credentialId: existsSameHashWallet.id,
+          credential: rs,
+        });
         const indexedAccounts = await this.addIndexedAccount({
           walletId: existsSameHashWallet.id,
           indexes: [0],
