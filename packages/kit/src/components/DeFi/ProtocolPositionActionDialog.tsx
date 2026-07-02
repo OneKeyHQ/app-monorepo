@@ -345,12 +345,16 @@ function ProtocolPositionActionAssetRow({
       gap="$3"
       py="$3"
       px="$3"
-      borderRadius="$2"
+      borderRadius="$3"
       bg={isSelected ? '$bgActive' : '$bgSubdued'}
       borderWidth="$px"
       borderColor={isSelected ? '$borderActive' : '$borderSubdued'}
       cursor={selectable ? 'pointer' : 'default'}
       userSelect="none"
+      {...(selectable && {
+        hoverStyle: { bg: isSelected ? '$bgActive' : '$bgStrong' },
+        pressStyle: { bg: isSelected ? '$bgActive' : '$bgStrong' },
+      })}
       onPress={() => {
         if (selectable) {
           onSelect(index, !isSelected);
@@ -737,6 +741,13 @@ function useProtocolPositionActionSubmit({
         throw new OneKeyLocalError('Invalid DeFi action amount');
       }
 
+      // Lido withdraw goes through the permit two-step flow, and its build API
+      // expects an EMPTY tokenAddress — passing the stETH cert address is
+      // rejected on the amount path ("Token does not exist"). bps happened to
+      // work only because it ignores tokenAddress. amount stays human-readable;
+      // the backend scales it by the token decimals.
+      const isLidoWithdraw = isLidoProtocol(action.protocolId) && isWithdraw;
+
       try {
         const unsignedTxs: IUnsignedTxPro[] = [];
         const orderIdsByBusinessTxIndex: string[] = [];
@@ -748,23 +759,27 @@ function useProtocolPositionActionSubmit({
             selectedAsset,
             percent,
           });
+          // RemoveLiquidity omits tokenAddress; Lido withdraw must send it empty
+          // (see isLidoWithdraw note); everything else uses the asset's token.
+          let buildTokenAddress: string | undefined =
+            selectedAsset.tokenAddress;
+          if (isRemoveLiquidity) {
+            buildTokenAddress = undefined;
+          } else if (isLidoWithdraw) {
+            buildTokenAddress = '';
+          }
           let resp = await backgroundApiProxy.serviceDeFi.buildDeFiTransaction({
             accountId,
             networkId,
             protocolId: action.protocolId,
-            action:
-              isLidoProtocol(action.protocolId) && isWithdraw
-                ? EDeFiPositionAction.Permit
-                : action.action,
-            tokenAddress: isRemoveLiquidity
-              ? undefined
-              : selectedAsset.tokenAddress,
+            action: isLidoWithdraw ? EDeFiPositionAction.Permit : action.action,
+            tokenAddress: buildTokenAddress,
             amount: amountForApi,
             bps,
             extraParams,
           });
 
-          if (isLidoProtocol(action.protocolId) && isWithdraw) {
+          if (isLidoWithdraw) {
             if (!resp.permit) {
               throw new OneKeyLocalError('DeFi permit response is missing');
             }
@@ -798,7 +813,7 @@ function useProtocolPositionActionSubmit({
               networkId,
               protocolId: action.protocolId,
               action: action.action,
-              tokenAddress: selectedAsset.tokenAddress,
+              tokenAddress: buildTokenAddress,
               amount: amountForApi,
               bps,
               extraParams: {
@@ -1218,6 +1233,18 @@ function ProtocolPositionActionAmountInput({
           currency: currencySymbol,
           formatter: 'value',
         }}
+        extraContent={
+          // Reserved-height error slot right under the amount (same shape as
+          // the Perp deposit/withdraw modal): the message toggles without
+          // shifting the hero, keeping the dialog height stable.
+          <Stack h="$6" justifyContent="center" alignItems="center">
+            {isInsufficient ? (
+              <SizableText size="$bodySm" color="$textCritical">
+                {insufficientLabel}
+              </SizableText>
+            ) : null}
+          </Stack>
+        }
       />
       <ProtocolPositionActionAnchor
         label={availableLabel}
@@ -1243,11 +1270,6 @@ function ProtocolPositionActionAmountInput({
         maxLabel={maxLabel}
         onChange={onSelectPercent}
       />
-      {isInsufficient ? (
-        <SizableText size="$bodySm" color="$textCritical" textAlign="center">
-          {insufficientLabel}
-        </SizableText>
-      ) : null}
     </YStack>
   );
 }

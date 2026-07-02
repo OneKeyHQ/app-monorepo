@@ -7,6 +7,7 @@
     "i18n:pull": "node ../../development/scripts/i18n/i18n-pull.js",
     "i18n:search": "node ../../development/scripts/i18n/i18n-search.js",
     "i18n:add": "node ../../development/scripts/i18n/i18n-add.js",
+    "i18n:unused": "node ../../development/scripts/i18n/i18n-unused.js",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
   },
