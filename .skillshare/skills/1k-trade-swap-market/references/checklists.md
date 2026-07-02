@@ -6,6 +6,11 @@ Run this before shipping or approving Trade/Swap/Market work:
 
 0. Framework -> state machine -> hooks has been traced for cross-surface,
    modal, Home Token, Send, Market, Earn, Buy, Stock, Bridge, or Limit work.
+0a. Source packet is current when the task came from Jira, Slack, review, or a
+    todo ledger: issue comments, Slack context, attachments, client branch, and
+    server DTO/status branch when relevant.
+0b. Closest valid repo pattern is named, including why its account/network/token
+    provider, route, or execution semantics do or do not apply.
 1. State owner is named: server config, quote payload, build payload, atom, simpleDb, local component state, or provider adapter.
 2. Async identity is guarded: request id, event id, provider key, token key, account, amount mode, and stale response handling.
 3. Account/network/token/route identity is separated: source, target, All Networks, derive type, native/wrapped token, receiver, entry source, and behavior-changing route params such as `isNative`, `showFavoriteButton`, and `disableTrade`.
@@ -18,6 +23,9 @@ Run this before shipping or approving Trade/Swap/Market work:
 10. Platform ownership is checked: desktop, web, extension, native mobile, tablet, modal, and bottom-sheet differences.
 11. Adjacent Wallet/Receive/Home Token ownership is not assumed to match Swap/Market selector ownership.
 12. Import hierarchy is preserved.
+13. Large hooks are split only by stable responsibility: data loading,
+    selection/route sync, quote/review state machine, listener/history bridge,
+    or view-model composition.
 
 ## New Channel Readiness Checklist
 

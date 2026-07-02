@@ -58,7 +58,9 @@ export const SignatureConfirmTestIDs = {
 
   // -- Alerts --
   TxConfirmAlert: 'sig-confirm-tx-alert',
-  MessageConfirmAlert: 'sig-confirm-msg-alert',
+  SecurityCheckCard: 'sig-confirm-security-check-card',
+  TransactionPreview: 'sig-confirm-transaction-preview',
+  TransactionPreviewViewAll: 'sig-confirm-transaction-preview-view-all',
 
   // -- Similar address dialog --
   SimilarAddressDialog: 'sig-confirm-similar-address-dialog',

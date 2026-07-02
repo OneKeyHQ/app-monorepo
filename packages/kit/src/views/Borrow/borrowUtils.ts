@@ -149,6 +149,7 @@ export const BorrowNavigation = {
       reserveAddress: string;
       symbol: string;
       logoURI?: string;
+      providerDisplayName?: string;
       providerLogoURI?: string;
       type: EManagePositionType;
     },
@@ -164,6 +165,7 @@ export const BorrowNavigation = {
         reserveAddress: params.reserveAddress,
         symbol: params.symbol,
         logoURI: params.logoURI,
+        providerDisplayName: params.providerDisplayName,
         providerLogoURI: params.providerLogoURI,
         type: params.type,
       },

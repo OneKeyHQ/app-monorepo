@@ -813,6 +813,7 @@ export { default as Twap } from './Twap';
 export { default as TypeC } from './TypeC';
 export { default as Ufo } from './Ufo';
 export { default as Underline } from './Underline';
+export { default as UndoFlipHor } from './UndoFlipHor';
 export { default as Undo } from './Undo';
 export { default as Undock } from './Undock';
 export { default as Unity } from './Unity';
