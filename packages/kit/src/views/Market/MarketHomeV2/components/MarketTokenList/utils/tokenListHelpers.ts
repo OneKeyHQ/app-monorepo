@@ -174,11 +174,9 @@ function getPriceChangeBasePriceByTimeRange({
   item: IMarketTokenListItem;
   timeRange: IMarketTimeRangeValue | undefined;
 }) {
-  const selectedKey = TIME_RANGE_PRICE_BASE_FIELD_MAP[timeRange ?? '24h'];
-  return (
-    safePositiveNumber(item[selectedKey]) ??
-    safePositiveNumber(item.price24hAgo)
-  );
+  const selectedTimeRange = timeRange ?? '24h';
+  const selectedKey = TIME_RANGE_PRICE_BASE_FIELD_MAP[selectedTimeRange];
+  return safePositiveNumber(item[selectedKey]);
 }
 
 export function calculateMarketTokenLivePriceChange({

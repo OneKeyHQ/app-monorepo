@@ -85,6 +85,29 @@ describe('market home token list websocket helpers', () => {
     expect(nextTokens[0].change24h).toBe(10);
   });
 
+  test('keeps the current range change when websocket updates have no base price', () => {
+    const token = buildToken({
+      change24h: 25,
+      priceChangeBasePrice: undefined,
+    });
+    const storedOverride = {
+      networkId: token.networkId,
+      address: token.address,
+      price: 110,
+      change24h: undefined,
+      basePrice: token.price,
+      priceChangeBasePrice: undefined,
+    };
+
+    const nextTokens = applyMarketTokenListLiveOverrides({
+      tokens: [token],
+      liveTokenOverrides: [storedOverride],
+    });
+
+    expect(nextTokens[0].price).toBe(110);
+    expect(nextTokens[0].change24h).toBe(25);
+  });
+
   test('builds subscriptions for native tokens with empty addresses', () => {
     const subscriptions = buildMarketHomeTokenSubscriptions({
       tokens: [

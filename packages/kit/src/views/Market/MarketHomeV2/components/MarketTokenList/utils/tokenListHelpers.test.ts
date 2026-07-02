@@ -135,7 +135,27 @@ describe('market home live price change', () => {
     expect(token.priceChangeBasePrice).toBe(10);
   });
 
-  test('falls back to 24h base price when selected time range base is missing', () => {
+  test('uses the 24h base price for the 24h time range', () => {
+    const token = transformApiItemToToken(
+      {
+        address: '0x390a684ef9cade28a7ad0dfa61ab1eb3842618c4',
+        name: 'Token',
+        symbol: 'TOKEN',
+        decimals: 18,
+        priceChange24hPercent: '50',
+        price24hAgo: '8',
+      },
+      {
+        chainId: 'evm--1',
+        networkLogoUri: '',
+        timeRange: '24h',
+      },
+    );
+
+    expect(token.priceChangeBasePrice).toBe(8);
+  });
+
+  test('does not fall back to 24h base price when the selected time range base is missing', () => {
     const token = transformApiItemToToken(
       {
         address: '0x390a684ef9cade28a7ad0dfa61ab1eb3842618c4',
@@ -153,10 +173,10 @@ describe('market home live price change', () => {
       },
     );
 
-    expect(token.priceChangeBasePrice).toBe(8);
+    expect(token.priceChangeBasePrice).toBeUndefined();
   });
 
-  test('falls back to 24h base price when selected time range base is a placeholder', () => {
+  test('does not fall back to 24h base price when the selected time range base is a placeholder', () => {
     const token = transformApiItemToToken(
       {
         address: '0x390a684ef9cade28a7ad0dfa61ab1eb3842618c4',
@@ -175,7 +195,7 @@ describe('market home live price change', () => {
       },
     );
 
-    expect(token.priceChangeBasePrice).toBe(8);
+    expect(token.priceChangeBasePrice).toBeUndefined();
   });
 
   test('ignores backend placeholder base prices', () => {
