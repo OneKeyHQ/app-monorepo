@@ -18,6 +18,7 @@ import {
   View,
   XStack,
   YStack,
+  isLiquidGlassAvailable,
 } from '@onekeyhq/components';
 import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -76,6 +77,10 @@ interface IUniversalSection {
 }
 
 const SEARCH_DEBOUNCE_MS = 300;
+const LIQUID_GLASS_SEARCH_BAR_CONTAINER_PROPS = {
+  h: 40,
+  alignItems: 'center',
+} as const;
 
 const getSearchTypes = (): EUniversalSearchType[] => {
   return [
@@ -189,6 +194,7 @@ export function UniversalSearch({
     IUniversalSection[]
   >([]);
   const [searchValue, setSearchValue] = useState('');
+  const searchBarGlassActive = isLiquidGlassAvailable();
 
   const [isFocusInMarketTab, setIsFocusInMarketTab] = useState(false);
   useListenTabFocusState(ETabRoutes.Market, (isFocus) => {
@@ -1052,6 +1058,12 @@ export function UniversalSearch({
             autoFocus
             testID={UniversalSearchTestIDs.searchBar}
             value={searchValue}
+            containerProps={
+              searchBarGlassActive
+                ? LIQUID_GLASS_SEARCH_BAR_CONTAINER_PROPS
+                : undefined
+            }
+            py={searchBarGlassActive ? '$2' : undefined}
             placeholder={intl.formatMessage({
               id: platformEnv.isWebDappMode
                 ? ETranslations.global_search
