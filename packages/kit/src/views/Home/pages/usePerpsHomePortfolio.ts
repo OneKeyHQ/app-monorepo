@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import {
@@ -43,6 +44,23 @@ export function usePerpsHomePortfolio(): {
   const indexedAccountId = account?.indexedAccountId;
   // Home tabs stay mounted while frozen, so gate polling on the Perps tab being active.
   const { isFocused: isTabFocused } = useTabIsRefreshingFocused();
+  const isTabFocusedRef = useRef(isTabFocused);
+  isTabFocusedRef.current = isTabFocused;
+  const [deriveTypeRevision, setDeriveTypeRevision] = useState(0);
+  const [focusedRevalidateNonce, setFocusedRevalidateNonce] = useState(0);
+
+  const { result: perpsDeriveType } = usePromiseResult<IAccountDeriveTypes>(
+    () => {
+      void deriveTypeRevision;
+      return backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId: PERPS_NETWORK_ID,
+      });
+    },
+    [deriveTypeRevision],
+    {
+      undefinedResultIfReRun: true,
+    },
+  );
 
   const { result, run, setResult } =
     usePromiseResult<IPerpsHomePortfolioResult>(
@@ -50,17 +68,16 @@ export function usePerpsHomePortfolio(): {
         if (!accountId && !indexedAccountId) {
           return { address: '', view: undefined, snapshotLoaded: true };
         }
-        const deriveType =
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId: PERPS_NETWORK_ID,
-          });
+        if (!perpsDeriveType) {
+          return { address: '', view: undefined, snapshotLoaded: false };
+        }
         let address = '';
         try {
           const acc = await backgroundApiProxy.serviceAccount.getNetworkAccount(
             {
               accountId: indexedAccountId ? undefined : accountId,
               indexedAccountId,
-              deriveType: deriveType ?? 'default',
+              deriveType: perpsDeriveType,
               networkId: PERPS_NETWORK_ID,
             },
           );
@@ -82,10 +99,12 @@ export function usePerpsHomePortfolio(): {
           snapshotLoaded: Boolean(snapshot),
         };
       },
-      [accountId, indexedAccountId],
+      [accountId, indexedAccountId, perpsDeriveType],
       {
-        // Account-scoped so result swaps synchronously on account switch instead of rendering the previous account's portfolio.
-        swrKey: `perps-home:${indexedAccountId ?? accountId ?? ''}`,
+        // Account + derive type scoped so result swaps synchronously on identity changes.
+        swrKey: perpsDeriveType
+          ? `perps-home:${indexedAccountId ?? accountId ?? ''}:${perpsDeriveType}`
+          : undefined,
         // Poll interval matches the active TTL; the orchestrator gates real HL network to positions=15s / idle=1m / empty=30m.
         pollingInterval: PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
         overrideIsFocused: (isPageFocused) => isPageFocused && isTabFocused,
@@ -98,8 +117,33 @@ export function usePerpsHomePortfolio(): {
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
   const depositRetryNonceRef = useRef(0);
+  const pendingRevalidateReasonRef = useRef<'account' | 'deposit' | undefined>(
+    undefined,
+  );
   const latestAddressRef = useRef<string | undefined>(result?.address);
   latestAddressRef.current = result?.address;
+
+  useEffect(() => {
+    const onGlobalDeriveTypeUpdate = () => {
+      setDeriveTypeRevision((value) => value + 1);
+    };
+    appEventBus.on(
+      EAppEventBusNames.GlobalDeriveTypeUpdate,
+      onGlobalDeriveTypeUpdate,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.GlobalDeriveTypeUpdate,
+        onGlobalDeriveTypeUpdate,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isTabFocused && pendingRevalidateReasonRef.current) {
+      setFocusedRevalidateNonce((value) => value + 1);
+    }
+  }, [isTabFocused]);
 
   // Refetch when Perps account data changes, the WS recovers, or a deposit confirms on-chain.
   useEffect(() => {
@@ -149,6 +193,10 @@ export function usePerpsHomePortfolio(): {
       }
     };
     const startDepositConfirmationRetry = () => {
+      if (!isTabFocusedRef.current) {
+        pendingRevalidateReasonRef.current = 'deposit';
+        return;
+      }
       clearDepositRetry();
       depositRetryNonceRef.current += 1;
       const nonce = depositRetryNonceRef.current;
@@ -182,6 +230,14 @@ export function usePerpsHomePortfolio(): {
       }
     };
     const scheduleAccountRevalidate = () => {
+      if (!isTabFocusedRef.current) {
+        pendingRevalidateReasonRef.current =
+          pendingRevalidateReasonRef.current === 'deposit'
+            ? 'deposit'
+            : 'account';
+        return;
+      }
+      pendingRevalidateReasonRef.current = undefined;
       const address = result?.address;
       if (!address) {
         void run();
@@ -204,6 +260,15 @@ export function usePerpsHomePortfolio(): {
     const onTxConfirmed = (p: { networkId: string }) => {
       if (p.networkId === PERPS_NETWORK_ID) startDepositConfirmationRetry();
     };
+    const pendingReason = pendingRevalidateReasonRef.current;
+    if (pendingReason && isTabFocusedRef.current) {
+      pendingRevalidateReasonRef.current = undefined;
+      if (pendingReason === 'deposit') {
+        startDepositConfirmationRetry();
+      } else {
+        scheduleAccountRevalidate();
+      }
+    }
     appEventBus.on(EAppEventBusNames.HyperliquidDataUpdate, onHl);
     appEventBus.on(EAppEventBusNames.PerpsWebSocketRecovered, onRecover);
     appEventBus.on(EAppEventBusNames.LocalPendingTxConfirmed, onTxConfirmed);
@@ -215,13 +280,13 @@ export function usePerpsHomePortfolio(): {
       clearAccountRevalidate();
       depositRetryNonceRef.current += 1;
     };
-  }, [result?.address, run, setResult]);
+  }, [focusedRevalidateNonce, result?.address, run, setResult]);
 
   const view = result?.view;
   const viewState = useMemo<'ready' | 'loading' | 'empty'>(() => {
     // result is undefined until a fetch resolves for the current account key (swrKey
     // resets it synchronously on switch), so an unresolved key reads as loading, not empty.
-    if (result === undefined || (result.address && !result.snapshotLoaded)) {
+    if (result === undefined || !result.snapshotLoaded) {
       return 'loading';
     }
     return view && !view.isEmpty ? 'ready' : 'empty';
