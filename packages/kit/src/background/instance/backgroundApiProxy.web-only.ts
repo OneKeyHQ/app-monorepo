@@ -6,7 +6,12 @@ let backgroundApiPromise: Promise<IBackgroundApi> | undefined;
 
 const WEB_BACKGROUND_API_IDLE_TIMEOUT_BASE_MS = 1000;
 const WEB_BACKGROUND_API_IDLE_TIMEOUT_JITTER_MS = 2000;
-const WEB_BACKGROUND_API_IMMEDIATE_PATH_PREFIXES = ['/swap', '/perp', '/perps'];
+const WEB_BACKGROUND_API_IMMEDIATE_PATH_PREFIXES = [
+  '/market',
+  '/swap',
+  '/perp',
+  '/perps',
+];
 
 type IIdleDeadline = {
   didTimeout: boolean;
