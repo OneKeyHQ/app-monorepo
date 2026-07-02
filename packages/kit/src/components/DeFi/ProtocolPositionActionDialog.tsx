@@ -721,6 +721,11 @@ type IProtocolPositionActionSubmitParams = {
   isMaxAmount?: boolean;
   // Position holds rewards — drives the "Remove & Claim rewards" tx label.
   hasRewards?: boolean;
+  // When provided and returning true at failure time, the hook skips its
+  // error Toast — the caller renders the error inline instead. A callback
+  // (not a boolean) so the dialog can fall back to the Toast for errors
+  // thrown after it has already closed (e.g. tx-confirm init failures).
+  isErrorToastSuppressed?: () => boolean;
   onBeforeNavigateConfirm?: () => void | Promise<void>;
 };
 
@@ -784,6 +789,7 @@ function useProtocolPositionActionSubmit({
       amount,
       isMaxAmount,
       hasRewards,
+      isErrorToastSuppressed,
       onBeforeNavigateConfirm,
     }: IProtocolPositionActionSubmitParams) => {
       if (selectedAssets.length === 0) {
@@ -990,7 +996,11 @@ function useProtocolPositionActionSubmit({
         }
       } catch (error) {
         if (!isUserRejectedErrorMessage({ error, intl })) {
-          showProtocolPositionActionErrorToast(error);
+          if (isErrorToastSuppressed?.()) {
+            errorToastUtils.toastIfErrorDisable(error);
+          } else {
+            showProtocolPositionActionErrorToast(error);
+          }
         }
         throw error;
       }
@@ -1409,6 +1419,7 @@ function ProtocolPositionActionDialogContent({
   const [selectedAssetIndexes, setSelectedAssetIndexes] = useState<number[]>(
     () => (action.assets[0] ? [0] : []),
   );
+  const [submitError, setSubmitError] = useState<string | undefined>(undefined);
 
   const selectedAssets = useMemo(
     () =>
@@ -1641,12 +1652,13 @@ function ProtocolPositionActionDialogContent({
       return;
     }
 
+    setSubmitError(undefined);
     // Keep the action dialog open while the server builds the transaction so
     // the button can show loading. Close it immediately before opening any
     // signing/tx-confirm modal, otherwise the old dialog stays stacked above
     // the confirm page until the async submit finishes.
+    let isActionDialogClosed = false;
     try {
-      let isActionDialogClosed = false;
       await submitProtocolPositionAction({
         action,
         selectedAssets,
@@ -1654,15 +1666,23 @@ function ProtocolPositionActionDialogContent({
         percent: isPercentAction ? actionPercent : undefined,
         amount: useManualAmountInput ? amount : undefined,
         isMaxAmount: useManualAmountInput ? isMaxAmount : undefined,
+        // Errors raised while the dialog is still open render inline below;
+        // once it has closed, the hook's Toast is the only visible surface.
+        isErrorToastSuppressed: () => !isActionDialogClosed,
         onBeforeNavigateConfirm: async () => {
           if (isActionDialogClosed) return;
           isActionDialogClosed = true;
           await close?.();
         },
       });
-    } catch {
-      // submitProtocolPositionAction already surfaced the error via global
-      // error toast; keep the dialog open so the user can retry.
+    } catch (error) {
+      if (
+        !isActionDialogClosed &&
+        !isUserRejectedErrorMessage({ error, intl })
+      ) {
+        setSubmitError(getErrorMessage(error));
+      }
+      // Keep the dialog open so the user can retry instead of auto-closing.
       preventClose();
     }
   };
@@ -1827,6 +1847,16 @@ function ProtocolPositionActionDialogContent({
           description={intl.formatMessage({
             id: ETranslations.defi_liquidation_withdraw_desc,
           })}
+        />
+      ) : null}
+
+      {submitError ? (
+        <Alert
+          type="critical"
+          title={intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          })}
+          description={submitError}
         />
       ) : null}
 
