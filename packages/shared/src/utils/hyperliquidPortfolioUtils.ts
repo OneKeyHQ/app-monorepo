@@ -27,6 +27,8 @@ const CLEARINGHOUSE_SUMMARY_FIELDS = [
 ] as const;
 
 type IClearinghouseSummary = IClearinghouseStateResponse['marginSummary'];
+type IPerpAssetPosition = IClearinghouseStateResponse['assetPositions'][number];
+type ISpotBalance = ISpotClearinghouseStateResponse['balances'][number];
 
 export interface IAggregateClearinghouseStateInput {
   dex?: string;
@@ -190,6 +192,74 @@ function isUnifiedPortfolioMode(
   );
 }
 
+export function getActivePerpAssetPositions(
+  positions: IPerpAssetPosition[] | undefined | null,
+): IPerpAssetPosition[] {
+  return (positions ?? []).filter((position) =>
+    safeBN(position.position?.szi).abs().gt(0),
+  );
+}
+
+export function getActivePerpPositionsUnrealizedPnl(
+  positions: IPerpAssetPosition[] | undefined | null,
+): string {
+  return getActivePerpAssetPositions(positions)
+    .reduce(
+      (sum, position) => sum.plus(safeBN(position.position?.unrealizedPnl)),
+      new BigNumber(0),
+    )
+    .toFixed();
+}
+
+function mergeNonUnifiedPerpsUsdcBalance({
+  balances,
+  perpsTotalRawUsd,
+  perpsWithdrawable,
+}: {
+  balances: ISpotBalance[];
+  perpsTotalRawUsd: string;
+  perpsWithdrawable: string;
+}): ISpotBalance[] {
+  const perpsUsdcTotalBN = safeBN(perpsTotalRawUsd);
+  if (perpsUsdcTotalBN.lte(0)) {
+    return balances;
+  }
+
+  const perpsUsdcHoldBN = BigNumber.max(
+    perpsUsdcTotalBN.minus(safeBN(perpsWithdrawable)),
+    0,
+  );
+  let merged = false;
+  const nextBalances = balances.map((balance) => {
+    if (balance.token !== 0) {
+      return balance;
+    }
+    merged = true;
+    const total = safeBN(balance.total).plus(perpsUsdcTotalBN).toFixed();
+    return {
+      ...balance,
+      coin: USDC,
+      total,
+      hold: safeBN(balance.hold).plus(perpsUsdcHoldBN).toFixed(),
+      entryNtl: total,
+    };
+  });
+
+  if (merged) {
+    return nextBalances;
+  }
+  return [
+    ...nextBalances,
+    {
+      coin: USDC,
+      token: 0,
+      total: perpsUsdcTotalBN.toFixed(),
+      hold: perpsUsdcHoldBN.toFixed(),
+      entryNtl: perpsUsdcTotalBN.toFixed(),
+    },
+  ];
+}
+
 export function assembleHyperliquidSnapshot(args: {
   address: string;
   clearinghouse: IClearinghouseStateResponse | undefined;
@@ -211,31 +281,45 @@ export function assembleHyperliquidSnapshot(args: {
   const address = (args.address || '').toLowerCase();
   const clearinghouseAccountValue =
     clearinghouse?.marginSummary?.accountValue ?? '0';
+  const clearinghouseTotalRawUsd =
+    clearinghouse?.marginSummary?.totalRawUsd ?? '0';
   const totalMarginUsed = clearinghouse?.marginSummary?.totalMarginUsed ?? '0';
 
-  const perpPositions: IHyperliquidPerpPositionSnapshot[] = (
-    clearinghouse?.assetPositions ?? []
-  ).map((p) => ({
-    coin: p.position.coin,
-    szi: p.position.szi,
-    entryPx: p.position.entryPx,
-    positionValue: p.position.positionValue,
-    unrealizedPnl: p.position.unrealizedPnl,
-    returnOnEquity: p.position.returnOnEquity,
-    liquidationPx: p.position.liquidationPx,
-    marginUsed: p.position.marginUsed,
-    leverageType: p.position.leverage.type,
-    leverageValue: p.position.leverage.value,
-    cumFundingSinceOpen: p.position.cumFunding.sinceOpen,
-  }));
-  const totalUnrealizedPnl = perpPositions
-    .reduce((s, p) => s.plus(safeBN(p.unrealizedPnl)), new BigNumber(0))
-    .toFixed();
+  const activeAssetPositions = getActivePerpAssetPositions(
+    clearinghouse?.assetPositions,
+  );
+  const perpPositions: IHyperliquidPerpPositionSnapshot[] =
+    activeAssetPositions.map((p) => ({
+      coin: p.position.coin,
+      szi: p.position.szi,
+      entryPx: p.position.entryPx,
+      positionValue: p.position.positionValue,
+      unrealizedPnl: p.position.unrealizedPnl,
+      returnOnEquity: p.position.returnOnEquity,
+      liquidationPx: p.position.liquidationPx,
+      marginUsed: p.position.marginUsed,
+      leverageType: p.position.leverage.type,
+      leverageValue: p.position.leverage.value,
+      cumFundingSinceOpen: p.position.cumFunding.sinceOpen,
+    }));
+  const totalUnrealizedPnl = getActivePerpPositionsUnrealizedPnl(
+    clearinghouse?.assetPositions,
+  );
 
   let degraded = false;
   const getMarkPrice = (coin: string) =>
     getSpotMarkPrice?.(coin) ?? priceMap[coin];
+  const isUnified = isUnifiedPortfolioMode(args.abstractionMode);
   const rawSpotBalances = spot?.balances ?? [];
+  // Keep raw spot balances for totals; the merged USDC row is display-only
+  // because non-unified clearinghouse accountValue already includes perps USDC.
+  const displaySpotBalances = isUnified
+    ? rawSpotBalances
+    : mergeNonUnifiedPerpsUsdcBalance({
+        balances: rawSpotBalances,
+        perpsTotalRawUsd: clearinghouseTotalRawUsd,
+        perpsWithdrawable: clearinghouse?.withdrawable ?? '0',
+      });
   const spotTotal = calculateSpotBalancesTotalUsd({
     balances: rawSpotBalances,
     getMarkPrice,
@@ -243,8 +327,8 @@ export function assembleHyperliquidSnapshot(args: {
   if (spotTotal.missingPriceCoins.length > 0) {
     degraded = true;
   }
-  const spotBalances: IHyperliquidSpotBalanceSnapshot[] = rawSpotBalances.map(
-    (b) => {
+  const spotBalances: IHyperliquidSpotBalanceSnapshot[] =
+    displaySpotBalances.map((b) => {
       const rawPrice =
         b.token === 0 || isHyperliquidSpotStableCoin(b.coin)
           ? '1'
@@ -268,11 +352,9 @@ export function assembleHyperliquidSnapshot(args: {
         priceUsd: priceUsable ? rawPrice : undefined,
         valueUsd,
       };
-    },
-  );
+    });
 
   const spotTotalUsd = spotTotal.totalUsd;
-  const isUnified = isUnifiedPortfolioMode(args.abstractionMode);
   const usdcBalance = rawSpotBalances.find((b) => b.token === 0);
   const accountValue = isUnified ? spotTotalUsd : clearinghouseAccountValue;
   const withdrawable = isUnified

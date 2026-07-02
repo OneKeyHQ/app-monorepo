@@ -4,6 +4,8 @@ import {
   aggregateClearinghouseStates,
   assembleHyperliquidSnapshot,
   buildSpotPriceMap,
+  getActivePerpAssetPositions,
+  getActivePerpPositionsUnrealizedPnl,
   spotBalancesNeedPriceRefresh,
   spotHasPositiveBalance,
   spotNeedsPrices,
@@ -383,6 +385,53 @@ describe('assembleHyperliquidSnapshot', () => {
     expect(snap.isEmpty).toBe(true);
     expect(snap.netWorthUsd).toBe('0');
   });
+  it('filters closed residual positions before Home snapshot fields', () => {
+    const snap = assembleHyperliquidSnapshot({
+      address: '0x1',
+      clearinghouse: {
+        marginSummary: {
+          accountValue: '0',
+          totalNtlPos: '0',
+          totalRawUsd: '0',
+          totalMarginUsed: '0',
+        },
+        crossMarginSummary: {
+          accountValue: '0',
+          totalNtlPos: '0',
+          totalRawUsd: '0',
+          totalMarginUsed: '0',
+        },
+        crossMaintenanceMarginUsed: '0',
+        withdrawable: '0',
+        assetPositions: [
+          {
+            type: 'oneWay',
+            position: {
+              coin: 'ETH',
+              szi: '0',
+              entryPx: '1600',
+              positionValue: '0',
+              unrealizedPnl: '99',
+              returnOnEquity: '0',
+              liquidationPx: null,
+              marginUsed: '0',
+              maxLeverage: 50,
+              leverage: { type: 'cross', value: 10 },
+              cumFunding: { allTime: '0', sinceOpen: '0', sinceChange: '0' },
+            },
+          },
+        ],
+        time: 1,
+      } as any,
+      spot: { balances: [] } as any,
+      priceMap: {},
+      now: 1,
+    });
+
+    expect(snap.perpPositions).toHaveLength(0);
+    expect(snap.totalUnrealizedPnl).toBe('0');
+    expect(snap.isEmpty).toBe(true);
+  });
   it('values stable coins and allMids-style fallback prices', () => {
     const snap = assembleHyperliquidSnapshot({
       address: '0x1',
@@ -435,5 +484,72 @@ describe('assembleHyperliquidSnapshot', () => {
     expect(snap.accountValue).toBe('260');
     expect(snap.netWorthUsd).toBe('260');
     expect(snap.withdrawable).toBe('150');
+  });
+  it('adds non-unified perps-side USDC to display holdings without double-counting net worth', () => {
+    const snap = assembleHyperliquidSnapshot({
+      address: '0x1',
+      clearinghouse: {
+        ...clearing,
+        marginSummary: {
+          ...clearing.marginSummary,
+          accountValue: '120',
+          totalRawUsd: '75',
+        },
+        withdrawable: '60',
+        assetPositions: [],
+      } as any,
+      spot: {
+        balances: [
+          { coin: 'USDC', token: 0, total: '25', hold: '5', entryNtl: '25' },
+          { coin: 'HYPE', token: 2, total: '1', hold: '0', entryNtl: '20' },
+        ],
+      } as any,
+      priceMap: { HYPE: '30' },
+      abstractionMode: EHyperLiquidAbstractionMode.DEFAULT,
+      now: 1,
+    });
+
+    const usdc = snap.spotBalances.find((balance) => balance.token === 0);
+    expect(usdc).toMatchObject({
+      coin: 'USDC',
+      total: '100',
+      hold: '20',
+      entryNtl: '100',
+      priceUsd: '1',
+      valueUsd: '100',
+    });
+    expect(snap.spotTotalUsd).toBe('55');
+    expect(snap.netWorthUsd).toBe('175');
+    expect(snap.isEmpty).toBe(false);
+  });
+});
+
+describe('active perp position helpers', () => {
+  const buildPosition = (szi: string, unrealizedPnl: string) => ({
+    type: 'oneWay',
+    position: {
+      coin: 'BTC',
+      szi,
+      entryPx: '60000',
+      positionValue: '6000',
+      unrealizedPnl,
+      returnOnEquity: '0.1',
+      liquidationPx: null,
+      marginUsed: '600',
+      maxLeverage: 40,
+      leverage: { type: 'cross', value: 10 },
+      cumFunding: { allTime: '0', sinceOpen: '0', sinceChange: '0' },
+    },
+  });
+
+  it('keeps only non-zero sizes and sums their unrealized pnl', () => {
+    const positions = [
+      buildPosition('0', '99'),
+      buildPosition('0.2', '7'),
+      buildPosition('-0.1', '-2'),
+    ] as any;
+
+    expect(getActivePerpAssetPositions(positions)).toHaveLength(2);
+    expect(getActivePerpPositionsUnrealizedPnl(positions)).toBe('5');
   });
 });

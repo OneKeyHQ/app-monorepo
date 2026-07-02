@@ -42,6 +42,7 @@ import {
   aggregateClearinghouseStates,
   assembleHyperliquidSnapshot,
   buildSpotPriceMap,
+  getActivePerpPositionsUnrealizedPnl,
   spotBalancesNeedPriceRefresh,
   spotHasPositiveBalance,
   spotNeedsPrices,
@@ -1764,10 +1765,8 @@ export default class ServiceHyperliquid extends ServiceBase {
 
       // Note: Deep compare not suitable here due to real-time data requirements
       const positions = webData2.clearinghouseState?.assetPositions || [];
-      const totalUnrealizedPnlBN = positions.reduce((sum, position) => {
-        const pnl = position.position?.unrealizedPnl;
-        return pnl ? sum.plus(pnl) : sum;
-      }, new BigNumber(0));
+      const totalUnrealizedPnl =
+        getActivePerpPositionsUnrealizedPnl(positions);
 
       const summary: IPerpsActiveAccountSummaryAtom = {
         accountAddress: activeAccount?.accountAddress?.toLowerCase() as IHex,
@@ -1781,7 +1780,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         totalNtlPos: webData2.clearinghouseState?.marginSummary?.totalNtlPos,
         totalRawUsd: webData2.clearinghouseState?.marginSummary?.totalRawUsd,
         withdrawable: webData2.clearinghouseState?.withdrawable,
-        totalUnrealizedPnl: totalUnrealizedPnlBN.toFixed(),
+        totalUnrealizedPnl,
       };
       await perpsActiveAccountSummaryAtom.set(summary);
       void this.cacheService
@@ -1871,14 +1870,11 @@ export default class ServiceHyperliquid extends ServiceBase {
         // Aggregate withdrawable
         acc.withdrawable = acc.withdrawable.plus(state.withdrawable || '0');
 
-        // Aggregate unrealized PnL from all positions
+        // Aggregate unrealized PnL from active positions
         const positions = assetPositions || [];
-        positions.forEach((position) => {
-          const pnl = position.position?.unrealizedPnl;
-          if (pnl) {
-            acc.totalUnrealizedPnl = acc.totalUnrealizedPnl.plus(pnl);
-          }
-        });
+        acc.totalUnrealizedPnl = acc.totalUnrealizedPnl.plus(
+          getActivePerpPositionsUnrealizedPnl(positions),
+        );
 
         return acc;
       },
