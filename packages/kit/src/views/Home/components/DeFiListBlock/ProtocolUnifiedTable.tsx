@@ -3,7 +3,10 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
-import { ProtocolPositionActionButton } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
+import {
+  type IProtocolPositionProviderDisplayInfo,
+  ProtocolPositionActionButton,
+} from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
 import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import type { IProtocolUnifiedRow } from '@onekeyhq/kit/src/utils/defiPositionUtils';
@@ -95,6 +98,7 @@ type IProtocolUnifiedTableProps = {
   accountId?: string;
   indexedAccountId?: string;
   protocol: IDeFiProtocol;
+  providerDisplayInfo?: IProtocolPositionProviderDisplayInfo;
   rows: IProtocolUnifiedRow[];
   currencySymbol: string;
   priceUnavailableLabel: string;
@@ -110,6 +114,7 @@ const ProtocolUnifiedTable = memo(
     accountId,
     indexedAccountId,
     protocol,
+    providerDisplayInfo,
     rows,
     currencySymbol,
     priceUnavailableLabel,
@@ -344,6 +349,7 @@ const ProtocolUnifiedTable = memo(
                     accountId={accountId}
                     indexedAccountId={indexedAccountId}
                     protocol={protocol}
+                    providerDisplayInfo={providerDisplayInfo}
                     position={actionPosition}
                     supportedActions={supportedActions}
                     placement="balance"
@@ -365,6 +371,7 @@ const ProtocolUnifiedTable = memo(
                           accountId={accountId}
                           indexedAccountId={indexedAccountId}
                           protocol={protocol}
+                          providerDisplayInfo={providerDisplayInfo}
                           position={actionPosition}
                           supportedActions={supportedActions}
                           placement="rewards"
