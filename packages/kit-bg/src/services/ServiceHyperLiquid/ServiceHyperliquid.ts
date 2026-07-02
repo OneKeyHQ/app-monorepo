@@ -39,6 +39,7 @@ import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import { hyperLiquidErrorResolver } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
 import {
+  aggregateClearinghouseStates,
   assembleHyperliquidSnapshot,
   buildSpotPriceMap,
   spotHasPositiveBalance,
@@ -67,6 +68,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 import {
   CACHE_TIME_QUANTIZE_MS,
+  DEX_PREFIXES,
   SPOT_ASSET_ID_OFFSET,
   XYZ_ASSET_ID_OFFSET,
   XYZ_DEX_PREFIX,
@@ -962,14 +964,26 @@ export default class ServiceHyperliquid extends ServiceBase {
     return this.backgroundApi.simpleDb.perp.getUserAbstractionMode(user);
   }
 
+  private async _fetchAllDexsClearinghouseStates(user: IHex) {
+    const { infoClient } = hyperLiquidApiClients;
+    const dexes = ['', ...DEX_PREFIXES];
+    return Promise.all(
+      dexes.map(async (dex) => ({
+        dex,
+        state: await infoClient.clearinghouseState({ user, dex }),
+      })),
+    );
+  }
+
   _fetchHlPortfolioMemo = cacheUtils.memoizee(
     async (address: string): Promise<IHyperliquidPortfolioSnapshot> => {
       const { infoClient } = hyperLiquidApiClients;
       const user = address.toLowerCase() as IHex;
-      const [clearinghouse, spot] = await Promise.all([
-        infoClient.clearinghouseState({ user }),
+      const [clearinghouseStates, spot] = await Promise.all([
+        this._fetchAllDexsClearinghouseStates(user),
         infoClient.spotClearinghouseState({ user }),
       ]);
+      const clearinghouse = aggregateClearinghouseStates(clearinghouseStates);
       await this._ensureSpotMappings();
       const needsPrices = spotNeedsPrices(spot);
       const needsSpotMeta =

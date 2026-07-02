@@ -1,6 +1,7 @@
 import { EHyperLiquidAbstractionMode } from '../../types/hyperliquid';
 
 import {
+  aggregateClearinghouseStates,
   assembleHyperliquidSnapshot,
   buildSpotPriceMap,
   spotHasPositiveBalance,
@@ -134,6 +135,82 @@ describe('spotHasPositiveBalance', () => {
       } as any),
     ).toBe(false);
     expect(spotHasPositiveBalance({ balances: [] } as any)).toBe(false);
+  });
+});
+
+describe('aggregateClearinghouseStates', () => {
+  const buildPosition = (coin: string, unrealizedPnl: string) => ({
+    type: 'oneWay',
+    position: {
+      coin,
+      szi: '1',
+      entryPx: '10',
+      positionValue: '12',
+      unrealizedPnl,
+      returnOnEquity: '0.1',
+      liquidationPx: null,
+      marginUsed: '5',
+      maxLeverage: 10,
+      leverage: { type: 'cross', value: 5 },
+      cumFunding: { allTime: '0', sinceOpen: '0', sinceChange: '0' },
+    },
+  });
+
+  it('aggregates account summaries and prefixes sub-dex positions', () => {
+    const main = {
+      marginSummary: {
+        accountValue: '100',
+        totalNtlPos: '50',
+        totalRawUsd: '100',
+        totalMarginUsed: '10',
+      },
+      crossMarginSummary: {
+        accountValue: '80',
+        totalNtlPos: '40',
+        totalRawUsd: '80',
+        totalMarginUsed: '8',
+      },
+      crossMaintenanceMarginUsed: '1',
+      withdrawable: '90',
+      assetPositions: [buildPosition('BTC', '3')],
+      time: 100,
+    };
+    const xyz = {
+      marginSummary: {
+        accountValue: '30',
+        totalNtlPos: '20',
+        totalRawUsd: '30',
+        totalMarginUsed: '4',
+      },
+      crossMarginSummary: {
+        accountValue: '25',
+        totalNtlPos: '15',
+        totalRawUsd: '25',
+        totalMarginUsed: '3',
+      },
+      crossMaintenanceMarginUsed: '0.5',
+      withdrawable: '20',
+      assetPositions: [buildPosition('NVDA', '-2')],
+      time: 120,
+    };
+
+    const aggregated = aggregateClearinghouseStates([
+      { dex: '', state: main as any },
+      { dex: 'xyz', state: xyz as any },
+    ]);
+
+    expect(aggregated?.marginSummary.accountValue).toBe('130');
+    expect(aggregated?.marginSummary.totalNtlPos).toBe('70');
+    expect(aggregated?.marginSummary.totalMarginUsed).toBe('14');
+    expect(aggregated?.crossMarginSummary.accountValue).toBe('105');
+    expect(aggregated?.crossMaintenanceMarginUsed).toBe('1.5');
+    expect(aggregated?.withdrawable).toBe('110');
+    expect(aggregated?.time).toBe(120);
+    expect(aggregated?.assetPositions.map((p) => p.position.coin)).toEqual([
+      'BTC',
+      'xyz:NVDA',
+    ]);
+    expect(xyz.assetPositions[0].position.coin).toBe('NVDA');
   });
 });
 

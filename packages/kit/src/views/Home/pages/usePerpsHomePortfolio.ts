@@ -206,9 +206,8 @@ export function usePerpsHomePortfolio(): {
           snapshotLoaded: true,
         });
       }
-      if (snapshot && !snapshot.isEmpty) {
-        return;
-      }
+      // LocalPendingTxConfirmed does not carry the deposit amount, so a
+      // non-empty snapshot cannot prove the newly confirmed deposit is visible.
       if (attempt < DEPOSIT_CONFIRMATION_RETRY_MAX_ATTEMPTS) {
         depositRetryTimerRef.current = setTimeout(() => {
           void forceRefreshAfterDeposit({

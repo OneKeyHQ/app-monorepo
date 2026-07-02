@@ -19,10 +19,111 @@ import type {
 } from '../../types/hyperliquid/sdk';
 
 const USDC = 'USDC';
+const CLEARINGHOUSE_SUMMARY_FIELDS = [
+  'accountValue',
+  'totalNtlPos',
+  'totalRawUsd',
+  'totalMarginUsed',
+] as const;
+
+type IClearinghouseSummary = IClearinghouseStateResponse['marginSummary'];
+
+export interface IAggregateClearinghouseStateInput {
+  dex?: string;
+  state: IClearinghouseStateResponse | undefined | null;
+}
 
 function safeBN(v: string | number | undefined | null): BigNumber {
   const bn = new BigNumber(v ?? 0);
   return bn.isFinite() ? bn : new BigNumber(0);
+}
+
+function createEmptyClearinghouseSummary(): IClearinghouseSummary {
+  return {
+    accountValue: '0',
+    totalNtlPos: '0',
+    totalRawUsd: '0',
+    totalMarginUsed: '0',
+  };
+}
+
+function addClearinghouseSummary(
+  target: IClearinghouseSummary,
+  source: IClearinghouseSummary | undefined,
+) {
+  CLEARINGHOUSE_SUMMARY_FIELDS.forEach((field) => {
+    target[field] = safeBN(target[field])
+      .plus(safeBN(source?.[field]))
+      .toFixed();
+  });
+}
+
+function getDexPrefixedCoin(coin: string, dex: string | undefined): string {
+  const normalizedDex = dex?.trim();
+  if (!normalizedDex || coin.includes(':')) {
+    return coin;
+  }
+  return `${normalizedDex}:${coin}`;
+}
+
+export function aggregateClearinghouseStates(
+  inputs: IAggregateClearinghouseStateInput[],
+): IClearinghouseStateResponse | undefined {
+  const validInputs = inputs.filter(
+    (
+      input,
+    ): input is {
+      dex?: string;
+      state: IClearinghouseStateResponse;
+    } => Boolean(input.state),
+  );
+  if (validInputs.length === 0) {
+    return undefined;
+  }
+
+  const marginSummary = createEmptyClearinghouseSummary();
+  const crossMarginSummary = createEmptyClearinghouseSummary();
+  const assetPositions: IClearinghouseStateResponse['assetPositions'] = [];
+  let crossMaintenanceMarginUsed = new BigNumber(0);
+  let withdrawable = new BigNumber(0);
+  let time = 0;
+
+  validInputs.forEach(({ dex, state }) => {
+    addClearinghouseSummary(marginSummary, state.marginSummary);
+    addClearinghouseSummary(crossMarginSummary, state.crossMarginSummary);
+    crossMaintenanceMarginUsed = crossMaintenanceMarginUsed.plus(
+      safeBN(state.crossMaintenanceMarginUsed),
+    );
+    withdrawable = withdrawable.plus(safeBN(state.withdrawable));
+    time = Math.max(time, state.time ?? 0);
+
+    assetPositions.push(
+      ...(state.assetPositions ?? []).map((assetPosition) => {
+        const coin = assetPosition.position.coin;
+        const prefixedCoin = getDexPrefixedCoin(coin, dex);
+        if (prefixedCoin === coin) {
+          return assetPosition;
+        }
+        return {
+          ...assetPosition,
+          position: {
+            ...assetPosition.position,
+            coin: prefixedCoin,
+          },
+        };
+      }),
+    );
+  });
+
+  return {
+    ...validInputs[0].state,
+    marginSummary,
+    crossMarginSummary,
+    crossMaintenanceMarginUsed: crossMaintenanceMarginUsed.toFixed(),
+    withdrawable: withdrawable.toFixed(),
+    assetPositions,
+    time,
+  };
 }
 
 export function buildSpotPriceMap(
