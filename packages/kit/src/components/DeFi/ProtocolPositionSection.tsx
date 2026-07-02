@@ -17,7 +17,10 @@ import {
   getSectionActionPlacement,
 } from '../../utils/defiPositionUtils';
 
-import { ProtocolPositionActionButton } from './ProtocolPositionActionButton';
+import {
+  type IProtocolPositionProviderDisplayInfo,
+  ProtocolPositionActionButton,
+} from './ProtocolPositionActionButton';
 import { ProtocolValueCell } from './ProtocolValueCell';
 import { isProtocolAssetValueUnavailable } from './protocolValueUtils';
 
@@ -38,6 +41,7 @@ type IProtocolPositionSectionActionProps = {
   accountId?: string;
   indexedAccountId?: string;
   protocol: IDeFiProtocol;
+  providerDisplayInfo?: IProtocolPositionProviderDisplayInfo;
   actionPosition: IDeFiProtocol['positions'][number];
   supportedActions: IDeFiSupportedProtocolAction[];
   onActionSuccess?: (
@@ -85,6 +89,7 @@ const ProtocolPositionSection = memo(
                 accountId={actionProps.accountId}
                 indexedAccountId={actionProps.indexedAccountId}
                 protocol={actionProps.protocol}
+                providerDisplayInfo={actionProps.providerDisplayInfo}
                 position={actionProps.actionPosition}
                 supportedActions={actionProps.supportedActions}
                 placement={actionPlacement}
