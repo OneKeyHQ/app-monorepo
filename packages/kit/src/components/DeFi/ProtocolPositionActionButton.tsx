@@ -593,7 +593,9 @@ const ProtocolPositionActionButton = memo(
           accountId,
           networkId: protocol.networkId,
           action,
-          hasRewards,
+          // A remapped LP withdraw (buildAction set) does not claim on-chain,
+          // so it must never advertise "& Claim rewards".
+          hasRewards: hasRewards && !action.buildAction,
           onSuccess,
         });
       },
@@ -686,7 +688,7 @@ const ProtocolPositionActionButton = memo(
                 label: getActionLabel({
                   action: action.action,
                   intl,
-                  hasRewards,
+                  hasRewards: hasRewards && !action.buildAction,
                 }),
               })}
             </Button>
