@@ -32,6 +32,11 @@ import {
   useProtocolPositionActionSubmit,
 } from './ProtocolPositionActionDialog';
 
+export type IProtocolPositionProviderDisplayInfo = {
+  providerDisplayName?: string;
+  providerLogoURI?: string;
+};
+
 type IProtocolPositionActionButtonProps = {
   accountId?: string;
   indexedAccountId?: string;
@@ -44,6 +49,7 @@ type IProtocolPositionActionButtonProps = {
   // position's primary supplied asset, so each supplied/borrowed row gets a
   // correctly-scoped button.
   manageAsset?: IDeFiAsset;
+  providerDisplayInfo?: IProtocolPositionProviderDisplayInfo;
   // Resolved protocol actions (Withdraw/Claim/Remove) are position-level, so a
   // per-asset caller renders them once (e.g. on the first asset) and sets this
   // false on the rest to avoid repeating them under every row.
@@ -68,6 +74,7 @@ type IBorrowManageParams = {
   reserveAddress: string;
   symbol: string;
   logoURI?: string;
+  providerDisplayName?: string;
   providerLogoURI?: string;
 };
 function normalizeMatchValue(value?: string) {
@@ -182,10 +189,12 @@ function getAaveBorrowManageParams({
   protocol,
   position,
   manageAsset,
+  providerDisplayInfo,
 }: {
   protocol: Pick<IDeFiProtocol, 'networkId' | 'protocol'>;
   position: IDeFiProtocol['positions'][number];
   manageAsset?: IDeFiAsset;
+  providerDisplayInfo?: IProtocolPositionProviderDisplayInfo;
 }): IBorrowManageParams | undefined {
   if (!isAaveProtocol(protocol.protocol) || !hasDebt(position)) {
     return undefined;
@@ -253,12 +262,22 @@ function getAaveBorrowManageParams({
     reserveAddress,
     symbol,
     logoURI: targetAsset?.meta?.logoUrl,
-    providerLogoURI: pickStringFromSources(sources, [
-      'providerLogoURI',
-      'providerLogoUrl',
-      'provider_logo_uri',
-      'provider_logo_url',
-    ]),
+    providerDisplayName:
+      providerDisplayInfo?.providerDisplayName ||
+      pickStringFromSources(sources, [
+        'providerDisplayName',
+        'provider_display_name',
+        'protocolName',
+        'protocol_name',
+      ]),
+    providerLogoURI:
+      providerDisplayInfo?.providerLogoURI ||
+      pickStringFromSources(sources, [
+        'providerLogoURI',
+        'providerLogoUrl',
+        'provider_logo_uri',
+        'provider_logo_url',
+      ]),
   };
 }
 
@@ -445,6 +464,7 @@ const ProtocolPositionActionButton = memo(
     supportedActions,
     placement = 'all',
     manageAsset,
+    providerDisplayInfo,
     showResolvedActions = true,
     visualVariant = 'solid',
     block = false,
@@ -486,8 +506,14 @@ const ProtocolPositionActionButton = memo(
       [position],
     );
     const borrowManageParams = useMemo(
-      () => getAaveBorrowManageParams({ protocol, position, manageAsset }),
-      [manageAsset, position, protocol],
+      () =>
+        getAaveBorrowManageParams({
+          protocol,
+          position,
+          manageAsset,
+          providerDisplayInfo,
+        }),
+      [manageAsset, position, protocol, providerDisplayInfo],
     );
     const fallbackBlockingActions = useMemo(
       () => (shouldResolveActionButtons ? actions : []),
@@ -619,6 +645,7 @@ const ProtocolPositionActionButton = memo(
           reserveAddress: borrowManageParams.reserveAddress,
           symbol: borrowManageParams.symbol,
           logoURI: borrowManageParams.logoURI,
+          providerDisplayName: borrowManageParams.providerDisplayName,
           providerLogoURI: borrowManageParams.providerLogoURI,
           type,
         });
