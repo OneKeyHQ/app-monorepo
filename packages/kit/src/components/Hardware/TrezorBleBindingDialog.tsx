@@ -29,7 +29,9 @@ import {
 } from './Hardware';
 import {
   buildTrezorBleBindingCandidates,
+  findTrezorAutoFallbackConnectId,
   getTrezorBleBindingCandidateState,
+  getTrezorBleBindingScanOptions,
 } from './trezorBleBindingUtils';
 import {
   TREZOR_SCAN_MAX_TRY_COUNT,
@@ -37,15 +39,20 @@ import {
   shouldShowTrezorScanTimeout,
 } from './trezorScanUtils';
 
-import type { ITrezorBleBindingScannedDevice } from './trezorBleBindingUtils';
+import type {
+  ITrezorBleBindingMode,
+  ITrezorBleBindingScannedDevice,
+} from './trezorBleBindingUtils';
+import type { IntlShape } from 'react-intl';
 
 export interface ITrezorBleBindingParams {
   // USB-side identity of the already-known device (read from its IDBDevice).
   usbConnectId: string;
   featuresDeviceId: string;
-  // Called with the bound bleConnectId on success (e.g. to refresh the UI).
-  onBound?: (bleConnectId: string) => void;
+  // Called with the connectId that should be used after this dialog settles.
+  onBound?: (connectId: string) => void;
   onClose?: () => void | Promise<void>;
+  mode?: ITrezorBleBindingMode;
 }
 
 function PairingGuideStep({ number, text }: { number: number; text: string }) {
@@ -86,19 +93,13 @@ function TrezorBleBindingIllustration() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Trezor USB→BLE binding picker. Copies the OneKey scan→list→select shape from
-// ConnectionFlowTrezor / OtherDevicesDialog, with one Trezor-specific twist:
-// Trezor has NO ble_name, so the host CANNOT identify a BLE device at scan
-// time. The user picks a candidate, and bindTrezorBleConnectId connects to it,
-// reads device_id, and only persists bleConnectId when it matches the
-// USB-known device. A mismatch (or a device that asks to pair) is rejected so
-// the user can pick another. 100% Trezor-side; never touches OneKey / Ledger.
-// ---------------------------------------------------------------------------
+// Trezor scan cannot identify BLE candidates up front; selected BLE devices are
+// probed and matched by features device_id before their connectId is persisted.
 function TrezorBleBindingContent({
   usbConnectId,
   featuresDeviceId,
   onBound,
+  mode = 'manual-binding',
 }: ITrezorBleBindingParams) {
   const intl = useIntl();
   const dialog = useDialogInstance();
@@ -169,8 +170,23 @@ function TrezorBleBindingContent({
           return;
         }
 
+        const scannedDevices =
+          response.payload as ITrezorBleBindingScannedDevice[];
+        const autoFallbackConnectId = findTrezorAutoFallbackConnectId({
+          mode,
+          devices: scannedDevices,
+          usbConnectId,
+        });
+        if (autoFallbackConnectId) {
+          isSearchingRef.current = false;
+          deviceScanner.stopScan();
+          onBound?.(autoFallbackConnectId);
+          void dialog.close();
+          return;
+        }
+
         const candidates = buildTrezorBleBindingCandidates({
-          devices: response.payload as ITrezorBleBindingScannedDevice[],
+          devices: scannedDevices,
           usbConnectId,
         });
         setDevices(candidates);
@@ -194,9 +210,9 @@ function TrezorBleBindingContent({
       TREZOR_SCAN_POLL_INTERVAL_MS,
       TREZOR_SCAN_MAX_TRY_COUNT,
       EHardwareVendor.trezor,
-      { resetSession: true, transportType: 'ble' },
+      getTrezorBleBindingScanOptions(mode),
     );
-  }, [deviceScanner, intl, usbConnectId]);
+  }, [deviceScanner, dialog, intl, mode, onBound, usbConnectId]);
 
   const handleRetryScan = useCallback(() => {
     setDevices([]);
@@ -240,7 +256,7 @@ function TrezorBleBindingContent({
         setRejectedConnectIds((prev) => ({ ...prev, [bleConnectId]: true }));
         Toast.error({
           title: intl.formatMessage({
-            id: ETranslations.hardware_connect_failed,
+            id: ETranslations.hardware_third_party_device_mismatch,
           }),
         });
       } catch (error) {
@@ -381,10 +397,13 @@ function TrezorBleBindingContent({
 
 export function showTrezorBleBindingDialog({
   onClose,
+  intl,
   ...params
-}: ITrezorBleBindingParams) {
+}: ITrezorBleBindingParams & { intl: IntlShape }) {
   return Dialog.show({
-    title: ETranslations.trezor_ble_binding__title,
+    title: intl.formatMessage({
+      id: ETranslations.trezor_ble_binding__title,
+    }),
     showFooter: false,
     renderContent: <TrezorBleBindingContent {...params} />,
     onClose,

@@ -65,6 +65,8 @@ const WIN_RATE_TOOLTIP_MAP: Record<IPortfolioTimePeriod, ETranslations> = {
   allTime: ETranslations.perp_portfolio_win_rate_tooltip_all_time__desc,
 };
 
+const MOBILE_TIME_PERIOD_ITEM_MIN_WIDTH = 36;
+
 // Time period and chart type options are built inside the component using intl
 
 function formatPercent(value: number | null | undefined): string {
@@ -378,7 +380,12 @@ function PerpPortfolioContentComponent({
       timePeriodOptions.map((option) => ({
         ...option,
         label: (
-          <XStack height={20} alignItems="center" justifyContent="center">
+          <XStack
+            height={20}
+            minWidth={MOBILE_TIME_PERIOD_ITEM_MIN_WIDTH}
+            alignItems="center"
+            justifyContent="center"
+          >
             <SizableText
               size="$bodySmMedium"
               color={timePeriod === option.value ? '$textInverse' : '$text'}
@@ -703,8 +710,10 @@ function PerpPortfolioContentComponent({
               value={timePeriod}
               onChange={handleTimePeriodChange}
               options={mobileTimePeriodOptions}
+              flexShrink={0}
               segmentControlItemStyleProps={{
-                px: '$2.5',
+                minWidth: MOBILE_TIME_PERIOD_ITEM_MIN_WIDTH,
+                px: '$2',
                 py: '$1',
               }}
             />
@@ -1161,13 +1170,13 @@ function PerpPortfolioContentComponent({
               <>
                 <XStack
                   flex={winRateProgress}
-                  bg="$green9"
+                  bg="$bgAccent"
                   borderTopLeftRadius="$full"
                   borderBottomLeftRadius="$full"
                 />
                 <XStack
                   flex={100 - winRateProgress}
-                  bg="$red9"
+                  bg="$bgCriticalStrong"
                   borderTopRightRadius="$full"
                   borderBottomRightRadius="$full"
                 />

@@ -1,4 +1,5 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { getTrezorThpIdentity } from '@onekeyhq/shared/src/hardware/trezorThpIdentity';
 import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
 
 import { emitOffscreenEventToBackground } from './offscreenEventBus';
@@ -96,10 +97,9 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
         return createLedgerWebHidConnector();
       }
       case 'trezor': {
-        // THP host identity — burned in at connector construction. The
-        // device shows `hostName` on the pairing screen, so consistency
-        // across SW restarts matters for credential reuse: same hostName
-        // + persisted credentials = autoconnect path skipping CodeEntry.
+        const thpIdentity = getTrezorThpIdentity();
+        // THP host identity is burned in at connector construction and shown
+        // on the device pairing screen. Keep it stable and non-sensitive.
         const { createTrezorWebUsbConnector } =
           await import('@onekeyfe/hwk-trezor-connector-webusb');
         const logger = (entry: ITrezorDebugLogEntry) => {
@@ -111,8 +111,8 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
         };
         return createTrezorWebUsbConnector({
           thp: {
-            hostName: 'OneKey',
-            appName: 'OneKey Wallet',
+            hostName: thpIdentity.hostName,
+            appName: thpIdentity.appName,
             logger,
           },
           transportOptions: {

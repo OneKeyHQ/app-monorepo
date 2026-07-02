@@ -44,7 +44,7 @@ const dragZoneStyle = {
 const MARKER_CLASS = 'app-region-drag';
 const SYN_ATTR = 'data-onekey-syn-region';
 const NEUTRALIZE_STYLE_ID = 'onekey-drag-region-neutralize';
-const MODAL_SCREEN_SELECTOR = '[data-testid="APP-Modal-Screen"]';
+const MODAL_SCREEN_SELECTOR = '.onekey-modal-screen';
 const RECOMPUTE_DEBOUNCE = 200;
 // A continuous stream of triggers (e.g. live window resizing fires `resize`
 // rapidly) keeps resetting the debounce timer. MAX_WAIT guarantees a recompute

@@ -51,6 +51,10 @@ import { maybeOpenPrivateSendHistoryDetail } from '../../Swap/utils/privateSendH
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 
+import {
+  FrozenTopHistoryScrollObserver,
+  useFrozenTopHistoryData,
+} from './hooks/useFrozenTopHistoryData';
 import { useHistoryListLoadMore } from './hooks/useHistoryListLoadMore';
 
 function TxHistoryListContainer(
@@ -274,6 +278,10 @@ function TxHistoryListContainer(
             accountId: string;
             networkId: string;
           }[];
+          accountsWithCompletedDeFiPortfolioTxs: {
+            accountId: string;
+            networkId: string;
+          }[];
           addressMap?: Record<string, IAddressBadge>;
           hasMoreOnChainHistory?: boolean;
           next?: string;
@@ -282,6 +290,7 @@ function TxHistoryListContainer(
           allAccounts: [],
           txs: [],
           accountsWithChangedTxs: [],
+          accountsWithCompletedDeFiPortfolioTxs: [],
           addressMap: {},
           hasMoreOnChainHistory: false,
           next: undefined,
@@ -362,6 +371,22 @@ function TxHistoryListContainer(
           appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
             accounts: r.accountsWithChangedTxs,
           });
+        }
+        if (r.accountsWithCompletedDeFiPortfolioTxs.length > 0) {
+          void Promise.all(
+            r.accountsWithCompletedDeFiPortfolioTxs.map(
+              ({
+                accountId: completedAccountId,
+                networkId: completedNetworkId,
+              }) =>
+                backgroundApiProxy.serviceDeFi.refreshAccountDeFiPositionsAfterAction(
+                  {
+                    accountId: completedAccountId,
+                    networkId: completedNetworkId,
+                  },
+                ),
+            ),
+          ).catch(console.error);
         }
       } finally {
         // Must clear unconditionally — otherwise the next polling tick would
@@ -567,6 +592,38 @@ function TxHistoryListContainer(
     [historyData, appendedTxs],
   );
 
+  // OK-57070: freeze top-of-list growth while the user is scrolled away from
+  // the top. A background refresh that prepends new rows would otherwise shift
+  // the viewport and make the native SectionList jitter (it has no exact
+  // item layout). Held rows merge in automatically once the user scrolls back
+  // near the top. Pass-through on web/desktop and for preview / plain lists.
+  // The tab scenario (full wallet-history tab, not RecentHistory's
+  // plainMode+limit preview) also gates the scroll observer mount below.
+  const isFrozenTopTabScenario = !plainMode && !limit;
+  const frozenTopEnabled =
+    isFocused && isRouteFocused && isFrozenTopTabScenario;
+  // Freeze identity: the shared `identityKey` tuple plus the history filter
+  // toggles (which swap the visible row set with heavy id overlap). When it
+  // changes the hook drops its frozen baseline so the new stream renders live.
+  const frozenTopIdentityKey = useMemo(
+    () =>
+      [
+        identityKey,
+        settings.isFilterScamHistoryEnabled ? '1' : '0',
+        settings.isFilterLowValueHistoryEnabled ? '1' : '0',
+      ].join('|'),
+    [
+      identityKey,
+      settings.isFilterScamHistoryEnabled,
+      settings.isFilterLowValueHistoryEnabled,
+    ],
+  );
+  const { displayedHistoryData, onAwayFromTopChange } = useFrozenTopHistoryData(
+    combinedHistoryData,
+    frozenTopEnabled,
+    frozenTopIdentityKey,
+  );
+
   const lastVisibilityRefreshAtRef = useRef(0);
   const handleRefreshOnVisibilityActive = useCallback(() => {
     const now = Date.now();
@@ -644,37 +701,45 @@ function TxHistoryListContainer(
   );
 
   return (
-    <TxHistoryListView
-      plainMode={plainMode}
-      isTabFocused={isFocused}
-      showIcon
-      inTabList
-      hideValue
-      onRefresh={onHomePageRefresh}
-      data={combinedHistoryData}
-      onPressHistory={handleHistoryItemPress}
-      showHeader
-      showFooter
-      walletId={wallet?.id}
-      accountId={account?.id}
-      networkId={network?.id}
-      indexedAccountId={indexedAccount?.id}
-      initialized={historyState.initialized}
-      tableLayout={tableLayout ?? media.gtMd}
-      listViewStyleProps={{
-        contentContainerStyle: {
-          mt: '$3',
-          pb: tabBarHeight,
-        },
-      }}
-      tokenMap={allTokenListMap}
-      emptyTitle={emptyTitle}
-      emptyDescription={emptyDescription}
-      ListHeaderComponent={listHeaderComponent}
-      onEndReached={loadMoreEnabled ? loadMore : undefined}
-      isLoadingMore={isLoadingMore}
-      hasMore={loadMoreHasMore}
-    />
+    <>
+      {isFrozenTopTabScenario ? (
+        <FrozenTopHistoryScrollObserver
+          enabled={frozenTopEnabled}
+          onAwayFromTopChange={onAwayFromTopChange}
+        />
+      ) : null}
+      <TxHistoryListView
+        plainMode={plainMode}
+        isTabFocused={isFocused}
+        showIcon
+        inTabList
+        hideValue
+        onRefresh={onHomePageRefresh}
+        data={displayedHistoryData}
+        onPressHistory={handleHistoryItemPress}
+        showHeader
+        showFooter
+        walletId={wallet?.id}
+        accountId={account?.id}
+        networkId={network?.id}
+        indexedAccountId={indexedAccount?.id}
+        initialized={historyState.initialized}
+        tableLayout={tableLayout ?? media.gtMd}
+        listViewStyleProps={{
+          contentContainerStyle: {
+            mt: '$3',
+            pb: tabBarHeight,
+          },
+        }}
+        tokenMap={allTokenListMap}
+        emptyTitle={emptyTitle}
+        emptyDescription={emptyDescription}
+        ListHeaderComponent={listHeaderComponent}
+        onEndReached={loadMoreEnabled ? loadMore : undefined}
+        isLoadingMore={isLoadingMore}
+        hasMore={loadMoreHasMore}
+      />
+    </>
   );
 }
 

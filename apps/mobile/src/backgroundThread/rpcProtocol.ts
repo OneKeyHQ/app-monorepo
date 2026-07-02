@@ -1,3 +1,9 @@
+import {
+  type ILocalSecretEnvelopeCredentialErrorData,
+  LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
+  LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
+} from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
+
 import type {
   IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
@@ -97,6 +103,7 @@ export type IBackgroundThreadResponseErrorPayload = {
   requestId?: string;
   httpStatusCode?: number;
   constructorName?: string;
+  data?: unknown;
   payload?: unknown;
 };
 
@@ -266,6 +273,24 @@ export function serializeBackgroundThreadResponse(
   payload: IBackgroundThreadResponsePayload,
 ) {
   return JSON.stringify(payload);
+}
+
+export function buildSafeBackgroundThreadErrorData(data: unknown) {
+  if (
+    data &&
+    typeof data === 'object' &&
+    !Array.isArray(data) &&
+    (data as Partial<ILocalSecretEnvelopeCredentialErrorData>)[
+      LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD
+    ] === LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE
+  ) {
+    return {
+      [LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD]:
+        LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
+    };
+  }
+
+  return undefined;
 }
 
 export function parseBackgroundThreadResponse(

@@ -36,7 +36,9 @@ type IDeFiPositionActionKeySource = Pick<
   | 'debtCategory'
   | 'rewardCategory'
   | 'action'
->;
+> & {
+  buildAction?: EDeFiPositionAction;
+};
 
 const DEFI_ACTION_MIN_PERCENT = 1;
 const DEFI_ACTION_MAX_PERCENT = 100;
@@ -86,6 +88,22 @@ const PROTOCOL_ALIAS_MAP: Record<string, string> = {
   stakedao: 'stake_dao',
 };
 
+// Protocols whose backend "withdraw" redeems the whole LP/gauge position.
+// The UI presents them as RemoveLiquidity (one percent-based unit per pool)
+// while build-transaction still receives action=withdraw — the Earn service
+// rejects removeLiquidity for them (verified 2026-07-02 on test env).
+const LP_WITHDRAW_PROTOCOL_IDS = new Set(['stake_dao']);
+
+function isLpWithdrawSupportedAction({
+  protocolId,
+  action,
+}: Pick<IDeFiSupportedProtocolAction, 'protocolId' | 'action'>) {
+  return (
+    action === EDeFiPositionAction.Withdraw &&
+    LP_WITHDRAW_PROTOCOL_IDS.has(normalizeProtocolForAction(protocolId))
+  );
+}
+
 function normalizeCategoryForAction(value?: string) {
   const normalized = normalizeMatchValue(value);
   return CATEGORY_ALIAS_MAP[normalized] ?? normalized;
@@ -117,7 +135,9 @@ function getDeFiPositionActionKey(action: IDeFiPositionActionKeySource) {
     action.assetCategory ?? '',
     action.debtCategory ?? '',
     action.rewardCategory ?? '',
-    action.action,
+    // Remapped actions key on the wire action so a resolved LP withdraw
+    // still matches its supported-action row.
+    action.buildAction ?? action.action,
   ].join('-');
 }
 
@@ -384,134 +404,6 @@ function getTokenId(position: IDeFiPosition | undefined, asset: IDeFiAsset) {
   );
 }
 
-function getCurrency({
-  position,
-  asset,
-  key,
-}: {
-  position: IDeFiPosition | undefined;
-  asset: IDeFiAsset;
-  key: 'currency0' | 'currency1';
-}) {
-  return pickStringFromSources({
-    sources: [asset, position],
-    directKeys: [key],
-    nestedKeys: [
-      { containerKey: 'extraParams', keys: [key] },
-      { containerKey: 'contracts', keys: [key] },
-      { containerKey: 'meta', keys: [key] },
-    ],
-  });
-}
-
-function getUniswapV4SourcePositionCurrencies(
-  position: IDeFiPosition | undefined,
-) {
-  if (!position?.networkId || !position.protocol) return undefined;
-
-  const addresses = position.assets.reduce<string[]>((result, asset) => {
-    const address = normalizeEvmAddress(asset.address);
-    if (address && isPositiveAmount(asset.amount)) {
-      const duplicated = result.some(
-        (item) => item.toLowerCase() === address.toLowerCase(),
-      );
-      if (!duplicated) result.push(address);
-    }
-    return result;
-  }, []);
-
-  addresses.sort((a, b) => {
-    const normalizedA = a.toLowerCase();
-    const normalizedB = b.toLowerCase();
-    if (normalizedA === normalizedB) return 0;
-    return normalizedA < normalizedB ? -1 : 1;
-  });
-
-  const [currency0, currency1] = addresses;
-  if (addresses.length !== 2 || !currency0 || !currency1) return undefined;
-
-  return {
-    currency0,
-    currency1,
-  };
-}
-
-function getRemainingUniswapV4Currency(
-  knownCurrency: string,
-  sourcePositionCurrencies: {
-    currency0: string;
-    currency1: string;
-  },
-) {
-  const normalizedKnownCurrency = normalizeEvmAddress(knownCurrency);
-  if (!normalizedKnownCurrency) return undefined;
-
-  const remainingCurrencies = [
-    sourcePositionCurrencies.currency0,
-    sourcePositionCurrencies.currency1,
-  ].filter(
-    (currency) =>
-      currency.toLowerCase() !== normalizedKnownCurrency.toLowerCase(),
-  );
-
-  return remainingCurrencies.length === 1 ? remainingCurrencies[0] : undefined;
-}
-
-function getRemoveLiquidityCurrencies({
-  protocolId,
-  sourcePosition,
-  asset,
-}: {
-  protocolId: string;
-  sourcePosition: IDeFiPosition | undefined;
-  asset: IDeFiAsset;
-}) {
-  const currency0 = getCurrency({
-    position: sourcePosition,
-    asset,
-    key: 'currency0',
-  });
-  const currency1 = getCurrency({
-    position: sourcePosition,
-    asset,
-    key: 'currency1',
-  });
-
-  const isUniswapV4 = isNormalizedProtocolId(protocolId, 'uniswap_v4');
-  if (!isUniswapV4) {
-    return { currency0, currency1 };
-  }
-
-  const sourcePositionCurrencies =
-    getUniswapV4SourcePositionCurrencies(sourcePosition);
-  if (!sourcePositionCurrencies) {
-    return { currency0, currency1 };
-  }
-  if (currency0 && currency1) {
-    return { currency0, currency1 };
-  }
-  if (currency0) {
-    return {
-      currency0,
-      currency1: getRemainingUniswapV4Currency(
-        currency0,
-        sourcePositionCurrencies,
-      ),
-    };
-  }
-  if (currency1) {
-    return {
-      currency0: getRemainingUniswapV4Currency(
-        currency1,
-        sourcePositionCurrencies,
-      ),
-      currency1,
-    };
-  }
-
-  return sourcePositionCurrencies;
-}
-
 function getSourcePositions(
   position: IDeFiProtocol['positions'][number],
 ): IDeFiPosition[] {
@@ -601,6 +493,16 @@ function getCandidateAssets({
       return asset ? [{ asset, sourcePosition }] : [];
     }
 
+    // LP-withdraw protocols redeem the pool as one unit: collapse the
+    // position's deposit assets to a single representative so the dialog
+    // offers one percent-based Remove per pool instead of a per-token pick.
+    if (isLpWithdrawSupportedAction(supportedAction)) {
+      const asset = positiveCandidates.find((candidate) =>
+        isCategoryMatch(targetCategory, candidate.category),
+      );
+      return asset ? [{ asset, sourcePosition }] : [];
+    }
+
     return positiveCandidates
       .filter((asset) => {
         if (
@@ -658,19 +560,6 @@ function buildResolvedAsset({
     const tokenId = getTokenId(sourcePosition, asset);
     if (!tokenId) return undefined;
 
-    const { currency0, currency1 } = getRemoveLiquidityCurrencies({
-      protocolId,
-      sourcePosition,
-      asset,
-    });
-
-    if (
-      isNormalizedProtocolId(protocolId, 'uniswap_v4') &&
-      (!currency0 || !currency1)
-    ) {
-      return undefined;
-    }
-
     return {
       asset,
       underlyingAssets: sourcePosition?.assets.filter((item) =>
@@ -682,8 +571,6 @@ function buildResolvedAsset({
       extraParams: {
         ...extraParams,
         ...(tokenId ? { tokenId } : {}),
-        ...(currency0 ? { currency0 } : {}),
-        ...(currency1 ? { currency1 } : {}),
       },
     };
   }
@@ -692,8 +579,18 @@ function buildResolvedAsset({
     return undefined;
   }
 
+  // An LP-withdraw unit previews the whole pool's holdings, like
+  // RemoveLiquidity does via underlyingAssets.
+  const isLpWithdraw = isLpWithdrawSupportedAction({ protocolId, action });
   return {
     asset,
+    ...(isLpWithdraw
+      ? {
+          underlyingAssets: sourcePosition?.assets.filter((item) =>
+            isPositiveAmount(item.amount),
+          ),
+        }
+      : {}),
     amount: asset.amount,
     symbol: asset.symbol,
     tokenAddress: asset.address,
@@ -725,8 +622,12 @@ function buildResolvedDeFiPositionAction({
   supportedAction: IDeFiSupportedProtocolAction;
   assets: IResolvedDeFiPositionActionAsset[];
 }): IResolvedDeFiPositionAction {
+  const isLpWithdraw = isLpWithdrawSupportedAction(supportedAction);
   return {
-    action: supportedAction.action,
+    action: isLpWithdraw
+      ? EDeFiPositionAction.RemoveLiquidity
+      : supportedAction.action,
+    ...(isLpWithdraw ? { buildAction: EDeFiPositionAction.Withdraw } : {}),
     protocolId: supportedAction.protocolId,
     networkId: supportedAction.networkId,
     positionCategory: supportedAction.positionCategory,
@@ -830,7 +731,14 @@ function scopeResolvedActionToAsset<T extends IResolvedDeFiPositionAction>({
     const address = (item.tokenAddress ?? item.asset.address)
       ?.trim()
       .toLowerCase();
-    return address === target;
+    if (address === target) return true;
+    // A collapsed LP unit (Stake DAO remap, Uniswap remove) carries the
+    // pool's tokens as underlyingAssets while its own address is only the
+    // representative token's. A row rendering any underlying must still find
+    // the action — and it operates on the whole unit, so keep the full asset.
+    return (item.underlyingAssets ?? []).some(
+      (underlying) => underlying.address?.trim().toLowerCase() === target,
+    );
   });
   if (assets.length === 0) return undefined;
   return { ...action, assets };

@@ -20,6 +20,7 @@ async function createTokenTransaction({
   recipient,
   amount,
   coinType,
+  maxSendNativeToken,
 }: {
   client: OneKeySuiClient;
   sender: string;
@@ -31,8 +32,9 @@ async function createTokenTransaction({
   const tx = new Transaction();
   tx.setSender(sender);
 
-  // totalBalance includes both coin objects and address balances
-  const { totalBalance } = await client.getBalance({
+  // totalBalance includes both coin objects and address balances;
+  // fundsInAddressBalance is the address-balance portion.
+  const { totalBalance, fundsInAddressBalance } = await client.getBalance({
     owner: sender,
     coinType,
   });
@@ -41,6 +43,30 @@ async function createTokenTransaction({
     throw new OneKeyInternalError({
       key: ETranslations.earn_insufficient_balance,
     });
+  }
+
+  // Native max-send: branch by fund location; splitting a fixed amount from the
+  // gas coin double-books it against the gas budget.
+  if (maxSendNativeToken && coinType === SUI_TYPE_ARG) {
+    // coinBalance = funds held in coin objects (total minus the address balance)
+    const coinBalance = new BigNumber(totalBalance).minus(
+      fundsInAddressBalance ?? '0',
+    );
+    if (coinBalance.gt(0)) {
+      // have coin objects: send the whole gas coin
+      tx.transferObjects([tx.gas], recipient);
+    } else {
+      // only address balance: withdraw the amount, gas paid from that balance
+      const coin = tx.add(
+        coinWithBalance({
+          type: coinType,
+          balance: BigInt(amount),
+          useGasCoin: false,
+        }),
+      );
+      tx.transferObjects([coin], recipient);
+    }
+    return tx;
   }
 
   // coinWithBalance resolves from coin objects and address balances at build time

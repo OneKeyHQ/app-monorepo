@@ -60,6 +60,7 @@ import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IEstimateFeeParams,
+  IEstimateGasResp,
   IFeeAlgo,
   IFeeCkb,
   IFeeDot,
@@ -1336,6 +1337,7 @@ export function useSwapBuildTx() {
         feeAlgo?: IFeeAlgo[];
         feeDot?: IFeeDot[];
         feeBudget?: IFeeSui[];
+        megafuelEligible?: IEstimateGasResp['megafuelEligible'];
         payer?: IGasPayer;
         gasAccountEligible?: boolean;
         gasAccountQuote?: IGasAccountQuote;
@@ -1407,10 +1409,11 @@ export function useSwapBuildTx() {
         customPriorityFee: swapNetWorkFeeLevel?.customPriorityFee,
         estimateFeeParams,
       });
-      // Carry Gas Account sponsorship result from estimate-fee so it flows into
-      // both the preview (sponsored badge) and the send path (broadcast quoteId).
+      // Carry sponsorship result from estimate-fee so it flows into the preview
+      // badge and, for Gas Account, the send path broadcast quoteId.
       return {
         ...gasInfo,
+        megafuelEligible: gasRes.megafuelEligible,
         payer: gasRes.payer,
         gasAccountEligible: gasRes.gasAccountEligible,
         gasAccountQuote: gasRes.gasAccountQuote,

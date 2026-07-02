@@ -296,8 +296,10 @@ function MarketTokenListBase({
     currentSortBy,
     currentSortType,
   } = result;
+  const canEnableWebSocket =
+    platformEnv.isDesktop || (platformEnv.isWeb && !md);
   const webSocketEnabled = Boolean(
-    enableWebSocket && isTabFocused && !platformEnv.isNative && !md,
+    enableWebSocket && isTabFocused && canEnableWebSocket,
   );
   const orderedData = useMemo(() => {
     if (!clientSort || !currentSortBy || !currentSortType) {

@@ -277,7 +277,7 @@ function DepositButton() {
   // neutral material. Off iOS 26 (every other platform) this stays the original
   // solid Badge.
   const glassActive = isLiquidGlassAvailable();
-  const nonGlassBg = isEmptyAccount ? '$brand8' : '$bgStrong';
+  const nonGlassBg = isEmptyAccount ? '$bgAccent' : '$bgStrong';
   const badge = (
     <Badge
       borderRadius="$full"
@@ -312,8 +312,8 @@ function DepositButton() {
         if (isEmptyAccount) {
           return (
             <>
-              <Icon name="AlignBottomOutline" size="$4" color="$iconOnColor" />
-              <SizableText size="$bodySmMedium" color="$textOnColor">
+              <Icon name="AlignBottomOutline" size="$4" color="$iconInverse" />
+              <SizableText size="$bodySmMedium" color="$textInverse">
                 {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
               </SizableText>
             </>
@@ -341,7 +341,7 @@ function DepositButton() {
       isInteractive
       glassEffectStyle="regular"
       // Deposit CTA → green-tinted glass; balance/unknown → neutral glass.
-      {...(isEmptyAccount && { tintColor: theme.brand8?.val })}
+      {...(isEmptyAccount && { tintColor: theme.bgAccent?.val })}
       style={depositGlassStyle}
     >
       {badge}

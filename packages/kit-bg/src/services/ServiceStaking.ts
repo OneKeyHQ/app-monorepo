@@ -2004,6 +2004,11 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async updateEarnOrder({ txs }: { txs: IChangedPendingTxInfo[] }) {
+    const updatedOrders: {
+      tx: IChangedPendingTxInfo;
+      order: IEarnOrderItem;
+    }[] = [];
+
     for (const tx of txs) {
       try {
         const order =
@@ -2013,17 +2018,24 @@ class ServiceStaking extends ServiceBase {
           tx.status !== EDecodedTxStatus.Pending &&
           order?.status !== tx.status;
         if (order && shouldUpdate) {
-          order.status = tx.status;
-          await this.updateEarnOrderStatusToServer({ order });
+          const updatedOrder = {
+            ...order,
+            status: tx.status,
+          };
+          await this.updateEarnOrderStatusToServer({ order: updatedOrder });
           await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId({
             currentTxId: tx.txId,
             status: tx.status,
           });
           defaultLogger.staking.order.updateOrderStatus({
             status: tx.status,
-            stakingLabel: order.stakingLabel,
-            stakingProtocol: order.stakingProtocol,
-            stakingTags: order.stakingTags,
+            stakingLabel: updatedOrder.stakingLabel,
+            stakingProtocol: updatedOrder.stakingProtocol,
+            stakingTags: updatedOrder.stakingTags,
+          });
+          updatedOrders.push({
+            tx,
+            order: updatedOrder,
           });
         }
       } catch (_e) {
@@ -2033,6 +2045,8 @@ class ServiceStaking extends ServiceBase {
         });
       }
     }
+
+    return updatedOrders;
   }
 
   @backgroundMethod()
