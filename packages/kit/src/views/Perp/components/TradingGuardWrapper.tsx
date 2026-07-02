@@ -144,13 +144,15 @@ function TradingGuardWrapperInternal({
   if (perpsAccountStatus.accountNotSupport) {
     return (
       <Button
-        variant="primary"
+        variant="secondary"
         size={buttonSize}
         disabled
+        disabledStyle={{ opacity: 1 }}
+        bg="$bgDisabled"
         childrenAsText={false}
         testID="perp-is-disabled-btn"
       >
-        <SizableText size="$bodyMdMedium" color="$textOnColor">
+        <SizableText size="$bodyMdMedium" color="$textDisabled">
           {intl.formatMessage({
             id: ETranslations.perp_trade_button_account_unsupported,
           })}
