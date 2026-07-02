@@ -474,7 +474,7 @@ function PerpsPositionsEmptyContent() {
   );
 }
 
-function PerpsEmptyState() {
+function PerpsEmptyState({ canDeposit }: { canDeposit: boolean }) {
   const intl = useIntl();
 
   return (
@@ -496,7 +496,10 @@ function PerpsEmptyState() {
               $0.00
             </SizableText>
           </XStack>
-          <PerpsDepositButton testID={HomeTestIDs.perpsDepositButton} />
+          <PerpsDepositButton
+            testID={HomeTestIDs.perpsDepositButton}
+            canDeposit={canDeposit}
+          />
         </XStack>
       </YStack>
       <YStack display="none" $gtMd={{ display: 'flex' }}>
@@ -507,7 +510,7 @@ function PerpsEmptyState() {
           })}
           subTitle="$0.00"
           headerContainerProps={{ px: 0, pb: 0 }}
-          headerActions={<PerpsHeaderActions />}
+          headerActions={<PerpsHeaderActions canDeposit={canDeposit} />}
           content={null}
           plainContentContainer
         />
@@ -517,7 +520,13 @@ function PerpsEmptyState() {
   );
 }
 
-function PerpsDepositButton({ testID }: { testID: string }) {
+function PerpsDepositButton({
+  testID,
+  canDeposit,
+}: {
+  testID: string;
+  canDeposit: boolean;
+}) {
   const intl = useIntl();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const {
@@ -525,20 +534,35 @@ function PerpsDepositButton({ testID }: { testID: string }) {
   } = useActiveAccount({ num: 0 });
 
   const handleDeposit = useCallback(async () => {
-    if (account?.id || indexedAccount?.id) {
-      const deriveType =
-        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId: PERPS_NETWORK_ID,
-        });
+    if (!canDeposit || (!account?.id && !indexedAccount?.id)) {
+      return;
+    }
+    const deriveType =
+      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId: PERPS_NETWORK_ID,
+      });
+    const activePerpsAccount =
       await backgroundApiProxy.serviceHyperliquid.changeActivePerpsAccount({
         indexedAccountId: indexedAccount?.id ?? null,
         accountId: account?.id ?? null,
         walletId: wallet?.id ?? null,
         deriveType: deriveType ?? 'default',
       });
+    if (!activePerpsAccount?.accountId || !activePerpsAccount.accountAddress) {
+      return;
     }
     await showDepositWithdrawModal('deposit');
-  }, [account?.id, indexedAccount?.id, showDepositWithdrawModal, wallet?.id]);
+  }, [
+    account?.id,
+    canDeposit,
+    indexedAccount?.id,
+    showDepositWithdrawModal,
+    wallet?.id,
+  ]);
+
+  if (!canDeposit) {
+    return null;
+  }
 
   return (
     <Badge
@@ -563,13 +587,16 @@ function PerpsDepositButton({ testID }: { testID: string }) {
   );
 }
 
-function PerpsHeaderActions() {
+function PerpsHeaderActions({ canDeposit }: { canDeposit: boolean }) {
   const intl = useIntl();
   const openPerp = useOpenPerpAsset();
 
   return (
     <XStack alignItems="center" gap="$2">
-      <PerpsDepositButton testID={HomeTestIDs.perpsDesktopDepositButton} />
+      <PerpsDepositButton
+        testID={HomeTestIDs.perpsDesktopDepositButton}
+        canDeposit={canDeposit}
+      />
       <Button
         size="medium"
         variant="secondary"
@@ -688,10 +715,12 @@ function PerpsMobileHoldingsSummary({
   totalUsd,
   holdings,
   isDegraded,
+  canDeposit,
 }: {
   totalUsd: number;
   holdings: IPerpsHomeHolding[];
   isDegraded?: boolean;
+  canDeposit: boolean;
 }) {
   const intl = useIntl();
   const openPerp = useOpenPerpAsset();
@@ -714,7 +743,10 @@ function PerpsMobileHoldingsSummary({
             numberOfLines={1}
           />
         </XStack>
-        <PerpsDepositButton testID={HomeTestIDs.perpsDepositButton} />
+        <PerpsDepositButton
+          testID={HomeTestIDs.perpsDepositButton}
+          canDeposit={canDeposit}
+        />
       </XStack>
       <YStack gap="$0.5">
         <XStack alignItems="center" gap="$3" pt="$1.5">
@@ -1033,19 +1065,22 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
 export function PerpsContainer() {
   const intl = useIntl();
   const tabBarHeight = useScrollContentTabBarOffset();
-  const { viewState, view } = usePerpsHomePortfolio();
+  const { viewState, view, canDeposit } = usePerpsHomePortfolio();
 
   return (
     <Tabs.ScrollView contentContainerStyle={{ paddingBottom: tabBarHeight }}>
       <YStack px="$4" py="$3" gap="$2">
         {viewState === 'loading' ? <PerpsLoadingState /> : null}
-        {viewState === 'empty' ? <PerpsEmptyState /> : null}
+        {viewState === 'empty' ? (
+          <PerpsEmptyState canDeposit={canDeposit} />
+        ) : null}
         {viewState === 'ready' && view ? (
           <>
             <PerpsMobileHoldingsSummary
               totalUsd={view.netWorthUsd}
               holdings={view.holdings}
               isDegraded={view.isDegraded}
+              canDeposit={canDeposit}
             />
             <YStack display="none" $gtMd={{ display: 'flex' }}>
               <RichBlock
@@ -1062,7 +1097,7 @@ export function PerpsContainer() {
                   />
                 }
                 headerContainerProps={{ px: 0, pb: 0 }}
-                headerActions={<PerpsHeaderActions />}
+                headerActions={<PerpsHeaderActions canDeposit={canDeposit} />}
                 content={null}
                 plainContentContainer
               />
