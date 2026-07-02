@@ -2585,6 +2585,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const existingCredential = await this.getCredentialSafe(credentialId);
     let originalCredential: string | undefined;
     let replaced = false;
+    // LSE credential migration runs per-record: a record may already be
+    // LSE-wrapped while the global migration flag is still false. In that
+    // window buildCredentialForLocalSecretEnvelopeWrite() may gracefully fall
+    // back to the raw portable value (layer config transiently unavailable),
+    // and writing that fallback here would silently downgrade an
+    // already-protected record. Detect this inside the transaction (the
+    // record read there is authoritative) and fail fast instead of writing.
+    let downgradeBlocked = false;
     try {
       await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
         if (existingCredential) {
@@ -2594,6 +2602,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             ids: [credentialId],
             updater: (record) => {
               originalCredential = record.credential;
+              if (
+                isLocalSecretEnvelopeString(record.credential) &&
+                !isLocalSecretEnvelopeString(nextCredentialInfo.credential)
+              ) {
+                downgradeBlocked = true;
+                return record;
+              }
               if (record.credential !== nextCredentialInfo.credential) {
                 record.credential = nextCredentialInfo.credential;
                 replaced = true;
@@ -2623,6 +2638,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           layerAdapters: nextCredentialInfo.layerAdapters,
         });
       }
+      throw error;
+    }
+
+    if (downgradeBlocked) {
+      // Keep the existing LSE envelope untouched and surface a retryable
+      // error so the caller retries once the platform layer recovers,
+      // mirroring the fail-fast in buildCredentialForLocalSecretEnvelopeWrite.
+      const error = new LocalSecretEnvelopeUnavailable({
+        message: buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
+          envelope: originalCredential || '',
+        }),
+      });
+      markCredentialLocalSecretEnvelopeUnavailableError(error);
       throw error;
     }
 

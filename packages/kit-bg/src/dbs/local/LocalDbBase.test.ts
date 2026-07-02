@@ -1326,6 +1326,63 @@ describe('LocalDbBase local secret envelope credentials', () => {
     expect(deleteLayerKey).toHaveBeenCalledTimes(1);
   });
 
+  it('refuses to downgrade an already-LSE credential when the layer is unavailable mid-migration', async () => {
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    db.context.localPasswordKdfUpgraded = true;
+    db.context.localPasswordKdfUpgradedTargetIterations =
+      PBKDF2_CURRENT_NUM_OF_ITERATIONS;
+    // Global migration flag intentionally NOT set: the per-record lazy
+    // migration has already wrapped this credential, but the batch has not
+    // completed yet, so the write helper still degrades to the raw portable
+    // value when the layer config is unavailable.
+    const originalCredential = await encryptRevealableSeed({
+      rs: {
+        entropyWithLangPrefixed: 'english:00010203',
+        seed: 'seed-hex',
+      },
+      password,
+    });
+    const nextCredential = await encryptRevealableSeed({
+      rs: {
+        entropyWithLangPrefixed: 'english:04050607',
+        seed: 'seed-hex-2',
+      },
+      password,
+    });
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    const originalEnvelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [adapter],
+      plaintext: originalCredential,
+      recordId: 'hd-1',
+      strength: 'profile-bound',
+    });
+    db.credentials = [{ id: 'hd-1', credential: originalEnvelope }];
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue(undefined);
+
+    const promise = db.replaceCredentialWithLocalSecretEnvelopeIfNeeded({
+      credentialId: 'hd-1',
+      credential: nextCredential,
+    });
+
+    await expect(promise).rejects.toBeInstanceOf(
+      LocalSecretEnvelopeUnavailable,
+    );
+    await expect(promise).rejects.toMatchObject({
+      autoToast: true,
+      data: {
+        [LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD]:
+          LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
+      },
+    });
+    // The protected envelope stays untouched — no silent downgrade to the
+    // portable value.
+    expect(db.credentials[0].credential).toBe(originalEnvelope);
+  });
+
   it('refreshes an existing TON mnemonic credential during restore', async () => {
     const db = new TestLocalDb();
     const password = await encodePasswordAsync({ password: 'test-password' });
