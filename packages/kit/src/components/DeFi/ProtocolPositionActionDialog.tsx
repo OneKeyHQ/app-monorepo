@@ -1123,6 +1123,7 @@ function ProtocolPositionActionAnchor({
 function ProtocolPositionActionPercentHero({
   percentText,
   onChangePercentText,
+  onFocus,
   value,
   isUnavailable,
   showPriceUnavailableTooltip,
@@ -1131,6 +1132,7 @@ function ProtocolPositionActionPercentHero({
 }: {
   percentText: string;
   onChangePercentText: (value: string) => void;
+  onFocus?: () => void;
   value: number;
   isUnavailable: boolean;
   showPriceUnavailableTooltip: boolean;
@@ -1145,7 +1147,7 @@ function ProtocolPositionActionPercentHero({
       value={percentText}
       onChange={onChangePercentText}
       tokenSymbol="%"
-      inputProps={{ keyboardType: 'number-pad' }}
+      inputProps={{ keyboardType: 'number-pad', onFocus }}
       extraContent={
         <XStack
           alignItems="center"
@@ -1661,6 +1663,22 @@ function ProtocolPositionActionDialogContent({
     }
   };
 
+  // The percent hero prefills 100% as an untouched default; first focus clears
+  // it, mirroring the amount hero's Max-prefill clear. A percent the user set
+  // deliberately (typed, or picked from the preset row) is never cleared.
+  const isPercentPristineRef = useRef(true);
+  const handlePercentInputFocus = () => {
+    if (isPercentPristineRef.current) {
+      isPercentPristineRef.current = false;
+      setActionPercentText('');
+    }
+  };
+
+  const handlePercentPresetChange = (presetPercent: number) => {
+    isPercentPristineRef.current = false;
+    setActionPercentText(String(presetPercent));
+  };
+
   const handleMaxAmount = () => {
     hasUserSetMaxRef.current = true;
     setAmount(clampAmountDecimals(availableAmount, amountDecimals));
@@ -1821,6 +1839,7 @@ function ProtocolPositionActionDialogContent({
         <ProtocolPositionActionPercentHero
           percentText={actionPercentText}
           onChangePercentText={handleActionPercentChange}
+          onFocus={handlePercentInputFocus}
           value={outputValueState.value}
           isUnavailable={outputValueState.isUnavailable}
           showPriceUnavailableTooltip={
@@ -1867,9 +1886,7 @@ function ProtocolPositionActionDialogContent({
         <ProtocolPositionActionPercentPresetRow
           percent={actionPercent}
           maxLabel={maxLabel}
-          onChange={(presetPercent) =>
-            setActionPercentText(String(presetPercent))
-          }
+          onChange={handlePercentPresetChange}
         />
         <ProtocolPositionActionReceive
           label={resultLabel}
