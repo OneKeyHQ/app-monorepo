@@ -31,6 +31,7 @@ import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import InAppNotification from './InAppNotification';
 import { KeylessWebAutoConnectHashCleanupContainer } from './KeylessWebAutoConnectHashCleanupContainer';
 import { LinuxUdevGuideDialogContainer } from './LinuxUdevGuideDialogContainer/LinuxUdevGuideDialogContainer';
+import { LocalSecretEnvelopeErrorDialogContainer } from './LocalSecretEnvelopeErrorDialogContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
@@ -73,6 +74,7 @@ function DetailRouter() {
       <DialogLoadingContainer />
       <DiskFullWarningDialogContainer />
       <LinuxUdevGuideDialogContainer />
+      <LocalSecretEnvelopeErrorDialogContainer />
       <CloudBackupContainer />
 
       {/* <PortalBodyContainer /> */}

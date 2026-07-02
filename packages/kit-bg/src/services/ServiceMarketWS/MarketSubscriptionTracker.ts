@@ -6,6 +6,7 @@ export type ISubscription = {
   address: string;
   type: ISubscriptionType;
   networkId: string;
+  symbol?: string;
   chartType?: string;
   currency?: string;
   connectionCount: number;
@@ -42,12 +43,14 @@ export class MarketSubscriptionTracker {
     address,
     type,
     networkId,
+    symbol,
     chartType,
     currency,
   }: {
     address: string;
     type: ISubscriptionType;
     networkId: string;
+    symbol?: string;
     chartType?: string;
     currency?: string;
   }) {
@@ -61,11 +64,13 @@ export class MarketSubscriptionTracker {
     );
     if (existing) {
       existing.connectionCount += 1;
+      existing.symbol = symbol ?? existing.symbol;
     } else {
       this.subscriptions.push({
         address,
         type,
         networkId,
+        symbol,
         chartType,
         currency,
         connectionCount: 1,

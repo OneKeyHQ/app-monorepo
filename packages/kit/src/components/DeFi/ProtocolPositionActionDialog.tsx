@@ -24,6 +24,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   buildDeFiActionBps,
   resolveDeFiActionTxAmount,
@@ -32,6 +33,7 @@ import defiPermitUtils from '@onekeyhq/shared/src/utils/defiPermitUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
+  DEFI_PORTFOLIO_ACTION_STAKING_TAG,
   EDeFiPositionAction,
   type IDeFiActionExtraParams,
   type IDeFiActionTxConfirmInfo,
@@ -52,6 +54,17 @@ import {
 
 const DEFAULT_ACTION_PERCENT = 100;
 const PERCENTAGE_PRESET_VALUES = [25, 50, 75, 100] as const;
+
+// Both action heroes (typed-amount and percentage) reserve this height and
+// center their content, so the Dialog stays the same size in either mode and
+// never resizes as the typed amount changes length. 128px matches the
+// percentage hero's natural height ($heading5xl value + fiat row + $6 breathing).
+const DEFI_ACTION_HERO_MIN_HEIGHT = 128;
+
+// Cap the typed-amount font to the percentage hero's $heading5xl (40px) so the
+// two heroes read as one, and so a short amount can't grow past the reserved
+// height (SendAutoSizeAmountInput otherwise ramps up to ~84px on desktop).
+const MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE = 40;
 const resolveActionTxAmount = resolveDeFiActionTxAmount as (params: {
   percentageAction: boolean;
   percent?: number;
@@ -332,12 +345,16 @@ function ProtocolPositionActionAssetRow({
       gap="$3"
       py="$3"
       px="$3"
-      borderRadius="$2"
+      borderRadius="$3"
       bg={isSelected ? '$bgActive' : '$bgSubdued'}
       borderWidth="$px"
       borderColor={isSelected ? '$borderActive' : '$borderSubdued'}
       cursor={selectable ? 'pointer' : 'default'}
       userSelect="none"
+      {...(selectable && {
+        hoverStyle: { bg: isSelected ? '$bgActive' : '$bgStrong' },
+        pressStyle: { bg: isSelected ? '$bgActive' : '$bgStrong' },
+      })}
       onPress={() => {
         if (selectable) {
           onSelect(index, !isSelected);
@@ -566,30 +583,60 @@ function getDeFiActionEarnLabel(action: EDeFiPositionAction) {
   return EEarnLabels.Unknown;
 }
 
+function logDeFiActionEarnOrderError(error: unknown) {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  defaultLogger.app.error.log(
+    `DeFi action earn order registration failed: ${errorMessage}`,
+  );
+}
+
 async function addDeFiActionEarnOrders({
   action,
   networkId,
   data,
+  orderIdsByBusinessTxIndex,
 }: {
   action: IResolvedDeFiPositionAction;
   networkId: string;
   data: ISendTxOnSuccessData[];
+  orderIdsByBusinessTxIndex: string[];
 }) {
-  for (const orderTx of data) {
-    if (orderTx?.signedTx?.txid) {
-      await backgroundApiProxy.serviceStaking.addEarnOrder({
-        orderId: generateUUID(),
-        networkId,
-        txId: orderTx.signedTx.txid,
-        status: orderTx.decodedTx.status,
-        stakingLabel: getDeFiActionEarnLabel(action.action),
-        stakingProtocol: action.protocolId,
-        stakingTags: [
-          'defi-portfolio-action',
-          action.protocolId,
-          action.action,
-        ],
-      });
+  for (
+    let txIndex = 0;
+    txIndex < orderIdsByBusinessTxIndex.length;
+    txIndex += 1
+  ) {
+    const orderId = orderIdsByBusinessTxIndex[txIndex];
+    const orderTx = data[txIndex];
+    if (!orderTx) {
+      logDeFiActionEarnOrderError(
+        new OneKeyLocalError('DeFi transaction result is missing'),
+      );
+    } else {
+      const txId = orderTx?.signedTx?.txid ?? orderTx?.decodedTx?.txid;
+      if (!txId) {
+        logDeFiActionEarnOrderError(
+          new OneKeyLocalError('DeFi transaction hash is missing'),
+        );
+      } else {
+        try {
+          await backgroundApiProxy.serviceStaking.addEarnOrder({
+            orderId,
+            networkId,
+            txId,
+            status: orderTx.decodedTx.status,
+            stakingLabel: getDeFiActionEarnLabel(action.action),
+            stakingProtocol: action.protocolId,
+            stakingTags: [
+              DEFI_PORTFOLIO_ACTION_STAKING_TAG,
+              action.protocolId,
+              action.action,
+            ],
+          });
+        } catch (error) {
+          logDeFiActionEarnOrderError(error);
+        }
+      }
     }
   }
 }
@@ -694,8 +741,16 @@ function useProtocolPositionActionSubmit({
         throw new OneKeyLocalError('Invalid DeFi action amount');
       }
 
+      // Lido withdraw goes through the permit two-step flow, and its build API
+      // expects an EMPTY tokenAddress — passing the stETH cert address is
+      // rejected on the amount path ("Token does not exist"). bps happened to
+      // work only because it ignores tokenAddress. amount stays human-readable;
+      // the backend scales it by the token decimals.
+      const isLidoWithdraw = isLidoProtocol(action.protocolId) && isWithdraw;
+
       try {
         const unsignedTxs: IUnsignedTxPro[] = [];
+        const orderIdsByBusinessTxIndex: string[] = [];
         let prevNonce: number | undefined;
 
         for (const selectedAsset of selectedAssets) {
@@ -704,23 +759,27 @@ function useProtocolPositionActionSubmit({
             selectedAsset,
             percent,
           });
+          // RemoveLiquidity omits tokenAddress; Lido withdraw must send it empty
+          // (see isLidoWithdraw note); everything else uses the asset's token.
+          let buildTokenAddress: string | undefined =
+            selectedAsset.tokenAddress;
+          if (isRemoveLiquidity) {
+            buildTokenAddress = undefined;
+          } else if (isLidoWithdraw) {
+            buildTokenAddress = '';
+          }
           let resp = await backgroundApiProxy.serviceDeFi.buildDeFiTransaction({
             accountId,
             networkId,
             protocolId: action.protocolId,
-            action:
-              isLidoProtocol(action.protocolId) && isWithdraw
-                ? EDeFiPositionAction.Permit
-                : action.action,
-            tokenAddress: isRemoveLiquidity
-              ? undefined
-              : selectedAsset.tokenAddress,
+            action: isLidoWithdraw ? EDeFiPositionAction.Permit : action.action,
+            tokenAddress: buildTokenAddress,
             amount: amountForApi,
             bps,
             extraParams,
           });
 
-          if (isLidoProtocol(action.protocolId) && isWithdraw) {
+          if (isLidoWithdraw) {
             if (!resp.permit) {
               throw new OneKeyLocalError('DeFi permit response is missing');
             }
@@ -754,7 +813,7 @@ function useProtocolPositionActionSubmit({
               networkId,
               protocolId: action.protocolId,
               action: action.action,
-              tokenAddress: selectedAsset.tokenAddress,
+              tokenAddress: buildTokenAddress,
               amount: amountForApi,
               bps,
               extraParams: {
@@ -768,6 +827,7 @@ function useProtocolPositionActionSubmit({
           if (!resp.tx) {
             throw new OneKeyLocalError('DeFi transaction is missing');
           }
+          const orderId = resp.orderId || generateUUID();
 
           const withUuid =
             selectedAssets.length > 1 || Boolean(resp.approvalTx);
@@ -800,6 +860,7 @@ function useProtocolPositionActionSubmit({
           // confirm info scale by percent.
           const displayAmount =
             amountForApi ?? (isMaxAmount ? selectedAsset.amount : undefined);
+          orderIdsByBusinessTxIndex.push(orderId);
           unsignedTxs.push(
             attachDeFiActionTxConfirmInfo({
               unsignedTx,
@@ -825,13 +886,12 @@ function useProtocolPositionActionSubmit({
             // not request Gas Account sponsorship.
             gasAccountScenario: 'defi',
             onSuccess: async (data: ISendTxOnSuccessData[]) => {
-              // Tag the tx for pending tracking, but don't block the confirming
-              // sheet on it: showing the sheet in the same tick the confirm
-              // modal pops keeps the handoff smooth instead of flashing the page
-              // underneath while the earn-order call resolves.
-              void addDeFiActionEarnOrders({ action, networkId, data }).catch(
-                () => undefined,
-              );
+              void addDeFiActionEarnOrders({
+                action,
+                networkId,
+                data,
+                orderIdsByBusinessTxIndex,
+              }).catch(logDeFiActionEarnOrderError);
               // Block on the confirming sheet until the tx settles, then run
               // the caller's refresh so the position reflects the result.
               const finalStatus = await showDeFiActionTxConfirmDialog({
@@ -978,10 +1038,15 @@ function ProtocolPositionActionPercentHero({
   const normalizedPercent = normalizeActionPercent(percent);
   // Mirror the typed-amount hero (SendAutoSizeAmountInput): no top label — the
   // Dialog.Title already carries the verb — a large centered value with the
-  // fiat at $headingLg beneath, and the same py="$6" breathing room, so the
+  // fiat at $headingLg beneath, sharing DEFI_ACTION_HERO_MIN_HEIGHT so the
   // percentage and typed-amount flows read as one hero, not two screens.
   return (
-    <YStack gap="$2" alignItems="center" py="$6">
+    <YStack
+      gap="$2"
+      alignItems="center"
+      justifyContent="center"
+      minHeight={DEFI_ACTION_HERO_MIN_HEIGHT}
+    >
       <SizableText
         size="$heading5xl"
         color="$text"
@@ -1157,7 +1222,9 @@ function ProtocolPositionActionAmountInput({
   return (
     <YStack gap="$5">
       <SendAutoSizeAmountInput
-        py="$6"
+        minHeight={DEFI_ACTION_HERO_MIN_HEIGHT}
+        justifyContent="center"
+        maxFontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
         value={amount}
         onChange={onChangeAmount}
         tokenSymbol={symbol}
@@ -1166,6 +1233,18 @@ function ProtocolPositionActionAmountInput({
           currency: currencySymbol,
           formatter: 'value',
         }}
+        extraContent={
+          // Reserved-height error slot right under the amount (same shape as
+          // the Perp deposit/withdraw modal): the message toggles without
+          // shifting the hero, keeping the dialog height stable.
+          <Stack h="$6" justifyContent="center" alignItems="center">
+            {isInsufficient ? (
+              <SizableText size="$bodySm" color="$textCritical">
+                {insufficientLabel}
+              </SizableText>
+            ) : null}
+          </Stack>
+        }
       />
       <ProtocolPositionActionAnchor
         label={availableLabel}
@@ -1191,11 +1270,6 @@ function ProtocolPositionActionAmountInput({
         maxLabel={maxLabel}
         onChange={onSelectPercent}
       />
-      {isInsufficient ? (
-        <SizableText size="$bodySm" color="$textCritical" textAlign="center">
-          {insufficientLabel}
-        </SizableText>
-      ) : null}
     </YStack>
   );
 }
@@ -1276,12 +1350,11 @@ function ProtocolPositionActionDialogContent({
     action.action === EDeFiPositionAction.Repay;
   const manualAmountAsset = selectedAssets[0];
   // Manual entry only applies to a single fungible token; a multi-asset
-  // selection or Lido's permit withdraw keep the percentage slider.
+  // selection keeps the percentage slider. Lido's permit withdraw still uses
+  // manual amount input — the permit signature is handled at submit time and
+  // does not affect the input UI.
   const useManualAmountInput =
-    isManualAmountAction &&
-    !selectable &&
-    !isLidoProtocol(action.protocolId) &&
-    Boolean(manualAmountAsset);
+    isManualAmountAction && !selectable && Boolean(manualAmountAsset);
   const availableAmount = manualAmountAsset?.amount ?? '0';
   const amountDecimals = manualAmountAsset?.asset.meta?.decimals;
   const amountBN = new BigNumber(amount || '0');

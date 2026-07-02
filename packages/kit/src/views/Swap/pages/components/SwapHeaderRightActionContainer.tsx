@@ -308,13 +308,9 @@ const SwapSettingsDialogContent = ({
     (!marketPresetSettings ||
       (!marketPresetSettings.enabled && !marketPresetSettings.isLoading));
   const showSwapSettingsSlippage =
-    (swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
-      swapTypeSwitch !== ESwapTabSwitchType.STOCK) ||
-    showSwapProSlippageSetting;
+    swapTypeSwitch !== ESwapTabSwitchType.LIMIT || showSwapProSlippageSetting;
   const showSmartModeSetting =
-    (swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
-      swapTypeSwitch !== ESwapTabSwitchType.STOCK) ||
-    focusSwapPro;
+    swapTypeSwitch !== ESwapTabSwitchType.LIMIT || focusSwapPro;
   const dialogContentMaxHeight = useMemo(() => {
     if (!platformEnv.isNative || keyboardHeight <= 0) {
       return undefined;
@@ -722,7 +718,7 @@ export function SwapSettingsHeaderButton({
       testID={SwapTestIDs.settingsButton}
       icon="SliderHorOutline"
       onPress={onOpenSwapSettings}
-      iconProps={{ size: resolvedIconSize, color: iconColor }}
+      iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
       size={resolvedButtonSize}
     />
   );
