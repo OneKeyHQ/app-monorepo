@@ -11,7 +11,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
-import { GetTradingButtonStyleProps } from '../utils/styleUtils';
+import { getTradingButtonStyleProps } from '../utils/styleUtils';
 
 const MARKET_FOOTER_BUTTON_WIDTH = '47%';
 const MARKET_FOOTER_BUTTON_HEIGHT = 36;
@@ -34,8 +34,8 @@ function PerpMarketFooter() {
   const intl = useIntl();
   const actionsRef = useHyperliquidActions();
   const { mode } = useActiveTradeDisplay();
-  const longButtonStyle = GetTradingButtonStyleProps('long');
-  const shortButtonStyle = GetTradingButtonStyleProps('short');
+  const longButtonStyle = getTradingButtonStyleProps('long');
+  const shortButtonStyle = getTradingButtonStyleProps('short');
   const navigation = useAppNavigation();
 
   const buyText = intl.formatMessage({

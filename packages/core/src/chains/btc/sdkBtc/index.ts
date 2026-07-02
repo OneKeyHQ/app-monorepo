@@ -229,6 +229,23 @@ export function getInputsToSignFromPsbt({
   return inputsToSign;
 }
 
+// UniSat-compatible `signPsbts` passes `options` as an array (one entry per
+// psbt); OneKey/legacy callers pass a single shared options object. Return the
+// options that apply to the psbt at `index` for both shapes. Dropping the
+// per-psbt entry (e.g. by reusing the whole array as a single object) loses
+// `toSignInputs` / `isBtcWalletProvider` / `autoFinalized`, which makes
+// `getInputsToSignFromPsbt` skip script-path inputs whose address differs from
+// the account (e.g. Babylon staking) and yields an empty `inputsToSign`.
+export function getSignPsbtOptionsForPsbtIndex({
+  options,
+  index,
+}: {
+  options: ISignPsbtOptions | ISignPsbtOptions[] | undefined;
+  index: number;
+}): ISignPsbtOptions | undefined {
+  return Array.isArray(options) ? options[index] : options;
+}
+
 export function isBRC20Token(tokenAddress?: string) {
   return (
     tokenAddress?.startsWith('brc20') || tokenAddress?.startsWith('brc-20')

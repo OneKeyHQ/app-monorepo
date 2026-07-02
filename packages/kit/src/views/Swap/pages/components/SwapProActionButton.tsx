@@ -483,34 +483,30 @@ const SwapProActionButton = ({
     inputAmount,
   ]);
 
+  const isBuy = swapProDirection === ESwapDirection.BUY;
+  // Match the design-system accent (buy) / destructive (sell) buttons. The
+  // accent variant labels use $textInverse, destructive uses $textOnColor;
+  // childrenAsText is false, so the label color must be set explicitly.
+  const labelColor = isBuy ? '$textInverse' : '$textOnColor';
+
   return (
     <Button
       testID="swap-sub-value-btn"
       disabled={actionButtonDisabled}
       onPress={debouncedOnSwapProActionClick}
-      variant="primary"
+      variant={isBuy ? 'accent' : 'destructive'}
       size="small"
       childrenAsText={false}
-      color="$textOnColor"
       py={5}
-      backgroundColor={
-        swapProDirection === ESwapDirection.BUY
-          ? '$bgSuccessStrong'
-          : '$bgCriticalStrong'
-      }
     >
       <YStack alignItems="center">
-        <SizableText
-          size="$bodyMdMedium"
-          color="$textOnColor"
-          textAlign="center"
-        >
+        <SizableText size="$bodyMdMedium" color={labelColor} textAlign="center">
           {actionButtonText.resValue}
         </SizableText>
         {actionButtonText.subValue ? (
           <SizableText
             size="$bodyMdMedium"
-            color="$textOnColor"
+            color={labelColor}
             textAlign="center"
           >
             {actionButtonText.subValue}

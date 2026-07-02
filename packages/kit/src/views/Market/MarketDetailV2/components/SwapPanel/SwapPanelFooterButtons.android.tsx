@@ -63,8 +63,7 @@ function SwapPanelFooterButtons({ onTrade, onInstant }: IProps) {
           <Button
             testID={MarketTestIDs.detailBuyButton}
             size="large"
-            variant="primary"
-            bg="$buttonSuccess"
+            variant="accent"
             icon="FlashSolid"
           >
             {intl.formatMessage({ id: ETranslations.dexmarket_quick_buy })}

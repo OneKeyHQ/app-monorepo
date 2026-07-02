@@ -233,9 +233,14 @@ export type IDeFiBuildTransactionResp = {
 export type IDeFiActionTxConfirmInfo = {
   actionLabel: string;
   protocolId: string;
-  assetAmount: string;
+  // Absent for LP removes: per-token amounts there are preview estimates, so
+  // the confirm card shows only the pool pair + percent.
+  assetAmount?: string;
   assetSymbol: string;
   assetLogoUrl?: string;
+  // Underlying token logos for LP removes; rendered as an overlapped token
+  // group instead of the single assetLogoUrl.
+  assetLogoUrls?: string[];
   extraLabel?: string;
 };
 
@@ -250,6 +255,9 @@ export type IResolvedDeFiPositionActionAsset = {
 
 export type IResolvedDeFiPositionAction = {
   action: EDeFiPositionAction;
+  // Wire action for build-transaction when it differs from the displayed
+  // action (e.g. Stake DAO renders RemoveLiquidity but builds withdraw).
+  buildAction?: EDeFiPositionAction;
   protocolId: string;
   networkId: string;
   positionCategory: string;
