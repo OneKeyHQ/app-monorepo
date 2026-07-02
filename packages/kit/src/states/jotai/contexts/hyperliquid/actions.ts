@@ -354,7 +354,9 @@ async function clearMatchedDepositOrders(
   }
 
   const perpDepositOrder = await perpsDepositOrderAtom.get();
-  const pendingOrders = perpDepositOrder.orders.filter((order) => order.toTxId);
+  const pendingOrders = perpDepositOrder.orders.filter(
+    (order) => order.toTxId && !order.keepForHistoryConfirmation,
+  );
   if (pendingOrders.length === 0) {
     return;
   }

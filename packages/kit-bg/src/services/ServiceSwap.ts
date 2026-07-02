@@ -3352,9 +3352,13 @@ export default class ServiceSwap extends ServiceBase {
             (item) => item.fromTxId !== params.txId,
           );
           if (data?.data.state === ESwapTxHistoryStatus.SUCCESS) {
-            findTxidOrder.status = ESwapTxHistoryStatus.SUCCESS;
+            const successOrder = {
+              ...findTxidOrder,
+              status: ESwapTxHistoryStatus.SUCCESS,
+              keepForHistoryConfirmation: true,
+            };
             if (!params.isArbUSDCToken) {
-              findTxidOrder.toTxId = data?.data.swapOrderHash?.toTxHash;
+              successOrder.toTxId = data?.data.swapOrderHash?.toTxHash;
             }
             void this.backgroundApi.serviceApp.showToast({
               method: 'success',
@@ -3373,7 +3377,7 @@ export default class ServiceSwap extends ServiceBase {
             });
             await perpsDepositOrderAtom.set((prev) => ({
               ...prev,
-              orders: [...filteredPerpDepositOrder],
+              orders: [...filteredPerpDepositOrder, successOrder],
             }));
           } else if (
             data?.data.state === ESwapTxHistoryStatus.FAILED ||

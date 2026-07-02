@@ -160,7 +160,7 @@ function mergeNullishRecordFields<T extends Record<string, unknown>>({
   return result as T;
 }
 
-async function isKnownPerpsDepositOrderTx({
+function getKnownPerpsDepositOrderTxIds({
   txid,
   originalTxId,
 }: {
@@ -169,13 +169,45 @@ async function isKnownPerpsDepositOrderTx({
 }) {
   const txIds = new Set([normalizeTxId(txid), normalizeTxId(originalTxId)]);
   txIds.delete(undefined);
+  return txIds;
+}
+
+async function findKnownPerpsDepositOrderTx({
+  txid,
+  originalTxId,
+}: {
+  txid: string | undefined;
+  originalTxId: string | undefined;
+}) {
+  const txIds = getKnownPerpsDepositOrderTxIds({ txid, originalTxId });
   if (txIds.size === 0) {
-    return false;
+    return undefined;
   }
   const perpsDepositOrder = await perpsDepositOrderAtom.get();
-  return perpsDepositOrder.orders.some((order) =>
+  return perpsDepositOrder.orders.find((order) =>
     txIds.has(normalizeTxId(order.fromTxId)),
   );
+}
+
+async function clearHistoryConsumedPerpsDepositOrderTx({
+  txid,
+  originalTxId,
+}: {
+  txid: string | undefined;
+  originalTxId: string | undefined;
+}) {
+  const txIds = getKnownPerpsDepositOrderTxIds({ txid, originalTxId });
+  if (txIds.size === 0) {
+    return;
+  }
+  await perpsDepositOrderAtom.set((prev) => ({
+    ...prev,
+    orders: prev.orders.filter(
+      (order) =>
+        !order.keepForHistoryConfirmation ||
+        !txIds.has(normalizeTxId(order.fromTxId)),
+    ),
+  }));
 }
 
 function mergePrivateSendPayloadFields({
@@ -1425,12 +1457,13 @@ class ServiceHistory extends ServiceBase {
         txAccountInfo?.deriveType ??
         normalizedTxDeriveType ??
         (parsedTxAccountId.idSuffix ? undefined : 'default');
+      const knownPerpsDepositOrder = await findKnownPerpsDepositOrderTx({
+        txid: tx.decodedTx.txid,
+        originalTxId: tx.decodedTx.originalTxId,
+      });
       const isPerpsDepositTx =
         isHyperliquidDirectDepositTx(tx.decodedTx) ||
-        (await isKnownPerpsDepositOrderTx({
-          txid: tx.decodedTx.txid,
-          originalTxId: tx.decodedTx.originalTxId,
-        }));
+        Boolean(knownPerpsDepositOrder);
       appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
         accountId: txAccountId,
         indexedAccountId: txDBAccount?.indexedAccountId,
@@ -1441,6 +1474,12 @@ class ServiceHistory extends ServiceBase {
         status: tx.decodedTx.status,
         isPerpsDepositTx,
       });
+      if (knownPerpsDepositOrder?.keepForHistoryConfirmation) {
+        await clearHistoryConsumedPerpsDepositOrderTx({
+          txid: tx.decodedTx.txid,
+          originalTxId: tx.decodedTx.originalTxId,
+        });
+      }
     }
 
     // 3. Get the locally confirmed transactions

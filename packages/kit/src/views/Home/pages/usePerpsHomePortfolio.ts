@@ -91,7 +91,9 @@ function getCurrentConfirmedPerpsDepositScope({
   if (
     !payloadAddress ||
     payloadAddress !== currentNormalizedAddress ||
-    !isSameDeriveType(payload.deriveType, currentDeriveType)
+    !payload.deriveType ||
+    (currentDeriveType &&
+      !isSameDeriveType(payload.deriveType, currentDeriveType))
   ) {
     return undefined;
   }
@@ -243,6 +245,9 @@ export function usePerpsHomePortfolio(): {
     if (!isTabFocused || !pendingDepositRetryScope) {
       return;
     }
+    if (!perpsDeriveType) {
+      return;
+    }
     if (
       !isPendingDepositRetryScopeCurrent({
         scope: pendingDepositRetryScope,
@@ -309,6 +314,10 @@ export function usePerpsHomePortfolio(): {
     const startDepositConfirmationRetry = (
       scope: IPendingDepositRetryScope,
     ) => {
+      if (!perpsDeriveType) {
+        markPendingDepositRetry(scope);
+        return;
+      }
       if (
         !isPendingDepositRetryScopeCurrent({
           scope,
@@ -352,6 +361,7 @@ export function usePerpsHomePortfolio(): {
     if (
       pendingDepositRetryScope &&
       isTabFocusedRef.current &&
+      perpsDeriveType &&
       isPendingDepositRetryScopeCurrent({
         scope: pendingDepositRetryScope,
         currentAccountScopeKey,
@@ -363,6 +373,7 @@ export function usePerpsHomePortfolio(): {
       startDepositConfirmationRetry(pendingDepositRetryScope);
     } else if (
       pendingDepositRetryScope &&
+      perpsDeriveType &&
       !isPendingDepositRetryScopeCurrent({
         scope: pendingDepositRetryScope,
         currentAccountScopeKey,

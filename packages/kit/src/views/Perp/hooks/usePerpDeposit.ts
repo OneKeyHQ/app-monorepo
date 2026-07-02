@@ -74,6 +74,7 @@ export const usePerpDepositOrder = ({
   const filterPerpDepositOrder = useMemo(() => {
     return perpDepositOrder.filter((item) => {
       return (
+        !item.keepForHistoryConfirmation &&
         ((!item.accountId && !accountId) || item.accountId === accountId) &&
         ((!item.indexedAccountId && !indexedAccountId) ||
           item.indexedAccountId === indexedAccountId)

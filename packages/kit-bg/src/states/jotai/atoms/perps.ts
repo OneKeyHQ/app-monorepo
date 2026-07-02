@@ -915,6 +915,7 @@ export interface IPerpsDepositOrderAtom {
   accountId?: string | null;
   indexedAccountId?: string | null;
   time?: number;
+  keepForHistoryConfirmation?: boolean;
 }
 
 export const { target: perpsDepositOrderAtom, use: usePerpsDepositOrderAtom } =
