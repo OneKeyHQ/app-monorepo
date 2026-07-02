@@ -3438,10 +3438,23 @@ export default class ServiceSwap extends ServiceBase {
         });
       await Promise.all(
         filteredPerpDepositOrder.map((item) => {
+          // Self-heal legacy orders persisted with a wrong isArbUSDCOrder=false:
+          // if the order's from-token is Arb USDC, the tx is a direct deposit
+          // (no swap order on the server), so the status must be queried with
+          // isArbUSDCToken=true, otherwise it stays pending forever.
+          const isArbUSDCToken =
+            item.isArbUSDCOrder ||
+            equalTokenNoCaseSensitive({
+              token1: item.token,
+              token2: {
+                networkId: PERPS_NETWORK_ID,
+                contractAddress: USDC_TOKEN_INFO.address,
+              },
+            });
           return this.fetchPerpDepositOrderStatus({
             networkId: item.token.networkId,
             txId: item.fromTxId,
-            isArbUSDCToken: item.isArbUSDCOrder,
+            isArbUSDCToken,
             toPerpDepositTokenAddress: HYPERLIQUID_DEPOSIT_ADDRESS,
             receivingAddress: receivingAddressInfo.addressDetail.address,
           });

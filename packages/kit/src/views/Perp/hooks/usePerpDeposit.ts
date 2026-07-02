@@ -1089,9 +1089,21 @@ const usePerpDeposit = (
         unsignedTxArr,
       );
       if (res) {
+        // Do NOT hard-code false: if the quote's from-token is actually Arb USDC
+        // (direct transfer, no swap order on the server), reporting
+        // isArbUSDCToken=false makes the status polling stuck in pending forever.
+        const isArbUSDCOrder =
+          isArbitrumUsdcToken ||
+          equalTokenNoCaseSensitive({
+            token1: perpDepositQuote.result.fromTokenInfo,
+            token2: {
+              networkId: PERPS_NETWORK_ID,
+              contractAddress: USDC_TOKEN_INFO.address,
+            },
+          });
         void handlePerpDepositTxSuccess({
           fromTxId: res.txid,
-          isArbUSDCOrder: false,
+          isArbUSDCOrder,
           fromToken: token,
           toAmount: perpDepositQuote.result.toAmount,
           fromAmount: amount,
@@ -1136,6 +1148,7 @@ const usePerpDeposit = (
     estimateNetworkFee,
     accountId,
     perpSendTxAction,
+    isArbitrumUsdcToken,
     handlePerpDepositTxSuccess,
     amount,
     result?.fromUserAddress,
