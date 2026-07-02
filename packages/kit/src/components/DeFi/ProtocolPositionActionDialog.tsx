@@ -9,7 +9,6 @@ import {
   Dialog,
   SizableText,
   Stack,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -954,15 +953,12 @@ function useProtocolPositionActionSubmit({
           isTxConfirmInitializing = false;
         }
         if (txConfirmInitError) {
-          errorToastUtils.toastIfErrorDisable(txConfirmInitError);
           throw new OneKeyLocalError(getErrorMessage(txConfirmInitError));
         }
       } catch (error) {
         if (!isUserRejectedErrorMessage({ error, intl })) {
-          errorToastUtils.toastIfErrorDisable(error);
-          Toast.error({
-            title: getErrorMessage(error),
-          });
+          errorToastUtils.toastIfError(error);
+          errorToastUtils.showToastOfError(error);
         }
         throw error;
       }
@@ -1554,8 +1550,8 @@ function ProtocolPositionActionDialogContent({
         },
       });
     } catch {
-      // submitProtocolPositionAction already surfaced the error via Toast;
-      // keep the dialog open so the user can retry instead of auto-closing.
+      // submitProtocolPositionAction already surfaced the error via global
+      // error toast; keep the dialog open so the user can retry.
       preventClose();
     }
   };
