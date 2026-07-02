@@ -369,12 +369,8 @@ function SpotBalanceList({
       return ListHeaderComponent ?? null;
     }
 
-    const accountValue = computedValue.isLoading
-      ? '--'
-      : (computedValue.accountValue ?? '0');
-    const availableValue = computedValue.isLoading
-      ? '--'
-      : (computedValue.withdrawable ?? '0');
+    const accountValue = computedValue.accountValue ?? '0';
+    const availableValue = computedValue.withdrawable ?? '0';
 
     return (
       <>
@@ -505,7 +501,6 @@ function SpotBalanceList({
   }, [
     ListHeaderComponent,
     computedValue.accountValue,
-    computedValue.isLoading,
     computedValue.withdrawable,
     currentUser?.accountAddress,
     intl,

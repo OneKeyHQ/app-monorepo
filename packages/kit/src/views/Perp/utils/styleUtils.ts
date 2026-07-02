@@ -2,25 +2,6 @@ import type { ColorTokens } from 'tamagui';
 
 export type ITradeSide = 'long' | 'short';
 
-export const PERP_TRADE_BUTTON_COLORS = {
-  light: {
-    long: '#008236',
-    longHover: '#016630',
-    longPress: '#0D542B',
-    short: '$red11',
-    shortHover: '#9C2125',
-    shortPress: '#72181B',
-  },
-  dark: {
-    long: '$green8',
-    longHover: '$green7',
-    longPress: '$green6',
-    short: '$red8',
-    shortHover: '$red7',
-    shortPress: '$red6',
-  },
-};
-
 interface ITradingButtonStyleProps {
   bg: ColorTokens;
   hoverStyle: { bg: ColorTokens };
@@ -59,6 +40,23 @@ export function getTradingButtonStyleProps(
 ): ITradingButtonStyleProps {
   const styles = TRADING_BUTTON_STYLE_PROPS[side];
   return disabled ? { ...styles, textColor: '$textDisabled' } : styles;
+}
+
+export function getTradingButtonStyleValues(
+  side: ITradeSide,
+  disabled = false,
+) {
+  const styles = getTradingButtonStyleProps(side, disabled);
+  return {
+    bg: styles.bg,
+    hoverBg: styles.hoverStyle.bg,
+    pressBg: styles.pressStyle.bg,
+    textColor: styles.textColor,
+  };
+}
+
+export function GetTradingButtonStyleProps(side: ITradeSide, disabled = false) {
+  return getTradingButtonStyleProps(side, disabled);
 }
 
 export function getTradingSideTextColor(
