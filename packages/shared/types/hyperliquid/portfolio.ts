@@ -32,7 +32,8 @@ export interface IHyperliquidPortfolioSnapshot {
   perpPositions: IHyperliquidPerpPositionSnapshot[];
   spotBalances: IHyperliquidSpotBalanceSnapshot[];
   spotTotalUsd: string;
-  netWorthUsd: string; // accountValue + spotTotalUsd
+  netWorthUsd: string; // unified/PM: spotTotalUsd; otherwise accountValue + spotTotalUsd
+  abstractionMode?: string;
   source: 'rest' | 'ws';
   isDegraded: boolean; // some non-USDC spot price missing
   summaryUpdatedAt: number;

@@ -1,5 +1,12 @@
 import BigNumber from 'bignumber.js';
 
+import { EHyperLiquidAbstractionMode } from '../../types/hyperliquid/types';
+
+import {
+  calculateSpotBalancesTotalUsd,
+  isHyperliquidSpotStableCoin,
+} from './perpsUtils';
+
 import type {
   IHyperliquidPerpPositionSnapshot,
   IHyperliquidPortfolioSnapshot,
@@ -47,7 +54,21 @@ export function spotNeedsPrices(
   spot: ISpotClearinghouseStateResponse | undefined,
 ): boolean {
   return Boolean(
-    spot?.balances?.some((b) => b.coin !== USDC && safeBN(b.total).gt(0)),
+    spot?.balances?.some(
+      (b) =>
+        b.token !== 0 &&
+        !isHyperliquidSpotStableCoin(b.coin) &&
+        safeBN(b.total).gt(0),
+    ),
+  );
+}
+
+function isUnifiedPortfolioMode(
+  mode: EHyperLiquidAbstractionMode | string | undefined,
+) {
+  return (
+    mode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
+    mode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN
   );
 }
 
@@ -56,12 +77,14 @@ export function assembleHyperliquidSnapshot(args: {
   clearinghouse: IClearinghouseStateResponse | undefined;
   spot: ISpotClearinghouseStateResponse | undefined;
   priceMap: Record<string, string>;
+  getSpotMarkPrice?: (coin: string) => string | undefined;
+  abstractionMode?: EHyperLiquidAbstractionMode | string | undefined;
   now: number;
 }): IHyperliquidPortfolioSnapshot {
-  const { clearinghouse, spot, priceMap, now } = args;
+  const { clearinghouse, spot, priceMap, getSpotMarkPrice, now } = args;
   const address = (args.address || '').toLowerCase();
-  const accountValue = clearinghouse?.marginSummary?.accountValue ?? '0';
-  const withdrawable = clearinghouse?.withdrawable ?? '0';
+  const clearinghouseAccountValue =
+    clearinghouse?.marginSummary?.accountValue ?? '0';
   const totalMarginUsed = clearinghouse?.marginSummary?.totalMarginUsed ?? '0';
 
   const perpPositions: IHyperliquidPerpPositionSnapshot[] = (
@@ -84,33 +107,55 @@ export function assembleHyperliquidSnapshot(args: {
     .toFixed();
 
   let degraded = false;
-  let spotTotal = new BigNumber(0);
-  const spotBalances: IHyperliquidSpotBalanceSnapshot[] = (
-    spot?.balances ?? []
-  ).map((b) => {
-    const rawPrice = b.coin === USDC ? '1' : priceMap[b.coin];
-    const priceBN =
-      rawPrice !== undefined ? new BigNumber(rawPrice) : undefined;
-    const priceUsable =
-      priceBN !== undefined && priceBN.isFinite() && priceBN.gt(0);
-    const totalBN = safeBN(b.total);
-    const valueUsd = priceUsable ? totalBN.times(priceBN).toFixed() : undefined;
-    if (!priceUsable && totalBN.gt(0)) degraded = true;
-    else if (valueUsd !== undefined) spotTotal = spotTotal.plus(valueUsd);
-    return {
-      coin: b.coin,
-      token: b.token,
-      total: b.total,
-      hold: b.hold,
-      entryNtl: b.entryNtl,
-      priceUsd: priceUsable ? rawPrice : undefined,
-      valueUsd,
-    };
+  const getMarkPrice = (coin: string) =>
+    getSpotMarkPrice?.(coin) ?? priceMap[coin];
+  const rawSpotBalances = spot?.balances ?? [];
+  const spotTotal = calculateSpotBalancesTotalUsd({
+    balances: rawSpotBalances,
+    getMarkPrice,
   });
+  if (spotTotal.missingPriceCoins.length > 0) {
+    degraded = true;
+  }
+  const spotBalances: IHyperliquidSpotBalanceSnapshot[] = rawSpotBalances.map(
+    (b) => {
+      const rawPrice =
+        b.token === 0 || isHyperliquidSpotStableCoin(b.coin)
+          ? '1'
+          : getMarkPrice(b.coin);
+      const priceBN =
+        rawPrice !== undefined ? new BigNumber(rawPrice) : undefined;
+      const priceUsable =
+        priceBN !== undefined && priceBN.isFinite() && priceBN.gt(0);
+      const totalBN = safeBN(b.total);
+      const valueUsd = priceUsable
+        ? totalBN.times(priceBN).toFixed()
+        : undefined;
+      if (!priceUsable && totalBN.gt(0)) degraded = true;
+      return {
+        coin: b.coin,
+        token: b.token,
+        total: b.total,
+        hold: b.hold,
+        entryNtl: b.entryNtl,
+        priceUsd: priceUsable ? rawPrice : undefined,
+        valueUsd,
+      };
+    },
+  );
 
-  const spotTotalUsd = spotTotal.toFixed();
-  const netWorthUsd = safeBN(accountValue).plus(spotTotalUsd).toFixed();
-  const hasPerp = safeBN(accountValue).gt(0) || perpPositions.length > 0;
+  const spotTotalUsd = spotTotal.totalUsd;
+  const isUnified = isUnifiedPortfolioMode(args.abstractionMode);
+  const usdcBalance = rawSpotBalances.find((b) => b.token === 0);
+  const accountValue = isUnified ? spotTotalUsd : clearinghouseAccountValue;
+  const withdrawable = isUnified
+    ? safeBN(usdcBalance?.total).minus(safeBN(usdcBalance?.hold)).toFixed()
+    : (clearinghouse?.withdrawable ?? '0');
+  const netWorthUsd = isUnified
+    ? spotTotalUsd
+    : safeBN(clearinghouseAccountValue).plus(spotTotalUsd).toFixed();
+  const hasPerp =
+    safeBN(clearinghouseAccountValue).gt(0) || perpPositions.length > 0;
   const hasSpot = spotBalances.some((b) => safeBN(b.total).gt(0));
 
   return {
@@ -124,6 +169,7 @@ export function assembleHyperliquidSnapshot(args: {
     spotBalances,
     spotTotalUsd,
     netWorthUsd,
+    abstractionMode: args.abstractionMode,
     source: 'rest',
     isDegraded: degraded,
     summaryUpdatedAt: now,

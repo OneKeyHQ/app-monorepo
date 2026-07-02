@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -21,6 +21,9 @@ const ACCOUNT_INVALIDATING_SUBTYPES = new Set<ESubscriptionType>([
   ESubscriptionType.OPEN_ORDERS,
   ESubscriptionType.SPOT_STATE,
 ]);
+const DEPOSIT_CONFIRMATION_RETRY_MAX_ATTEMPTS = 5;
+const DEPOSIT_CONFIRMATION_RETRY_INTERVAL_MS =
+  PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS;
 
 export function usePerpsHomePortfolio(): {
   viewState: 'ready' | 'loading' | 'empty';
@@ -34,7 +37,7 @@ export function usePerpsHomePortfolio(): {
   // Home tabs stay mounted while frozen, so gate polling on the Perps tab being active.
   const { isFocused: isTabFocused } = useTabIsRefreshingFocused();
 
-  const { result, run } = usePromiseResult(
+  const { result, run, setResult } = usePromiseResult(
     async () => {
       if (!accountId && !indexedAccountId) {
         return { address: '', view: undefined };
@@ -77,9 +80,70 @@ export function usePerpsHomePortfolio(): {
       overrideIsFocused: (isPageFocused) => isPageFocused && isTabFocused,
     },
   );
+  const depositRetryTimerRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
+  const depositRetryNonceRef = useRef(0);
+  const latestAddressRef = useRef<string | undefined>(result?.address);
+  latestAddressRef.current = result?.address;
 
   // Refetch when Perps account data changes, the WS recovers, or a deposit confirms on-chain.
   useEffect(() => {
+    const clearDepositRetry = () => {
+      if (depositRetryTimerRef.current) {
+        clearTimeout(depositRetryTimerRef.current);
+        depositRetryTimerRef.current = undefined;
+      }
+    };
+    const forceRefreshAfterDeposit = async ({
+      address,
+      attempt,
+      nonce,
+    }: {
+      address: string;
+      attempt: number;
+      nonce: number;
+    }) => {
+      const snapshot =
+        await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
+          { address, force: true },
+        );
+      if (
+        depositRetryNonceRef.current !== nonce ||
+        latestAddressRef.current !== address
+      ) {
+        return;
+      }
+      if (snapshot) {
+        setResult({
+          address,
+          view: mapSnapshotToPerpsHomeView(snapshot),
+        });
+      }
+      if (snapshot && !snapshot.isEmpty) {
+        return;
+      }
+      if (attempt < DEPOSIT_CONFIRMATION_RETRY_MAX_ATTEMPTS) {
+        depositRetryTimerRef.current = setTimeout(() => {
+          void forceRefreshAfterDeposit({
+            address,
+            attempt: attempt + 1,
+            nonce,
+          });
+        }, DEPOSIT_CONFIRMATION_RETRY_INTERVAL_MS);
+      }
+    };
+    const startDepositConfirmationRetry = () => {
+      clearDepositRetry();
+      depositRetryNonceRef.current += 1;
+      const nonce = depositRetryNonceRef.current;
+      const address = result?.address;
+      if (!address) {
+        void run({ alwaysSetState: true });
+        return;
+      }
+      void forceRefreshAfterDeposit({ address, attempt: 1, nonce });
+    };
     const invalidateAndRun = () => {
       const address = result?.address;
       // Skip when the address is unresolved: a bare invalidate would wipe every account's cache.
@@ -96,7 +160,7 @@ export function usePerpsHomePortfolio(): {
     };
     const onRecover = () => invalidateAndRun();
     const onTxConfirmed = (p: { networkId: string }) => {
-      if (p.networkId === PERPS_NETWORK_ID) invalidateAndRun();
+      if (p.networkId === PERPS_NETWORK_ID) startDepositConfirmationRetry();
     };
     appEventBus.on(EAppEventBusNames.HyperliquidDataUpdate, onHl);
     appEventBus.on(EAppEventBusNames.PerpsWebSocketRecovered, onRecover);
@@ -105,8 +169,10 @@ export function usePerpsHomePortfolio(): {
       appEventBus.off(EAppEventBusNames.HyperliquidDataUpdate, onHl);
       appEventBus.off(EAppEventBusNames.PerpsWebSocketRecovered, onRecover);
       appEventBus.off(EAppEventBusNames.LocalPendingTxConfirmed, onTxConfirmed);
+      clearDepositRetry();
+      depositRetryNonceRef.current += 1;
     };
-  }, [result?.address, run]);
+  }, [result?.address, run, setResult]);
 
   const view = result?.view;
   const viewState = useMemo<'ready' | 'loading' | 'empty'>(() => {

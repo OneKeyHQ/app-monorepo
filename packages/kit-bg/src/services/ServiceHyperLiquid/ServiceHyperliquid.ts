@@ -922,6 +922,43 @@ export default class ServiceHyperliquid extends ServiceBase {
     },
   );
 
+  _getAllMidsMemo = cacheUtils.memoizee(
+    async () => {
+      const allMids = await hyperLiquidApiClients.infoClient.allMids();
+      hyperLiquidCache.allMids = {
+        mids: allMids,
+      };
+      return allMids;
+    },
+    {
+      max: 1,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      promise: true,
+    },
+  );
+
+  private async _getPortfolioAbstractionMode(
+    user: IHex,
+  ): Promise<EHyperLiquidAbstractionMode | string | undefined> {
+    try {
+      const mode = await this.fetchUserAbstractionRawWithCache({
+        accountAddress: user,
+      });
+      if (mode) {
+        await this.backgroundApi.simpleDb.perp.setUserAbstractionMode(
+          user,
+          mode,
+        );
+        return mode;
+      }
+    } catch {
+      // Home portfolio snapshots are address-scoped and should still render when
+      // the mode endpoint is temporarily unavailable; fall back to the persisted
+      // mode cache below.
+    }
+    return this.backgroundApi.simpleDb.perp.getUserAbstractionMode(user);
+  }
+
   _fetchHlPortfolioMemo = cacheUtils.memoizee(
     async (address: string): Promise<IHyperliquidPortfolioSnapshot> => {
       const { infoClient } = hyperLiquidApiClients;
@@ -930,14 +967,30 @@ export default class ServiceHyperliquid extends ServiceBase {
         infoClient.clearinghouseState({ user }),
         infoClient.spotClearinghouseState({ user }),
       ]);
-      const priceMap = spotNeedsPrices(spot)
-        ? await this._getSpotPriceMapMemo()
-        : { USDC: '1' };
+      const needsPrices = spotNeedsPrices(spot);
+      const priceMapPromise: Promise<Record<string, string>> = needsPrices
+        ? this._getSpotPriceMapMemo().catch(
+            (): Record<string, string> => ({
+              USDC: '1',
+            }),
+          )
+        : Promise.resolve({ USDC: '1' });
+      const [priceMap, mids, abstractionMode] = await Promise.all([
+        priceMapPromise,
+        needsPrices
+          ? this._getAllMidsMemo().catch(() => hyperLiquidCache.allMids?.mids)
+          : Promise.resolve(undefined),
+        this._getPortfolioAbstractionMode(user).catch(() => undefined),
+      ]);
+      await this._ensureSpotMappings();
       return assembleHyperliquidSnapshot({
         address: user,
         clearinghouse,
         spot,
         priceMap,
+        getSpotMarkPrice: (coin) =>
+          this.getSpotBalanceMarkPrice(coin, mids) ?? priceMap[coin],
+        abstractionMode,
         now: Date.now(),
       });
     },

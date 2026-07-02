@@ -26,7 +26,9 @@ import type { ISizableTextProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -113,6 +115,27 @@ function PerpsUsd({
     >
       {value}
     </NumberSizeableText>
+  );
+}
+
+function PerpsTotalUsd({
+  value,
+  isDegraded,
+  ...rest
+}: {
+  value: number | undefined;
+  isDegraded?: boolean;
+} & Omit<ISizableTextProps, 'children'>) {
+  if (!isDegraded) {
+    return <PerpsUsd value={value} {...rest} />;
+  }
+  return (
+    <XStack minWidth={0} alignItems="baseline" gap="$0.5">
+      <SizableText size={rest.size} color={rest.color ?? '$textSubdued'}>
+        ≈
+      </SizableText>
+      <PerpsUsd value={value} {...rest} />
+    </XStack>
   );
 }
 
@@ -493,11 +516,30 @@ function PerpsEmptyState() {
 function PerpsDepositButton({ testID }: { testID: string }) {
   const intl = useIntl();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const {
+    activeAccount: { account, indexedAccount, wallet },
+  } = useActiveAccount({ num: 0 });
+
+  const handleDeposit = useCallback(async () => {
+    if (account?.id || indexedAccount?.id) {
+      const deriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: PERPS_NETWORK_ID,
+        });
+      await backgroundApiProxy.serviceHyperliquid.changeActivePerpsAccount({
+        indexedAccountId: indexedAccount?.id ?? null,
+        accountId: account?.id ?? null,
+        walletId: wallet?.id ?? null,
+        deriveType: deriveType ?? 'default',
+      });
+    }
+    await showDepositWithdrawModal('deposit');
+  }, [account?.id, indexedAccount?.id, showDepositWithdrawModal, wallet?.id]);
 
   return (
     <Badge
       testID={testID}
-      onPress={() => void showDepositWithdrawModal('deposit')}
+      onPress={() => void handleDeposit()}
       borderRadius="$full"
       size="medium"
       variant="primary"
@@ -606,9 +648,11 @@ function PerpsMobileHoldingRow({
 function PerpsMobileHoldingsSummary({
   totalUsd,
   holdings,
+  isDegraded,
 }: {
   totalUsd: number;
   holdings: IPerpsHomeHolding[];
+  isDegraded?: boolean;
 }) {
   const intl = useIntl();
   const openPerp = useOpenPerpAsset();
@@ -623,8 +667,9 @@ function PerpsMobileHoldingsSummary({
           <SizableText size="$headingXl" color="$textSubdued">
             ·
           </SizableText>
-          <PerpsUsd
+          <PerpsTotalUsd
             value={totalUsd}
+            isDegraded={isDegraded}
             size="$headingXl"
             color="$textSubdued"
             numberOfLines={1}
@@ -788,6 +833,17 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
         py: '$4',
       }}
       gap="$4"
+      cursor="pointer"
+      focusable
+      focusVisibleStyle={{
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+        outlineWidth: 2,
+      }}
+      hoverStyle={{ bg: '$bgHover' }}
+      pressStyle={{ bg: '$bgActive' }}
+      onPress={() => openPerp(position.coin)}
+      role="button"
     >
       <XStack justifyContent="space-between" flex={1} position="relative">
         <XStack flex={1} gap="$2" alignItems="center">
@@ -949,6 +1005,7 @@ export function PerpsContainer() {
             <PerpsMobileHoldingsSummary
               totalUsd={view.netWorthUsd}
               holdings={view.holdings}
+              isDegraded={view.isDegraded}
             />
             <YStack display="none" $gtMd={{ display: 'flex' }}>
               <RichBlock
@@ -957,8 +1014,9 @@ export function PerpsContainer() {
                   id: ETranslations.perp_account_panel_account_value,
                 })}
                 subTitle={
-                  <PerpsUsd
+                  <PerpsTotalUsd
                     value={view.netWorthUsd}
+                    isDegraded={view.isDegraded}
                     size="$headingXl"
                     color="$textSubdued"
                   />

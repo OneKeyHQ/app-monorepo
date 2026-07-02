@@ -1,3 +1,5 @@
+import { EHyperLiquidAbstractionMode } from '../../types/hyperliquid';
+
 import {
   assembleHyperliquidSnapshot,
   buildSpotPriceMap,
@@ -100,6 +102,13 @@ describe('spotNeedsPrices', () => {
     expect(
       spotNeedsPrices({
         balances: [
+          { coin: 'USDT', token: 3, total: '100', hold: '0', entryNtl: '0' },
+        ],
+      } as any),
+    ).toBe(false);
+    expect(
+      spotNeedsPrices({
+        balances: [
           { coin: 'HYPE', token: 2, total: '3', hold: '0', entryNtl: '0' },
         ],
       } as any),
@@ -198,5 +207,53 @@ describe('assembleHyperliquidSnapshot', () => {
     });
     expect(snap.isEmpty).toBe(true);
     expect(snap.netWorthUsd).toBe('0');
+  });
+  it('values stable coins and allMids-style fallback prices', () => {
+    const snap = assembleHyperliquidSnapshot({
+      address: '0x1',
+      clearinghouse: clearing as any,
+      spot: {
+        balances: [
+          { coin: 'USDT', token: 3, total: '7', hold: '0', entryNtl: '7' },
+          { coin: 'HYPE', token: 2, total: '2', hold: '0', entryNtl: '40' },
+        ],
+      } as any,
+      priceMap: {},
+      getSpotMarkPrice: (coin) => (coin === 'HYPE' ? '30' : undefined),
+      now: 1,
+    });
+
+    expect(snap.spotTotalUsd).toBe('67');
+    expect(snap.netWorthUsd).toBe('187');
+    expect(snap.isDegraded).toBe(false);
+    expect(snap.spotBalances.find((b) => b.coin === 'USDT')?.priceUsd).toBe(
+      '1',
+    );
+  });
+  it('uses spot-side account value and withdrawable for unified accounts', () => {
+    const snap = assembleHyperliquidSnapshot({
+      address: '0x1',
+      clearinghouse: {
+        ...clearing,
+        marginSummary: {
+          ...clearing.marginSummary,
+          accountValue: '900',
+        },
+        withdrawable: '500',
+      } as any,
+      spot: {
+        balances: [
+          { coin: 'USDC', token: 0, total: '200', hold: '50', entryNtl: '200' },
+          { coin: 'HYPE', token: 2, total: '2', hold: '0', entryNtl: '40' },
+        ],
+      } as any,
+      priceMap: { HYPE: '30' },
+      abstractionMode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+      now: 1,
+    });
+
+    expect(snap.accountValue).toBe('260');
+    expect(snap.netWorthUsd).toBe('260');
+    expect(snap.withdrawable).toBe('150');
   });
 });
