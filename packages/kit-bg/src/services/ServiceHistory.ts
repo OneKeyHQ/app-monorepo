@@ -1404,6 +1404,27 @@ class ServiceHistory extends ServiceBase {
         await this.backgroundApi.serviceAccount.getDBAccountSafe({
           accountId: txAccountId,
         });
+      const txAccountInfo = [...accounts, ...allAccounts].find(
+        (account) =>
+          account.accountId === txAccountId &&
+          account.networkId === tx.decodedTx.networkId,
+      );
+      const txAccountAddress =
+        txAccountInfo?.apiAddress ||
+        (await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId: txAccountId,
+          networkId: tx.decodedTx.networkId,
+        }));
+      const parsedTxAccountId = accountUtils.parseAccountId({
+        accountId: txAccountId,
+      });
+      const normalizedTxDeriveType = accountUtils.normalizeDeriveType(
+        parsedTxAccountId.idSuffix ?? '',
+      );
+      const txDeriveType =
+        txAccountInfo?.deriveType ??
+        normalizedTxDeriveType ??
+        (parsedTxAccountId.idSuffix ? undefined : 'default');
       const isPerpsDepositTx =
         isHyperliquidDirectDepositTx(tx.decodedTx) ||
         (await isKnownPerpsDepositOrderTx({
@@ -1413,6 +1434,8 @@ class ServiceHistory extends ServiceBase {
       appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
         accountId: txAccountId,
         indexedAccountId: txDBAccount?.indexedAccountId,
+        accountAddress: txAccountAddress,
+        deriveType: txDeriveType,
         networkId: tx.decodedTx.networkId,
         txid: tx.decodedTx.txid,
         status: tx.decodedTx.status,

@@ -994,6 +994,17 @@ export default class ServiceHyperliquid extends ServiceBase {
         this._fetchAllDexsClearinghouseStates(user),
         infoClient.spotClearinghouseState({ user }),
       ]);
+      const hasMainDexState = clearinghouseStates.some(
+        ({ dex, state }) => !dex && Boolean(state),
+      );
+      const hasMissingSubDexState = clearinghouseStates.some(
+        ({ dex, state }) => Boolean(dex) && !state,
+      );
+      if (!hasMainDexState) {
+        throw new OneKeyLocalError(
+          'Hyperliquid portfolio main clearinghouse state unavailable',
+        );
+      }
       const clearinghouse = aggregateClearinghouseStates(clearinghouseStates);
       if (!clearinghouse) {
         throw new OneKeyLocalError(
@@ -1030,6 +1041,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         getSpotUniverseName: (coin) =>
           this._spotMappings.baseNameToPairName[coin],
         abstractionMode,
+        isDegraded: hasMissingSubDexState,
         now: Date.now(),
       });
     },

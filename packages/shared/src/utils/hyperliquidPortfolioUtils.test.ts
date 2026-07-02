@@ -292,7 +292,7 @@ describe('aggregateClearinghouseStates', () => {
     expect(xyz.assetPositions[0].position.coin).toBe('NVDA');
   });
 
-  it('does not produce an authoritative aggregate when a requested dex is missing', () => {
+  it('aggregates available clearinghouse states when an optional dex is missing', () => {
     const main = {
       marginSummary: {
         accountValue: '100',
@@ -312,12 +312,15 @@ describe('aggregateClearinghouseStates', () => {
       time: 100,
     };
 
-    expect(
-      aggregateClearinghouseStates([
-        { dex: '', state: main as any },
-        { dex: 'xyz', state: undefined },
-      ]),
-    ).toBeUndefined();
+    const aggregated = aggregateClearinghouseStates([
+      { dex: '', state: main as any },
+      { dex: 'xyz', state: undefined },
+    ]);
+
+    expect(aggregated?.marginSummary.accountValue).toBe('100');
+    expect(aggregated?.assetPositions.map((p) => p.position.coin)).toEqual([
+      'BTC',
+    ]);
   });
 });
 
@@ -412,6 +415,18 @@ describe('assembleHyperliquidSnapshot', () => {
     });
     expect(snap.isEmpty).toBe(true);
     expect(snap.netWorthUsd).toBe('0');
+  });
+  it('carries upstream degraded state into the Home snapshot', () => {
+    const snap = assembleHyperliquidSnapshot({
+      address: '0x1',
+      clearinghouse: clearing as any,
+      spot: { balances: [] } as any,
+      priceMap: {},
+      isDegraded: true,
+      now: 1,
+    });
+
+    expect(snap.isDegraded).toBe(true);
   });
   it('filters closed residual positions before Home snapshot fields', () => {
     const snap = assembleHyperliquidSnapshot({

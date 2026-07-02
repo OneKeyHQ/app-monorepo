@@ -71,7 +71,7 @@ function getDexPrefixedCoin(coin: string, dex: string | undefined): string {
 export function aggregateClearinghouseStates(
   inputs: IAggregateClearinghouseStateInput[],
 ): IClearinghouseStateResponse | undefined {
-  if (inputs.length === 0 || inputs.some((input) => !input.state)) {
+  if (inputs.length === 0) {
     return undefined;
   }
 
@@ -83,6 +83,10 @@ export function aggregateClearinghouseStates(
       state: IClearinghouseStateResponse;
     } => Boolean(input.state),
   );
+  if (validInputs.length === 0) {
+    return undefined;
+  }
+
   const marginSummary = createEmptyClearinghouseSummary();
   const crossMarginSummary = createEmptyClearinghouseSummary();
   const assetPositions: IClearinghouseStateResponse['assetPositions'] = [];
@@ -268,6 +272,7 @@ export function assembleHyperliquidSnapshot(args: {
   getSpotMarkPrice?: (coin: string) => string | undefined;
   getSpotUniverseName?: (coin: string) => string | undefined;
   abstractionMode?: EHyperLiquidAbstractionMode | string | undefined;
+  isDegraded?: boolean;
   now: number;
 }): IHyperliquidPortfolioSnapshot {
   const {
@@ -306,7 +311,7 @@ export function assembleHyperliquidSnapshot(args: {
     clearinghouse?.assetPositions,
   );
 
-  let degraded = false;
+  let degraded = Boolean(args.isDegraded);
   const getMarkPrice = (coin: string) =>
     getSpotMarkPrice?.(coin) ?? priceMap[coin];
   const isUnified = isUnifiedPortfolioMode(args.abstractionMode);

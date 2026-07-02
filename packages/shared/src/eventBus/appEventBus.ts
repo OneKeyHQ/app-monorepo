@@ -279,6 +279,8 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.LocalPendingTxConfirmed]: {
     accountId: string;
     indexedAccountId?: string;
+    accountAddress?: string;
+    deriveType?: string | IAccountDeriveTypes;
     networkId: string;
     txid: string;
     status: EDecodedTxStatus;

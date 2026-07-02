@@ -36,7 +36,7 @@ export interface IHyperliquidPortfolioSnapshot {
   netWorthUsd: string; // unified/PM: spotTotalUsd; otherwise accountValue + spotTotalUsd
   abstractionMode?: string;
   source: 'rest' | 'ws';
-  isDegraded: boolean; // some non-USDC spot price missing
+  isDegraded: boolean; // estimated snapshot: spot price missing or optional dex unavailable
   summaryUpdatedAt: number;
   spotUpdatedAt: number;
   priceCachedAt: number;
