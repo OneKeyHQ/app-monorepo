@@ -35,6 +35,7 @@ const {
   ensureSessionsDirWritable,
   readSessionMetrics,
 } = require('./lib/session');
+
 function hasFlag(name) {
   return process.argv.includes(name);
 }

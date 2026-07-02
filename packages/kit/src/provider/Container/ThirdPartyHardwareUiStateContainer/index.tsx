@@ -40,6 +40,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { TREZOR_THP_APP_NAME } from '@onekeyhq/shared/src/hardware/trezorThpIdentity';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -54,6 +55,7 @@ import { showTrezorBleBindingDialog } from '../../../components/Hardware/TrezorB
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
 import { useInstallCancelVisibility } from './installCancelVisibility';
+import { TrezorPinMatrix } from './TrezorPinMatrix';
 import {
   buildThirdPartyHardwareUiResponse,
   cancelThirdPartyHardwareUiRequest,
@@ -64,7 +66,6 @@ import {
 const AUTO_CLOSED_FLAG = 'autoClosed';
 const SHOW_CLOSE_BUTTON_DELAY = 8000;
 const TOAST_VIEWPORT_NAME = 'THIRD_PARTY_HW_TOAST';
-const TREZOR_THP_APP_NAME = 'OneKey Wallet';
 
 function OpenBleSettingsDialogRender({ ref }: { ref: any }) {
   return <OpenBleSettingsDialog ref={ref} />;
@@ -369,7 +370,6 @@ function getToastLabel(
         id: ETranslations.hardware_third_party_app_not_open,
       });
     case EThirdPartyHardwareUiAction.unlockDevice:
-    case EThirdPartyHardwareUiAction.requestTrezorUnlock:
       return intl.formatMessage({
         id: ETranslations.hardware_third_party_device_locked,
       });
@@ -391,24 +391,76 @@ function getToastLabel(
   }
 }
 
+type IAnimationModule = { default: ILottieViewProps['source'] };
+
+// Dynamically import animation JSON so the assets are code-split into an async
+// chunk instead of the startup bundle (matches ConfirmOnDeviceToastContent).
 function getLedgerActionAnimation(
   action: string | undefined,
   themeVariant: 'light' | 'dark',
-): ILottieViewProps['source'] | null {
+): Promise<IAnimationModule> | null {
   switch (action) {
     case EThirdPartyHardwareUiAction.confirmOnDevice:
     case EThirdPartyHardwareUiAction.openApp:
       return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/animations/confirm-on-ledger-dark.json') as ILottieViewProps['source'])
-        : (require('@onekeyhq/kit/assets/animations/confirm-on-ledger-light.json') as ILottieViewProps['source']);
+        ? import('@onekeyhq/kit/assets/animations/confirm-on-ledger-dark.json')
+        : import('@onekeyhq/kit/assets/animations/confirm-on-ledger-light.json');
     case EThirdPartyHardwareUiAction.unlockDevice:
       return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-dark.json') as ILottieViewProps['source'])
-        : (require('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-light.json') as ILottieViewProps['source']);
+        ? import('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-dark.json')
+        : import('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-light.json');
     default:
       return null;
   }
 }
+
+function getTrezorActionAnimation(
+  action: string | undefined,
+  themeVariant: 'light' | 'dark',
+): Promise<IAnimationModule> | null {
+  switch (action) {
+    case EThirdPartyHardwareUiAction.confirmOnDevice:
+      return themeVariant === 'dark'
+        ? import('@onekeyhq/kit/assets/animations/confirm-on-trezor-dark.json')
+        : import('@onekeyhq/kit/assets/animations/confirm-on-trezor-light.json');
+    case EThirdPartyHardwareUiAction.unlockDevice:
+      return themeVariant === 'dark'
+        ? import('@onekeyhq/kit/assets/animations/enter-pin-on-trezor-dark.json')
+        : import('@onekeyhq/kit/assets/animations/enter-pin-on-trezor-light.json');
+    default:
+      return null;
+  }
+}
+
+// THP pairing input — owns its text state so typing doesn't re-render the parent dialog.
+const TrezorThpPairingInput = memo(function TrezorThpPairingInput({
+  placeholder,
+  onChange,
+}: {
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  const [value, setValue] = useState('');
+  const handleChangeText = useCallback(
+    (next: string) => {
+      setValue(next);
+      onChange(next);
+    },
+    [onChange],
+  );
+  return (
+    <Input
+      testID="third-party-hw-trezor-thp-pairing-input"
+      value={value}
+      onChangeText={handleChangeText}
+      placeholder={placeholder}
+      autoCapitalize="none"
+      autoCorrect={false}
+      keyboardType="number-pad"
+      autoFocus
+    />
+  );
+});
 
 function DeviceActionToast({
   action,
@@ -434,9 +486,29 @@ function DeviceActionToast({
 
   const label = getToastLabel(action, vendor, intl);
 
-  const animationSource = useMemo(() => {
-    if (vendor !== EHardwareVendor.ledger) return null;
-    return getLedgerActionAnimation(action, themeVariant);
+  const [animationSource, setAnimationSource] = useState<
+    ILottieViewProps['source'] | null
+  >(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setAnimationSource(null);
+    let loader: Promise<IAnimationModule> | null = null;
+    if (vendor === EHardwareVendor.ledger) {
+      loader = getLedgerActionAnimation(action, themeVariant);
+    } else if (vendor === EHardwareVendor.trezor) {
+      loader = getTrezorActionAnimation(action, themeVariant);
+    }
+    loader
+      ?.then((module) => {
+        if (!cancelled) setAnimationSource(module?.default ?? null);
+      })
+      .catch(() => {
+        // ignore
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [action, vendor, themeVariant]);
 
   return (
@@ -542,6 +614,14 @@ function getDialogContent(
         message: '',
         showFooter: false,
       };
+    case EThirdPartyHardwareUiAction.requestTrezorPin:
+      // The matrix component owns its own header + Confirm key (mirrors the
+      // OneKey HD EnterPin), so no dialog footer.
+      return {
+        title: intl.formatMessage({ id: ETranslations.enter_pin_title }),
+        message: '',
+        showFooter: false,
+      };
     default:
       return { title: '', message: '', showFooter: false };
   }
@@ -553,21 +633,21 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   const uiStateRef = useRef(uiState);
   uiStateRef.current = uiState;
 
-  // Trezor THP pairing tag — user types the code shown on the device. UI
-  // value; held in state so the Input is controlled. Ref mirror keeps
-  // handleConfirm (declared above the JSX) able to read the latest value
-  // without re-creating the callback on every keystroke.
-  const [thpTagInput, setThpTagInput] = useState('');
+  // THP pairing tag — text lives in TrezorThpPairingInput; here we keep only a
+  // ref (read by handleConfirm) and a hasValue boolean (confirm-disabled).
   const thpTagInputRef = useRef('');
-  thpTagInputRef.current = thpTagInput;
+  const [thpHasValue, setThpHasValue] = useState(false);
+  const handleThpTagChange = useCallback((value: string) => {
+    thpTagInputRef.current = value;
+    setThpHasValue(value.trim().length > 0);
+  }, []);
 
-  // Clear the input whenever a new request comes in (different connect
-  // attempt) or the request closes. Only fires when action changes —
-  // typing in the same dialog doesn't reset.
+  // Clear when the action changes (new request / dialog closed).
   const currentAction = uiState?.action;
   useEffect(() => {
     if (currentAction !== EThirdPartyHardwareUiAction.requestTrezorThpPairing) {
-      setThpTagInput('');
+      thpTagInputRef.current = '';
+      setThpHasValue(false);
     }
   }, [currentAction]);
 
@@ -687,7 +767,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     if (!isTrezorBleBinding) {
       return;
     }
-    const { usbConnectId, featuresDeviceId, promiseId } =
+    const { usbConnectId, featuresDeviceId, promiseId, trezorBleBindingMode } =
       uiState?.payload ?? {};
     if (!usbConnectId || !featuresDeviceId || !promiseId) {
       // A malformed request may still carry a promiseId the keyring is awaiting.
@@ -717,23 +797,24 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     const instance = showTrezorBleBindingDialog({
       usbConnectId,
       featuresDeviceId,
+      mode: trezorBleBindingMode ?? 'auto-fallback',
       onBound: callbacks.onBound,
       onClose: callbacks.onClose,
+      intl,
     });
     bleBindingDialogInstanceRef.current = instance;
-  }, [clearCurrentUiState, isTrezorBleBinding, uiState?.payload]);
+  }, [clearCurrentUiState, isTrezorBleBinding, uiState?.payload, intl]);
 
   useEffect(() => {
     const callback = async ({
-      vendor,
       reason,
     }: {
       vendor: EHardwareVendor;
       reason: EThirdPartyDevicePermissionDeniedReason;
     }) => {
-      if (vendor !== EHardwareVendor.ledger) {
-        return;
-      }
+      // The BLE permission / power dialog is app-layer and vendor-agnostic, so
+      // render it for any third-party vendor that emits it (Trezor and Ledger
+      // both run over BLE on native) — not just Ledger.
       await permissionDialogInstanceRef.current?.close();
       permissionDialogInstanceRef.current = Dialog.show({
         dialogContainer:
@@ -812,6 +893,29 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     uiState?.action === EThirdPartyHardwareUiAction.requestTrezorThpPairing;
   const isTrezorPassphrase =
     uiState?.action === EThirdPartyHardwareUiAction.requestTrezorPassphrase;
+  const isTrezorPin =
+    uiState?.action === EThirdPartyHardwareUiAction.requestTrezorPin;
+
+  const sendTrezorPinResponse = useCallback(
+    async (pin: string) => {
+      const vendor = uiStateRef.current?.vendor;
+      const action = uiStateRef.current?.action;
+      if (!vendor || action !== EThirdPartyHardwareUiAction.requestTrezorPin) {
+        return;
+      }
+      const response = buildThirdPartyHardwareUiResponse(action, true, { pin });
+      if (response) {
+        await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareUiResponse(
+          {
+            vendor,
+            response,
+          },
+        );
+      }
+      await clearCurrentUiState();
+    },
+    [clearCurrentUiState],
+  );
 
   const sendTrezorPassphraseResponse = useCallback(
     async ({
@@ -858,7 +962,17 @@ function ThirdPartyHardwareUiStateContainerCmp() {
 
   const dialogContent = useMemo(() => {
     if (!uiState || isToastAction) return null;
-    const { message } = getDialogContent(uiState, intl);
+    const { message, title } = getDialogContent(uiState, intl);
+    if (isTrezorPin) {
+      return (
+        <TrezorPinMatrix
+          title={title}
+          onConfirm={(pin) => {
+            void sendTrezorPinResponse(pin);
+          }}
+        />
+      );
+    }
     if (isTrezorPassphrase) {
       return (
         <EnterPhase
@@ -895,17 +1009,11 @@ function ThirdPartyHardwareUiStateContainerCmp() {
           {message}
         </SizableText>
         {isThpPairing ? (
-          <Input
-            testID="third-party-hw-trezor-thp-pairing-input"
-            value={thpTagInput}
-            onChangeText={setThpTagInput}
+          <TrezorThpPairingInput
             placeholder={intl.formatMessage({
               id: ETranslations.trezor_thp_pairing_code__desc,
             })}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="number-pad"
-            autoFocus
+            onChange={handleThpTagChange}
           />
         ) : null}
       </YStack>
@@ -914,10 +1022,12 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     uiState,
     isToastAction,
     intl,
+    isTrezorPin,
+    sendTrezorPinResponse,
     isTrezorPassphrase,
     isThpPairing,
     sendTrezorPassphraseResponse,
-    thpTagInput,
+    handleThpTagChange,
   ]);
 
   const dialogTitle = useMemo(() => {
@@ -976,9 +1086,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
             showFooter={showFooter}
             onConfirm={handleConfirm}
             confirmButtonProps={
-              isThpPairing
-                ? { disabled: thpTagInput.trim().length === 0 }
-                : undefined
+              isThpPairing ? { disabled: !thpHasValue } : undefined
             }
             onCancel={handleUserCancel}
             onClose={handleDialogClose}

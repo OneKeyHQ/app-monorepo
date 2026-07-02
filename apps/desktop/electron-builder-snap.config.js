@@ -15,6 +15,10 @@ module.exports = {
         'from': 'app/build/static/bin/bridge/linux-${arch}',
         'to': 'bin/bridge',
       },
+      {
+        'from': 'app/build/static/udev/99-onekey.rules',
+        'to': 'static/udev/99-onekey.rules',
+      },
     ],
     'icon': 'app/build/static/images/icons/512x512.png',
     'artifactName': 'OneKey-Wallet-${version}-linux-${arch}.${ext}',

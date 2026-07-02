@@ -14,6 +14,7 @@ import {
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { AccountManagerTestIDs } from '../../testIDs';
 
@@ -49,6 +50,13 @@ export function WalletRenameButton({
     return profile.isThirdParty && !profile.supportsDeviceSettings;
   }, [wallet?.associatedDeviceInfo?.vendor]);
 
+  // Trezor device labels only hold printable ASCII, so restrict the label
+  // input for Trezor (OneKey accepts CJK and keeps the shared dialog as-is).
+  const labelAsciiOnly = useMemo(
+    () => wallet?.associatedDeviceInfo?.vendor === EHardwareVendor.trezor,
+    [wallet?.associatedDeviceInfo?.vendor],
+  );
+
   return (
     <>
       <XStack
@@ -73,6 +81,7 @@ export function WalletRenameButton({
                 {
                   wallet,
                   intl,
+                  asciiOnly: labelAsciiOnly,
                 },
                 {
                   onSubmit: async (name) => {

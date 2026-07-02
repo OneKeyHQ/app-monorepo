@@ -1,5 +1,8 @@
+import { execFile } from 'child_process';
+import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { promisify } from 'util';
 
 import * as Sentry from '@sentry/electron/main';
 import { Menu, app, shell, systemPreferences } from 'electron';
@@ -15,10 +18,82 @@ import {
   parseContentPList,
 } from '@onekeyhq/desktop/app/libs/utils';
 import { restartBridge } from '@onekeyhq/desktop/app/process';
+import { getAppStaticResourcesPath } from '@onekeyhq/desktop/app/resoucePath';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
+
+const execFileAsync = promisify(execFile);
+
+// cspell:ignore hidraw udev udevadm pkexec Flathub bubblewrap
+const ONEKEY_LINUX_UDEV_RULES_PATH = '/etc/udev/rules.d/99-onekey.rules';
+const ONEKEY_LINUX_UDEV_RULES_STATIC_PATH = path.join(
+  'udev',
+  '99-onekey.rules',
+);
+
+// Runtime sandbox detection. This module runs in the Electron MAIN process,
+// where `platformEnv` derives `desktopChannel` from a module-load-time snapshot
+// of `globalThis.desktopApi` and is subject to init-order races. So we read the
+// env directly here. The predicate is intentionally identical to the flatpak
+// branch in `getChannel()` (apps/desktop/app/libs/react-native-mock.ts) and
+// `buildPlatformInfoForIpc()` — keep the three in sync. `FLATPAK_ID` /
+// `container` are real runtime signals (not esbuild `define`s), which is what
+// makes them reliable inside the Flathub build that re-extracts our AppImage.
+const isFlatpakRuntime = () =>
+  Boolean(
+    process.env.FLATPAK ||
+    process.env.FLATPAK_ID ||
+    process.env.container === 'flatpak',
+  );
+
+const getNativeStaticResourcesPath = () => {
+  const appStaticResourcesPath = getAppStaticResourcesPath();
+  return app.isPackaged
+    ? path.join(appStaticResourcesPath, 'static')
+    : appStaticResourcesPath;
+};
+
+const getOneKeyLinuxUdevRulesSourcePath = () =>
+  path.join(
+    getNativeStaticResourcesPath(),
+    ONEKEY_LINUX_UDEV_RULES_STATIC_PATH,
+  );
+
+const readOneKeyLinuxUdevRules = memoizee(
+  async () =>
+    fs.readFile(getOneKeyLinuxUdevRulesSourcePath(), {
+      encoding: 'utf8',
+    }),
+  {
+    primitive: true,
+    promise: true,
+    max: 1,
+    normalizer: () => 'onekey-linux-udev-rules',
+  },
+);
+
+export type IInstallOneKeyUdevRulesResult = {
+  supported: boolean;
+  installed: boolean;
+  alreadyInstalled?: boolean;
+  // Sandboxed builds (flatpak/snap) cannot reach the host PolicyKit to install
+  // udev rules. When true, the UI should guide the user to install the host
+  // udev rules manually (see ServiceHardware.ensureLinuxUdevRules).
+  needsManualInstall?: boolean;
+  skippedReason?:
+    | 'not-linux'
+    | 'snap'
+    | 'flatpak'
+    | 'missing-pkexec'
+    | 'cancelled'
+    | 'not-authorized'
+    | 'failed';
+  message?: string;
+  stdout?: string;
+  stderr?: string;
+};
 
 export type IMenuItemType = 'normal' | 'separator' | 'submenu';
 
@@ -281,6 +356,134 @@ class DesktopApiSystem {
   async reloadBridgeProcess(): Promise<boolean> {
     await restartBridge();
     return true;
+  }
+
+  async installOneKeyUdevRules(): Promise<IInstallOneKeyUdevRulesResult> {
+    if (process.platform !== 'linux') {
+      return {
+        supported: false,
+        installed: false,
+        skippedReason: 'not-linux',
+      };
+    }
+
+    if (process.env.SNAP) {
+      return {
+        supported: false,
+        installed: false,
+        needsManualInstall: true,
+        skippedReason: 'snap',
+        message: 'Snap USB interface authorization is handled by snapd.',
+      };
+    }
+
+    if (isFlatpakRuntime()) {
+      return {
+        supported: false,
+        installed: false,
+        needsManualInstall: true,
+        skippedReason: 'flatpak',
+        message:
+          'Flatpak cannot install host udev rules; the user must install them manually.',
+      };
+    }
+
+    try {
+      const [rules, currentRules] = await Promise.all([
+        readOneKeyLinuxUdevRules(),
+        fs.readFile(ONEKEY_LINUX_UDEV_RULES_PATH, {
+          encoding: 'utf8',
+        }),
+      ]);
+      if (currentRules === rules) {
+        return {
+          supported: true,
+          installed: true,
+          alreadyInstalled: true,
+        };
+      }
+    } catch {
+      // Missing or unreadable installed rules are handled by the pkexec installer below.
+    }
+
+    let rulesSourcePath: string;
+    try {
+      await readOneKeyLinuxUdevRules();
+      rulesSourcePath = getOneKeyLinuxUdevRulesSourcePath();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        supported: true,
+        installed: false,
+        skippedReason: 'failed',
+        message: `OneKey udev rules file is unavailable: ${message}`,
+      };
+    }
+
+    try {
+      await execFileAsync('sh', ['-c', 'command -v pkexec >/dev/null 2>&1']);
+    } catch {
+      return {
+        supported: false,
+        installed: false,
+        skippedReason: 'missing-pkexec',
+        message: 'pkexec is required to install OneKey udev rules.',
+      };
+    }
+
+    const installScript = `
+set -e
+install -Dm644 "$1" "$2"
+if command -v udevadm >/dev/null 2>&1; then
+  udevadm control --reload-rules
+  udevadm trigger --subsystem-match=usb --attr-match=idVendor=1209 || true
+  udevadm trigger --subsystem-match=hidraw --attr-match=idVendor=1209 || true
+  udevadm trigger --subsystem-match=usb --attr-match=idVendor=534c || true
+  udevadm trigger --subsystem-match=hidraw --attr-match=idVendor=534c || true
+  udevadm settle --timeout=10 || true
+fi
+`;
+
+    try {
+      const { stdout, stderr } = await execFileAsync(
+        'pkexec',
+        [
+          '/bin/sh',
+          '-c',
+          installScript,
+          'install-onekey-udev-rules',
+          rulesSourcePath,
+          ONEKEY_LINUX_UDEV_RULES_PATH,
+        ],
+        { timeout: 120_000 },
+      );
+      return {
+        supported: true,
+        installed: true,
+        stdout: String(stdout),
+        stderr: String(stderr),
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      // pkexec exit codes are a stable contract: 126 = user dismissed the
+      // authentication dialog, 127 = authorization failed (e.g. not allowed).
+      // Prefer the numeric exit code over fragile message-string matching.
+      const exitCode = String((error as { code?: number | string }).code);
+      let skippedReason: IInstallOneKeyUdevRulesResult['skippedReason'] =
+        'failed';
+      if (exitCode === '126') {
+        skippedReason = 'cancelled';
+      } else if (exitCode === '127') {
+        skippedReason = 'not-authorized';
+      }
+      return {
+        supported: true,
+        installed: false,
+        skippedReason,
+        needsManualInstall: exitCode === '127',
+        message,
+      };
+    }
   }
 
   async getAppName(): Promise<string> {

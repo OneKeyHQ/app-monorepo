@@ -6,7 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { switchWebDappMode } from '@onekeyhq/shared/src/utils/devModeUtils';
 
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
-import { showDevOnlyPasswordDialog } from '../pages/Tab/DevSettingsSection';
+import { showDevOnlyPasswordDialog } from '../pages/Tab/DevSettingsSection/showDevOnlyPasswordDialog';
 import { SettingTestIDs } from '../testIDs';
 
 import {

@@ -21,7 +21,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 
 import { SettingTestIDs } from '../../testIDs';
-import { showDevOnlyPasswordDialog } from '../Tab/DevSettingsSection';
+import { showDevOnlyPasswordDialog } from '../Tab/DevSettingsSection/showDevOnlyPasswordDialog';
 
 const STATUS_EMOJI: Record<
   ILocalSecretEnvelopeE2ECheckpoint['status'],

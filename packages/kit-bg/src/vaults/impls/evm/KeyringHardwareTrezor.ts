@@ -1,5 +1,6 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
+import { buildEthereumDefinitionsForSignTx } from '@onekeyfe/hwk-trezor-adapter';
 
 import {
   buildHardwareEvmTransaction,
@@ -99,6 +100,20 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
     return buildTrezorBleFallbackOptions(this.backgroundApi);
   }
 
+  // Best-effort: returns undefined on any failure so signing still proceeds.
+  private async _resolveEvmDefinitions(params: {
+    path: string;
+    chainId: number;
+    to?: string;
+    data?: string;
+  }) {
+    try {
+      return await buildEthereumDefinitionsForSignTx(params);
+    } catch {
+      return undefined;
+    }
+  }
+
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
@@ -189,9 +204,17 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
     const adapter = await getTrezorAdapterFromBackgroundApi(this.backgroundApi);
 
     const path = await this.vault.getAccountPath();
+    const chainId = Number(await this.getNetworkChainId());
     const { encodedTx, tx, txParams } = buildTrezorEvmSignTransactionPayload({
-      chainId: Number(await this.getNetworkChainId()),
+      chainId,
       unsignedTx,
+    });
+
+    const ethereumDefinitions = await this._resolveEvmDefinitions({
+      path,
+      chainId,
+      to: encodedTx.to,
+      data: encodedTx.data,
     });
 
     const result = await callTrezorWithBleFallback(
@@ -200,6 +223,7 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
         adapter.hw.evmSignTransaction(connectId, dbDevice.deviceId, {
           path,
           ...txParams,
+          ...(ethereumDefinitions ? { ethereumDefinitions } : {}),
           ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
         }),
       this.getBleFallbackOptions(),
