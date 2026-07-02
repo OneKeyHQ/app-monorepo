@@ -15,6 +15,10 @@ import {
   selectVisibleHistoryRows,
 } from './historyTopFreezeUtils';
 
+import type {
+  IFrozenTopHistoryScrollObserverProps,
+  IUseFrozenTopHistoryDataResult,
+} from './useFrozenTopHistoryData.types';
 import type { SharedValue } from 'react-native-reanimated';
 
 // Native fix for OK-57070. See `historyTopFreezeUtils.ts` for the root-cause
@@ -22,19 +26,22 @@ import type { SharedValue } from 'react-native-reanimated';
 // refresh prepends are held back so the viewport can't be shifted (no jitter);
 // they merge in automatically once the user scrolls back near the top, where
 // inserting above is visually safe.
+//
+// The freeze state machine here is tab-agnostic: it only consumes
+// `onAwayFromTopChange` signals. The collapsible-tab scroll tracking lives in
+// `FrozenTopHistoryScrollObserver` below, which consumers mount ONLY inside a
+// `Tabs.Container` subtree, so the tab-context hook never runs on pages
+// without the provider (RecentHistory plain lists, single-token detail view).
+// Without an observer mounted, `isAwayFromTop` stays false and the hook is a
+// pass-through.
 export function useFrozenTopHistoryData(
   combined: IAccountHistoryTx[],
   enabled: boolean,
-): IAccountHistoryTx[] {
-  const scrollY = useCurrentTabScrollY();
-
+): IUseFrozenTopHistoryDataResult {
   const [displayed, setDisplayed] = useState<IAccountHistoryTx[]>(combined);
   const displayedRef = useRef(displayed);
   const combinedRef = useRef(combined);
   const isAwayFromTopRef = useRef(false);
-  // Worklet-side mirror of the freeze state so the scroll reaction only hops to
-  // JS on an actual threshold crossing, not on every scroll frame.
-  const isAwaySharedValue = useSharedValue(false);
 
   const apply = useCallback(() => {
     const next = selectVisibleHistoryRows({
@@ -65,14 +72,14 @@ export function useFrozenTopHistoryData(
   }, [combined, apply]);
 
   // When the gate turns off (list not being viewed) force the live list and
-  // clear any stale "away" state so re-focusing always starts unfrozen.
+  // clear any stale "away" state so re-focusing always starts unfrozen. The
+  // observer clears its worklet-side mirror off the same `enabled` flag.
   useEffect(() => {
     if (!enabled) {
       isAwayFromTopRef.current = false;
-      isAwaySharedValue.value = false;
       apply();
     }
-  }, [enabled, apply, isAwaySharedValue]);
+  }, [enabled, apply]);
 
   const onAwayFromTopChange = useCallback(
     (away: boolean) => {
@@ -81,6 +88,30 @@ export function useFrozenTopHistoryData(
     },
     [apply],
   );
+
+  return { displayedHistoryData: displayed, onAwayFromTopChange };
+}
+
+// Headless watcher that reports collapsible-tab scroll threshold crossings to
+// `useFrozenTopHistoryData`. It is the only place that touches
+// `useCurrentTabScrollY`, so it MUST only be mounted inside a `Tabs.Container`
+// subtree — consumers gate it on their tab-scenario flag (`inTabList`,
+// `!plainMode && !limit`).
+export function FrozenTopHistoryScrollObserver({
+  enabled,
+  onAwayFromTopChange,
+}: IFrozenTopHistoryScrollObserverProps) {
+  const scrollY = useCurrentTabScrollY();
+  // Worklet-side mirror of the freeze state so the scroll reaction only hops to
+  // JS on an actual threshold crossing, not on every scroll frame.
+  const isAwaySharedValue = useSharedValue(false);
+
+  // Mirror the hook's reset-on-disable so re-enabling starts unfrozen.
+  useEffect(() => {
+    if (!enabled) {
+      isAwaySharedValue.value = false;
+    }
+  }, [enabled, isAwaySharedValue]);
 
   useAnimatedReaction(
     () => (scrollY as SharedValue<number>).value,
@@ -101,5 +132,5 @@ export function useFrozenTopHistoryData(
     [onAwayFromTopChange],
   );
 
-  return displayed;
+  return null;
 }

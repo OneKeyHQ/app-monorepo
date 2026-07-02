@@ -51,7 +51,10 @@ import { maybeOpenPrivateSendHistoryDetail } from '../../Swap/utils/privateSendH
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 
-import { useFrozenTopHistoryData } from './hooks/useFrozenTopHistoryData';
+import {
+  FrozenTopHistoryScrollObserver,
+  useFrozenTopHistoryData,
+} from './hooks/useFrozenTopHistoryData';
 import { useHistoryListLoadMore } from './hooks/useHistoryListLoadMore';
 
 function TxHistoryListContainer(
@@ -594,9 +597,14 @@ function TxHistoryListContainer(
   // the viewport and make the native SectionList jitter (it has no exact
   // item layout). Held rows merge in automatically once the user scrolls back
   // near the top. Pass-through on web/desktop and for preview / plain lists.
-  const displayedHistoryData = useFrozenTopHistoryData(
+  // The tab scenario (full wallet-history tab, not RecentHistory's
+  // plainMode+limit preview) also gates the scroll observer mount below.
+  const isFrozenTopTabScenario = !plainMode && !limit;
+  const frozenTopEnabled =
+    isFocused && isRouteFocused && isFrozenTopTabScenario;
+  const { displayedHistoryData, onAwayFromTopChange } = useFrozenTopHistoryData(
     combinedHistoryData,
-    isFocused && isRouteFocused && !plainMode && !limit,
+    frozenTopEnabled,
   );
 
   const lastVisibilityRefreshAtRef = useRef(0);
@@ -676,37 +684,45 @@ function TxHistoryListContainer(
   );
 
   return (
-    <TxHistoryListView
-      plainMode={plainMode}
-      isTabFocused={isFocused}
-      showIcon
-      inTabList
-      hideValue
-      onRefresh={onHomePageRefresh}
-      data={displayedHistoryData}
-      onPressHistory={handleHistoryItemPress}
-      showHeader
-      showFooter
-      walletId={wallet?.id}
-      accountId={account?.id}
-      networkId={network?.id}
-      indexedAccountId={indexedAccount?.id}
-      initialized={historyState.initialized}
-      tableLayout={tableLayout ?? media.gtMd}
-      listViewStyleProps={{
-        contentContainerStyle: {
-          mt: '$3',
-          pb: tabBarHeight,
-        },
-      }}
-      tokenMap={allTokenListMap}
-      emptyTitle={emptyTitle}
-      emptyDescription={emptyDescription}
-      ListHeaderComponent={listHeaderComponent}
-      onEndReached={loadMoreEnabled ? loadMore : undefined}
-      isLoadingMore={isLoadingMore}
-      hasMore={loadMoreHasMore}
-    />
+    <>
+      {isFrozenTopTabScenario ? (
+        <FrozenTopHistoryScrollObserver
+          enabled={frozenTopEnabled}
+          onAwayFromTopChange={onAwayFromTopChange}
+        />
+      ) : null}
+      <TxHistoryListView
+        plainMode={plainMode}
+        isTabFocused={isFocused}
+        showIcon
+        inTabList
+        hideValue
+        onRefresh={onHomePageRefresh}
+        data={displayedHistoryData}
+        onPressHistory={handleHistoryItemPress}
+        showHeader
+        showFooter
+        walletId={wallet?.id}
+        accountId={account?.id}
+        networkId={network?.id}
+        indexedAccountId={indexedAccount?.id}
+        initialized={historyState.initialized}
+        tableLayout={tableLayout ?? media.gtMd}
+        listViewStyleProps={{
+          contentContainerStyle: {
+            mt: '$3',
+            pb: tabBarHeight,
+          },
+        }}
+        tokenMap={allTokenListMap}
+        emptyTitle={emptyTitle}
+        emptyDescription={emptyDescription}
+        ListHeaderComponent={listHeaderComponent}
+        onEndReached={loadMoreEnabled ? loadMore : undefined}
+        isLoadingMore={isLoadingMore}
+        hasMore={loadMoreHasMore}
+      />
+    </>
   );
 }
 

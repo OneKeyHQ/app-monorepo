@@ -929,13 +929,16 @@ class ServiceSend extends ServiceBase {
   // Source selection:
   // - Custom RPC enabled on a built-in network -> read from that node so the
   //   precheck and the broadcast share one nonce view.
-  // - Backend non-indexed networks (backendIndex === false) -> read directly
-  //   from the chain RPC. The wallet API has no index for these chains and
-  //   proxies the node with the `pending` block tag, which counts the very
-  //   pending tx being replaced (off-by-one). That made the precheck report a
-  //   still-pending nonce as consumed and wrongly drop the pending tx
-  //   (OK-57049). The EVM RPC reads eth_getTransactionCount with `latest`, the
-  //   authoritative confirmed count.
+  // - Backend non-indexed networks (backendIndex === false) -> the wallet API
+  //   has no index for these chains and proxies the node with the `pending`
+  //   block tag, which counts the very pending tx being replaced (off-by-one).
+  //   That made the precheck report a still-pending nonce as consumed and
+  //   wrongly drop the pending tx (OK-57049), so the wallet API must NOT be
+  //   used. Read eth_getTransactionCount with `latest` (the authoritative
+  //   confirmed count) from the ENABLED custom RPC when one exists; without
+  //   one there is no client-side default-RPC source, so skip the precheck
+  //   explicitly (fail-open — broadcast-time backend 40024 / node `nonce too
+  //   low` remains the safety net) rather than reading a disabled custom node.
   // - Otherwise (backend-indexed networks) -> wallet API, whose indexed nonce
   //   reflects the confirmed count.
   //
@@ -950,18 +953,17 @@ class ServiceSend extends ServiceBase {
     networkId: string;
     useDefaultRpc?: boolean;
   }): Promise<number | undefined> {
-    let broadcastViaCustomRpc = false;
+    let customRpcEnabled = false;
     try {
       const customRpcInfo =
         await this.backgroundApi.serviceCustomRpc.getCustomRpcForNetwork(
           networkId,
         );
-      broadcastViaCustomRpc = Boolean(
-        customRpcInfo?.rpc && customRpcInfo?.enabled && !useDefaultRpc,
-      );
+      customRpcEnabled = Boolean(customRpcInfo?.rpc && customRpcInfo?.enabled);
     } catch {
-      broadcastViaCustomRpc = false;
+      customRpcEnabled = false;
     }
+    const broadcastViaCustomRpc = customRpcEnabled && !useDefaultRpc;
 
     let readFromRpc = broadcastViaCustomRpc;
     if (!readFromRpc) {
@@ -972,6 +974,16 @@ class ServiceSend extends ServiceBase {
         // Only positively non-indexed networks switch to the RPC path; missing
         // config falls back to the wallet API (existing behavior).
         if (network?.backendIndex === false) {
+          // fetchAccountDetailsByRpc resolves its endpoint from the user's
+          // saved custom RPC — there is no client-side default-RPC source — so
+          // only take it when that custom RPC is present AND enabled. Without
+          // one, skip the precheck explicitly (fail-open, same net behavior as
+          // the previous `No RPC url` throw) instead of hitting a disabled
+          // custom node, and never fall back to the wallet API here: its
+          // pending-inclusive nonce is exactly the OK-57049 false positive.
+          if (!customRpcEnabled) {
+            return undefined;
+          }
           readFromRpc = true;
         }
       } catch {

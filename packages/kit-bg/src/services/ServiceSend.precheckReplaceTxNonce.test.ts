@@ -257,30 +257,38 @@ describe('ServiceSend.precheckReplaceTxNonceConsumed', () => {
   // OK-57049: on backend non-indexed networks the wallet API proxies the node
   // with the `pending` tag and returns the still-pending tx's own nonce + 1,
   // which previously made a replaceable tx look consumed and got it dropped.
-  // The precheck must read the confirmed (latest) nonce from the RPC for these
-  // networks instead.
-  test('non-indexed network → reads confirmed nonce from RPC, wallet API pending nonce ignored', async () => {
+  // The precheck must never use the wallet API for these networks: it reads
+  // the confirmed (latest) nonce from the ENABLED custom RPC when one exists,
+  // and otherwise skips the precheck explicitly (fail-open) — the RPC read
+  // path resolves its endpoint from the saved custom RPC, so without an
+  // enabled one there is no usable client-side nonce source.
+  test('non-indexed network + enabled custom RPC → reads confirmed nonce from RPC even with useDefaultRpc, wallet API pending nonce ignored', async () => {
     const svc = makeService({
       backendIndex: false,
       // wallet API would report N+1 (pending) -> would falsely flag consumed
       onChainNextNonce: 6,
       // RPC reports the confirmed (latest) count == target -> still pending
       rpcNextNonce: 5,
+      customRpcInfo: { rpc: 'https://custom.rpc', enabled: true },
     });
     const result = await svc.precheckReplaceTxNonceConsumed({
       accountId: 'hd-1--0',
       networkId: 'evm--800001',
       targetNonce: 5,
+      // Unlike indexed networks, useDefaultRpc must NOT push the read back to
+      // the wallet API here — its pending-inclusive nonce is the OK-57049 bug.
+      useDefaultRpc: true,
     });
     expect(result).toEqual({ consumed: false, onChainNextNonce: 5 });
     expect(svc.__mocks.fetchAccountDetailsByRpc).toHaveBeenCalledTimes(1);
     expect(svc.__mocks.fetchAccountDetails).not.toHaveBeenCalled();
   });
 
-  test('non-indexed network → confirmed nonce past target still detected consumed', async () => {
+  test('non-indexed network + enabled custom RPC → confirmed nonce past target still detected consumed', async () => {
     const svc = makeService({
       backendIndex: false,
       rpcNextNonce: 6,
+      customRpcInfo: { rpc: 'https://custom.rpc', enabled: true },
     });
     const result = await svc.precheckReplaceTxNonceConsumed({
       accountId: 'hd-1--0',
@@ -289,6 +297,39 @@ describe('ServiceSend.precheckReplaceTxNonceConsumed', () => {
     });
     expect(result).toEqual({ consumed: true, onChainNextNonce: 6 });
     expect(svc.__mocks.fetchAccountDetailsByRpc).toHaveBeenCalledTimes(1);
+    expect(svc.__mocks.fetchAccountDetails).not.toHaveBeenCalled();
+  });
+
+  test('non-indexed network without custom RPC → precheck skipped (fail-open), no source read', async () => {
+    const svc = makeService({
+      backendIndex: false,
+      onChainNextNonce: 6,
+      rpcNextNonce: 6,
+    });
+    const result = await svc.precheckReplaceTxNonceConsumed({
+      accountId: 'hd-1--0',
+      networkId: 'evm--800001',
+      targetNonce: 5,
+    });
+    expect(result).toEqual({ consumed: false });
+    expect(svc.__mocks.fetchAccountDetailsByRpc).not.toHaveBeenCalled();
+    expect(svc.__mocks.fetchAccountDetails).not.toHaveBeenCalled();
+  });
+
+  test('non-indexed network + disabled custom RPC → precheck skipped, disabled node never read', async () => {
+    const svc = makeService({
+      backendIndex: false,
+      onChainNextNonce: 6,
+      rpcNextNonce: 6,
+      customRpcInfo: { rpc: 'https://custom.rpc', enabled: false },
+    });
+    const result = await svc.precheckReplaceTxNonceConsumed({
+      accountId: 'hd-1--0',
+      networkId: 'evm--800001',
+      targetNonce: 5,
+    });
+    expect(result).toEqual({ consumed: false });
+    expect(svc.__mocks.fetchAccountDetailsByRpc).not.toHaveBeenCalled();
     expect(svc.__mocks.fetchAccountDetails).not.toHaveBeenCalled();
   });
 
