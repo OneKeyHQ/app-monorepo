@@ -136,6 +136,7 @@ import type {
 } from '@onekeyhq/shared/types/signatureRecord';
 
 import keylessSyncCredentialStorage from '../../services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
+import { markCredentialLocalSecretEnvelopeUnavailableError } from '../../utils/localSecretEnvelopeErrorUtils';
 
 import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
@@ -1091,7 +1092,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async lazyMigrateLocalSecretEnvelopeCredentialsAfterUnlock(): Promise<void> {
     const context = await this.getContext();
     const contextVerifyStringMigrationCompleted =
-      this.isContextVerifyStringLocalSecretEnvelopeMigrationCompleted({
+      this.isContextVerifyStringLocalSecretEnvelopeRemovalCompleted({
         context,
       });
     const credentialMigrationCompleted =
@@ -1124,7 +1125,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         }
 
         const verifyStringResult =
-          await this.migrateContextVerifyStringToLocalSecretEnvelopeIfNeeded(
+          await this.removeContextVerifyStringLocalSecretEnvelopeIfNeeded(
             config,
           );
         const credentialResult = credentialMigrationCompleted
@@ -1148,12 +1149,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           console.log('localSecretEnvelopeCredentialMigration done', result);
         }
 
-        const canMarkCompleted =
+        const canMarkSessionCompleted =
           result.failedCount === 0 && result.remainingCount === 0;
-        completed = canMarkCompleted;
-        if (canMarkCompleted || credentialResult.remainingCount === 0) {
-          completed =
+        completed = canMarkSessionCompleted;
+        if (canMarkSessionCompleted || credentialResult.remainingCount === 0) {
+          const credentialMigrationMarkedCompleted =
             await this.markLocalSecretEnvelopeCredentialMigrationCompleted();
+          completed =
+            canMarkSessionCompleted && credentialMigrationMarkedCompleted;
         }
       } catch (error) {
         console.error('localSecretEnvelopeCredentialMigration error', error);
@@ -1245,48 +1248,60 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  isContextVerifyStringLocalSecretEnvelopeMigrationCompleted({
+  isContextVerifyStringLocalSecretEnvelopeRemovalCompleted({
     context,
   }: {
     context: IDBContext;
   }): boolean {
     return (
       context.verifyString === DEFAULT_VERIFY_STRING ||
-      isLocalSecretEnvelopeString(context.verifyString)
+      !isLocalSecretEnvelopeString(context.verifyString)
     );
   }
 
-  async migrateContextVerifyStringToLocalSecretEnvelopeIfNeeded({
+  isContextVerifyStringLocalSecretEnvelopeMigrationCompleted({
+    context,
+  }: {
+    context: IDBContext;
+  }): boolean {
+    return this.isContextVerifyStringLocalSecretEnvelopeRemovalCompleted({
+      context,
+    });
+  }
+
+  async removeContextVerifyStringLocalSecretEnvelopeIfNeeded({
     layerAdapters,
-    strength,
   }: ILocalSecretEnvelopeCredentialMigrationConfig): Promise<ILocalSecretEnvelopeMigrationBatchResult> {
     const ctx = await this.getContext();
     const originalVerifyString = ctx.verifyString;
-    const candidate = classifyLocalSecretEnvelopeMigrationCandidate({
-      dataType: 'verify-string',
-      recordId: DB_MAIN_CONTEXT_ID,
-      rawValue: originalVerifyString,
-    });
-    if (!candidate.canMigrate) {
+    if (
+      originalVerifyString === DEFAULT_VERIFY_STRING ||
+      !isLocalSecretEnvelopeString(originalVerifyString)
+    ) {
       return {
         failedCount: 0,
         migratedCount: 0,
-        remainingCount:
-          candidate.reason === 'already_lse' ||
-          candidate.reason === 'default_verify_string'
-            ? 0
-            : 1,
+        remainingCount: 0,
+      };
+    }
+
+    const resolveLayerAdapter =
+      buildLocalSecretEnvelopeLayerAdapterResolver(layerAdapters);
+    if (!resolveLayerAdapter) {
+      return {
+        failedCount: 1,
+        migratedCount: 0,
+        remainingCount: 1,
       };
     }
 
     let nextVerifyString: string;
     try {
-      nextVerifyString = await wrapLocalSecretEnvelopeV1({
-        dataType: 'verify-string',
-        layerAdapters,
-        plaintext: originalVerifyString,
-        recordId: DB_MAIN_CONTEXT_ID,
-        strength,
+      nextVerifyString = await unwrapLocalSecretEnvelopeV1({
+        envelope: originalVerifyString,
+        expectedDataType: 'verify-string',
+        expectedRecordId: DB_MAIN_CONTEXT_ID,
+        resolveLayerAdapter,
       });
     } catch {
       return {
@@ -1311,24 +1326,48 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         });
       });
     } catch (error) {
-      await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
-        envelope: nextVerifyString,
-        layerAdapters,
-      });
       throw error;
     }
 
     if (!migrated) {
-      await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
-        envelope: nextVerifyString,
-        layerAdapters,
-      });
+      return {
+        failedCount: 1,
+        migratedCount: 0,
+        remainingCount: 1,
+      };
     }
 
+    await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+      envelope: originalVerifyString,
+      layerAdapters,
+    });
+
     return {
-      failedCount: migrated ? 0 : 1,
-      migratedCount: migrated ? 1 : 0,
-      remainingCount: migrated ? 0 : 1,
+      failedCount: 0,
+      migratedCount: 1,
+      remainingCount: 0,
+    };
+  }
+
+  async migrateContextVerifyStringToLocalSecretEnvelopeIfNeeded(
+    _config: ILocalSecretEnvelopeCredentialMigrationConfig,
+  ): Promise<ILocalSecretEnvelopeMigrationBatchResult> {
+    const ctx = await this.getContext();
+    if (ctx.verifyString === DEFAULT_VERIFY_STRING) {
+      return {
+        failedCount: 0,
+        migratedCount: 0,
+        remainingCount: 0,
+      };
+    }
+
+    // verifyString must stay portable so a DB restored to another device can
+    // still be unlocked with the user password. This legacy method is kept as a
+    // no-op compatibility shim for old callers.
+    return {
+      failedCount: 0,
+      migratedCount: 0,
+      remainingCount: isLocalSecretEnvelopeString(ctx.verifyString) ? 1 : 0,
     };
   }
 
@@ -1882,16 +1921,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       | undefined;
 
     if (isOriginalLocalSecretEnvelope) {
-      localSecretEnvelopeResolver =
-        await this.resolveLocalSecretEnvelopeLayerAdapterForEnvelopeOrThrow({
+      try {
+        localSecretEnvelopeResolver =
+          await this.resolveLocalSecretEnvelopeLayerAdapterForEnvelopeOrThrow({
+            envelope: originalCredential,
+          });
+        innerCredential = await unwrapLocalSecretEnvelopeV1({
           envelope: originalCredential,
+          expectedDataType: 'credential',
+          expectedRecordId: credential.id,
+          resolveLayerAdapter: localSecretEnvelopeResolver,
         });
-      innerCredential = await unwrapLocalSecretEnvelopeV1({
-        envelope: originalCredential,
-        expectedDataType: 'credential',
-        expectedRecordId: credential.id,
-        resolveLayerAdapter: localSecretEnvelopeResolver,
-      });
+      } catch (error) {
+        if (error instanceof LocalSecretEnvelopeUnavailable) {
+          markCredentialLocalSecretEnvelopeUnavailableError(error);
+        }
+        throw error;
+      }
     }
 
     let nextCredential: string | undefined;
@@ -1947,13 +1993,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           'Local secret envelope resolver is unavailable',
         );
       }
-      nextCredential = await rewrapLocalSecretEnvelopeV1({
-        envelope: originalCredential,
-        expectedDataType: 'credential',
-        expectedRecordId: credential.id,
-        plaintext: nextCredential,
-        resolveLayerAdapter: localSecretEnvelopeResolver,
-      });
+      try {
+        nextCredential = await rewrapLocalSecretEnvelopeV1({
+          envelope: originalCredential,
+          expectedDataType: 'credential',
+          expectedRecordId: credential.id,
+          plaintext: nextCredential,
+          resolveLayerAdapter: localSecretEnvelopeResolver,
+        });
+      } catch (error) {
+        if (error instanceof LocalSecretEnvelopeUnavailable) {
+          markCredentialLocalSecretEnvelopeUnavailableError(error);
+        }
+        throw error;
+      }
     }
 
     return {
@@ -2036,7 +2089,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async wrapContextVerifyStringWithLocalSecretEnvelopeIfNeeded({
     onWrappedLocalSecretEnvelope,
     originalVerifyString,
-    requireLocalSecretEnvelope,
+    requireLocalSecretEnvelope: _requireLocalSecretEnvelope,
     verifyString,
   }: {
     onWrappedLocalSecretEnvelope?: (params: {
@@ -2053,57 +2106,25 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return verifyString;
     }
 
-    const config =
-      await this.buildLocalSecretEnvelopeCredentialMigrationConfig();
-    if (!config || !config.layerAdapters.length) {
-      if (requireLocalSecretEnvelope) {
-        throw new OneKeyLocalError(
-          buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
-            envelope: originalVerifyString,
-          }),
-        );
-      }
+    if (!isLocalSecretEnvelopeString(originalVerifyString)) {
       return verifyString;
     }
 
     try {
-      if (isLocalSecretEnvelopeString(originalVerifyString)) {
-        const resolveLayerAdapter =
-          buildLocalSecretEnvelopeLayerAdapterResolver(config.layerAdapters);
-        if (!resolveLayerAdapter) {
-          throw new OneKeyLocalError(
-            buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
-              envelope: originalVerifyString,
-            }),
-          );
-        }
-        return await rewrapLocalSecretEnvelopeV1({
-          envelope: originalVerifyString,
-          expectedDataType: 'verify-string',
-          expectedRecordId: DB_MAIN_CONTEXT_ID,
-          plaintext: verifyString,
-          resolveLayerAdapter,
+      const config =
+        await this.buildLocalSecretEnvelopeCredentialMigrationConfig();
+      if (config?.layerAdapters.length) {
+        onWrappedLocalSecretEnvelope?.({
+          layerAdapters: config.layerAdapters,
         });
       }
-
-      const wrappedVerifyString = await wrapLocalSecretEnvelopeV1({
-        dataType: 'verify-string',
-        layerAdapters: config.layerAdapters,
-        plaintext: verifyString,
-        recordId: DB_MAIN_CONTEXT_ID,
-        strength: config.strength,
-      });
-      onWrappedLocalSecretEnvelope?.({
-        layerAdapters: config.layerAdapters,
-      });
-      return wrappedVerifyString;
     } catch (error) {
-      if (requireLocalSecretEnvelope) {
-        throw error;
-      }
-      console.error('localSecretEnvelopeVerifyStringOnWrite error', error);
-      return verifyString;
+      console.error(
+        'localSecretEnvelopeVerifyStringCleanupPrepare error',
+        error,
+      );
     }
+    return verifyString;
   }
 
   async cleanupPreparedCredentialPasswordUpdateLayerKeysBestEffort({
@@ -2357,21 +2378,28 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return credential;
     }
 
-    const layerAdapterResolver =
-      await this.resolveLocalSecretEnvelopeLayerAdapterForEnvelopeOrThrow({
-        envelope: credential.credential,
-        resolveLayerAdapter,
-      });
+    try {
+      const layerAdapterResolver =
+        await this.resolveLocalSecretEnvelopeLayerAdapterForEnvelopeOrThrow({
+          envelope: credential.credential,
+          resolveLayerAdapter,
+        });
 
-    return {
-      ...credential,
-      credential: await unwrapLocalSecretEnvelopeV1({
-        envelope: credential.credential,
-        expectedDataType: 'credential',
-        expectedRecordId: credential.id,
-        resolveLayerAdapter: layerAdapterResolver,
-      }),
-    };
+      return {
+        ...credential,
+        credential: await unwrapLocalSecretEnvelopeV1({
+          envelope: credential.credential,
+          expectedDataType: 'credential',
+          expectedRecordId: credential.id,
+          resolveLayerAdapter: layerAdapterResolver,
+        }),
+      };
+    } catch (error) {
+      if (error instanceof LocalSecretEnvelopeUnavailable) {
+        markCredentialLocalSecretEnvelopeUnavailableError(error);
+      }
+      throw error;
+    }
   }
 
   async migrateCredentialToLocalSecretEnvelopeIfNeeded({
@@ -2452,24 +2480,27 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
   }
 
-  async wrapNewCredentialWithLocalSecretEnvelopeIfNeeded({
+  async buildCredentialForLocalSecretEnvelopeWrite({
     credential,
     credentialId,
   }: {
     credential: string;
     credentialId: string;
-  }): Promise<string> {
+  }): Promise<{
+    credential: string;
+    layerAdapters?: ILocalSecretEnvelopeLayerAdapter[];
+  }> {
     const candidate = classifyLocalSecretEnvelopeMigrationCandidate({
       dataType: 'credential',
       recordId: credentialId,
       rawValue: credential,
     });
     if (!candidate.canMigrate) {
-      return credential;
+      return { credential };
     }
 
     if (!(await this.isLocalPasswordKdfLazyUpgradeCompleted())) {
-      return credential;
+      return { credential };
     }
 
     const config =
@@ -2479,41 +2510,176 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       // credential that bypasses it. Fail fast with a retryable error so the
       // caller can retry once the platform layer recovers.
       if (await this.isLocalSecretEnvelopeCredentialMigrationCompleted()) {
-        throw new LocalSecretEnvelopeUnavailable({
+        const error = new LocalSecretEnvelopeUnavailable({
           message: buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
             envelope: credential,
           }),
         });
+        markCredentialLocalSecretEnvelopeUnavailableError(error);
+        throw error;
       }
       // Not migrated yet: graceful degradation; lazy migration wraps later.
-      return credential;
+      return { credential };
     }
 
     try {
-      return await wrapLocalSecretEnvelopeV1({
-        dataType: 'credential',
+      return {
+        credential: await wrapLocalSecretEnvelopeV1({
+          dataType: 'credential',
+          layerAdapters: config.layerAdapters,
+          plaintext: credential,
+          recordId: credentialId,
+          strength: config.strength,
+        }),
         layerAdapters: config.layerAdapters,
-        plaintext: credential,
-        recordId: credentialId,
-        strength: config.strength,
-      });
+      };
     } catch (error) {
       console.error('localSecretEnvelopeCredentialOnWrite error', {
         credentialId,
         error,
       });
       if (error instanceof LocalSecretEnvelopeUnavailable) {
+        markCredentialLocalSecretEnvelopeUnavailableError(error);
         throw error;
       }
       if (await this.isLocalSecretEnvelopeCredentialMigrationCompleted()) {
-        throw new LocalSecretEnvelopeUnavailable({
+        const unavailableError = new LocalSecretEnvelopeUnavailable({
           message: buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
             envelope: credential,
           }),
         });
+        markCredentialLocalSecretEnvelopeUnavailableError(unavailableError);
+        throw unavailableError;
       }
-      return credential;
+      return { credential };
     }
+  }
+
+  async wrapNewCredentialWithLocalSecretEnvelopeIfNeeded({
+    credential,
+    credentialId,
+  }: {
+    credential: string;
+    credentialId: string;
+  }): Promise<string> {
+    return (
+      await this.buildCredentialForLocalSecretEnvelopeWrite({
+        credential,
+        credentialId,
+      })
+    ).credential;
+  }
+
+  async replaceCredentialWithLocalSecretEnvelopeIfNeeded({
+    credential,
+    credentialId,
+  }: {
+    credential: string;
+    credentialId: string;
+  }): Promise<boolean> {
+    const nextCredentialInfo =
+      await this.buildCredentialForLocalSecretEnvelopeWrite({
+        credential,
+        credentialId,
+      });
+    const existingCredential = await this.getCredentialSafe(credentialId);
+    let originalCredential: string | undefined;
+    let replaced = false;
+    // LSE credential migration runs per-record: a record may already be
+    // LSE-wrapped while the global migration flag is still false. In that
+    // window buildCredentialForLocalSecretEnvelopeWrite() may gracefully fall
+    // back to the raw portable value (layer config transiently unavailable),
+    // and writing that fallback here would silently downgrade an
+    // already-protected record. Detect this inside the transaction (the
+    // record read there is authoritative) and fail fast instead of writing.
+    let downgradeBlocked = false;
+    try {
+      await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+        if (existingCredential) {
+          await this.txUpdateRecords({
+            tx,
+            name: ELocalDBStoreNames.Credential,
+            ids: [credentialId],
+            updater: (record) => {
+              originalCredential = record.credential;
+              if (
+                isLocalSecretEnvelopeString(record.credential) &&
+                !isLocalSecretEnvelopeString(nextCredentialInfo.credential)
+              ) {
+                downgradeBlocked = true;
+                return record;
+              }
+              if (record.credential !== nextCredentialInfo.credential) {
+                record.credential = nextCredentialInfo.credential;
+                replaced = true;
+              }
+              return record;
+            },
+          });
+        } else {
+          const { added } = await this.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Credential,
+            records: [
+              {
+                id: credentialId,
+                credential: nextCredentialInfo.credential,
+              },
+            ],
+            skipIfExists: true,
+          });
+          replaced = added > 0;
+        }
+      });
+    } catch (error) {
+      if (nextCredentialInfo.layerAdapters?.length) {
+        await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+          envelope: nextCredentialInfo.credential,
+          layerAdapters: nextCredentialInfo.layerAdapters,
+        });
+      }
+      throw error;
+    }
+
+    if (downgradeBlocked) {
+      // Keep the existing LSE envelope untouched and surface a retryable
+      // error so the caller retries once the platform layer recovers,
+      // mirroring the fail-fast in buildCredentialForLocalSecretEnvelopeWrite.
+      const error = new LocalSecretEnvelopeUnavailable({
+        message: buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
+          envelope: originalCredential || '',
+        }),
+      });
+      markCredentialLocalSecretEnvelopeUnavailableError(error);
+      throw error;
+    }
+
+    if (
+      !replaced &&
+      (!originalCredential ||
+        originalCredential !== nextCredentialInfo.credential) &&
+      nextCredentialInfo.layerAdapters?.length
+    ) {
+      await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+        envelope: nextCredentialInfo.credential,
+        layerAdapters: nextCredentialInfo.layerAdapters,
+      });
+    }
+
+    if (
+      replaced &&
+      originalCredential &&
+      originalCredential !== nextCredentialInfo.credential &&
+      isLocalSecretEnvelopeString(originalCredential) &&
+      nextCredentialInfo.layerAdapters?.length
+    ) {
+      await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+        envelope: originalCredential,
+        layerAdapters: nextCredentialInfo.layerAdapters,
+      });
+    }
+
+    return replaced;
   }
 
   /**
@@ -6808,13 +6974,25 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     });
 
-    const importedCredentialToAdd =
-      walletId === WALLET_TYPE_IMPORTED && importedCredential && accounts[0]?.id
-        ? await this.wrapNewCredentialWithLocalSecretEnvelopeIfNeeded({
-            credentialId: accounts[0].id,
+    const importedCredentialId =
+      walletId === WALLET_TYPE_IMPORTED ? accounts[0]?.id : undefined;
+    const importedCredentialToAddInfo: {
+      credential: string | undefined;
+      layerAdapters?: ILocalSecretEnvelopeLayerAdapter[];
+    } =
+      importedCredentialId && importedCredential
+        ? await this.buildCredentialForLocalSecretEnvelopeWrite({
+            credentialId: importedCredentialId,
             credential: importedCredential,
           })
-        : importedCredential;
+        : { credential: importedCredential };
+    const importedCredentialToAdd = importedCredentialToAddInfo.credential;
+    const existingImportedCredential =
+      importedCredentialId && walletId === WALLET_TYPE_IMPORTED
+        ? await this.getCredentialSafe(importedCredentialId)
+        : undefined;
+    let replacedImportedCredential: string | undefined;
+    let didReplaceImportedCredential = false;
 
     const syncManager =
       this.backgroundApi.servicePrimeCloudSync.syncManagers.account;
@@ -6867,171 +7045,227 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     // db transaction: add accounts to wallet
 
-    const addResults = await this.withTransaction(
-      EIndexedDBBucketNames.account,
-      async (tx) => {
-        const addResults0 = await syncManager.txWithSyncFlowOfDBRecordCreating({
-          tx,
-          existingSyncItems:
-            existingSyncItemsInfoResult000025394378263443374653.existingSyncItems,
-          newSyncItems:
-            existingSyncItemsInfoResult000025394378263443374653.newSyncItems,
-          runDbTxFn: async () => {
-            const firstAccount: IDBAccount | undefined = accounts?.[0];
-
-            const shouldBuildIdHash =
-              firstAccount &&
-              firstAccount?.pathIndex === 0 &&
-              firstAccount?.address &&
-              firstAccount?.coinType === COINTYPE_ETH &&
-              firstAccount?.indexedAccountId &&
-              firstAccount?.path === FIRST_EVM_ADDRESS_PATH;
-
-            // build idHash for account avatar by firstEvmAddress
-            if (shouldBuildIdHash) {
-              const firstEvmAddress = firstAccount.address.toLowerCase();
-              await this.txUpdateWallet({
-                tx,
-                walletId,
-                updater: (w) => {
-                  w.firstEvmAddress = firstEvmAddress;
-                  return w;
-                },
-              });
-              await this.txUpdateRecords({
-                tx,
-                name: ELocalDBStoreNames.IndexedAccount,
-                ids: [firstAccount?.indexedAccountId].filter(Boolean),
-                updater: async (item) => {
-                  item.idHash = await this.buildIndexedAccountIdHash({
-                    firstEvmAddress,
-                    indexedAccountId: item.id,
-                    index: firstAccount.pathIndex,
-                  });
-                  return item;
-                },
-              });
-            }
-
-            let removed = 0;
-            if (
-              existsAccounts &&
-              existsAccounts.length &&
-              !applyRestoreSyncPolicy
-            ) {
-              // TODO remove and re-add, may cause nextIds not correct,
-              // TODO return actual removed count
-              await this.txRemoveRecords({
-                tx,
-                name: ELocalDBStoreNames.Account,
-                ids,
-                ignoreNotFound: true,
-              });
-
-              removed = existsAccounts.length;
-            }
-
-            // add account record
-            // eslint-disable-next-line prefer-const
-            let { added, addedIds } = await this.txAddRecords({
+    let addResults: {
+      isOverrideAccounts: boolean;
+      existsAccounts: IDBAccount[];
+    };
+    try {
+      addResults = await this.withTransaction(
+        EIndexedDBBucketNames.account,
+        async (tx) => {
+          const addResults0 =
+            await syncManager.txWithSyncFlowOfDBRecordCreating({
               tx,
-              name: ELocalDBStoreNames.Account,
-              records: accounts,
-              skipIfExists: true,
-            });
+              existingSyncItems:
+                existingSyncItemsInfoResult000025394378263443374653.existingSyncItems,
+              newSyncItems:
+                existingSyncItemsInfoResult000025394378263443374653.newSyncItems,
+              runDbTxFn: async () => {
+                const firstAccount: IDBAccount | undefined = accounts?.[0];
 
-            let actualAdded = added - removed;
+                const shouldBuildIdHash =
+                  firstAccount &&
+                  firstAccount?.pathIndex === 0 &&
+                  firstAccount?.address &&
+                  firstAccount?.coinType === COINTYPE_ETH &&
+                  firstAccount?.indexedAccountId &&
+                  firstAccount?.path === FIRST_EVM_ADDRESS_PATH;
 
-            // filter out url account
-            const allAddedIds = addedIds;
-            addedIds = addedIds.filter(
-              (id) => !accountUtils.isUrlAccountFn({ accountId: id }),
-            );
-            const urlAccountsCount = allAddedIds.length - addedIds.length;
-            actualAdded = Math.max(0, actualAdded - urlAccountsCount);
-
-            // update singleton wallet.accounts & nextAccountId
-            if (actualAdded > 0 && this.isSingletonWallet({ walletId })) {
-              await this.txUpdateWallet({
-                tx,
-                walletId,
-                updater: (w) => {
-                  // DO NOT use  w.nextIds = w.nextIds || {};
-                  // it will reset nextIds to {}
-                  if (!w.nextIds) {
-                    w.nextIds = {};
-                  }
-
-                  const nextIdsData = w.nextIds;
-                  const currentNextAccountId = this.getNextIdsValue({
-                    nextIds: nextIdsData,
-                    key: 'accountGlobalNum',
-                    defaultValue: 1,
-                  });
-                  const newAccountGlobalNum =
-                    currentNextAccountId + actualAdded;
-                  w.nextIds.accountGlobalNum = newAccountGlobalNum;
-
-                  // RealmDB Error: Expected 'accounts[0]' to be a string, got an instance of List
-                  // w.accounts is List not Array in realmDB
-                  w.accounts = Array.from(w.accounts || []);
-
-                  w.accounts = uniq(
-                    [].concat(Array.from(w.accounts) as any, addedIds as any),
-                  ).filter(Boolean);
-
-                  return w;
-                },
-              });
-            }
-
-            // add imported account credential
-            if (walletId === WALLET_TYPE_IMPORTED) {
-              const shouldReuseExistingImportedCredential =
-                applyRestoreSyncPolicy &&
-                existsAccounts.length > 0 &&
-                addedIds.length === 0;
-
-              // Restore can keep an existing imported account record, so its
-              // credential row should be reused instead of being inserted again.
-              if (!shouldReuseExistingImportedCredential) {
-                if (addedIds.length !== 1) {
-                  throw new OneKeyLocalError(
-                    'Only one can be imported at a time into a private key account.',
-                  );
-                }
-                if (!importedCredential) {
-                  throw new OneKeyLocalError(
-                    'importedCredential is required for imported account',
-                  );
-                }
-                await this.txAddRecords({
-                  tx,
-                  name: ELocalDBStoreNames.Credential,
-                  records: [
-                    {
-                      id: addedIds[0],
-                      credential: checkIsDefined(importedCredentialToAdd),
+                // build idHash for account avatar by firstEvmAddress
+                if (shouldBuildIdHash) {
+                  const firstEvmAddress = firstAccount.address.toLowerCase();
+                  await this.txUpdateWallet({
+                    tx,
+                    walletId,
+                    updater: (w) => {
+                      w.firstEvmAddress = firstEvmAddress;
+                      return w;
                     },
-                  ],
+                  });
+                  await this.txUpdateRecords({
+                    tx,
+                    name: ELocalDBStoreNames.IndexedAccount,
+                    ids: [firstAccount?.indexedAccountId].filter(Boolean),
+                    updater: async (item) => {
+                      item.idHash = await this.buildIndexedAccountIdHash({
+                        firstEvmAddress,
+                        indexedAccountId: item.id,
+                        index: firstAccount.pathIndex,
+                      });
+                      return item;
+                    },
+                  });
+                }
+
+                let removed = 0;
+                if (
+                  existsAccounts &&
+                  existsAccounts.length &&
+                  !applyRestoreSyncPolicy
+                ) {
+                  // TODO remove and re-add, may cause nextIds not correct,
+                  // TODO return actual removed count
+                  await this.txRemoveRecords({
+                    tx,
+                    name: ELocalDBStoreNames.Account,
+                    ids,
+                    ignoreNotFound: true,
+                  });
+
+                  removed = existsAccounts.length;
+                }
+
+                // add account record
+                // eslint-disable-next-line prefer-const
+                let { added, addedIds } = await this.txAddRecords({
+                  tx,
+                  name: ELocalDBStoreNames.Account,
+                  records: accounts,
                   skipIfExists: true,
                 });
-              }
-            }
 
-            const isOverrideAccounts = removed > 0 && actualAdded === 0;
+                let actualAdded = added - removed;
 
-            return {
-              isOverrideAccounts,
-              existsAccounts,
-            };
+                // filter out url account
+                const allAddedIds = addedIds;
+                addedIds = addedIds.filter(
+                  (id) => !accountUtils.isUrlAccountFn({ accountId: id }),
+                );
+                const urlAccountsCount = allAddedIds.length - addedIds.length;
+                actualAdded = Math.max(0, actualAdded - urlAccountsCount);
 
-            // TODO should add accountId to wallet.accounts or wallet.indexedAccounts?
-          },
+                // update singleton wallet.accounts & nextAccountId
+                if (actualAdded > 0 && this.isSingletonWallet({ walletId })) {
+                  await this.txUpdateWallet({
+                    tx,
+                    walletId,
+                    updater: (w) => {
+                      // DO NOT use  w.nextIds = w.nextIds || {};
+                      // it will reset nextIds to {}
+                      if (!w.nextIds) {
+                        w.nextIds = {};
+                      }
+
+                      const nextIdsData = w.nextIds;
+                      const currentNextAccountId = this.getNextIdsValue({
+                        nextIds: nextIdsData,
+                        key: 'accountGlobalNum',
+                        defaultValue: 1,
+                      });
+                      const newAccountGlobalNum =
+                        currentNextAccountId + actualAdded;
+                      w.nextIds.accountGlobalNum = newAccountGlobalNum;
+
+                      // RealmDB Error: Expected 'accounts[0]' to be a string, got an instance of List
+                      // w.accounts is List not Array in realmDB
+                      w.accounts = Array.from(w.accounts || []);
+
+                      w.accounts = uniq(
+                        [].concat(
+                          Array.from(w.accounts) as any,
+                          addedIds as any,
+                        ),
+                      ).filter(Boolean);
+
+                      return w;
+                    },
+                  });
+                }
+
+                // add imported account credential
+                if (walletId === WALLET_TYPE_IMPORTED) {
+                  const hasExistingImportedAccount = Boolean(
+                    importedCredentialId &&
+                    existsAccounts.some(
+                      (account) => account.id === importedCredentialId,
+                    ),
+                  );
+                  if (!importedCredentialId) {
+                    throw new OneKeyLocalError(
+                      'imported account credential id is required',
+                    );
+                  }
+                  if (!importedCredentialToAdd) {
+                    if (
+                      !existingImportedCredential ||
+                      !hasExistingImportedAccount
+                    ) {
+                      throw new OneKeyLocalError(
+                        'importedCredential is required for imported account',
+                      );
+                    }
+                  } else if (existingImportedCredential) {
+                    await this.txUpdateRecords({
+                      tx,
+                      name: ELocalDBStoreNames.Credential,
+                      ids: [importedCredentialId],
+                      updater: (record) => {
+                        replacedImportedCredential = record.credential;
+                        if (record.credential !== importedCredentialToAdd) {
+                          record.credential = importedCredentialToAdd;
+                          didReplaceImportedCredential = true;
+                        }
+                        return record;
+                      },
+                    });
+                  } else {
+                    if (addedIds.length !== 1 && !hasExistingImportedAccount) {
+                      throw new OneKeyLocalError(
+                        'Only one can be imported at a time into a private key account.',
+                      );
+                    }
+                    await this.txAddRecords({
+                      tx,
+                      name: ELocalDBStoreNames.Credential,
+                      records: [
+                        {
+                          id: importedCredentialId,
+                          credential: checkIsDefined(importedCredentialToAdd),
+                        },
+                      ],
+                      skipIfExists: true,
+                    });
+                  }
+                }
+
+                const isOverrideAccounts = removed > 0 && actualAdded === 0;
+
+                return {
+                  isOverrideAccounts,
+                  existsAccounts,
+                };
+
+                // TODO should add accountId to wallet.accounts or wallet.indexedAccounts?
+              },
+            });
+          return addResults0;
+        },
+      );
+    } catch (error) {
+      if (
+        importedCredentialToAddInfo.layerAdapters?.length &&
+        importedCredentialToAdd
+      ) {
+        await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+          envelope: importedCredentialToAdd,
+          layerAdapters: importedCredentialToAddInfo.layerAdapters,
         });
-        return addResults0;
-      },
-    );
+      }
+      throw error;
+    }
+
+    if (
+      didReplaceImportedCredential &&
+      replacedImportedCredential &&
+      replacedImportedCredential !== importedCredentialToAdd &&
+      isLocalSecretEnvelopeString(replacedImportedCredential) &&
+      importedCredentialToAddInfo.layerAdapters?.length
+    ) {
+      await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+        envelope: replacedImportedCredential,
+        layerAdapters: importedCredentialToAddInfo.layerAdapters,
+      });
+    }
 
     // saveAccountAddresses
     if (allAccountsBelongToNetworkId) {
@@ -7081,24 +7315,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const credentialId = accountUtils.buildTonMnemonicCredentialId({
       accountId,
     });
-    const credential =
-      await this.wrapNewCredentialWithLocalSecretEnvelopeIfNeeded({
-        credentialId,
-        credential: rs,
-      });
-
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      await this.txAddRecords({
-        tx,
-        name: ELocalDBStoreNames.Credential,
-        records: [
-          {
-            id: credentialId,
-            credential,
-          },
-        ],
-        skipIfExists: true,
-      });
+    await this.replaceCredentialWithLocalSecretEnvelopeIfNeeded({
+      credentialId,
+      credential: rs,
     });
   }
 

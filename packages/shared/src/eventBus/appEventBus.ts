@@ -119,6 +119,11 @@ export type ILinuxUdevGuideReason =
 export type IEventBusPayloadShowLinuxUdevGuide = {
   reason?: ILinuxUdevGuideReason;
 };
+
+export type IEventBusPayloadShowLocalSecretEnvelopeErrorDialog = {
+  technicalMessage: string;
+};
+
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: {
     num: number;
@@ -207,6 +212,7 @@ export interface IAppEventBusPayload {
     error: IOneKeyError;
   };
   [EAppEventBusNames.ShowToast]: IEventBusPayloadShowToast;
+  [EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog]: IEventBusPayloadShowLocalSecretEnvelopeErrorDialog;
   [EAppEventBusNames.ShowAirGapQrcode]: {
     title?: string;
     drawType: IQrcodeDrawType;
