@@ -443,8 +443,14 @@ function parseDirectionKey(directionKey: string) {
 
 function getTradeSideActiveBackgroundColor(tradeSide: EMarketPresetTradeSide) {
   return tradeSide === EMarketPresetTradeSide.BUY
-    ? '$bgSuccessStrong'
+    ? '$bgAccent'
     : '$bgCriticalStrong';
+}
+
+function getTradeSideActiveTextColor(tradeSide: EMarketPresetTradeSide) {
+  return tradeSide === EMarketPresetTradeSide.BUY
+    ? '$textInverse'
+    : '$textOnColor';
 }
 
 function MarketPresetDialogHeader({ networkId }: { networkId?: string }) {
@@ -1215,7 +1221,7 @@ function MarketPresetSettingsDialog({
             activeBackgroundColor={getTradeSideActiveBackgroundColor(
               activeTradeSide,
             )}
-            activeTextColor="$textOnColor"
+            activeTextColor={getTradeSideActiveTextColor(activeTradeSide)}
             inactiveTextColor="$textSubdued"
             segmentControlItemStyleProps={{
               borderRadius: '$2',

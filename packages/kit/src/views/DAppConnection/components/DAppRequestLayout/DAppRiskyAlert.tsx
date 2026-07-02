@@ -15,20 +15,6 @@ import { DAppConnectionTestIDs } from '../../testIDs';
 
 import { DAppRiskyAlertDetail } from './DAppRiskyAlertDetail';
 
-function showDAppRiskyAlertDetail({
-  origin,
-  urlSecurityInfo,
-}: {
-  origin: string;
-  urlSecurityInfo: IHostSecurity;
-}) {
-  Dialog.show({
-    title: origin,
-    renderContent: <DAppRiskyAlertDetail urlSecurityInfo={urlSecurityInfo} />,
-    showFooter: false,
-  });
-}
-
 function DAppRiskyAlert({
   origin,
   urlSecurityInfo,
@@ -97,7 +83,13 @@ function DAppRiskyAlert({
           ? {
               primary: intl.formatMessage({ id: ETranslations.global_details }),
               onPrimaryPress: () => {
-                showDAppRiskyAlertDetail({ origin, urlSecurityInfo });
+                Dialog.show({
+                  title: origin,
+                  renderContent: (
+                    <DAppRiskyAlertDetail urlSecurityInfo={urlSecurityInfo} />
+                  ),
+                  showFooter: false,
+                });
               },
             }
           : undefined
@@ -108,4 +100,4 @@ function DAppRiskyAlert({
   );
 }
 
-export { DAppRiskyAlert, showDAppRiskyAlertDetail };
+export { DAppRiskyAlert };

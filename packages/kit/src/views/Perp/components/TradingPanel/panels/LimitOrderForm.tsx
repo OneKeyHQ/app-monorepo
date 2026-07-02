@@ -20,7 +20,6 @@ import type { IButtonProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   type IBBOPriceMode,
@@ -84,7 +83,7 @@ import { shouldApplyMinimumOrderGuard } from '../../../utils/minimumOrderGuard';
 import { shouldBlockPerpsTradingForMarketData } from '../../../utils/perpsMarketDataFreshness';
 import { resolveTpSlTriggerPx } from '../../../utils/resolveTpSlTriggerPx';
 import {
-  PERP_TRADE_BUTTON_COLORS,
+  getTradingButtonStyleValues,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
 import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../PerpDialogLayout';
@@ -147,7 +146,6 @@ export function LimitOrderForm({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { selectedAccount } = useSelectedAccount({ num: 0 });
-  const themeVariant = useThemeVariant();
 
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
@@ -901,11 +899,6 @@ export function LimitOrderForm({
     ],
   );
 
-  const longColors =
-    themeVariant === 'light'
-      ? PERP_TRADE_BUTTON_COLORS.light
-      : PERP_TRADE_BUTTON_COLORS.dark;
-
   const createActionButtonRender = useCallback(
     (props: IButtonProps) => (
       <Button
@@ -997,6 +990,14 @@ export function LimitOrderForm({
     isTradingActionLoading,
     shouldDisableAccountActionButtons,
   ]);
+  const reduceOnlyLabel = intl.formatMessage({
+    id: ETranslations.perps_reduce_only,
+  });
+  const reduceOnlyTooltip = intl.formatMessage({
+    id: ETranslations.perp_reduce_only__desc,
+  });
+  const longButtonStyles = getTradingButtonStyleValues('long');
+  const shortButtonStyles = getTradingButtonStyleValues('short');
 
   return (
     <YStack gap="$2.5">
@@ -1112,24 +1113,26 @@ export function LimitOrderForm({
       {!isSpot ? (
         <>
           {/* Reduce-only (perps only), mirroring the standard order panel. */}
-          <XStack alignItems="center" mb="$2">
+          <XStack alignItems="center" gap="$2" mb="$2">
             <Checkbox
               testID="chart-limit-reduce-only-checkbox"
               value={reduceOnly}
               onChange={(checked) => setReduceOnly(!!checked)}
-              label={intl.formatMessage({
-                id: ETranslations.perps_reduce_only,
-              })}
               containerProps={{
                 p: 0,
                 alignItems: 'center',
                 cursor: 'pointer',
               }}
-              labelProps={{
-                size: '$bodyMd',
-                color: '$text',
-              }}
             />
+            <DashText
+              size="$bodyMd"
+              dashColor="$textDisabled"
+              dashThickness={0.5}
+              tooltip={reduceOnlyTooltip}
+              tooltipTitle={reduceOnlyLabel}
+            >
+              {reduceOnlyLabel}
+            </DashText>
           </XStack>
 
           {/* TP/SL */}
@@ -1223,9 +1226,9 @@ export function LimitOrderForm({
           <YStack flex={1} gap="$2">
             {renderActionButton({
               sideKey: 'long',
-              bg: longColors.long,
-              hoverBg: longColors.longHover,
-              pressBg: longColors.longPress,
+              bg: longButtonStyles.bg,
+              hoverBg: longButtonStyles.hoverBg,
+              pressBg: longButtonStyles.pressBg,
               defaultText: intl.formatMessage({
                 id: isSpot
                   ? ETranslations.dexmarket_details_transactions_buy
@@ -1291,9 +1294,9 @@ export function LimitOrderForm({
           <YStack flex={1} gap="$2">
             {renderActionButton({
               sideKey: 'short',
-              bg: longColors.short,
-              hoverBg: longColors.shortHover,
-              pressBg: longColors.shortPress,
+              bg: shortButtonStyles.bg,
+              hoverBg: shortButtonStyles.hoverBg,
+              pressBg: shortButtonStyles.pressBg,
               defaultText: intl.formatMessage({
                 id: isSpot
                   ? ETranslations.dexmarket_details_transactions_sell
