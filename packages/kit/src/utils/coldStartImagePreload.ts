@@ -5,6 +5,7 @@ import {
   primeCachedImageRefs,
 } from '@onekeyhq/components/src/primitives/Image/cache';
 import { preloadImages } from '@onekeyhq/components/src/primitives/Image/preload';
+import { s } from '@onekeyhq/components/src/utils/scale';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -49,7 +50,7 @@ const PERPS_OPEN_ORDER_LIMIT = 16;
 const PERPS_ALIAS_LOGO_LIMIT = 24;
 const PERPS_TOKEN_SELECTOR_LOGO_LIMIT = 72;
 const PERPS_TOKEN_SELECTOR_CRITICAL_LOGO_LIMIT = 24;
-const COLD_START_IMAGE_PRELOAD_RESIZE_WIDTH = 32;
+const COLD_START_IMAGE_PRELOAD_RESIZE_WIDTH = s(32);
 const PERPS_TOKEN_SELECTOR_PRIORITY_COINS = [
   'BTC',
   'ETH',

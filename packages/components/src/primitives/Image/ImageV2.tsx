@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { Image as ExpoImage, resolveSource } from 'expo-image';
 import { StyleSheet } from 'react-native';
@@ -107,23 +107,21 @@ export function ImageV2({
       style.width,
     ],
   );
-  const [useRawSourceFallback, setUseRawSourceFallback] = useState(false);
+  const [rawSourceFallbackUri, setRawSourceFallbackUri] = useState<
+    string | undefined
+  >();
+  const shouldUseRawSourceFallback =
+    optimizedSourceResult.optimized &&
+    Boolean(optimizedSourceResult.rawUri) &&
+    rawSourceFallbackUri === optimizedSourceResult.rawUri;
   const resolvedSource = useMemo(() => {
-    return useRawSourceFallback
+    return shouldUseRawSourceFallback
       ? optimizedSourceResult.rawSource
       : optimizedSourceResult.source;
   }, [
     optimizedSourceResult.rawSource,
     optimizedSourceResult.source,
-    useRawSourceFallback,
-  ]);
-
-  useEffect(() => {
-    setUseRawSourceFallback(false);
-  }, [
-    optimizedSourceResult.optimized,
-    optimizedSourceResult.optimizedUri,
-    optimizedSourceResult.rawUri,
+    shouldUseRawSourceFallback,
   ]);
 
   useResetError(resolvedSource, hasError, setHasError);
@@ -155,14 +153,23 @@ export function ImageV2({
 
   const handleError = useCallback(
     (event: ImageErrorEventData) => {
-      if (optimizedSourceResult.optimized && !useRawSourceFallback) {
-        setUseRawSourceFallback(true);
+      if (
+        optimizedSourceResult.optimized &&
+        optimizedSourceResult.rawUri &&
+        !shouldUseRawSourceFallback
+      ) {
+        setRawSourceFallbackUri(optimizedSourceResult.rawUri);
         return;
       }
       setHasError(true);
       onError?.(event);
     },
-    [onError, optimizedSourceResult.optimized, useRawSourceFallback],
+    [
+      onError,
+      optimizedSourceResult.optimized,
+      optimizedSourceResult.rawUri,
+      shouldUseRawSourceFallback,
+    ],
   );
 
   const ImageComponent = useMemo(() => {
