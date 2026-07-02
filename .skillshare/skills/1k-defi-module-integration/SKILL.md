@@ -19,6 +19,25 @@ Most requirements are not "add a protocol" only. They are route, data, operation
 
 For DeFi portfolio one-click actions such as withdraw, claim, claimWithdrawal, or removeLiquidity, read [portfolio-actions-guide.md](references/portfolio-actions-guide.md) before changing action visibility, build-transaction payloads, or post-action refresh.
 
+## Evidence-Driven Intake
+
+When an Earn/DeFi task comes from Jira, Slack, a review thread, or a local todo
+ledger, treat the title as a routing clue only. Before changing code, verify the
+current source-of-truth packet:
+
+- Jira issue text, latest comments, priority/status, and attachments when an
+  issue key exists.
+- Slack thread or DM context when it contains late corrections, screenshots,
+  videos, QA notes, or owner decisions.
+- Current client branch and the closest existing Earn/Borrow/Staking/DeFi flow
+  in this repo.
+- Server branch/ref/commit when supported-protocols, build-transaction,
+  portfolio position, status, or DTO semantics are part of the behavior.
+
+If source evidence conflicts, stop and name the conflict before picking a fix
+shape. Use `1k-earn-bugfix` only as historical risk input; this skill remains
+the App implementation owner for Earn/DeFi flow changes.
+
 ## Scenario Router
 
 Classify the change first:
@@ -41,8 +60,11 @@ If the scenario is unclear, map its operation contract before choosing UI struct
 3. Define the operation contract in [operation-flow.md](references/operation-flow.md): operation type, parameters, setup tx, business tx, status, risk, and refresh.
 4. For DeFi Portfolio actions, read [portfolio-actions-guide.md](references/portfolio-actions-guide.md) and verify the portfolio, supported-action, and build-transaction contracts separately.
 5. Define route, state, pending, and platform ownership in [state-and-routing.md](references/state-and-routing.md).
-6. Run [checklists.md](references/checklists.md), including ABI/native readiness drills when adding a protocol integration.
-7. Validate on the route and platform that own the behavior.
+6. Identify the closest valid repo pattern before inventing a new hook, state
+   owner, operation adapter, or protocol abstraction. Reuse the shell only when
+   provider, network, account, token, route, and operation semantics match.
+7. Run [checklists.md](references/checklists.md), including ABI/native readiness drills when adding a protocol integration.
+8. Validate on the route and platform that own the behavior.
 
 ## Reference Map
 
@@ -76,6 +98,11 @@ If a drill cannot be completed from the references, improve the abstraction befo
 - Do not hand-edit generated locale files; use `/1k-i18n`.
 - Do not broaden shared Staking/Borrow utilities without existing-protocol regression reasoning.
 - Do not hide a DeFi Portfolio position only because its protocol has no supported action.
+- Do not create a new abstraction, hook, or state owner until the closest
+  existing repo pattern and its semantic mismatch have been named.
+- Do not let one oversized hook own route sync, data loading, operation state,
+  listener refresh, pending/history, and view model. Split stateful business
+  logic by stable responsibility when that clarifies ownership.
 
 ## Related Skills
 

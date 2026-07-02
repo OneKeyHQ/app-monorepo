@@ -4,6 +4,12 @@
 
 Run this before shipping or approving Earn/Borrow/Staking work:
 
+0. Source packet is current when the task came from Jira, Slack, review, or a
+   todo ledger: issue comments, Slack context, attachments, client branch, and
+   server supported-protocols/build-transaction/portfolio DTO branch when
+   relevant.
+0a. Closest valid repo pattern is named, including why its provider/network/
+    account/token/route/operation semantics do or do not apply.
 1. Provider identity survives route round trip: provider, network, symbol, vault/market/reserve, account, indexed account.
 2. Operation contract is named: stake, withdraw, claim, redeem, supply, borrow, repay, collateral, wrap, swap-assisted, or custom.
 3. Setup and business transactions are sequenced explicitly.
@@ -17,6 +23,9 @@ Run this before shipping or approving Earn/Borrow/Staking work:
 11. Native crash or freeze claims include the exact confirm/send path plus Android/iOS log, Sentry event, or JS/native crash boundary.
 12. Shared utility changes include existing-protocol regression reasoning.
 13. User-facing text follows the repository i18n workflow.
+14. Large hooks are split only by stable responsibility: route sync, data
+    loading, operation state machine, listener refresh, pending/history bridge,
+    or view-model composition.
 
 ## ABI Readiness Drill
 
