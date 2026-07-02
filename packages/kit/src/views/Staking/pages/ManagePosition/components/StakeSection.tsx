@@ -114,6 +114,17 @@ export const StakeSection = ({
     () => earnUtils.isNativeProvider({ providerName }),
     [providerName],
   );
+  const borrowProviderDisplayName = useMemo(() => {
+    if (
+      protocolInfo?.providerDetail.name &&
+      protocolInfo.providerDetail.name !== providerName
+    ) {
+      return protocolInfo.providerDetail.name;
+    }
+    return earnUtils.getEarnProviderName({
+      providerName,
+    });
+  }, [protocolInfo?.providerDetail.name, providerName]);
   const [selectedStakeAsset, setSelectedStakeAsset] = useState<
     IEarnTokenItem | undefined
   >(undefined);
@@ -677,9 +688,7 @@ export const StakeSection = ({
           ? {
               label:
                 action === 'borrow' ? EEarnLabels.Borrow : EEarnLabels.Supply,
-              protocol: earnUtils.getEarnProviderName({
-                providerName: provider,
-              }),
+              protocol: borrowProviderDisplayName,
               protocolLogoURI: protocolInfo?.providerDetail.logoURI,
               ...(action === 'borrow'
                 ? { receive: { token, amount } }
@@ -694,6 +703,7 @@ export const StakeSection = ({
     },
     [
       borrowApiCtx,
+      borrowProviderDisplayName,
       handleBorrowBorrow,
       handleBorrowSupply,
       hasRequiredData,

@@ -23,7 +23,6 @@ import {
   useTheme,
   useThemeName,
 } from '@onekeyhq/components';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -48,7 +47,6 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../../utils/mobileLayoutTrace';
-import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 import {
   DepthBar,
@@ -536,21 +534,14 @@ const useTextColor = () => {
 };
 
 const useSideRatioColors = () => {
-  const themeName = useThemeName();
-  const themeVariant = useThemeVariant();
+  const theme = useTheme();
 
   return useMemo(() => {
     return {
-      long:
-        themeVariant === 'light'
-          ? PERP_TRADE_BUTTON_COLORS.light.long
-          : colorTokens[themeName].green.green8,
-      short:
-        themeVariant === 'light'
-          ? colorTokens[themeName].red.red11
-          : colorTokens[themeName].red.red8,
+      long: theme.bgAccent.val,
+      short: theme.bgCriticalStrong.val,
     };
-  }, [themeName, themeVariant]);
+  }, [theme.bgAccent.val, theme.bgCriticalStrong.val]);
 };
 
 const useSpreadColor = () => {

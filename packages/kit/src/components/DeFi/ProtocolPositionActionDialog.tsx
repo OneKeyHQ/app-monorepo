@@ -523,6 +523,36 @@ function buildDeFiActionTxConfirmInfo({
   intl: ReturnType<typeof useIntl>;
   hasRewards?: boolean;
 }): IDeFiActionTxConfirmInfo {
+  // LP removes redeem the position as one unit; any per-token amount here is
+  // a preview estimate, so show only the pool pair + percent and let the
+  // decoded tx details carry the real amounts.
+  if (action.action === EDeFiPositionAction.RemoveLiquidity) {
+    const underlyingAssets = selectedAsset.underlyingAssets ?? [];
+    const underlyingLogoUrls = underlyingAssets
+      .map((item) => item.meta?.logoUrl)
+      .filter((logoUrl): logoUrl is string => Boolean(logoUrl));
+    return {
+      actionLabel: getActionLabel({ action: action.action, intl, hasRewards }),
+      protocolId: action.protocolId,
+      assetSymbol: getSelectedAssetDisplaySymbol({
+        action: action.action,
+        selectedAsset,
+      }),
+      assetLogoUrl: selectedAsset.asset.meta?.logoUrl,
+      // Same threshold as the joined pair symbol (>1 underlying), so the
+      // icons always match the text; missing logos degrade to fewer icons.
+      assetLogoUrls:
+        underlyingAssets.length > 1 && underlyingLogoUrls.length > 0
+          ? underlyingLogoUrls
+          : undefined,
+      extraLabel: getActionExtraLabel({
+        action: action.action,
+        asset: selectedAsset,
+        percent,
+      }),
+    };
+  }
+
   const explicitAmount = amount !== undefined && amount.trim() !== '';
   let assetAmount: string;
   if (explicitAmount) {
@@ -630,7 +660,8 @@ async function addDeFiActionEarnOrders({
             stakingTags: [
               DEFI_PORTFOLIO_ACTION_STAKING_TAG,
               action.protocolId,
-              action.action,
+              // Tag what actually executed on the wire.
+              action.buildAction ?? action.action,
             ],
           });
         } catch (error) {
@@ -727,9 +758,14 @@ function useProtocolPositionActionSubmit({
         throw new OneKeyLocalError('DeFi action asset is missing');
       }
 
-      const isWithdraw = action.action === EDeFiPositionAction.Withdraw;
+      // The wire action for build-transaction; `action.action` keeps the
+      // displayed semantics (e.g. Stake DAO shows Remove but builds withdraw).
+      const buildActionType = action.buildAction ?? action.action;
+      const isWithdraw = buildActionType === EDeFiPositionAction.Withdraw;
       const isRemoveLiquidity =
-        action.action === EDeFiPositionAction.RemoveLiquidity;
+        buildActionType === EDeFiPositionAction.RemoveLiquidity;
+      const isLpWithdraw =
+        isWithdraw && action.action === EDeFiPositionAction.RemoveLiquidity;
       const percentageAction = isPercentageAction(action.action);
       const { amount: amountForApi, bps } = resolveActionTxAmount({
         percentageAction,
@@ -759,20 +795,24 @@ function useProtocolPositionActionSubmit({
             selectedAsset,
             percent,
           });
-          // RemoveLiquidity omits tokenAddress; Lido withdraw must send it empty
-          // (see isLidoWithdraw note); everything else uses the asset's token.
+          // RemoveLiquidity omits tokenAddress; Lido withdraw and LP-unit
+          // withdraws (Stake DAO) must send it EMPTY — the build API requires
+          // the field but resolves the tx from poolAddress, and an LP unit has
+          // no single token to name. Everything else uses the asset's token.
           let buildTokenAddress: string | undefined =
             selectedAsset.tokenAddress;
           if (isRemoveLiquidity) {
             buildTokenAddress = undefined;
-          } else if (isLidoWithdraw) {
+          } else if (isLidoWithdraw || isLpWithdraw) {
             buildTokenAddress = '';
           }
           let resp = await backgroundApiProxy.serviceDeFi.buildDeFiTransaction({
             accountId,
             networkId,
             protocolId: action.protocolId,
-            action: isLidoWithdraw ? EDeFiPositionAction.Permit : action.action,
+            action: isLidoWithdraw
+              ? EDeFiPositionAction.Permit
+              : buildActionType,
             tokenAddress: buildTokenAddress,
             amount: amountForApi,
             bps,
@@ -812,7 +852,7 @@ function useProtocolPositionActionSubmit({
               accountId,
               networkId,
               protocolId: action.protocolId,
-              action: action.action,
+              action: buildActionType,
               tokenAddress: buildTokenAddress,
               amount: amountForApi,
               bps,

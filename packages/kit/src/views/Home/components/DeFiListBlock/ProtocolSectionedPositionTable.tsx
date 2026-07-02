@@ -3,7 +3,10 @@ import { Fragment, memo, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
-import { ProtocolPositionActionButton } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
+import {
+  type IProtocolPositionProviderDisplayInfo,
+  ProtocolPositionActionButton,
+} from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
 import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
@@ -46,6 +49,7 @@ type IProtocolSectionedPositionTableProps = {
   accountId?: string;
   indexedAccountId?: string;
   protocol: IDeFiProtocol;
+  providerDisplayInfo?: IProtocolPositionProviderDisplayInfo;
   position: ILocalizedProtocolPositionItem;
   actionPosition: IDeFiProtocol['positions'][number];
   currencySymbol: string;
@@ -61,6 +65,7 @@ const ProtocolSectionedPositionTable = memo(
     accountId,
     indexedAccountId,
     protocol,
+    providerDisplayInfo,
     position,
     actionPosition,
     currencySymbol,
@@ -175,6 +180,7 @@ const ProtocolSectionedPositionTable = memo(
                         accountId={accountId}
                         indexedAccountId={indexedAccountId}
                         protocol={protocol}
+                        providerDisplayInfo={providerDisplayInfo}
                         position={actionPosition}
                         supportedActions={supportedActions}
                         placement={actionPlacement}
