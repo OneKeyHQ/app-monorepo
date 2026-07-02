@@ -24,6 +24,13 @@ const ACCOUNT_INVALIDATING_SUBTYPES = new Set<ESubscriptionType>([
 const DEPOSIT_CONFIRMATION_RETRY_MAX_ATTEMPTS = 5;
 const DEPOSIT_CONFIRMATION_RETRY_INTERVAL_MS =
   PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS;
+const ACCOUNT_REVALIDATE_DEBOUNCE_MS = 1000;
+
+interface IPerpsHomePortfolioResult {
+  address: string;
+  view: IPerpsHomeView | undefined;
+  snapshotLoaded: boolean;
+}
 
 export function usePerpsHomePortfolio(): {
   viewState: 'ready' | 'loading' | 'empty';
@@ -37,50 +44,57 @@ export function usePerpsHomePortfolio(): {
   // Home tabs stay mounted while frozen, so gate polling on the Perps tab being active.
   const { isFocused: isTabFocused } = useTabIsRefreshingFocused();
 
-  const { result, run, setResult } = usePromiseResult(
-    async () => {
-      if (!accountId && !indexedAccountId) {
-        return { address: '', view: undefined };
-      }
-      const deriveType =
-        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId: PERPS_NETWORK_ID,
-        });
-      let address = '';
-      try {
-        const acc = await backgroundApiProxy.serviceAccount.getNetworkAccount({
-          accountId: indexedAccountId ? undefined : accountId,
-          indexedAccountId,
-          deriveType: deriveType ?? 'default',
-          networkId: PERPS_NETWORK_ID,
-        });
-        address = acc?.addressDetail?.normalizedAddress || acc?.address || '';
-      } catch {
-        // account has no Arbitrum derivation, so there is no HL address to query
-        return { address: '', view: undefined };
-      }
-      if (!address) {
-        return { address: '', view: undefined };
-      }
-      const snapshot =
-        await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
-          { address },
-        );
-      return {
-        address,
-        view: snapshot ? mapSnapshotToPerpsHomeView(snapshot) : undefined,
-      };
-    },
-    [accountId, indexedAccountId],
-    {
-      // Account-scoped so result swaps synchronously on account switch instead of rendering the previous account's portfolio.
-      swrKey: `perps-home:${indexedAccountId ?? accountId ?? ''}`,
-      // Poll interval matches the active TTL; the orchestrator gates real HL network to positions=15s / idle=1m / empty=30m.
-      pollingInterval: PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
-      overrideIsFocused: (isPageFocused) => isPageFocused && isTabFocused,
-    },
-  );
+  const { result, run, setResult } =
+    usePromiseResult<IPerpsHomePortfolioResult>(
+      async () => {
+        if (!accountId && !indexedAccountId) {
+          return { address: '', view: undefined, snapshotLoaded: true };
+        }
+        const deriveType =
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId: PERPS_NETWORK_ID,
+          });
+        let address = '';
+        try {
+          const acc = await backgroundApiProxy.serviceAccount.getNetworkAccount(
+            {
+              accountId: indexedAccountId ? undefined : accountId,
+              indexedAccountId,
+              deriveType: deriveType ?? 'default',
+              networkId: PERPS_NETWORK_ID,
+            },
+          );
+          address = acc?.addressDetail?.normalizedAddress || acc?.address || '';
+        } catch {
+          // account has no Arbitrum derivation, so there is no HL address to query
+          return { address: '', view: undefined, snapshotLoaded: true };
+        }
+        if (!address) {
+          return { address: '', view: undefined, snapshotLoaded: true };
+        }
+        const snapshot =
+          await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
+            { address },
+          );
+        return {
+          address,
+          view: snapshot ? mapSnapshotToPerpsHomeView(snapshot) : undefined,
+          snapshotLoaded: Boolean(snapshot),
+        };
+      },
+      [accountId, indexedAccountId],
+      {
+        // Account-scoped so result swaps synchronously on account switch instead of rendering the previous account's portfolio.
+        swrKey: `perps-home:${indexedAccountId ?? accountId ?? ''}`,
+        // Poll interval matches the active TTL; the orchestrator gates real HL network to positions=15s / idle=1m / empty=30m.
+        pollingInterval: PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
+        overrideIsFocused: (isPageFocused) => isPageFocused && isTabFocused,
+      },
+    );
   const depositRetryTimerRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
+  const accountRevalidateTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
   const depositRetryNonceRef = useRef(0);
@@ -118,6 +132,7 @@ export function usePerpsHomePortfolio(): {
         setResult({
           address,
           view: mapSnapshotToPerpsHomeView(snapshot),
+          snapshotLoaded: true,
         });
       }
       if (snapshot && !snapshot.isEmpty) {
@@ -144,21 +159,48 @@ export function usePerpsHomePortfolio(): {
       }
       void forceRefreshAfterDeposit({ address, attempt: 1, nonce });
     };
-    const invalidateAndRun = () => {
-      const address = result?.address;
-      // Skip when the address is unresolved: a bare invalidate would wipe every account's cache.
-      if (address) {
-        void backgroundApiProxy.serviceHyperliquid
-          .invalidateHyperliquidPortfolio(address)
-          .then(() => run());
-      } else {
-        void run();
+    const clearAccountRevalidate = () => {
+      if (accountRevalidateTimerRef.current) {
+        clearTimeout(accountRevalidateTimerRef.current);
+        accountRevalidateTimerRef.current = undefined;
       }
     };
-    const onHl = (p: { subType: ESubscriptionType }) => {
-      if (ACCOUNT_INVALIDATING_SUBTYPES.has(p.subType)) invalidateAndRun();
+    const revalidateAccount = async (address: string) => {
+      const snapshot =
+        await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
+          { address, force: true },
+        );
+      if (latestAddressRef.current !== address) {
+        return;
+      }
+      if (snapshot) {
+        setResult({
+          address,
+          view: mapSnapshotToPerpsHomeView(snapshot),
+          snapshotLoaded: true,
+        });
+      }
     };
-    const onRecover = () => invalidateAndRun();
+    const scheduleAccountRevalidate = () => {
+      const address = result?.address;
+      if (!address) {
+        void run();
+        return;
+      }
+      if (accountRevalidateTimerRef.current) {
+        return;
+      }
+      accountRevalidateTimerRef.current = setTimeout(() => {
+        accountRevalidateTimerRef.current = undefined;
+        void revalidateAccount(address);
+      }, ACCOUNT_REVALIDATE_DEBOUNCE_MS);
+    };
+    const onHl = (p: { subType: ESubscriptionType }) => {
+      if (ACCOUNT_INVALIDATING_SUBTYPES.has(p.subType)) {
+        scheduleAccountRevalidate();
+      }
+    };
+    const onRecover = () => scheduleAccountRevalidate();
     const onTxConfirmed = (p: { networkId: string }) => {
       if (p.networkId === PERPS_NETWORK_ID) startDepositConfirmationRetry();
     };
@@ -170,6 +212,7 @@ export function usePerpsHomePortfolio(): {
       appEventBus.off(EAppEventBusNames.PerpsWebSocketRecovered, onRecover);
       appEventBus.off(EAppEventBusNames.LocalPendingTxConfirmed, onTxConfirmed);
       clearDepositRetry();
+      clearAccountRevalidate();
       depositRetryNonceRef.current += 1;
     };
   }, [result?.address, run, setResult]);
@@ -178,7 +221,9 @@ export function usePerpsHomePortfolio(): {
   const viewState = useMemo<'ready' | 'loading' | 'empty'>(() => {
     // result is undefined until a fetch resolves for the current account key (swrKey
     // resets it synchronously on switch), so an unresolved key reads as loading, not empty.
-    if (result === undefined) return 'loading';
+    if (result === undefined || (result.address && !result.snapshotLoaded)) {
+      return 'loading';
+    }
     return view && !view.isEmpty ? 'ready' : 'empty';
   }, [result, view]);
 

@@ -1027,6 +1027,18 @@ export default class ServiceHyperliquid extends ServiceBase {
       await this.backgroundApi.simpleDb.perp.getHyperliquidPortfolioSnapshot(
         normalized,
       );
+    let allowCachedFallback = true;
+    if (cached) {
+      const persistedAbstractionMode =
+        await this.backgroundApi.simpleDb.perp.getUserAbstractionMode(
+          normalized,
+        );
+      const isCachedModeStale = Boolean(
+        persistedAbstractionMode &&
+        cached.abstractionMode !== persistedAbstractionMode,
+      );
+      allowCachedFallback = !isCachedModeStale;
+    }
     if (!force && cached) {
       let maxAge = PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_AGE_MS;
       if (cached.perpPositions.length > 0) {
@@ -1035,7 +1047,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       } else if (cached.isEmpty) {
         maxAge = PERPS_HL_PORTFOLIO_EMPTY_MAX_AGE_MS;
       }
-      if (Date.now() - cached.fetchedAt <= maxAge) {
+      if (allowCachedFallback && Date.now() - cached.fetchedAt <= maxAge) {
         return cached;
       }
     }
@@ -1052,7 +1064,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     } catch {
       // Don't cache the failure; fall back to the (possibly stale) cache.
       void this._fetchHlPortfolioMemo.delete(normalized);
-      return cached;
+      return allowCachedFallback ? cached : undefined;
     }
   }
 
