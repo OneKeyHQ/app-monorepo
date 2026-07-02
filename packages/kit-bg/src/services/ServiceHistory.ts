@@ -77,6 +77,11 @@ import { perpsDepositOrderAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import {
+  getKnownPerpsDepositOrderTxIds,
+  isPerpsDepositOrderMatchedByTxIds,
+  shouldKeepHistoryConfirmationMarker,
+} from './utils/perpsDepositHistoryUtils';
 
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
 import type { IDBAccount } from '../dbs/local/types';
@@ -107,10 +112,6 @@ type IPrivateSendDisplayPriceTarget = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
-}
-
-function normalizeTxId(txid: string | undefined): string | undefined {
-  return txid?.toLowerCase();
 }
 
 function shouldPreferPrivateSendSwapHistory(
@@ -160,18 +161,6 @@ function mergeNullishRecordFields<T extends Record<string, unknown>>({
   return result as T;
 }
 
-function getKnownPerpsDepositOrderTxIds({
-  txid,
-  originalTxId,
-}: {
-  txid: string | undefined;
-  originalTxId: string | undefined;
-}) {
-  const txIds = new Set([normalizeTxId(txid), normalizeTxId(originalTxId)]);
-  txIds.delete(undefined);
-  return txIds;
-}
-
 async function findKnownPerpsDepositOrderTx({
   txid,
   originalTxId,
@@ -185,7 +174,7 @@ async function findKnownPerpsDepositOrderTx({
   }
   const perpsDepositOrder = await perpsDepositOrderAtom.get();
   return perpsDepositOrder.orders.find((order) =>
-    txIds.has(normalizeTxId(order.fromTxId)),
+    isPerpsDepositOrderMatchedByTxIds(order, txIds),
   );
 }
 
@@ -202,10 +191,8 @@ async function clearHistoryConsumedPerpsDepositOrderTx({
   }
   await perpsDepositOrderAtom.set((prev) => ({
     ...prev,
-    orders: prev.orders.filter(
-      (order) =>
-        !order.keepForHistoryConfirmation ||
-        !txIds.has(normalizeTxId(order.fromTxId)),
+    orders: prev.orders.filter((order) =>
+      shouldKeepHistoryConfirmationMarker(order, txIds),
     ),
   }));
 }
