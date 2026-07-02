@@ -11,23 +11,14 @@ import {
 
 import { DAppConnectionTestIDs } from '../../testIDs';
 
-function shouldHideDAppSiteRiskStyle(urlSecurityInfo?: IHostSecurity) {
-  return (
-    urlSecurityInfo?.level === EHostSecurityLevel.High ||
-    urlSecurityInfo?.level === EHostSecurityLevel.Medium
-  );
-}
-
 function DAppSiteMarkInner({
   origin,
   urlSecurityInfo,
   favicon,
-  hideRiskStyle,
 }: {
   origin: string;
   urlSecurityInfo?: IHostSecurity;
   favicon?: string; // for WalletConnect
-  hideRiskStyle?: boolean;
 }) {
   const content = useMemo(() => {
     try {
@@ -50,7 +41,7 @@ function DAppSiteMarkInner({
       iconName: null,
       iconColor: null,
     };
-    if (hideRiskStyle || !urlSecurityInfo?.level) {
+    if (!urlSecurityInfo?.level) {
       return defaultStyle;
     }
     switch (urlSecurityInfo?.level) {
@@ -79,7 +70,7 @@ function DAppSiteMarkInner({
         return defaultStyle;
       }
     }
-  }, [hideRiskStyle, urlSecurityInfo?.level]);
+  }, [urlSecurityInfo?.level]);
 
   return (
     <XStack
@@ -122,4 +113,4 @@ function DAppSiteMarkInner({
 
 const DAppSiteMark = memo(DAppSiteMarkInner);
 
-export { DAppSiteMark, shouldHideDAppSiteRiskStyle };
+export { DAppSiteMark };
