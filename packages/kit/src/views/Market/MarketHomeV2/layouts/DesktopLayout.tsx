@@ -27,11 +27,7 @@ import {
 import { DesktopStickyHeaderContext } from './DesktopStickyHeaderContext';
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
 
-import type {
-  ILiquidityFilter,
-  IMarketFilterBarProps,
-  IMarketHomeTabValue,
-} from '../types';
+import type { IDesktopLayoutProps } from './DesktopLayout.types';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
 const DESKTOP_STICKY_HEADER_TOP_GAP = 8;
@@ -47,13 +43,6 @@ const LazyMarketPerpsTokenList = lazy(async () => {
     await import('../components/MarketPerpsList');
   return { default: MarketPerpsTokenList };
 });
-
-interface IDesktopLayoutProps {
-  filterBarProps: IMarketFilterBarProps;
-  selectedNetworkId: string;
-  liquidityFilter?: ILiquidityFilter;
-  onTabChange: (tabId: IMarketHomeTabValue) => void;
-}
 
 const useIsFirstFocus = () => {
   const isFirstFocusRef = useRef(false);
