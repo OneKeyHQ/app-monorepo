@@ -6,12 +6,13 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  EVideoResizeMode,
   HeightTransition,
-  Image,
   LottieView,
   SizableText,
   Stack,
   Toast,
+  Video,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -32,6 +33,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { ListItem } from '../../../components/ListItem';
 import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { getForceTransportType, sortDevicesData } from '../utils';
 
 import {
@@ -44,6 +46,7 @@ import {
 import { ConnectionIndicator } from './ConnectYourDevice';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
+import type { ReactVideoSource } from 'react-native-video';
 
 enum EConnectionStatus {
   init = 'init',
@@ -52,6 +55,14 @@ enum EConnectionStatus {
 }
 
 function DevicePlaceholder({ isBle }: { isBle: boolean }) {
+  const themeVariant = useThemeVariant();
+  const videoSource = useMemo<ReactVideoSource>(
+    () =>
+      themeVariant === 'dark'
+        ? (require('@onekeyhq/kit/assets/onboarding/Connect-Trezor-D.mp4') as ReactVideoSource)
+        : (require('@onekeyhq/kit/assets/onboarding/Connect-Trezor-L.mp4') as ReactVideoSource),
+    [themeVariant],
+  );
   return (
     <Stack
       w="100%"
@@ -69,11 +80,15 @@ function DevicePlaceholder({ isBle }: { isBle: boolean }) {
           loop
         />
       ) : (
-        <Image
-          source={require('@onekeyhq/kit/assets/pick-trezor.png')}
-          width="60%"
-          height="60%"
-          resizeMode="contain"
+        <Video
+          muted
+          autoPlay
+          w="100%"
+          h="100%"
+          controls={false}
+          playInBackground={false}
+          resizeMode={EVideoResizeMode.COVER}
+          source={videoSource}
         />
       )}
     </Stack>

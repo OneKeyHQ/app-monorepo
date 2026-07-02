@@ -345,3 +345,53 @@ try {
 `);
   expect(out).toBe('OK:compressed');
 });
+
+// --- inversify / Ledger Device Management Kit under lockdown ----------------
+// The Ledger DMK (@ledgerhq/device-management-kit + signer/connector kits) uses
+// `inversify`, whose `@inversifyjs/reflect-metadata-utils` chokepoint stored DI
+// metadata on the global `Reflect` intrinsic via `reflect-metadata`. lockdown()
+// freezes Reflect, so DMK init crashed with "Cannot define property decorate,
+// object is not extensible". Two consumer-side patches fix it WITHOUT touching
+// ses:
+//   1. patches/@inversifyjs+reflect-metadata-utils+*.patch — keep DI metadata in
+//      a module-local WeakMap instead of the global Reflect.
+//   2. patches/reflect-metadata+*.patch — its (now unused) global install is a
+//      best-effort no-op when Reflect is frozen, so the leftover side-effect
+//      `import 'reflect-metadata'` in inversify no longer throws.
+// This proves a real inversify container resolves an @inject dependency AFTER
+// lockdown, and that the global Reflect was never relied upon (stays frozen,
+// Reflect.getMetadata absent).
+
+test('inversify resolves an @inject dependency AFTER lockdown (Ledger DMK path) without touching Reflect', () => {
+  const out = runUnderLockdown(`
+require('ses');
+lockdown(opts);
+try {
+  const { Container, injectable, inject } = require('inversify');
+  class Engine { go() { return 'vroom'; } }
+  injectable()(Engine);
+  class Car {
+    constructor(engine) { this.engine = engine; }
+    drive() { return this.engine.go(); }
+  }
+  inject(Engine)(Car, undefined, 0);
+  injectable()(Car);
+  const container = new Container();
+  container.bind(Engine).toSelf();
+  container.bind(Car).toSelf();
+  const car = container.get(Car);
+  const ok =
+    car instanceof Car &&
+    car.engine instanceof Engine &&
+    car.drive() === 'vroom' &&
+    // DI metadata lives in a module-local WeakMap; the global Reflect is never
+    // mutated, so it stays frozen and never gains a getMetadata method.
+    Object.isFrozen(Reflect) === true &&
+    typeof Reflect.getMetadata === 'undefined';
+  process.stdout.write('OK:' + ok);
+} catch (e) {
+  process.stdout.write('ERR:' + e.message);
+}
+`);
+  expect(out).toBe('OK:true');
+});

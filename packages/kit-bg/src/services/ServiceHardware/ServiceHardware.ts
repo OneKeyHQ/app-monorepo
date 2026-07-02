@@ -2078,8 +2078,29 @@ class ServiceHardware extends ServiceBase {
     }
     const xfpProfile = vendor ? getVendorProfile(vendor) : undefined;
     if (xfpProfile?.isThirdParty) {
-      // Third-party XFP not needed initially — can be added later
-      return undefined;
+      // Trezor can supply XFP via its adapter (master fingerprint + taproot
+      // xpub). Other third-party vendors (e.g. Ledger) stay XFP-less for now.
+      if (vendor !== EHardwareVendor.trezor) {
+        return undefined;
+      }
+      try {
+        return await this.backgroundApi.serviceThirdPartyHardware.buildHwWalletXfp(
+          {
+            connectId,
+            deviceId: deviceId || '',
+            vendor,
+            passphraseState,
+          },
+        );
+      } catch (error) {
+        // Never block wallet creation on third-party XFP; fall back to XFP-less.
+        defaultLogger.hardware.sdkLog.log(
+          `[ServiceHardware] getHwWalletXfp third-party failed: ${
+            (error as Error)?.message ?? String(error)
+          }`,
+        );
+        return undefined;
+      }
     }
     try {
       const compatibleConnectId = await this.getCompatibleConnectId({

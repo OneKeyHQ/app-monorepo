@@ -48,6 +48,7 @@ type IDeFiPermitData = NonNullable<IDeFiBuildTransactionResp['permit']>;
 type IDeFiBuildTransactionApiResp = {
   tx?: IDeFiEvmTransaction | string;
   approvalTx?: IDeFiEvmTransaction | string;
+  orderId?: string;
   permit?: IDeFiPermitData | string;
 };
 
@@ -81,6 +82,7 @@ function normalizeDeFiBuildTransactionResp(
   resp: IDeFiBuildTransactionApiResp,
 ): IDeFiBuildTransactionResp {
   return {
+    orderId: resp.orderId,
     tx: parseDeFiJsonField<IDeFiEvmTransaction>({
       fieldName: 'tx',
       value: resp.tx,
