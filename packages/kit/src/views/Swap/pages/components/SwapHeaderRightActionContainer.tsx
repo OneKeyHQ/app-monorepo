@@ -667,6 +667,7 @@ export function SwapSettingsHeaderButton({
       title: intl.formatMessage({
         id: ETranslations.swap_page_settings,
       }),
+      disableDrag: true,
       renderContent: (
         <SwapProviderMirror storeName={swapStoreName}>
           <SwapSettingsDialogContent
