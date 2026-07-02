@@ -19,6 +19,7 @@ import type {
 } from '@onekeyhq/shared/src/eventSource';
 
 import type {
+  IEstimateGasResp,
   IFeeAlgo,
   IFeeCkb,
   IFeeDot,
@@ -515,6 +516,7 @@ export interface ISwapGasInfo {
   // Gas Account sponsorship result carried over from the estimate-fee response,
   // so the preview UI (sponsored badge) and the send path (broadcast quoteId)
   // can read it from the same gasInfo snapshot.
+  megafuelEligible?: IEstimateGasResp['megafuelEligible'];
   payer?: IGasPayer;
   gasAccountEligible?: boolean;
   gasAccountQuote?: IGasAccountQuote;
