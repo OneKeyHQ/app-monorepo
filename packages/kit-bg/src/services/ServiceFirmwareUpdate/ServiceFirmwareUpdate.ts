@@ -33,6 +33,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { parseFirmwareVersions } from '@onekeyhq/shared/src/logger/scopes/update/scenes/firmware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -1642,9 +1644,77 @@ class ServiceFirmwareUpdate extends ServiceBase {
     await firmwareUpdateResultVerifyAtom.set(undefined);
   }
 
-  @backgroundMethod()
-  @toastIfError()
-  async startUpdateWorkflowV2(params: IUpdateFirmwareWorkflowParams) {
+  async completeUpdateWorkflow({
+    params,
+    updateFlow,
+  }: {
+    params: IUpdateFirmwareWorkflowParams;
+    updateFlow: 'v1' | 'v2';
+  }) {
+    const updateFirmwareInfo = params.releaseResult.updateInfos?.firmware;
+    const { fromFirmwareType, toFirmwareType } = updateFirmwareInfo ?? {
+      fromFirmwareType: undefined,
+      toFirmwareType: undefined,
+    };
+    const needOnboarding =
+      fromFirmwareType && toFirmwareType && fromFirmwareType !== toFirmwareType;
+    const hardwareTransportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+
+    defaultLogger.update.firmware.firmwareUpdateResult({
+      deviceType: params.releaseResult.deviceType,
+      transportType: hardwareTransportType,
+      updateFlow,
+      firmwareVersions: parseFirmwareVersions(params.releaseResult),
+      fromFirmwareType,
+      toFirmwareType,
+      status: 'success',
+    });
+
+    await firmwareUpdateStepInfoAtom.set({
+      step: EFirmwareUpdateSteps.updateDone,
+      payload: {
+        needOnboarding,
+      },
+    });
+  }
+
+  async failUpdateWorkflow({
+    params,
+    updateFlow,
+    error,
+  }: {
+    params: IUpdateFirmwareWorkflowParams;
+    updateFlow: 'v1' | 'v2';
+    error: unknown;
+  }) {
+    const err = toPlainErrorObject(error as any);
+    const updateFirmwareInfo = params.releaseResult.updateInfos?.firmware;
+    const hardwareTransportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+
+    serviceHardwareUtils.hardwareLog('startUpdateWorkflow ERROR', error);
+    defaultLogger.update.firmware.firmwareUpdateResult({
+      deviceType: params.releaseResult.deviceType,
+      transportType: hardwareTransportType,
+      updateFlow,
+      firmwareVersions: parseFirmwareVersions(params.releaseResult),
+      fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
+      toFirmwareType: updateFirmwareInfo?.toFirmwareType,
+      status: 'failed',
+      errorCode: err?.code,
+      errorMessage: err?.message,
+    });
+
+    await firmwareUpdateStepInfoAtom.set({
+      step: EFirmwareUpdateSteps.error,
+      payload: {
+        error: err,
+      },
+    });
+  }
+
+  async runUpdateWorkflowV2(params: IUpdateFirmwareWorkflowParams) {
     await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
         appEventBus.emit(EAppEventBusNames.BeginFirmwareUpdate, undefined);
@@ -1730,6 +1800,33 @@ class ServiceFirmwareUpdate extends ServiceBase {
         debugMethodName: 'startUpdateWorkflowV2',
       },
     );
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async startUpdateWorkflowV2(params: IUpdateFirmwareWorkflowParams) {
+    await firmwareUpdateWorkflowRunningAtom.set(true);
+
+    void (async () => {
+      try {
+        await this.runUpdateWorkflowV2(params);
+        await this.completeUpdateWorkflow({
+          params,
+          updateFlow: 'v2',
+        });
+      } catch (error) {
+        await this.failUpdateWorkflow({
+          params,
+          updateFlow: 'v2',
+          error,
+        });
+      }
+    })().catch((error) => {
+      serviceHardwareUtils.hardwareLog(
+        'startUpdateWorkflowV2 background task handler ERROR',
+        error,
+      );
+    });
   }
 
   async startUpdateBootloaderTask(params: IUpdateFirmwareWorkflowParams) {

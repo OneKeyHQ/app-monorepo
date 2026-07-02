@@ -120,6 +120,7 @@ export function FirmwareUpdateCheckList({
                   });
 
                 const updateFirmwareInfo = result?.updateInfos?.firmware;
+                let shouldResetWorkflowRunningInUi = true;
                 try {
                   await dialog.close();
 
@@ -157,19 +158,20 @@ export function FirmwareUpdateCheckList({
                         releaseResult: result,
                       },
                     );
-                  } else {
-                    navigation.push(EModalFirmwareUpdateRoutes.Install, {
-                      result,
-                    });
-                    setWorkflowIsRunning(true);
-                    await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflow(
-                      {
-                        backuped: true,
-                        usbConnected: true,
-                        releaseResult: result,
-                      },
-                    );
+                    shouldResetWorkflowRunningInUi = false;
+                    return;
                   }
+                  navigation.push(EModalFirmwareUpdateRoutes.Install, {
+                    result,
+                  });
+                  setWorkflowIsRunning(true);
+                  await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflow(
+                    {
+                      backuped: true,
+                      usbConnected: true,
+                      releaseResult: result,
+                    },
+                  );
 
                   defaultLogger.update.firmware.firmwareUpdateResult({
                     deviceType: result?.deviceType,
@@ -218,7 +220,9 @@ export function FirmwareUpdateCheckList({
                     errorMessage: err?.message,
                   });
                 } finally {
-                  setWorkflowIsRunning(false);
+                  if (shouldResetWorkflowRunningInUi) {
+                    setWorkflowIsRunning(false);
+                  }
                 }
               }
             : undefined
