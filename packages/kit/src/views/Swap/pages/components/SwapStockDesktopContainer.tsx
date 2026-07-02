@@ -28,7 +28,10 @@ import {
   usePopoverContext,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
-import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import {
+  HeaderButtonGroup,
+  HeaderIconButton,
+} from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
@@ -2103,16 +2106,16 @@ function SwapStockDesktopContent({
                       id: ETranslations.perps_token_selector_stocks,
                     })}
                   </SizableText>
-                  <XStack alignItems="center" gap="$2">
+                  <HeaderButtonGroup gap="$4" flexShrink={0}>
                     <SwapSettingsHeaderButton
                       iconSize="$5"
                       iconColor="$iconStrong"
-                      compact
                       showCustomSlippageValue
                     />
                     {historyBadgeCount > 0 ? (
                       <Stack
                         testID="swap-stock-history-button"
+                        m="$0.5"
                         w="$5"
                         h="$5"
                         userSelect="none"
@@ -2143,12 +2146,12 @@ function SwapStockDesktopContent({
                       <HeaderIconButton
                         testID="swap-stock-history-button"
                         icon="ClockTimeHistoryOutline"
-                        size="small"
-                        iconProps={{ color: '$iconStrong' }}
+                        size="medium"
+                        iconProps={{ size: '$5', color: '$iconStrong' }}
                         onPress={onOpenHistoryListModal}
                       />
                     )}
-                  </XStack>
+                  </HeaderButtonGroup>
                 </XStack>
                 <StockTradeTicket
                   onSelectToken={onSelectToken}
