@@ -27,7 +27,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 interface IErrorActionParams {
-  errorCode?: number;
+  errorCode?: number | string;
   requestId?: string;
   diagnosticText?: string;
   i18nKey?: ETranslations;
