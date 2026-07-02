@@ -293,10 +293,11 @@ function RewardCenterDetails() {
             body: {
               method: 'get',
               url: '/api/account',
-              data: {},
-              params: {
+              // The TRX resource proxy expects this GET payload in data.
+              data: {
                 fromAddress: account.address,
               },
+              params: {},
             },
             returnRawData: true,
           });
