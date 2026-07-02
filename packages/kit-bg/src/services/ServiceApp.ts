@@ -43,7 +43,10 @@ import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 import ServiceBase from './ServiceBase';
 import { biologyAuthUtils } from './ServicePassword/biologyAuthUtils';
 
-import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
+import type {
+  ISimpleDBAppStatus,
+  ITradingViewChartMigration,
+} from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 
 @backgroundClass()
 class ServiceApp extends ServiceBase {
@@ -416,6 +419,100 @@ class ServiceApp extends ServiceBase {
   async getLaunchTimesLastReset() {
     const v = await simpleDb.appStatus.getRawData();
     return v?.launchTimesLastReset ?? 0;
+  }
+
+  @backgroundMethod()
+  async initTradingViewChartMigrationState() {
+    if (!platformEnv.isDesktop) {
+      return;
+    }
+
+    await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
+      if (v?.tradingViewChartMigration) {
+        return v ?? {};
+      }
+
+      const launchTimes = v?.launchTimes ?? 0;
+      return {
+        ...v,
+        tradingViewChartMigration: {
+          state:
+            launchTimes === 0 ? 'skipped-first-install' : 'export-deferred',
+        },
+      };
+    });
+  }
+
+  @backgroundMethod()
+  async getTradingViewChartMigration(): Promise<{
+    migration?: ITradingViewChartMigration;
+    blob?: Record<string, string>;
+  }> {
+    const v = await simpleDb.appStatus.getRawData();
+    return {
+      migration: v?.tradingViewChartMigration,
+      blob: v?.tradingViewChartMigrationBlob,
+    };
+  }
+
+  @backgroundMethod()
+  async setTradingViewChartMigrationExported(params: {
+    blob: Record<string, string>;
+  }) {
+    const { blob } = params;
+    const keyCount = Object.keys(blob).length;
+
+    await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
+      if (v?.tradingViewChartMigration?.state !== 'export-deferred') {
+        return v ?? {};
+      }
+
+      const isEmpty = keyCount === 0;
+      return {
+        ...v,
+        tradingViewChartMigration: {
+          state: isEmpty ? 'export-empty' : 'restore-pending',
+          lastAttemptAt: Date.now(),
+          exportedAt: Date.now(),
+        },
+        tradingViewChartMigrationBlob: isEmpty ? undefined : blob,
+      };
+    });
+  }
+
+  @backgroundMethod()
+  async markTradingViewChartMigrationAttempt() {
+    await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
+      if (v?.tradingViewChartMigration?.state !== 'export-deferred') {
+        return v ?? {};
+      }
+
+      return {
+        ...v,
+        tradingViewChartMigration: {
+          ...v.tradingViewChartMigration,
+          lastAttemptAt: Date.now(),
+        },
+      };
+    });
+  }
+
+  @backgroundMethod()
+  async setTradingViewChartMigrationDone() {
+    await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
+      if (v?.tradingViewChartMigration?.state !== 'restore-pending') {
+        return v ?? {};
+      }
+
+      return {
+        ...v,
+        tradingViewChartMigration: {
+          ...v.tradingViewChartMigration,
+          state: 'done',
+        },
+        tradingViewChartMigrationBlob: undefined,
+      };
+    });
   }
 
   @backgroundMethod()

@@ -161,6 +161,12 @@ jobs:
         run: |
           yarn install --immutable
 
+      - name: Stage TradingView offline chart assets
+        env:
+          NPM_GITHUB_READ_TOKEN: ${{ secrets.NPM_GITHUB_READ_TOKEN || secrets.GITHUB_TOKEN }}
+          TRADINGVIEW_ASSETS_REQUIRED: '1'
+        run: node development/scripts/fetch-tradingview-assets.mjs
+
       - name: Download Renderer Artifact
         uses: actions/download-artifact@v4
         with:
@@ -468,6 +474,12 @@ jobs:
         run: |
           yarn install --immutable
 
+      - name: Stage TradingView offline chart assets
+        env:
+          NPM_GITHUB_READ_TOKEN: ${{ secrets.NPM_GITHUB_READ_TOKEN || secrets.GITHUB_TOKEN }}
+          TRADINGVIEW_ASSETS_REQUIRED: '1'
+        run: node development/scripts/fetch-tradingview-assets.mjs
+
       - name: Download Renderer Artifact
         uses: actions/download-artifact@v4
         with:
@@ -721,6 +733,12 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn install --immutable
+
+      - name: Stage TradingView offline chart assets
+        env:
+          NPM_GITHUB_READ_TOKEN: ${{ secrets.NPM_GITHUB_READ_TOKEN || secrets.GITHUB_TOKEN }}
+          TRADINGVIEW_ASSETS_REQUIRED: '1'
+        run: node development/scripts/fetch-tradingview-assets.mjs
 
       - name: Download Renderer Artifact
         uses: actions/download-artifact@v4

@@ -7,11 +7,13 @@ import {
   TRADING_VIEW_URL,
   TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
+import { DESKTOP_OFFLINE_CHART_ENTRY_URL } from '@onekeyhq/shared/src/consts/desktopChartConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { TRADING_VIEW_DISABLED_FEATURES_URL_PARAM } from '../constants';
+import { getDesktopOfflineChartReady } from '../utils/desktopOfflineChartReady';
 import { getTradingViewTimezone } from '../utils/tradingViewTimezone';
 
 import type { ITradingViewDisabledFeature } from '../constants';
@@ -31,10 +33,15 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
   const localTradingViewUrl = platformEnv.isNativeAndroid
     ? 'http://10.0.2.2:5173/'
     : 'http://localhost:5173/';
+  const desktopOfflineChartReady = getDesktopOfflineChartReady();
 
   const baseUrl = useMemo(() => {
     if (devSettings.enabled && devSettings.settings?.useLocalTradingViewUrl) {
       return localTradingViewUrl;
+    }
+
+    if (desktopOfflineChartReady) {
+      return DESKTOP_OFFLINE_CHART_ENTRY_URL;
     }
 
     if (devSettings.enabled) {
@@ -45,6 +52,7 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
   }, [
     devSettings.enabled,
     devSettings.settings?.useLocalTradingViewUrl,
+    desktopOfflineChartReady,
     localTradingViewUrl,
   ]);
 
@@ -53,22 +61,21 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
     [calendars],
   );
 
-  const finalUrl = useMemo(() => {
+  const params = useMemo(() => {
     const locale = systemLocale;
-
-    const url = new URL(baseUrl);
-    url.searchParams.set('timezone', timezone);
-    url.searchParams.set('locale', locale);
-    url.searchParams.set('platform', platformEnv.appPlatform ?? 'web');
-    url.searchParams.set('theme', theme);
+    const result: Record<string, string> = {
+      timezone,
+      locale,
+      platform: platformEnv.appPlatform ?? 'web',
+      theme,
+    };
     if (platformEnv.version) {
-      url.searchParams.set('appVersion', platformEnv.version);
+      result.appVersion = platformEnv.version;
     }
 
-    // Add any additional parameters
     if (additionalParams) {
       Object.entries(additionalParams).forEach(([key, value]) => {
-        url.searchParams.set(key, value);
+        result[key] = value;
       });
     }
 
@@ -78,25 +85,25 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
       )
       .join(',');
     if (serializedDisabledFeatures) {
-      url.searchParams.set(
-        TRADING_VIEW_DISABLED_FEATURES_URL_PARAM,
-        serializedDisabledFeatures,
-      );
+      result[TRADING_VIEW_DISABLED_FEATURES_URL_PARAM] =
+        serializedDisabledFeatures;
     }
 
+    return result;
+  }, [additionalParams, disabledFeatures, systemLocale, theme, timezone]);
+
+  const finalUrl = useMemo(() => {
+    const url = new URL(baseUrl);
+    Object.entries(params).forEach(([key, value]) => {
+      url.searchParams.set(key, value);
+    });
     return url.toString();
-  }, [
-    additionalParams,
-    baseUrl,
-    disabledFeatures,
-    systemLocale,
-    theme,
-    timezone,
-  ]);
+  }, [baseUrl, params]);
 
   return {
     baseUrl,
     finalUrl,
+    params,
     timezone,
   };
 }

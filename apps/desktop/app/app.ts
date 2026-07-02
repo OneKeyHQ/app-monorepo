@@ -20,6 +20,7 @@ import {
   ipcMain,
   nativeTheme,
   powerMonitor,
+  protocol,
   session,
   shell,
 } from 'electron';
@@ -39,6 +40,10 @@ import {
   ONEKEY_APP_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import {
+  DESKTOP_OFFLINE_CHART_HOST,
+  DESKTOP_OFFLINE_CHART_SCHEME,
+} from '@onekeyhq/shared/src/consts/desktopChartConsts';
 import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
@@ -227,6 +232,46 @@ const resourcesPath = getResourcesPath();
 const sdkConnectSrc = isLocalUnpacked
   ? `file://${path.join(staticPath, 'js-sdk/')}`
   : path.join('/static', 'js-sdk/');
+
+const chartAssetsRoot = path.resolve(__dirname, '..', 'tradingview-assets');
+const chartOfflineReady = fs.existsSync(
+  path.join(chartAssetsRoot, 'index.html'),
+);
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: DESKTOP_OFFLINE_CHART_SCHEME,
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+      stream: true,
+    },
+  },
+]);
+
+const CHART_MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.mjs': 'text/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.map': 'application/json',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.wasm': 'application/wasm',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.otf': 'font/otf',
+  '.cur': 'image/x-icon',
+};
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
@@ -940,6 +985,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         staticPath: `file://${staticPath}`,
         // preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
         sdkConnectSrc,
+        tradingViewOfflineReady: chartOfflineReady,
       },
     );
   });
@@ -1387,6 +1433,47 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   ]);
   const webviewSession = session.fromPartition('persist:onekey');
   void applyDesktopNetworkThrottleToKnownSessions();
+  if (chartOfflineReady) {
+    try {
+      webviewSession.protocol.handle(
+        DESKTOP_OFFLINE_CHART_SCHEME,
+        async (request) => {
+          try {
+            const { host, pathname } = new URL(request.url);
+            if (host !== DESKTOP_OFFLINE_CHART_HOST) {
+              return new Response('Not Found', { status: 404 });
+            }
+
+            const relativePath =
+              decodeURIComponent(pathname).replace(/^\/+/, '') || 'index.html';
+            const resolved = path.resolve(chartAssetsRoot, relativePath);
+            if (
+              resolved !== chartAssetsRoot &&
+              !resolved.startsWith(chartAssetsRoot + path.sep)
+            ) {
+              logger.warn('[chart] blocked path traversal:', resolved);
+              return new Response('Forbidden', { status: 403 });
+            }
+
+            const data = await fs.promises.readFile(resolved);
+            const mime =
+              CHART_MIME_TYPES[path.extname(resolved).toLowerCase()] ||
+              'application/octet-stream';
+            return new Response(new Uint8Array(data), {
+              status: 200,
+              headers: { 'Content-Type': mime },
+            });
+          } catch {
+            logger.warn('[chart] asset not found:', request.url);
+            return new Response('Not Found', { status: 404 });
+          }
+        },
+      );
+    } catch (error) {
+      logger.info('[chart] protocol handler already registered:', error);
+    }
+  }
+
   webviewSession.setPermissionRequestHandler(
     (webContents, permission, callback, details) => {
       const requestingUrl = details.requestingUrl || '';

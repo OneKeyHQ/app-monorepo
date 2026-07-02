@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { type ComponentType, useEffect } from 'react';
 
 import { RootSiblingParent } from 'react-native-root-siblings';
 
@@ -48,6 +48,16 @@ const PageTrackerContainer = LazyLoad(
   100,
 );
 
+const ChartMigrationContainer = LazyLoad(
+  () =>
+    import('../../components/TradingView/ChartMigration').then((m) => ({
+      default: m.ChartMigration,
+    })) as unknown as Promise<{
+      default: ComponentType<Record<string, unknown>>;
+    }>,
+  1000,
+);
+
 function GlobalRootAppNavigationUpdate() {
   const navigation = useAppNavigation();
   appGlobals.$rootAppNavigation = navigation;
@@ -87,6 +97,7 @@ function DetailRouter() {
       <WebPerformanceMonitorContainer />
       <PasswordVerifyPortalContainer />
       <RookieShareContainer />
+      <ChartMigrationContainer />
     </NavigationContainer>
   );
 }

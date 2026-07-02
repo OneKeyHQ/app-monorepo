@@ -39,6 +39,16 @@ class ServiceBootstrap extends ServiceBase {
     const criticalStart = Date.now();
     await this.timed('localDb.readyDb', () => localDb.readyDb);
     try {
+      await this.timed('initTradingViewChartMigrationState', () =>
+        this.backgroundApi.serviceApp.initTradingViewChartMigrationState(),
+      );
+    } catch (_error) {
+      defaultLogger.app.bootstrap.initCriticalStep(
+        'initTradingViewChartMigrationState (FAILED)',
+        0,
+      );
+    }
+    try {
       await this.timed('initSystemLocale', () =>
         this.backgroundApi.serviceSetting.initSystemLocale(),
       );

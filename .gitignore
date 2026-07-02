@@ -96,6 +96,7 @@ coverage/
 
 # Ignore copy inject files
 /apps/desktop/public/static/js-sdk
+/apps/desktop/app/tradingview-assets
 /apps/ext/src/entry/injected.js
 /apps/desktop/public/static/preload.js
 /packages/kit-bg/src/desktopApis/injectedDesktopCode.text-js

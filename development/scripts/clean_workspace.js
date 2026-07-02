@@ -31,6 +31,7 @@ const dirsToRemove = [
   './apps/desktop/dist',
   './apps/desktop/build',
   './apps/desktop/build-electron',
+  './apps/desktop/app/tradingview-assets',
   './apps/desktop/public/static/js-sdk',
   './apps/desktop/public/static/connect',
   './apps/desktop/public/static/preload.js',

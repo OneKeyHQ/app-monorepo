@@ -10,6 +10,19 @@ export type IWalletAssetStatusAnalyticsState = {
   lastSnapshotReportedAt?: number;
 };
 
+export type ITradingViewChartMigrationState =
+  | 'export-deferred'
+  | 'export-empty'
+  | 'restore-pending'
+  | 'done'
+  | 'skipped-first-install';
+
+export type ITradingViewChartMigration = {
+  state: ITradingViewChartMigrationState;
+  lastAttemptAt?: number;
+  exportedAt?: number;
+};
+
 export interface ISimpleDBAppStatus {
   // hdWalletHashGenerated?: boolean;
   // hdWalletXfpGenerated?: boolean;
@@ -32,6 +45,8 @@ export interface ISimpleDBAppStatus {
   // OneKey IDs (onekeyUserId) that have already seen the KYT intro dialog.
   // Scoped per Prime user so each account is prompted once.
   kytIntroShownUserIds?: string[];
+  tradingViewChartMigration?: ITradingViewChartMigration;
+  tradingViewChartMigrationBlob?: Record<string, string>;
 }
 
 export class SimpleDbEntityAppStatus extends SimpleDbEntityBase<ISimpleDBAppStatus> {

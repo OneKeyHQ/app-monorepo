@@ -117,6 +117,10 @@ export type IDesktopApiBridge = {
 
 export type IDesktopGlobals = {
   sdkConnectSrc?: string;
+  // True when the offline TradingView chart bundle was bundled into the asar
+  // and the onekey-chart:// protocol handler is registered. Absent/false keeps
+  // the renderer on the online chart.
+  tradingViewOfflineReady?: boolean;
 };
 
 export type IDesktopMainProcessDevOnlyApiParams = {
