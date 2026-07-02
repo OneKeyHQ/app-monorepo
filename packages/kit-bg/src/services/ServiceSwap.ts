@@ -30,6 +30,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { prunePerpsDepositHistoryConfirmationMarkers } from '@onekeyhq/shared/src/utils/hyperliquidDepositUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
@@ -3343,6 +3344,7 @@ export default class ServiceSwap extends ServiceBase {
         },
       });
       if (data?.data) {
+        const now = Date.now();
         const perpDepositOrder = await perpsDepositOrderAtom.get();
         const findTxidOrder = perpDepositOrder.orders.find(
           (item) => item.fromTxId === params.txId,
@@ -3355,6 +3357,7 @@ export default class ServiceSwap extends ServiceBase {
             const successOrder = {
               ...findTxidOrder,
               status: ESwapTxHistoryStatus.SUCCESS,
+              time: now,
               keepForHistoryConfirmation: true,
             };
             if (!params.isArbUSDCToken) {
@@ -3377,7 +3380,10 @@ export default class ServiceSwap extends ServiceBase {
             });
             await perpsDepositOrderAtom.set((prev) => ({
               ...prev,
-              orders: [...filteredPerpDepositOrder, successOrder],
+              orders: prunePerpsDepositHistoryConfirmationMarkers(
+                [...filteredPerpDepositOrder, successOrder],
+                now,
+              ),
             }));
           } else if (
             data?.data.state === ESwapTxHistoryStatus.FAILED ||
@@ -3403,7 +3409,10 @@ export default class ServiceSwap extends ServiceBase {
             });
             await perpsDepositOrderAtom.set((prev) => ({
               ...prev,
-              orders: [...filteredPerpDepositOrder],
+              orders: prunePerpsDepositHistoryConfirmationMarkers(
+                filteredPerpDepositOrder,
+                now,
+              ),
             }));
           }
         }
@@ -3424,7 +3433,18 @@ export default class ServiceSwap extends ServiceBase {
     }
     const { accountId, indexedAccountId } = params;
     const perpDepositOrder = await perpsDepositOrderAtom.get();
-    const filteredPerpDepositOrder = perpDepositOrder.orders.filter((item) => {
+    const now = Date.now();
+    const prunedPerpDepositOrders = prunePerpsDepositHistoryConfirmationMarkers(
+      perpDepositOrder.orders,
+      now,
+    );
+    if (prunedPerpDepositOrders.length !== perpDepositOrder.orders.length) {
+      await perpsDepositOrderAtom.set((prev) => ({
+        ...prev,
+        orders: prunePerpsDepositHistoryConfirmationMarkers(prev.orders, now),
+      }));
+    }
+    const filteredPerpDepositOrder = prunedPerpDepositOrders.filter((item) => {
       return (
         ((!item.accountId && !accountId) || item.accountId === accountId) &&
         ((!item.indexedAccountId && !indexedAccountId) ||

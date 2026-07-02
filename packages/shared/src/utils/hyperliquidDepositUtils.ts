@@ -6,8 +6,32 @@ import { PERPS_NETWORK_ID } from '../consts/perp';
 
 import type { IDecodedTx } from '../../types/tx';
 
+export const PERPS_DEPOSIT_HISTORY_CONFIRMATION_MARKER_TTL_MS = 30 * 60 * 1000;
+
 function normalize(value: string | undefined): string | undefined {
   return value?.toLowerCase();
+}
+
+export function prunePerpsDepositHistoryConfirmationMarkers<
+  T extends {
+    keepForHistoryConfirmation?: boolean;
+    time?: number;
+  },
+>(
+  orders: T[],
+  now = Date.now(),
+  ttlMs = PERPS_DEPOSIT_HISTORY_CONFIRMATION_MARKER_TTL_MS,
+): T[] {
+  return orders.filter((order) => {
+    if (!order.keepForHistoryConfirmation) {
+      return true;
+    }
+    const markerCreatedAt = order.time;
+    if (!markerCreatedAt || markerCreatedAt <= 0) {
+      return false;
+    }
+    return now - markerCreatedAt < ttlMs;
+  });
 }
 
 export function isHyperliquidDirectDepositTx(

@@ -5,7 +5,11 @@ import {
 import { EDecodedTxActionType } from '../../types/tx';
 import { PERPS_NETWORK_ID } from '../consts/perp';
 
-import { isHyperliquidDirectDepositTx } from './hyperliquidDepositUtils';
+import {
+  PERPS_DEPOSIT_HISTORY_CONFIRMATION_MARKER_TTL_MS,
+  isHyperliquidDirectDepositTx,
+  prunePerpsDepositHistoryConfirmationMarkers,
+} from './hyperliquidDepositUtils';
 
 describe('isHyperliquidDirectDepositTx', () => {
   const buildDecodedTx = ({
@@ -63,5 +67,38 @@ describe('isHyperliquidDirectDepositTx', () => {
     expect(
       isHyperliquidDirectDepositTx(buildDecodedTx({ networkId: 'evm--1' })),
     ).toBe(false);
+  });
+});
+
+describe('prunePerpsDepositHistoryConfirmationMarkers', () => {
+  it('drops stale history-confirmation markers and keeps active orders', () => {
+    const now = 10_000_000;
+    const freshMarkerTime =
+      now - PERPS_DEPOSIT_HISTORY_CONFIRMATION_MARKER_TTL_MS + 1;
+    const staleMarkerTime =
+      now - PERPS_DEPOSIT_HISTORY_CONFIRMATION_MARKER_TTL_MS;
+
+    const pendingOrder = { fromTxId: 'pending', time: staleMarkerTime };
+    const freshMarker = {
+      fromTxId: 'fresh',
+      keepForHistoryConfirmation: true,
+      time: freshMarkerTime,
+    };
+    const staleMarker = {
+      fromTxId: 'stale',
+      keepForHistoryConfirmation: true,
+      time: staleMarkerTime,
+    };
+    const markerWithoutTime = {
+      fromTxId: 'missing-time',
+      keepForHistoryConfirmation: true,
+    };
+
+    expect(
+      prunePerpsDepositHistoryConfirmationMarkers(
+        [pendingOrder, freshMarker, staleMarker, markerWithoutTime],
+        now,
+      ).map((order) => order.fromTxId),
+    ).toEqual(['pending', 'fresh']);
   });
 });
