@@ -50,11 +50,7 @@ export type IUseImageComponent = (
 ) => typeof Image;
 
 export type IPreloadImageOptions = {
-  resizeWidth?: number;
-  width?: number;
-  height?: number;
   pixelRatio?: number;
-  optimize?: boolean;
 };
 
 type IPreloadImageSourceBase = {

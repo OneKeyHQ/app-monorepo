@@ -30,15 +30,15 @@ function getPreloadUri(
     return undefined;
   }
 
-  if ((source.optimize ?? options?.optimize) === false) {
+  if (source.optimize === false) {
     return uri;
   }
 
   const result = buildTosImageResizeUrl({
     uri,
-    resizeWidth: source.resizeWidth ?? options?.resizeWidth,
-    displayWidth: source.width ?? options?.width,
-    displayHeight: source.height ?? options?.height,
+    resizeWidth: source.resizeWidth,
+    displayWidth: source.width,
+    displayHeight: source.height,
     pixelRatio:
       source.pixelRatio ??
       options?.pixelRatio ??
