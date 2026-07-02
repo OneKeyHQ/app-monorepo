@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Button,
   Checkbox,
   Dialog,
@@ -1348,12 +1349,14 @@ function ProtocolPositionActionDialogContent({
   networkId,
   action,
   hasRewards,
+  hasDebts,
   onSuccess,
 }: {
   accountId: string;
   networkId: string;
   action: IResolvedDeFiPositionAction;
   hasRewards?: boolean;
+  hasDebts?: boolean;
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
   ) => void | Promise<void>;
@@ -1736,6 +1739,16 @@ function ProtocolPositionActionDialogContent({
       {selectable ? assetSelector : null}
       {actionBody}
 
+      {hasDebts && action.action === EDeFiPositionAction.Withdraw ? (
+        <Alert
+          type="warning"
+          icon="InfoCircleOutline"
+          description={intl.formatMessage({
+            id: ETranslations.defi_liquidation_withdraw_desc,
+          })}
+        />
+      ) : null}
+
       <Dialog.Footer
         showCancelButton={false}
         showConfirmButton
@@ -1754,12 +1767,14 @@ function showProtocolPositionActionDialog({
   networkId,
   action,
   hasRewards,
+  hasDebts,
   onSuccess,
 }: {
   accountId: string;
   networkId: string;
   action: IResolvedDeFiPositionAction;
   hasRewards?: boolean;
+  hasDebts?: boolean;
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
   ) => void | Promise<void>;
@@ -1772,6 +1787,7 @@ function showProtocolPositionActionDialog({
         networkId={networkId}
         action={action}
         hasRewards={hasRewards}
+        hasDebts={hasDebts}
         onSuccess={onSuccess}
       />
     ),

@@ -505,6 +505,12 @@ const ProtocolPositionActionButton = memo(
       () => defiActionUtils.positionHasRewards(position),
       [position],
     );
+    // Outstanding debt means withdrawing collateral raises liquidation risk;
+    // the dialog shows a warning banner when this is set.
+    const positionHasDebts = useMemo(
+      () => defiActionUtils.positionHasDebts(position),
+      [position],
+    );
     const borrowManageParams = useMemo(
       () =>
         getAaveBorrowManageParams({
@@ -622,6 +628,7 @@ const ProtocolPositionActionButton = memo(
           // A remapped LP withdraw (buildAction set) does not claim on-chain,
           // so it must never advertise "& Claim rewards".
           hasRewards: hasRewards && !action.buildAction,
+          hasDebts: positionHasDebts,
           onSuccess,
         });
       },
@@ -629,6 +636,7 @@ const ProtocolPositionActionButton = memo(
         accountId,
         hasRewards,
         onSuccess,
+        positionHasDebts,
         protocol.networkId,
         submitProtocolPositionAction,
       ],
