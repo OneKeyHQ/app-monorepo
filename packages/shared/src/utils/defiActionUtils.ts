@@ -731,7 +731,14 @@ function scopeResolvedActionToAsset<T extends IResolvedDeFiPositionAction>({
     const address = (item.tokenAddress ?? item.asset.address)
       ?.trim()
       .toLowerCase();
-    return address === target;
+    if (address === target) return true;
+    // A collapsed LP unit (Stake DAO remap, Uniswap remove) carries the
+    // pool's tokens as underlyingAssets while its own address is only the
+    // representative token's. A row rendering any underlying must still find
+    // the action — and it operates on the whole unit, so keep the full asset.
+    return (item.underlyingAssets ?? []).some(
+      (underlying) => underlying.address.trim().toLowerCase() === target,
+    );
   });
   if (assets.length === 0) return undefined;
   return { ...action, assets };

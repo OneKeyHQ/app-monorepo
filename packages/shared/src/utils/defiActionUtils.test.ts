@@ -1467,6 +1467,46 @@ describe('defiActionUtils.scopeResolvedActionToAsset', () => {
       }),
     ).toBeUndefined();
   });
+
+  it('matches a collapsed LP unit by any underlying asset and keeps the whole unit', () => {
+    const lpAction = {
+      action: EDeFiPositionAction.RemoveLiquidity,
+      buildAction: EDeFiPositionAction.Withdraw,
+      protocolId: 'stake_dao',
+      networkId: 'evm--1',
+      positionCategory: 'yield',
+      assets: [
+        {
+          asset: makeAsset({ address: '0xCRVUSD', symbol: 'crvUSD' }),
+          amount: '10',
+          symbol: 'crvUSD',
+          tokenAddress: '0xCRVUSD',
+          underlyingAssets: [
+            makeAsset({ address: '0xCRVUSD', symbol: 'crvUSD' }),
+            makeAsset({ address: '0xUSDC', symbol: 'USDC' }),
+          ],
+        },
+      ],
+    };
+
+    // The second underlying's row must still find the action…
+    const scoped = defiActionUtils.scopeResolvedActionToAsset({
+      action: lpAction,
+      tokenAddress: '0xusdc',
+    });
+    // …and it operates on the whole unit, not a per-token slice.
+    expect(scoped?.assets).toHaveLength(1);
+    expect(scoped?.assets[0].symbol).toBe('crvUSD');
+    expect(scoped?.assets[0].underlyingAssets).toHaveLength(2);
+
+    // Unrelated addresses still miss.
+    expect(
+      defiActionUtils.scopeResolvedActionToAsset({
+        action: lpAction,
+        tokenAddress: '0xDEAD',
+      }),
+    ).toBeUndefined();
+  });
 });
 
 describe('defiActionUtils.resolveDeFiActionTxAmount', () => {
