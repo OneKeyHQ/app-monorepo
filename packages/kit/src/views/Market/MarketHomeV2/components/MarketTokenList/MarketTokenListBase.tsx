@@ -316,11 +316,12 @@ function MarketTokenListBase({
     currentSortBy,
     currentSortType,
   } = result;
+  const canEnableWebSocket =
+    platformEnv.isDesktop || (platformEnv.isWeb && !md);
   const webSocketEnabled = Boolean(
     enableWebSocket &&
     isTabFocused &&
-    !platformEnv.isNative &&
-    !md &&
+    canEnableWebSocket &&
     (!platformEnv.isWeb || !webTabIntegrated || enableDeferredWebFeatures),
   );
   const orderedData = useMemo(() => {

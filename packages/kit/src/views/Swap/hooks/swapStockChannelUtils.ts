@@ -158,6 +158,35 @@ export function resolveStockChannelSwapPair({
   return {};
 }
 
+export function resolveStockKLineToken({
+  stockSelectedToken,
+  executionFromToken,
+  executionToToken,
+  fromToken,
+  toToken,
+}: {
+  stockSelectedToken?: ISwapToken;
+  executionFromToken?: ISwapToken;
+  executionToToken?: ISwapToken;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+}) {
+  if (stockSelectedToken?.isStock) {
+    return stockSelectedToken;
+  }
+
+  return (
+    resolveStockChannelSwapPair({
+      fromToken: executionFromToken,
+      toToken: executionToToken,
+    }).stockToken ??
+    resolveStockChannelSwapPair({
+      fromToken,
+      toToken,
+    }).stockToken
+  );
+}
+
 export function findTokenFromCandidates({
   candidates,
   token,
