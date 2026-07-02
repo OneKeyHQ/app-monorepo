@@ -258,29 +258,29 @@ describe('ServiceSend.precheckReplaceTxNonceConsumed', () => {
   // with the `pending` tag and returns the still-pending tx's own nonce + 1,
   // which previously made a replaceable tx look consumed and got it dropped.
   // The precheck must never use the wallet API for these networks: it reads
-  // the confirmed (latest) nonce from the ENABLED custom RPC when one exists,
-  // and otherwise skips the precheck explicitly (fail-open) — the RPC read
-  // path resolves its endpoint from the saved custom RPC, so without an
-  // enabled one there is no usable client-side nonce source.
-  test('non-indexed network + enabled custom RPC → reads confirmed nonce from RPC even with useDefaultRpc, wallet API pending nonce ignored', async () => {
+  // the confirmed (latest) nonce from the ENABLED custom RPC only when the
+  // broadcast itself goes through that node, and otherwise skips the precheck
+  // explicitly (fail-open) — without an enabled custom RPC there is no usable
+  // client-side nonce source, and a node the user bypassed via `useDefaultRpc`
+  // must not drive the blocking consumed verdict.
+  test('non-indexed network + enabled custom RPC + useDefaultRpc → precheck skipped, bypassed node never read', async () => {
     const svc = makeService({
       backendIndex: false,
       // wallet API would report N+1 (pending) -> would falsely flag consumed
       onChainNextNonce: 6,
-      // RPC reports the confirmed (latest) count == target -> still pending
-      rpcNextNonce: 5,
+      // the custom node was bypassed because it is unusable — a lagging or
+      // forked view like this must not flag the pending as consumed
+      rpcNextNonce: 6,
       customRpcInfo: { rpc: 'https://custom.rpc', enabled: true },
     });
     const result = await svc.precheckReplaceTxNonceConsumed({
       accountId: 'hd-1--0',
       networkId: 'evm--800001',
       targetNonce: 5,
-      // Unlike indexed networks, useDefaultRpc must NOT push the read back to
-      // the wallet API here — its pending-inclusive nonce is the OK-57049 bug.
       useDefaultRpc: true,
     });
-    expect(result).toEqual({ consumed: false, onChainNextNonce: 5 });
-    expect(svc.__mocks.fetchAccountDetailsByRpc).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ consumed: false });
+    expect(svc.__mocks.fetchAccountDetailsByRpc).not.toHaveBeenCalled();
     expect(svc.__mocks.fetchAccountDetails).not.toHaveBeenCalled();
   });
 

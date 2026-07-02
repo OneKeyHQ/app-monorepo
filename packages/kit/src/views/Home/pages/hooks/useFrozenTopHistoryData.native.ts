@@ -106,18 +106,31 @@ export function FrozenTopHistoryScrollObserver({
   // JS on an actual threshold crossing, not on every scroll frame.
   const isAwaySharedValue = useSharedValue(false);
 
-  // Mirror the hook's reset-on-disable so re-enabling starts unfrozen.
+  // `useCurrentTabScrollY` tracks the FOCUSED tab's scroll position, not this
+  // observer's own tab: with several sibling observers mounted (TokenDetails
+  // multi-tab), a disabled one would otherwise follow another tab's scrolling
+  // and rewrite its own away state. So the reaction below is hard
+  // short-circuited while disabled, and on re-enable the state is re-derived
+  // once from the scroll offset — which now IS this tab's own — so
+  // re-focusing resumes from reality instead of a stale or foreign mirror.
   useEffect(() => {
     if (!enabled) {
       isAwaySharedValue.value = false;
+      return;
     }
-  }, [enabled, isAwaySharedValue]);
+    const away = (scrollY as SharedValue<number>).value > FREEZE_ENGAGE_OFFSET;
+    isAwaySharedValue.value = away;
+    onAwayFromTopChange(away);
+  }, [enabled, isAwaySharedValue, scrollY, onAwayFromTopChange]);
 
   useAnimatedReaction(
     () => (scrollY as SharedValue<number>).value,
     (y) => {
       'worklet';
 
+      if (!enabled) {
+        return;
+      }
       let away = isAwaySharedValue.value;
       if (!away && y > FREEZE_ENGAGE_OFFSET) {
         away = true;
@@ -129,7 +142,7 @@ export function FrozenTopHistoryScrollObserver({
         runOnJS(onAwayFromTopChange)(away);
       }
     },
-    [onAwayFromTopChange],
+    [enabled, onAwayFromTopChange],
   );
 
   return null;
