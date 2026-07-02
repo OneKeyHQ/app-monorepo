@@ -279,12 +279,12 @@ function MessageConfirmActions(props: IProps) {
       return false;
     }
 
-    if (urlSecurityInfo?.level === EHostSecurityLevel.Security) {
-      return false;
-    }
-
     if (isConfirmationRequired) {
       return true;
+    }
+
+    if (urlSecurityInfo?.level === EHostSecurityLevel.Security) {
+      return false;
     }
 
     if (!isEmpty(messageDisplay?.alerts)) {
