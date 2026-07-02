@@ -1176,6 +1176,11 @@ function ProtocolPositionActionReceiveRow({
             {asset.symbol}
           </SizableText>
         </XStack>
+        {asset.metaLabel ? (
+          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            {asset.metaLabel}
+          </SizableText>
+        ) : null}
       </XStack>
       {showValue ? (
         <ProtocolValueCell
@@ -1351,6 +1356,7 @@ function ProtocolPositionActionDialogContent({
   action,
   hasRewards,
   hasDebts,
+  rewardAssets,
   onSuccess,
 }: {
   accountId: string;
@@ -1358,6 +1364,7 @@ function ProtocolPositionActionDialogContent({
   action: IResolvedDeFiPositionAction;
   hasRewards?: boolean;
   hasDebts?: boolean;
+  rewardAssets?: IDeFiAsset[];
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
   ) => void | Promise<void>;
@@ -1441,19 +1448,15 @@ function ProtocolPositionActionDialogContent({
   const isRepayAction = action.action === EDeFiPositionAction.Repay;
   const repayTokenAddress =
     manualAmountAsset?.tokenAddress ?? manualAmountAsset?.asset.address;
-  const { result: repayWalletBalance } = usePromiseResult(
-    async () => {
-      if (!isRepayAction || repayTokenAddress === undefined) return undefined;
-      const details =
-        await backgroundApiProxy.serviceToken.fetchTokensDetails({
-          accountId,
-          networkId,
-          contractList: [repayTokenAddress],
-        });
-      return details?.[0]?.balanceParsed;
-    },
-    [accountId, isRepayAction, networkId, repayTokenAddress],
-  );
+  const { result: repayWalletBalance } = usePromiseResult(async () => {
+    if (!isRepayAction || repayTokenAddress === undefined) return undefined;
+    const details = await backgroundApiProxy.serviceToken.fetchTokensDetails({
+      accountId,
+      networkId,
+      contractList: [repayTokenAddress],
+    });
+    return details?.[0]?.balanceParsed;
+  }, [accountId, isRepayAction, networkId, repayTokenAddress]);
   const amountBN = new BigNumber(amount || '0');
   const availableBN = new BigNumber(availableAmount || '0');
   const isAmountPositive = amountBN.isFinite() && amountBN.gt(0);
@@ -1469,8 +1472,8 @@ function ProtocolPositionActionDialogContent({
       amountBN.gt(availableBN)) ||
     Boolean(
       repayWalletBalanceBN?.isFinite() &&
-        amountBN.isFinite() &&
-        amountBN.gt(repayWalletBalanceBN),
+      amountBN.isFinite() &&
+      amountBN.gt(repayWalletBalanceBN),
     );
   const isAmountValid = isAmountPositive && !isAmountInsufficient;
   const amountFiatValue = isAmountPositive
@@ -1508,6 +1511,31 @@ function ProtocolPositionActionDialogContent({
   const aggregatedOutputPreviewAssets = useMemo(
     () => aggregatePreviewAssets(outputPreviewAssets),
     [outputPreviewAssets],
+  );
+  // Removing an LP that holds rewards also claims them ("Remove & Claim
+  // rewards"), so the preview must list the reward tokens too. Rewards are
+  // claimed in FULL regardless of the removal percent, so they are not
+  // percent-scaled — and they stay out of aggregatePreviewAssets so a reward
+  // token that is also a pool underlying keeps its own "Rewards"-tagged row.
+  const rewardsLabel = intl.formatMessage({ id: ETranslations.earn_rewards });
+  const rewardPreviewAssets = useMemo<IProtocolPositionActionPreviewAsset[]>(
+    () =>
+      action.action === EDeFiPositionAction.RemoveLiquidity && hasRewards
+        ? (rewardAssets ?? [])
+            .filter((asset) => new BigNumber(asset.amount).gt(0))
+            .map((asset) => ({
+              asset,
+              amount: asset.amount,
+              symbol: asset.symbol,
+              value: asset.value,
+              metaLabel: rewardsLabel,
+            }))
+        : [],
+    [action.action, hasRewards, rewardAssets, rewardsLabel],
+  );
+  const receivePreviewAssets = useMemo(
+    () => [...aggregatedOutputPreviewAssets, ...rewardPreviewAssets],
+    [aggregatedOutputPreviewAssets, rewardPreviewAssets],
   );
   const outputValueState = useMemo(
     () => getPreviewAssetsValueState(aggregatedOutputPreviewAssets),
@@ -1745,7 +1773,7 @@ function ProtocolPositionActionDialogContent({
         />
         <ProtocolPositionActionReceive
           label={resultLabel}
-          assets={aggregatedOutputPreviewAssets}
+          assets={receivePreviewAssets}
           currencySymbol={currencySymbol}
           priceUnavailableLabel={priceUnavailableLabel}
           estimated
@@ -1756,7 +1784,7 @@ function ProtocolPositionActionDialogContent({
     actionBody = (
       <ProtocolPositionActionReceive
         label={receiveLabel}
-        assets={aggregatedOutputPreviewAssets}
+        assets={receivePreviewAssets}
         currencySymbol={currencySymbol}
         priceUnavailableLabel={priceUnavailableLabel}
         estimated={isPercentAction}
@@ -1802,6 +1830,7 @@ function showProtocolPositionActionDialog({
   action,
   hasRewards,
   hasDebts,
+  rewardAssets,
   onSuccess,
 }: {
   accountId: string;
@@ -1809,6 +1838,7 @@ function showProtocolPositionActionDialog({
   action: IResolvedDeFiPositionAction;
   hasRewards?: boolean;
   hasDebts?: boolean;
+  rewardAssets?: IDeFiAsset[];
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
   ) => void | Promise<void>;
@@ -1822,6 +1852,7 @@ function showProtocolPositionActionDialog({
         action={action}
         hasRewards={hasRewards}
         hasDebts={hasDebts}
+        rewardAssets={rewardAssets}
         onSuccess={onSuccess}
       />
     ),

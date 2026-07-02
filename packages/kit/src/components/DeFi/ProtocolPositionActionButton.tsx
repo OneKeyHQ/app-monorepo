@@ -629,6 +629,7 @@ const ProtocolPositionActionButton = memo(
           // so it must never advertise "& Claim rewards".
           hasRewards: hasRewards && !action.buildAction,
           hasDebts: positionHasDebts,
+          rewardAssets: defiActionUtils.getPositionRewardAssets(position),
           onSuccess,
         });
       },
@@ -636,6 +637,7 @@ const ProtocolPositionActionButton = memo(
         accountId,
         hasRewards,
         onSuccess,
+        position,
         positionHasDebts,
         protocol.networkId,
         submitProtocolPositionAction,
