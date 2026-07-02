@@ -661,7 +661,23 @@ function RewardCenterDetails() {
   // (ReceiveSelector), scoped to this TRON account's native TRX, so the user can
   // top up TRX, which activates the account.
   const handleTopUp = useCallback(() => {
-    if (!account || !network || !nativeToken) {
+    if (!account || !network) {
+      return;
+    }
+    const accountWalletId = accountUtils.getWalletIdFromAccountId({
+      accountId: account.id,
+    });
+    if (!nativeToken) {
+      // Receiving only needs the address; do not block top-up on token metadata
+      navigation.pushModal(EModalRoutes.ReceiveModal, {
+        screen: EModalReceiveRoutes.ReceiveToken,
+        params: {
+          accountId: account.id,
+          networkId: network.id,
+          walletId: accountWalletId,
+          indexedAccountId: account.indexedAccountId,
+        },
+      });
       return;
     }
     navigation.pushModal(EModalRoutes.ReceiveModal, {
@@ -669,9 +685,7 @@ function RewardCenterDetails() {
       params: {
         accountId: account.id,
         networkId: network.id,
-        walletId: accountUtils.getWalletIdFromAccountId({
-          accountId: account.id,
-        }),
+        walletId: accountWalletId,
         indexedAccountId: account.indexedAccountId,
         token: nativeToken,
       },
@@ -874,7 +888,6 @@ function RewardCenterDetails() {
             primaryTestID: RewardCenterTestIDs.topUpBtn,
             onPrimaryPress: handleTopUp,
             isPrimaryLoading: isNativeTokenLoading && !nativeToken,
-            isPrimaryDisabled: !nativeToken,
           }}
         />
       );
