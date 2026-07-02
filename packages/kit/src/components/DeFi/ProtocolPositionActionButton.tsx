@@ -390,9 +390,10 @@ function getManageActionLabel({
   return intl.formatMessage({ id: ETranslations.global_withdraw });
 }
 
-// Brand-green outline chips. Border sits at ramp step 7 (not 6 — the green
-// ramp's low-mid steps read muddy as hairlines on light surfaces); hover and
-// press deepen the border to 8 over a faint 2/3 tint. Text is step 11.
+// Quiet neutral chips — the same interaction grammar as the rest of the app
+// (asset rows, preset buttons). Row-level actions repeat on every position,
+// so they carry no identity color: brand green lives only in the mobile
+// action badge (the "actionable" signal) and the dialog's primary Confirm.
 const INFO_OUTLINE_BUTTON_PROPS = {
   variant: 'link',
   childrenAsText: false,
@@ -400,10 +401,10 @@ const INFO_OUTLINE_BUTTON_PROPS = {
   py: '$0.5',
   borderRadius: '$2',
   borderWidth: '$px',
-  borderColor: '$brand7',
+  borderColor: '$borderSubdued',
   bg: '$transparent',
-  hoverStyle: { bg: '$brand2', borderColor: '$brand8' },
-  pressStyle: { bg: '$brand3', borderColor: '$brand8' },
+  hoverStyle: { bg: '$bgSubdued' },
+  pressStyle: { bg: '$bgStrong' },
 } as const;
 
 const SOLID_BUTTON_PROPS = {
@@ -412,7 +413,7 @@ const SOLID_BUTTON_PROPS = {
 
 // Full-width action(s) stacked below a position (the unified/simple layout):
 // one button fills the row, two (e.g. Withdraw + Claim) split it evenly via
-// flex. Same brand-green outline as the inline buttons, sized up.
+// flex. Same quiet neutral chip as the inline buttons, sized up.
 const BLOCK_OUTLINE_BUTTON_PROPS = {
   variant: 'link',
   childrenAsText: false,
@@ -420,10 +421,10 @@ const BLOCK_OUTLINE_BUTTON_PROPS = {
   py: '$3',
   borderRadius: '$3',
   borderWidth: '$px',
-  borderColor: '$brand7',
+  borderColor: '$borderSubdued',
   bg: '$transparent',
-  hoverStyle: { bg: '$brand2', borderColor: '$brand8' },
-  pressStyle: { bg: '$brand3', borderColor: '$brand8' },
+  hoverStyle: { bg: '$bgSubdued' },
+  pressStyle: { bg: '$bgStrong' },
 } as const;
 
 function getActionButtonFrameProps({
@@ -450,7 +451,7 @@ function renderActionButtonLabel({
   return (
     <SizableText
       size={isBlock ? '$bodyMdMedium' : '$bodySmMedium'}
-      color="$brand11"
+      color="$text"
       numberOfLines={1}
     >
       {label}
