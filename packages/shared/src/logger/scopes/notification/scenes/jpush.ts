@@ -9,6 +9,10 @@ export class JPushScene extends BaseScene {
     return [a, b, devOnlyData('this is a sensitive message')];
   }
 
+  logRegisterRidToLocal(rid: string): void {
+    this.registerRidToLocal(rid);
+  }
+
   // Intentionally NOT wrapped in devOnlyData: we need the raw registerID in the
   // exportable local log on production/release builds to debug push delivery.
   //
@@ -18,7 +22,7 @@ export class JPushScene extends BaseScene {
   // pattern, both becoming [REDACTED]. Chunking the id into 8-char groups breaks
   // those contiguous runs so it survives; readers just strip the spaces.
   @LogToLocal({ level: 'info' })
-  registerRidToLocal(rid: string) {
+  registerRidToLocal(rid: string): string[] {
     const chunked = rid.replace(/(.{8})/g, '$1 ').trimEnd();
     return [`JPush registerID (strip spaces): ${chunked}`];
   }
