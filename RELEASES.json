@@ -70,5 +70,16 @@
       "#12186"
     ],
     "notes": "Disable Sentry performance tracing to stop renderer memory leak (#12186); fix iOS dialog bottom safe-area double-padding and color seam (#12138); guard exact BTC swap payments (#12177); optimize address risk check (#12163); use 24h stock price change (#12142); fix Android Prime intro video clipping (#12144); keep restored wallet account on cold start (#12154); correct market buy fiat value (#12152); recompute macOS title-bar draggable region on layout changes (#12166)"
+  },
+  {
+    "seq": 6,
+    "commit": "c08551bae271159653369d69716185d8817d3404",
+    "date": "2026-07-02T12:02:01Z",
+    "prs": [
+      "#12123",
+      "#12199",
+      "#12218"
+    ],
+    "notes": "Write JPush registerID to an exportable local log for push-delivery debugging (#12123); suppress offline timeout toasts (#12218); show empty market price change as a placeholder instead of blank (#12199)"
   }
 ]
