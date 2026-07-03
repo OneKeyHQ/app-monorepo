@@ -83,7 +83,24 @@ type IStockTokenDetailFetchState = {
   // own timestamp cannot bound staleness across remounts. Only fetchedAt
   // is trusted by the TTL check.
   fetchedAt?: number;
+  // Set (instead of fetchedAt) on the post-TTL error fallback. The empty
+  // fallback must settle the CURRENT mount to MarketUnavailable after an
+  // extended outage, but once persisted to the SWR cache and hydrated
+  // back on a later mount it must NOT claim unavailable before the first
+  // real request resolves (the backend may have recovered) — so it only
+  // counts as landed while the mount that produced it is still alive.
+  fallbackOfMountId?: string;
 };
+
+let stockDetailMountSerial = 0;
+
+function nextStockDetailMountId() {
+  stockDetailMountSerial += 1;
+  // Time component keeps ids from a previous app session (already
+  // persisted inside cached fallback payloads) from colliding with a
+  // fresh session's serial numbers.
+  return `${Date.now()}-${stockDetailMountSerial}`;
+}
 
 let stockExecutionTokenSyncSerial = 0;
 
@@ -187,6 +204,10 @@ export function useSwapStockChannel() {
   const stockTokenDetailScope = currentStockTokenKey;
   const lastGoodStockTokenDetailRef =
     useRef<IStockTokenDetailFetchState | null>(null);
+  const stockDetailMountIdRef = useRef('');
+  if (!stockDetailMountIdRef.current) {
+    stockDetailMountIdRef.current = nextStockDetailMountId();
+  }
   // Tracks the scope of the latest render so a superseded in-flight request
   // (user already switched stock) cannot clobber the last-good snapshot of
   // the currently selected stock.
@@ -266,13 +287,15 @@ export function useSwapStockChannel() {
           return lastGood;
         }
         // Deliberately WITHOUT fetchedAt: this fallback empty is not a
-        // real server answer, so it must never count as landed — neither
-        // in this mount nor when it gets persisted to the SWR cache and
-        // hydrated back on a later mount.
+        // real server answer. The mount id lets it settle THIS mount to
+        // MarketUnavailable after an extended outage, while a persisted
+        // copy hydrated on a later mount stays pending until the first
+        // real request resolves.
         return {
           scope: stockTokenDetailScope,
           token: undefined,
           perpsInfo: undefined,
+          fallbackOfMountId: stockDetailMountIdRef.current,
         };
       }
     },
@@ -302,24 +325,24 @@ export function useSwapStockChannel() {
         : undefined,
     },
   );
-  // A state "lands" for the current scope only when it carries a
-  // fetchedAt from a REAL server response and that response is within the
-  // TTL. This single gate covers both hydration hazards:
-  // - stale token payloads: the SWR first-frame hydration must not drive
-  //   the closed alert / trade button off yesterday's isOpen while a
-  //   slow request is in flight;
-  // - fallback empties: the post-TTL error fallback ({ token: undefined },
-  //   deliberately without fetchedAt) also gets persisted to the cache, and
-  //   must not make a remount claim MarketUnavailable before the first
-  //   real request resolves.
-  // Anything not landed keeps stockTokenDetailPending true (Initializing);
-  // a real empty answer (asset is not a stock) still lands via its own
-  // fetchedAt and settles to unavailable.
+  // A state "lands" for the current scope when either:
+  // - it carries a fetchedAt from a REAL server response within the TTL
+  //   (covers token payloads and genuine empty answers alike — the SWR
+  //   first-frame hydration must not drive the closed alert / trade
+  //   button off yesterday's isOpen while a slow request is in flight);
+  // - or it is the post-TTL error fallback produced by THIS mount, which
+  //   settles an extended outage to MarketUnavailable instead of an
+  //   endless spinner. A persisted fallback hydrated on a later mount
+  //   carries a foreign mount id and stays pending (Initializing) until
+  //   the first real request resolves, since the backend may have
+  //   recovered in the meantime.
   const stockTokenDetailLanded =
     stockTokenDetailState?.scope === stockTokenDetailScope &&
-    !!stockTokenDetailState.fetchedAt &&
-    Date.now() - stockTokenDetailState.fetchedAt <=
-      SWAP_STOCK_DETAIL_LAST_GOOD_TTL_MS;
+    ((!!stockTokenDetailState.fetchedAt &&
+      Date.now() - stockTokenDetailState.fetchedAt <=
+        SWAP_STOCK_DETAIL_LAST_GOOD_TTL_MS) ||
+      stockTokenDetailState.fallbackOfMountId ===
+        stockDetailMountIdRef.current);
   const stockTokenDetail = stockTokenDetailLanded
     ? stockTokenDetailState?.token
     : undefined;
