@@ -1,11 +1,16 @@
-import type { ETranslations } from './enum/translations';
 import type { ILocaleJSONSymbol } from './type';
 
-type ILocaleMessages = Record<ETranslations, string>;
-type ILocaleModule = { default: ILocaleMessages } | ILocaleMessages;
+type ILocaleMessageId = FormatjsIntl.Message['ids'];
+type ILocaleMessages = Record<ILocaleMessageId, string>;
 
-const resolveLocaleModule = (module: ILocaleModule) =>
-  'default' in module ? module.default : module;
+const resolveLocaleModule = (module: unknown): ILocaleMessages => {
+  const maybeModule = module as { default?: unknown };
+  return (
+    maybeModule && typeof maybeModule === 'object' && 'default' in maybeModule
+      ? maybeModule.default
+      : module
+  ) as ILocaleMessages;
+};
 
 export const LOCALE_LOADERS = {
   bn: () => import('./json/bn.json').then(resolveLocaleModule),
@@ -38,18 +43,19 @@ const localeMessagesCache = new Map<
 >();
 
 export function loadLocaleMessages(locale: ILocaleJSONSymbol) {
-  let messagesPromise = localeMessagesCache.get(locale);
-  if (!messagesPromise) {
-    const nextPromise = LOCALE_LOADERS[locale]().catch((error: unknown) => {
-      if (localeMessagesCache.get(locale) === nextPromise) {
-        localeMessagesCache.delete(locale);
-      }
-      throw error;
-    });
-    messagesPromise = nextPromise;
-    localeMessagesCache.set(locale, messagesPromise);
+  const cachedMessagesPromise = localeMessagesCache.get(locale);
+  if (cachedMessagesPromise) {
+    return cachedMessagesPromise;
   }
-  return messagesPromise;
+
+  const nextPromise = LOCALE_LOADERS[locale]().catch((error: unknown) => {
+    if (localeMessagesCache.get(locale) === nextPromise) {
+      localeMessagesCache.delete(locale);
+    }
+    throw error;
+  });
+  localeMessagesCache.set(locale, nextPromise);
+  return nextPromise;
 }
 
 export function __clearLocaleMessagesCacheForTests(locale?: ILocaleJSONSymbol) {

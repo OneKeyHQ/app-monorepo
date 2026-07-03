@@ -4,6 +4,7 @@ const path = require('path');
 
 const TRANSLATION_IMPORT_SOURCES = new Set([
   '@onekeyhq/shared/src/locale',
+  '@onekeyhq/shared/src/locale/index',
   '@onekeyhq/shared/src/locale/enum/translations',
 ]);
 
@@ -45,6 +46,24 @@ function getStaticMemberName(pathNode) {
   return undefined;
 }
 
+function isTranslationImportSource(source, filename) {
+  if (TRANSLATION_IMPORT_SOURCES.has(source)) {
+    return true;
+  }
+  if (!source.startsWith('.')) {
+    return false;
+  }
+
+  const importerDir = filename ? path.dirname(filename) : process.cwd();
+  const resolved = path.resolve(importerDir, source);
+  const normalized = resolved.split(path.sep).join('/');
+  return (
+    normalized.endsWith('/packages/shared/src/locale') ||
+    normalized.endsWith('/packages/shared/src/locale/index') ||
+    normalized.endsWith('/packages/shared/src/locale/enum/translations')
+  );
+}
+
 module.exports = function inlineTranslationsPlugin({ types: t }) {
   const translations = getTranslationMap();
 
@@ -61,7 +80,10 @@ module.exports = function inlineTranslationsPlugin({ types: t }) {
             return;
           }
           if (
-            !TRANSLATION_IMPORT_SOURCES.has(statementPath.node.source.value)
+            !isTranslationImportSource(
+              statementPath.node.source.value,
+              programPath.hub.file.opts.filename,
+            )
           ) {
             return;
           }

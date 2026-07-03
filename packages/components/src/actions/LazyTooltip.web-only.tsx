@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import {
+  Fragment,
+  cloneElement,
+  isValidElement,
+  useCallback,
+  useEffect,
+  useState,
+} from 'react';
 
 import { Stack } from '../primitives';
 
@@ -7,6 +14,13 @@ import { TooltipText } from './Tooltip/TooltipText';
 import type { ITooltipProps } from './Tooltip';
 
 type ILazyTooltipComponent = typeof import('./Tooltip').Tooltip;
+type ITriggerEventHandler = (...args: unknown[]) => void;
+type ITriggerFallbackProps = {
+  disabled?: boolean;
+  onFocus?: ITriggerEventHandler;
+  onHoverIn?: ITriggerEventHandler;
+  onPress?: ITriggerEventHandler;
+};
 
 let loadedTooltip: ILazyTooltipComponent | undefined;
 let loadTooltipPromise: Promise<ILazyTooltipComponent> | undefined;
@@ -29,10 +43,10 @@ function loadTooltip() {
   return loadTooltipPromise;
 }
 
-function LazyTooltipFrame(props: ITooltipProps) {
+function LazyTooltipFrame(props: ITooltipProps & ITriggerFallbackProps) {
   const [TooltipComponent, setTooltipComponent] = useState<
     ILazyTooltipComponent | undefined
-  >(loadedTooltip);
+  >(() => loadedTooltip);
 
   const ensureLoaded = useCallback(() => {
     void loadTooltip()
@@ -52,6 +66,37 @@ function LazyTooltipFrame(props: ITooltipProps) {
 
   if (TooltipComponent) {
     return <TooltipComponent {...props} />;
+  }
+
+  if (
+    isValidElement<ITriggerFallbackProps>(props.renderTrigger) &&
+    props.renderTrigger.type !== Fragment
+  ) {
+    const triggerProps = props.renderTrigger.props;
+    const handleHoverIn = (...args: unknown[]) => {
+      triggerProps.onHoverIn?.(...args);
+      ensureLoaded();
+    };
+    const handleFocus = (...args: unknown[]) => {
+      triggerProps.onFocus?.(...args);
+      ensureLoaded();
+    };
+    const handlePress = (...args: unknown[]) => {
+      triggerProps.onPress?.(...args);
+      props.onPress?.(...args);
+      ensureLoaded();
+    };
+
+    return cloneElement<ITriggerFallbackProps>(props.renderTrigger, {
+      disabled: props.disabled ?? triggerProps.disabled,
+      onFocus: handleFocus,
+      onHoverIn: handleHoverIn,
+      ...(props.onPress || triggerProps.onPress
+        ? {
+            onPress: handlePress,
+          }
+        : undefined),
+    });
   }
 
   return (

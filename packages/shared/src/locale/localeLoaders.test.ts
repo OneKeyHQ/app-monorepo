@@ -6,7 +6,6 @@ import {
   loadLocaleMessages,
 } from './localeLoaders';
 
-import type { ETranslations } from './enum/translations';
 import type { ILocaleJSONSymbol } from './type';
 
 describe('localeLoaders', () => {
@@ -20,7 +19,10 @@ describe('localeLoaders', () => {
   });
 
   it('removes rejected locale loads from cache so a later retry can recover', async () => {
-    const messages = {} as Record<ETranslations, string>;
+    type ILocaleMessages = Awaited<
+      ReturnType<(typeof LOCALE_LOADERS)[typeof locale]>
+    >;
+    const messages = {} as ILocaleMessages;
     const loader = jest
       .fn<ReturnType<(typeof LOCALE_LOADERS)[typeof locale]>, []>()
       .mockRejectedValueOnce(new OneKeyLocalError('chunk failed'))
