@@ -245,6 +245,19 @@ export function useSwapQuote() {
     swapTabSwitchType,
   ]);
 
+  useEffect(() => {
+    if (swapTabSwitchType !== ESwapTabSwitchType.STOCK) {
+      return;
+    }
+    if (!isFocused) {
+      setSwapQuoteFetching(false);
+      return;
+    }
+    return () => {
+      setSwapQuoteFetching(false);
+    };
+  }, [isFocused, setSwapQuoteFetching, swapTabSwitchType]);
+
   const toAmountDebounceRef = useRef(toAmountDebounce);
   if (toAmountDebounceRef.current !== toAmountDebounce) {
     toAmountDebounceRef.current = toAmountDebounce;
