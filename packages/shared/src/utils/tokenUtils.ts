@@ -790,6 +790,88 @@ export function flattenAggregateTokensMap(aggregateTokensMap: {
   return result;
 }
 
+// Merges the token-selector self-fetch responses (one per network in
+// all-networks mode, exactly one in single-network mode) into the shape the
+// selector threads into TokenListView. Each response's `aggregateTokenMap` is
+// FLAT ($key -> ITokenFiat) and scoped to that response's networkId, and each
+// response may repeat the SAME aggregate common row ($key) that another
+// network already contributed — so aggregate rows dedupe by $key across
+// responses/buckets while their per-network fiat nests by networkId and
+// re-flattens with the home sum semantics.
+export function buildSelectorTokenListFromResponses({
+  responses,
+}: {
+  responses: IFetchAccountTokensResp[];
+}): {
+  tokens: IAccountToken[];
+  smallBalanceTokens: IAccountToken[];
+  tokenListMap: Record<string, ITokenFiat>;
+  aggregateTokenFiatMap: Record<string, ITokenFiat>;
+} {
+  const tokens: IAccountToken[] = [];
+  const smallBalanceTokens: IAccountToken[] = [];
+  const tokenListMap: Record<string, ITokenFiat> = {};
+  const nestedAggregateTokenMap: Record<
+    string,
+    Record<string, ITokenFiat>
+  > = {};
+  const seenAggregateTokenKeys = new Set<string>();
+
+  const appendTokens = (source: IAccountToken[], target: IAccountToken[]) => {
+    for (const token of source) {
+      if (token.isAggregateToken) {
+        if (!seenAggregateTokenKeys.has(token.$key)) {
+          seenAggregateTokenKeys.add(token.$key);
+          target.push(token);
+        }
+      } else {
+        target.push(token);
+      }
+    }
+  };
+
+  for (const r of responses) {
+    appendTokens(r.tokens.data, tokens);
+    appendTokens(r.smallBalanceTokens.data, smallBalanceTokens);
+    Object.assign(tokenListMap, r.tokens.map, r.smallBalanceTokens.map);
+
+    if (r.aggregateTokenMap && r.networkId) {
+      const { networkId } = r;
+      Object.entries(r.aggregateTokenMap).forEach(([aggregateKey, fiat]) => {
+        nestedAggregateTokenMap[aggregateKey] = {
+          ...nestedAggregateTokenMap[aggregateKey],
+          [networkId]: fiat,
+        };
+      });
+    }
+  }
+
+  const aggregateTokenFiatMap = flattenAggregateTokensMap(
+    nestedAggregateTokenMap,
+  );
+
+  if (responses.length <= 1) {
+    // Single-network selector: keep the server-provided order verbatim.
+    return { tokens, smallBalanceTokens, tokenListMap, aggregateTokenFiatMap };
+  }
+
+  // Multi-network fan-out concat is grouped by network; TokenListView does NOT
+  // sort the selector list, so re-sort by fiat value here (aggregate rows
+  // resolve their summed fiat from `aggregateTokenFiatMap`). The stable sort
+  // keeps each network's server-provided order within equal-value (e.g. zero
+  // balance) rows.
+  const sortMap = { ...tokenListMap, ...aggregateTokenFiatMap };
+  return {
+    tokens: sortTokensByFiatValue({ tokens, map: sortMap }),
+    smallBalanceTokens: sortTokensByFiatValue({
+      tokens: smallBalanceTokens,
+      map: sortMap,
+    }),
+    tokenListMap,
+    aggregateTokenFiatMap,
+  };
+}
+
 export function getMergedDeriveTokenData(params: {
   data: IFetchAccountTokensResp[];
   mergeDeriveAssetsEnabled: boolean;

@@ -4,6 +4,7 @@ yarn test packages/shared/src/utils/tokenUtils.test.ts
 import { ENetworkStatus, type IServerNetwork } from '../../types';
 
 import {
+  buildSelectorTokenListFromResponses,
   buildTokenSearchKeywordQueries,
   calculateAccountTokensValue,
   calculateAccountTotalValue,
@@ -13,7 +14,11 @@ import {
   nestAggregateTokensMap,
 } from './tokenUtils';
 
-import type { IAccountToken, ITokenFiat } from '../../types/token';
+import type {
+  IAccountToken,
+  IFetchAccountTokensResp,
+  ITokenFiat,
+} from '../../types/token';
 
 describe('buildTokenSearchKeywordQueries', () => {
   test('adds ether fallback for multi-word eth network searches', () => {
@@ -513,5 +518,183 @@ describe('nest+flatten aggregateTokenMap — token selector seam (PR-6)', () => 
         }),
       ),
     ).toEqual({});
+  });
+});
+
+describe('buildSelectorTokenListFromResponses — token selector self-fetch merge', () => {
+  const buildFiat = (fiatValue: string, balanceParsed = '1'): ITokenFiat => ({
+    balance: balanceParsed,
+    balanceParsed,
+    fiatValue,
+    price: 1,
+    price24h: 0,
+    currency: 'usd',
+  });
+
+  const buildResp = ({
+    networkId,
+    tokens,
+    smallBalanceTokens = [],
+    tokensMap = {},
+    smallBalanceTokensMap = {},
+    aggregateTokenMap,
+  }: {
+    networkId?: string;
+    tokens: IAccountToken[];
+    smallBalanceTokens?: IAccountToken[];
+    tokensMap?: Record<string, ITokenFiat>;
+    smallBalanceTokensMap?: Record<string, ITokenFiat>;
+    aggregateTokenMap?: Record<string, ITokenFiat>;
+  }): IFetchAccountTokensResp => ({
+    networkId,
+    tokens: { data: tokens, keys: '', map: tokensMap },
+    smallBalanceTokens: {
+      data: smallBalanceTokens,
+      keys: '',
+      map: smallBalanceTokensMap,
+    },
+    riskTokens: { data: [], keys: '', map: {} },
+    aggregateTokenMap,
+  });
+
+  it('single response reproduces the legacy single-network selector shape', () => {
+    const eth = buildTestToken({ $key: 'evm--1_0xeth', networkId: 'evm--1' });
+    const dust = buildTestToken({ $key: 'evm--1_0xdust', networkId: 'evm--1' });
+    const r = buildResp({
+      networkId: 'evm--1',
+      tokens: [eth],
+      smallBalanceTokens: [dust],
+      tokensMap: { 'evm--1_0xeth': buildFiat('3000') },
+      smallBalanceTokensMap: { 'evm--1_0xdust': buildFiat('0.01') },
+      aggregateTokenMap: { 'eth-agg': buildFiat('3000') },
+    });
+
+    const merged = buildSelectorTokenListFromResponses({ responses: [r] });
+
+    expect(merged.tokens).toEqual([eth]);
+    expect(merged.smallBalanceTokens).toEqual([dust]);
+    expect(merged.tokenListMap).toEqual({
+      'evm--1_0xeth': buildFiat('3000'),
+      'evm--1_0xdust': buildFiat('0.01'),
+    });
+    expect(merged.aggregateTokenFiatMap['eth-agg'].fiatValue).toBe('3000');
+  });
+
+  it('multi-network responses concat sub-tokens and dedupe aggregate rows by $key', () => {
+    const usdtAggEth = buildTestToken({
+      $key: 'usdt-agg',
+      symbol: 'USDT',
+      isAggregateToken: true,
+    });
+    const usdtAggTron = buildTestToken({
+      $key: 'usdt-agg',
+      symbol: 'USDT',
+      isAggregateToken: true,
+    });
+    const ethNative = buildTestToken({
+      $key: 'evm--1_native',
+      networkId: 'evm--1',
+      isNative: true,
+    });
+    const trxNative = buildTestToken({
+      $key: 'tron--0x2b6653dc_native',
+      networkId: 'tron--0x2b6653dc',
+      isNative: true,
+    });
+
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({
+          networkId: 'evm--1',
+          tokens: [ethNative, usdtAggEth],
+          tokensMap: { 'evm--1_native': buildFiat('3000') },
+          aggregateTokenMap: { 'usdt-agg': buildFiat('100') },
+        }),
+        buildResp({
+          networkId: 'tron--0x2b6653dc',
+          tokens: [trxNative, usdtAggTron],
+          tokensMap: { 'tron--0x2b6653dc_native': buildFiat('5000') },
+          aggregateTokenMap: { 'usdt-agg': buildFiat('25') },
+        }),
+      ],
+    });
+
+    // The aggregate common row appears ONCE (first response wins); per-network
+    // sub-token rows all survive.
+    expect(merged.tokens.filter((t) => t.$key === 'usdt-agg')).toHaveLength(1);
+    // Multi-network merge re-sorts by fiat value (network-grouped concat order
+    // would be eth, usdt-agg, trx); the aggregate row sorts by its SUMMED fiat
+    // (100 + 25 = 125).
+    expect(merged.tokens.map((t) => t.$key)).toEqual([
+      'tron--0x2b6653dc_native',
+      'evm--1_native',
+      'usdt-agg',
+    ]);
+    // Sub-token fiat maps union across networks.
+    expect(Object.keys(merged.tokenListMap).toSorted()).toEqual([
+      'evm--1_native',
+      'tron--0x2b6653dc_native',
+    ]);
+    // Aggregate fiat sums across the per-network flat maps (home
+    // `flattenAggregateTokensMapAtom` semantics).
+    expect(merged.aggregateTokenFiatMap['usdt-agg'].fiatValue).toBe('125');
+    expect(merged.aggregateTokenFiatMap['usdt-agg'].balanceParsed).toBe('2');
+  });
+
+  it('single response keeps the server-provided order verbatim (no re-sort)', () => {
+    const lowValueFirst = buildTestToken({
+      $key: 'evm--1_0xlow',
+      networkId: 'evm--1',
+    });
+    const highValueSecond = buildTestToken({
+      $key: 'evm--1_0xhigh',
+      networkId: 'evm--1',
+    });
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({
+          networkId: 'evm--1',
+          tokens: [lowValueFirst, highValueSecond],
+          tokensMap: {
+            'evm--1_0xlow': buildFiat('1'),
+            'evm--1_0xhigh': buildFiat('9999'),
+          },
+        }),
+      ],
+    });
+
+    expect(merged.tokens.map((t) => t.$key)).toEqual([
+      'evm--1_0xlow',
+      'evm--1_0xhigh',
+    ]);
+  });
+
+  it('aggregate rows dedupe across tokens and smallBalanceTokens buckets', () => {
+    const agg = buildTestToken({ $key: 'usdc-agg', isAggregateToken: true });
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({ networkId: 'evm--1', tokens: [agg] }),
+        buildResp({
+          networkId: 'evm--10',
+          tokens: [],
+          smallBalanceTokens: [agg],
+        }),
+      ],
+    });
+
+    expect(merged.tokens).toHaveLength(1);
+    expect(merged.smallBalanceTokens).toHaveLength(0);
+  });
+
+  it('responses without aggregateTokenMap or networkId yield an empty aggregate fiat map', () => {
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({
+          tokens: [buildTestToken({ $key: 'evm--1_0xa', networkId: 'evm--1' })],
+        }),
+      ],
+    });
+
+    expect(merged.aggregateTokenFiatMap).toEqual({});
   });
 });

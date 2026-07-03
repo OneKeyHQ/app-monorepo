@@ -43,9 +43,8 @@ import {
   isTokenSelectorDappTokenFilterSupportedNetwork,
 } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
+  buildSelectorTokenListFromResponses,
   checkIsOnlyOneTokenHasBalance,
-  flattenAggregateTokensMap,
-  nestAggregateTokensMap,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -288,12 +287,13 @@ function TokenSelector() {
   const [selectorAggregateTokenListMap, setSelectorAggregateTokenListMap] =
     useState<Record<string, { tokens: IAccountToken[] }>>({});
   // PR-6: the flattened ($key -> summed ITokenFiat) aggregate fiat map for the
-  // selector's all-networks rows. The self-fetch response's `aggregateTokenMap`
-  // is FLAT per single-network request; we nest it by networkId and re-flatten
+  // selector's aggregate rows. Each self-fetch response's `aggregateTokenMap`
+  // is FLAT and scoped to that response's networkId (one response per network
+  // in all-networks mode); the merge nests them by networkId and re-flattens
   // with the SAME sum semantics the home `flattenAggregateTokensMapAtom` uses
-  // so the aggregate (all-networks) selector rows resolve real balance/value/
-  // price (the per-row `tokenSelectorTokenListMap` does NOT carry aggregate
-  // `$key` fiat). Threaded into TokenListView as `tokenSelectorAggregateTokenFiatMap`.
+  // so the aggregate selector rows resolve real balance/value/price (the
+  // per-row `tokenSelectorTokenListMap` does NOT carry aggregate `$key` fiat).
+  // Threaded into TokenListView as `tokenSelectorAggregateTokenFiatMap`.
   const [selectorAggregateTokenFiatMap, setSelectorAggregateTokenFiatMap] =
     useState<Record<string, ITokenFiat>>({});
   // PR-3: `false` until the self-fetch below resolves the first time. Threaded
@@ -1026,52 +1026,100 @@ function TokenSelector() {
       return;
     }
 
+    const requestContext: ISelectorTokenListRequestContext = {
+      accountId,
+      networkId,
+      indexedAccountId: indexedAccountId ?? '',
+      activeAccountId: activeAccountId ?? '',
+      activeNetworkId: activeNetworkId ?? '',
+      isSelectorAllNetworks: !!isSelectorAllNetworks,
+      mergeDeriveAddressData,
+      showLpTokensOnly,
+      useSelectorFilteredTokenList,
+      showActiveAccountTokenList,
+    };
+    const isLatestRequest = () =>
+      isSameSelectorTokenListRequestContext(
+        latestSelectorTokenListRequestContextRef.current,
+        requestContext,
+      );
+
     // Reset to `false` while (re)fetching for a new owner so TokenListView
     // shows a skeleton (or the per-owner cache) instead of the previous owner's
     // list for a frame.
     setSelectorInitialized(false);
 
-    const [r, aggregateTokenListMap] = await Promise.all([
-      backgroundApiProxy.serviceToken.fetchAccountTokens({
-        accountId,
-        networkId,
-        indexedAccountId,
-        flag: 'token-selector',
-        ...tokenSelectorFilterParams,
-      }),
-      backgroundApiProxy.serviceToken.getLocalAggregateTokenListMap({
-        accountId,
-        networkId,
-      }),
-    ]);
-
-    setSelectorTokenList({
-      tokens: r.tokens.data,
-      smallBalanceTokens: r.smallBalanceTokens.data,
-    });
-    setSelectorTokenListMap({
-      ...r.tokens.map,
-      ...r.smallBalanceTokens.map,
-    });
-    setSelectorAggregateTokenListMap(aggregateTokenListMap ?? {});
-    // The response `aggregateTokenMap` is FLAT ($key -> ITokenFiat) for this
-    // single-network request; nest it by networkId then flatten with the home
-    // sum semantics so aggregate rows resolve correct fiat in TokenListView.
-    setSelectorAggregateTokenFiatMap(
-      r.aggregateTokenMap
-        ? flattenAggregateTokensMap(
-            nestAggregateTokensMap({
-              aggregateTokenMap: r.aggregateTokenMap,
+    try {
+      // All-networks owners carry the mock account/network
+      // (AllNetworkMockAddress / onekeyall--*), which `fetchAccountTokens`
+      // forwards to the wallet API verbatim — the server rejects it. Fan out
+      // per real network instead (same enumeration + child requests the
+      // LP/scoped branch uses) and merge the per-network responses.
+      const [responses, aggregateTokenListMap] = await Promise.all([
+        isSelectorAllNetworks
+          ? fetchFilteredTokenSelectorTokens({
+              accountId,
               networkId,
-            }),
-          )
-        : {},
-    );
-    setSelectorInitialized(true);
+              indexedAccountId,
+              isAllNetworks: true,
+              mergeDeriveAddressData,
+              onlyBackendIndexedNetworks: false,
+              tokenSelectorFilterParams,
+            })
+          : backgroundApiProxy.serviceToken
+              .fetchAccountTokens({
+                accountId,
+                networkId,
+                indexedAccountId,
+                flag: 'token-selector',
+                ...tokenSelectorFilterParams,
+              })
+              .then((r) => [r]),
+        backgroundApiProxy.serviceToken.getLocalAggregateTokenListMap({
+          accountId,
+          networkId,
+        }),
+      ]);
+
+      if (!isLatestRequest()) {
+        return;
+      }
+
+      // Each response's `aggregateTokenMap` is FLAT ($key -> ITokenFiat) and
+      // scoped to that response's networkId; the merge nests them by networkId
+      // then flattens with the home sum semantics so aggregate rows resolve
+      // correct fiat in TokenListView. Aggregate common rows dedupe by $key
+      // across the per-network responses.
+      const merged = buildSelectorTokenListFromResponses({ responses });
+
+      setSelectorTokenList({
+        tokens: merged.tokens,
+        smallBalanceTokens: merged.smallBalanceTokens,
+      });
+      setSelectorTokenListMap(merged.tokenListMap);
+      setSelectorAggregateTokenListMap(aggregateTokenListMap ?? {});
+      setSelectorAggregateTokenFiatMap(merged.aggregateTokenFiatMap);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      // Always leave the skeleton, even when the fetch failed — an unhandled
+      // throw here used to keep `selectorInitialized` false forever, pinning
+      // the selector on the skeleton with no self-recovery.
+      if (isLatestRequest()) {
+        setSelectorInitialized(true);
+      }
+    }
   }, [
     accountId,
     networkId,
     indexedAccountId,
+    activeAccountId,
+    activeNetworkId,
+    isSelectorAllNetworks,
+    mergeDeriveAddressData,
+    showLpTokensOnly,
+    useSelectorFilteredTokenList,
+    showActiveAccountTokenList,
     effectiveShowActiveAccountTokenList,
     tokenSelectorFilterParams,
   ]);
