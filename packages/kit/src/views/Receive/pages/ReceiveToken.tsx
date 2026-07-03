@@ -868,22 +868,30 @@ function ReceiveToken() {
               size={platformEnv.isNative ? 208 : 176}
             />
             {network.isCustomNetwork ? null : (
+              // full-bleed overlay + flex centering: percentage translate
+              // is unreliable on native, so avoid left/top 50% -50% here
               <YStack
                 position="absolute"
-                left="50%"
-                top="50%"
-                transform={[{ translateX: '-50%' }, { translateY: '-50%' }]}
-                borderWidth={4}
-                borderColor="white"
-                borderRadius="$full"
-                bg="white"
+                top={0}
+                left={0}
+                right={0}
+                bottom={0}
+                alignItems="center"
+                justifyContent="center"
               >
-                <Token
-                  size="lg"
-                  tokenImageUri={token?.logoURI ?? nativeToken?.logoURI}
-                  networkImageUri={network.logoURI}
-                  networkId={networkId}
-                />
+                <YStack
+                  borderWidth={4}
+                  borderColor="white"
+                  borderRadius="$full"
+                  bg="white"
+                >
+                  <Token
+                    size="lg"
+                    tokenImageUri={token?.logoURI ?? nativeToken?.logoURI}
+                    networkImageUri={network.logoURI}
+                    networkId={networkId}
+                  />
+                </YStack>
               </YStack>
             )}
           </YStack>
