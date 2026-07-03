@@ -210,8 +210,6 @@ export class WalletScene extends BaseScene {
   public backupMigrationStatusCheck(params: {
     migratedFlag: boolean | undefined;
     appStatusRawExists: boolean;
-    appStatusKeyListed: boolean;
-    allKeysCount: number;
     hdWalletsCount: number;
     unbackedUpHdWalletIds: string[];
   }) {

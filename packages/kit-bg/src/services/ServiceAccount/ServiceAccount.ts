@@ -4078,8 +4078,14 @@ class ServiceAccount extends ServiceBase {
     // was verified after the boot-time write but is already gone here, the
     // loss happened within this session; if it is still present here but
     // missing at the next boot, the loss happened at the file level between
-    // launches. Fire-and-forget: must never delay wallet creation.
-    void this.logBackupMigrationFlagProbe({ stage: 'afterCreateHDWallet' });
+    // launches. Gated on the migration having settled this session:
+    // migrateHdWalletsBackedUpStatus is a deferred bootstrap task, so before
+    // it settles a missing flag only means "not written yet" and logging it
+    // would read as an in-session loss. Fire-and-forget: must never delay
+    // wallet creation.
+    if (this.backupMigrationSettledThisSession) {
+      void this.logBackupMigrationFlagProbe({ stage: 'afterCreateHDWallet' });
+    }
 
     return result;
   }
@@ -7035,6 +7041,13 @@ class ServiceAccount extends ServiceBase {
     }
   }
 
+  // Set once migrateHdWalletsBackedUpStatus has settled in this session
+  // (either skipped as already-migrated or fully executed). Gates the
+  // afterCreateHDWallet probe: the migration is a deferred bootstrap task,
+  // so before it settles a missing flag only means "not written yet" and
+  // logging it would read as an in-session loss.
+  backupMigrationSettledThisSession = false;
+
   // TODO(cleanup): temporary investigation scaffolding — remove this probe,
   // its call sites, and the boot-time raw check in
   // migrateHdWalletsBackedUpStatus once the backup-status flag-loss root
@@ -7086,10 +7099,10 @@ class ServiceAccount extends ServiceBase {
     // previous session (the storage instance cache is still fresh). If a
     // previous launch logged flagPresent=true on the write-back probe and
     // this boot logs appStatusRawExists=false / migratedFlag=undefined, the
-    // flag was lost at the persistence layer between launches.
+    // flag was lost at the persistence layer between launches. Kept to the
+    // minimal single-key getItem — no getAllKeys enumeration on this
+    // resident boot path.
     let appStatusRawExists = false;
-    let appStatusKeyListed = false;
-    let allKeysCount = -1;
     try {
       // Read from the entity's own backing storage instance (NOT the default
       // appStorage): on web/desktop/extension simpleDb persists to a
@@ -7098,9 +7111,6 @@ class ServiceAccount extends ServiceBase {
       const entityStorage = simpleDb.appStatus.appStorage;
       const raw = (await entityStorage.getItem(entityKey)) as unknown;
       appStatusRawExists = !isNil(raw);
-      const allKeys = await entityStorage.getAllKeys();
-      allKeysCount = allKeys?.length ?? -1;
-      appStatusKeyListed = Boolean(allKeys?.includes(entityKey));
     } catch {
       // diagnostics only — never block the migration
     }
@@ -7110,11 +7120,10 @@ class ServiceAccount extends ServiceBase {
       defaultLogger.account.wallet.backupMigrationStatusCheck({
         migratedFlag: true,
         appStatusRawExists,
-        appStatusKeyListed,
-        allKeysCount,
         hdWalletsCount: -1,
         unbackedUpHdWalletIds: [],
       });
+      this.backupMigrationSettledThisSession = true;
       console.log('migrateHdWalletsBackedUpStatus: already migrated');
       return;
     }
@@ -7134,8 +7143,6 @@ class ServiceAccount extends ServiceBase {
     defaultLogger.account.wallet.backupMigrationStatusCheck({
       migratedFlag: appStatus?.hdWalletsBackupMigrated,
       appStatusRawExists,
-      appStatusKeyListed,
-      allKeysCount,
       hdWalletsCount: wallets.filter((w) => w.type === WALLET_TYPE_HD).length,
       unbackedUpHdWalletIds: Object.keys(walletsBackedUpStatusMap),
     });
@@ -7160,6 +7167,7 @@ class ServiceAccount extends ServiceBase {
     await this.logBackupMigrationFlagProbe({
       stage: 'afterMigrationFlagWrite',
     });
+    this.backupMigrationSettledThisSession = true;
 
     if (Object.keys(walletsBackedUpStatusMap).length > 0) {
       appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
