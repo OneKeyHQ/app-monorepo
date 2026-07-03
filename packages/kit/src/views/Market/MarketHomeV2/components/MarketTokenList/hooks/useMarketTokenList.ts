@@ -6,6 +6,10 @@ import { useNetworkLoadingAnalytics } from '@onekeyhq/kit/src/views/Market/Marke
 import { markMarketReactPerf } from '@onekeyhq/kit/src/views/Market/utils/marketReactPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { TIME_RANGE_TO_API_MAP } from '../../../types';
@@ -186,6 +190,52 @@ export function useMarketTokenList({
   const currentQueryKeyRef = useRef(currentQueryKey);
   currentQueryKeyRef.current = currentQueryKey;
   const forceRemoteOnceRef = useRef(false);
+  const marketTokenListSwrKey = useMemo(() => {
+    if (!platformEnv.isWeb || !hasNetworkId) {
+      return undefined;
+    }
+    return swrKeys.marketHomeTokenList({
+      networkId: apiNetworkId,
+      sortBy,
+      sortType,
+      pageSize,
+      minLiquidity,
+      type,
+      timeFrame,
+    });
+  }, [
+    apiNetworkId,
+    hasNetworkId,
+    minLiquidity,
+    pageSize,
+    sortBy,
+    sortType,
+    timeFrame,
+    type,
+  ]);
+  const cachedMarketTokenListEntry = useMemo(() => {
+    if (!marketTokenListSwrKey) {
+      return undefined;
+    }
+    const entry =
+      swrCacheUtils.getWithTimestamp<IMarketTokenListResponseWithSource>(
+        marketTokenListSwrKey,
+      );
+    if (
+      !entry?.data?.list?.length ||
+      entry.data.__fromSeed ||
+      entry.data.__fromColdCacheFallback
+    ) {
+      return undefined;
+    }
+    return entry;
+  }, [marketTokenListSwrKey]);
+  const trustedMarketTokenListFallbackRef = useRef(cachedMarketTokenListEntry);
+  const trustedMarketTokenListSwrKeyRef = useRef(marketTokenListSwrKey);
+  if (trustedMarketTokenListSwrKeyRef.current !== marketTokenListSwrKey) {
+    trustedMarketTokenListSwrKeyRef.current = marketTokenListSwrKey;
+    trustedMarketTokenListFallbackRef.current = cachedMarketTokenListEntry;
+  }
 
   const {
     result: apiResult,
@@ -197,29 +247,53 @@ export function useMarketTokenList({
         return undefined;
       }
       const requestQueryKey = currentQueryKeyRef.current;
-      const forceRemote = forceRemoteOnceRef.current;
+      const forceRemote =
+        forceRemoteOnceRef.current ||
+        Boolean(trustedMarketTokenListFallbackRef.current);
       forceRemoteOnceRef.current = false;
-      const response = await fetchMarketTokenListForPlatform(
-        {
-          networkId: apiNetworkId,
-          sortBy,
-          sortType,
-          page: 1,
-          limit: pageSize,
-          minLiquidity,
-          type,
-          timeFrame,
-        },
-        { forceRemote },
-      );
-      const responseWithSource = response as IMarketTokenListResponseWithSource;
+      let response: IMarketTokenListResponseWithSource;
+      try {
+        response = await fetchMarketTokenListForPlatform(
+          {
+            networkId: apiNetworkId,
+            sortBy,
+            sortType,
+            page: 1,
+            limit: pageSize,
+            minLiquidity,
+            type,
+            timeFrame,
+          },
+          { forceRemote },
+        );
+      } catch (error) {
+        const cached = trustedMarketTokenListFallbackRef.current?.data;
+        if (cached && currentQueryKeyRef.current === requestQueryKey) {
+          return {
+            ...cached,
+            __fromColdCacheFallback: true,
+          };
+        }
+        throw error;
+      }
+      const responseWithSource = response;
       if (currentQueryKeyRef.current !== requestQueryKey) {
         return undefined;
+      }
+      if (
+        !responseWithSource.__fromSeed &&
+        responseWithSource.list?.length > 0
+      ) {
+        trustedMarketTokenListFallbackRef.current = {
+          data: responseWithSource,
+          updatedAt: Date.now(),
+        };
       }
       return {
         list: response.list,
         total: response.total,
         __fromSeed: responseWithSource.__fromSeed,
+        __fromColdCacheFallback: responseWithSource.__fromColdCacheFallback,
       };
     },
     [
@@ -238,6 +312,13 @@ export function useMarketTokenList({
       pollingInterval,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
+      swrKey: marketTokenListSwrKey,
+      swrShouldPersist: (result) =>
+        Boolean(
+          result?.list?.length &&
+          !result.__fromSeed &&
+          !result.__fromColdCacheFallback,
+        ),
     },
   );
 
@@ -255,7 +336,7 @@ export function useMarketTokenList({
         return;
       }
       forceRemoteOnceRef.current = true;
-      void fetchMarketTokenList();
+      void fetchMarketTokenList().catch(() => undefined);
     }, 0);
     return () => clearTimeout(timer);
   }, [fetchMarketTokenList, hasNetworkId, isSeedResult]);
@@ -346,7 +427,7 @@ export function useMarketTokenList({
     if (platformEnv.isWeb && isSeedResult) {
       forceRemoteOnceRef.current = true;
     }
-    void fetchMarketTokenList();
+    void fetchMarketTokenList().catch(() => undefined);
   }, [fetchMarketTokenList, isSeedResult]);
 
   const loadMore = useCallback(async () => {

@@ -69,6 +69,7 @@ import type { IColdStartHydrationStatus } from '../states/jotai/coldStartReady';
 
 const META_KEY_PREFIX = '__meta:';
 const CTX_SNAPSHOT_KEY = 'onekey_jotai_context_atoms_snapshot';
+const SWR_CACHE_KEY = 'onekey_swr_cache';
 const BUILD_HASH_KEY = '__meta:buildHash';
 const KILL_SWITCH_LS_KEY = '__cold_start_kill__';
 const COLD_START_RESULT_GLOBAL = '__ONEKEY_COLD_START_RESULT__';
@@ -244,13 +245,25 @@ export function shouldProceedAfterReset(
 }
 
 const promise: Promise<void> = (async () => {
-  // Skip in development to avoid schema drift between code changes.
-  // Atoms will use defaults and jotaiInit will populate from JotaiStorage
-  // as today. To test cold-start manually, build a production bundle.
+  // In development, keep generic L2 context-atom hydration disabled to avoid
+  // schema drift between local code changes. We still prime the SWR blob so
+  // localhost can verify web cold-start cache paths that use usePromiseResult
+  // with swrKey. SWR entries are individually versioned by their key builders.
   if (process.env.NODE_ENV !== 'production') {
-    console.log(
-      '[ColdStartHydration] dev mode, skipping (cold-start is production-only)',
-    );
+    console.log('[ColdStartHydration] dev mode, priming SWR only');
+    try {
+      const result = await withTimeout(
+        readAllColdStartEntriesFromIdb(),
+        HYDRATION_TIMEOUT_MS,
+      );
+      const swrCache = result?.get(SWR_CACHE_KEY);
+      if (typeof swrCache === 'string') {
+        primeColdStartCacheMap([[SWR_CACHE_KEY, swrCache]]);
+      }
+    } catch {
+      // Dev-only best effort: keep the old skipped behavior if IDB is missing
+      // or slow.
+    }
     // Deliberate no-op: mark as 'skipped' so the finally block does not log
     // this as 'error' (the initial value). Keeps dev-mode skips distinct from
     // genuine IDB failures for any telemetry / debugging that inspects status.
