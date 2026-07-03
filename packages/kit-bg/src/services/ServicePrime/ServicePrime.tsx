@@ -1031,14 +1031,24 @@ class ServicePrime extends ServiceBase {
     });
 
     await primePersistAtom.set((v): IPrimePersistAtomData => {
-      let primeSubscription = v.primeSubscription;
+      // Only reuse previous atom values as fallbacks when the incoming login
+      // belongs to the same user, otherwise the previous account's data
+      // (email/avatar/nickname/subscription) would leak into the new login.
+      const isSameUser =
+        Boolean(serverUserId) &&
+        (v.onekeyUserId === serverUserId ||
+          v.onekeyAccount?.onekeyUserId === serverUserId);
+      const prevPrimeSubscription = isSameUser
+        ? v.primeSubscription
+        : undefined;
+      let primeSubscription = prevPrimeSubscription;
       if (loginResponse.isPrime !== undefined) {
         primeSubscription = loginResponse.isPrime
           ? ({
               isActive: true,
               expiresAt:
                 loginResponse.primeExpiredAt ??
-                v.primeSubscription?.expiresAt ??
+                prevPrimeSubscription?.expiresAt ??
                 0,
               willRenew: loginResponse.willRenew,
               subscriptions: loginResponse.subscriptions,
@@ -1046,26 +1056,36 @@ class ServicePrime extends ServiceBase {
           : undefined;
       }
       const userEmail =
-        onekeyAccount.normalizedEmail ?? loginResponse.emails?.[0] ?? v.email;
+        onekeyAccount.normalizedEmail ??
+        loginResponse.emails?.[0] ??
+        (isSameUser ? v.email : undefined);
       const displayEmail = onekeyAccount.displayEmail;
       return {
         ...v,
-        avatar: loginResponse.avatar ?? v.avatar,
-        nickname: loginResponse.nickname ?? v.nickname,
+        avatar: loginResponse.avatar ?? (isSameUser ? v.avatar : undefined),
+        nickname:
+          loginResponse.nickname ?? (isSameUser ? v.nickname : undefined),
         email: userEmail,
         displayEmail,
         onekeyUserId: onekeyAccount.onekeyUserId,
         onekeyAccount,
-        isEnablePrime: loginResponse.isEnablePrime ?? v.isEnablePrime,
+        isEnablePrime:
+          loginResponse.isEnablePrime ??
+          (isSameUser ? v.isEnablePrime : undefined),
         isEnableSandboxPay:
-          loginResponse.isEnableSandboxPay ?? v.isEnableSandboxPay,
+          loginResponse.isEnableSandboxPay ??
+          (isSameUser ? v.isEnableSandboxPay : undefined),
         isPrimeDeviceLimitExceeded:
           loginResponse.isPrimeDeviceLimitExceeded ??
-          v.isPrimeDeviceLimitExceeded,
+          (isSameUser ? v.isPrimeDeviceLimitExceeded : undefined),
         isLoggedIn: true,
         isLoggedInOnServer: true,
         primeSubscription,
-        subscriptionManageUrl: v.subscriptionManageUrl || serverManagementUrl,
+        // Server managementUrl wins when provided; never keep the previous
+        // account's url across a user change.
+        subscriptionManageUrl:
+          serverManagementUrl ||
+          (isSameUser ? v.subscriptionManageUrl : undefined),
       };
     });
 
