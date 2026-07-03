@@ -100,6 +100,7 @@ const DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID =
 const PERP_DESKTOP_DEPOSIT_WITHDRAW_DIALOG_HEIGHT = 560;
 const PERP_DESKTOP_DEPOSIT_AMOUNT_INPUT_BLOCK_HEIGHT = 220;
 const PERP_DESKTOP_DEPOSIT_SELECT_TOKEN_LIST_HEIGHT = 430;
+const PERP_NATIVE_DEPOSIT_WITHDRAW_ESTIMATED_CONTENT_HEIGHT = 300;
 const LIFI_FALLBACK_LOGO = require('@onekeyhq/kit/assets/perps/lifi-logo.png');
 
 interface IDepositWithdrawParams {
@@ -1597,11 +1598,9 @@ function DepositWithdrawContent({
                   size="$3.5"
                 />
               </XStack>
-              {hasSourceBalance ? (
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {sourceBalanceText}
-                </SizableText>
-              ) : null}
+              <SizableText size="$bodySm" color="$textSubdued">
+                {hasSourceBalance ? sourceBalanceText : ' '}
+              </SizableText>
             </YStack>
           </YStack>
         </XStack>
@@ -2468,6 +2467,9 @@ export async function showDepositWithdrawDialog(
           flex: 1,
           pb: '$0',
         },
+    estimatedContentHeight: platformEnv.isNative
+      ? PERP_NATIVE_DEPOSIT_WITHDRAW_ESTIMATED_CONTENT_HEIGHT
+      : undefined,
     floatingPanelProps: platformEnv.isNative
       ? undefined
       : {
