@@ -11,8 +11,6 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Button, SizableText, XStack } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
 import { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import defiActionUtils from '@onekeyhq/shared/src/utils/defiActionUtils';
@@ -25,6 +23,10 @@ import {
   type IResolvedDeFiPositionAction,
 } from '@onekeyhq/shared/types/defi';
 
+import {
+  type IProtocolLendingActionType,
+  showProtocolLendingActionDialog,
+} from './ProtocolLendingActionDialog';
 import {
   type IProtocolPositionActionSuccessParams,
   getActionLabel,
@@ -173,6 +175,17 @@ function getPrimarySuppliedAsset(
   );
 }
 
+function getPrimaryDebtAsset(
+  position: IDeFiProtocol['positions'][number],
+): IDeFiAsset | undefined {
+  return (
+    position.debts.find((debt) => isPositiveAmount(debt.amount)) ??
+    position.sourcePositions
+      ?.flatMap((sourcePosition) => sourcePosition.debts)
+      .find((debt) => isPositiveAmount(debt.amount))
+  );
+}
+
 function normalizeBorrowProvider(provider?: string) {
   const normalizedProvider = normalizeMatchValue(provider);
   if (!normalizedProvider) return undefined;
@@ -190,17 +203,24 @@ function getAaveBorrowManageParams({
   position,
   manageAsset,
   providerDisplayInfo,
+  actionType,
 }: {
   protocol: Pick<IDeFiProtocol, 'networkId' | 'protocol'>;
   position: IDeFiProtocol['positions'][number];
   manageAsset?: IDeFiAsset;
   providerDisplayInfo?: IProtocolPositionProviderDisplayInfo;
+  actionType: 'withdraw' | 'repay';
 }): IBorrowManageParams | undefined {
   if (!isAaveProtocol(protocol.protocol) || !hasDebt(position)) {
     return undefined;
   }
 
-  const primaryAsset = getPrimarySuppliedAsset(position);
+  // Repay anchors on the primary debt (the loan being paid down); withdraw on
+  // the primary supplied collateral. A caller-scoped asset still wins below.
+  const primaryAsset =
+    actionType === 'repay'
+      ? (getPrimaryDebtAsset(position) ?? getPrimarySuppliedAsset(position))
+      : getPrimarySuppliedAsset(position);
   // The asset this button acts on: the caller-scoped asset for per-asset
   // Withdraw/Repay, otherwise the position's primary supplied asset.
   const targetAsset = manageAsset ?? primaryAsset;
@@ -477,7 +497,6 @@ const ProtocolPositionActionButton = memo(
     onSuccess,
   }: IProtocolPositionActionButtonProps) => {
     const intl = useIntl();
-    const navigation = useAppNavigation();
     const submitProtocolPositionAction = useProtocolPositionActionSubmit({
       accountId: accountId ?? '',
       networkId: protocol.networkId,
@@ -515,13 +534,27 @@ const ProtocolPositionActionButton = memo(
       () => defiActionUtils.positionHasDebts(position),
       [position],
     );
-    const borrowManageParams = useMemo(
+    // Withdraw and Repay resolve to different reserves (collateral vs debt), so
+    // each manage type gets its own params object.
+    const withdrawManageParams = useMemo(
       () =>
         getAaveBorrowManageParams({
           protocol,
           position,
           manageAsset,
           providerDisplayInfo,
+          actionType: 'withdraw',
+        }),
+      [manageAsset, position, protocol, providerDisplayInfo],
+    );
+    const repayManageParams = useMemo(
+      () =>
+        getAaveBorrowManageParams({
+          protocol,
+          position,
+          manageAsset,
+          providerDisplayInfo,
+          actionType: 'repay',
         }),
       [manageAsset, position, protocol, providerDisplayInfo],
     );
@@ -556,24 +589,28 @@ const ProtocolPositionActionButton = memo(
         ),
       [fallbackBlockingActions, manageAsset, placement],
     );
-    // Aave positions with debt have a dedicated manage page
-    // (BorrowManagePosition) that surfaces health factor / liquidation risk, so
-    // Withdraw (collateral) and Repay route there instead of the generic action
-    // dialog. This inverts the usual precedence, where a resolved action would
-    // otherwise suppress the manage button. Falls back to the dialog when the
-    // borrow params can't be resolved, so no row loses its button.
-    const preferManageForAave = hasAaveDebt && Boolean(borrowManageParams);
+    // Aave positions with debt route Withdraw (collateral) and Repay through the
+    // lending action dialog (health factor / liquidation preview) instead of the
+    // generic action dialog. This inverts the usual precedence, where a resolved
+    // action would otherwise suppress the manage button. Falls back to the
+    // generic dialog per-side when that side's borrow params can't resolve, so
+    // no row loses its button.
+    const preferManageForAave =
+      hasAaveDebt &&
+      (Boolean(withdrawManageParams) || Boolean(repayManageParams));
     const manageActionTypes = getManageActionTypesForPlacement(
       placement,
     ).filter(
       (manageType) =>
-        preferManageForAave ||
-        !deFiManageActions.has(getManageActionTypeAction(manageType)),
+        Boolean(
+          manageType === EManagePositionType.Repay
+            ? repayManageParams
+            : withdrawManageParams,
+        ) &&
+        (preferManageForAave ||
+          !deFiManageActions.has(getManageActionTypeAction(manageType))),
     );
-    const shouldShowManage =
-      hasAaveDebt &&
-      manageActionTypes.length > 0 &&
-      Boolean(borrowManageParams);
+    const shouldShowManage = hasAaveDebt && manageActionTypes.length > 0;
     // A per-asset caller (manageAsset set) shows each row's own scoped action;
     // an unscoped caller keeps the position-level actions on the first row only.
     let renderedActions: IResolvedDeFiPositionAction[] = [];
@@ -583,13 +620,19 @@ const ProtocolPositionActionButton = memo(
       renderedActions = visibleActions;
     }
     // Aave Withdraw/Repay are owned by the manage button above, so drop the
-    // generic resolved actions to avoid rendering two buttons for one action.
+    // generic resolved action — but only for the side whose manage button will
+    // actually render. If that side's params didn't resolve, keep the resolved
+    // action so the row never loses a button.
     if (preferManageForAave) {
-      renderedActions = renderedActions.filter(
-        (action) =>
-          action.action !== EDeFiPositionAction.Withdraw &&
-          action.action !== EDeFiPositionAction.Repay,
-      );
+      renderedActions = renderedActions.filter((action) => {
+        if (action.action === EDeFiPositionAction.Withdraw) {
+          return !withdrawManageParams;
+        }
+        if (action.action === EDeFiPositionAction.Repay) {
+          return !repayManageParams;
+        }
+        return true;
+      });
     }
     const handleActionPress = useCallback(
       async (action: IResolvedDeFiPositionAction) => {
@@ -649,28 +692,46 @@ const ProtocolPositionActionButton = memo(
     );
     const handleManagePress = useCallback(
       (type: EManagePositionType) => {
-        if (!accountId || !borrowManageParams) return;
-        BorrowNavigation.pushToBorrowManagePosition(navigation, {
+        if (!accountId) return;
+        const actionType: IProtocolLendingActionType =
+          type === EManagePositionType.Repay ? 'repay' : 'withdraw';
+        const params =
+          type === EManagePositionType.Repay
+            ? repayManageParams
+            : withdrawManageParams;
+        if (!params) return;
+        showProtocolLendingActionDialog({
           accountId,
-          indexedAccountId: protocol.indexedAccountId ?? indexedAccountId,
           networkId: protocol.networkId,
-          provider: borrowManageParams.provider,
-          marketAddress: borrowManageParams.marketAddress,
-          reserveAddress: borrowManageParams.reserveAddress,
-          symbol: borrowManageParams.symbol,
-          logoURI: borrowManageParams.logoURI,
-          providerDisplayName: borrowManageParams.providerDisplayName,
-          providerLogoURI: borrowManageParams.providerLogoURI,
-          type,
+          actionType,
+          source: {
+            type: 'borrow',
+            provider: params.provider,
+            marketAddress: params.marketAddress,
+            reserveAddress: params.reserveAddress,
+            symbol: params.symbol,
+            logoURI: params.logoURI,
+            providerDisplayName: params.providerDisplayName,
+            providerLogoURI: params.providerLogoURI,
+            indexedAccountId: protocol.indexedAccountId ?? indexedAccountId,
+            // A row-scoped button already names the asset (fixed); the
+            // position-level block button lets the dialog's dropdown choose it.
+            selectable: !manageAsset,
+          },
+          hasDebts: positionHasDebts,
+          onSuccess,
         });
       },
       [
         accountId,
-        borrowManageParams,
         indexedAccountId,
-        navigation,
+        manageAsset,
+        onSuccess,
+        positionHasDebts,
         protocol.indexedAccountId,
         protocol.networkId,
+        repayManageParams,
+        withdrawManageParams,
       ],
     );
 
