@@ -60,6 +60,18 @@ Use these paths when a bug starts from Home Token, Send, Receive, Market,
 Earn, or Buy but lands in Swap. The source surface owns the handoff params;
 Swap owns quote, review, build, send, and history once the route is mounted.
 
+Entry-specific anchors:
+
+- Wallet Home action opens `SwapMainLand` with `importNetworkId` and
+  `ESwapSource.WALLET_HOME`; it does not own token selection after route mount.
+- Home Token action builds `importFromToken`, can omit BTC native token for
+  unsupported ordinary Swap, can set a Bridge default `importToToken`, and
+  passes `importDeriveType`.
+- Earn/Staking funding uses `useHandleSwap` with `ESwapSource.EARN`; DeFi owns
+  source context and Swap owns quote/review/build/send after handoff.
+- `SwapMainLandModal` wraps the modal in the swap account selector mirror and
+  forwards only `swapInitParams`; route params are not long-term state.
+
 ## Quote Progress And Provider Selection
 
 - `packages/kit/src/states/jotai/contexts/swap/quoteProgress.ts`

@@ -27,6 +27,19 @@ Run this before shipping or approving Earn/Borrow/Staking work:
     loading, operation state machine, listener refresh, pending/history bridge,
     or view-model composition.
 
+## Entry And Platform Drill
+
+Run this when a requirement mentions Earn entry, Home Earn, native Earn,
+AssetDetails, DeFi Portfolio, or Swap-assisted funding:
+
+- Name the entry surface and the first DeFi owner after entry.
+- For native, prove whether the path is Discovery EarnHome sub-tab switching or
+  a pushed Earn route under Discovery; do not validate it only on desktop/web.
+- For DeFi Portfolio and AssetDetails routes, verify account and
+  indexed-account identity survive without Home-only provider context.
+- For Swap-assisted funding, validate DeFi source params and return refresh,
+  then hand quote/review/build/send/history validation to `1k-trade-swap-market`.
+
 ## ABI Readiness Drill
 
 Use this drill for L2 or protocol integrations where the App builds contract calls:

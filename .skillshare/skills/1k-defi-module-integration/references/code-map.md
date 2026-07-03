@@ -15,6 +15,17 @@ Important anchor:
 
 - `safePushToEarnRoute`
 
+Entry-specific anchors:
+
+- `safePushToEarnRoute` targets `ETabRoutes.Discovery` on native and
+  `ETabRoutes.Earn` on desktop/web.
+- Native `EarnHome` is not a pushed Discovery stack route; the code switches
+  Discovery to the Earn sub-tab and optionally emits `SwitchEarnTab`.
+- Non-home Earn routes on native are pushed into the Discovery stack before
+  switching tabs to avoid combined selected-page and children updates.
+- `EarnNavigation.popToEarnHome` has separate native and desktop/web paths;
+  do not reuse one path as proof for the other platform.
+
 ## Earn Home, List, And Detail
 
 - `packages/kit/src/views/Earn/EarnHome.tsx`
@@ -38,6 +49,8 @@ Important anchors:
 - `AvailableAssetsTabViewList` for available-assets fetch, filters, and search.
 - `ProtocolsTabContent` and `EarnMainTabs` for active-tab propagation.
 - `useEarnActions.triggerRefresh` for available-assets refresh ownership.
+- `EarnListView` for Home -> Earn entry; it is a source entry, not the owner
+  of Earn home/list/detail refresh after navigation.
 
 ## DeFi Portfolio Actions And AssetDetails Modal
 

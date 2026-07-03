@@ -27,6 +27,20 @@ Run this before shipping or approving Trade/Swap/Market work:
     selection/route sync, quote/review state machine, listener/history bridge,
     or view-model composition.
 
+## Entry Ownership Drill
+
+Use this for bugs that mention "Home Swap", "首页兑换", direct Swap page, Earn
+funding, Send handoff, Market speed-swap, or mobile-only behavior:
+
+- Name the entry owner and the first Swap owner after `SwapMainLand` mounts.
+- Compare the handoff params against the settled Swap state: `importNetworkId`,
+  `importFromToken`, `importToToken`, `importDeriveType`, `swapTabSwitchType`,
+  `swapSource`, and any amount/preset params.
+- Separate desktop/web route or modal behavior from native mobile dialog,
+  bottom-sheet, K-line variant, keyboard, safe-area, and Limit-focus behavior.
+- If the bug is visible only on first entry, run the cold-start frame checklist
+  rather than validating only the final settled screen.
+
 ## New Channel Readiness Checklist
 
 Use this for PrivateSend-like, stock/order, or unusual provider channels:
@@ -99,8 +113,8 @@ Complete this drill before wiring a stock-like protocol:
 - Lead with confirmed behavior risk, not broad process notes.
 - For each issue, name the state owner and failing transition.
 - Distinguish code blockers from validation gaps.
-- For Home Token, Send, Market, Earn, or Buy entries into Swap, review both
-  handoff params and the resulting Swap state transition before judging the
-  target hook.
+- For Wallet Home, Home Token, Send, Market, Earn, or Buy entries into Swap,
+  review both handoff params and the resulting Swap state transition before
+  judging the target hook.
 - Propose the smallest App-side change that preserves the canonical flow.
 - Before patching a Stock/order review flag, check whether the behavior is already owned by a channel state, service adapter, backend DTO, generated workflow, or pending/history filter.

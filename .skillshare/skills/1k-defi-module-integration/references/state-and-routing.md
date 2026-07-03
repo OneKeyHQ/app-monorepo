@@ -33,6 +33,18 @@ When navigating to Earn on native:
 - validate fresh native open, not only same-tab navigation
 - check modal and bottom-sheet safe areas
 
+Entry ownership rules:
+
+- Home Earn cards/lists, share links, and portfolio rows are entry surfaces.
+  They own params and analytics source, not long-term Earn data state.
+- `EarnHome` on native is a Discovery sub-tab switch, while
+  `EarnProtocols`/`EarnProtocolDetails` are stack routes under Discovery.
+- AssetDetails modal action routes must preserve account identity in route
+  params or protocol payloads; do not assume the Home account provider is
+  mounted.
+- Swap-assisted actions must stop at prefill/source context. Once Swap quote
+  starts, use `1k-trade-swap-market` for execution, pending, and Swap history.
+
 ## Data Ownership
 
 Name the owner for each data class:
