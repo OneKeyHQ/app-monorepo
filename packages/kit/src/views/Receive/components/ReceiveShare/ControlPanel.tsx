@@ -6,9 +6,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ReceiveTestIDs } from '../../testIDs';
 
-// TODO(i18n): no suitable existing key for the "More" action label
-const moreActionLabel = 'More';
-
 interface IControlPanelProps {
   onSaveImage: () => void;
   onShareImage: () => void;
@@ -79,7 +76,7 @@ export function ControlPanel({
       <ActionItem
         testID={ReceiveTestIDs.ShareMoreButton}
         icon="ShareOutline"
-        label={moreActionLabel}
+        label={intl.formatMessage({ id: ETranslations.global_more })}
         onPress={onShareImage}
         disabled={isLoading}
       />

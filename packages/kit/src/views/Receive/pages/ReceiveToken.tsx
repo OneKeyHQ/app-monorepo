@@ -67,14 +67,6 @@ import { EAddressState } from '../types';
 import type { IReceiveShareData } from '../components/ReceiveShare';
 import type { RouteProp } from '@react-navigation/core';
 
-// TODO(i18n): design copy; existing skip_verify_text reads
-// "I don't have my device with me"
-const skipVerifyButtonText = 'No device with me';
-
-// TODO(i18n): design copy; existing address_verify_address_instruction reads
-// "Verify on device to prevent address replacement attacks"
-const verifyInstructionText = 'Verify on device to confirm the genuine address';
-
 function ReceiveToken() {
   useDebugComponentRemountLog({
     name: 'ReceiveToken9971',
@@ -556,10 +548,10 @@ function ReceiveToken() {
     [networkId, network?.isTestnet, network?.isCustomNetwork],
   );
 
-  // TODO(i18n): needs a single "Receive {symbol}" key for locale word order
-  const pageTitleText = `${intl.formatMessage({
-    id: ETranslations.global_receive,
-  })} ${token?.symbol ?? network?.symbol ?? ''}`;
+  const pageTitleText = intl.formatMessage(
+    { id: ETranslations.receive_token__title },
+    { token: token?.symbol ?? network?.symbol ?? '' },
+  );
 
   const shareData = useMemo<IReceiveShareData | null>(() => {
     if (!network || !displayAddress) return null;
@@ -651,7 +643,9 @@ function ReceiveToken() {
               size="large"
               onPress={handleSkipVerifyPress}
             >
-              {skipVerifyButtonText}
+              {intl.formatMessage({
+                id: ETranslations.no_device_with_me__action,
+              })}
             </Button>
           </YStack>
         </Page.Footer>
@@ -671,7 +665,9 @@ function ReceiveToken() {
         // keep one declared param: FooterCancelButton auto-closes the page
         // when the handler declares zero params
         onCancel={(_close) => handleSkipVerifyPress()}
-        onCancelText={skipVerifyButtonText}
+        onCancelText={intl.formatMessage({
+          id: ETranslations.no_device_with_me__action,
+        })}
         cancelButtonProps={{
           testID: ReceiveTestIDs.SkipVerifyButton,
         }}
@@ -831,7 +827,7 @@ function ReceiveToken() {
       <ReceiveCardCell
         alignItems="center"
         justifyContent="center"
-        py="$8"
+        py={27}
         px="$4"
         {...(!shouldShowQRCode && {
           onPress: handleVerifyOnDevicePress,
@@ -881,7 +877,9 @@ function ReceiveToken() {
           <Empty
             p="0"
             illustration="ShieldDevice"
-            description={verifyInstructionText}
+            description={intl.formatMessage({
+              id: ETranslations.verify_on_device_confirm_address__desc,
+            })}
             iconProps={{
               size: '$8',
               mb: '$5',
@@ -895,6 +893,7 @@ function ReceiveToken() {
       </ReceiveCardCell>
     );
   }, [
+    intl,
     displayAddress,
     network,
     shouldShowQRCode,

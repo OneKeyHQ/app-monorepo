@@ -40,12 +40,20 @@ function ShareContent({ data, isMobile }: IShareContentProps) {
       const generator: IReceiveShareImageGeneratorRef | null =
         generatorRef.current;
       if (!generator) {
-        Toast.error({ title: 'Failed to generate image' });
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.generate_image_failed__msg,
+          }),
+        });
         return;
       }
       const base64: string = await generator.generate();
       if (!base64) {
-        Toast.error({ title: 'Failed to generate image' });
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.generate_image_failed__msg,
+          }),
+        });
         return;
       }
 
@@ -55,9 +63,12 @@ function ShareContent({ data, isMobile }: IShareContentProps) {
         Dialog.show({
           tone: 'warning',
           icon: 'ErrorOutline',
-          title: 'Photo Library Access Denied',
-          description:
-            'OneKey requires photo library access to save images. Please go to Settings and enable photo library permissions.',
+          title: intl.formatMessage({
+            id: ETranslations.photo_library_access_denied__title,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.photo_library_access_denied__desc,
+          }),
           onConfirmText: intl.formatMessage({
             id: ETranslations.global_go_settings,
           }),
@@ -79,12 +90,20 @@ function ShareContent({ data, isMobile }: IShareContentProps) {
       const generator: IReceiveShareImageGeneratorRef | null =
         generatorRef.current;
       if (!generator) {
-        Toast.error({ title: 'Failed to generate image' });
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.generate_image_failed__msg,
+          }),
+        });
         return;
       }
       const base64: string = await generator.generate();
       if (!base64) {
-        Toast.error({ title: 'Failed to generate image' });
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.generate_image_failed__msg,
+          }),
+        });
         return;
       }
 
@@ -92,7 +111,7 @@ function ShareContent({ data, isMobile }: IShareContentProps) {
     } finally {
       setIsActionLoading(false);
     }
-  }, [shareImage]);
+  }, [shareImage, intl]);
 
   const desktopLayout = (
     <YStack gap="$5">
