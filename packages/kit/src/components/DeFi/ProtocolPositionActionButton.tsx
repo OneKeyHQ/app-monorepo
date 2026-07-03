@@ -801,6 +801,25 @@ const ProtocolPositionActionButton = memo(
         minWidth={isBlock ? undefined : 0}
         {...containerProps}
       >
+        {shouldShowManage
+          ? manageActionTypes.map((manageType) => (
+              <Button
+                key={manageType}
+                testID={`defi-position-action-manage-${manageType}`}
+                size={buttonSize}
+                {...actionButtonFrameProps}
+                {...fixedActionWidthProps}
+                disabled={Boolean(submittingActionKey)}
+                onPress={() => handleManagePress(manageType)}
+              >
+                {renderActionButtonLabel({
+                  isInfo,
+                  isBlock,
+                  label: getManageActionLabel({ type: manageType, intl }),
+                })}
+              </Button>
+            ))
+          : null}
         {renderedActions.map((action) => {
           const actionKey = getResolvedActionKey(action);
           return (
@@ -826,25 +845,6 @@ const ProtocolPositionActionButton = memo(
             </Button>
           );
         })}
-        {shouldShowManage
-          ? manageActionTypes.map((manageType) => (
-              <Button
-                key={manageType}
-                testID={`defi-position-action-manage-${manageType}`}
-                size={buttonSize}
-                {...actionButtonFrameProps}
-                {...fixedActionWidthProps}
-                disabled={Boolean(submittingActionKey)}
-                onPress={() => handleManagePress(manageType)}
-              >
-                {renderActionButtonLabel({
-                  isInfo,
-                  isBlock,
-                  label: getManageActionLabel({ type: manageType, intl }),
-                })}
-              </Button>
-            ))
-          : null}
       </XStack>
     );
   },
