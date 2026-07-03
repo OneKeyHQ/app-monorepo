@@ -43,11 +43,11 @@ const SwapRecentTokenPairsGroup = ({
   const fromTokenAmountBN = new BigNumber(fromTokenAmount ?? 0);
   const tokenPairsInCurrentType = useMemo(() => {
     if (visibleSwapTypes.includes(swapTypeSwitchAtom)) {
-      // The store keeps single-chain and cross-chain pairs in separate
-      // buckets (up to maxRecentTokenPairs each), so the merged Swap &
-      // Bridge tab receives up to 2x maxRecentTokenPairs entries. Cap the
-      // rendered list so "show more" never expands beyond one bucket's
-      // worth of pairs (OK-57347).
+      // The store preserves global most-recent-first order while retaining
+      // up to maxRecentTokenPairs entries PER type (single-chain +
+      // cross-chain, so up to 2x in total). Show only the most recent
+      // maxRecentTokenPairs of the mix — the type composition floats with
+      // actual usage (OK-57347).
       return tokenPairs.slice(0, maxRecentTokenPairs);
     }
     return [];
