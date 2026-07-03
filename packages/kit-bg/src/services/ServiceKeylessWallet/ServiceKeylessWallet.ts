@@ -155,6 +155,7 @@ type IKeylessBackendShareV2MigrationSource = 'restore' | 'resetPin';
 
 type IKeylessAccessTokenWithoutPromptResult = {
   accessToken: string;
+  refreshToken?: string;
 };
 
 type IKeylessWalletCreatedOnServerInfo = {
@@ -1167,16 +1168,132 @@ class ServiceKeylessWallet extends ServiceBase {
     return mismatchReason ? null : token;
   }
 
+  // Passive V2 migration internal helper — together with its caller below,
+  // this is the ONLY non-interactive consumer of the legacy per-owner
+  // encrypted OAuth refresh token (pre-OneKey-ID-unification builds). It
+  // decrypts the blob with the already-cached password (never an interactive
+  // prompt) and exchanges it directly over HTTP, so the refreshed session is
+  // used in-memory only and is NEVER written to the global Supabase client.
+  // Transient failures (fetch throw / 5xx / 408 / 429 / json-parse) become
+  // `KeylessPassiveMigrationNetworkError` so the migration loop rolls back
+  // the 24h throttle. A definitive rejection (e.g. invalid_grant on a
+  // revoked / expired refresh token) or a blob that no longer decrypts
+  // removes the dead blob and fails the attempt normally (throttle consumed).
+  private async refreshLegacyAccessTokenForKeylessBackendShareV2MigrationPassive(params: {
+    ownerId: string;
+    password: string;
+  }): Promise<IKeylessAccessTokenWithoutPromptResult | null> {
+    const { ownerId, password } = params;
+    if (!(await this.hasLegacyKeylessOAuthRefreshToken({ ownerId }))) {
+      return null;
+    }
+
+    let refreshToken: string | null = null;
+    try {
+      refreshToken = await this.getLegacyKeylessOAuthRefreshToken({
+        ownerId,
+        password,
+      });
+    } catch (error) {
+      if (this.isKeylessDataCorruptedError(error)) {
+        // The legacy blob can no longer be decrypted (e.g. it was left stale
+        // by a passcode change on an old build). It is unrecoverable and
+        // would fail again on every retry, so drop it and fail normally.
+        await this.removeLegacyKeylessOAuthTokens({ ownerId });
+        return null;
+      }
+      throw error;
+    }
+    if (!refreshToken) {
+      return null;
+    }
+
+    const refreshUrl = `${KEYLESS_SUPABASE_PROJECT_URL}/auth/v1/token?grant_type=refresh_token`;
+    let response: Response;
+    try {
+      response = await fetch(refreshUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // oxlint-disable-next-line @cspell/spellchecker
+          apikey: KEYLESS_SUPABASE_PUBLIC_API_KEY,
+        },
+        body: JSON.stringify({
+          refresh_token: refreshToken,
+        }),
+      });
+    } catch (error) {
+      // Fetch threw (offline / DNS / TLS / abort). Surface as a network
+      // error so the migration loop does not consume its 24h throttle window.
+      throw new KeylessPassiveMigrationNetworkError(error);
+    }
+
+    // Transient HTTP failures must NOT consume the 24h throttle:
+    //   5xx — auth server unreachable or misbehaving
+    //   408 — request timeout
+    //   429 — rate limited (Supabase auth limits per IP / per refresh-token)
+    if (
+      response.status >= 500 ||
+      response.status === 408 ||
+      response.status === 429
+    ) {
+      throw new KeylessPassiveMigrationNetworkError();
+    }
+    if (!response.ok) {
+      // Any other 4xx (400 invalid_grant / 401 / 403) means the refresh
+      // token was definitively rejected (revoked / expired / already rotated
+      // elsewhere). The blob is dead and would fail on every retry, so drop
+      // it and let the attempt fail normally (throttle consumed).
+      await this.removeLegacyKeylessOAuthTokens({ ownerId });
+      return null;
+    }
+
+    let refreshResult: { access_token?: string; refresh_token?: string };
+    try {
+      refreshResult = (await response.json()) as {
+        access_token?: string;
+        refresh_token?: string;
+      };
+    } catch (error) {
+      throw new KeylessPassiveMigrationNetworkError(error);
+    }
+
+    if (!refreshResult?.access_token || !refreshResult?.refresh_token) {
+      return null;
+    }
+
+    return {
+      accessToken: refreshResult.access_token,
+      refreshToken: refreshResult.refresh_token,
+    };
+  }
+
   // Passive V2 migration uses the same global Keyless OAuth session as
-  // OneKey ID. It no longer reads ownerId-scoped legacy access/refresh tokens.
+  // OneKey ID. Narrow exception: when the global session yields no matching
+  // token (e.g. a pre-OneKey-ID-unification build was upgraded and only the
+  // legacy per-owner encrypted refresh token exists), it falls back to that
+  // legacy blob via the non-interactive refresh helper above. The legacy
+  // token is NOT a general login credential — no other flow may consume it
+  // non-interactively, and the refreshed session is never persisted to the
+  // global Supabase client from this passive path.
   private async getAccessTokenForKeylessBackendShareV2MigrationPassive(params: {
     keylessWallet: IDBWallet;
+    ownerId: string;
+    password: string;
   }): Promise<IKeylessAccessTokenWithoutPromptResult | null> {
     const accessToken =
       await this.getActiveKeylessOAuthAccessTokenMatchingLocalWallet({
         keylessWallet: params.keylessWallet,
       });
-    return accessToken ? { accessToken } : null;
+    if (accessToken) {
+      return { accessToken };
+    }
+    return this.refreshLegacyAccessTokenForKeylessBackendShareV2MigrationPassive(
+      {
+        ownerId: params.ownerId,
+        password: params.password,
+      },
+    );
   }
 
   private async setKeylessBackendShareV2MigrationRecord(params: {
@@ -1554,6 +1671,8 @@ class ServiceKeylessWallet extends ServiceBase {
       const tokenInfo =
         await this.getAccessTokenForKeylessBackendShareV2MigrationPassive({
           keylessWallet,
+          ownerId,
+          password,
         });
       if (!tokenInfo) {
         await this.markKeylessBackendShareV2MigrationFailed({
@@ -1621,6 +1740,22 @@ class ServiceKeylessWallet extends ServiceBase {
           skipped: true,
           reason: 'owner_id_mismatch',
         };
+      }
+
+      if (tokenInfo.refreshToken) {
+        // The access token came from the legacy blob and Supabase rotates
+        // refresh tokens on use — persist the rotated token back (only after
+        // it has been validated against the local wallet and the server
+        // owner id, mirroring the pre-v2 behavior) so the blob stays usable
+        // for future passive attempts and for the interactive OneKey ID
+        // login flow (which migrates + removes it). The save itself is never
+        // rolled back when a later migration step fails, because the
+        // previous refresh token was already consumed by the exchange.
+        await this.saveLegacyKeylessOAuthRefreshToken({
+          ownerId,
+          refreshToken: tokenInfo.refreshToken,
+          password,
+        });
       }
 
       if (current.canonicalFormat === 'v2') {
