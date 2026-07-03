@@ -83,6 +83,45 @@ test('keeps L0 as no-lockdown', () => {
   });
 });
 
+test('installs Symbol.metadata before lockdown for lazy Lit imports', () => {
+  const symbolConstructor = Symbol as SymbolConstructor & {
+    metadata?: symbol;
+  };
+  const originalDescriptor = Object.getOwnPropertyDescriptor(
+    Symbol,
+    'metadata',
+  );
+
+  try {
+    if (originalDescriptor?.configurable !== false) {
+      Reflect.deleteProperty(symbolConstructor, 'metadata');
+    }
+
+    const calls: string[] = [];
+    const warmUp = jest.fn(() => {
+      calls.push(`warmUp:${typeof symbolConstructor.metadata}`);
+    });
+    const lockdown = jest.fn(() => {
+      calls.push(`lockdown:${typeof symbolConstructor.metadata}`);
+    });
+
+    maybeLockdownOneKeyRuntime({
+      runtime: 'web',
+      level: 'L2',
+      warmUp,
+      lockdown,
+    });
+
+    expect(calls).toEqual(['warmUp:symbol', 'lockdown:symbol']);
+  } finally {
+    if (originalDescriptor) {
+      Object.defineProperty(Symbol, 'metadata', originalDescriptor);
+    } else {
+      Reflect.deleteProperty(symbolConstructor, 'metadata');
+    }
+  }
+});
+
 test('warms up override-mistake libraries before calling lockdown', () => {
   const calls: string[] = [];
   const warmUp = jest.fn(() => {

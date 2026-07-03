@@ -402,6 +402,24 @@ function defaultWarmUpBeforeLockdown(): void {
   }
 }
 
+type ISymbolConstructorWithMetadata = SymbolConstructor & {
+  metadata?: symbol | null;
+};
+
+function installSymbolMetadataBeforeLockdown(): void {
+  const symbolConstructor = Symbol as ISymbolConstructorWithMetadata;
+  if (
+    symbolConstructor.metadata === undefined ||
+    symbolConstructor.metadata === null
+  ) {
+    Object.defineProperty(symbolConstructor, 'metadata', {
+      configurable: true,
+      value: Symbol('metadata'),
+      writable: true,
+    });
+  }
+}
+
 function getLockdownAfterLoad(
   loadSes: () => void,
 ): NonNullable<ISesHardenGlobal['lockdown']> {
@@ -478,6 +496,11 @@ export function maybeLockdownOneKeyRuntime(options: {
 
   const lockdown =
     options.lockdown ?? getLockdownAfterLoad(options.loadSes ?? defaultLoadSes);
+
+  // Lit 2.x polyfills Symbol.metadata at module init. Reown AppKit is loaded
+  // lazily after lockdown, so install the same stage-3 intrinsic while Symbol is
+  // still extensible.
+  installSymbolMetadataBeforeLockdown();
 
   // Warm up known override-mistake libraries while intrinsics are still
   // mutable. Must run immediately before lockdown() freezes them.
