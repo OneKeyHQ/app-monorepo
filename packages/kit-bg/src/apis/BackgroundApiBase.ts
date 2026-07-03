@@ -380,15 +380,6 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   async writeAsyncStorage(request: IAsyncStorageWriteRequest): Promise<void> {
     const startedAt = Date.now();
     const summary = getAsyncStorageWriteRequestSummary(request);
-    asyncStorageForwarderBgLog('write-start', {
-      ...summary,
-      isNativeIOS: Boolean(platformEnv.isNativeIOS),
-      isNativeMainThread: Boolean(platformEnv.isNativeMainThread),
-      isNativeBackgroundThread: Boolean(platformEnv.isNativeBackgroundThread),
-      enableNativeBackgroundThread: Boolean(
-        platformEnv.enableNativeBackgroundThread,
-      ),
-    });
     try {
       const { default: appStorage } =
         await import('@onekeyhq/shared/src/storage/appStorage');
@@ -413,10 +404,6 @@ class BackgroundApiBase implements IBackgroundApiBridge {
           );
         }
       }
-      asyncStorageForwarderBgLog('write-success', {
-        ...summary,
-        durationMs: Date.now() - startedAt,
-      });
     } catch (error) {
       asyncStorageForwarderBgLog('write-error', {
         ...summary,

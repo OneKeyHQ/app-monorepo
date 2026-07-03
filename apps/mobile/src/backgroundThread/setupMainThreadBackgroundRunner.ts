@@ -118,17 +118,6 @@ function getAsyncStorageWriteArgSummary(
   }
 }
 
-function getAsyncStorageForwarderStack() {
-  return (
-    new Error().stack
-      ?.split('\n')
-      .slice(2, 8)
-      .map((line) => line.trim())
-      .join(' | ')
-      .slice(0, 1200) || 'unavailable'
-  );
-}
-
 const OBSERVER_RETRY_MS = 50;
 const MAX_OBSERVER_RETRY_COUNT = 600;
 const READY_TIMEOUT_MS = 10_000;
@@ -230,21 +219,11 @@ function createTransportError(message: string) {
 }
 
 function isAsyncStorageWriteForwardingEnabled() {
-  const enabled = Boolean(
+  return Boolean(
     platformEnv.isNativeIOS &&
     platformEnv.isNativeMainThread &&
     platformEnv.enableNativeBackgroundThread,
   );
-  asyncStorageForwarderLog('should-forward', {
-    enabled,
-    isNativeIOS: Boolean(platformEnv.isNativeIOS),
-    isNativeMainThread: Boolean(platformEnv.isNativeMainThread),
-    isNativeBackgroundThread: Boolean(platformEnv.isNativeBackgroundThread),
-    enableNativeBackgroundThread: Boolean(
-      platformEnv.enableNativeBackgroundThread,
-    ),
-  });
-  return enabled;
 }
 
 function buildAsyncStorageWriteRequest<T extends IAsyncStorageWriteMethod>(
@@ -257,9 +236,11 @@ function buildAsyncStorageWriteRequest<T extends IAsyncStorageWriteMethod>(
 function installAsyncStorageWriteForwarder() {
   const asyncStorageGlobal = getAsyncStorageWriteForwarderGlobal();
   // The matching consumer lives in @react-native-async-storage/async-storage
-  // from app-modules. That package reads these globals lazily so the installer
-  // can run after the storage module has already been imported in the main
-  // runtime.
+  // from app-modules. This version-locked JS/package contract is intentionally
+  // passive: if the package does not read these globals, this installer is inert;
+  // if the package is present without this installer, writes stay on the original
+  // local path. The package reads globals lazily, so late injection is safe after
+  // the storage module has already been imported in the main runtime.
   asyncStorageForwarderLog('install-start', {
     isNativeIOS: Boolean(platformEnv.isNativeIOS),
     isNativeMainThread: Boolean(platformEnv.isNativeMainThread),
@@ -281,13 +262,6 @@ function installAsyncStorageWriteForwarder() {
   ) => {
     const startedAt = Date.now();
     const summary = getAsyncStorageWriteArgSummary(method, args);
-    asyncStorageForwarderLog('forward-request', {
-      ...summary,
-      transportState,
-      queuedCallCount: queuedCalls.length,
-      pendingRemoteCallCount: pendingRemoteCalls.size,
-      stack: getAsyncStorageForwarderStack(),
-    });
     try {
       await callServiceRequest(
         {
@@ -296,6 +270,13 @@ function installAsyncStorageWriteForwarder() {
           params: [buildAsyncStorageWriteRequest(method, args)],
           sync: false,
         },
+        // Reads stay on the local main runtime. The app-modules AsyncStorage
+        // wrapper reloads the iOS main-runtime manifest after this promise
+        // resolves, preserving main read-after-write consistency without making
+        // reads depend on bg thread responsiveness.
+        // Never fall back to a main-runtime local write here: that would
+        // reintroduce the iOS stale-manifest overwrite this forwarder avoids.
+        // If bg transport is broken, surface the write failure instead.
         () =>
           Promise.reject(
             createTransportError(
@@ -303,13 +284,6 @@ function installAsyncStorageWriteForwarder() {
             ),
           ),
       );
-      asyncStorageForwarderLog('forward-success', {
-        ...summary,
-        durationMs: Date.now() - startedAt,
-        transportState,
-        queuedCallCount: queuedCalls.length,
-        pendingRemoteCallCount: pendingRemoteCalls.size,
-      });
     } catch (error) {
       asyncStorageForwarderLog('forward-error', {
         ...summary,
