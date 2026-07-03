@@ -6,6 +6,7 @@ import { StyleSheet } from 'react-native';
 
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { maxRecentTokenPairs } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapTabSwitchType,
   type ISwapToken,
@@ -42,7 +43,12 @@ const SwapRecentTokenPairsGroup = ({
   const fromTokenAmountBN = new BigNumber(fromTokenAmount ?? 0);
   const tokenPairsInCurrentType = useMemo(() => {
     if (visibleSwapTypes.includes(swapTypeSwitchAtom)) {
-      return tokenPairs;
+      // The store keeps single-chain and cross-chain pairs in separate
+      // buckets (up to maxRecentTokenPairs each), so the merged Swap &
+      // Bridge tab receives up to 2x maxRecentTokenPairs entries. Cap the
+      // rendered list so "show more" never expands beyond one bucket's
+      // worth of pairs (OK-57347).
+      return tokenPairs.slice(0, maxRecentTokenPairs);
     }
     return [];
   }, [swapTypeSwitchAtom, tokenPairs, visibleSwapTypes]);
