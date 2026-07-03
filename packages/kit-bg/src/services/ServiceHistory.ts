@@ -1423,27 +1423,6 @@ class ServiceHistory extends ServiceBase {
         await this.backgroundApi.serviceAccount.getDBAccountSafe({
           accountId: txAccountId,
         });
-      const txAccountInfo = [...accounts, ...allAccounts].find(
-        (account) =>
-          account.accountId === txAccountId &&
-          account.networkId === tx.decodedTx.networkId,
-      );
-      const txAccountAddress =
-        txAccountInfo?.apiAddress ||
-        (await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-          accountId: txAccountId,
-          networkId: tx.decodedTx.networkId,
-        }));
-      const parsedTxAccountId = accountUtils.parseAccountId({
-        accountId: txAccountId,
-      });
-      const normalizedTxDeriveType = accountUtils.normalizeDeriveType(
-        parsedTxAccountId.idSuffix ?? '',
-      );
-      const txDeriveType =
-        txAccountInfo?.deriveType ??
-        normalizedTxDeriveType ??
-        (parsedTxAccountId.idSuffix ? undefined : 'default');
       const knownPerpsDepositOrder = await findKnownPerpsDepositOrderTx({
         txid: tx.decodedTx.txid,
         originalTxId: tx.decodedTx.originalTxId,
@@ -1451,6 +1430,37 @@ class ServiceHistory extends ServiceBase {
       const isPerpsDepositTx =
         isHyperliquidDirectDepositTx(tx.decodedTx) ||
         Boolean(knownPerpsDepositOrder);
+      let txAccountAddress: string | undefined;
+      let txDeriveType: string | IAccountDeriveTypes | undefined;
+      if (isPerpsDepositTx) {
+        const txAccountInfo = [...accounts, ...allAccounts].find(
+          (account) =>
+            account.accountId === txAccountId &&
+            account.networkId === tx.decodedTx.networkId,
+        );
+        txAccountAddress = txAccountInfo?.apiAddress;
+        if (!txAccountAddress) {
+          try {
+            txAccountAddress =
+              await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+                accountId: txAccountId,
+                networkId: tx.decodedTx.networkId,
+              });
+          } catch {
+            txAccountAddress = undefined;
+          }
+        }
+        const parsedTxAccountId = accountUtils.parseAccountId({
+          accountId: txAccountId,
+        });
+        const normalizedTxDeriveType = accountUtils.normalizeDeriveType(
+          parsedTxAccountId.idSuffix ?? '',
+        );
+        txDeriveType =
+          txAccountInfo?.deriveType ??
+          normalizedTxDeriveType ??
+          (parsedTxAccountId.idSuffix ? undefined : 'default');
+      }
       appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
         accountId: txAccountId,
         indexedAccountId: txDBAccount?.indexedAccountId,

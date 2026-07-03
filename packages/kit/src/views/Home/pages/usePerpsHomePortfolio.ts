@@ -271,6 +271,7 @@ export function usePerpsHomePortfolio(): {
         );
       if (
         focusRefreshNonceRef.current !== nonce ||
+        !isTabFocusedRef.current ||
         normalizePerpsAddress(latestAddressRef.current) !== address
       ) {
         return;
