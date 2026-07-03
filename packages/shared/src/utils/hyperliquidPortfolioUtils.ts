@@ -1,6 +1,10 @@
 import BigNumber from 'bignumber.js';
 
 import { EHyperLiquidAbstractionMode } from '../../types/hyperliquid/types';
+import {
+  PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
+  PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_AGE_MS,
+} from '../consts/perpCache';
 
 import {
   calculateSpotBalancesTotalUsd,
@@ -185,6 +189,34 @@ export function spotHasPositiveBalance(
   spot: ISpotClearinghouseStateResponse | undefined,
 ): boolean {
   return Boolean(spot?.balances?.some((b) => safeBN(b.total).gt(0)));
+}
+
+export function getHyperliquidPortfolioSnapshotMaxAge(
+  snapshot: Pick<
+    IHyperliquidPortfolioSnapshot,
+    'perpPositions' | 'spotBalances'
+  >,
+): number {
+  if (
+    snapshot.perpPositions.length > 0 ||
+    spotBalancesNeedPriceRefresh(snapshot.spotBalances)
+  ) {
+    // Open perp positions and non-stable spot holdings move with mark price.
+    return PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS;
+  }
+  return PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_AGE_MS;
+}
+
+export function isHyperliquidPortfolioSnapshotFresh(
+  snapshot: Pick<
+    IHyperliquidPortfolioSnapshot,
+    'fetchedAt' | 'perpPositions' | 'spotBalances'
+  >,
+  now = Date.now(),
+): boolean {
+  return (
+    now - snapshot.fetchedAt <= getHyperliquidPortfolioSnapshotMaxAge(snapshot)
+  );
 }
 
 function isUnifiedPortfolioMode(

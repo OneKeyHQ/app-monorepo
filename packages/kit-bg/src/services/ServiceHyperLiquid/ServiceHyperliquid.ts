@@ -22,10 +22,6 @@ import {
   PERPS_FILTERED_LEDGER_TYPES,
   PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
-import {
-  PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
-  PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_AGE_MS,
-} from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -43,7 +39,7 @@ import {
   assembleHyperliquidSnapshot,
   buildSpotPriceMap,
   getActivePerpPositionsUnrealizedPnl,
-  spotBalancesNeedPriceRefresh,
+  isHyperliquidPortfolioSnapshotFresh,
   spotHasPositiveBalance,
   spotNeedsPrices,
 } from '@onekeyhq/shared/src/utils/hyperliquidPortfolioUtils';
@@ -1089,15 +1085,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       allowCachedFallback = !isCachedModeStale;
     }
     if (!force && cached) {
-      let maxAge = PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_AGE_MS;
-      if (
-        cached.perpPositions.length > 0 ||
-        spotBalancesNeedPriceRefresh(cached.spotBalances)
-      ) {
-        // Open perp positions and non-stable spot holdings move with mark price.
-        maxAge = PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS;
-      }
-      if (allowCachedFallback && Date.now() - cached.fetchedAt <= maxAge) {
+      if (allowCachedFallback && isHyperliquidPortfolioSnapshotFresh(cached)) {
         return cached;
       }
     }
@@ -1112,9 +1100,13 @@ export default class ServiceHyperliquid extends ServiceBase {
       );
       return fresh;
     } catch {
-      // Don't cache the failure; fall back to the (possibly stale) cache.
+      // Don't cache the failure; fall back only while the snapshot is still fresh.
       void this._fetchHlPortfolioMemo.delete(normalized);
-      return allowCachedFallback ? cached : undefined;
+      return allowCachedFallback &&
+        cached &&
+        isHyperliquidPortfolioSnapshotFresh(cached)
+        ? cached
+        : undefined;
     }
   }
 
@@ -1782,8 +1774,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
       // Note: Deep compare not suitable here due to real-time data requirements
       const positions = webData2.clearinghouseState?.assetPositions || [];
-      const totalUnrealizedPnl =
-        getActivePerpPositionsUnrealizedPnl(positions);
+      const totalUnrealizedPnl = getActivePerpPositionsUnrealizedPnl(positions);
 
       const summary: IPerpsActiveAccountSummaryAtom = {
         accountAddress: activeAccount?.accountAddress?.toLowerCase() as IHex,

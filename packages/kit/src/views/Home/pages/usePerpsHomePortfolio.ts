@@ -240,11 +240,45 @@ export function usePerpsHomePortfolio(): {
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
   const depositRetryNonceRef = useRef(0);
+  const focusRefreshNonceRef = useRef(0);
+  const wasTabFocusedRef = useRef(isTabFocused);
   const pendingDepositRetryScopeRef = useRef<
     IPendingDepositRetryScope | undefined
   >(undefined);
   const latestAddressRef = useRef<string | undefined>(result?.address);
   latestAddressRef.current = result?.address;
+
+  useEffect(() => {
+    const wasTabFocused = wasTabFocusedRef.current;
+    wasTabFocusedRef.current = isTabFocused;
+    if (!isTabFocused || wasTabFocused) {
+      return;
+    }
+    const address = normalizePerpsAddress(latestAddressRef.current);
+    if (!address) {
+      void run({ alwaysSetState: true });
+      return;
+    }
+    focusRefreshNonceRef.current += 1;
+    const nonce = focusRefreshNonceRef.current;
+    void (async () => {
+      const snapshot =
+        await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
+          { address, force: true },
+        );
+      if (
+        focusRefreshNonceRef.current !== nonce ||
+        normalizePerpsAddress(latestAddressRef.current) !== address
+      ) {
+        return;
+      }
+      setResult({
+        address,
+        view: snapshot ? mapSnapshotToPerpsHomeView(snapshot) : undefined,
+        requestResolved: Boolean(snapshot),
+      });
+    })();
+  }, [isTabFocused, run, setResult]);
 
   useEffect(() => {
     const onGlobalDeriveTypeUpdate = () => {

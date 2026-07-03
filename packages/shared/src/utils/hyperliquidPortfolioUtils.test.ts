@@ -1,4 +1,8 @@
 import { EHyperLiquidAbstractionMode } from '../../types/hyperliquid';
+import {
+  PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
+  PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_AGE_MS,
+} from '../consts/perpCache';
 
 import {
   aggregateClearinghouseStates,
@@ -6,10 +10,16 @@ import {
   buildSpotPriceMap,
   getActivePerpAssetPositions,
   getActivePerpPositionsUnrealizedPnl,
+  isHyperliquidPortfolioSnapshotFresh,
   spotBalancesNeedPriceRefresh,
   spotHasPositiveBalance,
   spotNeedsPrices,
 } from './hyperliquidPortfolioUtils';
+
+import type {
+  IHyperliquidPerpPositionSnapshot,
+  IHyperliquidSpotBalanceSnapshot,
+} from '../../types/hyperliquid/portfolio';
 
 const meta = {
   universe: [
@@ -214,6 +224,87 @@ describe('spotHasPositiveBalance', () => {
       } as any),
     ).toBe(false);
     expect(spotHasPositiveBalance({ balances: [] } as any)).toBe(false);
+  });
+});
+
+describe('isHyperliquidPortfolioSnapshotFresh', () => {
+  const perpPosition: IHyperliquidPerpPositionSnapshot = {
+    coin: 'ETH',
+    szi: '1',
+    entryPx: '1000',
+    positionValue: '1100',
+    unrealizedPnl: '100',
+    returnOnEquity: '0.1',
+    liquidationPx: null,
+    marginUsed: '100',
+    leverageType: 'cross',
+    leverageValue: 10,
+    cumFundingSinceOpen: '0',
+  };
+  const nonStableSpotBalance: IHyperliquidSpotBalanceSnapshot = {
+    coin: 'HYPE',
+    token: 2,
+    total: '1',
+    hold: '0',
+    entryNtl: '1',
+    priceUsd: '1',
+    valueUsd: '1',
+  };
+
+  const buildSnapshot = ({
+    fetchedAt,
+    hasPerp = false,
+    hasNonStableSpot = false,
+  }: {
+    fetchedAt: number;
+    hasPerp?: boolean;
+    hasNonStableSpot?: boolean;
+  }) => ({
+    fetchedAt,
+    perpPositions: hasPerp ? [perpPosition] : [],
+    spotBalances: hasNonStableSpot ? [nonStableSpotBalance] : [],
+  });
+
+  it('uses active max age for marked-to-market snapshots', () => {
+    const now = 10_000_000;
+    expect(
+      isHyperliquidPortfolioSnapshotFresh(
+        buildSnapshot({
+          fetchedAt: now - PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
+          hasPerp: true,
+        }),
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      isHyperliquidPortfolioSnapshotFresh(
+        buildSnapshot({
+          fetchedAt: now - PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS - 1,
+          hasNonStableSpot: true,
+        }),
+        now,
+      ),
+    ).toBe(false);
+  });
+
+  it('uses idle max age for empty or stable-only snapshots', () => {
+    const now = 10_000_000;
+    expect(
+      isHyperliquidPortfolioSnapshotFresh(
+        buildSnapshot({
+          fetchedAt: now - PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_AGE_MS,
+        }),
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      isHyperliquidPortfolioSnapshotFresh(
+        buildSnapshot({
+          fetchedAt: now - PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_AGE_MS - 1,
+        }),
+        now,
+      ),
+    ).toBe(false);
   });
 });
 
