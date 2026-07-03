@@ -183,7 +183,7 @@ export function PerpTradingButton({
       bg: isAccountLoading ? undefined : styles.bg,
       hoverBg: isAccountLoading ? undefined : styles.hoverBg,
       pressBg: isAccountLoading ? undefined : styles.pressBg,
-      textColor: '$textOnColor',
+      textColor: styles.textColor,
     };
   }, [isAccountLoading, isLong]);
 
