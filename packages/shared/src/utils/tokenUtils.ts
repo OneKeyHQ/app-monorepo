@@ -1074,7 +1074,14 @@ export function buildSelectorTokenListFromResponses({
     nestedAggregateTokenMap,
   );
 
-  if (normalizedResponses.length <= 1) {
+  // Client-folded aggregate common rows are appended AFTER the loop, so any
+  // fold requires the value re-sort even for a single response (all-networks
+  // mode with exactly one enabled network) — otherwise the aggregate rows
+  // would always sink to the list tail regardless of their summed value.
+  const hasClientFoldedAggregates =
+    Object.keys(aggregateTokenListMap).length > 0;
+
+  if (normalizedResponses.length <= 1 && !hasClientFoldedAggregates) {
     // Single-network selector: keep the server-provided order verbatim.
     return {
       tokens,

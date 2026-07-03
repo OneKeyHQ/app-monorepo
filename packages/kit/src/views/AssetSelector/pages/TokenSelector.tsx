@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
@@ -310,6 +311,19 @@ function TokenSelector() {
   // clobber fresh live data).
   const selectorFloorSeededRef = useRef(false);
   const selectorLiveLandedRef = useRef(false);
+  // Owner-scope the floor bookkeeping: both refs are one-way latches, so if
+  // the selector owner ever changes while this instance stays MOUNTED the
+  // stale latches would silently skip the skeleton reset (previous owner's
+  // list stays on screen) and permanently disable the floor for the new
+  // owner. Today every known owner switch remounts the selector (fresh refs);
+  // this guards the invariant instead of relying on it.
+  const selectorFloorOwnerKeyRef = useRef('');
+  const selectorFloorOwnerKey = `${accountId ?? ''}__${networkId ?? ''}`;
+  if (selectorFloorOwnerKeyRef.current !== selectorFloorOwnerKey) {
+    selectorFloorOwnerKeyRef.current = selectorFloorOwnerKey;
+    selectorFloorSeededRef.current = false;
+    selectorLiveLandedRef.current = false;
+  }
 
   const tokenSelectorFilterParams = useMemo(
     () =>
@@ -1184,6 +1198,19 @@ function TokenSelector() {
         return;
       }
 
+      // Total fan-out failure (offline / server outage): the fan-out resolves
+      // with ZERO responses instead of throwing (continue-on-error), so the
+      // merged result would be EMPTY. Keep an already-seeded floor on screen
+      // instead of wiping it; `liveLanded` stays unset so the floor can still
+      // re-seed on a later home structure frame.
+      if (
+        isSelectorAllNetworks &&
+        responses.length === 0 &&
+        selectorFloorSeededRef.current
+      ) {
+        return;
+      }
+
       // Each response's `aggregateTokenMap` is FLAT ($key -> ITokenFiat) and
       // scoped to that response's networkId; the merge nests them by networkId
       // then flattens with the home sum semantics so aggregate rows resolve
@@ -1222,7 +1249,13 @@ function TokenSelector() {
       setSelectorAggregateTokenFiatMap(merged.aggregateTokenFiatMap);
       selectorLiveLandedRef.current = true;
     } catch (e) {
-      console.error(e);
+      // A superseded/aborted fetch is routine (same distinction the home
+      // TokenListBlock catch makes) — don't log it at error level.
+      if (e instanceof CanceledError) {
+        console.log('token selector fetchAccountTokens canceled');
+      } else {
+        console.error(e);
+      }
     } finally {
       // Always leave the skeleton, even when the fetch failed — an unhandled
       // throw here used to keep `selectorInitialized` false forever, pinning

@@ -825,6 +825,53 @@ describe('buildSelectorTokenListFromResponses — token selector self-fetch merg
     expect(merged.tokenListMap['evm--1_usdt_key'].fiatValue).toBe('100');
   });
 
+  it('single all-networks response still value-sorts client-folded aggregate rows', () => {
+    // All-networks mode with exactly ONE enabled network: the fan-out yields a
+    // single response, but folded aggregate common rows are appended after the
+    // loop — they must re-sort by summed fiat instead of sinking to the tail.
+    const ethUsdt = buildTestToken({
+      $key: 'evm--1_usdt_key',
+      address: '0xTetherAddr',
+      networkId: 'evm--1',
+      symbol: 'USDT',
+      accountId: 'acc-eth',
+      networkName: 'Ethereum',
+    });
+    const ethNative = buildTestToken({
+      $key: 'evm--1_native',
+      networkId: 'evm--1',
+      isNative: true,
+    });
+
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({
+          networkId: 'evm--1',
+          tokens: [ethNative, ethUsdt],
+          tokensMap: {
+            'evm--1_native': buildFiat('10'),
+            'evm--1_usdt_key': buildFiat('100'),
+          },
+        }),
+      ],
+      aggregateTokenConfigMapRawData: {
+        'evm--1_0xtetheraddr': {
+          commonSymbol: 'USDT',
+          order: 1,
+          name: 'USDT',
+          logoURI: '',
+        } as unknown as IAggregateToken,
+      },
+    });
+
+    // Without the re-sort the folded row would trail ethNative verbatim.
+    expect(merged.tokens.map((t) => t.$key)).toEqual([
+      'aggregate_USDT_',
+      'evm--1_native',
+    ]);
+    expect(merged.aggregateTokenFiatMap.aggregate_USDT_.fiatValue).toBe('100');
+  });
+
   it('same-network derive-account responses merge into one group row (BTC-like)', () => {
     const taprootBtc = buildTestToken({
       $key: 'acct-1_taproot_btc--0',
