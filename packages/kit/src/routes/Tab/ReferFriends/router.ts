@@ -1,41 +1,74 @@
+import { createElement } from 'react';
+
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ETabReferFriendsRoutes,
+  ETabRoutes,
   type ITabReferFriendsParamList,
 } from '@onekeyhq/shared/src/routes';
 
+import { RootTabLoadingFallback } from '../RootTabLoadingFallback';
+
+const referFriendsLoadingFallback = createElement(RootTabLoadingFallback, {
+  tabRoute: ETabRoutes.ReferFriends,
+});
+
 const ReferAFriend = LazyLoadPage(
   () => import('../../../views/ReferFriends/pages/ReferAFriend'),
+  undefined,
+  undefined,
+  referFriendsLoadingFallback,
 );
 
 const InviteReward = LazyLoadPage(
   () => import('../../../views/ReferFriends/pages/InviteReward'),
+  undefined,
+  undefined,
+  referFriendsLoadingFallback,
 );
 
 const YourReferred = LazyLoadPage(
   () => import('../../../views/ReferFriends/pages/YourReferred'),
+  undefined,
+  undefined,
+  referFriendsLoadingFallback,
 );
 
 const HardwareSalesReward = LazyLoadPage(
   () => import('../../../views/ReferFriends/pages/HardwareSalesReward'),
+  undefined,
+  undefined,
+  referFriendsLoadingFallback,
 );
 
 const EarnReward = LazyLoadPage(
   () => import('../../../views/ReferFriends/pages/EarnReward'),
+  undefined,
+  undefined,
+  referFriendsLoadingFallback,
 );
 
 const PerpsReward = LazyLoadPage(
   () => import('../../../views/ReferFriends/pages/PerpsReward'),
+  undefined,
+  undefined,
+  referFriendsLoadingFallback,
 );
 
 const RewardDistributionHistory = LazyLoadPage(
   () => import('../../../views/ReferFriends/pages/RewardDistributionHistory'),
+  undefined,
+  undefined,
+  referFriendsLoadingFallback,
 );
 
 const ReferralLevel = LazyLoadPage(
   () => import('../../../views/ReferFriends/pages/ReferralLevel'),
+  undefined,
+  undefined,
+  referFriendsLoadingFallback,
 );
 
 export const referFriendsRouters: ITabSubNavigatorConfig<
