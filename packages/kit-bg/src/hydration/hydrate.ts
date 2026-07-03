@@ -59,6 +59,7 @@ import {
   resetColdStartCache,
   writeColdStartMeta,
 } from '@onekeyhq/shared/src/storage/instance/webColdStartStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { normalizeSwapColdStartCacheSnapshot } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 
 import { globalColdStartHydrationReadyHandler } from '../states/jotai/coldStartReady';
@@ -68,11 +69,12 @@ import type { IColdStartHydrationStatus } from '../states/jotai/coldStartReady';
 // ---- Constants ----
 
 const META_KEY_PREFIX = '__meta:';
-const CTX_SNAPSHOT_KEY = 'onekey_jotai_context_atoms_snapshot';
-const SWR_CACHE_KEY = 'onekey_swr_cache';
 const BUILD_HASH_KEY = '__meta:buildHash';
 const KILL_SWITCH_LS_KEY = '__cold_start_kill__';
 const COLD_START_RESULT_GLOBAL = '__ONEKEY_COLD_START_RESULT__';
+const CTX_SNAPSHOT_KEY =
+  EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot;
+const SWR_CACHE_KEY = EAppSyncStorageKeys.onekey_swr_cache;
 // Hard cap on how long we wait for IDB before giving up and degrading to
 // defaults. The ready gate is awaited by GlobalJotaiReady on web/desktop,
 // so an unbounded await here would block React mount on a stalled IDB.
