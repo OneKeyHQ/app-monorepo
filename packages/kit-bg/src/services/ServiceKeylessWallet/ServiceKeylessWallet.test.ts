@@ -91,6 +91,21 @@ jest.mock('../../endpoints', () => ({
   })),
 }));
 
+const mockSupabaseGetSession = jest.fn();
+const mockSupabaseRefreshSession = jest.fn();
+
+jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
+  __esModule: true,
+  getKeylessSupabaseClient: () => ({
+    client: {
+      auth: {
+        getSession: mockSupabaseGetSession,
+        refreshSession: mockSupabaseRefreshSession,
+      },
+    },
+  }),
+}));
+
 jest.mock('./utils/keylessMnemonicPasswordStorage', () => ({
   __esModule: true,
   default: {
@@ -184,6 +199,18 @@ function waitForScheduledBackgroundTask(): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, 0);
   });
+}
+
+// Minimal unsigned JWT whose payload only carries `exp`, enough for
+// stringUtils.decodeJWT() used by isKeylessAccessTokenValid().
+function buildFakeSupabaseJwt(expSeconds: number): string {
+  const header = Buffer.from(JSON.stringify({ alg: 'none' })).toString(
+    'base64',
+  );
+  const payload = Buffer.from(JSON.stringify({ exp: expSeconds })).toString(
+    'base64',
+  );
+  return `${header}.${payload}.signature`;
 }
 
 function createKeylessWallet(overrides: Record<string, unknown> = {}) {
@@ -301,6 +328,14 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     mockMigrationAtom.set.mockImplementation(async (updater: any) => {
       migrationPersist =
         typeof updater === 'function' ? updater(migrationPersist) : updater;
+    });
+    mockSupabaseGetSession.mockResolvedValue({
+      data: { session: null },
+      error: null,
+    });
+    mockSupabaseRefreshSession.mockResolvedValue({
+      data: { session: null, user: null },
+      error: null,
     });
     jest.spyOn(Date, 'now').mockReturnValue(NOW);
   });
@@ -515,6 +550,79 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     });
 
     expect(migrationPersist.byWalletId[WALLET_ID]).toBeUndefined();
+  });
+
+  test('surfaces 429 from Supabase auth getSession as retryable so the throttle is not consumed', async () => {
+    const { service, serviceAny } = createService();
+    // In @supabase/auth-js, a 429 during the getSession() internal refresh
+    // becomes an AuthApiError (not AuthRetryableFetchError), carrying a
+    // numeric `status`.
+    const rateLimitError = Object.assign(new Error('rate limited'), {
+      name: 'AuthApiError',
+      status: 429,
+    });
+    mockSupabaseGetSession.mockResolvedValue({
+      data: { session: null },
+      error: rateLimitError,
+    });
+
+    // Retryable classification must throw instead of returning null…
+    await expect(serviceAny.getActiveKeylessOAuthAccessToken()).rejects.toBe(
+      rateLimitError,
+    );
+
+    // …so the passive migration rolls back the throttle write instead of
+    // burning the 24h window with reason `token_missing`.
+    await expect(
+      service.tryMigrateLocalExistingKeylessBackendShareToV2(),
+    ).resolves.toMatchObject({
+      skipped: true,
+      reason: 'network_unavailable',
+    });
+
+    expect(migrationPersist.byWalletId[WALLET_ID]).toBeUndefined();
+  });
+
+  test('refreshes a near-expiry keyless oauth token instead of discarding the session', async () => {
+    const { serviceAny } = createService();
+    // Expires in 2 minutes: outside supabase-js's own ~90s auto-refresh
+    // margin (so getSession returns it unrefreshed), but inside our 5-minute
+    // validity buffer (so it fails isKeylessAccessTokenValid).
+    const nearExpiryToken = buildFakeSupabaseJwt(NOW / 1000 + 120);
+    const refreshedToken = buildFakeSupabaseJwt(NOW / 1000 + 3600);
+    mockSupabaseGetSession.mockResolvedValue({
+      data: { session: { access_token: nearExpiryToken } },
+      error: null,
+    });
+    mockSupabaseRefreshSession.mockResolvedValue({
+      data: { session: { access_token: refreshedToken }, user: null },
+      error: null,
+    });
+
+    await expect(serviceAny.getActiveKeylessOAuthAccessToken()).resolves.toBe(
+      refreshedToken,
+    );
+    expect(mockSupabaseRefreshSession).toHaveBeenCalledTimes(1);
+  });
+
+  test('returns null when the near-expiry refresh fails with a non-retryable auth error', async () => {
+    const { serviceAny } = createService();
+    const nearExpiryToken = buildFakeSupabaseJwt(NOW / 1000 + 120);
+    mockSupabaseGetSession.mockResolvedValue({
+      data: { session: { access_token: nearExpiryToken } },
+      error: null,
+    });
+    mockSupabaseRefreshSession.mockResolvedValue({
+      data: { session: null, user: null },
+      error: Object.assign(new Error('Invalid Refresh Token'), {
+        name: 'AuthApiError',
+        status: 400,
+      }),
+    });
+
+    await expect(
+      serviceAny.getActiveKeylessOAuthAccessToken(),
+    ).resolves.toBeNull();
   });
 
   test('does not consume the 24-hour throttle when Prime API call fails with a client-side timeout', async () => {

@@ -1106,8 +1106,8 @@ class ServiceKeylessWallet extends ServiceBase {
   }
 
   private async getActiveKeylessOAuthAccessToken(): Promise<string | null> {
-    const sessionResult =
-      await getKeylessSupabaseClient().client.auth.getSession();
+    const { client } = getKeylessSupabaseClient();
+    const sessionResult = await client.auth.getSession();
     if (sessionResult.error) {
       if (isRetryableSupabaseAuthError(sessionResult.error)) {
         throw sessionResult.error;
@@ -1115,10 +1115,29 @@ class ServiceKeylessWallet extends ServiceBase {
       return null;
     }
     const token = sessionResult.data.session?.access_token ?? null;
-    if (!this.isKeylessAccessTokenValid(token)) {
+    if (this.isKeylessAccessTokenValid(token)) {
+      return token;
+    }
+    if (!sessionResult.data.session) {
       return null;
     }
-    return token;
+    // getSession() only auto-refreshes tokens within supabase-js's own ~90s
+    // expiry margin, while our validity buffer is larger
+    // (KEYLESS_TOKEN_VALID_BUFFER_MS). A session failing the buffer check can
+    // still be refreshed, so try an explicit refresh before treating it as
+    // missing.
+    const refreshResult = await client.auth.refreshSession();
+    if (refreshResult.error) {
+      if (isRetryableSupabaseAuthError(refreshResult.error)) {
+        throw refreshResult.error;
+      }
+      return null;
+    }
+    const refreshedToken = refreshResult.data.session?.access_token ?? null;
+    if (!this.isKeylessAccessTokenValid(refreshedToken)) {
+      return null;
+    }
+    return refreshedToken;
   }
 
   private async getActiveKeylessOAuthAccessTokenMatchingLocalWallet(params?: {
