@@ -5,6 +5,8 @@ import { StyleSheet } from 'react-native';
 import { XStack, YStack } from '@onekeyhq/components';
 import type { IYStackProps } from '@onekeyhq/components';
 
+import { useThemeVariant } from '../../../hooks/useThemeVariant';
+
 type IReceiveCardProps = {
   headerLeft?: ReactNode;
   headerRight?: ReactNode;
@@ -13,9 +15,10 @@ type IReceiveCardProps = {
 } & IYStackProps;
 
 export function ReceiveCardCell({ children, ...rest }: IYStackProps) {
+  const themeVariant = useThemeVariant();
   return (
     <YStack
-      bg="$bg"
+      bg={themeVariant === 'dark' ? '$whiteA1' : '$bg'}
       borderRadius="$2.5"
       borderCurve="continuous"
       borderWidth={StyleSheet.hairlineWidth}
