@@ -108,7 +108,10 @@ function CancelOrderButton({
       onPress={disabled ? undefined : onPress}
       flexShrink={0}
     >
-      <SizableText size="$bodySm" color={disabled ? '$textDisabled' : '$text'}>
+      <SizableText
+        size="$bodySmMedium"
+        color={disabled ? '$textDisabled' : '$bgAccent'}
+      >
         {label}
       </SizableText>
     </XStack>

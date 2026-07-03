@@ -15,6 +15,7 @@ import { usePerpsActiveAccountStatusAtom } from '@onekeyhq/kit-bg/src/states/jot
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
+import { getTradingButtonStyleProps } from '../../../utils/styleUtils';
 import {
   CONTEXTUAL_ARTICLE_IDS,
   buildHelpUrl,
@@ -33,6 +34,7 @@ function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const [accountStatus] = usePerpsActiveAccountStatusAtom();
+  const buttonStyleProps = getTradingButtonStyleProps('long');
 
   const isAgentNotReady = useMemo(
     () => !accountStatus?.details?.agentOk || !accountStatus?.canTrade,
@@ -110,12 +112,12 @@ function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
         disabled={loading || !isAgentNotReady}
         loading={loading}
         onPress={handleEnableTrading}
-        bg="#18794E"
-        hoverStyle={{ bg: '$green8' }}
-        pressStyle={{ bg: '$green8' }}
-        color="$textOnColor"
+        {...buttonStyleProps}
+        childrenAsText={false}
       >
-        {buttonText}
+        <SizableText size="$bodyMdMedium" color={buttonStyleProps.textColor}>
+          {buttonText}
+        </SizableText>
       </Button>
     </YStack>
   );

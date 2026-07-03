@@ -839,7 +839,7 @@ export function CommonTableListView<T>({
               borderBottomColor="$border"
               borderStyle="dashed"
               cursor="help"
-              color={column.onPress ? '$textSuccess' : headerTextColor}
+              color={column.onPress ? '$bgAccent' : headerTextColor}
               textAlign={column.align || 'left'}
             >
               {column.title}
@@ -852,7 +852,7 @@ export function CommonTableListView<T>({
           size="$bodySmMedium"
           borderBottomWidth="$px"
           borderBottomColor="transparent"
-          color={column.onPress ? '$textSuccess' : headerTextColor}
+          color={column.onPress ? '$bgAccent' : headerTextColor}
           textAlign={column.align || 'left'}
         >
           {column.title}
