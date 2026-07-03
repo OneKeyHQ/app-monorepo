@@ -563,6 +563,21 @@ export function LimitOrderForm({
     const closeLimitDialog = () => {
       onClose();
     };
+    const requestEnableTradingWithLoadingToast = async (
+      beforeDeposit?: () => void,
+    ) => {
+      const loadingToast = Toast.loading({
+        title: intl.formatMessage({
+          id: ETranslations.perp_trade_button_enable_trading,
+        }),
+        duration: Infinity,
+      });
+      try {
+        return await requestEnableTradingWithDepositFallback({ beforeDeposit });
+      } finally {
+        loadingToast.close();
+      }
+    };
 
     if (enableTradingMode.requiresExplicitEnableTrading) {
       try {
@@ -598,9 +613,7 @@ export function LimitOrderForm({
               status: undefined,
             };
           }
-          return requestEnableTradingWithDepositFallback({
-            beforeDeposit: closeDialog,
-          });
+          return requestEnableTradingWithLoadingToast(closeDialog);
         },
       });
 
@@ -612,13 +625,12 @@ export function LimitOrderForm({
       return false;
     }
 
-    const result = await requestEnableTradingWithDepositFallback({
-      beforeDeposit: closeLimitDialog,
-    });
+    const result = await requestEnableTradingWithLoadingToast(closeLimitDialog);
     return Boolean(result.shouldContinue);
   }, [
     confirmHyperliquidTerms,
     enableTradingMode.requiresExplicitEnableTrading,
+    intl,
     onClose,
     perpsAccountStatus,
     requestEnableTradingWithDepositFallback,
@@ -948,7 +960,8 @@ export function LimitOrderForm({
           pressStyle={shouldDisableActionButtons ? undefined : { bg: pressBg }}
           onPress={onDefaultPress}
           disabled={shouldDisableActionButtons}
-          loading={isTradingActionLoading}
+          disabledStyle={{ opacity: 1, bg }}
+          opacity={shouldDisableActionButtons ? 1 : undefined}
           h={36}
         >
           <SizableText size="$bodyMdMedium" color={textColor}>
@@ -957,7 +970,7 @@ export function LimitOrderForm({
         </Button>
       );
     },
-    [isTradingActionLoading, shouldDisableActionButtons],
+    [shouldDisableActionButtons],
   );
   const sharedAccountActionButton = useMemo(() => {
     if (accountActionType === 'createAddress') {

@@ -248,11 +248,9 @@ const EstLiqPriceLeaf = memo(({ side }: { side: 'long' | 'short' }) => {
 });
 EstLiqPriceLeaf.displayName = 'EstLiqPriceLeaf';
 
-function getPerpSideButtonStyles(isLong: boolean, loading: boolean) {
+function getPerpSideButtonStyles(isLong: boolean) {
   const styles = getTradingButtonStyleValues(isLong ? 'long' : 'short');
-  return loading
-    ? { ...styles, bg: undefined, hoverBg: undefined, pressBg: undefined }
-    : styles;
+  return styles;
 }
 
 function SideButtonInternal({
@@ -457,8 +455,6 @@ function SideButtonInternal({
       perpsAccountLoading.selectAccountLoading,
     ],
   );
-  const shouldShowButtonLoading = shouldDisableForAccountLoading;
-
   const hasNonColdStartDisabledReason = useMemo(
     () =>
       Boolean(
@@ -477,6 +473,7 @@ function SideButtonInternal({
   );
 
   const shouldPreserveDisabledButtonStyle =
+    isSubmitting ||
     shouldPreserveColdStartButtonVisualState({
       isLiveStatusPending,
       hasNonColdStartDisabledReason,
@@ -1164,7 +1161,7 @@ function SideButtonInternal({
     ],
   );
 
-  const buttonStyles = getPerpSideButtonStyles(isLong, shouldShowButtonLoading);
+  const buttonStyles = getPerpSideButtonStyles(isLong);
   const labelColor = buttonStyles.textColor;
 
   const handlePress = useDebouncedCallback(
@@ -1430,11 +1427,14 @@ function SideButtonInternal({
         bg={buttonStyles.bg}
         hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
         pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
-        disabled={buttonDisabled}
+        disabled={buttonDisabled && !shouldPreserveDisabledButtonStyle}
         disabledStyle={
-          shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
+          shouldPreserveDisabledButtonStyle
+            ? { opacity: 1, bg: buttonStyles.bg }
+            : undefined
         }
-        onPress={handlePress}
+        opacity={shouldPreserveDisabledButtonStyle ? 1 : undefined}
+        onPress={buttonDisabled ? undefined : handlePress}
         h={36}
         py={!orderValue.isZero() && orderValue.isFinite() ? '$0.5' : undefined}
       >
@@ -1656,9 +1656,6 @@ function EmptySizeSideButton({
     shouldDisableForAccountLoading &&
     !perpsAccountLoading.enableTradingTriggered &&
     !hasNonColdStartDisabledReason;
-  const shouldShowButtonLoading =
-    shouldDisableForAccountLoading &&
-    !shouldPreserveAccountLoadingButtonVisualState;
   const buttonDisabled =
     isLiveStatusPending ||
     shouldDisableForAccountLoading ||
@@ -1666,6 +1663,7 @@ function EmptySizeSideButton({
     isServerActionDisabled ||
     (!shouldEnableTradingBeforeOrder && !perpsAccountStatus.canTrade);
   const shouldPreserveDisabledButtonStyle =
+    isSubmitting ||
     shouldPreserveAccountLoadingButtonVisualState ||
     shouldPreserveColdStartButtonVisualState({
       isLiveStatusPending,
@@ -1721,7 +1719,7 @@ function EmptySizeSideButton({
     spotTradeSymbol,
   ]);
 
-  const buttonStyles = getPerpSideButtonStyles(isLong, shouldShowButtonLoading);
+  const buttonStyles = getPerpSideButtonStyles(isLong);
   const labelColor = buttonStyles.textColor;
 
   const requestEmptySizeEnableTrading = useCallback(
@@ -1920,11 +1918,14 @@ function EmptySizeSideButton({
         bg={buttonStyles.bg}
         hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
         pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
-        disabled={buttonDisabled}
+        disabled={buttonDisabled && !shouldPreserveDisabledButtonStyle}
         disabledStyle={
-          shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
+          shouldPreserveDisabledButtonStyle
+            ? { opacity: 1, bg: buttonStyles.bg }
+            : undefined
         }
-        onPress={handlePress}
+        opacity={shouldPreserveDisabledButtonStyle ? 1 : undefined}
+        onPress={buttonDisabled ? undefined : handlePress}
         h={36}
       >
         <YStack alignItems="center" gap={2}>
