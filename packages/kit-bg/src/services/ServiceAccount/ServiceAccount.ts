@@ -7035,6 +7035,10 @@ class ServiceAccount extends ServiceBase {
     }
   }
 
+  // TODO(cleanup): temporary investigation scaffolding — remove this probe,
+  // its call sites, and the boot-time raw check in
+  // migrateHdWalletsBackedUpStatus once the backup-status flag-loss root
+  // cause is fixed.
   // Diagnostic probe for the wallet backup-status investigation: reads the
   // persisted appStatus entity raw from the entity's own backing storage
   // instance — bypassing the simpleDb JS-level cache — and logs whether

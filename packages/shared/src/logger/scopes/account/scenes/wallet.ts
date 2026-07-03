@@ -190,6 +190,9 @@ export class WalletScene extends BaseScene {
   }
 
   // ---- Wallet backup-status migration diagnostics (local log only) ----
+  // TODO(cleanup): temporary investigation scaffolding — remove these three
+  // events and their ServiceAccount call sites once the backup-status
+  // flag-loss root cause is fixed.
   // Investigating wallets flipping to "backed up" after an app restart:
   // migrateHdWalletsBackedUpStatus re-runs when the hdWalletsBackupMigrated
   // flag vanishes from storage between launches (suspected iOS AsyncStorage
