@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import { Dialog, Stack, Toast, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -30,6 +31,13 @@ interface IShareContentProps {
 function ShareContent({ data, isMobile }: IShareContentProps) {
   const generatorRef = useRef<IReceiveShareImageGeneratorRef | null>(null);
   const intl = useIntl();
+
+  // Keep the action row visible: cap the preview height so the image
+  // contain-fits (shrinks proportionally) instead of pushing the buttons
+  // past the viewport (ext popup is only 600px tall).
+  // Reserved space ≈ dialog header + paddings + action row.
+  const { height: windowHeight } = useWindowDimensions();
+  const previewMaxHeight = Math.max(240, windowHeight - 260);
 
   const { saveImage, shareImage } = useShareActions();
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -116,7 +124,11 @@ function ShareContent({ data, isMobile }: IShareContentProps) {
   const desktopLayout = (
     <YStack gap="$5">
       <Stack width={360} testID={ReceiveTestIDs.ShareDialogPreview}>
-        <ShareView data={data} generatorRef={generatorRef} />
+        <ShareView
+          data={data}
+          generatorRef={generatorRef}
+          maxHeight={previewMaxHeight}
+        />
       </Stack>
       <ControlPanel
         onSaveImage={handleSaveImage}
@@ -129,7 +141,11 @@ function ShareContent({ data, isMobile }: IShareContentProps) {
 
   const mobileLayout = (
     <YStack gap="$5" width="100%" testID={ReceiveTestIDs.ShareDialogPreview}>
-      <ShareView data={data} generatorRef={generatorRef} />
+      <ShareView
+        data={data}
+        generatorRef={generatorRef}
+        maxHeight={previewMaxHeight}
+      />
       <ControlPanel
         onSaveImage={handleSaveImage}
         onShareImage={handleShareImage}

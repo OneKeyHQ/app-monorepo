@@ -15,9 +15,12 @@ import type {
 interface IShareViewProps {
   data: IReceiveShareData;
   generatorRef: React.RefObject<IReceiveShareImageGeneratorRef | null>;
+  // cap on the preview height; the box shrinks proportionally (contain-fit)
+  // so small viewports (ext popup) never need to scroll
+  maxHeight?: number;
 }
 
-export function ShareView({ data, generatorRef }: IShareViewProps) {
+export function ShareView({ data, generatorRef, maxHeight }: IShareViewProps) {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(true);
   // the generated card height is content-dependent (long addresses wrap),
@@ -73,6 +76,10 @@ export function ShareView({ data, generatorRef }: IShareViewProps) {
   return (
     <Stack
       width="100%"
+      // width × (1/aspectRatio) ≤ maxHeight, so the box always fits the
+      // viewport height without scrolling
+      maxWidth={maxHeight ? maxHeight * aspectRatio : undefined}
+      alignSelf="center"
       aspectRatio={aspectRatio}
       borderRadius={14}
       borderCurve="continuous"
