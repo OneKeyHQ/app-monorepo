@@ -60,6 +60,11 @@ type IProtocolPositionActionButtonProps = {
   // Render the actions as full-width buttons stacked below the position
   // (unified/simple layout) instead of inline chips. Two actions split the row.
   block?: boolean;
+  // Sectioned (lending) block callers route Withdraw/Repay through the lending
+  // action dialog (asset dropdown + amount hero) instead of the generic action
+  // dialog. Only the mobile block caller sets this; desktop tables and
+  // non-sectioned positions keep the generic path.
+  preferLendingDialog?: boolean;
   // Floor width (px) for each inline action button so per-asset rows align
   // Withdraw/Repay/Claim into one column. A minimum, not a cap — a longer
   // localized label still grows rather than truncating.
@@ -492,6 +497,7 @@ const ProtocolPositionActionButton = memo(
     showResolvedActions = true,
     visualVariant = 'solid',
     block = false,
+    preferLendingDialog = false,
     actionMinWidth,
     containerProps,
     onSuccess,
@@ -668,6 +674,29 @@ const ProtocolPositionActionButton = memo(
           return;
         }
 
+        // Sectioned lending positions (Compound/Morpho/...) send Withdraw/Repay
+        // to the lending dialog's asset dropdown. A remapped LP withdraw carries
+        // buildAction and must keep the generic dialog, hence the guard.
+        if (
+          preferLendingDialog &&
+          (action.action === EDeFiPositionAction.Withdraw ||
+            action.action === EDeFiPositionAction.Repay) &&
+          !action.buildAction
+        ) {
+          showProtocolLendingActionDialog({
+            accountId,
+            networkId: protocol.networkId,
+            actionType:
+              action.action === EDeFiPositionAction.Repay
+                ? 'repay'
+                : 'withdraw',
+            source: { type: 'defi', action },
+            hasDebts: positionHasDebts,
+            onSuccess,
+          });
+          return;
+        }
+
         showProtocolPositionActionDialog({
           accountId,
           networkId: protocol.networkId,
@@ -686,6 +715,7 @@ const ProtocolPositionActionButton = memo(
         onSuccess,
         position,
         positionHasDebts,
+        preferLendingDialog,
         protocol.networkId,
         submitProtocolPositionAction,
       ],
