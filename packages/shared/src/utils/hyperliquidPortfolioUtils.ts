@@ -220,7 +220,7 @@ export function isHyperliquidPortfolioSnapshotFresh(
   );
 }
 
-function isUnifiedPortfolioMode(
+export function isUnifiedPortfolioMode(
   mode: EHyperLiquidAbstractionMode | string | undefined,
 ) {
   return (

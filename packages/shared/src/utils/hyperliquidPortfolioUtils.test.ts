@@ -11,6 +11,7 @@ import {
   getActivePerpAssetPositions,
   getActivePerpPositionsUnrealizedPnl,
   isHyperliquidPortfolioSnapshotFresh,
+  isUnifiedPortfolioMode,
   spotBalancesNeedPriceRefresh,
   spotHasPositiveBalance,
   spotNeedsPrices,
@@ -224,6 +225,24 @@ describe('spotHasPositiveBalance', () => {
       } as any),
     ).toBe(false);
     expect(spotHasPositiveBalance({ balances: [] } as any)).toBe(false);
+  });
+});
+
+describe('isUnifiedPortfolioMode', () => {
+  it('only treats unified and portfolio margin as unified portfolio modes', () => {
+    expect(
+      isUnifiedPortfolioMode(EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT),
+    ).toBe(true);
+    expect(
+      isUnifiedPortfolioMode(EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN),
+    ).toBe(true);
+    expect(isUnifiedPortfolioMode(EHyperLiquidAbstractionMode.DEFAULT)).toBe(
+      false,
+    );
+    expect(isUnifiedPortfolioMode(EHyperLiquidAbstractionMode.DISABLED)).toBe(
+      false,
+    );
+    expect(isUnifiedPortfolioMode(undefined)).toBe(false);
   });
 });
 

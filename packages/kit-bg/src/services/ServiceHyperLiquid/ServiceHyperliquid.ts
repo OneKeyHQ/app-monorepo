@@ -40,6 +40,7 @@ import {
   buildSpotPriceMap,
   getActivePerpPositionsUnrealizedPnl,
   isHyperliquidPortfolioSnapshotFresh,
+  isUnifiedPortfolioMode,
   spotHasPositiveBalance,
   spotNeedsPrices,
 } from '@onekeyhq/shared/src/utils/hyperliquidPortfolioUtils';
@@ -1031,6 +1032,11 @@ export default class ServiceHyperliquid extends ServiceBase {
       if (!abstractionMode) {
         throw new OneKeyLocalError(
           'Hyperliquid portfolio abstraction mode unavailable',
+        );
+      }
+      if (hasMissingSpotState && isUnifiedPortfolioMode(abstractionMode)) {
+        throw new OneKeyLocalError(
+          'Hyperliquid portfolio spot state unavailable for unified account',
         );
       }
       return assembleHyperliquidSnapshot({
