@@ -957,13 +957,17 @@ export function buildSelectorTokenListFromResponses({
   aggregateTokenFiatMap: Record<string, ITokenFiat>;
   aggregateTokenListMap: ISelectorAggregateTokenListMap;
 } {
-  // Multi-response (= all-networks fan-out) pre-merge: collapse same-network
-  // derive-account slices to the home group shape BEFORE the aggregate fold /
-  // concat. The single-response (single-network) path stays verbatim.
-  const normalizedResponses =
-    responses.length > 1
-      ? mergeDeriveSelectorResponsesByNetwork(responses)
-      : responses;
+  // Pre-merge same-network derive-account slices to the home group shape BEFORE
+  // the aggregate fold / concat. Run unconditionally (not just when
+  // `responses.length > 1`): a single-response fan-out whose rows carry
+  // `mergeAssets` (BTC/LTC-like network with exactly one derive account) must
+  // still rewrite its derive `$key` to the home group shape, because home always
+  // runs the derive merge regardless of response count — gating on the response
+  // count would leave the selector's `$key` diverging from home for that edge
+  // case. `mergeDeriveSelectorResponsesByNetwork` already passes pure
+  // single-network, no-`mergeAssets` responses through verbatim, so this is a
+  // no-op for the common single-network path.
+  const normalizedResponses = mergeDeriveSelectorResponsesByNetwork(responses);
 
   const tokens: IAccountToken[] = [];
   const smallBalanceTokens: IAccountToken[] = [];

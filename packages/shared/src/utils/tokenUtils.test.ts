@@ -994,6 +994,34 @@ describe('buildSelectorTokenListFromResponses — token selector self-fetch merg
     expect(merged.tokenListMap['acct-1_btc--0'].fiatValue).toBe('150');
   });
 
+  it('single-response mergeAssets rows still rewrite to the home group `$key`', () => {
+    // All-networks fan-out that yields exactly ONE response (one enabled
+    // merge-derive network with a single derive account): the derive `$key`
+    // rewrite must still run so the selector matches home. A count-based gate
+    // (`responses.length > 1`) would skip it and leave `acct-1_taproot_btc--0`
+    // instead of the grouped `acct-1_btc--0`.
+    const taprootBtc = buildTestToken({
+      $key: 'acct-1_taproot_btc--0',
+      networkId: 'btc--0',
+      symbol: 'BTC',
+      isNative: true,
+      mergeAssets: true,
+    });
+
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({
+          networkId: 'btc--0',
+          tokens: [taprootBtc],
+          tokensMap: { 'acct-1_taproot_btc--0': buildFiat('100') },
+        }),
+      ],
+    });
+
+    expect(merged.tokens.map((t) => t.$key)).toEqual(['acct-1_btc--0']);
+    expect(merged.tokenListMap['acct-1_btc--0'].fiatValue).toBe('100');
+  });
+
   it('responses without aggregateTokenMap or networkId yield an empty aggregate fiat map', () => {
     const merged = buildSelectorTokenListFromResponses({
       responses: [
