@@ -1,3 +1,4 @@
+import { getActivePerpAssetPositions } from '@onekeyhq/shared/src/utils/hyperliquidPortfolioUtils';
 import type {
   IPerpsAssetPosition,
   IPerpsFrontendOrder,
@@ -56,10 +57,7 @@ export function getScopedOpenOrdersByCoin<T extends IPerpsFrontendOrder>({
 }
 
 export function getActivePerpsPositions(positions: IPerpsAssetPosition[]) {
-  return positions.filter((pos) => {
-    const size = parseFloat(pos.position?.szi || '0');
-    return Math.abs(size) > 0;
-  });
+  return getActivePerpAssetPositions(positions);
 }
 
 export function sortActivePerpsPositions<T extends IPerpsAssetPosition>(

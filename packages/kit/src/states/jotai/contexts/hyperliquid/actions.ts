@@ -354,7 +354,9 @@ async function clearMatchedDepositOrders(
   }
 
   const perpDepositOrder = await perpsDepositOrderAtom.get();
-  const pendingOrders = perpDepositOrder.orders.filter((order) => order.toTxId);
+  const pendingOrders = perpDepositOrder.orders.filter(
+    (order) => order.toTxId && !order.keepForHistoryConfirmation,
+  );
   if (pendingOrders.length === 0) {
     return;
   }
@@ -1654,10 +1656,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       {
         coin,
         spotUniverse,
+        force,
         requestId: existingRequestId,
       }: {
         coin: string;
         spotUniverse: ISpotUniverse | undefined;
+        force?: boolean;
         requestId?: number;
       },
     ) => {
@@ -1684,7 +1688,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
       const currentSpotAsset = await spotActiveAssetAtom.get();
-      if (currentSpotAsset?.coin === coin) {
+      if (!force && currentSpotAsset?.coin === coin) {
         const currentMode = await tradingModeAtom.get();
         if (currentMode === 'spot') {
           const next = await this._buildActiveTradeInstrument('spot');
@@ -1824,6 +1828,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         const result = await this.changeActiveSpotAsset.call(set, {
           coin: params.coin,
           spotUniverse,
+          force: params.force,
           requestId,
         });
         markPerpsColdStartPerf('action_switch_trade_instrument_end', {
