@@ -39,6 +39,7 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { OneKeyIdLegacyOAuthBindPrompt } from '../../components/OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
 import { PrimeUserBadge } from '../../components/PrimeUserBadge';
 import { usePrimeAvailable } from '../../hooks/usePrimeAvailable';
 import { PrimeTestIDs } from '../../testIDs';
@@ -233,8 +234,10 @@ function OneKeyIdProfilePanel({
   const intl = useIntl();
   const media = useMedia();
   const { user } = useOneKeyAuth();
-  const displayName = user?.nickname || user?.displayEmail || ONEKEY_ID_TITLE;
-  const email = user?.displayEmail || user?.email || ONEKEY_ID_TITLE;
+  const unknownEmail = intl.formatMessage({ id: ETranslations.global_unknown });
+  const displayEmail = user?.displayEmail || unknownEmail;
+  const displayName = user?.nickname || displayEmail;
+  const email = displayEmail;
   const avatarSize = media.gtMd ? '$20' : '$12';
   const nameTextSize = media.gtMd ? '$headingMd' : '$headingLg';
   const emailTextSize = '$bodyMd';
@@ -554,7 +557,7 @@ function OneKeyIdPage() {
           <YStack
             px="$5"
             pt="$0"
-            pb="$4"
+            pb="$8"
             gap="$4"
             flex={1}
             $gtMd={{
@@ -604,6 +607,11 @@ function OneKeyIdPage() {
                   onDeleteAccount={handleDeleteAccount}
                 />
               </OneKeyIdSection>
+
+              <OneKeyIdLegacyOAuthBindPrompt
+                isLoggedIn={Boolean(isLoggedIn)}
+                isFocused={isFocused}
+              />
             </YStack>
           </YStack>
         </ScrollView>

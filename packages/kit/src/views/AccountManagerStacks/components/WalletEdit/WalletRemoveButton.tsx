@@ -3,6 +3,11 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ActionList } from '@onekeyhq/components';
+import {
+  EOneKeyIdLogoutDialogSource,
+  useShowOneKeyIdLogoutDialog,
+} from '@onekeyhq/kit/src/components/OneKeyAuth/OneKeyIdLogoutDialog';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -27,6 +32,8 @@ export function WalletRemoveButton({
 }) {
   const intl = useIntl();
   const { config } = useAccountSelectorContextData();
+  const { isLoggedIn: isOneKeyIdLoggedIn } = useOneKeyAuth();
+  const showOneKeyIdLogoutDialog = useShowOneKeyIdLogoutDialog();
 
   const label = useMemo(() => {
     if (platformEnv.isWebDappMode) {
@@ -69,22 +76,32 @@ export function WalletRemoveButton({
       label={label}
       onClose={onClose}
       onPress={() => {
-        const { title, description, isHwOrQr, isKeyless } =
-          getTitleAndDescription({
-            wallet,
+        if (wallet?.isKeyless) {
+          void showOneKeyIdLogoutDialog({
+            source: EOneKeyIdLogoutDialogSource.KeylessWallet,
+            keylessWallet: wallet,
+            config,
             isRemoveToMocked,
-            intl,
+            isOneKeyIdLoggedIn: Boolean(isOneKeyIdLoggedIn),
+            confirmButtonTestID: AccountManagerTestIDs.walletRemoveConfirm,
           });
+          return;
+        }
+
+        const { title, description, isHwOrQr } = getTitleAndDescription({
+          wallet,
+          isRemoveToMocked,
+          intl,
+        });
         showWalletRemoveDialog({
           config,
           title,
           description,
-          // No checkbox for hw/qr wallets (keyless has its own checkbox logic)
-          showCheckBox: !isHwOrQr && !isKeyless,
+          // No checkbox for hw/qr wallets.
+          showCheckBox: !isHwOrQr,
           defaultChecked: false,
           wallet,
           isRemoveToMocked,
-          isKeyless,
         });
       }}
     />

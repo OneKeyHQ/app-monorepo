@@ -338,6 +338,39 @@ export class OneKeyErrorPrimePaidMembershipRequired extends OneKeyAppError {
   }
 }
 
+export const ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_CODE = 90_300;
+export const ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_MESSAGE_ID =
+  'oauth_identity_already_bound';
+
+export class OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    const nextProps =
+      typeof props === 'string'
+        ? {
+            code: ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_CODE,
+            message: props,
+          }
+        : {
+            code: ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_CODE,
+            ...props,
+          };
+    super(
+      normalizeErrorProps(nextProps, {
+        // TODO: Remove this client fallback once the server returns message or translatedMessage for oauth_identity_already_bound.
+        defaultMessage:
+          'This Google or Apple account is already bound to another OneKey ID.',
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override className =
+    EOneKeyErrorClassNames.OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound;
+
+  override name =
+    EOneKeyErrorClassNames.OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound;
+}
+
 export class OneKeyInternalError extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(

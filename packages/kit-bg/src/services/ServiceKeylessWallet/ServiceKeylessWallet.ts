@@ -40,8 +40,14 @@ import {
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type {
   IKeylessBackendShare,
+  IKeylessCreateWithOneKeyIdPrepareResult,
   IKeylessJuiceboxShare,
+  IOneKeyIdLoginWithLocalKeylessPrepareResult,
   ISupabaseJWTPayload,
+} from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
+import {
+  EKeylessCreateWithOneKeyIdPrepareStatus,
+  EOneKeyIdLoginWithLocalKeylessPrepareStatus,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import keylessWalletUtils from '@onekeyhq/shared/src/keylessWallet/keylessWalletUtils';
 import shamirUtils from '@onekeyhq/shared/src/keylessWallet/shamirUtils';
@@ -51,9 +57,12 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import { isRetryableSupabaseAuthError } from '@onekeyhq/shared/src/utils/supabaseAuthErrorUtils';
+import { getKeylessSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import localDb from '../../dbs/local/localDb';
 import {
@@ -68,8 +77,9 @@ import {
 import ServiceBase from '../ServiceBase';
 
 import { KeylessPassiveMigrationNetworkError } from './keylessPassiveMigrationErrors';
+import { buildKeylessLocalEncryptionKeyWithPassword } from './utils/keylessLocalEncryptionKey';
 import keylessMnemonicPasswordStorage from './utils/keylessMnemonicPasswordStorage';
-import keylessRefreshTokenStorage from './utils/keylessRefreshTokenStorage';
+import keylessStorageUtils from './utils/keylessStorageUtils';
 
 import type { JuiceboxClient } from './utils/JuiceboxClient';
 import type {
@@ -145,7 +155,6 @@ type IKeylessBackendShareV2MigrationSource = 'restore' | 'resetPin';
 
 type IKeylessAccessTokenWithoutPromptResult = {
   accessToken: string;
-  refreshToken?: string;
 };
 
 type IKeylessWalletCreatedOnServerInfo = {
@@ -1096,107 +1105,59 @@ class ServiceKeylessWallet extends ServiceBase {
     }
   }
 
-  // Passive V2 migration internal helper. Translates fetch / 5xx / json-parse
-  // failures into `KeylessPassiveMigrationNetworkError` so the migration loop
-  // can roll back the 24h throttle on transient network issues. Other flows
-  // (e.g. user-driven refresh) must use `tryRefreshTokenFromStorage` instead.
-  private async refreshAccessTokenForKeylessBackendShareV2MigrationPassive(params: {
-    ownerId: string;
-    password: string;
-  }): Promise<IKeylessAccessTokenWithoutPromptResult | null> {
-    const { ownerId, password } = params;
-    const refreshToken =
-      await keylessRefreshTokenStorage.getRefreshTokenFromStorageWithPassword({
-        ownerId,
-        password,
-        backgroundApi: this.backgroundApi,
-      });
-    if (!refreshToken) {
+  private async getActiveKeylessOAuthAccessToken(): Promise<string | null> {
+    const sessionResult =
+      await getKeylessSupabaseClient().client.auth.getSession();
+    if (sessionResult.error) {
+      if (isRetryableSupabaseAuthError(sessionResult.error)) {
+        throw sessionResult.error;
+      }
       return null;
     }
-
-    const refreshUrl = `${KEYLESS_SUPABASE_PROJECT_URL}/auth/v1/token?grant_type=refresh_token`;
-    let response: Response;
-    try {
-      response = await fetch(refreshUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-
-          // oxlint-disable-next-line @cspell/spellchecker
-          apikey: KEYLESS_SUPABASE_PUBLIC_API_KEY,
-        },
-        body: JSON.stringify({
-          refresh_token: refreshToken,
-        }),
-      });
-    } catch (error) {
-      // Fetch threw (offline / DNS / TLS / abort). Surface as a network
-      // error so the migration loop does not consume its 24h throttle window.
-      throw new KeylessPassiveMigrationNetworkError(error);
-    }
-
-    // Transient HTTP failures must NOT consume the 24h throttle:
-    //   5xx — auth server unreachable or misbehaving
-    //   408 — request timeout
-    //   429 — rate limited (Supabase auth limits per IP / per refresh-token)
-    // Any other 4xx (401 / 403 / 422) means the refresh token was rejected
-    // (revoked / mismatched), which is a real auth failure we should throttle.
-    if (
-      response.status >= 500 ||
-      response.status === 408 ||
-      response.status === 429
-    ) {
-      throw new KeylessPassiveMigrationNetworkError();
-    }
-    if (!response.ok) {
+    const token = sessionResult.data.session?.access_token ?? null;
+    if (!this.isKeylessAccessTokenValid(token)) {
       return null;
     }
-
-    let refreshResult: { access_token?: string; refresh_token?: string };
-    try {
-      refreshResult = (await response.json()) as {
-        access_token?: string;
-        refresh_token?: string;
-      };
-    } catch (error) {
-      throw new KeylessPassiveMigrationNetworkError(error);
-    }
-
-    if (!refreshResult?.access_token || !refreshResult?.refresh_token) {
-      return null;
-    }
-
-    return {
-      accessToken: refreshResult.access_token,
-      refreshToken: refreshResult.refresh_token,
-    };
+    return token;
   }
 
-  // Passive V2 migration internal helper. Returns the cached access token
-  // when still valid, otherwise delegates to the passive-migration refresh
-  // helper which may throw `KeylessPassiveMigrationNetworkError` on transient
-  // network failures. Other flows must NOT call this — use the regular
-  // `tryRefreshTokenFromStorage` path which preserves prompt-based UX.
-  private async getAccessTokenForKeylessBackendShareV2MigrationPassive(params: {
-    ownerId: string;
-    password: string;
-  }): Promise<IKeylessAccessTokenWithoutPromptResult | null> {
-    const { ownerId, password } = params;
-    const cachedToken =
-      await keylessRefreshTokenStorage.getAccessTokenFromStorage({
-        ownerId,
-        backgroundApi: this.backgroundApi,
-      });
-    if (this.isKeylessAccessTokenValid(cachedToken)) {
-      return {
-        accessToken: cachedToken,
-      };
+  private async getActiveKeylessOAuthAccessTokenMatchingLocalWallet(params?: {
+    keylessWallet?: IDBWallet;
+  }): Promise<string | null> {
+    const token = await this.getActiveKeylessOAuthAccessToken();
+    if (!token) {
+      return null;
     }
-    return this.refreshAccessTokenForKeylessBackendShareV2MigrationPassive({
-      ownerId,
-      password,
-    });
+    let keylessWallet = params?.keylessWallet;
+    if (!keylessWallet) {
+      try {
+        keylessWallet =
+          await this.backgroundApi.serviceAccount.getKeylessWallet();
+      } catch {
+        return null;
+      }
+    }
+    if (!keylessWallet) {
+      return null;
+    }
+    const mismatchReason =
+      await this.validateKeylessAccessTokenMatchesLocalWallet({
+        token,
+        keylessWallet,
+      });
+    return mismatchReason ? null : token;
+  }
+
+  // Passive V2 migration uses the same global Keyless OAuth session as
+  // OneKey ID. It no longer reads ownerId-scoped legacy access/refresh tokens.
+  private async getAccessTokenForKeylessBackendShareV2MigrationPassive(params: {
+    keylessWallet: IDBWallet;
+  }): Promise<IKeylessAccessTokenWithoutPromptResult | null> {
+    const accessToken =
+      await this.getActiveKeylessOAuthAccessTokenMatchingLocalWallet({
+        keylessWallet: params.keylessWallet,
+      });
+    return accessToken ? { accessToken } : null;
   }
 
   private async setKeylessBackendShareV2MigrationRecord(params: {
@@ -1249,6 +1210,9 @@ class ServiceKeylessWallet extends ServiceBase {
   // failure happened in the refresh helper or in a subsequent Prime call.
   private isKeylessPassiveMigrationNetworkLikeError(error: unknown): boolean {
     if (error instanceof KeylessPassiveMigrationNetworkError) {
+      return true;
+    }
+    if (isRetryableSupabaseAuthError(error)) {
       return true;
     }
     if (
@@ -1570,8 +1534,7 @@ class ServiceKeylessWallet extends ServiceBase {
     try {
       const tokenInfo =
         await this.getAccessTokenForKeylessBackendShareV2MigrationPassive({
-          ownerId,
-          password,
+          keylessWallet,
         });
       if (!tokenInfo) {
         await this.markKeylessBackendShareV2MigrationFailed({
@@ -1639,16 +1602,6 @@ class ServiceKeylessWallet extends ServiceBase {
           skipped: true,
           reason: 'owner_id_mismatch',
         };
-      }
-
-      if (tokenInfo.refreshToken) {
-        await keylessRefreshTokenStorage.saveTokensToStorage({
-          ownerId,
-          refreshToken: tokenInfo.refreshToken,
-          token,
-          password,
-          backgroundApi: this.backgroundApi,
-        });
       }
 
       if (current.canonicalFormat === 'v2') {
@@ -1854,13 +1807,11 @@ class ServiceKeylessWallet extends ServiceBase {
   async apiVerifyKeylessJuiceboxPin(params: {
     token: string;
     pin: string;
-    refreshToken?: string;
     mode?: EOnboardingV2OneKeyIDLoginMode;
     dangerousRetryByFixedProvider: boolean;
     providerOverride?: EOAuthSocialLoginProvider;
   }): Promise<{ pinConfirmStatusUpdated: boolean }> {
-    const { token, pin, refreshToken, mode, dangerousRetryByFixedProvider } =
-      params;
+    const { token, pin, mode, dangerousRetryByFixedProvider } = params;
     let providerOverride = params.providerOverride;
     if (dangerousRetryByFixedProvider) {
       providerOverride = undefined;
@@ -1969,22 +1920,6 @@ class ServiceKeylessWallet extends ServiceBase {
     }
     defaultLogger.wallet.keyless.verifyKeylessJuiceboxShareRetrieved();
 
-    // Save tokens to secure storage (refreshToken with passcode, token without)
-    if (
-      refreshToken &&
-      mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly
-    ) {
-      const { password } =
-        await this.backgroundApi.servicePassword.promptPasswordVerify();
-      await keylessRefreshTokenStorage.saveTokensToStorage({
-        ownerId,
-        refreshToken,
-        token,
-        password,
-        backgroundApi: this.backgroundApi,
-      });
-      defaultLogger.wallet.keyless.verifyKeylessTokensStored();
-    }
     const pinConfirmStatusUpdated =
       await this.updatePinConfirmStatusAfterSuccessfulPin({ token });
     if (pinConfirmStatusUpdated) {
@@ -2043,10 +1978,9 @@ class ServiceKeylessWallet extends ServiceBase {
   @toastIfError()
   async resetKeylessWalletPin(params: {
     token: string | undefined;
-    refreshToken?: string | undefined;
     newPin: string | undefined;
   }) {
-    const { token, refreshToken, newPin } = params;
+    const { token, newPin } = params;
     if (!token) {
       throw new OneKeyLocalError('social login token is required');
     }
@@ -2205,18 +2139,6 @@ class ServiceKeylessWallet extends ServiceBase {
       });
     }
 
-    // Save tokens to secure storage (refreshToken with passcode, token without)
-    if (refreshToken) {
-      await keylessRefreshTokenStorage.saveTokensToStorage({
-        ownerId: targetOwnerId,
-        refreshToken,
-        token,
-        password,
-        backgroundApi: this.backgroundApi,
-      });
-      defaultLogger.wallet.keyless.resetKeylessTokensStored();
-    }
-
     if (mnemonicPasswordSourceOwnerId !== targetOwnerId) {
       await keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorage({
         ownerId: targetOwnerId,
@@ -2303,10 +2225,9 @@ class ServiceKeylessWallet extends ServiceBase {
   @toastIfError()
   async autoResetKeylessWalletPinAfterRestoreForSameEmailAccount(params: {
     token: string;
-    refreshToken?: string;
     pin: string;
   }): Promise<{ success: boolean; skipped: boolean }> {
-    const { token, refreshToken, pin } = params;
+    const { token, pin } = params;
     const { isSameEmailAccountAtOldVersion: isSameEmailAccount } =
       await this.apiGetKeylessSameEmailAccountStatus({ token });
 
@@ -2319,7 +2240,6 @@ class ServiceKeylessWallet extends ServiceBase {
 
     await this.resetKeylessWalletPin({
       token,
-      refreshToken,
       newPin: pin,
     });
     await this.apiMarkKeylessSameEmailResetPinSuccess({ token });
@@ -2334,7 +2254,6 @@ class ServiceKeylessWallet extends ServiceBase {
   @toastIfError()
   async restoreKeylessWalletFromServer(params: {
     token: string | undefined;
-    refreshToken?: string | undefined;
     pin: string | undefined;
     pinConfirmStatusAlreadyUpdated?: boolean;
   }): Promise<{
@@ -2342,7 +2261,7 @@ class ServiceKeylessWallet extends ServiceBase {
     mnemonic: string;
     keylessDetailsInfo: IKeylessWalletDetailsInfo;
   }> {
-    const { token, refreshToken, pin, pinConfirmStatusAlreadyUpdated } = params;
+    const { token, pin, pinConfirmStatusAlreadyUpdated } = params;
     if (!token) {
       throw new OneKeyLocalError('social login token is required');
     }
@@ -2413,18 +2332,6 @@ class ServiceKeylessWallet extends ServiceBase {
     });
     defaultLogger.wallet.keyless.restoreKeylessMnemonicPasswordStored();
 
-    // Save tokens to secure storage (refreshToken with passcode, token without)
-    if (refreshToken) {
-      await keylessRefreshTokenStorage.saveTokensToStorage({
-        ownerId,
-        refreshToken,
-        token,
-        password,
-        backgroundApi: this.backgroundApi,
-      });
-      defaultLogger.wallet.keyless.restoreKeylessTokensStored();
-    }
-
     if (
       !pinConfirmStatusAlreadyUpdated &&
       (await this.updatePinConfirmStatusAfterSuccessfulPin({ token }))
@@ -2483,9 +2390,73 @@ class ServiceKeylessWallet extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async prepareKeylessCreateWithOneKeyId(): Promise<IKeylessCreateWithOneKeyIdPrepareResult> {
+    if (await this.backgroundApi.serviceAccount.getKeylessWallet()) {
+      return {
+        status: EKeylessCreateWithOneKeyIdPrepareStatus.LocalKeylessExists,
+      };
+    }
+
+    const localUserInfo =
+      await this.backgroundApi.servicePrime.getLocalUserInfo();
+    const displayEmail = localUserInfo.displayEmail;
+    const isOneKeyIdLoggedIn =
+      await this.backgroundApi.servicePrime.isLoggedIn();
+    if (!isOneKeyIdLoggedIn) {
+      return {
+        status: EKeylessCreateWithOneKeyIdPrepareStatus.NeedOneKeyIdOAuthLogin,
+        displayEmail,
+      };
+    }
+
+    let authSessionSource =
+      await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+    if (!authSessionSource) {
+      const legacyAuthToken =
+        await this.backgroundApi.simpleDb.prime.getSupabaseAuthToken();
+      const keylessAuthToken =
+        await this.backgroundApi.simpleDb.prime.getKeylessSupabaseAuthToken();
+      if (legacyAuthToken) {
+        authSessionSource = EPrimeAuthSessionSource.LegacyEmailSupabase;
+      } else if (keylessAuthToken) {
+        authSessionSource = EPrimeAuthSessionSource.KeylessOAuth;
+      } else {
+        authSessionSource = EPrimeAuthSessionSource.LegacyEmailSupabase;
+      }
+    }
+
+    if (authSessionSource !== EPrimeAuthSessionSource.KeylessOAuth) {
+      return {
+        status: EKeylessCreateWithOneKeyIdPrepareStatus.NeedLegacyOAuthBind,
+        displayEmail,
+      };
+    }
+
+    const accessToken = await this.getActiveKeylessOAuthAccessToken();
+    if (!accessToken) {
+      return {
+        status: EKeylessCreateWithOneKeyIdPrepareStatus.NeedOneKeyIdOAuthLogin,
+        displayEmail,
+      };
+    }
+
+    const { isCreated } = await this.getKeylessWalletCreatedOnServerInfo({
+      token: accessToken,
+    });
+
+    return {
+      status: isCreated
+        ? EKeylessCreateWithOneKeyIdPrepareStatus.ContinueRestore
+        : EKeylessCreateWithOneKeyIdPrepareStatus.ContinueCreate,
+      token: accessToken,
+      displayEmail,
+    };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async createKeylessWalletToServer(params: {
     token: string | undefined;
-    refreshToken?: string | undefined;
     pin: string | undefined;
     customMnemonic?: string;
   }): Promise<{
@@ -2493,7 +2464,7 @@ class ServiceKeylessWallet extends ServiceBase {
     mnemonic: string;
     keylessDetailsInfo: IKeylessWalletDetailsInfo;
   }> {
-    const { token, refreshToken, pin, customMnemonic } = params;
+    const { token, pin, customMnemonic } = params;
     if (await this.backgroundApi.serviceAccount.getKeylessWallet()) {
       throw new OneKeyLocalError('Keyless wallet already exists');
     }
@@ -2618,18 +2589,6 @@ class ServiceKeylessWallet extends ServiceBase {
           backendShareX,
         });
 
-        // Save tokens to secure storage (refreshToken with passcode, token without)
-        if (refreshToken) {
-          await keylessRefreshTokenStorage.saveTokensToStorage({
-            ownerId,
-            refreshToken,
-            token,
-            password,
-            backgroundApi: this.backgroundApi,
-          });
-          defaultLogger.wallet.keyless.createKeylessTokensStored();
-        }
-
         // void this.apiUpdatePinConfirmStatus({ token });
 
         const keylessProvider: EOAuthSocialLoginProvider =
@@ -2669,149 +2628,235 @@ class ServiceKeylessWallet extends ServiceBase {
     return isCreated;
   }
 
-  @backgroundMethod()
-  @toastIfError()
-  async getKeylessCachedAccessToken(params: {
+  private async getLocalKeylessLoginContext(): Promise<{
+    keylessWallet: IDBWallet;
     ownerId: string;
-  }): Promise<string | null> {
-    const { ownerId } = params;
-    if (!ownerId) {
-      throw new OneKeyLocalError('ownerId is required');
+    provider: EOAuthSocialLoginProvider;
+  } | null> {
+    let keylessWallet: IDBWallet | undefined;
+    try {
+      keylessWallet =
+        await this.backgroundApi.serviceAccount.getKeylessWallet();
+    } catch {
+      return null;
     }
-    // AccessToken is stored without passcode encryption, so it can be retrieved directly
-    const token = await keylessRefreshTokenStorage.getAccessTokenFromStorage({
+    const ownerId = keylessWallet?.keylessDetailsInfo?.keylessOwnerId;
+    const provider = keylessWallet?.keylessDetailsInfo?.keylessProvider;
+    if (
+      !keylessWallet ||
+      !ownerId ||
+      (provider !== EOAuthSocialLoginProvider.Google &&
+        provider !== EOAuthSocialLoginProvider.Apple)
+    ) {
+      return null;
+    }
+    return {
+      keylessWallet,
       ownerId,
-      backgroundApi: this.backgroundApi,
-    });
-
-    return token;
+      provider,
+    };
   }
 
-  /**
-   * Try to refresh access token using stored refreshToken.
-   * Returns new accessToken and refreshToken if refresh is successful, null otherwise.
-   * Note: This requires passcode verification as refreshToken is encrypted with passcode.
-   *
-   * @param params.forceRefresh - If true (default), force refresh token regardless of local cache.
-   *                               If false, check if cached accessToken is still valid before refreshing.
-   */
-  @backgroundMethod()
-  @toastIfError()
-  async tryRefreshTokenFromStorage(params: {
+  private async hasLegacyKeylessOAuthRefreshToken(params: {
     ownerId: string;
-    forceRefresh?: boolean;
-  }): Promise<{
-    accessToken: string;
-    refreshToken: string;
-  } | null> {
-    const { ownerId, forceRefresh = true } = params;
-    if (!ownerId) {
-      throw new OneKeyLocalError('ownerId is required');
+  }): Promise<boolean> {
+    const refreshTokenKey = accountUtils.buildKeylessRefreshTokenKey({
+      ownerId: params.ownerId,
+    });
+    return Boolean(await keylessStorageUtils.storageGetItem(refreshTokenKey));
+  }
+
+  private async getLegacyKeylessOAuthRefreshToken(params: {
+    ownerId: string;
+    password: string;
+  }): Promise<string | null> {
+    const refreshTokenKey = accountUtils.buildKeylessRefreshTokenKey({
+      ownerId: params.ownerId,
+    });
+    const encryptedPayloadBase64 =
+      await keylessStorageUtils.storageGetItem(refreshTokenKey);
+    if (!encryptedPayloadBase64) {
+      return null;
     }
+    const decryptionKey = await buildKeylessLocalEncryptionKeyWithPassword({
+      password: params.password,
+    });
     try {
-      // If not forcing refresh, check if cached accessToken is still valid
-      if (!forceRefresh) {
-        const cachedAccessToken =
-          await keylessRefreshTokenStorage.getAccessTokenFromStorage({
-            ownerId,
-            backgroundApi: this.backgroundApi,
-          });
-
-        // Check if cached accessToken exists and is still valid
-        if (cachedAccessToken) {
-          const decodedToken = stringUtils.decodeJWT(
-            cachedAccessToken,
-          ) as ISupabaseJWTPayload;
-          if (decodedToken?.exp && typeof decodedToken.exp === 'number') {
-            // Check if token is still valid (with 5 minutes buffer to avoid edge cases)
-            const expirationTime = decodedToken.exp * 1000; // Convert to milliseconds
-            const currentTime = Date.now();
-            const bufferTime = 5 * 60 * 1000; // 5 minutes in milliseconds
-
-            if (currentTime < expirationTime - bufferTime) {
-              // Token is still valid, get refreshToken and return both
-              const { password } =
-                await this.backgroundApi.servicePassword.promptPasswordVerify();
-
-              const storedTokens =
-                await keylessRefreshTokenStorage.getTokensFromStorage({
-                  ownerId,
-                  password,
-                  backgroundApi: this.backgroundApi,
-                });
-
-              if (storedTokens?.refreshToken) {
-                return {
-                  accessToken: cachedAccessToken,
-                  refreshToken: storedTokens.refreshToken,
-                };
-              }
-            }
-          }
-        }
-      }
-
-      // Force refresh or token is expired/doesn't exist, proceed with refresh
-      // Get password first to avoid multiple prompts
-      const { password } =
-        await this.backgroundApi.servicePassword.promptPasswordVerify();
-
-      // Get refreshToken from secure storage (requires passcode)
-      const storedTokens =
-        await keylessRefreshTokenStorage.getTokensFromStorage({
-          ownerId,
-          password,
-          backgroundApi: this.backgroundApi,
-        });
-
-      if (!storedTokens?.refreshToken) {
-        return null;
-      }
-
-      // Call Supabase HTTP API to refresh token
-      const refreshUrl = `${KEYLESS_SUPABASE_PROJECT_URL}/auth/v1/token?grant_type=refresh_token`;
-      const response = await fetch(refreshUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-
-          // oxlint-disable-next-line @cspell/spellchecker
-          apikey: KEYLESS_SUPABASE_PUBLIC_API_KEY,
-        },
-        body: JSON.stringify({
-          refresh_token: storedTokens.refreshToken,
-        }),
+      return await this.backgroundApi.servicePassword.decryptString({
+        password: decryptionKey,
+        data: encryptedPayloadBase64,
+        dataEncoding: 'base64',
+        resultEncoding: 'utf8',
+        allowRawPassword: true,
       });
+    } catch (_error) {
+      defaultLogger.wallet.keyless.dataCorruptedError({
+        reason:
+          'getLegacyKeylessOAuthRefreshToken: failed to decrypt refreshToken by decryptionKey',
+      });
+      throw new KeylessDataCorruptedError();
+    }
+  }
 
-      if (!response.ok) {
-        return null;
-      }
+  private async migrateLegacyKeylessOAuthSessionForLocalWallet(params: {
+    keylessWallet: IDBWallet;
+    ownerId: string;
+  }): Promise<string | null> {
+    const { keylessWallet, ownerId } = params;
+    if (!(await this.hasLegacyKeylessOAuthRefreshToken({ ownerId }))) {
+      return null;
+    }
 
-      const refreshResult = (await response.json()) as {
-        access_token?: string;
-        refresh_token?: string;
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerify();
+    const refreshToken = await this.getLegacyKeylessOAuthRefreshToken({
+      ownerId,
+      password,
+    });
+    if (!refreshToken) {
+      return null;
+    }
+
+    const refreshUrl = `${KEYLESS_SUPABASE_PROJECT_URL}/auth/v1/token?grant_type=refresh_token`;
+    const response = await fetch(refreshUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // oxlint-disable-next-line @cspell/spellchecker
+        apikey: KEYLESS_SUPABASE_PUBLIC_API_KEY,
+      },
+      body: JSON.stringify({
+        refresh_token: refreshToken,
+      }),
+    });
+    if (!response.ok) {
+      return null;
+    }
+
+    const refreshResult = (await response.json()) as {
+      access_token?: string;
+      refresh_token?: string;
+    };
+    const accessToken = refreshResult?.access_token;
+    const nextRefreshToken = refreshResult?.refresh_token;
+    if (!accessToken || !nextRefreshToken) {
+      return null;
+    }
+
+    const mismatchReason =
+      await this.validateKeylessAccessTokenMatchesLocalWallet({
+        keylessWallet,
+        token: accessToken,
+      });
+    if (mismatchReason) {
+      return null;
+    }
+
+    const setSessionResult =
+      await getKeylessSupabaseClient().client.auth.setSession({
+        access_token: accessToken,
+        refresh_token: nextRefreshToken,
+      });
+    if (setSessionResult.error) {
+      throw new OneKeyLocalError(setSessionResult.error.message);
+    }
+
+    await this.removeLegacyKeylessOAuthTokens({ ownerId });
+    return accessToken;
+  }
+
+  @backgroundMethod()
+  async prepareOneKeyIdLoginWithLocalKeyless(): Promise<IOneKeyIdLoginWithLocalKeylessPrepareResult> {
+    const context = await this.getLocalKeylessLoginContext();
+    if (!context) {
+      return {
+        status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NoLocalKeyless,
       };
+    }
 
-      if (refreshResult?.access_token && refreshResult?.refresh_token) {
-        await keylessRefreshTokenStorage.saveTokensToStorage({
-          ownerId,
-          refreshToken: refreshResult.refresh_token,
-          token: refreshResult.access_token,
-          password,
-          backgroundApi: this.backgroundApi,
+    const activeAccessToken =
+      await this.getActiveKeylessOAuthAccessTokenMatchingLocalWallet({
+        keylessWallet: context.keylessWallet,
+      });
+    if (!activeAccessToken) {
+      const hasLegacyRefreshToken =
+        await this.hasLegacyKeylessOAuthRefreshToken({
+          ownerId: context.ownerId,
         });
+      if (!hasLegacyRefreshToken) {
         return {
-          accessToken: refreshResult.access_token,
-          refreshToken: refreshResult.refresh_token,
+          status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NeedOAuthLogin,
+          provider: context.provider,
         };
       }
+    }
 
-      return null;
-    } catch (error) {
-      // Silently fail - return null if any error occurs
-      console.error('Failed to refresh token from storage:', error);
+    return {
+      status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.ContinueWithKeyless,
+      provider: context.provider,
+    };
+  }
+
+  @backgroundMethod()
+  async continueOneKeyIdLoginWithLocalKeyless(): Promise<{
+    accessToken: string;
+    provider: EOAuthSocialLoginProvider;
+  }> {
+    const context = await this.getLocalKeylessLoginContext();
+    if (!context) {
+      throw new OneKeyLocalError('Local Keyless wallet not found.');
+    }
+
+    let accessToken =
+      await this.getActiveKeylessOAuthAccessTokenMatchingLocalWallet({
+        keylessWallet: context.keylessWallet,
+      });
+    if (!accessToken) {
+      accessToken = await this.migrateLegacyKeylessOAuthSessionForLocalWallet({
+        keylessWallet: context.keylessWallet,
+        ownerId: context.ownerId,
+      });
+      if (!accessToken) {
+        throw new OneKeyLocalError(
+          'The local Keyless Wallet session has expired. Please continue with your linked social account.',
+        );
+      }
+    }
+
+    return {
+      accessToken,
+      provider: context.provider,
+    };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async getActiveKeylessOAuthAccessTokenForLocalWallet(): Promise<
+    string | null
+  > {
+    return this.getActiveKeylessOAuthAccessTokenMatchingLocalWallet();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async getOrMigrateKeylessOAuthAccessTokenForLocalWallet(): Promise<
+    string | null
+  > {
+    const context = await this.getLocalKeylessLoginContext();
+    if (!context) {
       return null;
     }
+    const activeAccessToken =
+      await this.getActiveKeylessOAuthAccessTokenMatchingLocalWallet({
+        keylessWallet: context.keylessWallet,
+      });
+    if (activeAccessToken) {
+      return activeAccessToken;
+    }
+    return this.migrateLegacyKeylessOAuthSessionForLocalWallet({
+      keylessWallet: context.keylessWallet,
+      ownerId: context.ownerId,
+    });
   }
 
   @backgroundMethod()
@@ -2893,7 +2938,8 @@ class ServiceKeylessWallet extends ServiceBase {
           'cancelVerifyPin ERROR: ownerId is required',
         );
       }
-      const accessToken = await this.getKeylessCachedAccessToken({ ownerId });
+      const accessToken =
+        await this.getActiveKeylessOAuthAccessTokenMatchingLocalWallet();
 
       if (accessToken) {
         await this.apiUpdatePinConfirmStatus({
@@ -3024,13 +3070,23 @@ class ServiceKeylessWallet extends ServiceBase {
     throw new OneKeyLocalError('Failed to get pin confirm status');
   }
 
-  /**
-   * Clear keyless refresh token storage.
-   * Requires dev settings to be enabled.
-   */
+  private async removeLegacyKeylessOAuthTokens(params: {
+    ownerId: string;
+  }): Promise<void> {
+    const { ownerId } = params;
+    await Promise.all([
+      keylessStorageUtils.storageRemoveItem(
+        accountUtils.buildKeylessRefreshTokenKey({ ownerId }),
+      ),
+      keylessStorageUtils.storageRemoveItem(
+        accountUtils.buildKeylessTokenKey({ ownerId }),
+      ),
+    ]);
+  }
+
   @backgroundMethod()
   @toastIfError()
-  async clearKeylessRefreshTokenStorage(params: {
+  async clearLegacyKeylessOAuthTokenStorage(params: {
     ownerId: string;
   }): Promise<{ success: boolean }> {
     const devSettings = await devSettingsPersistAtom.get();
@@ -3038,7 +3094,7 @@ class ServiceKeylessWallet extends ServiceBase {
       throw new OneKeyLocalError('Dev settings is not enabled');
     }
 
-    await keylessRefreshTokenStorage.removeTokensFromStorage({
+    await this.removeLegacyKeylessOAuthTokens({
       ownerId: params.ownerId,
     });
 
@@ -3058,9 +3114,30 @@ class ServiceKeylessWallet extends ServiceBase {
       ownerId,
     });
 
-    await keylessRefreshTokenStorage.removeTokensFromStorage({
-      ownerId,
-    });
+    await this.removeLegacyKeylessOAuthTokens({ ownerId });
+    const authSessionSource =
+      await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+    await this.backgroundApi.simpleDb.prime.clearKeylessAuthSession();
+    if (authSessionSource === EPrimeAuthSessionSource.KeylessOAuth) {
+      await this.backgroundApi.simpleDb.prime.clearAuthTokens();
+      await this.backgroundApi.servicePrime.setPrimePersistAtomNotLoggedIn();
+    }
+  }
+
+  @backgroundMethod()
+  async cleanupLocalKeylessOAuthTokens(): Promise<void> {
+    const wallets = await this.getAllKeylessWallets();
+    const ownerIds = new Set(
+      wallets
+        .map((wallet) => wallet.keylessDetailsInfo?.keylessOwnerId)
+        .filter((ownerId): ownerId is string => Boolean(ownerId)),
+    );
+
+    await Promise.all(
+      Array.from(ownerIds).map((ownerId) =>
+        this.removeLegacyKeylessOAuthTokens({ ownerId }),
+      ),
+    );
   }
 
   fixedKeylessProviderMap: {
@@ -3176,7 +3253,6 @@ class ServiceKeylessWallet extends ServiceBase {
     const backupData: Array<{
       ownerId: string;
       mnemonicPassword: string | null;
-      refreshToken: string | null;
     }> = [];
 
     for (const wallet of keylessWallets) {
@@ -3193,19 +3269,9 @@ class ServiceKeylessWallet extends ServiceBase {
           },
         );
 
-      const refreshToken =
-        await keylessRefreshTokenStorage.getRefreshTokenFromStorageWithPassword(
-          {
-            ownerId,
-            password: oldPassword,
-            backgroundApi: this.backgroundApi,
-          },
-        );
-
       backupData.push({
         ownerId,
         mnemonicPassword,
-        refreshToken,
       });
     }
 
@@ -3220,15 +3286,6 @@ class ServiceKeylessWallet extends ServiceBase {
           },
         );
       }
-
-      if (backup.refreshToken) {
-        await keylessRefreshTokenStorage.saveRefreshTokenToStorageWithPassword({
-          ownerId: backup.ownerId,
-          refreshToken: backup.refreshToken,
-          password: newPassword,
-          backgroundApi: this.backgroundApi,
-        });
-      }
     }
 
     return {
@@ -3239,16 +3296,6 @@ class ServiceKeylessWallet extends ServiceBase {
               {
                 ownerId: backup.ownerId,
                 mnemonicPassword: backup.mnemonicPassword,
-                password: oldPassword,
-                backgroundApi: this.backgroundApi,
-              },
-            );
-          }
-          if (backup.refreshToken) {
-            await keylessRefreshTokenStorage.saveRefreshTokenToStorageWithPassword(
-              {
-                ownerId: backup.ownerId,
-                refreshToken: backup.refreshToken,
                 password: oldPassword,
                 backgroundApi: this.backgroundApi,
               },

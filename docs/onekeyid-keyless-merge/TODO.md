@@ -1,3 +1,0 @@
-- OneKeyID 退出、token 过期，如何处理 Keyless 钱包
-- OAuth token 的自动刷新机制（每隔 1 小时），Legacy token 是由 supabase SDK 代管的
--

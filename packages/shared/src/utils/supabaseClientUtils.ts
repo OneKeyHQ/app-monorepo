@@ -8,6 +8,10 @@ import {
   SUPABASE_PUBLIC_API_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
 import supabaseStorageInstance from '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance';
+import {
+  getKeylessSupabaseAuthSessionKey,
+  getSupabaseAuthSessionKey,
+} from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -15,6 +19,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // import 'react-native-url-polyfill/auto'; // TODO move to shared polyfill
 
 let client: SupabaseClient | undefined;
+let keylessClient: SupabaseClient | undefined;
 const storage = supabaseStorageInstance;
 
 export function getSupabaseClient() {
@@ -25,6 +30,7 @@ export function getSupabaseClient() {
       {
         auth: {
           storage,
+          storageKey: getSupabaseAuthSessionKey(),
           autoRefreshToken: true,
           persistSession: true,
           detectSessionInUrl: false,
@@ -34,6 +40,26 @@ export function getSupabaseClient() {
     );
   }
   return { client, storage };
+}
+
+export function getKeylessSupabaseClient() {
+  if (!keylessClient) {
+    keylessClient = createClient(
+      KEYLESS_SUPABASE_PROJECT_URL ?? '',
+      KEYLESS_SUPABASE_PUBLIC_API_KEY ?? '',
+      {
+        auth: {
+          storage,
+          storageKey: getKeylessSupabaseAuthSessionKey(),
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: false,
+          flowType: 'pkce',
+        },
+      },
+    );
+  }
+  return { client: keylessClient, storage };
 }
 
 /**

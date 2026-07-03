@@ -672,9 +672,8 @@ class ServiceAccount extends ServiceBase {
     await this.backgroundApi.serviceKeylessCloudSync.syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets(
       wallets,
     );
-    // Filter out keyless wallets if excludeKeylessWallet is true
     if (excludeKeylessWallet) {
-      // do nothing
+      wallets = wallets.filter((wallet) => !wallet.isKeyless);
     }
     return { wallets, allDevices };
   }
@@ -4984,9 +4983,11 @@ class ServiceAccount extends ServiceBase {
 
     if (keylessOwnerId) {
       void this.backgroundApi.serviceNotification.updateClientBasicAppInfoDebounced();
-      void this.backgroundApi.serviceKeylessWallet.cleanupKeylessWalletStorage({
-        ownerId: keylessOwnerId,
-      });
+      await this.backgroundApi.serviceKeylessWallet.cleanupKeylessWalletStorage(
+        {
+          ownerId: keylessOwnerId,
+        },
+      );
     }
 
     if (!skipBackupWalletRemove) {

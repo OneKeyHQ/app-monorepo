@@ -10,6 +10,10 @@ import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConst
 import { RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID } from '@onekeyhq/shared/src/consts/primeConsts';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
+  ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_CODE,
+  ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_MESSAGE_ID,
+  OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound,
+  OneKeyErrorPrimeLoginInvalidToken,
   OneKeyLocalError,
   OneKeyServerApiError,
   PrimeLoginDialogCancelError,
@@ -22,16 +26,25 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import { isRetryableSupabaseAuthError } from '@onekeyhq/shared/src/utils/supabaseAuthErrorUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ETranslateEngine } from '@onekeyhq/shared/types/discovery';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
+  IOneKeyIdAccount,
+  IOneKeyIdOAuthBindResponse,
+  IOneKeyIdOAuthLoginResponse,
+  IOneKeyIdProfileResponse,
   IPrimeDeviceInfo,
   IPrimeServerUserInfo,
   IPrimeSubscriptionInfo,
   IPrimeUserInfo,
   IShopifyOrder,
+} from '@onekeyhq/shared/types/prime/primeTypes';
+import {
+  EOneKeyIdIdentityType,
+  EPrimeAuthSessionSource,
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import {
@@ -48,6 +61,24 @@ import type {
   IPrimePersistAtomData,
 } from '../../states/jotai/atoms/prime';
 
+type IOneKeyIdOAuthBindErrorData = {
+  code?: number;
+  message?: string;
+  messageId?: string;
+};
+
+type IPrimeServerUserInfoWithProfile = IPrimeServerUserInfo & {
+  onekeyAccount?: IOneKeyIdAccount;
+};
+
+type ICompleteOneKeyIdProfileResponse = IPrimeServerUserInfo & {
+  onekeyAccount: IOneKeyIdAccount;
+};
+
+type IPrimeApiClientResponse<T> = IApiClientResponse<T> & {
+  messageId?: string;
+};
+
 class ServicePrime extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -55,6 +86,157 @@ class ServicePrime extends ServiceBase {
 
   async getPrimeClient() {
     return this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+  }
+
+  private async cleanupLegacyKeylessSessionStorage({
+    callerName,
+  }: {
+    callerName: string;
+  }) {
+    try {
+      await this.backgroundApi.serviceKeylessWallet.cleanupLocalKeylessOAuthTokens();
+    } catch (error) {
+      defaultLogger.prime.subscription.onekeyIdLogout({
+        reason: `${callerName}: clear legacy keyless session storage failed: ${String(
+          error,
+        )}`,
+      });
+    }
+  }
+
+  private isOneKeyIdOAuthIdentityAlreadyBoundError(error: unknown) {
+    const e = error as OneKeyError | undefined;
+    const errorData = e?.data as IOneKeyIdOAuthBindErrorData | undefined;
+    return (
+      Number(e?.code) === ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_CODE ||
+      Number(errorData?.code) === ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_CODE ||
+      errorData?.messageId ===
+        ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_MESSAGE_ID ||
+      errorData?.message ===
+        ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_MESSAGE_ID ||
+      e?.message === ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_MESSAGE_ID
+    );
+  }
+
+  private buildOneKeyIdOAuthIdentityAlreadyBoundError(error: unknown) {
+    const e = error as OneKeyError | undefined;
+    return new OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound({
+      data: e?.data,
+      httpStatusCode: e?.httpStatusCode,
+      requestId: e?.requestId,
+    });
+  }
+
+  private buildPrimeApiResponseError<T>({
+    response,
+    fallbackMessage,
+  }: {
+    response: {
+      status: number;
+      data: IPrimeApiClientResponse<T>;
+      $requestId?: string;
+    };
+    fallbackMessage: string;
+  }) {
+    const errorCode = Number(response.data.code);
+    const errorMessage = response.data.message || fallbackMessage;
+    if ([90_002, 90_003].includes(errorCode)) {
+      return new OneKeyErrorPrimeLoginInvalidToken({
+        message: errorMessage,
+        code: errorCode,
+      });
+    }
+    return new OneKeyServerApiError({
+      autoToast: false,
+      disableFallbackMessage: true,
+      message: errorMessage,
+      code: response.data.code,
+      httpStatusCode: response.status,
+      data: response.data,
+      requestId: response.$requestId,
+    });
+  }
+
+  private getPrimeApiResponseData<T>({
+    response,
+    fallbackMessage,
+  }: {
+    response: {
+      status: number;
+      data: IPrimeApiClientResponse<T>;
+      $requestId?: string;
+    };
+    fallbackMessage: string;
+  }) {
+    if (response.data.code !== 0) {
+      throw this.buildPrimeApiResponseError({
+        response,
+        fallbackMessage,
+      });
+    }
+    if (!response.data.data) {
+      throw new OneKeyLocalError(fallbackMessage);
+    }
+    return response.data.data;
+  }
+
+  private throwIfAllPrimeUserInfoRequestsFailedByInvalidTokenError(
+    results: Array<PromiseSettledResult<unknown>>,
+  ) {
+    if (results.some((result) => result.status === 'fulfilled')) {
+      return;
+    }
+    const invalidTokenError = results.find(
+      (result): result is PromiseRejectedResult =>
+        result.status === 'rejected' &&
+        result.reason instanceof OneKeyErrorPrimeLoginInvalidToken,
+    )?.reason;
+    if (invalidTokenError) {
+      const error = invalidTokenError as OneKeyErrorPrimeLoginInvalidToken;
+      defaultLogger.prime.subscription.onekeyIdInvalidToken({
+        url: '',
+        errorCode: Number(error.code),
+        errorMessage: error.message,
+      });
+      appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, undefined);
+      throw error;
+    }
+  }
+
+  private mergeDefinedPrimeServerUserInfo({
+    serverUserInfo,
+    profile,
+  }: {
+    serverUserInfo: IPrimeServerUserInfo;
+    profile?: IOneKeyIdProfileResponse;
+  }): IPrimeServerUserInfoWithProfile {
+    const definedProfileFields: Partial<IPrimeServerUserInfoWithProfile> = {};
+    if (profile) {
+      Object.entries(profile).forEach(([key, value]) => {
+        if (value !== undefined) {
+          (definedProfileFields as Record<string, unknown>)[key] = value;
+        }
+      });
+    }
+    return {
+      ...serverUserInfo,
+      ...definedProfileFields,
+    };
+  }
+
+  private isCompletePrimeServerUserInfo(
+    data: IOneKeyIdProfileResponse | undefined,
+  ): data is ICompleteOneKeyIdProfileResponse {
+    return Boolean(
+      data?.userId &&
+      Array.isArray(data.emails) &&
+      typeof data.isPrime === 'boolean' &&
+      typeof data.primeExpiredAt === 'number' &&
+      typeof data.level === 'string' &&
+      typeof data.salt === 'string' &&
+      typeof data.pwdHash === 'string' &&
+      typeof data.inviteCode === 'string',
+    );
   }
 
   @backgroundMethod()
@@ -150,14 +332,124 @@ class ServicePrime extends ServiceBase {
 
   loginMutex = new Semaphore(1);
 
+  async handlePrimeLoginInvalidToken({
+    requestAuthToken,
+    errorCode,
+    errorMessage,
+    requestUrl,
+  }: {
+    requestAuthToken?: string;
+    errorCode?: number;
+    errorMessage?: string;
+    requestUrl?: string;
+  }): Promise<{
+    cleared: boolean;
+    authSessionSource?: EPrimeAuthSessionSource;
+  }> {
+    const authSessionSource =
+      await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+    let currentAuthToken = '';
+    try {
+      currentAuthToken = authSessionSource
+        ? await this.backgroundApi.simpleDb.prime.getActiveAuthToken()
+        : await this.backgroundApi.simpleDb.prime.getSupabaseAuthToken();
+    } catch (error) {
+      if (isRetryableSupabaseAuthError(error)) {
+        defaultLogger.prime.subscription.onekeyIdInvalidToken({
+          url: requestUrl || '',
+          errorCode: errorCode || -1,
+          errorMessage: `skip clearing invalid token response because local refresh failed: ${String(
+            error,
+          )}`,
+        });
+        return { cleared: false, authSessionSource };
+      }
+      throw error;
+    }
+
+    if (
+      requestAuthToken &&
+      currentAuthToken &&
+      requestAuthToken !== currentAuthToken
+    ) {
+      defaultLogger.prime.subscription.onekeyIdInvalidToken({
+        url: requestUrl || '',
+        errorCode: errorCode || -1,
+        errorMessage: `skip clearing stale invalid token response: ${
+          errorMessage || ''
+        }`,
+      });
+      return { cleared: false, authSessionSource };
+    }
+
+    if (!requestAuthToken && currentAuthToken) {
+      defaultLogger.prime.subscription.onekeyIdInvalidToken({
+        url: requestUrl || '',
+        errorCode: errorCode || -1,
+        errorMessage: `skip clearing invalid token response without request token: ${
+          errorMessage || ''
+        }`,
+      });
+      return { cleared: false, authSessionSource };
+    }
+
+    const sourceToClear =
+      authSessionSource ?? EPrimeAuthSessionSource.LegacyEmailSupabase;
+    await this.backgroundApi.simpleDb.prime.clearAuthTokens();
+    if (sourceToClear === EPrimeAuthSessionSource.KeylessOAuth) {
+      await this.backgroundApi.simpleDb.prime.clearKeylessAuthSession();
+    } else {
+      await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
+    }
+    await this.setPrimePersistAtomNotLoggedIn();
+    return {
+      cleared: true,
+      authSessionSource: sourceToClear,
+    };
+  }
+
+  private async commitAuthSessionSourceBeforeAtomUpdate({
+    authSessionSource,
+    callerName,
+  }: {
+    authSessionSource: EPrimeAuthSessionSource;
+    callerName: string;
+  }) {
+    await this.backgroundApi.simpleDb.prime.setAuthSessionSource(
+      authSessionSource,
+    );
+    const authToken =
+      await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
+    if (!authToken) {
+      defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+        reason: `${callerName}: auth session source committed but active token is not readable`,
+      });
+      await this.backgroundApi.simpleDb.prime.clearAuthTokens();
+      await this.setPrimePersistAtomNotLoggedIn();
+      throw new OneKeyLocalError(
+        `${callerName} ERROR: Active auth token not found`,
+      );
+    }
+  }
+
   @backgroundMethod()
-  async apiLogin({ accessToken }: { accessToken: string }) {
+  async apiLogin({
+    accessToken,
+    authSessionSource,
+  }: {
+    accessToken: string;
+    authSessionSource?: EPrimeAuthSessionSource;
+  }) {
     await this.loginMutex.runExclusive(async () => {
       if (!accessToken) {
         return;
       }
-      // clear simpleDb authToken first, use custom header instead
-      await this.backgroundApi.simpleDb.prime.saveAuthToken('');
+      const nextAuthSessionSource =
+        authSessionSource ??
+        (await this.backgroundApi.simpleDb.prime.getAuthSessionSource()) ??
+        EPrimeAuthSessionSource.LegacyEmailSupabase;
+      // Clear active tokens first, use the explicit request header below.
+      await this.backgroundApi.simpleDb.prime.clearAuthTokens();
       const client = await this.getPrimeClient();
       try {
         const response = await client.post<{
@@ -171,37 +463,244 @@ class ServicePrime extends ServiceBase {
             },
           },
         );
-        // only save authToken if api login success
-        await this.backgroundApi.simpleDb.prime.saveAuthToken(accessToken);
-
+        await this.commitAuthSessionSourceBeforeAtomUpdate({
+          authSessionSource: nextAuthSessionSource,
+          callerName: 'ServicePrime.apiLogin',
+        });
         await this.updatePrimeAtomByServerUserInfo({
           serverUserInfo: response.data.data,
         });
       } catch (error) {
-        await this.backgroundApi.simpleDb.prime.saveAuthToken('');
+        await this.backgroundApi.simpleDb.prime.clearAuthTokens();
         throw error;
       }
     });
   }
 
   @backgroundMethod()
-  async apiLogout() {
+  async apiOAuthLogin({
+    accessToken,
+  }: {
+    accessToken: string;
+  }): Promise<IOneKeyIdOAuthLoginResponse> {
+    return this.loginMutex.runExclusive(async () => {
+      if (!accessToken) {
+        throw new OneKeyLocalError('apiOAuthLogin ERROR: Invalid accessToken');
+      }
+
+      await this.backgroundApi.simpleDb.prime.clearAuthTokens();
+      const client = await this.getPrimeClient();
+      const result = await client.post<
+        IApiClientResponse<IOneKeyIdOAuthLoginResponse>
+      >(
+        '/prime/v1/account/oauth/login',
+        {},
+        {
+          headers: {
+            'X-Onekey-Request-Token': accessToken,
+          },
+        },
+      );
+      const data = result?.data?.data;
+      if (!data) {
+        throw new OneKeyLocalError('apiOAuthLogin ERROR: Empty response data');
+      }
+      await this.commitAuthSessionSourceBeforeAtomUpdate({
+        authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+        callerName: 'ServicePrime.apiOAuthLogin',
+      });
+      await this.updatePrimeAtomByOAuthLoginResponse({
+        loginResponse: data,
+      });
+      await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
+      await this.cleanupLegacyKeylessSessionStorage({
+        callerName: 'ServicePrime.apiOAuthLogin',
+      });
+      return data;
+    });
+  }
+
+  @backgroundMethod()
+  async apiFetchOneKeyIdProfile(): Promise<IOneKeyIdProfileResponse> {
+    await this.loginMutex.waitForUnlock();
+    const authToken =
+      await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
+    if (!authToken) {
+      throw new OneKeyLocalError(
+        'apiFetchOneKeyIdProfile ERROR: Active auth token not found',
+      );
+    }
+
+    const client = await this.getPrimeClient();
+    const result = await client.get<
+      IApiClientResponse<IOneKeyIdProfileResponse>
+    >('/prime/v1/account/profile');
+    const data = result?.data?.data;
+    if (!data?.onekeyAccount) {
+      throw new OneKeyLocalError('apiFetchOneKeyIdProfile ERROR: Empty data');
+    }
+    return data;
+  }
+
+  @backgroundMethod()
+  async isLegacyOneKeyIdOAuthBindRequired(): Promise<boolean> {
+    const isLoggedIn = await this.isLoggedIn();
+    if (!isLoggedIn) {
+      return false;
+    }
+
+    let authSessionSource =
+      await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+    if (!authSessionSource) {
+      const legacyAuthToken =
+        await this.backgroundApi.simpleDb.prime.getSupabaseAuthToken();
+      if (legacyAuthToken) {
+        authSessionSource = EPrimeAuthSessionSource.LegacyEmailSupabase;
+      }
+      const keylessAuthToken =
+        await this.backgroundApi.simpleDb.prime.getKeylessSupabaseAuthToken();
+      if (!authSessionSource && keylessAuthToken) {
+        return false;
+      }
+      if (!authSessionSource) {
+        return false;
+      }
+    }
+
+    if (authSessionSource !== EPrimeAuthSessionSource.LegacyEmailSupabase) {
+      return false;
+    }
+
+    const profile = await this.apiFetchOneKeyIdProfile();
+    return this.isLegacyOneKeyIdAccountMissingOAuthIdentity(
+      profile.onekeyAccount,
+    );
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async apiBindLegacyOneKeyIdOAuth({
+    oauthAccessToken,
+  }: {
+    oauthAccessToken: string;
+  }): Promise<IOneKeyIdOAuthBindResponse> {
+    return this.loginMutex.runExclusive(async () => {
+      if (!oauthAccessToken) {
+        throw new OneKeyLocalError(
+          'apiBindLegacyOneKeyIdOAuth ERROR: Invalid oauthAccessToken',
+        );
+      }
+
+      const legacyOneKeyIdAuthToken =
+        await this.backgroundApi.simpleDb.prime.getSupabaseAuthToken();
+      if (!legacyOneKeyIdAuthToken) {
+        throw new OneKeyLocalError(
+          'apiBindLegacyOneKeyIdOAuth ERROR: Legacy auth token not found',
+        );
+      }
+
+      const client = await this.getPrimeClient();
+      let result: {
+        data: IApiClientResponse<IOneKeyIdOAuthBindResponse>;
+      };
+      try {
+        result = await client.post<
+          IApiClientResponse<IOneKeyIdOAuthBindResponse>
+        >('/prime/v1/account/identities/oauth/bind', {
+          token: oauthAccessToken,
+          legacyOneKeyIdAuthToken,
+        });
+      } catch (error) {
+        if (this.isOneKeyIdOAuthIdentityAlreadyBoundError(error)) {
+          throw this.buildOneKeyIdOAuthIdentityAlreadyBoundError(error);
+        }
+        throw error;
+      }
+      const data = result?.data?.data;
+      if (!data?.onekeyAccount) {
+        throw new OneKeyLocalError(
+          'apiBindLegacyOneKeyIdOAuth ERROR: Empty response data',
+        );
+      }
+
+      await this.commitAuthSessionSourceBeforeAtomUpdate({
+        authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+        callerName: 'ServicePrime.apiBindLegacyOneKeyIdOAuth',
+      });
+      await this.updatePrimeAtomByOneKeyIdAccount({
+        onekeyAccount: data.onekeyAccount,
+      });
+      await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
+      await this.cleanupLegacyKeylessSessionStorage({
+        callerName: 'ServicePrime.apiBindLegacyOneKeyIdOAuth',
+      });
+
+      void this.apiFetchPrimeUserInfo().catch((error) => {
+        defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+          reason: `ServicePrime.apiBindLegacyOneKeyIdOAuth: refresh user info failed: ${String(
+            error,
+          )}`,
+        });
+      });
+
+      return data;
+    });
+  }
+
+  @backgroundMethod()
+  async apiLogout({
+    preserveLocalKeylessAuth,
+  }: {
+    preserveLocalKeylessAuth?: boolean;
+  } = {}) {
     const currentAtomValue = await primePersistAtom.get();
     defaultLogger.prime.subscription.onekeyIdLogout({
       reason: `ServicePrime.apiLogout: starting logout for user ${currentAtomValue.onekeyUserId}`,
     });
 
-    const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
+    let authToken = '';
+    try {
+      authToken = preserveLocalKeylessAuth
+        ? await this.backgroundApi.simpleDb.prime.getSupabaseAuthToken()
+        : await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
+    } catch (error) {
+      if (!isRetryableSupabaseAuthError(error)) {
+        throw error;
+      }
+      defaultLogger.prime.subscription.onekeyIdLogout({
+        reason: `ServicePrime.apiLogout: skip server logout because auth refresh failed: ${String(
+          error,
+        )}`,
+      });
+    }
     if (!authToken) {
       defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
-        reason: 'ServicePrime.apiLogout: simpleDb.prime.getAuthToken() is null',
+        reason:
+          'ServicePrime.apiLogout: simpleDb.prime.getActiveAuthToken() is null',
       });
+      if (preserveLocalKeylessAuth) {
+        await this.backgroundApi.simpleDb.prime.clearAuthTokens();
+        await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
+      } else {
+        await this.cleanupLegacyKeylessSessionStorage({
+          callerName: 'ServicePrime.apiLogout',
+        });
+        await this.backgroundApi.simpleDb.prime.clearLocalAuthSession();
+      }
       await this.setPrimePersistAtomNotLoggedIn();
       return;
     }
     const client = await this.getPrimeClient();
     try {
-      await client.post('/prime/v1/user/logout');
+      await client.post(
+        '/prime/v1/user/logout',
+        {},
+        {
+          headers: {
+            'X-Onekey-Request-Token': authToken,
+          },
+        },
+      );
       defaultLogger.prime.subscription.onekeyIdLogout({
         reason: 'ServicePrime.apiLogout: server logout success',
       });
@@ -221,7 +720,15 @@ class ServicePrime extends ServiceBase {
       defaultLogger.prime.subscription.onekeyIdLogout({
         reason: 'ServicePrime.apiLogout: clearing local token and atom',
       });
-      await this.backgroundApi.simpleDb.prime.saveAuthToken('');
+      if (preserveLocalKeylessAuth) {
+        await this.backgroundApi.simpleDb.prime.clearAuthTokens();
+        await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
+      } else {
+        await this.cleanupLegacyKeylessSessionStorage({
+          callerName: 'ServicePrime.apiLogout',
+        });
+        await this.backgroundApi.simpleDb.prime.clearLocalAuthSession();
+      }
       await this.setPrimePersistAtomNotLoggedIn();
       const clearedAtomValue = await primePersistAtom.get();
       defaultLogger.prime.subscription.onekeyIdLogout({
@@ -240,7 +747,8 @@ class ServicePrime extends ServiceBase {
   }) {
     // eslint-disable-next-line no-param-reassign
     accessToken =
-      accessToken || (await this.backgroundApi.simpleDb.prime.getAuthToken());
+      accessToken ||
+      (await this.backgroundApi.simpleDb.prime.getActiveAuthToken());
     const client = await this.getPrimeClient();
     // TODO 404 not found
     await client.post(
@@ -254,8 +762,9 @@ class ServicePrime extends ServiceBase {
     );
     if (instanceId) {
       await this.apiLogin({ accessToken });
-      // Refresh from /user/info for accurate isPrimeDeviceLimitExceeded,
-      // as the login endpoint may return stale device limit data after removal
+      // Refresh from profile + legacy user info for accurate
+      // isPrimeDeviceLimitExceeded, as the login endpoint may return stale
+      // device limit data after removal.
       try {
         const serverUserInfo = await this.callApiFetchPrimeUserInfo();
         if (serverUserInfo) {
@@ -273,7 +782,8 @@ class ServicePrime extends ServiceBase {
     const client = await this.getPrimeClient();
     // eslint-disable-next-line no-param-reassign
     accessToken =
-      accessToken || (await this.backgroundApi.simpleDb.prime.getAuthToken());
+      accessToken ||
+      (await this.backgroundApi.simpleDb.prime.getActiveAuthToken());
     const result = await client.get<IApiClientResponse<IPrimeDeviceInfo[]>>(
       '/prime/v1/user/devices',
       {
@@ -287,13 +797,73 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  async callApiFetchPrimeUserInfo() {
+  async callApiFetchPrimeUserInfo(): Promise<IPrimeServerUserInfoWithProfile> {
     const client = await this.getPrimeClient();
-    const result = await client.get<IApiClientResponse<IPrimeServerUserInfo>>(
-      '/prime/v1/user/info',
-    );
-    const serverUserInfo = result?.data?.data;
-    return serverUserInfo;
+    const requestConfig: Parameters<typeof client.get>[1] & {
+      autoHandleError?: boolean;
+    } = {
+      autoHandleError: false,
+    };
+    const profileRequest = client
+      .get<
+        IPrimeApiClientResponse<IOneKeyIdProfileResponse>
+      >('/prime/v1/account/profile', requestConfig)
+      .then((response) =>
+        this.getPrimeApiResponseData({
+          response,
+          fallbackMessage:
+            'callApiFetchPrimeUserInfo ERROR: profile empty data',
+        }),
+      );
+    const serverUserInfoRequest = client
+      .get<
+        IPrimeApiClientResponse<IPrimeServerUserInfo>
+      >('/prime/v1/user/info', requestConfig)
+      .then((response) =>
+        this.getPrimeApiResponseData({
+          response,
+          fallbackMessage:
+            'callApiFetchPrimeUserInfo ERROR: user info empty data',
+        }),
+      );
+    const [profileResult, serverUserInfoResult] = await Promise.allSettled([
+      profileRequest,
+      serverUserInfoRequest,
+    ]);
+
+    this.throwIfAllPrimeUserInfoRequestsFailedByInvalidTokenError([
+      profileResult,
+      serverUserInfoResult,
+    ]);
+
+    const profile =
+      profileResult.status === 'fulfilled' ? profileResult.value : undefined;
+    const serverUserInfo =
+      serverUserInfoResult.status === 'fulfilled'
+        ? serverUserInfoResult.value
+        : undefined;
+
+    if (serverUserInfo) {
+      return this.mergeDefinedPrimeServerUserInfo({
+        serverUserInfo,
+        profile,
+      });
+    }
+
+    if (this.isCompletePrimeServerUserInfo(profile)) {
+      return profile;
+    }
+
+    if (serverUserInfoResult.status === 'rejected') {
+      if (profile) {
+        throw new OneKeyLocalError(
+          'callApiFetchPrimeUserInfo ERROR: profile incomplete and user info unavailable',
+        );
+      }
+      throw serverUserInfoResult.reason;
+    }
+
+    throw new OneKeyLocalError('callApiFetchPrimeUserInfo ERROR: Empty data');
   }
 
   @backgroundMethod()
@@ -326,8 +896,11 @@ class ServicePrime extends ServiceBase {
     serverUserInfo: IPrimeServerUserInfo;
   }) {
     const beforeValue = await primePersistAtom.get();
+    const onekeyAccount = (serverUserInfo as Partial<IOneKeyIdProfileResponse>)
+      .onekeyAccount;
+    const serverUserId = serverUserInfo?.userId ?? onekeyAccount?.onekeyUserId;
     defaultLogger.prime.subscription.onekeyIdLogout({
-      reason: `updatePrimeAtomByServerUserInfo: before update, atom isPrime=${beforeValue.primeSubscription?.isActive}, atom userId=${beforeValue.onekeyUserId}, server isPrime=${serverUserInfo?.isPrime}, server userId=${serverUserInfo?.userId}`,
+      reason: `updatePrimeAtomByServerUserInfo: before update, atom isPrime=${beforeValue.primeSubscription?.isActive}, atom userId=${beforeValue.onekeyUserId}, server isPrime=${serverUserInfo?.isPrime}, server userId=${serverUserId}`,
     });
 
     let primeSubscription: IPrimeSubscriptionInfo | undefined;
@@ -349,19 +922,29 @@ class ServicePrime extends ServiceBase {
     // onekeyUserId, so the settings switch and intro dialog gate (both keyed by
     // onekeyUserId) read the latest interface value once the user becomes active.
     await this.backgroundApi.serviceSetting.syncKytEnabledFromServer({
-      onekeyUserId: serverUserInfo?.userId,
+      onekeyUserId: serverUserId,
       kytEnabled: serverUserInfo?.kytEnabled,
     });
 
     await primePersistAtom.set((v): IPrimePersistAtomData => {
-      const userEmail = serverUserInfo?.emails?.[0] || undefined;
+      const userEmail =
+        onekeyAccount?.normalizedEmail ??
+        serverUserInfo?.emails?.[0] ??
+        undefined;
+      const displayEmail =
+        onekeyAccount?.displayEmail ?? serverUserInfo?.displayEmail;
+      const shouldKeepExistingOneKeyAccount =
+        !onekeyAccount && v.onekeyAccount?.onekeyUserId === serverUserId;
       return {
         ...v,
         avatar: serverUserInfo?.avatar,
         nickname: serverUserInfo?.nickname,
         email: userEmail, // TODO update from PrimeGlobalEffect
-        displayEmail: userEmail,
-        onekeyUserId: serverUserInfo?.userId,
+        displayEmail,
+        onekeyUserId: serverUserId,
+        onekeyAccount:
+          onekeyAccount ??
+          (shouldKeepExistingOneKeyAccount ? v.onekeyAccount : undefined),
         isEnablePrime: serverUserInfo?.isEnablePrime,
         isEnableSandboxPay: serverUserInfo?.isEnableSandboxPay,
         isPrimeDeviceLimitExceeded: serverUserInfo?.isPrimeDeviceLimitExceeded,
@@ -391,6 +974,99 @@ class ServicePrime extends ServiceBase {
     };
   }
 
+  async updatePrimeAtomByOAuthLoginResponse({
+    loginResponse,
+  }: {
+    loginResponse: IOneKeyIdOAuthLoginResponse;
+  }) {
+    const { onekeyAccount } = loginResponse;
+    const serverUserId = loginResponse.userId ?? onekeyAccount.onekeyUserId;
+    const serverManagementUrl = loginResponse.subscriptions?.[0]?.managementUrl;
+
+    await this.backgroundApi.serviceSetting.syncKytEnabledFromServer({
+      onekeyUserId: serverUserId,
+      kytEnabled: loginResponse.kytEnabled,
+    });
+
+    await primePersistAtom.set((v): IPrimePersistAtomData => {
+      let primeSubscription = v.primeSubscription;
+      if (loginResponse.isPrime !== undefined) {
+        primeSubscription = loginResponse.isPrime
+          ? ({
+              isActive: true,
+              expiresAt:
+                loginResponse.primeExpiredAt ??
+                v.primeSubscription?.expiresAt ??
+                0,
+              willRenew: loginResponse.willRenew,
+              subscriptions: loginResponse.subscriptions,
+            } satisfies IPrimeSubscriptionInfo)
+          : undefined;
+      }
+      const userEmail =
+        onekeyAccount.normalizedEmail ?? loginResponse.emails?.[0] ?? v.email;
+      const displayEmail = onekeyAccount.displayEmail;
+      return {
+        ...v,
+        avatar: loginResponse.avatar ?? v.avatar,
+        nickname: loginResponse.nickname ?? v.nickname,
+        email: userEmail,
+        displayEmail,
+        onekeyUserId: onekeyAccount.onekeyUserId,
+        onekeyAccount,
+        isEnablePrime: loginResponse.isEnablePrime ?? v.isEnablePrime,
+        isEnableSandboxPay:
+          loginResponse.isEnableSandboxPay ?? v.isEnableSandboxPay,
+        isPrimeDeviceLimitExceeded:
+          loginResponse.isPrimeDeviceLimitExceeded ??
+          v.isPrimeDeviceLimitExceeded,
+        isLoggedIn: true,
+        isLoggedInOnServer: true,
+        primeSubscription,
+        subscriptionManageUrl: v.subscriptionManageUrl || serverManagementUrl,
+      };
+    });
+
+    if (loginResponse.inviteCode) {
+      await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
+        loginResponse.inviteCode,
+      );
+    }
+  }
+
+  private isLegacyOneKeyIdAccountMissingOAuthIdentity(
+    onekeyAccount: IOneKeyIdAccount,
+  ) {
+    const identities = onekeyAccount.identities ?? [];
+    const hasLegacyEmailIdentity = identities.some(
+      (identity) => identity.identityType === EOneKeyIdIdentityType.LegacyEmail,
+    );
+    const hasOAuthIdentity = identities.some(
+      (identity) => identity.identityType === EOneKeyIdIdentityType.OAuth,
+    );
+    return hasLegacyEmailIdentity && !hasOAuthIdentity;
+  }
+
+  async updatePrimeAtomByOneKeyIdAccount({
+    onekeyAccount,
+  }: {
+    onekeyAccount: IOneKeyIdAccount;
+  }) {
+    await primePersistAtom.set((v): IPrimePersistAtomData => {
+      const userEmail = onekeyAccount.normalizedEmail ?? v.email;
+      const displayEmail = onekeyAccount.displayEmail;
+      return {
+        ...v,
+        email: userEmail,
+        displayEmail,
+        onekeyUserId: onekeyAccount.onekeyUserId,
+        onekeyAccount,
+        isLoggedIn: true,
+        isLoggedInOnServer: true,
+      };
+    });
+  }
+
   @backgroundMethod()
   async apiFetchPrimeUserInfo(): Promise<{
     userInfo: IPrimeUserInfo;
@@ -399,11 +1075,15 @@ class ServicePrime extends ServiceBase {
   }> {
     console.log('call servicePrime.apiFetchPrimeUserInfo');
     await this.loginMutex.waitForUnlock();
-    const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
+    const authSessionSourceBeforeFetch =
+      await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+    const localUserInfoBeforeFetch = await primePersistAtom.get();
+    const authToken =
+      await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
     if (!authToken) {
       defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
         reason:
-          'ServicePrime.apiFetchPrimeUserInfo: simpleDb.prime.getAuthToken() is null',
+          'ServicePrime.apiFetchPrimeUserInfo: simpleDb.prime.getActiveAuthToken() is null',
       });
       await this.setPrimePersistAtomNotLoggedIn();
       const localUserInfo = await primePersistAtom.get();
@@ -412,7 +1092,7 @@ class ServicePrime extends ServiceBase {
         url: '',
         errorCode: -1759,
         errorMessage:
-          'servicePrime.apiFetchPrimeUserInfo: simpleDb.prime.getAuthToken() No auth token',
+          'servicePrime.apiFetchPrimeUserInfo: simpleDb.prime.getActiveAuthToken() No auth token',
       });
       // clear supabase login token cache
       appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, undefined);
@@ -431,7 +1111,10 @@ class ServicePrime extends ServiceBase {
     // request from writing the previous account's data back into the atom
     // after logout.
     const authTokenAfterFetch =
-      await this.backgroundApi.simpleDb.prime.getAuthToken();
+      await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
+    const authSessionSourceAfterFetch =
+      await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+    const localUserInfoAfterFetch = await primePersistAtom.get();
     if (!authTokenAfterFetch) {
       defaultLogger.prime.subscription.onekeyIdLogout({
         reason:
@@ -443,6 +1126,21 @@ class ServicePrime extends ServiceBase {
         userInfo: localUserInfo,
         serverUserInfo: undefined,
         primeSubscription: undefined,
+      };
+    }
+    if (
+      authSessionSourceAfterFetch !== authSessionSourceBeforeFetch ||
+      localUserInfoAfterFetch.onekeyUserId !==
+        localUserInfoBeforeFetch.onekeyUserId
+    ) {
+      defaultLogger.prime.subscription.onekeyIdLogout({
+        reason:
+          'ServicePrime.apiFetchPrimeUserInfo: auth session changed during request, discarding response',
+      });
+      return {
+        userInfo: localUserInfoAfterFetch,
+        serverUserInfo: undefined,
+        primeSubscription: localUserInfoAfterFetch.primeSubscription,
       };
     }
 
@@ -506,7 +1204,20 @@ class ServicePrime extends ServiceBase {
   @backgroundMethod()
   async isLoggedIn() {
     const { isLoggedIn, isLoggedInOnServer } = await primePersistAtom.get();
-    const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
+    let authToken = '';
+    try {
+      authToken = await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
+    } catch (error) {
+      if (isRetryableSupabaseAuthError(error)) {
+        defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+          reason: `ServicePrime.isLoggedIn: auth refresh failed, keep local login state: ${String(
+            error,
+          )}`,
+        });
+        return Boolean(isLoggedIn && isLoggedInOnServer);
+      }
+      throw error;
+    }
     const result = Boolean(isLoggedIn && isLoggedInOnServer && authToken);
 
     if (!result) {

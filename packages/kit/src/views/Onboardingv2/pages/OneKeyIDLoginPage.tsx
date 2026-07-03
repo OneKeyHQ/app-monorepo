@@ -150,9 +150,14 @@ function OneKeyIDLoginPage() {
   const isVerifyMode =
     mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin ||
     mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly;
+  const isCreateOrRestoreMode =
+    mode === EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore;
 
   const { signInWithSocialLogin } = useOneKeyAuth();
-  const { checkKeylessWalletCreatedOnServer } = useKeylessWallet();
+  const {
+    checkKeylessWalletCreatedOnServer,
+    checkKeylessWalletLocalExistence,
+  } = useKeylessWallet();
 
   const handleSocialLogin = useCallback(
     async (provider: EOAuthSocialLoginProvider) => {
@@ -183,7 +188,16 @@ function OneKeyIDLoginPage() {
             details: { provider },
           });
         }
-        const result = await signInWithSocialLogin(provider);
+        if (isCreateOrRestoreMode && !isResetMode) {
+          await checkKeylessWalletLocalExistence({
+            signInProvider: provider,
+          });
+          return;
+        }
+        const result = await signInWithSocialLogin(
+          provider,
+          isVerifyMode ? { persistSession: true } : undefined,
+        );
         if (result?.session?.accessToken) {
           if (isResetMode) {
             await backgroundApiProxy.serviceKeylessWallet.apiResetKeylessBackendShare(
@@ -198,7 +212,6 @@ function OneKeyIDLoginPage() {
           } else {
             await checkKeylessWalletCreatedOnServer({
               token: result.session.accessToken,
-              refreshToken: result.session.refreshToken,
               mode,
             });
           }
@@ -218,6 +231,8 @@ function OneKeyIDLoginPage() {
     },
     [
       checkKeylessWalletCreatedOnServer,
+      checkKeylessWalletLocalExistence,
+      isCreateOrRestoreMode,
       isResetMode,
       isVerifyMode,
       mode,

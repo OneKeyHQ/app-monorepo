@@ -11,6 +11,7 @@ import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   createTemporarySupabaseClient,
+  getKeylessSupabaseClient,
   getSupabaseClient,
 } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 
@@ -68,7 +69,7 @@ export function useSupabaseAuth() {
       }): Promise<void> => {
         if (persistSession) {
           // Persist session to Supabase client storage
-          await getSupabaseClient().client.auth.setSession({
+          await getKeylessSupabaseClient().client.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
@@ -266,15 +267,35 @@ export function useSupabaseAuth() {
 
   // ============ Session Management Methods ============
 
-  const signOut = useCallback(async () => {
+  const legacySignOut = useCallback(async () => {
     const res = await getSupabaseClient().client.auth.signOut({
       scope: 'local',
     });
-    console.log('useSupabaseAuth_signOut', res);
     if (res.error) {
-      console.error('Error signing out:', res.error);
+      console.error('Error signing out legacy auth:', res.error);
     }
     return res;
+  }, []);
+
+  const signOut = useCallback(async () => {
+    const res = await legacySignOut();
+    const keylessRes = await getKeylessSupabaseClient().client.auth.signOut({
+      scope: 'local',
+    });
+    if (keylessRes.error) {
+      console.error('Error signing out keyless auth:', keylessRes.error);
+    }
+    return res;
+  }, [legacySignOut]);
+
+  const keylessSignOut = useCallback(async () => {
+    const keylessRes = await getKeylessSupabaseClient().client.auth.signOut({
+      scope: 'local',
+    });
+    if (keylessRes.error) {
+      console.error('Error signing out keyless auth:', keylessRes.error);
+    }
+    return keylessRes;
   }, []);
 
   const getAccessToken = useCallback(async () => {
@@ -356,6 +377,8 @@ export function useSupabaseAuth() {
   return useMemo(
     () => ({
       signOut,
+      legacySignOut,
+      keylessSignOut,
       signInWithOtp,
       signInWithSocialLogin,
       performOAuthSignIn,
@@ -371,6 +394,8 @@ export function useSupabaseAuth() {
     }),
     [
       signOut,
+      legacySignOut,
+      keylessSignOut,
       signInWithOtp,
       signInWithSocialLogin,
       performOAuthSignIn,

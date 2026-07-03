@@ -46,6 +46,7 @@ import type {
   INotificationViewDialogPayload,
 } from '../../types/notification';
 import type { IPrimeTransferData } from '../../types/prime/primeTransferTypes';
+import type { EPrimeAuthSessionSource } from '../../types/prime/primeTypes';
 import type { IRookieShareData } from '../../types/rookieGuide';
 import type {
   ESwapCrossChainStatus,
@@ -400,7 +401,12 @@ export interface IAppEventBusPayload {
     autoCreateAddress: boolean;
     deriveType: IAccountDeriveTypes;
   };
-  [EAppEventBusNames.PrimeLoginInvalidToken]: undefined;
+  [EAppEventBusNames.PrimeLoginInvalidToken]:
+    | {
+        authSessionSource?: EPrimeAuthSessionSource;
+        clearedByBackground?: boolean;
+      }
+    | undefined;
   [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
   [EAppEventBusNames.PrimeDeviceLogout]: undefined;
   [EAppEventBusNames.PrimeMasterPasswordInvalid]: undefined;

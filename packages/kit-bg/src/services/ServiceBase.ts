@@ -33,6 +33,10 @@ export type IServiceBaseProps = {
 // Must use global variables, not class properties, otherwise independent properties will be generated in multiple service instances, causing the judgment to fail
 let hideTimer: Array<ReturnType<typeof setTimeout> | undefined> = [];
 
+const ONEKEY_REQUEST_TOKEN_HEADER = 'X-Onekey-Request-Token';
+const ONEKEY_REQUEST_TOKEN_HEADER_LOWERCASE =
+  ONEKEY_REQUEST_TOKEN_HEADER.toLowerCase();
+
 const _oneKeyIdAuthClientsMap: Partial<
   Record<EServiceEndpointEnum, AxiosInstance | undefined>
 > = {};
@@ -60,11 +64,27 @@ export default class ServiceBase {
         await getEndpointInfo({ name }),
       );
       client.interceptors.request.use(async (config) => {
+        const headers = config.headers as {
+          get?: (headerName: string) => unknown;
+          set?: (headerName: string, value: string) => void;
+        } & Record<string, unknown>;
+        const explicitAuthToken =
+          headers?.get?.(ONEKEY_REQUEST_TOKEN_HEADER) ||
+          headers?.[ONEKEY_REQUEST_TOKEN_HEADER] ||
+          headers?.[ONEKEY_REQUEST_TOKEN_HEADER_LOWERCASE];
+        if (explicitAuthToken) {
+          return config;
+        }
+
         const authToken =
-          await this.backgroundApi.simpleDb.prime.getAuthToken();
+          await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
         if (authToken) {
           // TODO use cookie instead of simpleDb
-          config.headers['X-Onekey-Request-Token'] = authToken;
+          if (headers?.set) {
+            headers.set(ONEKEY_REQUEST_TOKEN_HEADER, authToken);
+          } else {
+            headers[ONEKEY_REQUEST_TOKEN_HEADER] = authToken;
+          }
         }
         return config;
       });
@@ -73,8 +93,13 @@ export default class ServiceBase {
           const r = response;
           return r;
         },
-        (error) => {
+        async (error) => {
           const errorData = error as {
+            config?: {
+              headers?: {
+                get?: (headerName: string) => unknown;
+              } & Record<string, unknown>;
+            };
             requestId?: string;
             data: {
               code: number;
@@ -89,15 +114,33 @@ export default class ServiceBase {
           // TODO 90_002 sdk refresh token required
           // TODO 90_003 user login required
           if ([90_002, 90_003].includes(errorCode)) {
+            const headers = errorData?.config?.headers;
+            const requestAuthToken = String(
+              headers?.get?.(ONEKEY_REQUEST_TOKEN_HEADER) ||
+                headers?.[ONEKEY_REQUEST_TOKEN_HEADER] ||
+                headers?.[ONEKEY_REQUEST_TOKEN_HEADER_LOWERCASE] ||
+                '',
+            );
             defaultLogger.prime.subscription.onekeyIdInvalidToken({
               url: errorData?.data?.requestUrl || '',
               errorCode,
               errorMessage: errorMessage || '',
             });
-            appEventBus.emit(
-              EAppEventBusNames.PrimeLoginInvalidToken,
-              undefined,
-            );
+            const clearResult =
+              await this.backgroundApi.servicePrime.handlePrimeLoginInvalidToken(
+                {
+                  requestAuthToken,
+                  errorCode,
+                  errorMessage,
+                  requestUrl: errorData?.data?.requestUrl,
+                },
+              );
+            if (clearResult.cleared) {
+              appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, {
+                authSessionSource: clearResult.authSessionSource,
+                clearedByBackground: true,
+              });
+            }
             throw new OneKeyErrorPrimeLoginInvalidToken({
               message: errorMessage,
             });
@@ -146,12 +189,12 @@ export default class ServiceBase {
   // all its other callers untouched.
   getOneKeyIdAuthHeaders = async (): Promise<Record<string, string>> => {
     try {
-      const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
+      const authToken =
+        await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
       return authToken ? { 'X-Onekey-Request-Token': authToken } : {};
     } catch {
-      // The token is opportunistic (e.g. for per-user KYT data). getAuthToken
-      // throws when no Supabase session/config is available, so proceed without
-      // it rather than failing the whole request.
+      // The token is opportunistic (e.g. for per-user KYT data), so proceed
+      // without it rather than failing the whole request.
       return {};
     }
   };

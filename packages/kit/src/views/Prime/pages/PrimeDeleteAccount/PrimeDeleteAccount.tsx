@@ -24,16 +24,15 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 export default function PrimeDeleteAccount() {
-  const { logoutWithPurchasesSdk, user, getAccessToken, sendEmailOTP } =
-    useOneKeyAuth();
+  const { logoutWithPurchasesSdk, user, sendEmailOTP } = useOneKeyAuth();
   const navigation = useAppNavigation();
   const intl = useIntl();
 
   const { result: _canDeleteAccount } = usePromiseResult(
     async () => {
       // Check if user has active subscription or other restrictions
-      const token = await getAccessToken();
-      if (!token) {
+      const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
+      if (!isLoggedIn) {
         return { canDelete: false, reason: 'No access token' };
       }
 
@@ -49,7 +48,7 @@ export default function PrimeDeleteAccount() {
 
       return { canDelete: true, reason: null };
     },
-    [getAccessToken, user, intl],
+    [user, intl],
     {
       watchLoading: true,
     },

@@ -17,7 +17,7 @@ import {
   useKeylessPinConfirmStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { devSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import {
   IncorrectPinError,
   OneKeyLocalError,
@@ -26,8 +26,11 @@ import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorT
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { EKeylessFinalizeAction } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
+import {
+  EKeylessCreateWithOneKeyIdPrepareStatus,
+  type IKeylessCreateWithOneKeyIdPrepareResult,
+} from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EOnboardingPagesV2,
@@ -41,12 +44,10 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { showOneKeyIdLegacyOAuthBindDialog } from '../../views/Prime/components/OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 
-import {
-  showAppleIDMismatchDialog,
-  showGoogleDriveMismatchDialog,
-} from './AccountMismatchDialog';
+import { showKeylessWalletAccountMismatchError } from './AccountMismatchDialog';
 import {
   getPromotedSameEmailAccountStatusAfterAutoRetryRateLimit,
   isKeylessSameEmailAutoRetryRateLimitError,
@@ -94,27 +95,13 @@ async function keylessOnboardingCacheSet(key: string, value: string) {
   );
 }
 
-async function cacheKeylessOnboardingToken({
-  token,
-  refreshToken,
-}: {
-  token: string;
-  refreshToken?: string;
-}) {
+async function cacheKeylessOnboardingToken({ token }: { token: string }) {
   await keylessOnboardingCacheSet('socialLoginToken', token);
-  if (refreshToken) {
-    await keylessOnboardingCacheSet('socialLoginRefreshToken', refreshToken);
-  }
 }
 
 async function getKeylessOnboardingToken() {
   const token = keylessOnboardingCacheGet('socialLoginToken');
   return token;
-}
-
-async function getKeylessOnboardingRefreshToken() {
-  const refreshToken = keylessOnboardingCacheGet('socialLoginRefreshToken');
-  return refreshToken;
 }
 
 async function cacheKeylessOnboardingPin({ pin }: { pin: string }) {
@@ -269,7 +256,8 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export function useKeylessWallet() {
-  const { signInWithSocialLogin } = useOneKeyAuth();
+  const { signInWithSocialLogin, logout, keylessSupabaseSignOut } =
+    useOneKeyAuth();
   const navigation = useAppNavigation();
   const intl = useIntl();
 
@@ -309,62 +297,42 @@ export function useKeylessWallet() {
   const checkKeylessWalletCreatedOnServer = useCallback(
     async ({
       token,
-      refreshToken,
       mode,
     }: {
       token: string;
-      refreshToken?: string;
       mode?: EOnboardingV2OneKeyIDLoginMode;
     }) => {
       if (!token) {
         handleKeylessOnboardingTimeout();
         return;
       }
-      await cacheKeylessOnboardingToken({ token, refreshToken });
+      await cacheKeylessOnboardingToken({ token });
       await cacheKeylessOnboardingPinConfirmStatusUpdated({ updated: false });
 
       // ResetPin or VerifyPinOnly: validate token matches local keyless wallet
+      const isKeylessIdentityVerifyMode =
+        mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin ||
+        mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly;
       const checkLoginMatchedKeylessWallet = async () => {
-        if (
-          mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin ||
-          mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly
-        ) {
+        if (isKeylessIdentityVerifyMode) {
           const { isValid } =
             await backgroundApiProxy.serviceKeylessWallet.validateTokenMatchesKeylessWallet(
               { token },
             );
           if (!isValid) {
+            await keylessSupabaseSignOut();
+            await backgroundApiProxy.simpleDb.prime.clearKeylessAuthSession();
+
             // Get keyless wallet provider type to determine which dialog to show
             const keylessWallet =
               await backgroundApiProxy.serviceAccount.getKeylessWallet();
             const keylessProvider =
               keylessWallet?.keylessDetailsInfo?.keylessProvider;
 
-            // Platform-specific account mismatch handling based on provider type
-            const isAndroidWithGoogle =
-              platformEnv.isNativeAndroid &&
-              keylessProvider === EOAuthSocialLoginProvider.Google;
-            const isIOSWithApple =
-              platformEnv.isNativeIOS &&
-              keylessProvider === EOAuthSocialLoginProvider.Apple;
-
-            if (isAndroidWithGoogle) {
-              // Android + Google: Show dialog with Google logout option
-              void showGoogleDriveMismatchDialog({ intl });
-            } else if (isIOSWithApple) {
-              // iOS + Apple: Show dialog with Apple ID switching instructions
-              void showAppleIDMismatchDialog({ intl });
-            } else {
-              // Other cases: Show Toast
-              Toast.error({
-                title: intl.formatMessage({
-                  id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
-                }),
-                message: intl.formatMessage({
-                  id: ETranslations.keyless_wallet_verify_pin_account_mismatch_desc,
-                }),
-              });
-            }
+            showKeylessWalletAccountMismatchError({
+              intl,
+              keylessProvider,
+            });
 
             navigation.navigate(ERootRoutes.Onboarding, {
               screen: EOnboardingV2Routes.OnboardingV2,
@@ -384,6 +352,22 @@ export function useKeylessWallet() {
         }
       };
       await checkLoginMatchedKeylessWallet();
+      if (isKeylessIdentityVerifyMode) {
+        try {
+          const isOneKeyIdLoggedIn =
+            await backgroundApiProxy.servicePrime.isLoggedIn();
+          if (!isOneKeyIdLoggedIn) {
+            await backgroundApiProxy.servicePrime.apiOAuthLogin({
+              accessToken: token,
+            });
+          }
+        } catch (error) {
+          console.error(
+            'Failed to auto login OneKey ID after Keyless identity verification:',
+            error,
+          );
+        }
+      }
       await cacheKeylessOnboardingSameEmailAccountStatus({
         status: {
           isSameEmailAccountAtOldVersion: false,
@@ -456,7 +440,250 @@ export function useKeylessWallet() {
         });
       }
     },
-    [handleKeylessOnboardingTimeout, intl, navigation],
+    [handleKeylessOnboardingTimeout, intl, keylessSupabaseSignOut, navigation],
+  );
+
+  const showLocalKeylessWalletExistsDialog = useCallback(() => {
+    Dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.keyless_wallet_is_enabled,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.keyless_wallet_is_enabled_desc,
+      }),
+      showCancelButton: false,
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_got_it,
+      }),
+    });
+  }, [intl]);
+
+  const continueKeylessCreateWithPreparedOneKeyId = useCallback(
+    async ({
+      prepareResult,
+    }: {
+      prepareResult: IKeylessCreateWithOneKeyIdPrepareResult;
+    }) => {
+      const { token, status } = prepareResult;
+      if (!token) {
+        handleKeylessOnboardingTimeout();
+        return;
+      }
+
+      await cacheKeylessOnboardingToken({ token });
+      await cacheKeylessOnboardingPinConfirmStatusUpdated({ updated: false });
+      await cacheKeylessOnboardingSameEmailAccountStatus({
+        status: {
+          isSameEmailAccountAtOldVersion: false,
+        },
+      });
+
+      if (status === EKeylessCreateWithOneKeyIdPrepareStatus.ContinueRestore) {
+        const sameEmailAccountStatus =
+          await backgroundApiProxy.serviceKeylessWallet.apiGetKeylessSameEmailAccountStatus(
+            {
+              token,
+            },
+          );
+        await cacheKeylessOnboardingSameEmailAccountStatus({
+          status: sameEmailAccountStatus,
+        });
+        navigation.navigate(ERootRoutes.Onboarding, {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            screen: EOnboardingPagesV2.VerifyPin,
+            params: {
+              mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
+            },
+          },
+        });
+        return;
+      }
+
+      navigation.navigate(ERootRoutes.Onboarding, {
+        screen: EOnboardingV2Routes.OnboardingV2,
+        params: {
+          screen: EOnboardingPagesV2.CreatePin,
+        },
+      });
+    },
+    [handleKeylessOnboardingTimeout, navigation],
+  );
+
+  const startKeylessCreateWithOAuthProvider = useCallback(
+    async ({ provider }: { provider: EOAuthSocialLoginProvider }) => {
+      const result = await signInWithSocialLogin(provider, {
+        persistSession: true,
+      });
+      const accessToken = result?.session?.accessToken;
+      if (!accessToken) {
+        throw new OneKeyLocalError(
+          'Keyless wallet OAuth login failed: access token not found',
+        );
+      }
+      try {
+        await backgroundApiProxy.servicePrime.apiOAuthLogin({ accessToken });
+      } catch (error) {
+        await logout();
+        await backgroundApiProxy.simpleDb.prime.clearLocalAuthSession();
+        throw error;
+      }
+      await checkKeylessWalletCreatedOnServer({
+        token: accessToken,
+        mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
+      });
+    },
+    [checkKeylessWalletCreatedOnServer, logout, signInWithSocialLogin],
+  );
+
+  const showContinueWithCurrentOneKeyIdDialog = useCallback(
+    async ({
+      provider,
+      prepareResult,
+    }: {
+      provider: EOAuthSocialLoginProvider;
+      prepareResult: IKeylessCreateWithOneKeyIdPrepareResult;
+    }) =>
+      new Promise<void>((resolve, reject) => {
+        let isActionTriggered = false;
+        let isSettled = false;
+        const resolveOnce = () => {
+          if (!isSettled) {
+            isSettled = true;
+            resolve();
+          }
+        };
+        const rejectOnce = (error: unknown) => {
+          if (!isSettled) {
+            isSettled = true;
+            reject(error);
+          }
+        };
+        const displayEmail =
+          prepareResult.displayEmail ||
+          intl.formatMessage({ id: ETranslations.global_unknown });
+        Dialog.show({
+          title: 'Continue with current OneKey ID?',
+          description: `You are signed in as ${displayEmail}. Continue with this OneKey ID to create a Keyless wallet, or sign out to use another Google or Apple account.`,
+          showCancelButton: true,
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_continue,
+          }),
+          onCancelText: intl.formatMessage({
+            id: ETranslations.global_logout,
+          }),
+          onConfirm: async ({ close, preventClose }) => {
+            preventClose();
+            isActionTriggered = true;
+            try {
+              await close({ flag: 'confirm' });
+              await timerUtils.wait(100);
+              await continueKeylessCreateWithPreparedOneKeyId({
+                prepareResult,
+              });
+              resolveOnce();
+            } catch (error) {
+              rejectOnce(error);
+            }
+          },
+          onCancel: (close) => {
+            isActionTriggered = true;
+            void (async () => {
+              try {
+                await logout();
+                await close();
+                await timerUtils.wait(100);
+                await startKeylessCreateWithOAuthProvider({ provider });
+                resolveOnce();
+              } catch (error) {
+                rejectOnce(error);
+              }
+            })();
+          },
+          onClose: () => {
+            if (!isActionTriggered) {
+              resolveOnce();
+            }
+          },
+        });
+      }),
+    [
+      continueKeylessCreateWithPreparedOneKeyId,
+      intl,
+      logout,
+      startKeylessCreateWithOAuthProvider,
+    ],
+  );
+
+  const handlePreparedKeylessCreateWithOneKeyId = useCallback(
+    async ({
+      provider,
+      prepareResult,
+    }: {
+      provider: EOAuthSocialLoginProvider;
+      prepareResult: IKeylessCreateWithOneKeyIdPrepareResult;
+    }) => {
+      if (
+        prepareResult.status ===
+        EKeylessCreateWithOneKeyIdPrepareStatus.LocalKeylessExists
+      ) {
+        showLocalKeylessWalletExistsDialog();
+        return;
+      }
+
+      if (
+        prepareResult.status ===
+        EKeylessCreateWithOneKeyIdPrepareStatus.NeedLegacyOAuthBind
+      ) {
+        await showOneKeyIdLegacyOAuthBindDialog({
+          bindProvider: provider,
+          checkBindRequired: false,
+          onBindSuccess: async () => {
+            const nextPrepareResult =
+              await backgroundApiProxy.serviceKeylessWallet.prepareKeylessCreateWithOneKeyId();
+            if (
+              nextPrepareResult.status ===
+                EKeylessCreateWithOneKeyIdPrepareStatus.ContinueCreate ||
+              nextPrepareResult.status ===
+                EKeylessCreateWithOneKeyIdPrepareStatus.ContinueRestore
+            ) {
+              await continueKeylessCreateWithPreparedOneKeyId({
+                prepareResult: nextPrepareResult,
+              });
+              return;
+            }
+            if (
+              nextPrepareResult.status ===
+              EKeylessCreateWithOneKeyIdPrepareStatus.LocalKeylessExists
+            ) {
+              showLocalKeylessWalletExistsDialog();
+              return;
+            }
+            await startKeylessCreateWithOAuthProvider({ provider });
+          },
+        });
+        return;
+      }
+
+      if (
+        prepareResult.status ===
+        EKeylessCreateWithOneKeyIdPrepareStatus.NeedOneKeyIdOAuthLogin
+      ) {
+        await startKeylessCreateWithOAuthProvider({ provider });
+        return;
+      }
+
+      await showContinueWithCurrentOneKeyIdDialog({
+        provider,
+        prepareResult,
+      });
+    },
+    [
+      continueKeylessCreateWithPreparedOneKeyId,
+      showContinueWithCurrentOneKeyIdDialog,
+      showLocalKeylessWalletExistsDialog,
+      startKeylessCreateWithOAuthProvider,
+    ],
   );
 
   // goToOneKeyIDLoginPageForKeylessWallet
@@ -476,30 +703,20 @@ export function useKeylessWallet() {
         } catch (_error) {
           // Continue to navigation if getKeylessWallet fails
         }
-        const ownerId = keylessWallet?.keylessDetailsInfo?.keylessOwnerId || '';
         keylessProvider = keylessWallet?.keylessDetailsInfo?.keylessProvider;
 
-        if (keylessWallet && ownerId) {
-          // Try to refresh session if refreshToken is valid
-          let refreshResult;
+        if (keylessWallet) {
+          let accessToken: string | null = null;
           try {
-            refreshResult =
-              await backgroundApiProxy.serviceKeylessWallet.tryRefreshTokenFromStorage(
-                { ownerId },
-              );
+            accessToken =
+              await backgroundApiProxy.serviceKeylessWallet.getOrMigrateKeylessOAuthAccessTokenForLocalWallet();
           } catch (_error) {
-            // Continue to navigation if refresh fails
+            // Continue to navigation if the shared OAuth session is unavailable.
           }
 
-          if (
-            refreshResult &&
-            refreshResult?.accessToken &&
-            refreshResult?.refreshToken
-          ) {
-            // Refresh successful, proceed with checkKeylessWalletCreatedOnServer
+          if (accessToken) {
             await checkKeylessWalletCreatedOnServer({
-              token: refreshResult.accessToken,
-              refreshToken: refreshResult.refreshToken,
+              token: accessToken,
               mode,
             });
             return;
@@ -539,28 +756,15 @@ export function useKeylessWallet() {
           const exists =
             await backgroundApiProxy.serviceAccount.isKeylessWalletExistsLocal();
           if (exists) {
-            Dialog.show({
-              title: intl.formatMessage({
-                id: ETranslations.keyless_wallet_is_enabled,
-              }),
-              description: intl.formatMessage({
-                id: ETranslations.keyless_wallet_is_enabled_desc,
-              }),
-              showCancelButton: false,
-              onConfirmText: intl.formatMessage({
-                id: ETranslations.global_got_it,
-              }),
-            });
+            showLocalKeylessWalletExistsDialog();
           } else {
             if (signInProvider) {
-              const result = await signInWithSocialLogin(signInProvider);
-              if (result?.session?.accessToken) {
-                await checkKeylessWalletCreatedOnServer({
-                  token: result.session.accessToken,
-                  refreshToken: result.session.refreshToken,
-                  mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
-                });
-              }
+              const prepareResult =
+                await backgroundApiProxy.serviceKeylessWallet.prepareKeylessCreateWithOneKeyId();
+              await handlePreparedKeylessCreateWithOneKeyId({
+                provider: signInProvider,
+                prepareResult,
+              });
               return;
             }
             await goToOneKeyIDLoginPageForKeylessWallet({
@@ -573,10 +777,9 @@ export function useKeylessWallet() {
       });
     },
     [
-      checkKeylessWalletCreatedOnServer,
       goToOneKeyIDLoginPageForKeylessWallet,
-      intl,
-      signInWithSocialLogin,
+      handlePreparedKeylessCreateWithOneKeyId,
+      showLocalKeylessWalletExistsDialog,
     ],
   );
 
@@ -587,7 +790,6 @@ export function useKeylessWallet() {
         handleKeylessOnboardingTimeout();
         return;
       }
-      const refreshToken = await getKeylessOnboardingRefreshToken();
       const pin = await getKeylessOnboardingPin();
       if (!pin) {
         handleKeylessOnboardingTimeout();
@@ -609,7 +811,6 @@ export function useKeylessWallet() {
       if (action === EKeylessFinalizeAction.ResetPin) {
         await backgroundApiProxy.serviceKeylessWallet.resetKeylessWalletPin({
           token,
-          refreshToken,
           newPin: pin,
         });
         navigation.navigate(ERootRoutes.Onboarding, {
@@ -637,7 +838,6 @@ export function useKeylessWallet() {
             await backgroundApiProxy.serviceKeylessWallet.createKeylessWalletToServer(
               {
                 token,
-                refreshToken,
                 pin,
                 customMnemonic: await getKeylessOnboardingCustomMnemonic(),
               },
@@ -653,7 +853,6 @@ export function useKeylessWallet() {
             await backgroundApiProxy.serviceKeylessWallet.restoreKeylessWalletFromServer(
               {
                 token,
-                refreshToken,
                 pin,
                 pinConfirmStatusAlreadyUpdated,
               },
@@ -735,7 +934,6 @@ export function useKeylessWallet() {
         handleKeylessOnboardingTimeout();
         return;
       }
-      const refreshToken = await getKeylessOnboardingRefreshToken();
       const sameEmailAccountStatus =
         mode === EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore
           ? await getKeylessOnboardingSameEmailAccountStatus()
@@ -750,7 +948,6 @@ export function useKeylessWallet() {
             {
               token,
               pin,
-              refreshToken,
               mode,
               dangerousRetryByFixedProvider,
               providerOverride: dangerousRetryByFixedProvider
@@ -779,7 +976,6 @@ export function useKeylessWallet() {
                 {
                   token,
                   pin,
-                  refreshToken,
                   mode,
                   dangerousRetryByFixedProvider: false,
                   providerOverride: sameEmailAccountStatus.retryProvider,
@@ -811,7 +1007,7 @@ export function useKeylessWallet() {
       }
 
       // Default: continue with restore flow
-      await cacheKeylessOnboardingToken({ token, refreshToken });
+      await cacheKeylessOnboardingToken({ token });
       await cacheKeylessOnboardingPinConfirmStatusUpdated({
         updated: pinConfirmStatusUpdated,
       });
@@ -929,9 +1125,7 @@ export function useVerifyKeylessPinChecking() {
         }
         const checkShouldVerifyPin = async () => {
           const accessToken =
-            await backgroundApiProxy.serviceKeylessWallet.getKeylessCachedAccessToken(
-              { ownerId },
-            );
+            await backgroundApiProxy.serviceKeylessWallet.getActiveKeylessOAuthAccessTokenForLocalWallet();
           let shouldVerifyPin = false;
           if (accessToken) {
             void backgroundApiProxy.serviceKeylessWallet.fixKeylessWalletAvatar(

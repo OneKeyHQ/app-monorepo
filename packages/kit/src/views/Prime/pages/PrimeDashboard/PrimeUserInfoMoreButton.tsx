@@ -81,7 +81,8 @@ function PrimeUserInfoMoreButtonDropDownMenu({
           }}
         >
           <SizableText flex={1} size="$headingSm">
-            {user?.email}
+            {user?.displayEmail ||
+              intl.formatMessage({ id: ETranslations.global_unknown })}
           </SizableText>
         </MultipleClickStack>
       </XStack>

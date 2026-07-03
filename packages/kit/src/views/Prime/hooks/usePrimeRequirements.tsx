@@ -24,7 +24,7 @@ const PrimePurchaseDialog = LazyLoadPage(
 );
 
 export function usePrimeRequirements() {
-  const { user, isLoggedIn, logout, loginOneKeyId } = useOneKeyAuth();
+  const { user, logout, loginOneKeyId } = useOneKeyAuth();
 
   const { purchase } = usePrimePurchaseCallback();
 
@@ -37,10 +37,10 @@ export function usePrimeRequirements() {
     } = {}) => {
       const isLoggedInInBackground: boolean =
         await backgroundApiProxy.servicePrime.isLoggedIn();
-      if (!isLoggedInInBackground || !isLoggedIn) {
+      if (!isLoggedInInBackground) {
         defaultLogger.prime.subscription.onekeyIdLogout({
           reason:
-            'usePrimeRequirements: Logout when primePersistAtom,simpleDb.prime.getAuthToken is not logged in',
+            'usePrimeRequirements: Logout when primePersistAtom,simpleDb.prime.getActiveAuthToken is not logged in',
         });
         // logout before login, make sure local supabase cache is cleared
         void logout();
@@ -70,7 +70,7 @@ export function usePrimeRequirements() {
         throw new OneKeyLocalError('Prime is not logged in');
       }
     },
-    [isLoggedIn, logout, intl, loginOneKeyId],
+    [logout, intl, loginOneKeyId],
   );
 
   const ensurePrimeSubscriptionActive = useCallback(

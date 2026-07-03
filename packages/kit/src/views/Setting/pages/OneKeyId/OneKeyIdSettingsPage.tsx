@@ -31,6 +31,9 @@ import { OneKeyIdAvatar } from './OneKeyIdAvatar';
 function OneKeyIdUserProfile() {
   const { user, isLoggedIn, loginOneKeyId } = useOneKeyAuth();
   const intl = useIntl();
+  const displayEmail =
+    user?.displayEmail ||
+    intl.formatMessage({ id: ETranslations.global_unknown });
 
   const handleLogin = useCallback(() => {
     void loginOneKeyId();
@@ -126,10 +129,10 @@ function OneKeyIdUserProfile() {
       </YStack>
       <YStack gap="$1">
         <SizableText size="$bodyLgMedium" color="$text" textAlign="center">
-          {user?.displayEmail || 'OneKey ID'}
+          {displayEmail}
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
-          {user?.displayEmail}
+          {displayEmail}
         </SizableText>
       </YStack>
     </YStack>

@@ -5,10 +5,12 @@ import { useIntl } from 'react-intl';
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, Toast } from '@onekeyhq/components';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { showKeylessWalletAccountMismatchError } from '../../../components/KeylessWallet/AccountMismatchDialog';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
 
@@ -33,7 +35,7 @@ export function useKeylessLocalExistenceLogin({
   const intl = useIntl();
   const { enableKeylessWalletLoading, checkKeylessWalletLocalExistence } =
     useKeylessWallet();
-  const { signInWithSocialLogin } = useOneKeyAuth();
+  const { keylessSupabaseSignOut, signInWithSocialLogin } = useOneKeyAuth();
 
   const [loadingProvider, setLoadingProvider] =
     useState<EOAuthSocialLoginProvider | null>(null);
@@ -79,8 +81,31 @@ export function useKeylessLocalExistenceLogin({
           });
         }
         if (isResetMode) {
-          const result = await signInWithSocialLogin(provider);
+          const result = await signInWithSocialLogin(provider, {
+            persistSession: true,
+          });
           if (result?.session?.accessToken) {
+            const { isValid } =
+              await backgroundApiProxy.serviceKeylessWallet.validateTokenMatchesKeylessWallet(
+                { token: result.session.accessToken },
+              );
+            if (!isValid) {
+              await keylessSupabaseSignOut();
+              await backgroundApiProxy.simpleDb.prime.clearKeylessAuthSession();
+
+              const keylessWallet =
+                await backgroundApiProxy.serviceAccount.getKeylessWallet();
+              showKeylessWalletAccountMismatchError({
+                intl,
+                keylessProvider:
+                  keylessWallet?.keylessDetailsInfo?.keylessProvider,
+              });
+              throw new OneKeyLocalError(
+                intl.formatMessage({
+                  id: ETranslations.keyless_wallet_verify_pin_account_mismatch_desc,
+                }),
+              );
+            }
             await backgroundApiProxy.serviceKeylessWallet.apiResetKeylessBackendShare(
               {
                 token: result.session.accessToken,
@@ -105,6 +130,7 @@ export function useKeylessLocalExistenceLogin({
       checkKeylessWalletLocalExistence,
       intl,
       isResetMode,
+      keylessSupabaseSignOut,
       onResetModeChange,
       signInWithSocialLogin,
     ],

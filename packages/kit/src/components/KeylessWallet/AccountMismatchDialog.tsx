@@ -1,6 +1,8 @@
-import { Dialog, SizableText, YStack } from '@onekeyhq/components';
+import { Dialog, SizableText, Toast, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IntlShape } from 'react-intl';
 
@@ -74,5 +76,37 @@ export function showAppleIDMismatchDialog(params: { intl: IntlShape }): void {
       </YStack>
     ),
     showFooter: false,
+  });
+}
+
+export function showKeylessWalletAccountMismatchError(params: {
+  intl: IntlShape;
+  keylessProvider?: EOAuthSocialLoginProvider;
+  forceToast?: boolean;
+}): void {
+  const { intl, keylessProvider, forceToast } = params;
+  const isAndroidWithGoogle =
+    platformEnv.isNativeAndroid &&
+    keylessProvider === EOAuthSocialLoginProvider.Google;
+  const isIOSWithApple =
+    platformEnv.isNativeIOS &&
+    keylessProvider === EOAuthSocialLoginProvider.Apple;
+
+  if (!forceToast && isAndroidWithGoogle) {
+    showGoogleDriveMismatchDialog({ intl });
+    return;
+  }
+  if (!forceToast && isIOSWithApple) {
+    showAppleIDMismatchDialog({ intl });
+    return;
+  }
+
+  Toast.error({
+    title: intl.formatMessage({
+      id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
+    }),
+    message: intl.formatMessage({
+      id: ETranslations.keyless_wallet_verify_pin_account_mismatch_desc,
+    }),
   });
 }

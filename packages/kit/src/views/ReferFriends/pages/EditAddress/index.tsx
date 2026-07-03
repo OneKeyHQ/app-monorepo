@@ -203,7 +203,11 @@ function BasicEditAddress() {
             {
               id: ETranslations.referral_address_update_desc,
             },
-            { mail: userInfo.displayEmail ?? '' },
+            {
+              mail:
+                userInfo.displayEmail ||
+                intl.formatMessage({ id: ETranslations.global_unknown }),
+            },
           ),
       });
 

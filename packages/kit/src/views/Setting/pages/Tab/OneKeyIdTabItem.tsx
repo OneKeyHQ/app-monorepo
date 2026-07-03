@@ -35,7 +35,10 @@ function BasicOneKeyIdTabItem({ selected, onPress }: IOneKeyIdTabItemProps) {
     if (!isLoggedIn) {
       return intl.formatMessage({ id: ETranslations.prime_signup_login });
     }
-    return user?.displayEmail || 'OneKey ID';
+    return (
+      user?.displayEmail ||
+      intl.formatMessage({ id: ETranslations.global_unknown })
+    );
   }, [isLoggedIn, user?.displayEmail, intl]);
 
   const handlePress = useCallback(() => {

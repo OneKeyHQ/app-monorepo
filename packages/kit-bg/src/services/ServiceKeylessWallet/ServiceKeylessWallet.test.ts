@@ -21,10 +21,6 @@ const mockMigrationAtom = {
   set: jest.fn(),
 };
 
-const mockSaveTokensToStorage = jest.fn();
-const mockGetRefreshTokenFromStorageWithPassword = jest.fn();
-const mockGetAccessTokenFromStorage = jest.fn();
-
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
   backgroundMethod:
@@ -95,17 +91,6 @@ jest.mock('../../endpoints', () => ({
   })),
 }));
 
-jest.mock('./utils/keylessRefreshTokenStorage', () => ({
-  __esModule: true,
-  default: {
-    getAccessTokenFromStorage: mockGetAccessTokenFromStorage,
-    getRefreshTokenFromStorageWithPassword:
-      mockGetRefreshTokenFromStorageWithPassword,
-    saveTokensToStorage: mockSaveTokensToStorage,
-    removeTokensFromStorage: jest.fn(),
-  },
-}));
-
 jest.mock('./utils/keylessMnemonicPasswordStorage', () => ({
   __esModule: true,
   default: {
@@ -168,7 +153,6 @@ const keylessMnemonicPasswordStorage =
 
 const NOW = 1_800_000_000_000;
 const TOKEN = 'access-token';
-const REFRESH_TOKEN = 'refresh-token';
 const PASSWORD = 'encoded-password';
 const PIN = '1234';
 const WALLET_ID = 'keyless-wallet-1';
@@ -236,7 +220,6 @@ function mockPassiveV1HappyPath(serviceAny: any) {
   serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
     async () => ({
       accessToken: TOKEN,
-      refreshToken: REFRESH_TOKEN,
     }),
   );
   serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
@@ -319,7 +302,6 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
       migrationPersist =
         typeof updater === 'function' ? updater(migrationPersist) : updater;
     });
-    mockSaveTokensToStorage.mockResolvedValue(undefined);
     jest.spyOn(Date, 'now').mockReturnValue(NOW);
   });
 
@@ -460,7 +442,7 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
   test('does not consume the 24-hour throttle when Prime API meta call fails with AxiosNetworkError', async () => {
     const { service, serviceAny } = createService();
     serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
-      async () => ({ accessToken: TOKEN, refreshToken: REFRESH_TOKEN }),
+      async () => ({ accessToken: TOKEN }),
     );
     serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
       async () => undefined,
@@ -486,7 +468,7 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
   test('does not consume the 24-hour throttle when Prime API meta call fails with 5xx', async () => {
     const { service, serviceAny } = createService();
     serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
-      async () => ({ accessToken: TOKEN, refreshToken: REFRESH_TOKEN }),
+      async () => ({ accessToken: TOKEN }),
     );
     serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
       async () => undefined,
@@ -512,7 +494,7 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
   test('does not consume the 24-hour throttle when Prime API call fails with 429 rate limit', async () => {
     const { service, serviceAny } = createService();
     serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
-      async () => ({ accessToken: TOKEN, refreshToken: REFRESH_TOKEN }),
+      async () => ({ accessToken: TOKEN }),
     );
     serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
       async () => undefined,
@@ -535,43 +517,10 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     expect(migrationPersist.byWalletId[WALLET_ID]).toBeUndefined();
   });
 
-  test('refresh helper surfaces 429 from Supabase auth as a network error so the throttle is not consumed', async () => {
-    const { service, serviceAny } = createService();
-    mockGetRefreshTokenFromStorageWithPassword.mockResolvedValue(REFRESH_TOKEN);
-    const originalFetch = (globalThis as { fetch?: typeof fetch }).fetch;
-    const fetchMock = jest.fn(
-      async () =>
-        ({
-          ok: false,
-          status: 429,
-          json: async () => ({}),
-        }) as unknown as Response,
-    );
-    (globalThis as { fetch?: unknown }).fetch = fetchMock;
-    try {
-      const { KeylessPassiveMigrationNetworkError } =
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require('./keylessPassiveMigrationErrors');
-      await expect(
-        serviceAny.refreshAccessTokenForKeylessBackendShareV2MigrationPassive({
-          ownerId: OWNER_ID,
-          password: PASSWORD,
-        }),
-      ).rejects.toBeInstanceOf(KeylessPassiveMigrationNetworkError);
-    } finally {
-      if (originalFetch) {
-        (globalThis as { fetch?: typeof fetch }).fetch = originalFetch;
-      } else {
-        delete (globalThis as { fetch?: unknown }).fetch;
-      }
-    }
-    expect(service).toBeDefined();
-  });
-
   test('does not consume the 24-hour throttle when Prime API call fails with a client-side timeout', async () => {
     const { service, serviceAny } = createService();
     serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
-      async () => ({ accessToken: TOKEN, refreshToken: REFRESH_TOKEN }),
+      async () => ({ accessToken: TOKEN }),
     );
     serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
       async () => undefined,
@@ -595,7 +544,7 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
   test('still throttles for 24h when Prime API meta call fails with a 4xx (real auth failure)', async () => {
     const { service, serviceAny } = createService();
     serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
-      async () => ({ accessToken: TOKEN, refreshToken: REFRESH_TOKEN }),
+      async () => ({ accessToken: TOKEN }),
     );
     serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
       async () => undefined,
@@ -712,12 +661,11 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     });
   });
 
-  test('does not write server or save refreshed tokens when token social identity mismatches local wallet', async () => {
+  test('does not write server when token social identity mismatches local wallet', async () => {
     const { service, serviceAny } = createService();
     serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
       async () => ({
         accessToken: TOKEN,
-        refreshToken: REFRESH_TOKEN,
       }),
     );
     serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
@@ -735,15 +683,13 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
 
     expect(serviceAny.apiGetKeylessBackendShareMeta).not.toHaveBeenCalled();
     expect(serviceAny.migrateKeylessBackendShareToV2).not.toHaveBeenCalled();
-    expect(mockSaveTokensToStorage).not.toHaveBeenCalled();
   });
 
-  test('does not write server or save refreshed tokens when token provider mismatches local wallet', async () => {
+  test('does not write server when token provider mismatches local wallet', async () => {
     const { service, serviceAny } = createService();
     serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
       async () => ({
         accessToken: TOKEN,
-        refreshToken: REFRESH_TOKEN,
       }),
     );
     serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
@@ -761,15 +707,13 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
 
     expect(serviceAny.apiGetKeylessBackendShareMeta).not.toHaveBeenCalled();
     expect(serviceAny.migrateKeylessBackendShareToV2).not.toHaveBeenCalled();
-    expect(mockSaveTokensToStorage).not.toHaveBeenCalled();
   });
 
-  test('does not write server or save refreshed tokens when token and server hash derive a different ownerId', async () => {
+  test('does not write server when token and server hash derive a different ownerId', async () => {
     const { service, serviceAny } = createService();
     serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive = jest.fn(
       async () => ({
         accessToken: TOKEN,
-        refreshToken: REFRESH_TOKEN,
       }),
     );
     serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
@@ -798,7 +742,6 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
       serviceAny.decryptKeylessBackendSharePayloadV1,
     ).not.toHaveBeenCalled();
     expect(serviceAny.migrateKeylessBackendShareToV2).not.toHaveBeenCalled();
-    expect(mockSaveTokensToStorage).not.toHaveBeenCalled();
   });
 
   test('does not mark success when existing v2 server data does not match local mnemonic', async () => {
@@ -844,8 +787,8 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     expect(migrationPersist.byWalletId[WALLET_ID]?.succeededAt).toBeUndefined();
   });
 
-  test('saves refreshed token only after identity and owner checks pass', async () => {
-    const { service, serviceAny, backgroundApi } = createService();
+  test('migrates v1 backend share after identity and owner checks pass', async () => {
+    const { service, serviceAny } = createService();
     mockPassiveV1HappyPath(serviceAny);
 
     await expect(
@@ -855,13 +798,12 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
       skipped: false,
     });
 
-    expect(mockSaveTokensToStorage).toHaveBeenCalledWith({
-      ownerId: OWNER_ID,
-      refreshToken: REFRESH_TOKEN,
-      token: TOKEN,
-      password: PASSWORD,
-      backgroundApi,
-    });
+    expect(serviceAny.migrateKeylessBackendShareToV2).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerId: OWNER_ID,
+        token: TOKEN,
+      }),
+    );
   });
 
   test('does not write v2 if the v1 payload changes after acquiring the server lock', async () => {
@@ -962,7 +904,6 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     await expect(
       service.createKeylessWalletToServer({
         token: TOKEN,
-        refreshToken: REFRESH_TOKEN,
         pin: PIN,
       }),
     ).resolves.toMatchObject({
@@ -1267,7 +1208,6 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     const resetPromise = serviceAny
       .resetKeylessWalletPin({
         token: TOKEN,
-        refreshToken: REFRESH_TOKEN,
         newPin: PIN,
       })
       .then((result: { success: true }) => {
@@ -1300,7 +1240,6 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     await expect(
       serviceAny.resetKeylessWalletPin({
         token: TOKEN,
-        refreshToken: REFRESH_TOKEN,
         newPin: PIN,
       }),
     ).rejects.toThrow('reset pin confirm status failed');
@@ -1316,7 +1255,6 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     await expect(
       serviceAny.resetKeylessWalletPin({
         token: TOKEN,
-        refreshToken: REFRESH_TOKEN,
         newPin: PIN,
       }),
     ).resolves.toEqual({ success: true });
@@ -1345,7 +1283,6 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     await expect(
       serviceAny.resetKeylessWalletPin({
         token: TOKEN,
-        refreshToken: REFRESH_TOKEN,
         newPin: PIN,
       }),
     ).rejects.toThrow('migration failed');
@@ -1379,7 +1316,6 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     await expect(
       serviceAny.resetKeylessWalletPin({
         token: TOKEN,
-        refreshToken: REFRESH_TOKEN,
         newPin: PIN,
       }),
     ).resolves.toEqual({ success: true });
@@ -1463,7 +1399,6 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     await expect(
       serviceAny.restoreKeylessWalletFromServer({
         token: TOKEN,
-        refreshToken: REFRESH_TOKEN,
         pin: PIN,
         pinConfirmStatusAlreadyUpdated: true,
       }),
@@ -1479,7 +1414,6 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
 
     await serviceAny.restoreKeylessWalletFromServer({
       token: TOKEN,
-      refreshToken: REFRESH_TOKEN,
       pin: PIN,
       pinConfirmStatusAlreadyUpdated: false,
     });
@@ -1522,7 +1456,6 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     await expect(
       serviceAny.restoreKeylessWalletFromServer({
         token: TOKEN,
-        refreshToken: REFRESH_TOKEN,
         pin: PIN,
         pinConfirmStatusAlreadyUpdated: true,
       }),

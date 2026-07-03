@@ -1,9 +1,11 @@
 import { type ComponentProps } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 // import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 
@@ -20,6 +22,10 @@ export function PrimeUserInfo({
   onLogoutSuccess?: () => Promise<void>;
 } & ComponentProps<typeof XStack>) {
   const { user } = useOneKeyAuth();
+  const intl = useIntl();
+  const displayEmail =
+    user?.displayEmail ||
+    intl.formatMessage({ id: ETranslations.global_unknown });
   return (
     <XStack
       alignItems="center"
@@ -45,7 +51,7 @@ export function PrimeUserInfo({
         ellipsizeMode="middle"
         ellipse
       >
-        {user?.displayEmail}
+        {displayEmail}
       </SizableText>
       <PrimeUserBadge showFreeStatus={false} showIcon={false} />
       <PrimeUserInfoMoreButton
