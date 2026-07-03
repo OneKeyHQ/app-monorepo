@@ -117,6 +117,7 @@ import { SwapTestIDs } from '../../testIDs';
 import {
   type ISwapRecentTokenPair,
   buildSwapRecentTokenPairsFromHistory,
+  getSwapLimitOpenOrderCount,
   getSwapMarketPendingHistoryKey,
   getSwapMarketPendingHistoryList,
   isStockSwapHistoryItem,
@@ -2020,17 +2021,19 @@ function SwapStockDesktopContent({
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
-  const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
+  const [{ swapHistoryPendingList, swapLimitOrders }] =
+    useInAppNotificationAtom();
   const stockChannel = useSwapStockTradeContext();
   const stockRecentTokenPairs = useSwapStockRecentTokenPairs();
-  const historyBadgeCount = useMemo(
-    () =>
-      getSwapMarketPendingHistoryList(
-        swapHistoryPendingList,
-        EProtocolOfExchange.SWAP,
-      ).filter(isStockSwapHistoryItem).length,
-    [swapHistoryPendingList],
-  );
+  const historyBadgeCount = useMemo(() => {
+    const stockPendingHistoryCount = getSwapMarketPendingHistoryList(
+      swapHistoryPendingList,
+      EProtocolOfExchange.SWAP,
+    ).filter(isStockSwapHistoryItem).length;
+    return (
+      stockPendingHistoryCount + getSwapLimitOpenOrderCount(swapLimitOrders)
+    );
+  }, [swapHistoryPendingList, swapLimitOrders]);
 
   const handleTradeSideChange = useCallback(
     (nextTradeSide: ESwapStockTradeSide) => {
