@@ -196,9 +196,16 @@ jobs:
       - name: Build Target
         env:
           PUBLIC_URL: ${{ env.PUBLIC_URL }}
+          MARKET_HOME_TOKEN_SEED_ENV: 'test'
+          MARKET_HOME_TOKEN_SEED_REQUIRED: '1'
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn app:web:build
+
+      - name: Verify Market Bootstrap Data
+        run: |
+          grep -q "__ONEKEY_BOOTSTRAP_DATA__" apps/web/web-build/index.html
+          grep -q "__ONEKEY_BOOTSTRAP_DATA__" apps/web/web-build/404.html
 
       # rspack (unlike the old webpack build) has no in-build Sentry plugin, so
       # sourcemaps are uploaded here via sentry-cli and then deleted from the
@@ -400,9 +407,16 @@ jobs:
       - name: Build Target
         env:
           PUBLIC_URL: ${{ env.PUBLIC_URL }}
+          MARKET_HOME_TOKEN_SEED_ENV: 'production'
+          MARKET_HOME_TOKEN_SEED_REQUIRED: '1'
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn app:web:build
+
+      - name: Verify Market Bootstrap Data
+        run: |
+          grep -q "__ONEKEY_BOOTSTRAP_DATA__" apps/web/web-build/index.html
+          grep -q "__ONEKEY_BOOTSTRAP_DATA__" apps/web/web-build/404.html
 
       # rspack (unlike the old webpack build) has no in-build Sentry plugin, so
       # sourcemaps are uploaded here via sentry-cli and then deleted from the

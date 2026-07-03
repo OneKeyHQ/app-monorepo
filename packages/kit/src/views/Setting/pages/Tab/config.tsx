@@ -15,6 +15,7 @@ import {
   useAppUpdateInfo,
 } from '@onekeyhq/kit/src/components/AppUpdate';
 import { useKeylessWalletExistsLocal } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
+import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthInfo';
@@ -32,7 +33,6 @@ import {
   BRIDGE_STATUS_URL,
   PLAY_STORE_LINK,
 } from '@onekeyhq/shared/src/config/appConfig';
-import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -43,6 +43,7 @@ import {
   EModalKeyTagRoutes,
   EModalRoutes,
   EModalSettingRoutes,
+  ESettingsTabNames,
 } from '@onekeyhq/shared/src/routes';
 import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -83,11 +84,16 @@ import { SubSearchSettings } from './SubSettings';
 
 import type { RouteProp } from '@react-navigation/native';
 
-const DevSettingsSection = LazyLoad(async () => {
-  const { DevSettingsSection: Component } =
-    await import('./DevSettingsSection');
-  return { default: Component };
-});
+const DevSettingsSection = LazyLoadPage(
+  () =>
+    import('./DevSettingsSection').then(
+      ({ DevSettingsSection: Component }) => ({
+        default: Component,
+      }),
+    ),
+  undefined,
+  true,
+);
 
 export interface ISubSettingConfig {
   icon: string | IKeyOfIcons;
@@ -105,18 +111,6 @@ export interface ISubSettingConfig {
   renderElement?: React.ReactElement<any>;
   /** If true, shows ArrowTopRightOutline icon instead of drill-in arrow for external links */
   isExternalLink?: boolean;
-}
-
-export enum ESettingsTabNames {
-  OneKeyID = 'OneKeyID',
-  Backup = 'Backup',
-  Preferences = 'Preferences',
-  Wallet = 'Wallet',
-  Security = 'Security',
-  Network = 'Network',
-  About = 'About',
-  Search = 'Search',
-  Dev = 'Dev',
 }
 
 export type ISettingsConfig = (

@@ -3,8 +3,8 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import wordLists from 'bip39/src/wordlists/english.json';
 import { shuffle } from 'lodash';
 
-import type { useForm } from '@onekeyhq/components';
 import { Haptics, useClipboard, useKeyboardEvent } from '@onekeyhq/components';
+import type { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';

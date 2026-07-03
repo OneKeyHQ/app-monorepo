@@ -11,8 +11,8 @@ import {
   SizableText,
   Toast,
   XStack,
-  useForm,
 } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import { AddressInputField } from '@onekeyhq/kit/src/components/AddressInput';

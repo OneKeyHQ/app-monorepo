@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { trim } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IFormMode, IReValidateMode } from '@onekeyhq/components';
 import {
   Form,
   Icon,
@@ -12,17 +11,21 @@ import {
   SizableText,
   Stack,
   useClipboard,
-  useForm,
-  useFormWatch,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  type IFormMode,
+  type IReValidateMode,
+  useForm,
+  useFormWatch,
+} from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorFormInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { MAX_LENGTH_ACCOUNT_NAME } from '@onekeyhq/kit/src/components/RenameDialog/renameConsts';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
-import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
+import useScanQrCodeLazy from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCodeLazy';
 import type {
   IAccountDeriveTypes,
   IValidateGeneralInputParams,
@@ -175,7 +178,7 @@ export function ImportSingleChainBase({
     }
   }, [networkIdText, setValue]);
 
-  const { start } = useScanQrCode();
+  const { start } = useScanQrCodeLazy();
 
   return (
     <Page scrollEnabled>

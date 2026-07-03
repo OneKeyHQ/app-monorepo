@@ -29,9 +29,9 @@ import {
   Stack,
   XStack,
   YStack,
-  useForm,
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
   IBatchBuildAccountsAdvancedFlowParams,
