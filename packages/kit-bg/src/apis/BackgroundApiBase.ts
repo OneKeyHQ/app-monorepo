@@ -24,6 +24,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import performance from '@onekeyhq/shared/src/performance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IAsyncStorageWriteRequest } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
 import {
   ensurePromiseObject,
   ensureSerializable,
@@ -318,6 +319,33 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       originNodeId: originNodeId ?? '',
     });
     return Promise.resolve(true);
+  }
+
+  @backgroundMethod()
+  async writeAsyncStorage(request: IAsyncStorageWriteRequest): Promise<void> {
+    const { default: appStorage } =
+      await import('@onekeyhq/shared/src/storage/appStorage');
+
+    switch (request.method) {
+      case 'clear':
+        await appStorage.clear();
+        return;
+      case 'multiSet':
+        await appStorage.multiSet(request.args[0]);
+        return;
+      case 'multiRemove':
+        await appStorage.multiRemove(request.args[0]);
+        return;
+      case 'multiMerge':
+        await appStorage.multiMerge(request.args[0]);
+        return;
+      default: {
+        const unsupportedRequest: never = request;
+        throw new OneKeyLocalError(
+          `Unsupported AsyncStorage write request: ${String(unsupportedRequest)}`,
+        );
+      }
+    }
   }
 
   cycleDepsCheck() {

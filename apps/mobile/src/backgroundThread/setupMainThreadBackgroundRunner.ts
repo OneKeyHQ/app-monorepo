@@ -17,6 +17,12 @@ import {
   NativeLogger,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  type IAsyncStorageWriteArgs,
+  type IAsyncStorageWriteMethod,
+  type IAsyncStorageWriteRequest,
+  getAsyncStorageWriteForwarderGlobal,
+} from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
 import { registerImageEmbedBridge } from '@onekeyhq/shared/src/utils/imageUtils.embedBridge';
 
 import { routeBackgroundMessage } from './backgroundMessageRouter';
@@ -157,6 +163,48 @@ function isNativeBackgroundThreadTransportEnabled() {
 
 function createTransportError(message: string) {
   return new OneKeyLocalError(message);
+}
+
+function isAsyncStorageWriteForwardingEnabled() {
+  return Boolean(
+    platformEnv.isNativeIOS &&
+    platformEnv.isNativeMainThread &&
+    platformEnv.enableNativeBackgroundThread,
+  );
+}
+
+function buildAsyncStorageWriteRequest<T extends IAsyncStorageWriteMethod>(
+  method: T,
+  args: IAsyncStorageWriteArgs<T>,
+): IAsyncStorageWriteRequest {
+  return { method, args } as IAsyncStorageWriteRequest;
+}
+
+function installAsyncStorageWriteForwarder() {
+  const asyncStorageGlobal = getAsyncStorageWriteForwarderGlobal();
+
+  asyncStorageGlobal.__onekeyAsyncStorageWriteForwarder = async (
+    method,
+    args,
+  ) => {
+    await callServiceRequest(
+      {
+        type: 'service-call',
+        method: 'writeAsyncStorage',
+        params: [buildAsyncStorageWriteRequest(method, args)],
+        sync: false,
+      },
+      () =>
+        Promise.reject(
+          createTransportError(
+            'AsyncStorage write forwarding requires native background thread transport',
+          ),
+        ),
+    );
+  };
+
+  asyncStorageGlobal.__onekeyAsyncStorageShouldForwardWriteGetter =
+    isAsyncStorageWriteForwardingEnabled;
 }
 
 function getTransportGlobal() {
@@ -1056,6 +1104,7 @@ export function getTransportTimingMilestones() {
 
 export function setupMainThreadBackgroundRunner() {
   installGlobalTransport();
+  installAsyncStorageWriteForwarder();
   ensureBackgroundRuntimeObserver();
   // Only register on dual-thread native main: in single-thread native the
   // BG-side webembedApiProxy.ts already registers a serviceDApp-routed
