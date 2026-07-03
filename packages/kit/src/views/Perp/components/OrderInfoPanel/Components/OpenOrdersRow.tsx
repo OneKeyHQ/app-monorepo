@@ -567,10 +567,9 @@ const OpenOrdersRow = memo(
             cursor="default"
           >
             <SizableText
-              color="$green11"
+              color="$bgAccent"
               hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
-              size="$bodySm"
-              fontWeight={400}
+              size="$bodySmMedium"
               onPress={handleCancelOrder}
             >
               {intl.formatMessage({

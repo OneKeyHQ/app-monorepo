@@ -109,6 +109,7 @@ import {
   shouldSkipPerpsOrderPanelComputedSizeValidation,
 } from '../../utils/perpsOrderPanelEnableTrading';
 import { getScaleOrderValidationErrorMessage } from '../../utils/scaleOrderValidation';
+import { getTradingButtonStyleValues } from '../../utils/styleUtils';
 
 import { showEnableTradingStepsDialog } from './modals/EnableTradingStepsDialog';
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
@@ -247,27 +248,11 @@ const EstLiqPriceLeaf = memo(({ side }: { side: 'long' | 'short' }) => {
 });
 EstLiqPriceLeaf.displayName = 'EstLiqPriceLeaf';
 
-// Long = design-system "accent" button, Short = "destructive" button.
-// Semantic tokens are theme-aware, so no themeVariant branching is needed.
-// bg stays undefined while loading to suppress the colored background (matches
-// the prior behavior). Referenced from both the live and empty-size buttons.
-const PERP_SIDE_BUTTON_STYLES = {
-  loading: { bg: undefined, hoverBg: undefined, pressBg: undefined },
-  long: {
-    bg: '$bgAccent',
-    hoverBg: '$bgAccentHover',
-    pressBg: '$bgAccentActive',
-  },
-  short: {
-    bg: '$bgCriticalStrong',
-    hoverBg: '$bgCriticalStrongHover',
-    pressBg: '$bgCriticalStrongActive',
-  },
-};
-
 function getPerpSideButtonStyles(isLong: boolean, loading: boolean) {
-  if (loading) return PERP_SIDE_BUTTON_STYLES.loading;
-  return isLong ? PERP_SIDE_BUTTON_STYLES.long : PERP_SIDE_BUTTON_STYLES.short;
+  const styles = getTradingButtonStyleValues(isLong ? 'long' : 'short');
+  return loading
+    ? { ...styles, bg: undefined, hoverBg: undefined, pressBg: undefined }
+    : styles;
 }
 
 function SideButtonInternal({
@@ -1180,7 +1165,7 @@ function SideButtonInternal({
   );
 
   const buttonStyles = getPerpSideButtonStyles(isLong, shouldShowButtonLoading);
-  const labelColor = isLong ? '$textInverse' : '$textOnColor';
+  const labelColor = buttonStyles.textColor;
 
   const handlePress = useDebouncedCallback(
     async (): Promise<void> => {
@@ -1737,7 +1722,7 @@ function EmptySizeSideButton({
   ]);
 
   const buttonStyles = getPerpSideButtonStyles(isLong, shouldShowButtonLoading);
-  const labelColor = isLong ? '$textInverse' : '$textOnColor';
+  const labelColor = buttonStyles.textColor;
 
   const requestEmptySizeEnableTrading = useCallback(
     async ({
