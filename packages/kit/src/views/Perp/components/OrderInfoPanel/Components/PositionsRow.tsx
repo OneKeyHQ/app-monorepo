@@ -60,6 +60,9 @@ interface IAssetInfo {
   rawCoin: string;
   leverage: number | string;
   assetColor: string;
+  assetMarkerColor: string;
+  assetBadgeBgColor: string;
+  assetBadgeTextColor: string;
   leverageType: string;
 }
 
@@ -136,7 +139,7 @@ const PositionRowDesktopSymbolAndLeverage = memo(
               height={30}
               borderWidth={2}
               borderRadius={2}
-              borderColor={assetInfo.assetColor}
+              borderColor={assetInfo.assetMarkerColor}
             />
             <YStack>
               <SizableText
@@ -532,8 +535,8 @@ const PositionRowDesktopTPSL = memo(
 
               <SizableText
                 hoverStyle={{ size: '$bodySmMedium' }}
-                color="$green11"
-                size="$bodySm"
+                color="$bgAccent"
+                size="$bodySmMedium"
                 onPress={onViewTpslOrders}
                 cursor="default"
               >
@@ -592,9 +595,8 @@ const PositionRowDesktopActions = memo(
           <XStack onPress={() => onClosePosition('market')} cursor="default">
             <SizableText
               hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
-              color="$green11"
-              size="$bodySm"
-              fontWeight={400}
+              color="$bgAccent"
+              size="$bodySmMedium"
             >
               {intl.formatMessage({
                 id: ETranslations.perp_position_market,
@@ -604,9 +606,8 @@ const PositionRowDesktopActions = memo(
           <XStack onPress={() => onClosePosition('limit')} cursor="default">
             <SizableText
               hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
-              color="$green11"
-              size="$bodySm"
-              fontWeight={400}
+              color="$bgAccent"
+              size="$bodySmMedium"
             >
               {intl.formatMessage({
                 id: ETranslations.perp_position_limit,
@@ -776,9 +777,12 @@ const PositionRowMobileHeader = memo(
             justifyContent="center"
             alignItems="center"
             borderRadius={2}
-            backgroundColor={assetInfo.assetColor}
+            backgroundColor={assetInfo.assetBadgeBgColor}
           >
-            <SizableText size="$bodySmMedium" color="$textOnColor">
+            <SizableText
+              size="$bodySmMedium"
+              color={assetInfo.assetBadgeTextColor}
+            >
               {side === 'long'
                 ? intl.formatMessage({
                     id: ETranslations.perp_position_b,
@@ -1356,6 +1360,9 @@ const PositionRow = memo(
         rawCoin: pos.coin,
         leverage: pos.leverage?.value ?? '',
         assetColor: side === 'long' ? '$green11' : '$red11',
+        assetMarkerColor: side === 'long' ? '$bgAccent' : '$bgCriticalStrong',
+        assetBadgeBgColor: side === 'long' ? '$bgAccent' : '$bgCriticalStrong',
+        assetBadgeTextColor: side === 'long' ? '$textInverse' : '$textOnColor',
         leverageType,
       };
     }, [intl, pos.coin, pos.leverage?.type, pos.leverage?.value, side]);

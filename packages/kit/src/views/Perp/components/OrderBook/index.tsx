@@ -522,15 +522,19 @@ const useBlockColors = () => {
 
 const useTextColor = () => {
   const theme = useTheme();
-  const themeName = useThemeName();
   return useMemo(() => {
     return {
       textSubdued: theme.textSubdued.val,
       text: theme.text.val,
-      red: colorTokens[themeName].red.red11,
-      green: colorTokens[themeName].green.green11,
+      red: theme.bgCriticalStrong.val,
+      green: theme.bgAccent.val,
     };
-  }, [theme.text.val, theme.textSubdued.val, themeName]);
+  }, [
+    theme.bgAccent.val,
+    theme.bgCriticalStrong.val,
+    theme.text.val,
+    theme.textSubdued.val,
+  ]);
 };
 
 const useSideRatioColors = () => {
