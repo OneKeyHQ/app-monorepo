@@ -958,7 +958,7 @@ function ProtocolLendingActionBorrowContent({
 
   const healthFactor = actionResult.transactionConfirmation?.healthFactor;
   const confirmDisabled =
-    amountBN.isLessThanOrEqualTo(0) ||
+    !isAmountPositive ||
     actionResult.isCheckAmountMessageError ||
     actionResult.checkAmountResult === false ||
     actionResult.checkAmountLoading;
