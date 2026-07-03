@@ -601,9 +601,7 @@ function ReceiveToken() {
 
   // pre-generate the share image before opening the dialog so the preview
   // shows instantly and the dialog doesn't jump while the image loads
-  const shareGeneratorRef = useRef<IReceiveShareImageGeneratorRef | null>(
-    null,
-  );
+  const shareGeneratorRef = useRef<IReceiveShareImageGeneratorRef | null>(null);
   const [isPreparingShare, setIsPreparingShare] = useState(false);
 
   const handleSharePress = useCallback(async () => {

@@ -144,51 +144,59 @@ export function ShareContentRenderer({
             <YStack>
               <QRCode value={address} size={qr.size} />
               {tokenLogoURI ? (
+                // full-bleed overlay + flex centering: percentage translate
+                // is unreliable on native, so avoid left/top 50% -50% here
                 <YStack
                   position="absolute"
-                  left="50%"
-                  top="50%"
-                  transform={[{ translateX: '-50%' }, { translateY: '-50%' }]}
-                  width={qr.logoPlateSize}
-                  height={qr.logoPlateSize}
-                  borderRadius="$full"
-                  bg="white"
+                  top={0}
+                  left={0}
+                  right={0}
+                  bottom={0}
                   alignItems="center"
                   justifyContent="center"
-                  opacity={isTokenLogoLoaded ? 1 : 0}
                 >
-                  <Image
-                    source={{ uri: tokenLogoURI }}
-                    style={{
-                      width: qr.logoSize,
-                      height: qr.logoSize,
-                      borderRadius: qr.logoSize / 2,
-                    }}
-                    onLoad={() => setIsTokenLogoLoaded(true)}
-                    onError={handleImageLoaded}
-                  />
-                  {networkLogoURI ? (
-                    <Stack
-                      position="absolute"
-                      right={0}
-                      bottom={0}
-                      p={qr.networkBadgePadding}
-                      bg="white"
-                      borderRadius="$full"
-                      opacity={isTokenLogoLoaded ? 1 : 0}
-                    >
-                      <Image
-                        source={{ uri: networkLogoURI }}
-                        style={{
-                          width: qr.networkBadgeIconSize,
-                          height: qr.networkBadgeIconSize,
-                          borderRadius: qr.networkBadgeIconSize / 2,
-                        }}
-                        onLoad={handleImageLoaded}
-                        onError={handleImageLoaded}
-                      />
-                    </Stack>
-                  ) : null}
+                  <YStack
+                    width={qr.logoPlateSize}
+                    height={qr.logoPlateSize}
+                    borderRadius="$full"
+                    bg="white"
+                    alignItems="center"
+                    justifyContent="center"
+                    opacity={isTokenLogoLoaded ? 1 : 0}
+                  >
+                    <Image
+                      source={{ uri: tokenLogoURI }}
+                      style={{
+                        width: qr.logoSize,
+                        height: qr.logoSize,
+                        borderRadius: qr.logoSize / 2,
+                      }}
+                      onLoad={() => setIsTokenLogoLoaded(true)}
+                      onError={handleImageLoaded}
+                    />
+                    {networkLogoURI ? (
+                      <Stack
+                        position="absolute"
+                        right={0}
+                        bottom={0}
+                        p={qr.networkBadgePadding}
+                        bg="white"
+                        borderRadius="$full"
+                        opacity={isTokenLogoLoaded ? 1 : 0}
+                      >
+                        <Image
+                          source={{ uri: networkLogoURI }}
+                          style={{
+                            width: qr.networkBadgeIconSize,
+                            height: qr.networkBadgeIconSize,
+                            borderRadius: qr.networkBadgeIconSize / 2,
+                          }}
+                          onLoad={handleImageLoaded}
+                          onError={handleImageLoaded}
+                        />
+                      </Stack>
+                    ) : null}
+                  </YStack>
                 </YStack>
               ) : null}
             </YStack>
