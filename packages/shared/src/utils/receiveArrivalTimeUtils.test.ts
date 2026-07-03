@@ -123,34 +123,34 @@ describe('formatReceiveArrivalTime', () => {
   });
 
   it('shows seconds under one minute', () => {
-    expect(formatReceiveArrivalTime({ seconds: 5 })).toBe('~5s');
-    expect(formatReceiveArrivalTime({ seconds: 30 })).toBe('~30s');
-    expect(formatReceiveArrivalTime({ seconds: 59 })).toBe('~59s');
+    expect(formatReceiveArrivalTime({ seconds: 5 })).toBe('~5 s');
+    expect(formatReceiveArrivalTime({ seconds: 30 })).toBe('~30 s');
+    expect(formatReceiveArrivalTime({ seconds: 59 })).toBe('~59 s');
   });
 
   it('shows rounded-up minutes between 1min and 60min', () => {
-    expect(formatReceiveArrivalTime({ seconds: 60 })).toBe('~1min');
-    expect(formatReceiveArrivalTime({ seconds: 61 })).toBe('~2min');
-    expect(formatReceiveArrivalTime({ seconds: 144 })).toBe('~3min');
-    expect(formatReceiveArrivalTime({ seconds: 300 })).toBe('~5min');
-    expect(formatReceiveArrivalTime({ seconds: 600 })).toBe('~10min');
-    expect(formatReceiveArrivalTime({ seconds: 601 })).toBe('~11min');
-    expect(formatReceiveArrivalTime({ seconds: 3600 })).toBe('~60min');
+    expect(formatReceiveArrivalTime({ seconds: 60 })).toBe('~1 min');
+    expect(formatReceiveArrivalTime({ seconds: 61 })).toBe('~2 min');
+    expect(formatReceiveArrivalTime({ seconds: 144 })).toBe('~3 min');
+    expect(formatReceiveArrivalTime({ seconds: 300 })).toBe('~5 min');
+    expect(formatReceiveArrivalTime({ seconds: 600 })).toBe('~10 min');
+    expect(formatReceiveArrivalTime({ seconds: 601 })).toBe('~11 min');
+    expect(formatReceiveArrivalTime({ seconds: 3600 })).toBe('~60 min');
   });
 
   it('caps display above one hour', () => {
-    expect(formatReceiveArrivalTime({ seconds: 3601 })).toBe('> 60min');
-    expect(formatReceiveArrivalTime({ seconds: 86_400 })).toBe('> 60min');
+    expect(formatReceiveArrivalTime({ seconds: 3601 })).toBe('> 60 min');
+    expect(formatReceiveArrivalTime({ seconds: 86_400 })).toBe('> 60 min');
   });
 });
 
 describe('getReceiveArrivalTimeText', () => {
   it('combines resolve + format', () => {
-    expect(getReceiveArrivalTimeText({ networkId: 'btc--0' })).toBe('~10min');
-    expect(getReceiveArrivalTimeText({ networkId: 'evm--1' })).toBe('~5min');
-    expect(getReceiveArrivalTimeText({ networkId: 'sol--101' })).toBe('~30s');
+    expect(getReceiveArrivalTimeText({ networkId: 'btc--0' })).toBe('~10 min');
+    expect(getReceiveArrivalTimeText({ networkId: 'evm--1' })).toBe('~5 min');
+    expect(getReceiveArrivalTimeText({ networkId: 'sol--101' })).toBe('~30 s');
     expect(getReceiveArrivalTimeText({ networkId: 'lightning--0' })).toBe(
-      '~5s',
+      '~5 s',
     );
     expect(getReceiveArrivalTimeText({ networkId: 'onekeyall--0' })).toBe(
       undefined,

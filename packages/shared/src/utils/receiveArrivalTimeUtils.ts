@@ -134,13 +134,13 @@ export function formatReceiveArrivalTime({
     return undefined;
   }
   if (seconds < 60) {
-    return `~${Math.ceil(seconds)}s`;
+    return `~${Math.ceil(seconds)} s`;
   }
   const minutes = Math.ceil(seconds / 60);
   if (minutes > 60) {
-    return '> 60min';
+    return '> 60 min';
   }
-  return `~${minutes}min`;
+  return `~${minutes} min`;
 }
 
 export function getReceiveArrivalTimeText(params: {
