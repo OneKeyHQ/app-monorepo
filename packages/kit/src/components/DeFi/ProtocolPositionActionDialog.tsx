@@ -21,6 +21,7 @@ import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput
 import { SendAutoSizeAmountInput } from '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -446,6 +447,36 @@ function isUserRejectedErrorMessage({
     getErrorMessage(error) ===
     intl.formatMessage({ id: ETranslations.feedback_user_rejected })
   );
+}
+
+function showProtocolPositionActionErrorToast(error: unknown) {
+  errorToastUtils.toastIfError(error);
+  if (error && typeof error === 'object') {
+    // DeFi action submit owns the visible operation boundary. Some backend or
+    // tx-confirm errors intentionally set autoToast=false for generic callers,
+    // but this dialog must still show the failure and keep diagnostic actions.
+    (error as IOneKeyError).autoToast = true;
+  }
+  errorToastUtils.showToastOfError(error);
+}
+
+function normalizeProtocolPositionActionError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return new OneKeyLocalError(getErrorMessage(error));
+  }
+  const oneKeyError = error as IOneKeyError;
+  const normalizedError = new OneKeyLocalError({
+    message: getErrorMessage(error),
+    code: oneKeyError.code,
+    data: oneKeyError.data,
+    key: oneKeyError.key,
+    info: oneKeyError.info,
+    autoToast: oneKeyError.autoToast,
+    requestId: oneKeyError.requestId,
+    httpStatusCode: oneKeyError.httpStatusCode,
+  });
+  normalizedError.cause = error;
+  return normalizedError;
 }
 
 function getPositiveAmount(value?: string) {
@@ -953,12 +984,11 @@ function useProtocolPositionActionSubmit({
           isTxConfirmInitializing = false;
         }
         if (txConfirmInitError) {
-          throw new OneKeyLocalError(getErrorMessage(txConfirmInitError));
+          throw normalizeProtocolPositionActionError(txConfirmInitError);
         }
       } catch (error) {
         if (!isUserRejectedErrorMessage({ error, intl })) {
-          errorToastUtils.toastIfError(error);
-          errorToastUtils.showToastOfError(error);
+          showProtocolPositionActionErrorToast(error);
         }
         throw error;
       }
