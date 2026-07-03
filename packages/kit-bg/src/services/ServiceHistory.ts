@@ -24,6 +24,7 @@ import {
   isHistoryCursorAdvanced,
   sortHistoryTxsByTime,
 } from '@onekeyhq/shared/src/utils/historyUtils';
+import { isHyperliquidDirectDepositTx } from '@onekeyhq/shared/src/utils/hyperliquidDepositUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   PROMISE_CONCURRENCY_LIMIT,
@@ -72,9 +73,15 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
+import { perpsDepositOrderAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import {
+  getKnownPerpsDepositOrderTxIds,
+  isPerpsDepositOrderMatchedByTxIds,
+  shouldKeepHistoryConfirmationMarker,
+} from './utils/perpsDepositHistoryUtils';
 
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
 import type { IDBAccount } from '../dbs/local/types';
@@ -152,6 +159,42 @@ function mergeNullishRecordFields<T extends Record<string, unknown>>({
     }
   });
   return result as T;
+}
+
+async function findKnownPerpsDepositOrderTx({
+  txid,
+  originalTxId,
+}: {
+  txid: string | undefined;
+  originalTxId: string | undefined;
+}) {
+  const txIds = getKnownPerpsDepositOrderTxIds({ txid, originalTxId });
+  if (txIds.size === 0) {
+    return undefined;
+  }
+  const perpsDepositOrder = await perpsDepositOrderAtom.get();
+  return perpsDepositOrder.orders.find((order) =>
+    isPerpsDepositOrderMatchedByTxIds(order, txIds),
+  );
+}
+
+async function clearHistoryConsumedPerpsDepositOrderTx({
+  txid,
+  originalTxId,
+}: {
+  txid: string | undefined;
+  originalTxId: string | undefined;
+}) {
+  const txIds = getKnownPerpsDepositOrderTxIds({ txid, originalTxId });
+  if (txIds.size === 0) {
+    return;
+  }
+  await perpsDepositOrderAtom.set((prev) => ({
+    ...prev,
+    orders: prev.orders.filter((order) =>
+      shouldKeepHistoryConfirmationMarker(order, txIds),
+    ),
+  }));
 }
 
 function mergePrivateSendPayloadFields({
@@ -1380,13 +1423,64 @@ class ServiceHistory extends ServiceBase {
         await this.backgroundApi.serviceAccount.getDBAccountSafe({
           accountId: txAccountId,
         });
+      const knownPerpsDepositOrder = await findKnownPerpsDepositOrderTx({
+        txid: tx.decodedTx.txid,
+        originalTxId: tx.decodedTx.originalTxId,
+      });
+      const isPerpsDepositTx =
+        isHyperliquidDirectDepositTx(tx.decodedTx) ||
+        Boolean(knownPerpsDepositOrder);
+      let txAccountAddress: string | undefined;
+      let txDeriveType: string | IAccountDeriveTypes | undefined;
+      if (isPerpsDepositTx) {
+        const txAccountInfo = [...accounts, ...allAccounts].find(
+          (account) =>
+            account.accountId === txAccountId &&
+            account.networkId === tx.decodedTx.networkId,
+        );
+        txAccountAddress = txAccountInfo?.apiAddress;
+        if (!txAccountAddress) {
+          try {
+            txAccountAddress =
+              await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+                accountId: txAccountId,
+                networkId: tx.decodedTx.networkId,
+              });
+          } catch {
+            txAccountAddress = undefined;
+          }
+        }
+        const parsedTxAccountId = accountUtils.parseAccountId({
+          accountId: txAccountId,
+        });
+        const normalizedTxDeriveType = accountUtils.normalizeDeriveType(
+          parsedTxAccountId.idSuffix ?? '',
+        );
+        txDeriveType =
+          txAccountInfo?.deriveType ??
+          normalizedTxDeriveType ??
+          (parsedTxAccountId.idSuffix ? undefined : 'default');
+      }
       appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
         accountId: txAccountId,
         indexedAccountId: txDBAccount?.indexedAccountId,
+        accountAddress: txAccountAddress,
+        deriveType: txDeriveType,
+        perpsAccountId: knownPerpsDepositOrder?.accountId,
+        perpsIndexedAccountId: knownPerpsDepositOrder?.indexedAccountId,
+        perpsAccountAddress: knownPerpsDepositOrder?.perpsAccountAddress,
+        perpsDeriveType: knownPerpsDepositOrder?.perpsDeriveType,
         networkId: tx.decodedTx.networkId,
         txid: tx.decodedTx.txid,
         status: tx.decodedTx.status,
+        isPerpsDepositTx,
       });
+      if (knownPerpsDepositOrder?.keepForHistoryConfirmation) {
+        await clearHistoryConsumedPerpsDepositOrderTx({
+          txid: tx.decodedTx.txid,
+          originalTxId: tx.decodedTx.originalTxId,
+        });
+      }
     }
 
     // 3. Get the locally confirmed transactions

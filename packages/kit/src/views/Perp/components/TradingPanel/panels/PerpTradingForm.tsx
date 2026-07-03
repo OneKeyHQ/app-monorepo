@@ -239,7 +239,7 @@ function useDepositButtonIconProps() {
   return useMemo(
     () =>
       ({
-        color: '$iconSuccess',
+        color: '$bgAccent',
       }) as const,
     [],
   );
