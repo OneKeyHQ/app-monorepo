@@ -18,11 +18,21 @@ interface IShareViewProps {
   // cap on the preview height; the box shrinks proportionally (contain-fit)
   // so small viewports (ext popup) never need to scroll
   maxHeight?: number;
+  // image generated before the dialog opened; when set, the preview shows
+  // instantly and no in-dialog generation happens (prevents dialog jump)
+  presetImage?: string;
 }
 
-export function ShareView({ data, generatorRef, maxHeight }: IShareViewProps) {
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(true);
+export function ShareView({
+  data,
+  generatorRef,
+  maxHeight,
+  presetImage,
+}: IShareViewProps) {
+  const [previewImage, setPreviewImage] = useState<string | null>(
+    presetImage ?? null,
+  );
+  const [isGenerating, setIsGenerating] = useState(!presetImage);
   // the generated card height is content-dependent (long addresses wrap),
   // so size the preview box from the actual image to avoid gray side bars
   const [aspectRatio, setAspectRatio] = useState(
@@ -44,6 +54,7 @@ export function ShareView({ data, generatorRef, maxHeight }: IShareViewProps) {
   }, [previewImage]);
 
   useEffect(() => {
+    if (presetImage) return;
     generationIdRef.current += 1;
     const currentGenerationId = generationIdRef.current;
     setIsGenerating(true);
@@ -71,7 +82,7 @@ export function ShareView({ data, generatorRef, maxHeight }: IShareViewProps) {
     }, 50);
 
     return () => clearTimeout(timer);
-  }, [data, generatorRef]);
+  }, [data, generatorRef, presetImage]);
 
   return (
     <Stack
@@ -102,7 +113,9 @@ export function ShareView({ data, generatorRef, maxHeight }: IShareViewProps) {
           resizeMode="contain"
         />
       )}
-      <ShareImageGenerator ref={generatorRef} data={data} />
+      {presetImage ? null : (
+        <ShareImageGenerator ref={generatorRef} data={data} />
+      )}
     </Stack>
   );
 }

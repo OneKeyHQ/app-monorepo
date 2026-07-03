@@ -26,9 +26,11 @@ let isDialogShowing = false;
 interface IShareContentProps {
   data: IReceiveShareData;
   isMobile?: boolean;
+  // image generated before the dialog opened (see ShareView.presetImage)
+  presetImage?: string;
 }
 
-function ShareContent({ data, isMobile }: IShareContentProps) {
+function ShareContent({ data, isMobile, presetImage }: IShareContentProps) {
   const generatorRef = useRef<IReceiveShareImageGeneratorRef | null>(null);
   const intl = useIntl();
 
@@ -42,20 +44,18 @@ function ShareContent({ data, isMobile }: IShareContentProps) {
   const { saveImage, shareImage } = useShareActions();
   const [isActionLoading, setIsActionLoading] = useState(false);
 
+  const getShareImage = useCallback(async (): Promise<string> => {
+    if (presetImage) return presetImage;
+    const generator: IReceiveShareImageGeneratorRef | null =
+      generatorRef.current;
+    if (!generator) return '';
+    return generator.generate();
+  }, [presetImage]);
+
   const handleSaveImage = useCallback(async () => {
     setIsActionLoading(true);
     try {
-      const generator: IReceiveShareImageGeneratorRef | null =
-        generatorRef.current;
-      if (!generator) {
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.generate_image_failed__msg,
-          }),
-        });
-        return;
-      }
-      const base64: string = await generator.generate();
+      const base64: string = await getShareImage();
       if (!base64) {
         Toast.error({
           title: intl.formatMessage({
@@ -90,22 +90,12 @@ function ShareContent({ data, isMobile }: IShareContentProps) {
     } finally {
       setIsActionLoading(false);
     }
-  }, [saveImage, intl]);
+  }, [getShareImage, saveImage, intl]);
 
   const handleShareImage = useCallback(async () => {
     setIsActionLoading(true);
     try {
-      const generator: IReceiveShareImageGeneratorRef | null =
-        generatorRef.current;
-      if (!generator) {
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.generate_image_failed__msg,
-          }),
-        });
-        return;
-      }
-      const base64: string = await generator.generate();
+      const base64: string = await getShareImage();
       if (!base64) {
         Toast.error({
           title: intl.formatMessage({
@@ -119,7 +109,7 @@ function ShareContent({ data, isMobile }: IShareContentProps) {
     } finally {
       setIsActionLoading(false);
     }
-  }, [shareImage, intl]);
+  }, [getShareImage, shareImage, intl]);
 
   const desktopLayout = (
     <YStack gap="$5">
@@ -128,6 +118,7 @@ function ShareContent({ data, isMobile }: IShareContentProps) {
           data={data}
           generatorRef={generatorRef}
           maxHeight={previewMaxHeight}
+          presetImage={presetImage}
         />
       </Stack>
       <ControlPanel
@@ -145,6 +136,7 @@ function ShareContent({ data, isMobile }: IShareContentProps) {
         data={data}
         generatorRef={generatorRef}
         maxHeight={previewMaxHeight}
+        presetImage={presetImage}
       />
       <ControlPanel
         onSaveImage={handleSaveImage}
@@ -158,7 +150,10 @@ function ShareContent({ data, isMobile }: IShareContentProps) {
   return isMobile ? mobileLayout : desktopLayout;
 }
 
-export function showReceiveShareDialog(data: IReceiveShareData) {
+export function showReceiveShareDialog(
+  data: IReceiveShareData,
+  options?: { presetImage?: string },
+) {
   // Prevent duplicate dialogs
   if (isDialogShowing) {
     return null;
@@ -178,7 +173,11 @@ export function showReceiveShareDialog(data: IReceiveShareData) {
             width: 'autoWidth',
           },
       renderContent: (
-        <ShareContent data={data} isMobile={platformEnv.isNative} />
+        <ShareContent
+          data={data}
+          isMobile={platformEnv.isNative}
+          presetImage={options?.presetImage}
+        />
       ),
       showFooter: false,
       onClose: () => {

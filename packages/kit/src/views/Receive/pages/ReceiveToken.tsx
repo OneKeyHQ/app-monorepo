@@ -61,11 +61,17 @@ import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddre
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useWalletBanner } from '../../../hooks/useWalletBanner';
 import { ReceiveCard, ReceiveCardCell } from '../components/ReceiveCard';
-import { showReceiveShareDialog } from '../components/ReceiveShare';
+import {
+  ShareImageGenerator,
+  showReceiveShareDialog,
+} from '../components/ReceiveShare';
 import { ReceiveTestIDs } from '../testIDs';
 import { EAddressState } from '../types';
 
-import type { IReceiveShareData } from '../components/ReceiveShare';
+import type {
+  IReceiveShareData,
+  IReceiveShareImageGeneratorRef,
+} from '../components/ReceiveShare';
 import type { RouteProp } from '@react-navigation/core';
 
 function ReceiveToken() {
@@ -593,10 +599,27 @@ function ReceiveToken() {
 
   const canShowShareEntry = shouldShowQRCode && !!displayAddress && !!shareData;
 
-  const handleSharePress = useCallback(() => {
-    if (!shareData) return;
-    showReceiveShareDialog(shareData);
-  }, [shareData]);
+  // pre-generate the share image before opening the dialog so the preview
+  // shows instantly and the dialog doesn't jump while the image loads
+  const shareGeneratorRef = useRef<IReceiveShareImageGeneratorRef | null>(
+    null,
+  );
+  const [isPreparingShare, setIsPreparingShare] = useState(false);
+
+  const handleSharePress = useCallback(async () => {
+    if (!shareData || isPreparingShare) return;
+    setIsPreparingShare(true);
+    let presetImage = '';
+    try {
+      presetImage = (await shareGeneratorRef.current?.generate()) ?? '';
+    } finally {
+      setIsPreparingShare(false);
+    }
+    // fall back to in-dialog generation if pre-generation failed
+    showReceiveShareDialog(shareData, {
+      presetImage: presetImage || undefined,
+    });
+  }, [shareData, isPreparingShare]);
 
   const renderHeaderRight = useCallback(() => {
     if (platformEnv.isNative || !canShowShareEntry) {
@@ -608,12 +631,13 @@ function ReceiveToken() {
         variant="secondary"
         size="small"
         icon="ShareOutline"
+        loading={isPreparingShare}
         onPress={handleSharePress}
       >
         {intl.formatMessage({ id: ETranslations.explore_share })}
       </Button>
     );
-  }, [canShowShareEntry, handleSharePress, intl]);
+  }, [canShowShareEntry, handleSharePress, isPreparingShare, intl]);
 
   const handleSkipVerifyPress = useCallback(() => {
     Dialog.confirm({
@@ -790,6 +814,7 @@ function ReceiveToken() {
                 flex={1}
                 size="large"
                 icon="ShareOutline"
+                loading={isPreparingShare}
                 onPress={handleSharePress}
               >
                 {intl.formatMessage({ id: ETranslations.explore_share })}
@@ -802,13 +827,20 @@ function ReceiveToken() {
               size="large"
               onPress={handleCopyAddress}
             >
-              {intl.formatMessage({ id: ETranslations.global_copy })}
+              {intl.formatMessage({ id: ETranslations.global_copy_address })}
             </Button>
           </XStack>
         </YStack>
       </Page.Footer>
     );
-  }, [bottom, canShowShareEntry, handleSharePress, handleCopyAddress, intl]);
+  }, [
+    bottom,
+    canShowShareEntry,
+    handleSharePress,
+    handleCopyAddress,
+    isPreparingShare,
+    intl,
+  ]);
 
   const renderPageFooter = useCallback(() => {
     if (!currentAccount || !network || !wallet) return null;
@@ -976,6 +1008,11 @@ function ReceiveToken() {
               {renderQrCodeCell()}
               {shouldShowAddress ? renderAddressCell() : null}
             </ReceiveCard>
+          ) : null}
+          {canShowShareEntry && shareData ? (
+            // offscreen: pre-generates the share image so the dialog opens
+            // with the preview already resolved
+            <ShareImageGenerator ref={shareGeneratorRef} data={shareData} />
           ) : null}
           {banner && shouldShowQRCode && !isBtcUsedAddressVerifyMode ? (
             <XStack
