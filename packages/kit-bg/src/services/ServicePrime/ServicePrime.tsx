@@ -180,9 +180,13 @@ class ServicePrime extends ServiceBase {
     return response.data.data;
   }
 
-  private throwIfAllPrimeUserInfoRequestsFailedByInvalidTokenError(
-    results: Array<PromiseSettledResult<unknown>>,
-  ) {
+  private async throwIfAllPrimeUserInfoRequestsFailedByInvalidTokenError({
+    results,
+    requestAuthToken,
+  }: {
+    results: Array<PromiseSettledResult<unknown>>;
+    requestAuthToken: string;
+  }) {
     if (results.some((result) => result.status === 'fulfilled')) {
       return;
     }
@@ -198,7 +202,20 @@ class ServicePrime extends ServiceBase {
         errorCode: Number(error.code),
         errorMessage: error.message,
       });
-      appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, undefined);
+      // Route through the source-aware cleanup (with its stale-token guard)
+      // instead of emitting a payload-less event, so only the session that
+      // actually failed is cleared and local keyless auth is preserved.
+      const clearResult = await this.handlePrimeLoginInvalidToken({
+        requestAuthToken,
+        errorCode: Number(error.code),
+        errorMessage: error.message,
+      });
+      if (clearResult.cleared) {
+        appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, {
+          authSessionSource: clearResult.authSessionSource,
+          clearedByBackground: true,
+        });
+      }
       throw error;
     }
   }
@@ -799,6 +816,10 @@ class ServicePrime extends ServiceBase {
   @backgroundMethod()
   async callApiFetchPrimeUserInfo(): Promise<IPrimeServerUserInfoWithProfile> {
     const client = await this.getPrimeClient();
+    // Capture the token the request interceptor will attach, so invalid-token
+    // cleanup can detect stale in-flight responses after a re-login.
+    const requestAuthToken =
+      await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
     const requestConfig: Parameters<typeof client.get>[1] & {
       autoHandleError?: boolean;
     } = {
@@ -831,10 +852,10 @@ class ServicePrime extends ServiceBase {
       serverUserInfoRequest,
     ]);
 
-    this.throwIfAllPrimeUserInfoRequestsFailedByInvalidTokenError([
-      profileResult,
-      serverUserInfoResult,
-    ]);
+    await this.throwIfAllPrimeUserInfoRequestsFailedByInvalidTokenError({
+      results: [profileResult, serverUserInfoResult],
+      requestAuthToken,
+    });
 
     const profile =
       profileResult.status === 'fulfilled' ? profileResult.value : undefined;
@@ -1094,8 +1115,9 @@ class ServicePrime extends ServiceBase {
         errorMessage:
           'servicePrime.apiFetchPrimeUserInfo: simpleDb.prime.getActiveAuthToken() No auth token',
       });
-      // clear supabase login token cache
-      appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, undefined);
+      // Do NOT emit PrimeLoginInvalidToken here: having no token is not an
+      // invalid-token event, and a payload-less emit would wipe local
+      // keyless sessions (e.g. keyless-only users not logged into OneKey ID).
 
       return {
         userInfo: localUserInfo,

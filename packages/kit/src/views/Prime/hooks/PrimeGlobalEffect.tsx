@@ -286,12 +286,8 @@ function PrimeGlobalEffectAfterAuthReady() {
 }
 
 function PrimeGlobalEffectView() {
-  const {
-    isReady,
-    clearLocalSupabaseSessions,
-    legacySupabaseSignOut,
-    keylessSupabaseSignOut,
-  } = useOneKeyAuth();
+  const { isReady, legacySupabaseSignOut, keylessSupabaseSignOut } =
+    useOneKeyAuth();
 
   useEffect(() => {
     const fn = async (
@@ -317,8 +313,11 @@ function PrimeGlobalEffectView() {
       ) {
         await legacySupabaseSignOut();
       } else {
-        await clearLocalSupabaseSessions();
-        await backgroundApiProxy.simpleDb.prime.clearLocalAuthSession();
+        // Payload-less event: only sign out the legacy session. Never clear
+        // the keyless session here — it may be the only credential of a
+        // local keyless wallet and must not be destroyed without an explicit
+        // keyless-sourced payload.
+        await legacySupabaseSignOut();
       }
       await backgroundApiProxy.servicePrime.setPrimePersistAtomNotLoggedIn();
     };
@@ -326,11 +325,7 @@ function PrimeGlobalEffectView() {
     return () => {
       appEventBus.off(EAppEventBusNames.PrimeLoginInvalidToken, fn);
     };
-  }, [
-    clearLocalSupabaseSessions,
-    keylessSupabaseSignOut,
-    legacySupabaseSignOut,
-  ]);
+  }, [keylessSupabaseSignOut, legacySupabaseSignOut]);
 
   if (isReady) {
     return <PrimeGlobalEffectAfterAuthReady />;
