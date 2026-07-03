@@ -687,6 +687,13 @@ function ProtocolLendingActionBorrowContent({
   const amountBN = new BigNumber(amount || '0');
   const availableBN = new BigNumber(effectiveBalance || '0');
   const isAmountPositive = amountBN.isFinite() && amountBN.gt(0);
+  // Mirrors the defi source: fiat under the hero tracks amount x price. The
+  // borrow manage-page response carries the selected reserve's price.
+  const tokenPriceBN = new BigNumber(tokenInfo?.price ?? '0');
+  const amountFiatValue =
+    isAmountPositive && tokenPriceBN.isFinite() && tokenPriceBN.gt(0)
+      ? amountBN.multipliedBy(tokenPriceBN).toFixed()
+      : '0';
   let selectedAmountPercent = 0;
   if (isMaxAmount) {
     selectedAmountPercent = 100;
@@ -984,8 +991,6 @@ function ProtocolLendingActionBorrowContent({
             onSelect={handleSelectAsset}
             columnHeaderLabel={columnHeaderLabel}
           />
-          {/* ponytail: no per-unit price in the borrow APIs, so the amount hero
-              shows the token amount without a live fiat sub-line. */}
           <ProtocolPositionActionAmountInput
             amount={amount}
             onChangeAmount={handleAmountChange}
@@ -994,7 +999,7 @@ function ProtocolLendingActionBorrowContent({
             symbol={effectiveSymbol}
             tokenLogoUrl={effectiveLogo}
             availableAmount={effectiveBalance}
-            fiatValue="0"
+            fiatValue={amountFiatValue}
             currencySymbol={currencySymbol}
             isInsufficient={false}
             availableLabel={availableLabel}
