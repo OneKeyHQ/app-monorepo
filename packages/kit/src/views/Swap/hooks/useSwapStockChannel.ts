@@ -20,7 +20,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
@@ -68,6 +71,12 @@ export {
 const SWAP_STOCK_DETAIL_LAST_GOOD_TTL_MS = timerUtils.getTimeDurationMs({
   minute: 1,
 });
+
+type IStockTokenDetailFetchState = {
+  scope: string;
+  token: IMarketTokenDetail | undefined;
+  perpsInfo: IMarketPerpsInfo | undefined;
+};
 
 let stockExecutionTokenSyncSerial = 0;
 
@@ -170,11 +179,7 @@ export function useSwapStockChannel() {
   const stockNetworkId = currentStockToken?.networkId ?? '';
   const stockTokenDetailScope = currentStockTokenKey;
   const lastGoodStockTokenDetailRef = useRef<{
-    state: {
-      scope: string;
-      token: IMarketTokenDetail | undefined;
-      perpsInfo: IMarketPerpsInfo | undefined;
-    };
+    state: IStockTokenDetailFetchState;
     updatedAt: number;
   } | null>(null);
   // Tracks the scope of the latest render so a superseded in-flight request
@@ -224,7 +229,25 @@ export function useSwapStockChannel() {
         // so a persistently broken endpoint (delisted token, backend down)
         // cannot show a stale market open/closed state indefinitely; after
         // the TTL the channel settles into the stable unavailable state.
-        const lastGood = lastGoodStockTokenDetailRef.current;
+        let lastGood = lastGoodStockTokenDetailRef.current;
+        if (lastGood?.state.scope !== stockTokenDetailScope) {
+          // Re-entering the page: the render state was hydrated from the
+          // SWR cache, but no request has succeeded in this mount yet, so
+          // the in-memory snapshot is empty. Warm it from the same cache
+          // entry (its own timestamp keeps the TTL bound honest) so a
+          // failing first tick after remount does not clear the trade UI.
+          const cached = stockTokenDetailScope
+            ? swrCacheUtils.getWithTimestamp<IStockTokenDetailFetchState>(
+                swrKeys.swapStockTokenDetail({
+                  tokenScope: stockTokenDetailScope,
+                }),
+              )
+            : undefined;
+          if (cached?.data?.scope === stockTokenDetailScope) {
+            lastGood = { state: cached.data, updatedAt: cached.updatedAt };
+            lastGoodStockTokenDetailRef.current = lastGood;
+          }
+        }
         if (
           lastGood?.state.scope === stockTokenDetailScope &&
           Date.now() - lastGood.updatedAt <= SWAP_STOCK_DETAIL_LAST_GOOD_TTL_MS
