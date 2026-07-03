@@ -81,7 +81,7 @@ rather than reading Home-only context from the modal.
 - `packages/kit-bg/src/services/ServiceStaking.ts`
 - `packages/kit/src/views/Borrow/hooks/useUniversalBorrowHooks.ts`
 - `packages/shared/src/utils/defiPermitUtils.ts`
-- `packages/shared/types/defi`
+- `packages/shared/types/defi.ts`
 
 Important anchors:
 

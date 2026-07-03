@@ -183,8 +183,8 @@ the execution payload is built.
 
 - `packages/kit/src/views/Swap/pages/modal/SwapKLineContent.tsx`
 - `packages/kit/src/views/Swap/pages/modal/swapKLineTokenUtils.ts`
-- `packages/kit/src/components/TradingView/TradingViewV2/hooks/useTradingViewV2.ts`
-- `packages/kit/src/components/TradingView/TradingViewV2/messageHandlers/klineDataHandler.ts`
+- `packages/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/hooks/useTradingViewV2.ts`
+- `packages/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/messageHandlers/klineDataHandler.ts`
 - `packages/kit-bg/src/services/ServiceMarketV2.ts`
 
 Important anchors:
