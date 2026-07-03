@@ -864,7 +864,7 @@ function OrderConfirmContent({
           {...buttonStyleProps}
           childrenAsText={false}
         >
-          <SizableText size="$bodyMdMedium" color="$textOnColor">
+          <SizableText size="$bodyMdMedium" color={buttonStyleProps.textColor}>
             {buttonText}
           </SizableText>
         </Button>

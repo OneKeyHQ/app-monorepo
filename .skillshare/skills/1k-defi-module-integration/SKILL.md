@@ -1,6 +1,6 @@
 ---
 name: 1k-defi-module-integration
-description: App-side OneKey DeFi guide for Earn, Borrow, Staking, vaults, lending, protocol integrations, ABI-backed operations, native/provider-backed operations, pending transactions, history, route handoffs, risk display, and DeFi regression review.
+description: App-side OneKey DeFi guide for Earn, native Discovery-hosted Earn, Borrow, Staking, DeFi Portfolio actions, vaults, lending, protocol integrations, ABI-backed operations, native/provider-backed operations, pending transactions, history, route handoffs, risk display, and DeFi regression review.
 ---
 
 # DeFi Module Integration
@@ -85,6 +85,9 @@ Use these drills to judge whether the skill can guide fast protocol integration:
 - Native/provider-backed protocol: can you identify provider capability, native token handling, setup/business sequence, unsupported states, account derive requirements, and completion polling?
 - New L2/protocol module: can you decide whether it belongs under Earn/Borrow, a new DeFi surface, a Discovery-hosted flow, or a Trade handoff based on operation semantics?
 - DeFi Portfolio action: can you match the visible position row to `/wallet/v1/portfolio/positions`, `/earn/v1/defi/supported-protocols`, and `/earn/v1/defi/build-transaction` without dropping grouped source metadata?
+- Earn entry: can you route Home Earn card, desktop/web Earn tab, native
+  Discovery-hosted Earn, share/deep link, AssetDetails DeFi action, and
+  Swap-assisted funding to the right owner without treating them as one route?
 
 If a drill cannot be completed from the references, improve the abstraction before implementing.
 
