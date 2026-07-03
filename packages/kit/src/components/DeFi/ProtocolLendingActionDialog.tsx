@@ -20,6 +20,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useBorrowApproveAndSubmit } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/hooks/useBorrowApproveAndSubmit';
 import type { IManagePositionApproveTarget } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/types';
+import { isSamePositiveAmount } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/utils';
 import { useUniversalBorrowAction } from '@onekeyhq/kit/src/views/Borrow/components/UniversalBorrowAction';
 import {
   useUniversalBorrowRepay,
@@ -685,7 +686,6 @@ function ProtocolLendingActionBorrowContent({
   }, [effectiveBalance, effectiveDecimals, isWithdraw, reserveAddress]);
 
   const amountBN = new BigNumber(amount || '0');
-  const availableBN = new BigNumber(effectiveBalance || '0');
   const isAmountPositive = amountBN.isFinite() && amountBN.gt(0);
   // Mirrors the defi source: fiat under the hero tracks amount x price. The
   // borrow manage-page response carries the selected reserve's price.
@@ -694,11 +694,27 @@ function ProtocolLendingActionBorrowContent({
     isAmountPositive && tokenPriceBN.isFinite() && tokenPriceBN.gt(0)
       ? amountBN.multipliedBy(tokenPriceBN).toFixed()
       : '0';
+  // Repay Max in fixed mode caps at the server's maxRepayBalance (mirrors the
+  // manage page's `valueForMax = maxBalance ?? balance`); a popover selection
+  // has no max-balance data, same as the reference.
+  const effectiveMaxBalance =
+    !isWithdraw && !selectedBorrowAsset
+      ? protocolInfo?.maxRepayBalance
+      : undefined;
+  const valueForMax = effectiveMaxBalance ?? effectiveBalance;
+  const valueForMaxBN = new BigNumber(valueForMax || '0');
+  // Full close is amount === displayed balance (dust-free withdrawAll/repayAll),
+  // whether it got there via Max, 100%, prefill, or hand-typing - the manage
+  // page's isWithdrawAll/isRepayAll comparison semantics.
+  const isFullClose = isSamePositiveAmount({
+    amount,
+    targetAmount: clampAmountDecimals(effectiveBalance, effectiveDecimals),
+  });
   let selectedAmountPercent = 0;
   if (isMaxAmount) {
     selectedAmountPercent = 100;
-  } else if (isAmountPositive && availableBN.gt(0)) {
-    const pct = amountBN.div(availableBN).multipliedBy(100);
+  } else if (isAmountPositive && valueForMaxBN.gt(0)) {
+    const pct = amountBN.div(valueForMaxBN).multipliedBy(100);
     selectedAmountPercent =
       LENDING_PERCENT_PRESETS.find((preset) =>
         pct.minus(preset).abs().lt(0.5),
@@ -720,18 +736,19 @@ function ProtocolLendingActionBorrowContent({
   };
   const handleMaxAmount = () => {
     hasUserTouchedRef.current = true;
-    setAmount(clampAmountDecimals(effectiveBalance, effectiveDecimals));
+    setAmount(clampAmountDecimals(valueForMax, effectiveDecimals));
     setIsMaxAmount(true);
   };
   const handleSelectPercent = (percent: number) => {
-    // Max maps to withdrawAll/repayAll so a full close is dust-free; 25/50/75
-    // fill an exact token amount.
+    // A full close (amount === debt/supplied balance) maps to
+    // withdrawAll/repayAll via isFullClose; 25/50/75 fill an exact token
+    // amount of the actionable max (wallet-capped for fixed-mode repay).
     if (percent >= 100) {
       handleMaxAmount();
       return;
     }
     hasUserTouchedRef.current = true;
-    const next = availableBN.multipliedBy(percent).div(100);
+    const next = valueForMaxBN.multipliedBy(percent).div(100);
     setAmount(clampAmountDecimals(next.toFixed(), effectiveDecimals));
     setIsMaxAmount(false);
   };
@@ -753,7 +770,7 @@ function ProtocolLendingActionBorrowContent({
     marketAddress: source.marketAddress,
     reserveAddress,
     amount,
-    repayAll: actionType === 'repay' ? isMaxAmount : undefined,
+    repayAll: actionType === 'repay' ? isFullClose : undefined,
   });
 
   // Approve target (mirror WithdrawSection's effectiveToken + approve target).
@@ -829,7 +846,7 @@ function ProtocolLendingActionBorrowContent({
         provider,
         marketAddress,
         reserveAddress,
-        repayAll: isMaxAmount,
+        repayAll: isFullClose,
         stakingInfo: effectiveToken
           ? {
               label: EEarnLabels.Repay,
@@ -850,7 +867,7 @@ function ProtocolLendingActionBorrowContent({
       provider,
       marketAddress,
       reserveAddress,
-      withdrawAll: isMaxAmount,
+      withdrawAll: isFullClose,
       stakingInfo: effectiveToken
         ? {
             label: EEarnLabels.Withdraw,
@@ -871,7 +888,7 @@ function ProtocolLendingActionBorrowContent({
     effectiveToken,
     handleBorrowRepay,
     handleBorrowWithdraw,
-    isMaxAmount,
+    isFullClose,
     networkId,
     onSuccess,
     protocolInfo?.providerDetail.logoURI,
