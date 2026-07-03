@@ -18,6 +18,21 @@ Each step has a different state owner. Most regressions happen when a later step
 - Pending/history owns staking tags, labels, filters, refresh scope, and completion behavior.
 - Discovery hosts native Earn. Desktop/web use the Earn tab route.
 
+## Entry Ownership Matrix
+
+Use this before deciding whether a new requirement is Earn, Borrow, DeFi
+Portfolio, Discovery, or Swap-owned.
+
+| Entry | Source owner | DeFi owner after entry | Common validation |
+| --- | --- | --- | --- |
+| Desktop/web Earn tab | `Tab/Earn` route stack | Earn home/list/detail providers | tab restore, route params, active tab and refresh owner |
+| Native Earn | Discovery tab host plus `safePushToEarnRoute` | Earn sub-mode inside Discovery, not the desktop Earn stack | fresh native open, no stack accumulation, EarnHome special case |
+| Home Earn card/list | `EarnListView` and Home host | `safePushToEarnRoute` target route and Earn data owner | Home -> Earn, active/inactive fetch gating |
+| Share/deep link | Earn navigation helpers | detail/list route params: provider, network, symbol, vault | app restart/deep-link round trip |
+| DeFi Portfolio row/action | Home/Portfolio or AssetDetails modal | portfolio action button/dialog, supported actions, build transaction | account/indexed-account survives modal route |
+| Borrow embedded from Earn | Earn home tab plus Borrow providers | Borrow market/reserve/detail/operation owner | health factor, reserve identity, borrow layout by platform |
+| Swap-assisted funding | DeFi source route | DeFi owns source/risk/prefill; Swap owns quote/review/build/send | return refresh target plus Swap handoff proof |
+
 ## Reuse Earn/Borrow Or Create New Surface
 
 Choose the smallest surface that preserves operation semantics:

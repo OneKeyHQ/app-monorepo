@@ -42,8 +42,8 @@ export function createWebConfig({
                 enabled: 'auto',
               }),
               // (C2) PWA service worker — rspack-native workbox InjectManifest
-              //   port. apps/web/index.js registers /service-worker.js; without
-              //   this the file 404s and the SW never registers.
+              //   port. apps/web/index.js registers it from the PUBLIC_URL
+              //   path used by CI for versioned test/prod bundle deployment.
               //   Precache NOTHING (`exclude: [/./]` matches every manifest URL
               //   -> empty precache). This is a large SPA (~800+ chunks) and
               //   InjectManifest's default precaches every emitted asset, making

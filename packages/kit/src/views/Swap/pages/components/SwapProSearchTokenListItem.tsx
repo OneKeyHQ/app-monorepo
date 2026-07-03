@@ -6,7 +6,7 @@ import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 
 import { CommunityRecognizedBadge } from '../../../Market/components/CommunityRecognizedBadge';
-import { MarketStarV2 } from '../../../Market/components/MarketStarV2';
+import { MarketStarV2Deferred } from '../../../Market/components/MarketStarV2Deferred';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
 import {
@@ -71,7 +71,7 @@ const SwapProSearchTokenListItem = ({
           />
           <MarketTokenLiquidity liquidity={liquidity} volume24h={volume24h} />
         </YStack>
-        <MarketStarV2
+        <MarketStarV2Deferred
           chainId={network}
           contractAddress={address}
           ml="$3"

@@ -1,12 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import {
-  Button,
-  Page,
-  SortableSectionList,
-  Stack,
-  SwipeableCell,
-} from '@onekeyhq/components';
+import { Button, Page, Stack, SwipeableCell } from '@onekeyhq/components';
+import { SortableSectionList } from '@onekeyhq/components/src/layouts/SortableSectionList';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 import { mapIndexToData } from './SortableListView';

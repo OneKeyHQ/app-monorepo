@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';

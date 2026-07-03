@@ -5,10 +5,8 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
-import {
-  useAccountSelectorActions,
-  useAccountSelectorSceneInfo,
-} from '../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorSceneInfo } from '../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector/actions';
 
 export function AccountSelectorStorageInit() {
   const actions = useAccountSelectorActions();

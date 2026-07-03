@@ -4,15 +4,11 @@ import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  createTemporarySupabaseClient,
-  getSupabaseClient,
-} from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 
 import { OAuthPopup } from '../OAuthPopup';
 import { ensureOneKeyOAuthState } from '../oauthUtils';
@@ -20,6 +16,33 @@ import { ensureOneKeyOAuthState } from '../oauthUtils';
 import { useSupabaseAuthContext } from './SupabaseAuthContext';
 
 import type { AuthResponse, SupabaseClient } from '@supabase/supabase-js';
+
+type ISupabaseClientUtils =
+  typeof import('@onekeyhq/shared/src/utils/supabaseClientUtils');
+
+let supabaseClientUtilsPromise: Promise<ISupabaseClientUtils> | undefined;
+
+const loadSupabaseClientUtils = () => {
+  if (!supabaseClientUtilsPromise) {
+    const promise =
+      import('@onekeyhq/shared/src/utils/supabaseClientUtils').catch(
+        (error: unknown) => {
+          if (supabaseClientUtilsPromise === promise) {
+            supabaseClientUtilsPromise = undefined;
+          }
+          throw error;
+        },
+      );
+    supabaseClientUtilsPromise = promise;
+  }
+  return supabaseClientUtilsPromise;
+};
+
+const getSupabaseClient = async () =>
+  (await loadSupabaseClientUtils()).getSupabaseClient();
+
+const createTemporarySupabaseClient = async () =>
+  (await loadSupabaseClientUtils()).createTemporarySupabaseClient();
 
 export type IOAuthSignInResult = {
   success: boolean;
@@ -57,7 +80,7 @@ export function useSupabaseAuth() {
       options?: IOAuthSignInOptions,
     ): Promise<IOAuthSignInResult> => {
       const { persistSession } = options ?? {};
-      const clientTemp: SupabaseClient = createTemporarySupabaseClient();
+      const clientTemp: SupabaseClient = await createTemporarySupabaseClient();
 
       const handleOAuthSessionPersistence = async ({
         accessToken,
@@ -68,7 +91,9 @@ export function useSupabaseAuth() {
       }): Promise<void> => {
         if (persistSession) {
           // Persist session to Supabase client storage
-          await getSupabaseClient().client.auth.setSession({
+          await (
+            await getSupabaseClient()
+          ).client.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
@@ -177,7 +202,9 @@ export function useSupabaseAuth() {
 
   const signInWithOtp = useCallback(
     async ({ email }: { email: string }) => {
-      const res = await getSupabaseClient().client.auth.signInWithOtp({
+      const res = await (
+        await getSupabaseClient()
+      ).client.auth.signInWithOtp({
         email,
         options: {
           // set this to false if you do not want the user to be automatically signed up
@@ -238,7 +265,9 @@ export function useSupabaseAuth() {
         }
 
         if (phoneOtpData?.phone && phoneOtpData?.otp) {
-          res = await getSupabaseClient().client.auth.verifyOtp({
+          res = await (
+            await getSupabaseClient()
+          ).client.auth.verifyOtp({
             phone: phoneOtpData.phone,
             token: phoneOtpData.otp,
             type: 'sms',
@@ -248,7 +277,9 @@ export function useSupabaseAuth() {
 
       if (!res) {
         // Default email OTP verification
-        res = await getSupabaseClient().client.auth.verifyOtp({
+        res = await (
+          await getSupabaseClient()
+        ).client.auth.verifyOtp({
           email,
           token: otp,
           type: 'email',
@@ -267,7 +298,9 @@ export function useSupabaseAuth() {
   // ============ Session Management Methods ============
 
   const signOut = useCallback(async () => {
-    const res = await getSupabaseClient().client.auth.signOut({
+    const res = await (
+      await getSupabaseClient()
+    ).client.auth.signOut({
       scope: 'local',
     });
     console.log('useSupabaseAuth_signOut', res);
@@ -278,12 +311,12 @@ export function useSupabaseAuth() {
   }, []);
 
   const getAccessToken = useCallback(async () => {
-    const res = await getSupabaseClient().client.auth.getSession();
+    const res = await (await getSupabaseClient()).client.auth.getSession();
     return res.data.session?.access_token;
   }, []);
 
   const getSession = useCallback(async () => {
-    const result = await getSupabaseClient().client.auth.getSession();
+    const result = await (await getSupabaseClient()).client.auth.getSession();
 
     if (result.error) {
       throw new OneKeyLocalError(result.error.message);
@@ -314,7 +347,7 @@ export function useSupabaseAuth() {
   }, []);
 
   const getUser = useCallback(async () => {
-    const result = await getSupabaseClient().client.auth.getUser();
+    const result = await (await getSupabaseClient()).client.auth.getUser();
 
     if (result.error) {
       // User not logged in is not an error
@@ -341,7 +374,9 @@ export function useSupabaseAuth() {
   }, []);
 
   const refreshSession = useCallback(async () => {
-    const result = await getSupabaseClient().client.auth.refreshSession();
+    const result = await (
+      await getSupabaseClient()
+    ).client.auth.refreshSession();
 
     if (result.error) {
       throw new OneKeyLocalError(result.error.message);

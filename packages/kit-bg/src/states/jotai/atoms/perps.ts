@@ -914,7 +914,10 @@ export interface IPerpsDepositOrderAtom {
   status: ESwapTxHistoryStatus;
   accountId?: string | null;
   indexedAccountId?: string | null;
+  perpsAccountAddress?: string;
+  perpsDeriveType?: IAccountDeriveTypes;
   time?: number;
+  keepForHistoryConfirmation?: boolean;
 }
 
 export const { target: perpsDepositOrderAtom, use: usePerpsDepositOrderAtom } =

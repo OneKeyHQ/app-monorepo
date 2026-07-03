@@ -6,10 +6,10 @@ import {
   Image,
   SizableText,
   Stack,
-  Tooltip,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
@@ -73,7 +73,7 @@ const SubtitleBadge = memo(
     }
 
     return (
-      <Tooltip
+      <LazyTooltip
         renderTrigger={
           <Stack minWidth={0} flexShrink={1}>
             {badgeElement}
@@ -140,7 +140,7 @@ const SubtitleText = memo(
     }
 
     return (
-      <Tooltip
+      <LazyTooltip
         placement="top"
         renderContent={subtitle}
         renderTrigger={textElement}
@@ -187,7 +187,7 @@ const StockIsOpenBadge = memo(({ stock }: { stock: IMarketStockInfo }) => {
   }
 
   return (
-    <Tooltip
+    <LazyTooltip
       hovering
       placement="bottom"
       renderContent={description}
@@ -214,7 +214,7 @@ const StockSourceLogo = memo(
 
     if (stock.title && !platformEnv.isNative) {
       return (
-        <Tooltip
+        <LazyTooltip
           hovering
           placement="top"
           renderContent={stock.title}

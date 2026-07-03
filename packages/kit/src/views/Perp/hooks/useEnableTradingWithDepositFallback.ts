@@ -1,11 +1,15 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   type IPerpsActiveAccountStatusAtom,
   usePerpsActiveAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { showHyperliquidTermsDialog } from '../components/HyperliquidTerms';
 import { getEnableTradingDialogConfirmDecision } from '../utils/enableTradingDialogConfirm';
@@ -43,6 +47,7 @@ export function useRequestEnableTrading() {
 }
 
 export function useHandleEnableTradingPostStatus() {
+  const intl = useIntl();
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
 
@@ -59,6 +64,11 @@ export function useHandleEnableTradingPostStatus() {
 
       const decision = getEnableTradingDialogConfirmDecision(status);
       if (decision === 'deposit' && perpsAccount.accountAddress && accountId) {
+        Toast.message({
+          title: intl.formatMessage({
+            id: ETranslations.perp_trade_first_deposit_ready__desc,
+          }),
+        });
         options?.beforeDeposit?.();
         await showDepositWithdrawModal('deposit');
         return { shouldContinue: false, status };
@@ -67,7 +77,7 @@ export function useHandleEnableTradingPostStatus() {
       const shouldContinue = decision === 'continue';
       return { shouldContinue, status };
     },
-    [perpsAccount, showDepositWithdrawModal],
+    [intl, perpsAccount, showDepositWithdrawModal],
   );
 }
 

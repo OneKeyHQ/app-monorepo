@@ -5,9 +5,9 @@ import { loggerRuntime } from '../runtime/loggerRuntime';
 
 import { createDefaultLoggerConfig } from './loggerConfigShared';
 import { LoggerConfigStore } from './loggerConfigStore';
-import { LoggerDebugCatalog } from './loggerDebugCatalog';
 
 import type { ILoggerConfig } from './loggerConfigShared';
+import type { LoggerDebugCatalog } from './loggerDebugCatalog';
 import type { LoggerRuntime } from '../runtime/loggerRuntime';
 
 type ILoggerConfigEnv = Pick<
@@ -38,6 +38,8 @@ type ILoggerConfigManagerParams = {
 export class LoggerConfigManager {
   private _config: ILoggerConfig | undefined;
 
+  private _catalog: ILoggerDebugCatalogLike | undefined;
+
   private _hasExpandedConfig = false;
 
   // Cache stored config from init's loadRuntimeConfig to avoid re-reading
@@ -48,20 +50,29 @@ export class LoggerConfigManager {
 
   private readonly _store: ILoggerConfigStoreLike;
 
-  private readonly _catalog: ILoggerDebugCatalogLike;
-
   private readonly _runtime: ILoggerRuntimeLike;
 
   constructor({
     env = platformEnv,
     store = new LoggerConfigStore(),
-    catalog = new LoggerDebugCatalog(),
+    catalog,
     runtime = loggerRuntime,
   }: ILoggerConfigManagerParams = {}) {
     this._env = env;
     this._store = store;
     this._catalog = catalog;
     this._runtime = runtime;
+  }
+
+  private async _getCatalog() {
+    if (!this._catalog) {
+      // LoggerDebugCatalog walks every logger scope and pulls the full logger
+      // registry. Keep it out of production startup; it is only needed by the
+      // debug logger settings UI and saved dev logger config expansion.
+      const { LoggerDebugCatalog } = await import('./loggerDebugCatalog');
+      this._catalog = new LoggerDebugCatalog();
+    }
+    return this._catalog;
   }
 
   get isReady(): boolean {
@@ -117,7 +128,8 @@ export class LoggerConfigManager {
     const storedConfig =
       this._cachedStoredConfig ?? (await this._store.readStoredConfig());
     this._cachedStoredConfig = undefined;
-    this._config = this._catalog.expandConfig(storedConfig);
+    const catalog = await this._getCatalog();
+    this._config = catalog.expandConfig(storedConfig);
     this._hasExpandedConfig = true;
     return this._config;
   }
@@ -127,8 +139,9 @@ export class LoggerConfigManager {
     void this._store.saveConfig(config);
   }
 
-  buildLoggerConfig(): ILoggerConfig {
-    return this._catalog.buildConfig();
+  async buildLoggerConfig(): Promise<ILoggerConfig> {
+    const catalog = await this._getCatalog();
+    return catalog.buildConfig();
   }
 
   updateRuntimeConfig(config: ILoggerConfig): void {

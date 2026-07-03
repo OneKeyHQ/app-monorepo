@@ -68,7 +68,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
 import { ensureLedgerCoreAppsReady } from '../../../provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
-import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
 import {
   flushPendingExistingWalletSwitchToast,
