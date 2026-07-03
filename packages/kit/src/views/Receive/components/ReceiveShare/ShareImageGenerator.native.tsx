@@ -46,16 +46,19 @@ export const ShareImageGenerator = forwardRef<
   const contentKey = [
     data.title,
     data.subtitle,
+    data.networkName,
     data.address,
     data.tokenLogoURI,
+    data.networkLogoURI,
   ].join('\u0000');
 
+  const imagesKey = `${data.tokenLogoURI ?? ''}|${data.networkLogoURI ?? ''}`;
   if (
     imagesReadyDeferredRef.current === null ||
-    prevImagesKeyRef.current !== (data.tokenLogoURI ?? '')
+    prevImagesKeyRef.current !== imagesKey
   ) {
     imagesReadyDeferredRef.current = createImagesReadyDeferred();
-    prevImagesKeyRef.current = data.tokenLogoURI ?? '';
+    prevImagesKeyRef.current = imagesKey;
   }
 
   if (prevContentKeyRef.current !== contentKey) {

@@ -22,6 +22,8 @@ export const SHARE_CARD_CONFIG = {
     weight: 400,
     lineHeight: 16,
     color: 'rgba(0,0,0,0.61)',
+    emphasizedWeight: 500,
+    emphasizedColor: 'rgba(0,0,0,0.88)',
     gapAboveTitle: 6,
   },
   wrapper: {
@@ -41,6 +43,8 @@ export const SHARE_CARD_CONFIG = {
     cellPaddingY: 25,
     logoPlateSize: 48,
     logoSize: 40,
+    networkBadgeIconSize: 14,
+    networkBadgePadding: 2,
   },
   addressCell: {
     paddingX: 17,

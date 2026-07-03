@@ -569,8 +569,10 @@ function ReceiveToken() {
         { id: ETranslations.receive_send_asset_warning_message },
         { network: network.name },
       ),
+      networkName: network.name,
       address: displayAddress,
       tokenLogoURI: token?.logoURI ?? nativeToken?.logoURI,
+      networkLogoURI: network.logoURI,
       networkId,
     };
   }, [

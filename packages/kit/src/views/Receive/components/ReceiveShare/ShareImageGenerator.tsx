@@ -136,12 +136,88 @@ function wrapText(
   return lines;
 }
 
+type IStyledToken = { text: string; font: string; color: string };
+
+function toWordTokens(
+  text: string,
+  font: string,
+  color: string,
+): IStyledToken[] {
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => ({ text: word, font, color }));
+}
+
+// greedy word wrap over tokens that may carry different fonts/colors
+function wrapStyledTokens(
+  ctx: CanvasRenderingContext2D,
+  tokens: IStyledToken[],
+  maxWidth: number,
+): IStyledToken[][] {
+  const lines: IStyledToken[][] = [];
+  let currentLine: IStyledToken[] = [];
+  let currentWidth = 0;
+  for (const token of tokens) {
+    ctx.font = token.font;
+    const wordWidth = ctx.measureText(token.text).width;
+    const spaceWidth = currentLine.length ? ctx.measureText(' ').width : 0;
+    if (
+      currentLine.length &&
+      currentWidth + spaceWidth + wordWidth > maxWidth
+    ) {
+      lines.push(currentLine);
+      currentLine = [token];
+      currentWidth = wordWidth;
+    } else {
+      currentLine.push(token);
+      currentWidth += spaceWidth + wordWidth;
+    }
+  }
+  if (currentLine.length) {
+    lines.push(currentLine);
+  }
+  return lines;
+}
+
+function drawStyledLineCentered(
+  ctx: CanvasRenderingContext2D,
+  line: IStyledToken[],
+  centerX: number,
+  y: number,
+) {
+  let totalWidth = 0;
+  line.forEach((token, index) => {
+    ctx.font = token.font;
+    if (index) totalWidth += ctx.measureText(' ').width;
+    totalWidth += ctx.measureText(token.text).width;
+  });
+
+  ctx.textAlign = 'left';
+  let x = centerX - totalWidth / 2;
+  line.forEach((token, index) => {
+    ctx.font = token.font;
+    if (index) x += ctx.measureText(' ').width;
+    ctx.fillStyle = token.color;
+    ctx.fillText(token.text, x, y);
+    x += ctx.measureText(token.text).width;
+  });
+}
+
 export const ShareImageGenerator = forwardRef<
   IReceiveShareImageGeneratorRef,
   IShareImageGeneratorProps
 >(({ data }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { title, subtitle, address, tokenLogoURI } = data;
+  const {
+    title,
+    subtitle,
+    networkName,
+    address,
+    tokenLogoURI,
+    networkLogoURI,
+  } = data;
 
   const generate = useCallback(async (): Promise<string> => {
     const canvas = canvasRef.current;
@@ -166,8 +242,9 @@ export const ShareImageGenerator = forwardRef<
     } = SHARE_CARD_CONFIG;
 
     try {
-      const [tokenLogoImg, onekeyLogoImg] = await Promise.all([
+      const [tokenLogoImg, networkLogoImg, onekeyLogoImg] = await Promise.all([
         tokenLogoURI ? loadImage(tokenLogoURI) : Promise.resolve(null),
+        networkLogoURI ? loadImage(networkLogoURI) : Promise.resolve(null),
         loadImage(ONEKEY_LOGO_URL),
       ]);
 
@@ -182,8 +259,40 @@ export const ShareImageGenerator = forwardRef<
       const titleLines = wrapText(ctx, title, content.width);
       const titleHeight = titleLines.length * titleStyle.lineHeight;
 
-      ctx.font = toCanvasFont(subtitleStyle.size, subtitleStyle.weight);
-      const subtitleLines = wrapText(ctx, subtitle, content.width);
+      const subtitleFont = toCanvasFont(
+        subtitleStyle.size,
+        subtitleStyle.weight,
+      );
+      const subtitleEmphasizedFont = toCanvasFont(
+        subtitleStyle.size,
+        subtitleStyle.emphasizedWeight,
+      );
+      const networkNameIndex = networkName ? subtitle.indexOf(networkName) : -1;
+      const subtitleTokens =
+        networkName && networkNameIndex >= 0
+          ? [
+              ...toWordTokens(
+                subtitle.slice(0, networkNameIndex),
+                subtitleFont,
+                subtitleStyle.color,
+              ),
+              ...toWordTokens(
+                networkName,
+                subtitleEmphasizedFont,
+                subtitleStyle.emphasizedColor,
+              ),
+              ...toWordTokens(
+                subtitle.slice(networkNameIndex + networkName.length),
+                subtitleFont,
+                subtitleStyle.color,
+              ),
+            ]
+          : toWordTokens(subtitle, subtitleFont, subtitleStyle.color);
+      const subtitleLines = wrapStyledTokens(
+        ctx,
+        subtitleTokens,
+        content.width,
+      );
       const subtitleHeight = subtitleLines.length * subtitleStyle.lineHeight;
 
       ctx.font = toCanvasFont(
@@ -234,12 +343,11 @@ export const ShareImageGenerator = forwardRef<
         );
       });
 
-      ctx.fillStyle = subtitleStyle.color;
-      ctx.font = toCanvasFont(subtitleStyle.size, subtitleStyle.weight);
       const subtitleY =
         content.paddingTop + titleHeight + subtitleStyle.gapAboveTitle;
       subtitleLines.forEach((line, index) => {
-        ctx.fillText(
+        drawStyledLineCentered(
+          ctx,
           line,
           width / 2,
           subtitleY + index * subtitleStyle.lineHeight,
@@ -314,6 +422,39 @@ export const ShareImageGenerator = forwardRef<
             qr.logoSize,
           );
           ctx.restore();
+
+          // network corner badge at the bottom-right of the token logo
+          if (networkLogoImg) {
+            const badgeTotal =
+              qr.networkBadgeIconSize + qr.networkBadgePadding * 2;
+            const badgeCenterX =
+              centerX + qr.logoPlateSize / 2 - badgeTotal / 2;
+            const badgeCenterY =
+              centerY + qr.logoPlateSize / 2 - badgeTotal / 2;
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(badgeCenterX, badgeCenterY, badgeTotal / 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(
+              badgeCenterX,
+              badgeCenterY,
+              qr.networkBadgeIconSize / 2,
+              0,
+              Math.PI * 2,
+            );
+            ctx.clip();
+            ctx.drawImage(
+              networkLogoImg,
+              badgeCenterX - qr.networkBadgeIconSize / 2,
+              badgeCenterY - qr.networkBadgeIconSize / 2,
+              qr.networkBadgeIconSize,
+              qr.networkBadgeIconSize,
+            );
+            ctx.restore();
+          }
         }
       } catch (error) {
         if (platformEnv.isDev) {
@@ -405,7 +546,7 @@ export const ShareImageGenerator = forwardRef<
       }
       return '';
     }
-  }, [title, subtitle, address, tokenLogoURI]);
+  }, [title, subtitle, networkName, address, tokenLogoURI, networkLogoURI]);
 
   useImperativeHandle(ref, () => ({ generate }));
 

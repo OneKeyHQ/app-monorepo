@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Image } from 'react-native';
 
-import { QRCode, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  QRCode,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 
 import {
   ONEKEY_LOGO_URL,
@@ -21,7 +27,14 @@ export function ShareContentRenderer({
   data,
   onImagesReady,
 }: IShareContentRendererProps) {
-  const { title, subtitle, address, tokenLogoURI } = data;
+  const {
+    title,
+    subtitle,
+    networkName,
+    address,
+    tokenLogoURI,
+    networkLogoURI,
+  } = data;
   const {
     width,
     minHeight,
@@ -39,7 +52,19 @@ export function ShareContentRenderer({
 
   const addressParts = useMemo(() => splitGroupedAddress(address), [address]);
 
-  const imageCount = useMemo(() => (tokenLogoURI ? 2 : 1), [tokenLogoURI]);
+  const subtitleParts = useMemo(() => {
+    const idx = networkName ? subtitle.indexOf(networkName) : -1;
+    if (idx < 0 || !networkName) return null;
+    return {
+      before: subtitle.slice(0, idx),
+      after: subtitle.slice(idx + networkName.length),
+    };
+  }, [subtitle, networkName]);
+
+  const imageCount = useMemo(
+    () => 1 + (tokenLogoURI ? 1 : 0) + (tokenLogoURI && networkLogoURI ? 1 : 0),
+    [tokenLogoURI, networkLogoURI],
+  );
   const loadedCountRef = useRef(0);
   const handleImageLoaded = useCallback(() => {
     loadedCountRef.current += 1;
@@ -82,7 +107,22 @@ export function ShareContentRenderer({
           fontSize={subtitleStyle.size}
           lineHeight={subtitleStyle.lineHeight}
         >
-          {subtitle}
+          {subtitleParts && networkName ? (
+            <>
+              {subtitleParts.before}
+              <SizableText
+                color={subtitleStyle.emphasizedColor}
+                fontSize={subtitleStyle.size}
+                lineHeight={subtitleStyle.lineHeight}
+                fontWeight="500"
+              >
+                {networkName}
+              </SizableText>
+              {subtitleParts.after}
+            </>
+          ) : (
+            subtitle
+          )}
         </SizableText>
         <YStack
           mt={wrapper.gapAboveSubtitle}
@@ -127,6 +167,28 @@ export function ShareContentRenderer({
                     onLoad={() => setIsTokenLogoLoaded(true)}
                     onError={handleImageLoaded}
                   />
+                  {networkLogoURI ? (
+                    <Stack
+                      position="absolute"
+                      right={0}
+                      bottom={0}
+                      p={qr.networkBadgePadding}
+                      bg="white"
+                      borderRadius="$full"
+                      opacity={isTokenLogoLoaded ? 1 : 0}
+                    >
+                      <Image
+                        source={{ uri: networkLogoURI }}
+                        style={{
+                          width: qr.networkBadgeIconSize,
+                          height: qr.networkBadgeIconSize,
+                          borderRadius: qr.networkBadgeIconSize / 2,
+                        }}
+                        onLoad={handleImageLoaded}
+                        onError={handleImageLoaded}
+                      />
+                    </Stack>
+                  ) : null}
                 </YStack>
               ) : null}
             </YStack>
