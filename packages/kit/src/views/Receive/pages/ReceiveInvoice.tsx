@@ -140,7 +140,7 @@ function ReceiveInvoice() {
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.lightning_invoice })}
       />
-      <Page.Body px="$5" py="$5">
+      <Page.Body px="$5" py="$5" $md={{ py: '$0' }}>
         {renderReceiveInvoice()}
       </Page.Body>
     </Page>

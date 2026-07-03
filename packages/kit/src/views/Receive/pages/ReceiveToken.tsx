@@ -905,8 +905,7 @@ function ReceiveToken() {
   ]);
 
   const isPressable = useMemo(() => {
-    // whitespace-only href means the banner is informational: no affordance
-    return !!(banner?.href?.trim() || banner?.mode);
+    return !!(banner?.href || banner?.mode);
   }, [banner?.href, banner?.mode]);
   return (
     <Page
@@ -919,7 +918,7 @@ function ReceiveToken() {
         headerRight={renderHeaderRight}
         headerRightNoGlass
       />
-      <Page.Body px="$5" py="$5">
+      <Page.Body px="$5" py="$5" $md={{ py: '$0' }}>
         <YStack width="100%" maxWidth={384} alignSelf="center" gap="$5">
           <YStack gap="$2" alignItems="center">
             <SizableText
@@ -968,7 +967,7 @@ function ReceiveToken() {
                 networkLogoColor ? `${networkLogoColor}2A` : '$borderSubdued'
               }
               bg={networkLogoColor ? `${networkLogoColor}0D` : '$bgSubdued'}
-              borderRadius="$2"
+              borderRadius={14}
               borderCurve="continuous"
               userSelect="none"
               {...(isPressable
