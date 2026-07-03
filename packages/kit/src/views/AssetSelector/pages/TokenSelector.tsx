@@ -418,11 +418,13 @@ function TokenSelector() {
 
         const { tokenHasBalance, tokenHasBalanceCount } =
           checkIsOnlyOneTokenHasBalance({
-            // The selector self-fetches its per-row fiat map (`r.tokens.map` ∪
-            // `r.smallBalanceTokens.map`), which is keyed by the per-network
-            // sub-token `$key` — exactly what `checkIsOnlyOneTokenHasBalance`
-            // iterates (red-team C-F2: NOT the summed aggregate map). Replaces
-            // the deleted home `allTokenListMapAtom` read.
+            // `selectorTokenListMap` carries the per-network sub-token fiat
+            // (`r.tokens.map` ∪ `r.smallBalanceTokens.map`, keyed by sub-token
+            // `$key`) PLUS aggregate `$key` fiat composed in for the zero-balance
+            // filter (live path) / the composed home map (floor path).
+            // `checkIsOnlyOneTokenHasBalance` only looks up the sub-token `$key`s
+            // in `aggregateTokenList`, so the extra aggregate entries are inert
+            // here. Replaces the deleted home `allTokenListMapAtom` read.
             tokenMap: selectorTokenListMap,
             aggregateTokenList,
             allAggregateTokenList,
@@ -1067,7 +1069,16 @@ function TokenSelector() {
             networkId,
           }),
         ]);
-        if (selectorLiveLandedRef.current) {
+        // Bail if the live data already landed OR a newer owner superseded this
+        // floor pull mid-flight (same staleness idiom the live self-fetch uses):
+        // either way this floor snapshot is stale and must not clobber state.
+        if (
+          selectorLiveLandedRef.current ||
+          latestSelectorTokenListRequestContextRef.current.accountId !==
+            accountId ||
+          latestSelectorTokenListRequestContextRef.current.networkId !==
+            networkId
+        ) {
           return;
         }
         const riskyTokenKeys = new Set(

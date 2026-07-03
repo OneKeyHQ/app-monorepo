@@ -822,30 +822,33 @@ export function flattenAggregateTokensMap(aggregateTokensMap: {
 // would list every derive path as its own row. Groups keep first-seen order;
 // single-response groups whose rows carry `mergeAssets` also pass through the
 // merge so their $keys match the home/group shape.
-export function mergeDeriveSelectorResponsesByNetwork(
+function mergeDeriveSelectorResponsesByNetwork(
   responses: IFetchAccountTokensResp[],
 ): IFetchAccountTokensResp[] {
+  // Map iteration is insertion-ordered, so grouping by networkId already keeps
+  // first-seen order — no parallel key array is needed.
   const groups = new Map<string, IFetchAccountTokensResp[]>();
-  const orderedKeys: string[] = [];
   responses.forEach((r, index) => {
     // Responses without a networkId can never merge — key them uniquely.
     const key = r.networkId ?? `__no-network-${index}`;
-    if (!groups.has(key)) {
-      groups.set(key, []);
-      orderedKeys.push(key);
+    const group = groups.get(key);
+    if (group) {
+      group.push(r);
+    } else {
+      groups.set(key, [r]);
     }
-    groups.get(key)?.push(r);
   });
 
   const result: IFetchAccountTokensResp[] = [];
-  for (const key of orderedKeys) {
-    const group = groups.get(key) ?? [];
+  for (const group of groups.values()) {
     const networkId = group[0]?.networkId;
-    const hasMergeAssets = group.some(
-      (r) =>
-        r.tokens.data.some((t) => t.mergeAssets) ||
-        r.smallBalanceTokens.data.some((t) => t.mergeAssets),
-    );
+    const hasMergeAssets =
+      !!networkId &&
+      group.some(
+        (r) =>
+          r.tokens.data.some((t) => t.mergeAssets) ||
+          r.smallBalanceTokens.data.some((t) => t.mergeAssets),
+      );
     if (!networkId || (group.length <= 1 && !hasMergeAssets)) {
       result.push(...group);
     } else {
@@ -910,6 +913,17 @@ function mergeDeriveSelectorResponseGroup({
   };
 }
 
+// Aggregate-group map keyed by aggregate `$key`: the common (grouped) row plus
+// its per-network member rows. Shared by the selector merge's return shape and
+// its internal accumulator.
+type ISelectorAggregateTokenListMap = Record<
+  string,
+  {
+    commonToken: IAccountToken;
+    tokens: IAccountToken[];
+  }
+>;
+
 // Merges the token-selector self-fetch responses (one per network in
 // all-networks mode, exactly one in single-network mode) into the shape the
 // selector threads into TokenListView. Each response's `aggregateTokenMap` is
@@ -935,13 +949,7 @@ export function buildSelectorTokenListFromResponses({
   smallBalanceTokens: IAccountToken[];
   tokenListMap: Record<string, ITokenFiat>;
   aggregateTokenFiatMap: Record<string, ITokenFiat>;
-  aggregateTokenListMap: Record<
-    string,
-    {
-      commonToken: IAccountToken;
-      tokens: IAccountToken[];
-    }
-  >;
+  aggregateTokenListMap: ISelectorAggregateTokenListMap;
 } {
   // Multi-response (= all-networks fan-out) pre-merge: collapse same-network
   // derive-account slices to the home group shape BEFORE the aggregate fold /
@@ -961,34 +969,19 @@ export function buildSelectorTokenListFromResponses({
   const seenAggregateTokenKeys = new Set<string>();
   // Accumulates ACROSS responses so each aggregate keeps ONE common row while
   // members from every network append to its sub-token list (home semantics).
-  let aggregateTokenListMap: Record<
-    string,
-    {
-      commonToken: IAccountToken;
-      tokens: IAccountToken[];
-    }
-  > = {};
+  let aggregateTokenListMap: ISelectorAggregateTokenListMap = {};
+  // FLAT per-network aggregate fiat contributed by the CURRENT response's folded
+  // members; reset at the top of each response iteration.
+  let responseAggregateTokenMap: Record<string, ITokenFiat> = {};
 
-  // Defined OUTSIDE the response loop (no-loop-func): per-response mutable
-  // pieces travel through `state` explicitly.
-  const appendTokens = (params: {
-    source: IAccountToken[];
-    target: IAccountToken[];
-    responseNetworkId: string | undefined;
-    responseTokenMap: Record<string, ITokenFiat>;
-    state: {
-      aggregateTokenListMap: Record<
-        string,
-        {
-          commonToken: IAccountToken;
-          tokens: IAccountToken[];
-        }
-      >;
-      responseAggregateTokenMap: Record<string, ITokenFiat>;
-    };
-  }) => {
-    const { source, target, responseNetworkId, responseTokenMap, state } =
-      params;
+  // Declared once outside the response loop (not per-iteration, so it never
+  // trips no-loop-func); it reads/writes the two accumulators above via closure.
+  const appendTokens = (
+    source: IAccountToken[],
+    target: IAccountToken[],
+    responseNetworkId: string | undefined,
+    responseTokenMap: Record<string, ITokenFiat>,
+  ) => {
     for (const token of source) {
       if (token.isAggregateToken) {
         if (!seenAggregateTokenKeys.has(token.$key)) {
@@ -996,19 +989,30 @@ export function buildSelectorTokenListFromResponses({
           target.push(token);
         }
       } else if (aggregateTokenConfigMapRawData && responseNetworkId) {
-        const data = buildAggregateTokenListData({
-          networkId: responseNetworkId,
-          accountId: token.accountId ?? '',
-          token,
-          tokenMap: responseTokenMap,
-          aggregateTokenListMap: state.aggregateTokenListMap,
-          aggregateTokenMap: state.responseAggregateTokenMap,
-          aggregateTokenConfigMapRawData,
-          networkName: token.networkName ?? '',
-        });
-        if (data.isAggregateToken) {
-          state.aggregateTokenListMap = data.aggregateTokenListMap;
-          state.responseAggregateTokenMap = data.aggregateTokenMap;
+        // Cheap membership check FIRST: `buildAggregateTokenListData` shallow-
+        // copies both accumulator maps before it tests membership, so calling
+        // it for every raw row (the majority in all-networks mode) would be
+        // O(rows × aggregates). Only fold when the config carries this token.
+        const aggregateConfig =
+          aggregateTokenConfigMapRawData[
+            buildAggregateTokenMapKeyForAggregateConfig({
+              networkId: responseNetworkId,
+              tokenAddress: token.address,
+            })
+          ];
+        if (aggregateConfig) {
+          const data = buildAggregateTokenListData({
+            networkId: responseNetworkId,
+            accountId: token.accountId ?? '',
+            token,
+            tokenMap: responseTokenMap,
+            aggregateTokenListMap,
+            aggregateTokenMap: responseAggregateTokenMap,
+            aggregateTokenConfigMapRawData,
+            networkName: token.networkName ?? '',
+          });
+          aggregateTokenListMap = data.aggregateTokenListMap;
+          responseAggregateTokenMap = data.aggregateTokenMap;
         } else {
           target.push(token);
         }
@@ -1021,43 +1025,30 @@ export function buildSelectorTokenListFromResponses({
   for (const r of normalizedResponses) {
     const responseNetworkId = r.networkId;
     const responseTokenMap = { ...r.tokens.map, ...r.smallBalanceTokens.map };
-    const state = {
-      aggregateTokenListMap,
-      // FLAT per-network aggregate fiat contributed by THIS response's folded
-      // members.
-      responseAggregateTokenMap: {} as Record<string, ITokenFiat>,
-    };
+    responseAggregateTokenMap = {};
 
-    appendTokens({
-      source: r.tokens.data,
-      target: tokens,
+    appendTokens(r.tokens.data, tokens, responseNetworkId, responseTokenMap);
+    appendTokens(
+      r.smallBalanceTokens.data,
+      smallBalanceTokens,
       responseNetworkId,
       responseTokenMap,
-      state,
-    });
-    appendTokens({
-      source: r.smallBalanceTokens.data,
-      target: smallBalanceTokens,
-      responseNetworkId,
-      responseTokenMap,
-      state,
-    });
-    aggregateTokenListMap = state.aggregateTokenListMap;
+    );
     Object.assign(tokenListMap, r.tokens.map, r.smallBalanceTokens.map);
 
     if (responseNetworkId) {
-      // Client-folded member fiat first; the response's own (server) flat map
-      // wins per (aggKey, networkId) slot when both exist.
-      [state.responseAggregateTokenMap, r.aggregateTokenMap ?? {}].forEach(
-        (flat) => {
-          Object.entries(flat).forEach(([aggregateKey, fiat]) => {
-            nestedAggregateTokenMap[aggregateKey] = {
-              ...nestedAggregateTokenMap[aggregateKey],
-              [responseNetworkId]: fiat,
-            };
-          });
-        },
-      );
+      // Client-folded member fiat first, then the response's own (server) flat
+      // map — server wins per (aggKey, networkId) slot on collision. Mutate the
+      // nested slot in place (it is function-local) rather than rebuilding it.
+      const flatAggregateFiat = {
+        ...responseAggregateTokenMap,
+        ...r.aggregateTokenMap,
+      };
+      for (const [aggregateKey, fiat] of Object.entries(flatAggregateFiat)) {
+        const slot = nestedAggregateTokenMap[aggregateKey] ?? {};
+        slot[responseNetworkId] = fiat;
+        nestedAggregateTokenMap[aggregateKey] = slot;
+      }
     }
   }
 
