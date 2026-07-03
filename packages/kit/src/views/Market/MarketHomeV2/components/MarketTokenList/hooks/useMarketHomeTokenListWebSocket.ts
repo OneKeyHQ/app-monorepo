@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IWsPriceData } from '@onekeyhq/kit-bg/src/services/ServiceMarketWS/types';
 import {
   EAppEventBusNames,
@@ -62,6 +61,12 @@ type IMarketWSDataUpdatePayload = {
 
 const DEFAULT_MARKET_HOME_WS_CHART_TYPE = '1m';
 const DEFAULT_MARKET_HOME_WS_CURRENCY = 'usd';
+
+const getBackgroundApiProxy = async () => {
+  const { default: backgroundApiProxy } =
+    await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
+  return backgroundApiProxy;
+};
 
 function normalizeAddress({
   networkId,
@@ -453,6 +458,7 @@ export function useMarketHomeTokenListWebSocket({
 
   const unsubscribeSubscription = useCallback(
     async (subscription: IMarketHomeTokenSubscription) => {
+      const backgroundApiProxy = await getBackgroundApiProxy();
       await backgroundApiProxy.serviceMarketWS.unsubscribeOHLCV({
         networkId: subscription.networkId,
         tokenAddress: subscription.address,
@@ -465,6 +471,7 @@ export function useMarketHomeTokenListWebSocket({
 
   const subscribeSubscription = useCallback(
     async (subscription: IMarketHomeTokenSubscription) => {
+      const backgroundApiProxy = await getBackgroundApiProxy();
       await backgroundApiProxy.serviceMarketWS.subscribeOHLCV({
         networkId: subscription.networkId,
         tokenAddress: subscription.address,
@@ -527,6 +534,7 @@ export function useMarketHomeTokenListWebSocket({
         if (subscriptionsToSubscribe.length > 0) {
           let isConnected = false;
           try {
+            const backgroundApiProxy = await getBackgroundApiProxy();
             await backgroundApiProxy.serviceMarketWS.connect();
             isConnected = true;
           } catch (error) {
@@ -690,13 +698,23 @@ export function useMarketHomeTokenListWebSocket({
         });
       }
 
-      void backgroundApiProxy.serviceMarketWS.clearDataCount({
-        address: matchedSubscription.address,
-        type: 'ohlcv',
-        networkId: matchedSubscription.networkId,
-        chartType: matchedSubscription.chartType,
-        currency: matchedSubscription.currency,
-      });
+      void getBackgroundApiProxy()
+        .then((backgroundApiProxy) =>
+          backgroundApiProxy.serviceMarketWS.clearDataCount({
+            address: matchedSubscription.address,
+            type: 'ohlcv',
+            networkId: matchedSubscription.networkId,
+            chartType: matchedSubscription.chartType,
+            currency: matchedSubscription.currency,
+          }),
+        )
+        .catch((error: unknown) => {
+          defaultLogger.networkDoctor.log.error({
+            info: `Failed to clear market home token websocket data count: ${getErrorMessage(
+              error,
+            )}`,
+          });
+        });
     };
 
     appEventBus.on(

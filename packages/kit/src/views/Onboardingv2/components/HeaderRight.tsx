@@ -3,7 +3,7 @@ import { useIntl } from 'react-intl';
 import { Button, Select } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useLanguageSelector } from '../../Setting/hooks';
+import { useLanguageSelector } from '../../Setting/hooks/useLanguageSelector';
 
 function HeaderRightLanguageSelector() {
   const intl = useIntl();

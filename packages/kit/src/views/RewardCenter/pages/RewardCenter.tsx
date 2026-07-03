@@ -19,8 +19,8 @@ import {
   Toast,
   XStack,
   YStack,
-  useForm,
 } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   TRON_SOURCE_FLAG_MAINNET,
@@ -53,10 +53,8 @@ import {
 import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '../../../states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import { RewardCenterTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';

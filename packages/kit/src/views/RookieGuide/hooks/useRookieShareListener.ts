@@ -7,14 +7,16 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IRookieShareData } from '@onekeyhq/shared/types/rookieGuide';
 
-import { showRookieShareDialog } from '../components/RookieShare';
-
 export function useRookieShareListener(
   dialog?: ReturnType<typeof useInPageDialog>,
 ) {
   useEffect(() => {
     const handler = (payload: { data: IRookieShareData }) => {
-      showRookieShareDialog(payload.data, dialog);
+      void import('../components/RookieShare').then(
+        ({ showRookieShareDialog }) => {
+          showRookieShareDialog(payload.data, dialog);
+        },
+      );
     };
 
     appEventBus.on(EAppEventBusNames.ShowRookieShare, handler);

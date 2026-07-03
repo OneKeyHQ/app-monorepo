@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 
 import { WebPerformanceMonitor } from '../../../components/WebPerformanceMonitor';
 

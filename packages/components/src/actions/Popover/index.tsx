@@ -4,29 +4,21 @@ import type {
   ReactElement,
   ReactNode,
 } from 'react';
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Dimensions } from 'react-native';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
-import {
-  TMPopover,
-  withStaticProperties,
-} from '@onekeyhq/components/src/shared/tamagui';
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import type {
-  PopoverContentProps as PopoverContentTypeProps,
   SheetProps,
-  TMPopoverProps,
   UseMediaState,
 } from '@onekeyhq/components/src/shared/tamagui';
+import { TMPopover } from '@onekeyhq/components/src/shared/tamaguiOverlay';
+import type {
+  PopoverContentProps as PopoverContentTypeProps,
+  TMPopoverProps,
+} from '@onekeyhq/components/src/shared/tamaguiOverlay';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -51,6 +43,7 @@ import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
+import { PopoverContext, usePopoverContext } from './context';
 import { PopoverContent } from './PopoverContent';
 
 import type { IPopoverTooltip } from './type';
@@ -95,13 +88,6 @@ export interface IPopoverProps extends TMPopoverProps {
    */
   trackID?: string;
 }
-
-interface IPopoverContext {
-  open?: boolean;
-  closePopover?: () => Promise<void>;
-}
-
-const PopoverContext = createContext({} as IPopoverContext);
 
 const usePopoverValue = (
   open?: boolean,
@@ -176,14 +162,6 @@ const useContentDisplay = platformEnv.isNative
       }, [isOpen, keepChildrenMounted]);
       return display;
     };
-
-export const usePopoverContext = () => {
-  const { closePopover, open } = useContext(PopoverContext);
-  return {
-    open,
-    closePopover,
-  };
-};
 
 function ModalPortalProvider({ children }: PropsWithChildren) {
   const modalNavigatorContext = useModalNavigatorContext();
@@ -726,3 +704,4 @@ export const Popover = withStaticProperties(BasicPopover, {
 });
 
 export * from './type';
+export { usePopoverContext };

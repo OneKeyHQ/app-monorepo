@@ -11,8 +11,8 @@ import {
   Form,
   Input,
   TextAreaInput,
-  useForm,
 } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
