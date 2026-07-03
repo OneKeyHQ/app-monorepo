@@ -12,6 +12,7 @@ import {
   LazyLoadPage,
   LazyLoadRootTabPage,
 } from '../../../components/LazyLoadPage';
+import MobileDepositWithdrawModal from '../components/TradingPanel/modals/DepositWithdrawModal';
 import {
   getLoadedPerpsMobileTokenSelectorPage,
   loadPerpsMobileTokenSelectorPage,
@@ -40,10 +41,6 @@ function MobileTokenSelectorPage() {
 
 const MobileSetTpslModal = LazyLoadPage(
   () => import('../components/OrderInfoPanel/SetTpslModal'),
-);
-
-const MobileDepositWithdrawModal = LazyLoadPage(
-  () => import('../components/TradingPanel/modals/DepositWithdrawModal'),
 );
 
 const MobileDepositSelectTokenModal = LazyLoadPage(
