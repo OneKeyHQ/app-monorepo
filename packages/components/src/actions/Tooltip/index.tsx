@@ -82,6 +82,8 @@ export function Tooltip({
   hovering,
   contentProps,
   triggerAsChild,
+  disabled,
+  onPress,
   ref,
   ...props
 }: ITooltipProps) {
@@ -192,8 +194,10 @@ export function Tooltip({
       >
         <TMTooltip.Trigger
           asChild={triggerAsChild}
+          disabled={disabled}
           onHoverIn={handleHoverIn}
           onHoverOut={handleHoverOut}
+          onPress={onPress}
         >
           {renderTrigger}
         </TMTooltip.Trigger>
