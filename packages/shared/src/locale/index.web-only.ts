@@ -63,5 +63,5 @@ const LOCALES_OPTION = LOCALES_KEYS.map((key) => ({
 export { LOCALES_OPTION };
 
 export * from './type';
-export type { ETranslations } from './enum/translations';
+export * from './enum/translations';
 export * from './enum/translationsMock';

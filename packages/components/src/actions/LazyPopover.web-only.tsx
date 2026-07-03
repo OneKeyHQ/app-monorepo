@@ -36,7 +36,7 @@ function LazyPopoverFrame(props: IPopoverProps) {
   const { renderTrigger, open, onOpenChange, trackID } = props;
   const [PopoverComponent, setPopoverComponent] = useState<
     ILazyPopoverComponent | undefined
-  >(loadedPopover);
+  >(() => loadedPopover);
   const [localOpen, setLocalOpen] = useState(false);
   const isControlled = typeof open !== 'undefined';
   const actualOpen = isControlled ? open : localOpen;

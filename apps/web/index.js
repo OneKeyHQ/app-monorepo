@@ -188,7 +188,7 @@ if (
 ) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
-      .register('/service-worker.js')
+      .register('/sw/service-worker.js', { scope: '/' })
       .then((registration) => {
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;
