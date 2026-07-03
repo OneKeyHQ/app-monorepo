@@ -256,6 +256,10 @@ function buildAsyncStorageWriteRequest<T extends IAsyncStorageWriteMethod>(
 
 function installAsyncStorageWriteForwarder() {
   const asyncStorageGlobal = getAsyncStorageWriteForwarderGlobal();
+  // The matching consumer lives in @react-native-async-storage/async-storage
+  // from app-modules. That package reads these globals lazily so the installer
+  // can run after the storage module has already been imported in the main
+  // runtime.
   asyncStorageForwarderLog('install-start', {
     isNativeIOS: Boolean(platformEnv.isNativeIOS),
     isNativeMainThread: Boolean(platformEnv.isNativeMainThread),
