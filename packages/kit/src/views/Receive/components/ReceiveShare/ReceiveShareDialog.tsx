@@ -8,6 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openSettings } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useShareActions } from '../../../RookieGuide/components/RookieShare/useShareActions';
 import { ReceiveTestIDs } from '../../testIDs';
@@ -28,9 +29,17 @@ interface IShareContentProps {
   isMobile?: boolean;
   // image generated before the dialog opened (see ShareView.presetImage)
   presetImage?: string;
+  // closes the hosting dialog; used on native to dismiss the RN modal
+  // before presenting the system share sheet (it would render behind it)
+  closeDialog?: () => Promise<void> | void;
 }
 
-function ShareContent({ data, isMobile, presetImage }: IShareContentProps) {
+function ShareContent({
+  data,
+  isMobile,
+  presetImage,
+  closeDialog,
+}: IShareContentProps) {
   const generatorRef = useRef<IReceiveShareImageGeneratorRef | null>(null);
   const intl = useIntl();
 
@@ -105,11 +114,17 @@ function ShareContent({ data, isMobile, presetImage }: IShareContentProps) {
         return;
       }
 
+      if (platformEnv.isNative) {
+        // the dialog's RN modal sits above the system share sheet; dismiss
+        // it and wait out the close animation before presenting the sheet
+        await closeDialog?.();
+        await timerUtils.wait(350);
+      }
       await shareImage(base64);
     } finally {
       setIsActionLoading(false);
     }
-  }, [getShareImage, shareImage, intl]);
+  }, [getShareImage, shareImage, closeDialog, intl]);
 
   const desktopLayout = (
     <YStack gap="$5">
@@ -161,6 +176,10 @@ export function showReceiveShareDialog(
 
   isDialogShowing = true;
 
+  // renderContent is built before Dialog.show returns, so hand the content
+  // a late-bound handle to the dialog instance
+  const dialogControl: { close?: () => Promise<void> | void } = {};
+
   try {
     const dialogInstance = Dialog.show({
       // eslint-disable-next-line onekey/no-app-locale-main-thread
@@ -177,6 +196,7 @@ export function showReceiveShareDialog(
           data={data}
           isMobile={platformEnv.isNative}
           presetImage={options?.presetImage}
+          closeDialog={() => dialogControl.close?.()}
         />
       ),
       showFooter: false,
@@ -184,6 +204,8 @@ export function showReceiveShareDialog(
         isDialogShowing = false;
       },
     });
+
+    dialogControl.close = () => dialogInstance.close();
 
     return dialogInstance;
   } catch (error) {

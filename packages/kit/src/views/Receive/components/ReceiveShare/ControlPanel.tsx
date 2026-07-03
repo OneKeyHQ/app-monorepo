@@ -1,7 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
-import type { IKeyOfIcons } from '@onekeyhq/components';
+import { Button, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ReceiveTestIDs } from '../../testIDs';
@@ -13,49 +12,6 @@ interface IControlPanelProps {
   isMobile?: boolean;
 }
 
-function ActionItem({
-  testID,
-  icon,
-  label,
-  onPress,
-  disabled,
-}: {
-  testID?: string;
-  icon: IKeyOfIcons;
-  label: string;
-  onPress: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <YStack gap="$1" alignItems="center" minWidth={56}>
-      <Stack
-        testID={testID}
-        bg="$bgStrong"
-        borderRadius="$full"
-        p="$2"
-        onPress={onPress}
-        disabled={disabled}
-        userSelect="none"
-        hoverStyle={{ bg: '$bgStrongHover' }}
-        pressStyle={{ bg: '$bgStrongActive' }}
-        focusable
-        focusVisibleStyle={{
-          outlineWidth: 2,
-          outlineColor: '$focusRing',
-          outlineOffset: 2,
-          outlineStyle: 'solid',
-        }}
-        opacity={disabled ? 0.5 : 1}
-      >
-        <Icon name={icon} size="$6" color="$icon" />
-      </Stack>
-      <SizableText size="$bodyMd" color="$text">
-        {label}
-      </SizableText>
-    </YStack>
-  );
-}
-
 export function ControlPanel({
   onSaveImage,
   onShareImage,
@@ -65,21 +21,29 @@ export function ControlPanel({
   const intl = useIntl();
 
   return (
-    <XStack gap="$5" mb={isMobile ? '$4' : undefined} alignItems="flex-start">
-      <ActionItem
+    <XStack gap="$2.5" mb={isMobile ? '$4' : undefined}>
+      <Button
         testID={ReceiveTestIDs.ShareSaveButton}
+        flex={1}
+        size="large"
+        variant="accent"
         icon="DownloadOutline"
-        label={intl.formatMessage({ id: ETranslations.action_save })}
+        disabled={isLoading}
         onPress={onSaveImage}
-        disabled={isLoading}
-      />
-      <ActionItem
+      >
+        {intl.formatMessage({ id: ETranslations.action_save })}
+      </Button>
+      <Button
         testID={ReceiveTestIDs.ShareMoreButton}
+        flex={1}
+        size="large"
+        variant="accent"
         icon="ShareOutline"
-        label={intl.formatMessage({ id: ETranslations.global_more })}
-        onPress={onShareImage}
         disabled={isLoading}
-      />
+        onPress={onShareImage}
+      >
+        {intl.formatMessage({ id: ETranslations.global_more })}
+      </Button>
     </XStack>
   );
 }
