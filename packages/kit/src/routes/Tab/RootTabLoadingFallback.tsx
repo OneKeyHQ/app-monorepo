@@ -14,7 +14,19 @@ function LoadingSpinner() {
   );
 }
 
-export function RootTabLoadingFallback({ tabRoute }: { tabRoute: ETabRoutes }) {
+const DEFAULT_ENABLED_NUM = [0];
+
+type IRootTabLoadingFallbackProps = {
+  tabRoute: ETabRoutes;
+  sceneName?: EAccountSelectorSceneName;
+  enabledNum?: number[];
+};
+
+export function RootTabLoadingFallback({
+  tabRoute,
+  sceneName = EAccountSelectorSceneName.home,
+  enabledNum = DEFAULT_ENABLED_NUM,
+}: IRootTabLoadingFallbackProps) {
   const media = useMedia();
 
   if (platformEnv.isNative || media.md) {
@@ -29,15 +41,12 @@ export function RootTabLoadingFallback({ tabRoute }: { tabRoute: ETabRoutes }) {
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: EAccountSelectorSceneName.home,
+        sceneName,
         sceneUrl: '',
       }}
-      enabledNum={[0]}
+      enabledNum={enabledNum}
     >
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={tabRoute}
-      />
+      <TabPageHeader sceneName={sceneName} tabRoute={tabRoute} />
       <LoadingSpinner />
     </AccountSelectorProviderMirror>
   );

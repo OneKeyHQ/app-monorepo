@@ -23,9 +23,6 @@ const MarketHome = LazyLoadRootTabPage(
 
 const MarketDetail = LazyLoadPage(
   () => import('../../../views/Market/MarketDetail'),
-  undefined,
-  undefined,
-  createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Market }),
 );
 
 const MarketDetailV2 = LazyLoadPage(
@@ -37,9 +34,6 @@ const MarketDetailV2 = LazyLoadPage(
 
 const MarketBannerDetail = LazyLoadPage(
   () => import('../../../views/Market/MarketBannerDetail'),
-  undefined,
-  undefined,
-  createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Market }),
 );
 
 export const marketRouters: ITabSubNavigatorConfig<any, any>[] = [

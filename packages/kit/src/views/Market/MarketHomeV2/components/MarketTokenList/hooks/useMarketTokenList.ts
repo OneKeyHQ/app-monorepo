@@ -189,7 +189,7 @@ export function useMarketTokenList({
   );
   const currentQueryKeyRef = useRef(currentQueryKey);
   currentQueryKeyRef.current = currentQueryKey;
-  const forceRemoteOnceRef = useRef(false);
+  const bypassWebSeedOnceRef = useRef(false);
   const marketTokenListSwrKey = useMemo(() => {
     if (!platformEnv.isWeb || !hasNetworkId) {
       return undefined;
@@ -222,7 +222,8 @@ export function useMarketTokenList({
         marketTokenListSwrKey,
       );
     if (
-      !entry?.data?.list?.length ||
+      !entry?.data ||
+      !Array.isArray(entry.data.list) ||
       entry.data.__fromSeed ||
       entry.data.__fromColdCacheFallback
     ) {
@@ -247,10 +248,11 @@ export function useMarketTokenList({
         return undefined;
       }
       const requestQueryKey = currentQueryKeyRef.current;
-      const forceRemote =
-        forceRemoteOnceRef.current ||
-        Boolean(trustedMarketTokenListFallbackRef.current);
-      forceRemoteOnceRef.current = false;
+      const shouldBypassWebSeed =
+        platformEnv.isWeb &&
+        (bypassWebSeedOnceRef.current ||
+          Boolean(trustedMarketTokenListFallbackRef.current));
+      bypassWebSeedOnceRef.current = false;
       let response: IMarketTokenListResponseWithSource;
       try {
         response = await fetchMarketTokenListForPlatform(
@@ -264,7 +266,7 @@ export function useMarketTokenList({
             type,
             timeFrame,
           },
-          { forceRemote },
+          shouldBypassWebSeed ? { forceRemote: true } : undefined,
         );
       } catch (error) {
         const cached = trustedMarketTokenListFallbackRef.current?.data;
@@ -282,7 +284,8 @@ export function useMarketTokenList({
       }
       if (
         !responseWithSource.__fromSeed &&
-        responseWithSource.list?.length > 0
+        !responseWithSource.__fromColdCacheFallback &&
+        Array.isArray(responseWithSource.list)
       ) {
         trustedMarketTokenListFallbackRef.current = {
           data: responseWithSource,
@@ -315,7 +318,8 @@ export function useMarketTokenList({
       swrKey: marketTokenListSwrKey,
       swrShouldPersist: (result) =>
         Boolean(
-          result?.list?.length &&
+          result &&
+          Array.isArray(result.list) &&
           !result.__fromSeed &&
           !result.__fromColdCacheFallback,
         ),
@@ -324,9 +328,14 @@ export function useMarketTokenList({
 
   const effectiveIsLoading = hasNetworkId ? isLoading : false;
   const isSeedResult = Boolean(apiResult?.__fromSeed);
+  const isColdCacheFallbackResult = Boolean(apiResult?.__fromColdCacheFallback);
 
   useEffect(() => {
-    if (!platformEnv.isWeb || !isSeedResult || !hasNetworkId) {
+    if (
+      !platformEnv.isWeb ||
+      (!isSeedResult && !isColdCacheFallbackResult) ||
+      !hasNetworkId
+    ) {
       return undefined;
     }
 
@@ -335,11 +344,16 @@ export function useMarketTokenList({
       if (currentQueryKeyRef.current !== requestQueryKey) {
         return;
       }
-      forceRemoteOnceRef.current = true;
+      bypassWebSeedOnceRef.current = true;
       void fetchMarketTokenList().catch(() => undefined);
     }, 0);
     return () => clearTimeout(timer);
-  }, [fetchMarketTokenList, hasNetworkId, isSeedResult]);
+  }, [
+    fetchMarketTokenList,
+    hasNetworkId,
+    isColdCacheFallbackResult,
+    isSeedResult,
+  ]);
 
   useEffect(() => {
     if (!hasNetworkId || !apiResult || !apiResult.list) {
@@ -424,11 +438,11 @@ export function useMarketTokenList({
 
   const refresh = useCallback(() => {
     // Don't clear data immediately - let new data load first
-    if (platformEnv.isWeb && isSeedResult) {
-      forceRemoteOnceRef.current = true;
+    if (platformEnv.isWeb && (isSeedResult || isColdCacheFallbackResult)) {
+      bypassWebSeedOnceRef.current = true;
     }
     void fetchMarketTokenList().catch(() => undefined);
-  }, [fetchMarketTokenList, isSeedResult]);
+  }, [fetchMarketTokenList, isColdCacheFallbackResult, isSeedResult]);
 
   const loadMore = useCallback(async () => {
     // Check if we can load more pages

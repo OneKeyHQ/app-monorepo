@@ -14,17 +14,14 @@ const EarnHome = LazyLoadRootTabPage(
 
 const EarnProtocols = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnProtocols'),
-  createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Earn }),
 );
 
 const EarnProtocolDetails = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnProtocolDetails'),
-  createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Earn }),
 );
 
 const BorrowReserveDetails = LazyLoadRootTabPage(
   () => import('../../../views/Borrow/pages/ReserveDetails'),
-  createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Earn }),
 );
 
 export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [
