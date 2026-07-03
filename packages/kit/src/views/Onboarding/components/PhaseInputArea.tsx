@@ -39,11 +39,11 @@ import {
   SizableText,
   Stack,
   XStack,
-  useForm,
   useIsKeyboardShown,
   useKeyboardEvent,
   useMedia,
 } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useRecoveryPhraseProtected from '@onekeyhq/kit/src/hooks/useRecoveryPhraseProtected';
 import { ETranslations } from '@onekeyhq/shared/src/locale';

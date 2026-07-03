@@ -15,7 +15,7 @@ import { EOneKeyErrorClassNames } from '../errors/types/errorTypes';
 import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
 import { defaultLogger } from '../logger/logger';
-import { isEnableLogNetwork } from '../logger/scopes/app/scenes/network';
+import { isEnableLogNetwork } from '../logger/scopes/app/scenes/networkFilter';
 import nativeNetworkThrottle, {
   NATIVE_SLOW_4G_LATENCY_MS,
   getNetworkThrottleRuntimeConfig,

@@ -4,14 +4,8 @@ import BigNumber from 'bignumber.js';
 import { isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Dialog,
-  Form,
-  Input,
-  YStack,
-  useForm,
-} from '@onekeyhq/components';
+import { Button, Dialog, Form, Input, YStack } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';

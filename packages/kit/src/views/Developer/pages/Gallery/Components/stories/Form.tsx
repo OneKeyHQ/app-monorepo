@@ -7,8 +7,8 @@ import {
   SearchBar,
   Switch,
   TextArea,
-  useForm,
 } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 
 import { Layout } from './utils/Layout';
 

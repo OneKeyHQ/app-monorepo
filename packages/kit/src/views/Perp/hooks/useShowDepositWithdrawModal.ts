@@ -7,10 +7,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
-import {
-  type IPerpsDepositWithdrawActionType,
-  showDepositWithdrawDialog,
-} from '../components/TradingPanel/modals/DepositWithdrawModal';
+type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
 
 export function useShowDepositWithdrawModal() {
   const intl = useIntl();
@@ -21,6 +18,8 @@ export function useShowDepositWithdrawModal() {
   const showModal = useCallback(
     async (actionType: IPerpsDepositWithdrawActionType = 'deposit') => {
       if (gtMd) {
+        const { showDepositWithdrawDialog } =
+          await import('../components/TradingPanel/modals/DepositWithdrawModal');
         await showDepositWithdrawDialog(
           {
             actionType,

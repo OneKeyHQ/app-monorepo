@@ -6,7 +6,7 @@ import {
   useNavigationBuilder,
 } from '@react-navigation/core';
 import { StackView } from '@react-navigation/stack';
-import _ from 'lodash';
+import findLastIndex from 'lodash/findLastIndex';
 import { useWindowDimensions } from 'react-native';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
@@ -120,7 +120,7 @@ function WebViewModalNavigator({
   const currentRouteIndex = useMemo(
     () =>
       Math.max(
-        _.findLastIndex(
+        findLastIndex(
           rootNavigation?.getState?.()?.routes,
           (rootRoute) =>
             state.routes.findIndex(

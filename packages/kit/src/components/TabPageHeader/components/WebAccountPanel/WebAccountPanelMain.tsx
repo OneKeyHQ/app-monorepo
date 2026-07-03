@@ -19,10 +19,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import {
-  useAccountSelectorActions,
   useActiveAccount,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import {
   usePerpsActiveAccountAtom,

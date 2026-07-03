@@ -1,24 +1,13 @@
-import { BigNumber } from 'bignumber.js';
-import { useIntl } from 'react-intl';
+import { Suspense, lazy } from 'react';
 
-import { SizableText, Spinner, XStack } from '@onekeyhq/components';
+import { SizableText, XStack } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { PerpsAccountNumberValue } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/components/PerpsAccountNumberValue';
-import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
-import { useShowPortfolio } from '@onekeyhq/kit/src/views/Perp/hooks/useShowPortfolio';
-import {
-  usePerpsActiveAccountAtom,
-  usePerpsComputedAccountValueAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useWebDappRealAddress } from './useWebDappRealAddress';
 import { WebAccountPanelPopover } from './WebAccountPanelPopover';
-
-import type { GestureResponderEvent } from 'react-native';
 
 export interface IWebAccountSelectorTriggerProps {
   tabRoute: ETabRoutes;
@@ -29,84 +18,10 @@ export interface IWebAccountSelectorTriggerProps {
 // pressStyle to animate against.
 const noop = () => undefined;
 
-function PerpsBalancePill({ userAddress }: { userAddress?: string }) {
-  const intl = useIntl();
-  const [perpsActiveAccount] = usePerpsActiveAccountAtom();
-  const [computedValue] = usePerpsComputedAccountValueAtom();
-  const { showPortfolio } = useShowPortfolio();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
-
-  // The computed value is scoped to perpsActiveAccountAtom, which may describe a
-  // different account than the one shown in this trigger (e.g. used Perps with
-  // account A, then switched the header to account B). Only trust it when its
-  // address matches the displayed account; otherwise treat the value/loading as
-  // unknown so the pill hides instead of showing A's balance for B.
-  const isForThisAccount =
-    !!userAddress &&
-    perpsActiveAccount?.accountAddress?.toLowerCase() ===
-      userAddress.toLowerCase();
-  const accountValue = isForThisAccount
-    ? computedValue?.accountValue
-    : undefined;
-  const isLoading = isForThisAccount ? computedValue?.isLoading : false;
-
-  // Gate on whether the balance is KNOWN, not on isLoading: an empty account
-  // keeps isLoading=true (spotTotalUsd never resolves to a positive value), yet
-  // accountValue is a concrete '0' → that path shows the Deposit pill below.
-  // When the value is genuinely unknown (undefined): show a spinner while it's
-  // still loading, otherwise render nothing (no premature "Deposit").
-  if (accountValue === undefined) {
-    if (isLoading) {
-      return (
-        <XStack ai="center" jc="center" px="$2" h={26}>
-          <Spinner size="small" />
-        </XStack>
-      );
-    }
-    return null;
-  }
-
-  const isEmptyAccount = new BigNumber(accountValue).lte(0);
-
-  const handlePress = (e: GestureResponderEvent) => {
-    e.stopPropagation();
-    // Empty account → open the deposit dialog (same as the panel's Deposit
-    // button); funded account → open the Portfolio & PnL dialog.
-    if (isEmptyAccount) {
-      void showDepositWithdrawModal('deposit');
-    } else {
-      showPortfolio();
-    }
-  };
-
-  return (
-    <XStack
-      ai="center"
-      jc="center"
-      gap="$1"
-      px="$2"
-      h={26}
-      borderRadius="$full"
-      bg={isEmptyAccount ? '$brand9' : '$neutral4'}
-      onPress={handlePress}
-      cursor="pointer"
-      hoverStyle={{ opacity: 0.85 }}
-      pressStyle={{ opacity: 0.7 }}
-      testID="web-account-selector-perps-pill"
-    >
-      {isEmptyAccount ? (
-        <SizableText size="$bodyLgMedium" color="$textOnColor">
-          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-        </SizableText>
-      ) : (
-        <PerpsAccountNumberValue
-          value={accountValue}
-          textSize="$bodyLgMedium"
-        />
-      )}
-    </XStack>
-  );
-}
+const LazyPerpsBalancePill = lazy(async () => {
+  const { PerpsBalancePill } = await import('./PerpsBalancePill');
+  return { default: PerpsBalancePill };
+});
 
 export function WebAccountSelectorTrigger({
   tabRoute,
@@ -162,7 +77,11 @@ export function WebAccountSelectorTrigger({
           {address}
         </SizableText>
       </XStack>
-      {isPerpsRoute ? <PerpsBalancePill userAddress={realAddress} /> : null}
+      {isPerpsRoute ? (
+        <Suspense fallback={null}>
+          <LazyPerpsBalancePill userAddress={realAddress} />
+        </Suspense>
+      ) : null}
     </XStack>
   );
 

@@ -34,6 +34,7 @@ export interface ITableProps<T> {
   showSkeleton?: boolean;
   skeletonCount?: number;
   dataSource: T[];
+  estimatedDataLength?: number;
   columns: ITableColumn<T>[];
   contentContainerStyle?: IListViewProps<T>['contentContainerStyle'];
   renderScrollComponent?: IListViewProps<T>['renderScrollComponent'];

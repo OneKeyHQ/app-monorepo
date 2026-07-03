@@ -23,13 +23,13 @@ import {
   XStack,
   YStack,
   useDialogInstance,
-  useForm,
   useInTabDialog,
 } from '@onekeyhq/components';
 import type {
   IDialogContainerProps,
   IDialogInstance,
 } from '@onekeyhq/components/src/composite/Dialog/type';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import UpdateNotificationDark from '@onekeyhq/kit/assets/animations/update-notification-dark.json';
 import UpdateNotificationLight from '@onekeyhq/kit/assets/animations/update-notification-light.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';

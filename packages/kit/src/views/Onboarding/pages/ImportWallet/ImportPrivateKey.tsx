@@ -7,7 +7,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import { toastSuccessWhenImportAddressOrPrivateKey } from '@onekeyhq/kit/src/utils/toastExistingWalletSwitch';
 import type { IValidateGeneralInputParams } from '@onekeyhq/kit-bg/src/vaults/types';
 import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';

@@ -19,10 +19,8 @@ import {
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import type {
-  ISectionListProps,
-  ISortableSectionListRef,
-} from '@onekeyhq/components';
+import type { ISectionListProps } from '@onekeyhq/components';
+import type { ISortableSectionListRef } from '@onekeyhq/components/src/layouts/SortableSectionList';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';

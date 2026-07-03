@@ -26,6 +26,7 @@ const RETRYABLE_CODES = new Set([
   'SPLIT_BUNDLE_NO_RUNTIME',
   'SPLIT_BUNDLE_TIMEOUT',
 ]);
+const RETRYABLE_ERROR_NAMES = new Set(['ChunkLoadError']);
 
 // Exported for unit testing. A split-bundle segment timeout is normally
 // TRANSIENT, so it re-attempts. Real eval failures (SPLIT_BUNDLE_EVAL_ERROR /
@@ -41,14 +42,30 @@ const RETRYABLE_CODES = new Set([
 // once.
 export function isRetryableLazyError(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false;
-  const e = err as { code?: unknown; retryable?: unknown; message?: unknown };
+  const e = err as {
+    code?: unknown;
+    retryable?: unknown;
+    message?: unknown;
+    name?: unknown;
+  };
   if (e.retryable === false) return false;
   if (e.retryable === true) return true;
   if (typeof e.code === 'string' && RETRYABLE_CODES.has(e.code)) return true;
-  return (
-    typeof e.message === 'string' &&
+  if (typeof e.name === 'string' && RETRYABLE_ERROR_NAMES.has(e.name)) {
+    return true;
+  }
+  if (typeof e.message !== 'string') return false;
+  if (
     e.message.includes('[SplitBundle]') &&
     e.message.includes('eval timed out')
+  ) {
+    return true;
+  }
+  return (
+    (e.message.includes('Loading chunk') &&
+      e.message.toLowerCase().includes('failed')) ||
+    e.message.includes('Failed to fetch dynamically imported module') ||
+    e.message.includes('Importing a module script failed')
   );
 }
 

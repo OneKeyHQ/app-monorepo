@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import { type LayoutChangeEvent, type LayoutRectangle } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
-import type { ISortableSectionListRef } from '@onekeyhq/components';
 import {
   Alert,
   Button,
@@ -16,15 +15,16 @@ import {
   useSafeAreaInsets,
   useSafelyScrollToLocation,
 } from '@onekeyhq/components';
+import type { ISortableSectionListRef } from '@onekeyhq/components/src/layouts/SortableSectionList';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
-  useAccountSelectorActions,
   useAccountSelectorStorageReadyAtom,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import qrHiddenCreateGuideDialog from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/qrHiddenCreateGuideDialog';
 import type {
   IDBAccount,

@@ -8,7 +8,7 @@ import { biologyAuthUtils } from '@onekeyhq/kit-bg/src/services/ServicePassword/
 import {
   usePasswordModeAtom,
   usePasswordPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { registerWebAuth, verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
