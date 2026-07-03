@@ -107,11 +107,13 @@ function BtcFindAddress() {
     parsedIndex === undefined ? 'N' : parsedIndex
   }`;
 
-  // TODO: i18n — replace with the ETranslations key once the copy lands
   const minIndexHint =
     maxScannedIndex === undefined
       ? ''
-      : `Index must be greater than ${maxScannedIndex}`;
+      : intl.formatMessage(
+          { id: ETranslations.index_must_be_greater_then },
+          { variant: maxScannedIndex },
+        );
 
   const invalidIndexText = intl.formatMessage(
     { id: ETranslations.find_address_invalid_index__msg },
