@@ -1480,15 +1480,18 @@ export function useSwapProPositionsListFilter(
   const [swapProSupportNetworksTokenList] =
     useSwapProSupportNetworksTokenListAtom();
   const positionsTokenList = sourceTokenList ?? swapProSupportNetworksTokenList;
-  const filterDefaultTokenList = useMemo(() => {
+  const filterMinValueTokenList = useMemo(() => {
     // Stock positions use a lower $0.1 floor (vs $1) and skip the max-count cap,
     // so small stock holdings still show and aren't pushed out of the top N.
     const minValue = isStockPositions
       ? swapProStockPositionsListMinValue
       : swapProPositionsListMinValue;
-    const filterMinValueTokenList = positionsTokenList.filter((token) => {
+    return positionsTokenList.filter((token) => {
       return new BigNumber(token.fiatValue || '0').gt(minValue);
     });
+  }, [positionsTokenList, isStockPositions]);
+
+  const filterDefaultTokenList = useMemo(() => {
     if (
       isStockPositions ||
       filterMinValueTokenList.length <= swapProPositionsListMaxCount
@@ -1496,18 +1499,18 @@ export function useSwapProPositionsListFilter(
       return filterMinValueTokenList;
     }
     return filterMinValueTokenList.slice(0, swapProPositionsListMaxCount);
-  }, [positionsTokenList, isStockPositions]);
+  }, [filterMinValueTokenList, isStockPositions]);
 
   const finallyTokenList = useMemo(
     () =>
       filterToken
-        ? positionsTokenList.filter((token) =>
+        ? filterMinValueTokenList.filter((token) =>
             filterToken.some((t) =>
               equalTokenNoCaseSensitive({ token1: t, token2: token }),
             ),
           )
         : filterDefaultTokenList,
-    [filterDefaultTokenList, positionsTokenList, filterToken],
+    [filterDefaultTokenList, filterMinValueTokenList, filterToken],
   );
   return {
     finallyTokenList,

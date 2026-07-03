@@ -28,7 +28,10 @@ import {
   usePopoverContext,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
-import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import {
+  HeaderButtonGroup,
+  HeaderIconButton,
+} from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
@@ -80,7 +83,6 @@ import {
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type {
@@ -115,6 +117,7 @@ import { SwapTestIDs } from '../../testIDs';
 import {
   type ISwapRecentTokenPair,
   buildSwapRecentTokenPairsFromHistory,
+  getSwapLimitOpenOrderCount,
   getSwapMarketPendingHistoryKey,
   getSwapMarketPendingHistoryList,
   isStockSwapHistoryItem,
@@ -144,6 +147,7 @@ import {
   getStockDisabledActionButtonProps,
 } from './SwapStockDesktopContainer.utils';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
+import { isCurrentStockQuoteEventError } from './SwapStockTradeAlertUtils';
 import {
   SwapStockTradeProvider,
   useSwapStockTradeContext,
@@ -526,21 +530,15 @@ function StockEstimatedReceive({
         intl,
       }),
     );
-    const fromTokenMatchesQuoteError = equalTokenNoCaseSensitive({
-      token1: quoteEventError?.fromToken,
-      token2: stockChannel.fromToken,
-    });
-    const toTokenMatchesQuoteError = equalTokenNoCaseSensitive({
-      token1: quoteEventError?.toToken,
-      token2: stockChannel.toToken,
-    });
-    const isCurrentStockQuoteEventError =
-      Boolean(quoteEventError?.isStock) &&
-      Boolean(stockChannel.fromToken) &&
-      Boolean(stockChannel.toToken) &&
-      fromTokenMatchesQuoteError &&
-      toTokenMatchesQuoteError;
-    return hasStockQuoteControl || isCurrentStockQuoteEventError;
+    return (
+      hasStockQuoteControl ||
+      isCurrentStockQuoteEventError({
+        fromToken: stockChannel.fromToken,
+        fromTokenAmount: fromTokenAmount.value,
+        quoteEventError,
+        toToken: stockChannel.toToken,
+      })
+    );
   }, [
     fromTokenAmount.value,
     intl,
@@ -549,6 +547,8 @@ function StockEstimatedReceive({
     stockChannel.fromToken,
     stockChannel.toToken,
   ]);
+  const receiveQuoteLoading =
+    quoteLoading || (quoteEventFetching && !quoteResult);
   const {
     canSelectReceiveToken,
     currencySymbol,
@@ -563,8 +563,8 @@ function StockEstimatedReceive({
     setIsReceiveTokenPopoverOpen,
   } = useSwapStockEstimatedReceiveState({
     forceHideQuote: shouldHideQuoteResult,
-    quoteEventFetching,
-    quoteLoading,
+    quoteEventFetching: false,
+    quoteLoading: receiveQuoteLoading,
     quoteResult,
     stockChannel,
   });
@@ -2021,17 +2021,19 @@ function SwapStockDesktopContent({
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
-  const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
+  const [{ swapHistoryPendingList, swapLimitOrders }] =
+    useInAppNotificationAtom();
   const stockChannel = useSwapStockTradeContext();
   const stockRecentTokenPairs = useSwapStockRecentTokenPairs();
-  const historyBadgeCount = useMemo(
-    () =>
-      getSwapMarketPendingHistoryList(
-        swapHistoryPendingList,
-        EProtocolOfExchange.SWAP,
-      ).filter(isStockSwapHistoryItem).length,
-    [swapHistoryPendingList],
-  );
+  const historyBadgeCount = useMemo(() => {
+    const stockPendingHistoryCount = getSwapMarketPendingHistoryList(
+      swapHistoryPendingList,
+      EProtocolOfExchange.SWAP,
+    ).filter(isStockSwapHistoryItem).length;
+    return (
+      stockPendingHistoryCount + getSwapLimitOpenOrderCount(swapLimitOrders)
+    );
+  }, [swapHistoryPendingList, swapLimitOrders]);
 
   const handleTradeSideChange = useCallback(
     (nextTradeSide: ESwapStockTradeSide) => {
@@ -2103,16 +2105,16 @@ function SwapStockDesktopContent({
                       id: ETranslations.perps_token_selector_stocks,
                     })}
                   </SizableText>
-                  <XStack alignItems="center" gap="$2">
+                  <HeaderButtonGroup gap="$4" flexShrink={0}>
                     <SwapSettingsHeaderButton
                       iconSize="$5"
                       iconColor="$iconStrong"
-                      compact
                       showCustomSlippageValue
                     />
                     {historyBadgeCount > 0 ? (
                       <Stack
                         testID="swap-stock-history-button"
+                        m="$0.5"
                         w="$5"
                         h="$5"
                         userSelect="none"
@@ -2143,12 +2145,12 @@ function SwapStockDesktopContent({
                       <HeaderIconButton
                         testID="swap-stock-history-button"
                         icon="ClockTimeHistoryOutline"
-                        size="small"
-                        iconProps={{ color: '$iconStrong' }}
+                        size="medium"
+                        iconProps={{ size: '$5', color: '$iconStrong' }}
                         onPress={onOpenHistoryListModal}
                       />
                     )}
-                  </XStack>
+                  </HeaderButtonGroup>
                 </XStack>
                 <StockTradeTicket
                   onSelectToken={onSelectToken}

@@ -199,6 +199,7 @@ export type ISendAmountAutoSizeInputRef = {
 type ISendAmountAutoSizeInputProps = {
   value?: string;
   onChange?: (value: string) => void;
+  validator?: (value: string) => boolean;
   reversible?: boolean;
   tokenSymbol?: string;
   inlineTextAlignMode?: 'auto' | 'center';
@@ -227,6 +228,7 @@ function SendAutoSizeAmountInputComponent(
     inputProps,
     reversible,
     onChange,
+    validator,
     value: controlledValue,
     valueProps,
     tokenSymbol,
@@ -294,27 +296,47 @@ function SendAutoSizeAmountInputComponent(
     });
   }, [inputValue]);
 
+  const forceNativeTextWriteBack = useCallback(
+    (nextText: string, keepOverride = true) => {
+      clearForceWriteBackTimer();
+      const pulseText = makeIOSForceWriteBackPulseText(nextText);
+      setForcedNativeText(pulseText);
+      forceWriteBackTimerRef.current = setTimeout(() => {
+        setForcedNativeText(keepOverride ? nextText : null);
+        forceWriteBackTimerRef.current = null;
+      }, 0);
+    },
+    [clearForceWriteBackTimer],
+  );
+
   const handleChangeText = useCallback(
     (text: string) => {
       const sanitizedText = sanitizeAmountInputText(text);
+      if (validator && !validator(sanitizedText)) {
+        if (platformEnv.isNativeIOS) {
+          forceNativeTextWriteBack(inputValue, false);
+        }
+        return;
+      }
+
       onChange?.(sanitizedText);
 
       // iOS native input can keep stale text when parent value does not change.
       // Force a pulse write-back so native receives a prop change every time.
       if (platformEnv.isNativeIOS && sanitizedText !== text) {
-        clearForceWriteBackTimer();
-        const pulseText = makeIOSForceWriteBackPulseText(sanitizedText);
-        setForcedNativeText(pulseText);
-        forceWriteBackTimerRef.current = setTimeout(() => {
-          setForcedNativeText(sanitizedText);
-          forceWriteBackTimerRef.current = null;
-        }, 0);
+        forceNativeTextWriteBack(sanitizedText);
       } else {
         clearForceWriteBackTimer();
         setForcedNativeText((prev) => (prev === null ? prev : null));
       }
     },
-    [clearForceWriteBackTimer, onChange],
+    [
+      clearForceWriteBackTimer,
+      forceNativeTextWriteBack,
+      inputValue,
+      onChange,
+      validator,
+    ],
   );
 
   const handleInputLayout = useCallback(
@@ -468,6 +490,9 @@ function SendAutoSizeAmountInputComponent(
           px="$1"
           borderRadius="$2"
           alignSelf="center"
+          maxWidth="100%"
+          minWidth={0}
+          overflow="hidden"
           disabled={valueProps?.loading}
           onPress={valueProps?.onPress}
           {...(reversible && {
@@ -492,6 +517,10 @@ function SendAutoSizeAmountInputComponent(
                 }}
                 size="$headingLg"
                 color={valueProps?.color ?? '$textSubdued'}
+                numberOfLines={1}
+                flexShrink={1}
+                minWidth={0}
+                maxWidth="100%"
               >
                 {valueProps?.value || '0.00'}
               </NumberSizeableText>

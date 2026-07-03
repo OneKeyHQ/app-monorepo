@@ -1895,6 +1895,7 @@
   "import_hardware_phrases_warning": "Don’t import your hardware wallet’s recovery phrase. <tag>Connect Hardware Wallet</tag> instead",
   "import_phrase_or_private_key": "Import phrase or private key",
   "incorrect_pin": "Incorrect PIN. Please try again.",
+  "index_must_be_greater_then": "Index must be greater than {variant}",
   "install_extension_first": "Install the OneKey browser extension first",
   "install_extension_first_desc": "If you've already installed the extension, please <action>reload<underline>click here</underline></action> to refresh the page.",
   "insufficient_fee_append_desc": "based on max est. fee: {amount} {symbol}",

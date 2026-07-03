@@ -6,6 +6,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
+  useSwapAlertsAtom,
   useSwapFromTokenAmountAtom,
   useSwapSelectTokenDetailFetchingAtom,
   useSwapSelectedFromTokenBalanceAtom,
@@ -427,6 +428,7 @@ export function useSwapStockAmountInputState({
   stockChannel: IUseSwapStockChannelReturn;
 }) {
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [, setSwapAlerts] = useSwapAlertsAtom();
   const [fromTokenBalance, setFromTokenBalance] =
     useSwapSelectedFromTokenBalanceAtom();
   const [swapTokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
@@ -511,13 +513,17 @@ export function useSwapStockAmountInputState({
   const onAmountChange = useCallback(
     (value: string) => {
       if (validateAmountInput(value, inputToken?.decimals)) {
+        setSwapAlerts({
+          quoteId: '',
+          states: [],
+        });
         setFromTokenAmount({
           value,
           isInput: true,
         });
       }
     },
-    [inputToken?.decimals, setFromTokenAmount],
+    [inputToken?.decimals, setFromTokenAmount, setSwapAlerts],
   );
   const setInputAmount = useCallback(
     (amount: BigNumber) => {
@@ -530,12 +536,16 @@ export function useSwapStockAmountInputState({
       if (!validateAmountInput(amountValue, inputToken.decimals)) {
         return;
       }
+      setSwapAlerts({
+        quoteId: '',
+        states: [],
+      });
       setFromTokenAmount({
         value: amountValue,
         isInput: true,
       });
     },
-    [inputToken, setFromTokenAmount],
+    [inputToken, setFromTokenAmount, setSwapAlerts],
   );
   const onBalanceMaxPress = useCallback(() => {
     setInputAmount(new BigNumber(displayBalance ?? '0'));
