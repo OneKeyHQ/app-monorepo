@@ -767,6 +767,56 @@ describe('buildSelectorTokenListFromResponses — token selector self-fetch merg
     expect(merged.tokenListMap['evm--1_usdt_key'].fiatValue).toBe('100');
   });
 
+  it('same-network derive-account responses merge into one group row (BTC-like)', () => {
+    const taprootBtc = buildTestToken({
+      $key: 'acct-1_taproot_btc--0',
+      networkId: 'btc--0',
+      symbol: 'BTC',
+      isNative: true,
+      mergeAssets: true,
+    });
+    const segwitBtc = buildTestToken({
+      $key: 'acct-1_segwit_btc--0',
+      networkId: 'btc--0',
+      symbol: 'BTC',
+      isNative: true,
+      mergeAssets: true,
+    });
+    const ethNative = buildTestToken({
+      $key: 'evm--1_native',
+      networkId: 'evm--1',
+      isNative: true,
+    });
+
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({
+          networkId: 'btc--0',
+          tokens: [taprootBtc],
+          tokensMap: { 'acct-1_taproot_btc--0': buildFiat('100') },
+        }),
+        buildResp({
+          networkId: 'btc--0',
+          tokens: [segwitBtc],
+          tokensMap: { 'acct-1_segwit_btc--0': buildFiat('50') },
+        }),
+        buildResp({
+          networkId: 'evm--1',
+          tokens: [ethNative],
+          tokensMap: { 'evm--1_native': buildFiat('10') },
+        }),
+      ],
+    });
+
+    // Both derive slices collapse into ONE row keyed by the `first_last`
+    // group key; group fiat sums (150 > 10 so BTC sorts first).
+    expect(merged.tokens.map((t) => t.$key)).toEqual([
+      'acct-1_btc--0',
+      'evm--1_native',
+    ]);
+    expect(merged.tokenListMap['acct-1_btc--0'].fiatValue).toBe('150');
+  });
+
   it('responses without aggregateTokenMap or networkId yield an empty aggregate fiat map', () => {
     const merged = buildSelectorTokenListFromResponses({
       responses: [

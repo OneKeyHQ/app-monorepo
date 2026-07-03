@@ -790,6 +790,103 @@ export function flattenAggregateTokensMap(aggregateTokensMap: {
   return result;
 }
 
+// Pre-merges same-network responses in the all-networks fan-out: merge-derive
+// networks (BTC/LTC-like, `getDefaultDeriveTypeVisibleNetworks`) enumerate one
+// child request PER DERIVE ACCOUNT, so their responses arrive as N slices of
+// the same network. Home collapses those with the derive merge
+// (`getMergedDeriveTokenData` — `mergeAssets` rows rewrite to the
+// `first_last` group $key, fiat sums per group key); without it the selector
+// would list every derive path as its own row. Groups keep first-seen order;
+// single-response groups whose rows carry `mergeAssets` also pass through the
+// merge so their $keys match the home/group shape.
+export function mergeDeriveSelectorResponsesByNetwork(
+  responses: IFetchAccountTokensResp[],
+): IFetchAccountTokensResp[] {
+  const groups = new Map<string, IFetchAccountTokensResp[]>();
+  const orderedKeys: string[] = [];
+  responses.forEach((r, index) => {
+    // Responses without a networkId can never merge — key them uniquely.
+    const key = r.networkId ?? `__no-network-${index}`;
+    if (!groups.has(key)) {
+      groups.set(key, []);
+      orderedKeys.push(key);
+    }
+    groups.get(key)?.push(r);
+  });
+
+  const result: IFetchAccountTokensResp[] = [];
+  for (const key of orderedKeys) {
+    const group = groups.get(key) ?? [];
+    const networkId = group[0]?.networkId;
+    const hasMergeAssets = group.some(
+      (r) =>
+        r.tokens.data.some((t) => t.mergeAssets) ||
+        r.smallBalanceTokens.data.some((t) => t.mergeAssets),
+    );
+    if (!networkId || (group.length <= 1 && !hasMergeAssets)) {
+      result.push(...group);
+    } else {
+      result.push(
+        mergeDeriveSelectorResponseGroup({ group, networkId, hasMergeAssets }),
+      );
+    }
+  }
+  return result;
+}
+
+function mergeDeriveSelectorResponseGroup({
+  group,
+  networkId,
+  hasMergeAssets,
+}: {
+  group: IFetchAccountTokensResp[];
+  networkId: string;
+  hasMergeAssets: boolean;
+}): IFetchAccountTokensResp {
+  const merged = getMergedDeriveTokenData({
+    data: group,
+    mergeDeriveAssetsEnabled: hasMergeAssets,
+  });
+  // `merged.aggregateTokenMap` is nested (aggKey -> networkId -> fiat) for
+  // this single-network group — un-nest back to the FLAT per-response shape.
+  const flatAggregateTokenMap: Record<string, ITokenFiat> = {};
+  Object.entries(merged.aggregateTokenMap).forEach(([aggregateKey, byNet]) => {
+    const fiat = byNet[networkId];
+    if (fiat) {
+      flatAggregateTokenMap[aggregateKey] = fiat;
+    }
+  });
+
+  return {
+    networkId,
+    accountId: group[0]?.accountId,
+    tokens: {
+      data: merged.tokenList.tokens,
+      keys: merged.tokenList.keys,
+      map: merged.tokenListMap,
+      fiatValue: merged.tokenList.fiatValue,
+    },
+    smallBalanceTokens: {
+      data: merged.smallBalanceTokenList.smallBalanceTokens,
+      keys: merged.smallBalanceTokenList.keys,
+      map: merged.smallBalanceTokenListMap,
+      fiatValue: merged.smallBalanceTokenList.fiatValue,
+    },
+    riskTokens: {
+      data: merged.riskyTokenList.riskyTokens,
+      keys: merged.riskyTokenList.keys,
+      map: merged.riskyTokenListMap,
+      fiatValue: merged.riskyTokenList.fiatValue,
+    },
+    aggregateTokenMap: Object.keys(flatAggregateTokenMap).length
+      ? flatAggregateTokenMap
+      : undefined,
+    aggregateTokenListMap: Object.keys(merged.aggregateTokenListMap).length
+      ? merged.aggregateTokenListMap
+      : undefined,
+  };
+}
+
 // Merges the token-selector self-fetch responses (one per network in
 // all-networks mode, exactly one in single-network mode) into the shape the
 // selector threads into TokenListView. Each response's `aggregateTokenMap` is
@@ -823,6 +920,14 @@ export function buildSelectorTokenListFromResponses({
     }
   >;
 } {
+  // Multi-response (= all-networks fan-out) pre-merge: collapse same-network
+  // derive-account slices to the home group shape BEFORE the aggregate fold /
+  // concat. The single-response (single-network) path stays verbatim.
+  const normalizedResponses =
+    responses.length > 1
+      ? mergeDeriveSelectorResponsesByNetwork(responses)
+      : responses;
+
   const tokens: IAccountToken[] = [];
   const smallBalanceTokens: IAccountToken[] = [];
   const tokenListMap: Record<string, ITokenFiat> = {};
@@ -890,7 +995,7 @@ export function buildSelectorTokenListFromResponses({
     }
   };
 
-  for (const r of responses) {
+  for (const r of normalizedResponses) {
     const responseNetworkId = r.networkId;
     const responseTokenMap = { ...r.tokens.map, ...r.smallBalanceTokens.map };
     const state = {
@@ -946,7 +1051,7 @@ export function buildSelectorTokenListFromResponses({
     nestedAggregateTokenMap,
   );
 
-  if (responses.length <= 1) {
+  if (normalizedResponses.length <= 1) {
     // Single-network selector: keep the server-provided order verbatim.
     return {
       tokens,
