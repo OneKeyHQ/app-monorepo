@@ -85,7 +85,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
     }, [currencyLabel, inlineTokenSymbol]);
 
     return (
-      <Stack width="100%" alignItems="center" py="$1">
+      <Stack width="100%" alignItems="center" py="$1" overflow="hidden">
         <AutoSizeInputView
           contentCentered
           style={{

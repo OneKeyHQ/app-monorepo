@@ -16,7 +16,6 @@ import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerp
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IFetchQuoteResult,
   ISwapAlertState,
@@ -32,6 +31,11 @@ import { getStockTradeAlertAnalyticsPayload } from '../../utils/swapStockAnalyti
 import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
 
 import SwapAlertContainer from './SwapAlertContainer';
+import {
+  getStockErrorAlertLevel,
+  isCurrentStockQuoteEventError,
+  isSameAlertMessage,
+} from './SwapStockTradeAlertUtils';
 
 type IStockTradeAlerts = {
   states: ISwapAlertState[];
@@ -45,23 +49,6 @@ type ISwapStockTradeAlertProps = {
   quoteResult?: IFetchQuoteResult;
   stockChannel: IUseSwapStockChannelReturn;
 };
-
-function isSameAlertMessage(a?: string, b?: string) {
-  return Boolean(a && b && a.trim() === b.trim());
-}
-
-function getStockErrorAlertLevel({
-  message,
-  notAvailableInRegionMessage,
-}: {
-  message: string;
-  notAvailableInRegionMessage: string;
-}) {
-  const isRegionError =
-    isSameAlertMessage(message, notAvailableInRegionMessage) ||
-    message.toLowerCase().includes('region');
-  return isRegionError ? ESwapAlertLevel.ERROR : ESwapAlertLevel.WARNING;
-}
 
 function useStockQuoteAlert({
   quoteResult,
@@ -115,6 +102,7 @@ function BasicSwapStockTradeAlert({
 }: ISwapStockTradeAlertProps) {
   const intl = useIntl();
   const [quoteEventError] = useSwapQuoteEventErrorAtom();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   // The same underlying may have a Perps (contract) equivalent we can hand off
   // to while the stock market is closed. `stockPerpsInfo.hlTicker` from the
   // token detail tells us, and drives the "with Perps" cases (1 & 4).
@@ -128,22 +116,20 @@ function BasicSwapStockTradeAlert({
     id: ETranslations.trade_stock_not_available_in_region,
   });
 
-  const isCurrentStockQuoteEventError = useMemo(
+  const currentStockQuoteEventError = useMemo(
     () =>
-      Boolean(
-        quoteEventError &&
-        stockChannel.fromToken &&
-        stockChannel.toToken &&
-        equalTokenNoCaseSensitive({
-          token1: quoteEventError.fromToken,
-          token2: stockChannel.fromToken,
-        }) &&
-        equalTokenNoCaseSensitive({
-          token1: quoteEventError.toToken,
-          token2: stockChannel.toToken,
-        }),
-      ),
-    [quoteEventError, stockChannel.fromToken, stockChannel.toToken],
+      isCurrentStockQuoteEventError({
+        fromToken: stockChannel.fromToken,
+        fromTokenAmount: fromTokenAmount.value,
+        quoteEventError,
+        toToken: stockChannel.toToken,
+      }),
+    [
+      fromTokenAmount.value,
+      quoteEventError,
+      stockChannel.fromToken,
+      stockChannel.toToken,
+    ],
   );
 
   const isStockMarketClosed =
@@ -151,13 +137,13 @@ function BasicSwapStockTradeAlert({
     Boolean(
       quoteEventError?.isStock &&
       quoteEventError.isMarketOpen === false &&
-      isCurrentStockQuoteEventError,
+      currentStockQuoteEventError,
     );
 
   const stockEventAlert = useMemo<ISwapAlertState | undefined>(() => {
     if (
       !quoteEventError?.isStock ||
-      !isCurrentStockQuoteEventError ||
+      !currentStockQuoteEventError ||
       !quoteEventError.message ||
       isStockMarketClosed
     ) {
@@ -171,7 +157,7 @@ function BasicSwapStockTradeAlert({
       }),
     };
   }, [
-    isCurrentStockQuoteEventError,
+    currentStockQuoteEventError,
     isStockMarketClosed,
     notAvailableInRegionMessage,
     quoteEventError?.isStock,
