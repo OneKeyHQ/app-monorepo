@@ -7048,6 +7048,38 @@ class ServiceAccount extends ServiceBase {
   // logging it would read as an in-session loss.
   backupMigrationSettledThisSession = false;
 
+  // Boot-time raw sample of the persisted appStatus entity. Kicked by
+  // ServiceBootstrap.initDeferred BEFORE any deferred migration can write
+  // simpleDb.appStatus (several concurrent migrations setRawData on the same
+  // entity); the storage instance serializes operations in issue order, so a
+  // sample issued first reads the pre-boot on-disk state. Sampling from
+  // within the migration itself would race those writers and could report a
+  // freshly-created appStatus as "survived from the previous session".
+  private backupMigrationBootRawSamplePromise:
+    | Promise<boolean | undefined>
+    | undefined;
+
+  startBackupMigrationBootRawSample() {
+    if (this.backupMigrationBootRawSamplePromise) {
+      return;
+    }
+    this.backupMigrationBootRawSamplePromise = (async () => {
+      try {
+        // Read from the entity's own backing storage instance (NOT the
+        // default appStorage): on web/desktop/extension simpleDb persists to
+        // a dedicated store ($webStorageSimpleDB). Single-key getItem only —
+        // no enumeration on this resident boot path.
+        const entityKey = simpleDb.appStatus.entityKey;
+        const entityStorage = simpleDb.appStatus.appStorage;
+        const raw = (await entityStorage.getItem(entityKey)) as unknown;
+        return !isNil(raw);
+      } catch {
+        // diagnostics only — undefined means "sample unavailable"
+        return undefined;
+      }
+    })();
+  }
+
   // TODO(cleanup): temporary investigation scaffolding — remove this probe,
   // its call sites, and the boot-time raw check in
   // migrateHdWalletsBackedUpStatus once the backup-status flag-loss root
@@ -7094,26 +7126,17 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async migrateHdWalletsBackedUpStatus() {
-    // Boot-time on-disk truth: this runs right after the runtime starts, so
-    // the raw read below reflects what actually survived on disk from the
-    // previous session (the storage instance cache is still fresh). If a
-    // previous launch logged flagPresent=true on the write-back probe and
+    // Boot-time on-disk truth: the raw sample is issued by ServiceBootstrap
+    // before any concurrent deferred migration can write appStatus, so it
+    // reflects what actually survived on disk from the previous session. If
+    // a previous launch logged flagPresent=true on the write-back probe and
     // this boot logs appStatusRawExists=false / migratedFlag=undefined, the
-    // flag was lost at the persistence layer between launches. Kept to the
-    // minimal single-key getItem — no getAllKeys enumeration on this
-    // resident boot path.
-    let appStatusRawExists = false;
-    try {
-      // Read from the entity's own backing storage instance (NOT the default
-      // appStorage): on web/desktop/extension simpleDb persists to a
-      // dedicated store ($webStorageSimpleDB).
-      const entityKey = simpleDb.appStatus.entityKey;
-      const entityStorage = simpleDb.appStatus.appStorage;
-      const raw = (await entityStorage.getItem(entityKey)) as unknown;
-      appStatusRawExists = !isNil(raw);
-    } catch {
-      // diagnostics only — never block the migration
-    }
+    // flag was lost at the persistence layer between launches. The
+    // self-start below is a fallback for callers outside the bootstrap flow
+    // (e.g. tests); in that case the sample may race concurrent writers.
+    this.startBackupMigrationBootRawSample();
+    const appStatusRawExists =
+      (await this.backupMigrationBootRawSamplePromise) ?? false;
 
     const appStatus = await simpleDb.appStatus.getRawData();
     if (appStatus?.hdWalletsBackupMigrated) {
