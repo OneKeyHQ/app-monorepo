@@ -7,6 +7,9 @@ let backgroundApiPromise: Promise<IBackgroundApi> | undefined;
 const WEB_BACKGROUND_API_IDLE_TIMEOUT_BASE_MS = 1000;
 const WEB_BACKGROUND_API_IDLE_TIMEOUT_JITTER_MS = 2000;
 const WEB_BACKGROUND_API_IMMEDIATE_PATH_PREFIXES = [
+  '/',
+  '/wallet',
+  '/url-account',
   '/market',
   '/swap',
   '/perp',
