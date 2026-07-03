@@ -21,7 +21,12 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type {
+  IMarketPerpsInfo,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/marketV2';
 import type {
   IFetchUSMarketStatusResult,
   ISwapToken,
@@ -155,59 +160,89 @@ export function useSwapStockChannel() {
   const payToken = payTokenState ?? stockPairPayToken ?? swapPairStockPayToken;
   const stockNetworkId = currentStockToken?.networkId ?? '';
   const stockTokenDetailScope = currentStockTokenKey;
-  const { result: stockTokenDetailState, isLoading: stockTokenDetailLoading } =
-    usePromiseResult(
-      async () => {
-        if (!currentStockToken?.networkId || !currentStockTokenKey) {
-          return {
-            scope: stockTokenDetailScope,
-            token: undefined,
-            perpsInfo: undefined,
-          };
-        }
-        try {
-          const response =
-            await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
-              currentStockToken.contractAddress ?? '',
-              currentStockToken.networkId,
-              {
-                autoHandleError: false,
-              },
-            );
-          const token = response?.data?.token;
-          return {
-            scope: stockTokenDetailScope,
-            token: token?.stock ? token : undefined,
-            perpsInfo: token?.stock ? response?.data?.perpsInfo : undefined,
-          };
-        } catch {
-          return {
-            scope: stockTokenDetailScope,
-            token: undefined,
-            perpsInfo: undefined,
-          };
-        }
-      },
-      [
-        currentStockToken?.contractAddress,
-        currentStockToken?.networkId,
-        currentStockTokenKey,
-        stockTokenDetailScope,
-      ],
-      {
-        initResult: {
-          scope: '',
+  const lastGoodStockTokenDetailRef = useRef<{
+    scope: string;
+    token: IMarketTokenDetail | undefined;
+    perpsInfo: IMarketPerpsInfo | undefined;
+  } | null>(null);
+  // Tracks the scope of the latest render so a superseded in-flight request
+  // (user already switched stock) cannot clobber the last-good snapshot of
+  // the currently selected stock.
+  const latestStockTokenDetailScopeRef = useRef(stockTokenDetailScope);
+  latestStockTokenDetailScopeRef.current = stockTokenDetailScope;
+  const { result: stockTokenDetailState } = usePromiseResult(
+    async () => {
+      if (!currentStockToken?.networkId || !currentStockTokenKey) {
+        return {
+          scope: stockTokenDetailScope,
           token: undefined,
           perpsInfo: undefined,
-        },
-        watchLoading: !!currentStockTokenKey,
-        swrKey: stockTokenDetailScope
-          ? swrKeys.swapStockTokenDetail({
-              tokenScope: stockTokenDetailScope,
-            })
-          : undefined,
+        };
+      }
+      try {
+        const response =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
+            currentStockToken.contractAddress ?? '',
+            currentStockToken.networkId,
+            {
+              autoHandleError: false,
+            },
+          );
+        const token = response?.data?.token;
+        const nextState = {
+          scope: stockTokenDetailScope,
+          token: token?.stock ? token : undefined,
+          perpsInfo: token?.stock ? response?.data?.perpsInfo : undefined,
+        };
+        // A superseded response (user already switched stock while this
+        // request was in flight) must not overwrite the snapshot;
+        // usePromiseResult already discards its result via the nonce guard.
+        if (latestStockTokenDetailScopeRef.current === stockTokenDetailScope) {
+          lastGoodStockTokenDetailRef.current = nextState;
+        }
+        return nextState;
+      } catch {
+        // A transient polling failure must not wipe the channel state:
+        // an undefined stock detail degrades channelStage to MissingStock
+        // and resets the trade UI. Keep the last successful payload for
+        // the same token scope instead.
+        const lastGood = lastGoodStockTokenDetailRef.current;
+        if (lastGood?.scope === stockTokenDetailScope) {
+          return lastGood;
+        }
+        return {
+          scope: stockTokenDetailScope,
+          token: undefined,
+          perpsInfo: undefined,
+        };
+      }
+    },
+    [
+      currentStockToken?.contractAddress,
+      currentStockToken?.networkId,
+      currentStockTokenKey,
+      stockTokenDetailScope,
+    ],
+    {
+      initResult: {
+        scope: '',
+        token: undefined,
+        perpsInfo: undefined,
       },
-    );
+      // Market open/closed state (stock.isOpen / description) is only
+      // carried by this endpoint — the market WebSocket pushes price only —
+      // so poll it while the tab stays mounted to keep the closed alert,
+      // the disabled trade button and the K-line pulse dot in sync with
+      // the actual market session (OK-57346). 10s matches Swap Pro's
+      // token-detail polling cadence.
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 10 }),
+      swrKey: stockTokenDetailScope
+        ? swrKeys.swapStockTokenDetail({
+            tokenScope: stockTokenDetailScope,
+          })
+        : undefined,
+    },
+  );
   const stockTokenDetail =
     stockTokenDetailState?.scope === stockTokenDetailScope
       ? stockTokenDetailState.token
@@ -514,7 +549,12 @@ export function useSwapStockChannel() {
       return ESwapStockChannelAsyncStatus.Idle;
     }
     if (!activeStockTokenDetail?.stock) {
-      return stockTokenDetailLoading || stockTokenDetailPending
+      // Initializing only until the FIRST result for the current token scope
+      // lands (pending). Per-request loading is deliberately excluded: the
+      // 10s detail polling would otherwise flip this status on every tick
+      // while the detail stays empty (e.g. offline), blinking the
+      // unavailable alert and the action button.
+      return stockTokenDetailPending
         ? ESwapStockChannelAsyncStatus.Initializing
         : ESwapStockChannelAsyncStatus.Empty;
     }
@@ -527,7 +567,6 @@ export function useSwapStockChannel() {
     activeStockTokenDetail?.stock,
     stockMarketStatus,
     stockTokenDetailPending,
-    stockTokenDetailLoading,
   ]);
 
   const channelStage = useMemo(() => {
