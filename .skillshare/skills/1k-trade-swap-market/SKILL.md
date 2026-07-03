@@ -1,6 +1,6 @@
 ---
 name: 1k-trade-swap-market
-description: App-side OneKey Trade/Swap/Market guide for Swap core, Swap Pro, Market speed-swap, Home Token and Send handoffs, K-line/chart, token selectors, cold-start frame-by-frame validation, quote/build/send flows, history/status, provider channels, PrivateSend-like channels, stock-trading channels, limit/order flows, fees, slippage, ETA, and cross-module funding handoffs.
+description: App-side OneKey Trade/Swap/Market guide for Swap core, Swap Pro, Wallet Home and Home Token entries, Send/Earn/Market/Buy handoffs, native/mobile host differences, K-line/chart, token selectors, cold-start frame-by-frame validation, quote/build/send flows, history/status, provider channels, PrivateSend-like channels, stock-trading channels, limit/order flows, fees, slippage, ETA, and cross-module funding handoffs.
 ---
 
 # Trade, Swap, Market
@@ -118,6 +118,9 @@ Use these drills to judge whether the skill is complete enough for a new require
   analytics/history identity, and pending-row filters while sharing Swap
   infrastructure?
 - Funding handoff: can an Earn/Market/Buy entry land in Swap with the correct network, account, token, amount, preset, and reset behavior?
+- Entry ownership: can you tell whether the bug belongs to Wallet/Home
+  handoff params, Swap route initialization, channel-specific state such as
+  Stock, native/mobile host behavior, or the quote/review/build spine?
 
 If a drill cannot be completed from the references, update the abstraction instead of adding another one-off case.
 
