@@ -61,6 +61,7 @@ export function useOneKeyAuthMethods() {
 
   const {
     signInWithSocialLogin,
+    persistKeylessOAuthSession,
     keylessSignOut,
     legacySignOut,
     signOut: supabaseSignOut,
@@ -187,6 +188,7 @@ export function useOneKeyAuthMethods() {
       keylessSupabaseSignOut: keylessSignOut,
       clearLocalSupabaseSessions,
       signInWithSocialLogin,
+      persistKeylessOAuthSession,
     };
   }, [
     getAccessToken,
@@ -203,6 +205,7 @@ export function useOneKeyAuthMethods() {
     keylessSignOut,
     clearLocalSupabaseSessions,
     signInWithSocialLogin,
+    persistKeylessOAuthSession,
   ]);
 }
 

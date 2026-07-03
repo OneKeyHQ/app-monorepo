@@ -256,8 +256,12 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export function useKeylessWallet() {
-  const { signInWithSocialLogin, logout, keylessSupabaseSignOut } =
-    useOneKeyAuth();
+  const {
+    signInWithSocialLogin,
+    logout,
+    keylessSupabaseSignOut,
+    persistKeylessOAuthSession,
+  } = useOneKeyAuth();
   const navigation = useAppNavigation();
   const intl = useIntl();
 
@@ -297,9 +301,14 @@ export function useKeylessWallet() {
   const checkKeylessWalletCreatedOnServer = useCallback(
     async ({
       token,
+      refreshToken,
       mode,
     }: {
       token: string;
+      // Refresh token of a fresh OAuth session that has NOT been persisted
+      // yet. When provided in verify mode, the session is persisted only
+      // after the token passes local keyless wallet validation.
+      refreshToken?: string;
       mode?: EOnboardingV2OneKeyIDLoginMode;
     }) => {
       if (!token) {
@@ -320,8 +329,19 @@ export function useKeylessWallet() {
               { token },
             );
           if (!isValid) {
-            await keylessSupabaseSignOut();
-            await backgroundApiProxy.simpleDb.prime.clearKeylessAuthSession();
+            // When refreshToken is provided, the mismatched session came from
+            // a fresh OAuth sign-in that was never persisted, so the
+            // currently persisted keyless session (which may back the active
+            // OneKey ID login) must stay untouched. Without refreshToken the
+            // token was read from the persisted keyless session itself, so
+            // that session is wrong for this wallet: clear it completely
+            // (main runtime client sign-out + bg-side shared storage), and
+            // when it also backed the OneKey ID login, clear the login state
+            // to avoid a zombie logged-in atom without a session.
+            if (!refreshToken) {
+              await keylessSupabaseSignOut();
+              await backgroundApiProxy.serviceKeylessWallet.clearKeylessAuthSessionAndLoginState();
+            }
 
             // Get keyless wallet provider type to determine which dialog to show
             const keylessWallet =
@@ -353,6 +373,16 @@ export function useKeylessWallet() {
       };
       await checkLoginMatchedKeylessWallet();
       if (isKeylessIdentityVerifyMode) {
+        if (refreshToken) {
+          // Persist the fresh OAuth session only AFTER it passed validation,
+          // so a wrong-account session can never replace the active keyless
+          // session. Downstream consumers (auto apiOAuthLogin below, PIN
+          // confirm status checks, avatar fix) rely on the persisted session.
+          await persistKeylessOAuthSession({
+            accessToken: token,
+            refreshToken,
+          });
+        }
         try {
           const isOneKeyIdLoggedIn =
             await backgroundApiProxy.servicePrime.isLoggedIn();
@@ -440,7 +470,13 @@ export function useKeylessWallet() {
         });
       }
     },
-    [handleKeylessOnboardingTimeout, intl, keylessSupabaseSignOut, navigation],
+    [
+      handleKeylessOnboardingTimeout,
+      intl,
+      keylessSupabaseSignOut,
+      navigation,
+      persistKeylessOAuthSession,
+    ],
   );
 
   const showLocalKeylessWalletExistsDialog = useCallback(() => {

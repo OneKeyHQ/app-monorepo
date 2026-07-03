@@ -52,6 +52,27 @@ export function useSupabaseAuth() {
 
   // ============ OAuth Sign In Methods ============
 
+  // Persist a Keyless OAuth session into the shared Supabase session storage.
+  // There is a single keyless session slot (one shared native store; the bg
+  // runtime re-reads it from storage), so persisting overwrites any currently
+  // active keyless session. Flows that verify an existing keyless wallet MUST
+  // validate the OAuth account first and only persist after validation passes.
+  const persistKeylessOAuthSession = useCallback(
+    async ({
+      accessToken,
+      refreshToken,
+    }: {
+      accessToken: string;
+      refreshToken: string;
+    }): Promise<void> => {
+      await getKeylessSupabaseClient().client.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+    },
+    [],
+  );
+
   const performOAuthSignIn = useCallback(
     async (
       provider: EOAuthSocialLoginProvider,
@@ -69,10 +90,7 @@ export function useSupabaseAuth() {
       }): Promise<void> => {
         if (persistSession) {
           // Persist session to Supabase client storage
-          await getKeylessSupabaseClient().client.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
+          await persistKeylessOAuthSession({ accessToken, refreshToken });
 
           // Login to Prime service
           // if (loginToPrime) {
@@ -158,7 +176,7 @@ export function useSupabaseAuth() {
         handleSessionPersistence: handleOAuthSessionPersistence,
       });
     },
-    [enableKeylessDebugInfo],
+    [enableKeylessDebugInfo, persistKeylessOAuthSession],
   );
 
   const signInWithSocialLogin = useCallback(
@@ -382,6 +400,7 @@ export function useSupabaseAuth() {
       signInWithOtp,
       signInWithSocialLogin,
       performOAuthSignIn,
+      persistKeylessOAuthSession,
       verifyOtp,
       getSupabaseClient,
       getAccessToken,
@@ -399,6 +418,7 @@ export function useSupabaseAuth() {
       signInWithOtp,
       signInWithSocialLogin,
       performOAuthSignIn,
+      persistKeylessOAuthSession,
       verifyOtp,
       getAccessToken,
       getSession,

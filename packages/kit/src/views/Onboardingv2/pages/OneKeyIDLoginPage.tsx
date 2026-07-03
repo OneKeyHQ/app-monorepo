@@ -194,10 +194,13 @@ function OneKeyIDLoginPage() {
           });
           return;
         }
-        const result = await signInWithSocialLogin(
-          provider,
-          isVerifyMode ? { persistSession: true } : undefined,
-        );
+        // Never persist the OAuth session at sign-in time here: there is a
+        // single shared keyless session slot, and in verify mode a
+        // wrong-account login would overwrite the active session (which may
+        // back the live OneKey ID login) before any validation runs. In
+        // verify mode checkKeylessWalletCreatedOnServer persists the session
+        // (via the refreshToken below) only after validation passes.
+        const result = await signInWithSocialLogin(provider);
         if (result?.session?.accessToken) {
           if (isResetMode) {
             await backgroundApiProxy.serviceKeylessWallet.apiResetKeylessBackendShare(
@@ -212,6 +215,7 @@ function OneKeyIDLoginPage() {
           } else {
             await checkKeylessWalletCreatedOnServer({
               token: result.session.accessToken,
+              refreshToken: result.session.refreshToken,
               mode,
             });
           }

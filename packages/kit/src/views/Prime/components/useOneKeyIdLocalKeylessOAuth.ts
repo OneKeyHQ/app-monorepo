@@ -97,6 +97,17 @@ export function useOneKeyIdLocalKeylessOAuth({
     ],
   );
 
+  // Clear the temporary keyless OAuth session persisted by
+  // signInWithSocialLogin (main runtime client sign-out + bg-side shared
+  // storage). The bg method is source-guarded: when the OneKey ID login is
+  // backed by the keyless session (authSessionSource === KeylessOAuth), it
+  // also clears the auth tokens and the logged-in atom so clearing the
+  // session can never leave a zombie logged-in state behind.
+  const clearOAuthSignInTempSession = useCallback(async () => {
+    await keylessSupabaseSignOut();
+    await backgroundApiProxy.serviceKeylessWallet.clearKeylessAuthSessionAndLoginState();
+  }, [keylessSupabaseSignOut]);
+
   const getOAuthAccessToken = useCallback(
     async ({
       provider,
@@ -133,8 +144,7 @@ export function useOneKeyIdLocalKeylessOAuth({
           await assertTokenMatchesLocalKeylessWallet({ accessToken });
         } catch (error) {
           if (isLocalKeylessOAuthMode) {
-            await keylessSupabaseSignOut();
-            await backgroundApiProxy.simpleDb.prime.clearKeylessAuthSession();
+            await clearOAuthSignInTempSession();
           }
           throw error;
         }
@@ -147,17 +157,12 @@ export function useOneKeyIdLocalKeylessOAuth({
     },
     [
       assertTokenMatchesLocalKeylessWallet,
+      clearOAuthSignInTempSession,
       isLocalKeylessOAuthMode,
       localKeylessProvider,
-      keylessSupabaseSignOut,
       signInWithSocialLogin,
     ],
   );
-
-  const clearOAuthSignInTempSession = useCallback(async () => {
-    await keylessSupabaseSignOut();
-    await backgroundApiProxy.simpleDb.prime.clearKeylessAuthSession();
-  }, [keylessSupabaseSignOut]);
 
   return {
     localKeylessPrepareStatus,

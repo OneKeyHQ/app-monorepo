@@ -35,7 +35,7 @@ export function useKeylessLocalExistenceLogin({
   const intl = useIntl();
   const { enableKeylessWalletLoading, checkKeylessWalletLocalExistence } =
     useKeylessWallet();
-  const { keylessSupabaseSignOut, signInWithSocialLogin } = useOneKeyAuth();
+  const { persistKeylessOAuthSession, signInWithSocialLogin } = useOneKeyAuth();
 
   const [loadingProvider, setLoadingProvider] =
     useState<EOAuthSocialLoginProvider | null>(null);
@@ -81,18 +81,20 @@ export function useKeylessLocalExistenceLogin({
           });
         }
         if (isResetMode) {
-          const result = await signInWithSocialLogin(provider, {
-            persistSession: true,
-          });
+          // Sign in WITHOUT persisting the OAuth session: there is a single
+          // shared keyless session slot, and persisting before validation
+          // would let a wrong-account session overwrite the active one
+          // (which may back the live OneKey ID login).
+          const result = await signInWithSocialLogin(provider);
           if (result?.session?.accessToken) {
             const { isValid } =
               await backgroundApiProxy.serviceKeylessWallet.validateTokenMatchesKeylessWallet(
                 { token: result.session.accessToken },
               );
             if (!isValid) {
-              await keylessSupabaseSignOut();
-              await backgroundApiProxy.simpleDb.prime.clearKeylessAuthSession();
-
+              // The wrong-account session was never persisted, so the
+              // previously persisted keyless session stays intact and no
+              // cleanup is needed here.
               const keylessWallet =
                 await backgroundApiProxy.serviceAccount.getKeylessWallet();
               showKeylessWalletAccountMismatchError({
@@ -106,6 +108,12 @@ export function useKeylessLocalExistenceLogin({
                 }),
               );
             }
+            // Persist the session only after validation passed, keeping the
+            // previous success-path behavior for downstream keyless flows.
+            await persistKeylessOAuthSession({
+              accessToken: result.session.accessToken,
+              refreshToken: result.session.refreshToken,
+            });
             await backgroundApiProxy.serviceKeylessWallet.apiResetKeylessBackendShare(
               {
                 token: result.session.accessToken,
@@ -130,8 +138,8 @@ export function useKeylessLocalExistenceLogin({
       checkKeylessWalletLocalExistence,
       intl,
       isResetMode,
-      keylessSupabaseSignOut,
       onResetModeChange,
+      persistKeylessOAuthSession,
       signInWithSocialLogin,
     ],
   );

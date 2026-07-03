@@ -3115,6 +3115,18 @@ class ServiceKeylessWallet extends ServiceBase {
     });
 
     await this.removeLegacyKeylessOAuthTokens({ ownerId });
+    await this.clearKeylessAuthSessionAndLoginState();
+  }
+
+  /**
+   * Completely clear the shared Keyless OAuth session (bg runtime client +
+   * shared session storage). When the OneKey ID login is backed by that
+   * session (authSessionSource === KeylessOAuth), also clear the persisted
+   * auth tokens and mark the Prime atom as not logged in, so clearing the
+   * session can never leave a zombie logged-in state behind.
+   */
+  @backgroundMethod()
+  async clearKeylessAuthSessionAndLoginState(): Promise<void> {
     const authSessionSource =
       await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
     await this.backgroundApi.simpleDb.prime.clearKeylessAuthSession();
