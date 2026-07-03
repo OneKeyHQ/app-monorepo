@@ -298,17 +298,29 @@ export function useSwapStockChannel() {
         : undefined,
     },
   );
-  const stockTokenDetail =
-    stockTokenDetailState?.scope === stockTokenDetailScope
-      ? stockTokenDetailState.token
-      : undefined;
-  const stockPerpsInfo =
-    stockTokenDetailState?.scope === stockTokenDetailScope
-      ? stockTokenDetailState.perpsInfo
-      : undefined;
+  // A state "lands" for the current scope when it is either an honest
+  // empty answer (no token — e.g. the asset is not a stock, or the
+  // post-TTL fallback settled on unavailable) or a token payload whose
+  // fetchedAt is within the TTL. The freshness gate matters for the SWR
+  // first-frame hydration: usePromiseResult syncs the MMKV cache into the
+  // render state before any request resolves, and without this check a
+  // stale cached isOpen/description would drive the closed alert and the
+  // trade button until a slow/hung request returns. An expired hydration
+  // instead stays pending (Initializing) until the first real result.
+  const stockTokenDetailLanded =
+    stockTokenDetailState?.scope === stockTokenDetailScope &&
+    (!stockTokenDetailState.token ||
+      (!!stockTokenDetailState.fetchedAt &&
+        Date.now() - stockTokenDetailState.fetchedAt <=
+          SWAP_STOCK_DETAIL_LAST_GOOD_TTL_MS));
+  const stockTokenDetail = stockTokenDetailLanded
+    ? stockTokenDetailState?.token
+    : undefined;
+  const stockPerpsInfo = stockTokenDetailLanded
+    ? stockTokenDetailState?.perpsInfo
+    : undefined;
   const stockTokenDetailPending =
-    !!currentStockTokenKey &&
-    stockTokenDetailState?.scope !== stockTokenDetailScope;
+    !!currentStockTokenKey && !stockTokenDetailLanded;
   const { realtimeChartPoint, realtimeTokenDetail: activeStockTokenDetail } =
     useSwapStockMarketWebSocket({
       currentStockToken,
