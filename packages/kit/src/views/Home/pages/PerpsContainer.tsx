@@ -619,6 +619,10 @@ function PerpsHeaderActions({ canDeposit }: { canDeposit: boolean }) {
   const intl = useIntl();
   const openPerp = useOpenPerpAsset();
 
+  if (!canDeposit) {
+    return null;
+  }
+
   return (
     <XStack alignItems="center" gap="$2">
       <PerpsDepositButton

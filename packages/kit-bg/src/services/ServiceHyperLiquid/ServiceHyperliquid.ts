@@ -1060,9 +1060,11 @@ export default class ServiceHyperliquid extends ServiceBase {
   async getHyperliquidPortfolioSnapshot({
     address,
     force,
+    skipCacheWriteIfEmpty,
   }: {
     address: string;
     force?: boolean;
+    skipCacheWriteIfEmpty?: boolean;
   }): Promise<IHyperliquidPortfolioSnapshot | undefined> {
     const normalized = address?.toLowerCase();
     if (!normalized) {
@@ -1095,9 +1097,11 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
     try {
       const fresh = await this.fetchHyperliquidPortfolioByAddress(normalized);
-      await this.backgroundApi.simpleDb.perp.setHyperliquidPortfolioSnapshot(
-        fresh,
-      );
+      if (!skipCacheWriteIfEmpty || !fresh.isEmpty) {
+        await this.backgroundApi.simpleDb.perp.setHyperliquidPortfolioSnapshot(
+          fresh,
+        );
+      }
       return fresh;
     } catch {
       // Don't cache the failure; fall back only while the snapshot is still fresh.

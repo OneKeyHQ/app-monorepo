@@ -240,6 +240,9 @@ export function usePerpsHomePortfolio(): {
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
   const depositRetryNonceRef = useRef(0);
+  const activeDepositRetryScopeRef = useRef<
+    IPendingDepositRetryScope | undefined
+  >(undefined);
   const focusRefreshNonceRef = useRef(0);
   const wasTabFocusedRef = useRef(isTabFocused);
   const pendingDepositRetryScopeRef = useRef<
@@ -342,23 +345,39 @@ export function usePerpsHomePortfolio(): {
         depositRetryTimerRef.current = undefined;
       }
     };
+    const pauseDepositRetry = (scope: IPendingDepositRetryScope) => {
+      markPendingDepositRetry(scope);
+      activeDepositRetryScopeRef.current = undefined;
+      clearDepositRetry();
+      depositRetryNonceRef.current += 1;
+    };
     const forceRefreshAfterDeposit = async ({
+      scope,
       address,
       attempt,
       nonce,
     }: {
+      scope: IPendingDepositRetryScope;
       address: string;
       attempt: number;
       nonce: number;
     }) => {
+      if (!isTabFocusedRef.current) {
+        pauseDepositRetry(scope);
+        return;
+      }
       const snapshot =
         await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
-          { address, force: true },
+          { address, force: true, skipCacheWriteIfEmpty: true },
         );
       if (
         depositRetryNonceRef.current !== nonce ||
         normalizePerpsAddress(latestAddressRef.current) !== address
       ) {
+        return;
+      }
+      if (!isTabFocusedRef.current) {
+        pauseDepositRetry(scope);
         return;
       }
       if (snapshot) {
@@ -370,14 +389,24 @@ export function usePerpsHomePortfolio(): {
       }
       // The event carries a Perps deposit source marker but not the deposit
       // amount, so a non-empty snapshot cannot prove the new deposit is visible.
-      if (attempt < DEPOSIT_CONFIRMATION_RETRY_MAX_ATTEMPTS) {
+      if (
+        attempt < DEPOSIT_CONFIRMATION_RETRY_MAX_ATTEMPTS &&
+        isTabFocusedRef.current
+      ) {
         depositRetryTimerRef.current = setTimeout(() => {
+          if (!isTabFocusedRef.current) {
+            pauseDepositRetry(scope);
+            return;
+          }
           void forceRefreshAfterDeposit({
+            scope,
             address,
             attempt: attempt + 1,
             nonce,
           });
         }, DEPOSIT_CONFIRMATION_RETRY_INTERVAL_MS);
+      } else {
+        activeDepositRetryScopeRef.current = undefined;
       }
     };
     const startDepositConfirmationRetry = (
@@ -425,7 +454,8 @@ export function usePerpsHomePortfolio(): {
         void run({ alwaysSetState: true });
         return;
       }
-      void forceRefreshAfterDeposit({ address, attempt: 1, nonce });
+      activeDepositRetryScopeRef.current = scope;
+      void forceRefreshAfterDeposit({ scope, address, attempt: 1, nonce });
     };
     const onTxConfirmed = (payload: ILocalPendingTxConfirmedPayload) => {
       const scope = getCurrentConfirmedPerpsDepositScope({
@@ -481,6 +511,11 @@ export function usePerpsHomePortfolio(): {
     appEventBus.on(EAppEventBusNames.LocalPendingTxConfirmed, onTxConfirmed);
     return () => {
       appEventBus.off(EAppEventBusNames.LocalPendingTxConfirmed, onTxConfirmed);
+      const activeDepositRetryScope = activeDepositRetryScopeRef.current;
+      if (!isTabFocusedRef.current && activeDepositRetryScope) {
+        markPendingDepositRetry(activeDepositRetryScope);
+      }
+      activeDepositRetryScopeRef.current = undefined;
       clearDepositRetry();
       depositRetryNonceRef.current += 1;
     };
@@ -489,6 +524,7 @@ export function usePerpsHomePortfolio(): {
     currentAccountScopeKey,
     focusedRevalidateNonce,
     indexedAccountId,
+    isTabFocused,
     perpsDeriveType,
     run,
     setResult,
