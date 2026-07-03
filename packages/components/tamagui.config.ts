@@ -51,6 +51,7 @@ import { webFontFamily } from './src/utils/webFontFamily';
 import type { Variable } from '@tamagui/web';
 
 const isTamaguiNative = process.env.TAMAGUI_TARGET === 'native';
+const isTamaguiStatic = process.env.IS_STATIC === 'is_static';
 
 const basicFontVariants = {
   size: {
@@ -700,7 +701,9 @@ const config = createTamagui({
     hoverNone: { hover: 'none' },
     pointerCoarse: { pointer: 'coarse' },
   }),
-  disableSSR: true,
+  // Tamagui static extraction runs in Node with the native target. Avoid
+  // registering native media listeners while the config is only being parsed.
+  disableSSR: !isTamaguiStatic,
 });
 
 export type IAppConfig = typeof config;
