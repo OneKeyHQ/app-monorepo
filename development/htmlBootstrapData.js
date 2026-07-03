@@ -30,7 +30,9 @@ function readOneKeyBootstrapDataCode({ basePath, platform, isDev }) {
   const bootstrapDataFile = getBootstrapDataFile(basePath);
   if (!fs.existsSync(bootstrapDataFile)) {
     if (bootstrapDataRequired) {
-      throw new Error(`OneKey bootstrap data file is missing: ${bootstrapDataFile}`);
+      throw new Error(
+        `OneKey bootstrap data file is missing: ${bootstrapDataFile}`,
+      );
     }
     return '';
   }

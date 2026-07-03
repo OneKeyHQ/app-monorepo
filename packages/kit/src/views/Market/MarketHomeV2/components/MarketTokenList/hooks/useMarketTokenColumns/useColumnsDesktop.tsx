@@ -313,9 +313,19 @@ export const useColumnsDesktop = (
           })}(%)`,
         dataIndex: 'change24h',
         columnProps: { flex: 1 },
-        render: (text: number, _record: IMarketToken, index?: number) => {
+        render: (text: number, record: IMarketToken, index?: number) => {
           if (!shouldRenderRichCell(index)) {
-            return renderLightweightText(text);
+            return renderLightweightText(
+              record.priceChangeRaw === '-' ? EMPTY_MARKET_VALUE : text,
+            );
+          }
+
+          if (record.priceChangeRaw === '-') {
+            return (
+              <SizableText size="$bodyMd" color="$textSubdued">
+                --
+              </SizableText>
+            );
           }
 
           const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({

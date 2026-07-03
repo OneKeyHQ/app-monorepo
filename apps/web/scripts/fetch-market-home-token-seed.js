@@ -118,9 +118,9 @@ function resolveSeedUrl() {
     throw new MarketHomeTokenSeedError(
       [
         `Unsupported MARKET_HOME_TOKEN_SEED_ENV: ${seedEnv}.`,
-        `Expected one of: ${Object.keys(MARKET_HOME_TOKEN_SEED_ENV_ORIGINS).join(
-          ', ',
-        )}.`,
+        `Expected one of: ${Object.keys(
+          MARKET_HOME_TOKEN_SEED_ENV_ORIGINS,
+        ).join(', ')}.`,
       ].join(' '),
     );
   }
@@ -243,7 +243,9 @@ function sanitizeTokenItem(item) {
   TOKEN_STRING_FIELDS.forEach((field) =>
     assignStringField(result, item, field),
   );
-  TOKEN_NUMBER_FIELDS.forEach((field) => assignNumberField(result, item, field));
+  TOKEN_NUMBER_FIELDS.forEach((field) =>
+    assignNumberField(result, item, field),
+  );
   TOKEN_BOOLEAN_FIELDS.forEach((field) =>
     assignBooleanField(result, item, field),
   );
@@ -331,7 +333,11 @@ async function readResponseTextWithLimit(response) {
   const reader = response.body?.getReader?.();
   if (!reader) {
     const text = await response.text();
-    ensureByteLimit('Seed response body', getByteLength(text), maxResponseBytes);
+    ensureByteLimit(
+      'Seed response body',
+      getByteLength(text),
+      maxResponseBytes,
+    );
     return text;
   }
 

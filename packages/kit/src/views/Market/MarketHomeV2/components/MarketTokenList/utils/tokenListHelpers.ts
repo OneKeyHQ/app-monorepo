@@ -266,6 +266,7 @@ export function transformApiItemToToken(
     address: item.address,
     price: safeNumber(item.price),
     change24h: priceChange,
+    priceChangeRaw: priceChangeValue,
     marketCap: safeNumber(getStockMarketCapValue(item) ?? item.marketCap),
     liquidity: safeNumber(item.liquidity),
     transactions,
