@@ -46,6 +46,7 @@ import {
 import {
   buildSelectorTokenListFromResponses,
   checkIsOnlyOneTokenHasBalance,
+  sortTokensByFiatValue,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -1058,10 +1059,18 @@ function TokenSelector() {
         const riskyTokenKeys = new Set(
           frames.riskyTokens.map((token) => token.$key),
         );
+        // The VM raw list keeps the producer/ingest order, NOT the home
+        // DISPLAY order (home re-sorts in its render projection). Value-sort
+        // the floor so it matches both the home display default and the live
+        // merge's order — otherwise the list visibly reshuffles when the live
+        // fan-out replaces the floor.
         setSelectorTokenList({
-          tokens: snapshot.tokens.filter(
-            (token) => !riskyTokenKeys.has(token.$key),
-          ),
+          tokens: sortTokensByFiatValue({
+            tokens: snapshot.tokens.filter(
+              (token) => !riskyTokenKeys.has(token.$key),
+            ),
+            map: snapshot.map,
+          }),
           smallBalanceTokens: [],
         });
         // `snapshot.map` is the composed home map (tokenListMap + riskyMap +
@@ -1190,7 +1199,16 @@ function TokenSelector() {
         tokens: merged.tokens,
         smallBalanceTokens: merged.smallBalanceTokens,
       });
-      setSelectorTokenListMap(merged.tokenListMap);
+      // TokenListView's selector path resolves EVERY per-row fiat lookup —
+      // including the hideZeroBalanceTokens filter — from this map only (its
+      // `aggregateTokenMap` binding is the HOST prop, empty on the selector
+      // path); `tokenSelectorAggregateTokenFiatMap` feeds row display. Compose
+      // the aggregate `$key` fiat in so aggregate rows survive the
+      // zero-balance filter (Send passes hideZeroBalanceTokens).
+      setSelectorTokenListMap({
+        ...merged.tokenListMap,
+        ...merged.aggregateTokenFiatMap,
+      });
       // All-networks: the freshly folded member map is the authority (the local
       // simpleDb copy is home's LAST write — absent until home settles once).
       // Single-network: responses carry server-aggregated rows without member
