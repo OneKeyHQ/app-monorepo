@@ -28,10 +28,6 @@ export enum EPrimeAuthSessionSource {
   KeylessOAuth = 'keyless_oauth',
 }
 
-export type IPrimeAuthSessionSourcePersisted =
-  | EPrimeAuthSessionSource
-  | 'legacy_supabase';
-
 export enum EOneKeyIdOAuthFlowStatus {
   Success = 'success',
 }

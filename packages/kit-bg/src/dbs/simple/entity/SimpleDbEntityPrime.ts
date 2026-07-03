@@ -9,10 +9,7 @@ import {
   getKeylessSupabaseClient,
   getSupabaseClient,
 } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
-import {
-  EPrimeAuthSessionSource,
-  type IPrimeAuthSessionSourcePersisted,
-} from '@onekeyhq/shared/types/prime/primeTypes';
+import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -23,7 +20,7 @@ const LOCAL_KEYLESS_UPGRADE_BIND_PROMPT_INTERVAL_MS = 24 * 60 * 60 * 1000;
 export interface ISimpleDBPrime {
   // Deprecated token copy. Supabase/OAuth session storage is the source of truth.
   authToken?: string;
-  authSessionSource?: IPrimeAuthSessionSourcePersisted;
+  authSessionSource?: EPrimeAuthSessionSource;
   // Last auto prompt display time. The upgrade bind prompt is throttled per user.
   localKeylessUpgradeBindPromptShownAtByUserId?: Record<string, number>;
 }
@@ -75,15 +72,6 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     supabaseStorageInstance.clearCache();
   }
 
-  private normalizeAuthSessionSource(
-    authSessionSource: IPrimeAuthSessionSourcePersisted | undefined,
-  ): EPrimeAuthSessionSource | undefined {
-    if (authSessionSource === 'legacy_supabase') {
-      return EPrimeAuthSessionSource.LegacyEmailSupabase;
-    }
-    return authSessionSource;
-  }
-
   @backgroundMethod()
   async getActiveAuthToken(): Promise<string> {
     const authSessionSource = await this.getEffectiveAuthSessionSource();
@@ -113,21 +101,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   @backgroundMethod()
   async getAuthSessionSource(): Promise<EPrimeAuthSessionSource | undefined> {
     const rawData = await this.getRawData();
-    const authSessionSource = this.normalizeAuthSessionSource(
-      rawData?.authSessionSource,
-    );
-    if (
-      rawData?.authSessionSource &&
-      authSessionSource &&
-      rawData.authSessionSource !== authSessionSource
-    ) {
-      await this.setRawData({
-        ...rawData,
-        authSessionSource,
-      });
-      supabaseStorageInstance.clearCache();
-    }
-    return authSessionSource;
+    return rawData?.authSessionSource;
   }
 
   /**
