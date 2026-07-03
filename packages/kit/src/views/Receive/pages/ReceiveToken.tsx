@@ -905,7 +905,8 @@ function ReceiveToken() {
   ]);
 
   const isPressable = useMemo(() => {
-    return !!(banner?.href || banner?.mode);
+    // whitespace-only href means the banner is informational: no affordance
+    return !!(banner?.href?.trim() || banner?.mode);
   }, [banner?.href, banner?.mode]);
   return (
     <Page
