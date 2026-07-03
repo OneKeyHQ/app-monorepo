@@ -2717,6 +2717,43 @@ class ServiceKeylessWallet extends ServiceBase {
     }
   }
 
+  private async saveLegacyKeylessOAuthRefreshToken(params: {
+    ownerId: string;
+    refreshToken: string;
+    password: string;
+  }): Promise<void> {
+    const refreshTokenKey = accountUtils.buildKeylessRefreshTokenKey({
+      ownerId: params.ownerId,
+    });
+    const encryptionKey = await buildKeylessLocalEncryptionKeyWithPassword({
+      password: params.password,
+    });
+    const encryptedPayloadHex =
+      await this.backgroundApi.servicePassword.encryptString({
+        password: encryptionKey,
+        data: params.refreshToken,
+        dataEncoding: 'utf8',
+        allowRawPassword: true,
+      });
+    const encryptedPayloadBase64 = bufferUtils.bytesToBase64(
+      bufferUtils.hexToBytes(encryptedPayloadHex),
+    );
+    await keylessStorageUtils.storageSetItem(
+      refreshTokenKey,
+      encryptedPayloadBase64,
+    );
+  }
+
+  private isKeylessDataCorruptedError(error: unknown): boolean {
+    return (
+      error instanceof KeylessDataCorruptedError ||
+      errorUtils.isErrorByClassName({
+        error,
+        className: EOneKeyErrorClassNames.KeylessDataCorruptedError,
+      })
+    );
+  }
+
   private async migrateLegacyKeylessOAuthSessionForLocalWallet(params: {
     keylessWallet: IDBWallet;
     ownerId: string;
@@ -2728,10 +2765,23 @@ class ServiceKeylessWallet extends ServiceBase {
 
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerify();
-    const refreshToken = await this.getLegacyKeylessOAuthRefreshToken({
-      ownerId,
-      password,
-    });
+    let refreshToken: string | null = null;
+    try {
+      refreshToken = await this.getLegacyKeylessOAuthRefreshToken({
+        ownerId,
+        password,
+      });
+    } catch (error) {
+      if (this.isKeylessDataCorruptedError(error)) {
+        // The legacy blob can no longer be decrypted (e.g. it was left stale
+        // by a passcode change on an old build). It is unrecoverable and
+        // would fail again on every retry, so drop it and let callers fall
+        // back to a fresh OAuth login.
+        await this.removeLegacyKeylessOAuthTokens({ ownerId });
+        return null;
+      }
+      throw error;
+    }
     if (!refreshToken) {
       return null;
     }
@@ -3284,6 +3334,7 @@ class ServiceKeylessWallet extends ServiceBase {
     const backupData: Array<{
       ownerId: string;
       mnemonicPassword: string | null;
+      legacyOAuthRefreshToken: string | null;
     }> = [];
 
     for (const wallet of keylessWallets) {
@@ -3300,9 +3351,31 @@ class ServiceKeylessWallet extends ServiceBase {
           },
         );
 
+      // Legacy keyless OAuth refresh tokens are encrypted with a
+      // passcode-derived key, so they must be re-encrypted with the new
+      // passcode as well, otherwise they can no longer be decrypted after
+      // the passcode change.
+      let legacyOAuthRefreshToken: string | null = null;
+      try {
+        legacyOAuthRefreshToken = await this.getLegacyKeylessOAuthRefreshToken({
+          ownerId,
+          password: oldPassword,
+        });
+      } catch (error) {
+        if (this.isKeylessDataCorruptedError(error)) {
+          // The legacy blob already fails to decrypt with the current
+          // passcode (e.g. left stale by an old build). It is unrecoverable,
+          // so drop it instead of failing the passcode change.
+          await this.removeLegacyKeylessOAuthTokens({ ownerId });
+        } else {
+          throw error;
+        }
+      }
+
       backupData.push({
         ownerId,
         mnemonicPassword,
+        legacyOAuthRefreshToken,
       });
     }
 
@@ -3316,6 +3389,14 @@ class ServiceKeylessWallet extends ServiceBase {
             backgroundApi: this.backgroundApi,
           },
         );
+      }
+
+      if (backup.legacyOAuthRefreshToken) {
+        await this.saveLegacyKeylessOAuthRefreshToken({
+          ownerId: backup.ownerId,
+          refreshToken: backup.legacyOAuthRefreshToken,
+          password: newPassword,
+        });
       }
     }
 
@@ -3331,6 +3412,14 @@ class ServiceKeylessWallet extends ServiceBase {
                 backgroundApi: this.backgroundApi,
               },
             );
+          }
+
+          if (backup.legacyOAuthRefreshToken) {
+            await this.saveLegacyKeylessOAuthRefreshToken({
+              ownerId: backup.ownerId,
+              refreshToken: backup.legacyOAuthRefreshToken,
+              password: oldPassword,
+            });
           }
         }
       },

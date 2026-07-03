@@ -112,6 +112,8 @@ jest.mock('./utils/keylessMnemonicPasswordStorage', () => ({
     getMnemonicPasswordFromStorage: jest.fn(),
     saveMnemonicPasswordToStorage: jest.fn(),
     removeMnemonicPasswordFromStorage: jest.fn(),
+    getMnemonicPasswordFromStorageWithPassword: jest.fn(),
+    saveMnemonicPasswordToStorageWithPassword: jest.fn(),
   },
 }));
 
@@ -151,7 +153,7 @@ const {
 } =
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   require('@onekeyhq/shared/src/consts/authConsts');
-const { OneKeyLocalError } =
+const { KeylessDataCorruptedError, OneKeyLocalError } =
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   require('@onekeyhq/shared/src/errors');
 
@@ -1581,6 +1583,119 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
       ownerId: OWNER_ID,
       expectedHashId: HASH_ID,
       expectedBackendShareData: restoreBackendShareData,
+    });
+  });
+});
+
+describe('ServiceKeylessWallet legacy keyless OAuth token passcode handling', () => {
+  const OLD_PASSWORD = 'encoded-old-password';
+  const NEW_PASSWORD = 'encoded-new-password';
+
+  beforeEach(() => {
+    jest.restoreAllMocks();
+    jest.clearAllMocks();
+  });
+
+  function createServiceForPasscodeUpdate() {
+    const created = createService();
+    created.backgroundApi.serviceAccount.getAllWallets = jest.fn(async () => ({
+      wallets: [created.wallet],
+    }));
+    keylessMnemonicPasswordStorage.getMnemonicPasswordFromStorageWithPassword.mockResolvedValue(
+      'mnemonic-password',
+    );
+    keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorageWithPassword.mockResolvedValue(
+      undefined,
+    );
+    return created;
+  }
+
+  test('updateKeylessDataPasscode re-encrypts the legacy OAuth refresh token with the new passcode', async () => {
+    const { service, serviceAny } = createServiceForPasscodeUpdate();
+    serviceAny.getLegacyKeylessOAuthRefreshToken = jest.fn(
+      async () => 'legacy-refresh-token',
+    );
+    serviceAny.saveLegacyKeylessOAuthRefreshToken = jest.fn(
+      async () => undefined,
+    );
+
+    const { rollback } = await service.updateKeylessDataPasscode({
+      oldPassword: OLD_PASSWORD,
+      newPassword: NEW_PASSWORD,
+    });
+
+    expect(serviceAny.getLegacyKeylessOAuthRefreshToken).toHaveBeenCalledWith({
+      ownerId: OWNER_ID,
+      password: OLD_PASSWORD,
+    });
+    expect(serviceAny.saveLegacyKeylessOAuthRefreshToken).toHaveBeenCalledWith({
+      ownerId: OWNER_ID,
+      refreshToken: 'legacy-refresh-token',
+      password: NEW_PASSWORD,
+    });
+
+    await rollback();
+
+    expect(
+      serviceAny.saveLegacyKeylessOAuthRefreshToken,
+    ).toHaveBeenLastCalledWith({
+      ownerId: OWNER_ID,
+      refreshToken: 'legacy-refresh-token',
+      password: OLD_PASSWORD,
+    });
+  });
+
+  test('updateKeylessDataPasscode drops a legacy refresh token that fails to decrypt instead of failing the passcode change', async () => {
+    const { service, serviceAny } = createServiceForPasscodeUpdate();
+    serviceAny.getLegacyKeylessOAuthRefreshToken = jest.fn(async () => {
+      throw new KeylessDataCorruptedError();
+    });
+    serviceAny.saveLegacyKeylessOAuthRefreshToken = jest.fn(
+      async () => undefined,
+    );
+    serviceAny.removeLegacyKeylessOAuthTokens = jest.fn(async () => undefined);
+
+    await expect(
+      service.updateKeylessDataPasscode({
+        oldPassword: OLD_PASSWORD,
+        newPassword: NEW_PASSWORD,
+      }),
+    ).resolves.toBeDefined();
+
+    expect(serviceAny.removeLegacyKeylessOAuthTokens).toHaveBeenCalledWith({
+      ownerId: OWNER_ID,
+    });
+    expect(
+      serviceAny.saveLegacyKeylessOAuthRefreshToken,
+    ).not.toHaveBeenCalled();
+    // The mnemonic password must still be re-encrypted with the new passcode.
+    expect(
+      keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorageWithPassword,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerId: OWNER_ID,
+        password: NEW_PASSWORD,
+      }),
+    );
+  });
+
+  test('migrateLegacyKeylessOAuthSessionForLocalWallet cleans up the blob when decryption fails', async () => {
+    const { serviceAny, wallet } = createService();
+    serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => true);
+    serviceAny.getLegacyKeylessOAuthRefreshToken = jest.fn(async () => {
+      throw new KeylessDataCorruptedError();
+    });
+    serviceAny.removeLegacyKeylessOAuthTokens = jest.fn(async () => undefined);
+
+    await expect(
+      serviceAny.migrateLegacyKeylessOAuthSessionForLocalWallet({
+        keylessWallet: wallet,
+        ownerId: OWNER_ID,
+      }),
+    ).resolves.toBeNull();
+
+    expect(serviceAny.removeLegacyKeylessOAuthTokens).toHaveBeenCalledWith({
+      ownerId: OWNER_ID,
     });
   });
 });
