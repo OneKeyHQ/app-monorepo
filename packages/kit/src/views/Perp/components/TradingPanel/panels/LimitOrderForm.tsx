@@ -575,7 +575,7 @@ export function LimitOrderForm({
       try {
         return await requestEnableTradingWithDepositFallback({ beforeDeposit });
       } finally {
-        loadingToast.close();
+        loadingToast?.close();
       }
     };
 

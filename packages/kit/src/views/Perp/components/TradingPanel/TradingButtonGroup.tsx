@@ -1427,14 +1427,14 @@ function SideButtonInternal({
         bg={buttonStyles.bg}
         hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
         pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
-        disabled={buttonDisabled && !shouldPreserveDisabledButtonStyle}
+        disabled={buttonDisabled}
         disabledStyle={
           shouldPreserveDisabledButtonStyle
             ? { opacity: 1, bg: buttonStyles.bg }
             : undefined
         }
         opacity={shouldPreserveDisabledButtonStyle ? 1 : undefined}
-        onPress={buttonDisabled ? undefined : handlePress}
+        onPress={handlePress}
         h={36}
         py={!orderValue.isZero() && orderValue.isFinite() ? '$0.5' : undefined}
       >
@@ -1918,14 +1918,14 @@ function EmptySizeSideButton({
         bg={buttonStyles.bg}
         hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
         pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
-        disabled={buttonDisabled && !shouldPreserveDisabledButtonStyle}
+        disabled={buttonDisabled}
         disabledStyle={
           shouldPreserveDisabledButtonStyle
             ? { opacity: 1, bg: buttonStyles.bg }
             : undefined
         }
         opacity={shouldPreserveDisabledButtonStyle ? 1 : undefined}
-        onPress={buttonDisabled ? undefined : handlePress}
+        onPress={handlePress}
         h={36}
       >
         <YStack alignItems="center" gap={2}>
