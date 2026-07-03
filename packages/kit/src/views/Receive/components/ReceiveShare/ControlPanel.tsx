@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
-import { IconButton, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ReceiveTestIDs } from '../../testIDs';
@@ -15,6 +16,49 @@ interface IControlPanelProps {
   isMobile?: boolean;
 }
 
+function ActionItem({
+  testID,
+  icon,
+  label,
+  onPress,
+  disabled,
+}: {
+  testID?: string;
+  icon: IKeyOfIcons;
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <YStack gap="$1" alignItems="center" minWidth={56}>
+      <Stack
+        testID={testID}
+        bg="$bgStrong"
+        borderRadius="$full"
+        p="$2"
+        onPress={onPress}
+        disabled={disabled}
+        userSelect="none"
+        hoverStyle={{ bg: '$bgStrongHover' }}
+        pressStyle={{ bg: '$bgStrongActive' }}
+        focusable
+        focusVisibleStyle={{
+          outlineWidth: 2,
+          outlineColor: '$focusRing',
+          outlineOffset: 2,
+          outlineStyle: 'solid',
+        }}
+        opacity={disabled ? 0.5 : 1}
+      >
+        <Icon name={icon} size="$6" color="$icon" />
+      </Stack>
+      <SizableText size="$bodyMd" color="$text">
+        {label}
+      </SizableText>
+    </YStack>
+  );
+}
+
 export function ControlPanel({
   onSaveImage,
   onShareImage,
@@ -24,57 +68,21 @@ export function ControlPanel({
   const intl = useIntl();
 
   return (
-    <XStack
-      gap="$6"
-      mb={isMobile ? '$4' : undefined}
-      alignItems="center"
-      justifyContent="center"
-    >
-      <YStack gap="$1" alignItems="center">
-        <IconButton
-          testID={ReceiveTestIDs.ShareSaveButton}
-          title={intl.formatMessage({
-            id: ETranslations.action_save,
-          })}
-          cursor="pointer"
-          icon="DownloadOutline"
-          size="large"
-          onPress={onSaveImage}
-          disabled={isLoading}
-          iconSize="$6"
-          borderRadius="$4"
-          borderWidth={1}
-          borderColor="$borderSubdued"
-          hoverStyle={{ borderColor: '$borderHover' }}
-          bg="$bgApp"
-        />
-        <SizableText size="$bodySm" color="$text">
-          {intl.formatMessage({
-            id: ETranslations.action_save,
-          })}
-        </SizableText>
-      </YStack>
-
-      <YStack gap="$1" alignItems="center">
-        <IconButton
-          testID={ReceiveTestIDs.ShareMoreButton}
-          title={moreActionLabel}
-          cursor="pointer"
-          icon="ShareOutline"
-          size="large"
-          onPress={onShareImage}
-          disabled={isLoading}
-          iconSize="$6"
-          borderRadius="$4"
-          borderWidth={1}
-          borderColor="$borderSubdued"
-          hoverStyle={{ borderColor: '$borderHover' }}
-          bg="$bgApp"
-        />
-        <SizableText size="$bodySm" color="$text">
-          {moreActionLabel}
-        </SizableText>
-      </YStack>
+    <XStack gap="$5" mb={isMobile ? '$4' : undefined} alignItems="flex-start">
+      <ActionItem
+        testID={ReceiveTestIDs.ShareSaveButton}
+        icon="DownloadOutline"
+        label={intl.formatMessage({ id: ETranslations.action_save })}
+        onPress={onSaveImage}
+        disabled={isLoading}
+      />
+      <ActionItem
+        testID={ReceiveTestIDs.ShareMoreButton}
+        icon="ShareOutline"
+        label={moreActionLabel}
+        onPress={onShareImage}
+        disabled={isLoading}
+      />
     </XStack>
   );
 }

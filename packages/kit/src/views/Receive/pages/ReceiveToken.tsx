@@ -7,12 +7,10 @@ import { getColors } from 'react-native-image-colors';
 import { useThrottledCallback } from 'use-debounce';
 
 import {
-  Badge,
   Button,
   Dialog,
   Empty,
   Icon,
-  IconButton,
   Image,
   Page,
   QRCode,
@@ -498,25 +496,54 @@ function ReceiveToken() {
     }
   }, [btcUsedAddress, btcUsedAddressPath]);
 
-  const renderCopyAddressButton = useCallback(() => {
-    if (
-      isHardwareWallet &&
-      addressState !== EAddressState.Verified &&
-      addressState !== EAddressState.ForceShow
-    ) {
-      return null;
-    }
+  const renderAddressCell = useCallback(() => {
+    if (!displayAddress) return null;
 
     return (
-      <IconButton
-        testID={ReceiveTestIDs.CopyAddressButton}
-        size="small"
-        icon="Copy3Outline"
-        onPress={handleCopyAddress}
-        variant="tertiary"
-      />
+      <ReceiveCardCell>
+        <XStack
+          testID={ReceiveTestIDs.AddressText}
+          px="$4"
+          py="$3"
+          gap="$3"
+          alignItems="flex-start"
+          borderRadius="$2.5"
+          onPress={handleCopyAddress}
+          userSelect="none"
+          hoverStyle={{
+            bg: '$bgHover',
+          }}
+          pressStyle={{
+            bg: '$bgActive',
+          }}
+          focusable
+          focusVisibleStyle={{
+            outlineWidth: 2,
+            outlineColor: '$focusRing',
+            outlineOffset: 2,
+            outlineStyle: 'solid',
+          }}
+        >
+          <XStack flex={1} flexWrap="wrap">
+            <HighlightAddress
+              address={displayAddress}
+              size="$bodyLg"
+              fontFamily="$monoRegular"
+            />
+          </XStack>
+          {platformEnv.isNative ? null : (
+            <Icon
+              testID={ReceiveTestIDs.CopyAddressButton}
+              name="Copy3Outline"
+              size="$5"
+              color="$iconSubdued"
+              mt="$0.5"
+            />
+          )}
+        </XStack>
+      </ReceiveCardCell>
     );
-  }, [addressState, handleCopyAddress, isHardwareWallet]);
+  }, [displayAddress, handleCopyAddress]);
 
   const arrivalTimeText = useMemo(
     () =>
@@ -649,40 +676,6 @@ function ReceiveToken() {
     );
   }, [bottom, handleSkipVerifyPress, handleVerifyOnDevicePress, intl]);
 
-  const renderAddress = useCallback(() => {
-    if (!displayAddress) return null;
-
-    return (
-      <XStack
-        testID={ReceiveTestIDs.AddressText}
-        flex={1}
-        flexWrap="wrap"
-        onPress={handleCopyAddress}
-        userSelect="none"
-        py="$1"
-        px="$2"
-        mx="$-2"
-        my="$-1"
-        borderRadius="$2"
-        hoverStyle={{
-          bg: '$bgHover',
-        }}
-        pressStyle={{
-          bg: '$bgActive',
-        }}
-        focusable
-        focusVisibleStyle={{
-          outlineWidth: 2,
-          outlineColor: '$focusRing',
-          outlineOffset: 2,
-          outlineStyle: 'solid',
-        }}
-      >
-        <HighlightAddress address={displayAddress} />
-      </XStack>
-    );
-  }, [displayAddress, handleCopyAddress]);
-
   const deriveTypeTrigger = useMemo(() => {
     if (!currentDeriveInfo) {
       return undefined;
@@ -691,18 +684,25 @@ function ReceiveToken() {
       ? intl.formatMessage({ id: currentDeriveInfo.labelKey })
       : currentDeriveInfo.label;
     return (
-      <XStack
+      <Button
         testID={ReceiveTestIDs.AddressTypeSelector}
-        alignItems="center"
-        gap="$0.5"
+        variant="tertiary"
+        size="small"
+        childrenAsText={false}
       >
-        <SizableText size="$bodySm" color="$textSubdued">
-          {label}
-        </SizableText>
-        {disableSelector ? null : (
-          <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
-        )}
-      </XStack>
+        <XStack alignItems="center" gap="$0.5">
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            {label}
+          </SizableText>
+          {disableSelector ? null : (
+            <Icon
+              name="ChevronDownSmallOutline"
+              size="$4"
+              color="$iconSubdued"
+            />
+          )}
+        </XStack>
+      </Button>
     );
   }, [currentDeriveInfo, disableSelector, intl]);
 
@@ -710,27 +710,18 @@ function ReceiveToken() {
     if (!network) return null;
 
     return (
-      <XStack alignItems="center" gap="$2" flexShrink={1}>
-        <SizableText
-          testID={ReceiveTestIDs.CardHeaderNetworkEta}
-          size="$bodyMdMedium"
-          numberOfLines={1}
-          flexShrink={1}
-        >
-          {arrivalTimeText
-            ? `${network.name} (${arrivalTimeText})`
-            : network.name}
-        </SizableText>
-        {shouldShowAddress && addressState === EAddressState.ForceShow ? (
-          <Badge badgeType="critical">
-            {intl.formatMessage({
-              id: ETranslations.receive_address_unconfirmed_alert_message,
-            })}
-          </Badge>
-        ) : null}
-      </XStack>
+      <SizableText
+        testID={ReceiveTestIDs.CardHeaderNetworkEta}
+        size="$bodyMdMedium"
+        numberOfLines={1}
+        flexShrink={1}
+      >
+        {arrivalTimeText
+          ? `${network.name} (${arrivalTimeText})`
+          : network.name}
+      </SizableText>
     );
-  }, [network, arrivalTimeText, shouldShowAddress, addressState, intl]);
+  }, [network, arrivalTimeText]);
 
   const cardHeaderRight = useMemo(() => {
     if (!vaultSettings?.mergeDeriveAssetsEnabled || !currentAccount) {
@@ -959,14 +950,7 @@ function ReceiveToken() {
               headerRight={cardHeaderRight}
             >
               {renderQrCodeCell()}
-              {shouldShowAddress ? (
-                <ReceiveCardCell>
-                  <XStack px="$4" py="$3" alignItems="center" gap="$3">
-                    {renderAddress()}
-                    {platformEnv.isNative ? null : renderCopyAddressButton()}
-                  </XStack>
-                </ReceiveCardCell>
-              ) : null}
+              {shouldShowAddress ? renderAddressCell() : null}
             </ReceiveCard>
           ) : null}
           {banner && shouldShowQRCode && !isBtcUsedAddressVerifyMode ? (

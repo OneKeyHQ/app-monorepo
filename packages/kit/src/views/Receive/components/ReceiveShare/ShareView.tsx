@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { Image as RNImage } from 'react-native';
+
 import { Image, Spinner, Stack } from '@onekeyhq/components';
 
 import { SHARE_CARD_CONFIG } from './constants';
@@ -18,7 +20,25 @@ interface IShareViewProps {
 export function ShareView({ data, generatorRef }: IShareViewProps) {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(true);
+  // the generated card height is content-dependent (long addresses wrap),
+  // so size the preview box from the actual image to avoid gray side bars
+  const [aspectRatio, setAspectRatio] = useState(
+    SHARE_CARD_CONFIG.width / SHARE_CARD_CONFIG.minHeight,
+  );
   const generationIdRef = useRef(0);
+
+  useEffect(() => {
+    if (!previewImage) return;
+    RNImage.getSize(
+      previewImage,
+      (imgWidth, imgHeight) => {
+        if (imgWidth > 0 && imgHeight > 0) {
+          setAspectRatio(imgWidth / imgHeight);
+        }
+      },
+      () => {},
+    );
+  }, [previewImage]);
 
   useEffect(() => {
     generationIdRef.current += 1;
@@ -53,7 +73,7 @@ export function ShareView({ data, generatorRef }: IShareViewProps) {
   return (
     <Stack
       width="100%"
-      aspectRatio={SHARE_CARD_CONFIG.width / SHARE_CARD_CONFIG.minHeight}
+      aspectRatio={aspectRatio}
       borderRadius="$4"
       overflow="hidden"
       backgroundColor="$bgSubdued"
