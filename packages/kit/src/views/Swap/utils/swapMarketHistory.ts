@@ -8,11 +8,13 @@ import {
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import { maxRecentTokenPairs } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  IFetchLimitOrderRes,
   ISwapToken,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
+  ESwapLimitOrderStatus,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -36,6 +38,19 @@ export const SWAP_HISTORY_PENDING_STATUSES = [
   ESwapTxHistoryStatus.PENDING,
   ESwapTxHistoryStatus.CANCELING,
 ];
+
+export const SWAP_LIMIT_OPEN_STATUSES = [
+  ESwapLimitOrderStatus.OPEN,
+  ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
+];
+
+export function isSwapLimitOpenOrder(item: IFetchLimitOrderRes) {
+  return SWAP_LIMIT_OPEN_STATUSES.includes(item.status);
+}
+
+export function getSwapLimitOpenOrderCount(items: IFetchLimitOrderRes[]) {
+  return items.filter(isSwapLimitOpenOrder).length;
+}
 
 export function isSwapMarketHistoryItem(item: ISwapTxHistory) {
   return (
@@ -76,7 +91,7 @@ function matchSwapMarketHistoryProtocol({
     return false;
   }
   if (protocol === EProtocolOfExchange.STOCK) {
-    return item.protocol === EProtocolOfExchange.STOCK;
+    return isStockSwapHistoryItem(item);
   }
   return true;
 }

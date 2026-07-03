@@ -34,7 +34,6 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   EProtocolOfExchange,
   ESwapCleanHistorySource,
-  ESwapLimitOrderStatus,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -44,6 +43,7 @@ import {
   SWAP_HISTORY_PENDING_STATUSES,
   filterSwapMarketHistoryItems,
   getSwapHistoryListTitleId,
+  getSwapLimitOpenOrderCount,
   getSwapMarketPendingHistoryList,
   isStockSwapHistoryItem,
 } from '../../utils/swapMarketHistory';
@@ -160,12 +160,7 @@ const SwapHistoryListModal = ({
     [marketPendingHistoryItems],
   );
   const limitPendingHistoryCount = useMemo(
-    () =>
-      swapLimitOrders.filter(
-        (item) =>
-          item.status === ESwapLimitOrderStatus.OPEN ||
-          item.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
-      ).length,
+    () => getSwapLimitOpenOrderCount(swapLimitOrders),
     [swapLimitOrders],
   );
 
