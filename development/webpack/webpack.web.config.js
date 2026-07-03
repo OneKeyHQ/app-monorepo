@@ -38,9 +38,9 @@ module.exports = ({
             new SubresourceIntegrityPlugin(),
             new InjectManifest({
               swSrc: path.join(basePath, 'src/service-worker.js'),
-              swDest: 'sw/service-worker.js',
-              // apps/web/index.js registers /sw/service-worker.js, so keep the
-              // emitted file at that fixed relative path.
+              swDest: 'service-worker.js',
+              // apps/web/index.js registers it from the PUBLIC_URL path used by
+              // CI for versioned test/prod bundle deployment.
               // Precache NOTHING. This is a large SPA (~800+ chunks); the
               // InjectManifest default precaches every emitted asset, which makes
               // the SW `install` an ATOMIC all-or-nothing fetch of every file —

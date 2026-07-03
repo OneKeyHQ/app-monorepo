@@ -187,8 +187,16 @@ if (
   process.env.NODE_ENV === 'production'
 ) {
   window.addEventListener('load', () => {
+    const serviceWorkerBaseUrl = new URL(
+      process.env.PUBLIC_URL || '/',
+      window.location.href,
+    );
+    const serviceWorkerBasePath = serviceWorkerBaseUrl.pathname.endsWith('/')
+      ? serviceWorkerBaseUrl.pathname
+      : `${serviceWorkerBaseUrl.pathname}/`;
+
     navigator.serviceWorker
-      .register('/sw/service-worker.js', { scope: '/' })
+      .register(`${serviceWorkerBasePath}service-worker.js`, { scope: '/' })
       .then((registration) => {
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;
