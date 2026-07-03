@@ -101,6 +101,27 @@ export interface IPerpsAccountDisplayCacheEntry {
   };
 }
 
+export interface IPerpsDepositTokenListCacheToken {
+  networkId: string;
+  contractAddress: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  networkLogoURI: string;
+  price?: string;
+  balanceParsed?: string;
+  fiatValue?: string;
+  isNative?: boolean;
+  logoURI?: string;
+}
+
+export interface IPerpsDepositTokenListCacheEntry {
+  cacheKey: string;
+  updatedAt: number;
+  tokens: IPerpsDepositTokenListCacheToken[];
+  tokensByNetwork: Record<string, IPerpsDepositTokenListCacheToken[]>;
+}
+
 export interface ISimpleDbPerpData {
   hyperliquidBuilderAddress?: string;
   hyperliquidMaxBuilderFee?: number;
@@ -164,6 +185,7 @@ export interface ISimpleDbPerpData {
     string,
     IHyperliquidPortfolioSnapshot
   >;
+  perpsDepositTokenListCache?: Record<string, IPerpsDepositTokenListCacheEntry>;
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
@@ -870,6 +892,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   }
 
   @backgroundMethod()
+<<<<<<< HEAD
   async getHyperliquidPortfolioSnapshot(
     address: string,
   ): Promise<IHyperliquidPortfolioSnapshot | undefined> {
@@ -880,12 +903,31 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     const config = await this.getPerpData();
     const entry = config.hyperliquidPortfolioSnapshotByAddress?.[key];
     if (!entry || this._normalizePerpsAccountKey(entry.address) !== key) {
+=======
+  async getPerpsDepositTokenListCache({
+    cacheKey,
+    maxAgeMs,
+  }: {
+    cacheKey: string;
+    maxAgeMs: number;
+  }): Promise<IPerpsDepositTokenListCacheEntry | undefined> {
+    if (!cacheKey) {
+      return undefined;
+    }
+    const config = await this.getPerpData();
+    const entry = config.perpsDepositTokenListCache?.[cacheKey];
+    if (!entry || entry.cacheKey !== cacheKey) {
+      return undefined;
+    }
+    if (!this._isCacheEntryFresh(entry.updatedAt, maxAgeMs)) {
+>>>>>>> f584ecbabd (feat: optimize Perps deposit token list)
       return undefined;
     }
     return entry;
   }
 
   @backgroundMethod()
+<<<<<<< HEAD
   async setHyperliquidPortfolioSnapshot(
     snapshot: IHyperliquidPortfolioSnapshot,
   ): Promise<void> {
@@ -907,10 +949,38 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
           Object.entries(map)
             .toSorted((a, b) => b[1].fetchedAt - a[1].fetchedAt)
             .slice(0, PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_ENTRIES),
+=======
+  async setPerpsDepositTokenListCache({
+    cacheKey,
+    tokens,
+    tokensByNetwork,
+  }: {
+    cacheKey: string;
+    tokens: IPerpsDepositTokenListCacheToken[];
+    tokensByNetwork: Record<string, IPerpsDepositTokenListCacheToken[]>;
+  }) {
+    if (!cacheKey) {
+      return;
+    }
+    await this.setPerpData((prev): ISimpleDbPerpData => {
+      const map = { ...prev?.perpsDepositTokenListCache };
+      map[cacheKey] = {
+        cacheKey,
+        updatedAt: Date.now(),
+        tokens,
+        tokensByNetwork,
+      };
+      return {
+        ...prev,
+        perpsDepositTokenListCache: this._limitSnapshotCacheEntries(
+          map,
+          PERPS_ACCOUNT_DISPLAY_CACHE_MAX_ENTRIES,
+>>>>>>> f584ecbabd (feat: optimize Perps deposit token list)
         ),
       };
     });
   }
+<<<<<<< HEAD
 
   @backgroundMethod()
   async clearHyperliquidPortfolioSnapshot(address?: string): Promise<void> {
@@ -933,4 +1003,6 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
       };
     });
   }
+=======
+>>>>>>> f584ecbabd (feat: optimize Perps deposit token list)
 }

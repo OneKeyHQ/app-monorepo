@@ -1462,22 +1462,34 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async fetchSwapNativeTokenConfig({ networkId }: { networkId: string }) {
-    try {
-      const client = await this.getClient(EServiceEndpointEnum.Swap);
-      const resp = await client.get<{
-        data: ISwapNativeTokenConfig;
-      }>(`/swap/v1/native-token-config`, {
-        params: { networkId },
-      });
-      return resp.data.data;
-    } catch (e) {
-      console.error(e);
-      return {
-        networkId,
-        reserveGas: 0,
-      };
-    }
+    return this.fetchSwapNativeTokenConfigMemo({ networkId });
   }
+
+  fetchSwapNativeTokenConfigMemo = memoizee(
+    async ({ networkId }: { networkId: string }) => {
+      try {
+        const client = await this.getClient(EServiceEndpointEnum.Swap);
+        const resp = await client.get<{
+          data: ISwapNativeTokenConfig;
+        }>(`/swap/v1/native-token-config`, {
+          params: { networkId },
+        });
+        return resp.data.data;
+      } catch (e) {
+        console.error(e);
+        return {
+          networkId,
+          reserveGas: 0,
+        };
+      }
+    },
+    {
+      max: 50,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+      promise: true,
+      primitive: true,
+    },
+  );
 
   // swap approving transaction
   @backgroundMethod()
