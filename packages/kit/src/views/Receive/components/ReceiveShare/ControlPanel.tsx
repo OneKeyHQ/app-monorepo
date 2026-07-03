@@ -26,7 +26,7 @@ export function ControlPanel({
         testID={ReceiveTestIDs.ShareSaveButton}
         flex={1}
         size="large"
-        variant="accent"
+        variant="secondary"
         icon="DownloadOutline"
         disabled={isLoading}
         onPress={onSaveImage}
@@ -37,8 +37,8 @@ export function ControlPanel({
         testID={ReceiveTestIDs.ShareMoreButton}
         flex={1}
         size="large"
-        variant="accent"
-        icon="ShareOutline"
+        variant="secondary"
+        icon="DotHorOutline"
         disabled={isLoading}
         onPress={onShareImage}
       >
