@@ -872,6 +872,10 @@ function ProtocolLendingActionBorrowContent({
   const { needsApproval, approveLoading, onApprove } =
     useBorrowApproveAndSubmit({
       approveTarget,
+      // useTrackTokenAllowance never fetches on mount - seed it with the
+      // manage-page allowance, which tracks the selected reserve because
+      // useManagePage loads again per reserveAddress.
+      currentAllowance: protocolInfo?.approve?.allowance,
       amountValue: amount,
       onSubmit: submitBorrowTx,
     });
