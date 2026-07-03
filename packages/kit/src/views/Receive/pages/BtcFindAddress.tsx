@@ -152,7 +152,13 @@ function BtcFindAddress() {
   ]);
 
   return (
-    <Page>
+    <Page
+      scrollEnabled
+      scrollProps={{
+        keyboardDismissMode: 'on-drag',
+        keyboardShouldPersistTaps: 'handled',
+      }}
+    >
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.find_address__action })}
       />
