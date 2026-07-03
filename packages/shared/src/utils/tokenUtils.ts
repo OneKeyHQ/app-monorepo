@@ -798,15 +798,30 @@ export function flattenAggregateTokensMap(aggregateTokensMap: {
 // network already contributed — so aggregate rows dedupe by $key across
 // responses/buckets while their per-network fiat nests by networkId and
 // re-flattens with the home sum semantics.
+//
+// `aggregateTokenConfigMapRawData` (all-networks fan-out only): the per-network
+// child responses carry RAW rows — aggregation is CLIENT-side authority in
+// all-networks mode (the same `buildAggregateTokenListData` walk the home
+// per-network handler runs). When provided, raw member rows fold out of the
+// list into ONE common row per aggregate while their fiat joins the nested map.
 export function buildSelectorTokenListFromResponses({
   responses,
+  aggregateTokenConfigMapRawData,
 }: {
   responses: IFetchAccountTokensResp[];
+  aggregateTokenConfigMapRawData?: Record<string, IAggregateToken>;
 }): {
   tokens: IAccountToken[];
   smallBalanceTokens: IAccountToken[];
   tokenListMap: Record<string, ITokenFiat>;
   aggregateTokenFiatMap: Record<string, ITokenFiat>;
+  aggregateTokenListMap: Record<
+    string,
+    {
+      commonToken: IAccountToken;
+      tokens: IAccountToken[];
+    }
+  >;
 } {
   const tokens: IAccountToken[] = [];
   const smallBalanceTokens: IAccountToken[] = [];
@@ -816,12 +831,57 @@ export function buildSelectorTokenListFromResponses({
     Record<string, ITokenFiat>
   > = {};
   const seenAggregateTokenKeys = new Set<string>();
+  // Accumulates ACROSS responses so each aggregate keeps ONE common row while
+  // members from every network append to its sub-token list (home semantics).
+  let aggregateTokenListMap: Record<
+    string,
+    {
+      commonToken: IAccountToken;
+      tokens: IAccountToken[];
+    }
+  > = {};
 
-  const appendTokens = (source: IAccountToken[], target: IAccountToken[]) => {
+  // Defined OUTSIDE the response loop (no-loop-func): per-response mutable
+  // pieces travel through `state` explicitly.
+  const appendTokens = (params: {
+    source: IAccountToken[];
+    target: IAccountToken[];
+    responseNetworkId: string | undefined;
+    responseTokenMap: Record<string, ITokenFiat>;
+    state: {
+      aggregateTokenListMap: Record<
+        string,
+        {
+          commonToken: IAccountToken;
+          tokens: IAccountToken[];
+        }
+      >;
+      responseAggregateTokenMap: Record<string, ITokenFiat>;
+    };
+  }) => {
+    const { source, target, responseNetworkId, responseTokenMap, state } =
+      params;
     for (const token of source) {
       if (token.isAggregateToken) {
         if (!seenAggregateTokenKeys.has(token.$key)) {
           seenAggregateTokenKeys.add(token.$key);
+          target.push(token);
+        }
+      } else if (aggregateTokenConfigMapRawData && responseNetworkId) {
+        const data = buildAggregateTokenListData({
+          networkId: responseNetworkId,
+          accountId: token.accountId ?? '',
+          token,
+          tokenMap: responseTokenMap,
+          aggregateTokenListMap: state.aggregateTokenListMap,
+          aggregateTokenMap: state.responseAggregateTokenMap,
+          aggregateTokenConfigMapRawData,
+          networkName: token.networkName ?? '',
+        });
+        if (data.isAggregateToken) {
+          state.aggregateTokenListMap = data.aggregateTokenListMap;
+          state.responseAggregateTokenMap = data.aggregateTokenMap;
+        } else {
           target.push(token);
         }
       } else {
@@ -831,20 +891,56 @@ export function buildSelectorTokenListFromResponses({
   };
 
   for (const r of responses) {
-    appendTokens(r.tokens.data, tokens);
-    appendTokens(r.smallBalanceTokens.data, smallBalanceTokens);
+    const responseNetworkId = r.networkId;
+    const responseTokenMap = { ...r.tokens.map, ...r.smallBalanceTokens.map };
+    const state = {
+      aggregateTokenListMap,
+      // FLAT per-network aggregate fiat contributed by THIS response's folded
+      // members.
+      responseAggregateTokenMap: {} as Record<string, ITokenFiat>,
+    };
+
+    appendTokens({
+      source: r.tokens.data,
+      target: tokens,
+      responseNetworkId,
+      responseTokenMap,
+      state,
+    });
+    appendTokens({
+      source: r.smallBalanceTokens.data,
+      target: smallBalanceTokens,
+      responseNetworkId,
+      responseTokenMap,
+      state,
+    });
+    aggregateTokenListMap = state.aggregateTokenListMap;
     Object.assign(tokenListMap, r.tokens.map, r.smallBalanceTokens.map);
 
-    if (r.aggregateTokenMap && r.networkId) {
-      const { networkId } = r;
-      Object.entries(r.aggregateTokenMap).forEach(([aggregateKey, fiat]) => {
-        nestedAggregateTokenMap[aggregateKey] = {
-          ...nestedAggregateTokenMap[aggregateKey],
-          [networkId]: fiat,
-        };
-      });
+    if (responseNetworkId) {
+      // Client-folded member fiat first; the response's own (server) flat map
+      // wins per (aggKey, networkId) slot when both exist.
+      [state.responseAggregateTokenMap, r.aggregateTokenMap ?? {}].forEach(
+        (flat) => {
+          Object.entries(flat).forEach(([aggregateKey, fiat]) => {
+            nestedAggregateTokenMap[aggregateKey] = {
+              ...nestedAggregateTokenMap[aggregateKey],
+              [responseNetworkId]: fiat,
+            };
+          });
+        },
+      );
     }
   }
+
+  // Append ONE common row per client-folded aggregate (deduped against any
+  // aggregate rows a response already carried).
+  Object.values(aggregateTokenListMap).forEach(({ commonToken }) => {
+    if (!seenAggregateTokenKeys.has(commonToken.$key)) {
+      seenAggregateTokenKeys.add(commonToken.$key);
+      tokens.push(commonToken);
+    }
+  });
 
   const aggregateTokenFiatMap = flattenAggregateTokensMap(
     nestedAggregateTokenMap,
@@ -852,7 +948,13 @@ export function buildSelectorTokenListFromResponses({
 
   if (responses.length <= 1) {
     // Single-network selector: keep the server-provided order verbatim.
-    return { tokens, smallBalanceTokens, tokenListMap, aggregateTokenFiatMap };
+    return {
+      tokens,
+      smallBalanceTokens,
+      tokenListMap,
+      aggregateTokenFiatMap,
+      aggregateTokenListMap,
+    };
   }
 
   // Multi-network fan-out concat is grouped by network; TokenListView does NOT
@@ -869,6 +971,7 @@ export function buildSelectorTokenListFromResponses({
     }),
     tokenListMap,
     aggregateTokenFiatMap,
+    aggregateTokenListMap,
   };
 }
 

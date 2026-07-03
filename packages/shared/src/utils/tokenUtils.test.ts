@@ -16,6 +16,7 @@ import {
 
 import type {
   IAccountToken,
+  IAggregateToken,
   IFetchAccountTokensResp,
   ITokenFiat,
 } from '../../types/token';
@@ -684,6 +685,86 @@ describe('buildSelectorTokenListFromResponses — token selector self-fetch merg
 
     expect(merged.tokens).toHaveLength(1);
     expect(merged.smallBalanceTokens).toHaveLength(0);
+  });
+
+  it('all-networks raw member rows fold into ONE aggregate row via the config map', () => {
+    const buildAggregateConfig = (params: {
+      commonSymbol: string;
+      order?: number;
+    }) =>
+      ({
+        commonSymbol: params.commonSymbol,
+        order: params.order ?? 1,
+        name: params.commonSymbol,
+        logoURI: '',
+      }) as unknown as IAggregateToken;
+
+    const ethUsdt = buildTestToken({
+      $key: 'evm--1_usdt_key',
+      address: '0xTetherAddr',
+      networkId: 'evm--1',
+      symbol: 'USDT',
+      accountId: 'acc-eth',
+      networkName: 'Ethereum',
+    });
+    const tronUsdt = buildTestToken({
+      $key: 'tron_usdt_key',
+      address: 'TUsdtAddr',
+      networkId: 'tron--0x2b6653dc',
+      symbol: 'USDT',
+      accountId: 'acc-tron',
+      networkName: 'Tron',
+    });
+    const ethNative = buildTestToken({
+      $key: 'evm--1_native',
+      networkId: 'evm--1',
+      isNative: true,
+    });
+
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({
+          networkId: 'evm--1',
+          tokens: [ethNative, ethUsdt],
+          tokensMap: {
+            'evm--1_native': buildFiat('10'),
+            'evm--1_usdt_key': buildFiat('100'),
+          },
+        }),
+        buildResp({
+          networkId: 'tron--0x2b6653dc',
+          tokens: [tronUsdt],
+          tokensMap: { tron_usdt_key: buildFiat('25') },
+        }),
+      ],
+      // Config keys are `${networkId}_${tokenAddress.toLowerCase()}`.
+      aggregateTokenConfigMapRawData: {
+        'evm--1_0xtetheraddr': buildAggregateConfig({ commonSymbol: 'USDT' }),
+        'tron--0x2b6653dc_tusdtaddr': buildAggregateConfig({
+          commonSymbol: 'USDT',
+        }),
+      },
+    });
+
+    // Member rows fold out of the list into ONE common row, sorted by the
+    // SUMMED aggregate fiat (125 > 10).
+    expect(merged.tokens.map((t) => t.$key)).toEqual([
+      'aggregate_USDT_',
+      'evm--1_native',
+    ]);
+    const aggregateRow = merged.tokens.find(
+      (t) => t.$key === 'aggregate_USDT_',
+    );
+    expect(aggregateRow?.isAggregateToken).toBe(true);
+    // Sub-token member list accumulates across networks (drives the
+    // AggregateTokenSelector sub-page).
+    expect(
+      merged.aggregateTokenListMap.aggregate_USDT_.tokens.map((t) => t.$key),
+    ).toEqual(['evm--1_usdt_key', 'tron_usdt_key']);
+    // Aggregate fiat sums per-network member fiat; member fiat stays in the
+    // flat map for checkIsOnlyOneTokenHasBalance.
+    expect(merged.aggregateTokenFiatMap.aggregate_USDT_.fiatValue).toBe('125');
+    expect(merged.tokenListMap['evm--1_usdt_key'].fiatValue).toBe('100');
   });
 
   it('responses without aggregateTokenMap or networkId yield an empty aggregate fiat map', () => {
