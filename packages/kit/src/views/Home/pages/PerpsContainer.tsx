@@ -1109,7 +1109,7 @@ export function PerpsContainer() {
         {viewState === 'ready' && view ? (
           <>
             <PerpsMobileHoldingsSummary
-              totalUsd={view.netWorthUsd}
+              totalUsd={view.accountValueUsd}
               holdings={view.holdings}
               isDegraded={view.isDegraded}
               canDeposit={canDeposit}
@@ -1122,7 +1122,7 @@ export function PerpsContainer() {
                 })}
                 subTitle={
                   <PerpsTotalUsd
-                    value={view.netWorthUsd}
+                    value={view.accountValueUsd}
                     isDegraded={view.isDegraded}
                     size="$headingXl"
                     color="$textSubdued"

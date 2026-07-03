@@ -37,6 +37,14 @@ export function isPerpsDepositOrderMatchedByTxIds(
   );
 }
 
+export function isPerpsDepositOrderMatchedByTargetTxIds(
+  order: Pick<IPerpsDepositOrderAtom, 'toTxId'>,
+  txIds: Set<string>,
+) {
+  const toTxId = normalizePerpsDepositTxId(order.toTxId);
+  return Boolean(toTxId && txIds.has(toTxId));
+}
+
 export function shouldKeepHistoryConfirmationMarker(
   order: Pick<
     IPerpsDepositOrderAtom,
@@ -44,8 +52,12 @@ export function shouldKeepHistoryConfirmationMarker(
   >,
   txIds: Set<string>,
 ) {
-  return (
-    !order.keepForHistoryConfirmation ||
-    !isPerpsDepositOrderMatchedByTxIds(order, txIds)
-  );
+  if (!order.keepForHistoryConfirmation) {
+    return true;
+  }
+  const toTxId = normalizePerpsDepositTxId(order.toTxId);
+  if (toTxId) {
+    return !txIds.has(toTxId);
+  }
+  return !isPerpsDepositOrderMatchedByTxIds(order, txIds);
 }

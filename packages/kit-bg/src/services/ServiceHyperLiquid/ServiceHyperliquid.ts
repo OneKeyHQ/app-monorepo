@@ -1027,6 +1027,11 @@ export default class ServiceHyperliquid extends ServiceBase {
           : Promise.resolve(undefined),
         this._getPortfolioAbstractionMode(user).catch(() => undefined),
       ]);
+      if (!abstractionMode) {
+        throw new OneKeyLocalError(
+          'Hyperliquid portfolio abstraction mode unavailable',
+        );
+      }
       return assembleHyperliquidSnapshot({
         address: user,
         clearinghouse,

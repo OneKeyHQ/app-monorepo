@@ -255,12 +255,15 @@ describe('isHyperliquidPortfolioSnapshotFresh', () => {
     fetchedAt,
     hasPerp = false,
     hasNonStableSpot = false,
+    isDegraded = false,
   }: {
     fetchedAt: number;
     hasPerp?: boolean;
     hasNonStableSpot?: boolean;
+    isDegraded?: boolean;
   }) => ({
     fetchedAt,
+    isDegraded,
     perpPositions: hasPerp ? [perpPosition] : [],
     spotBalances: hasNonStableSpot ? [nonStableSpotBalance] : [],
   });
@@ -301,6 +304,28 @@ describe('isHyperliquidPortfolioSnapshotFresh', () => {
       isHyperliquidPortfolioSnapshotFresh(
         buildSnapshot({
           fetchedAt: now - PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_AGE_MS - 1,
+        }),
+        now,
+      ),
+    ).toBe(false);
+  });
+
+  it('uses active max age for degraded snapshots', () => {
+    const now = 10_000_000;
+    expect(
+      isHyperliquidPortfolioSnapshotFresh(
+        buildSnapshot({
+          fetchedAt: now - PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
+          isDegraded: true,
+        }),
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      isHyperliquidPortfolioSnapshotFresh(
+        buildSnapshot({
+          fetchedAt: now - PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS - 1,
+          isDegraded: true,
         }),
         now,
       ),

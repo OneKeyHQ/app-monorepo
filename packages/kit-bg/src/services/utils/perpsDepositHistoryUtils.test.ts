@@ -1,5 +1,6 @@
 import {
   getKnownPerpsDepositOrderTxIds,
+  isPerpsDepositOrderMatchedByTargetTxIds,
   isPerpsDepositOrderMatchedByTxIds,
   shouldKeepHistoryConfirmationMarker,
 } from './perpsDepositHistoryUtils';
@@ -17,6 +18,36 @@ describe('perpsDepositHistoryUtils', () => {
     };
 
     expect(isPerpsDepositOrderMatchedByTxIds(marker, txIds)).toBe(true);
+    expect(isPerpsDepositOrderMatchedByTargetTxIds(marker, txIds)).toBe(true);
+    expect(shouldKeepHistoryConfirmationMarker(marker, txIds)).toBe(false);
+  });
+
+  it('keeps a marker with target toTxId when only source tx confirmed', () => {
+    const txIds = getKnownPerpsDepositOrderTxIds({
+      txid: '0xSourceTx',
+      originalTxId: undefined,
+    });
+    const marker = {
+      fromTxId: '0xsourcetx',
+      toTxId: '0xTargetTx',
+      keepForHistoryConfirmation: true,
+    };
+
+    expect(isPerpsDepositOrderMatchedByTxIds(marker, txIds)).toBe(true);
+    expect(isPerpsDepositOrderMatchedByTargetTxIds(marker, txIds)).toBe(false);
+    expect(shouldKeepHistoryConfirmationMarker(marker, txIds)).toBe(true);
+  });
+
+  it('clears a direct-deposit marker without target toTxId by source tx', () => {
+    const txIds = getKnownPerpsDepositOrderTxIds({
+      txid: '0xSourceTx',
+      originalTxId: undefined,
+    });
+    const marker = {
+      fromTxId: '0xsourcetx',
+      keepForHistoryConfirmation: true,
+    };
+
     expect(shouldKeepHistoryConfirmationMarker(marker, txIds)).toBe(false);
   });
 

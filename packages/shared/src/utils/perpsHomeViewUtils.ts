@@ -28,8 +28,8 @@ export interface IPerpsHomePosition {
 }
 export interface IPerpsHomeView {
   isEmpty: boolean;
+  // Matches the Perps page computed account value display.
   accountValueUsd: number;
-  netWorthUsd: number;
   holdings: IPerpsHomeHolding[];
   positions: IPerpsHomePosition[];
   isDegraded: boolean;
@@ -83,8 +83,7 @@ export function mapSnapshotToPerpsHomeView(
 
   return {
     isEmpty: snapshot.isEmpty,
-    accountValueUsd: Number(snapshot.accountValue) || 0,
-    netWorthUsd: Number(snapshot.netWorthUsd) || 0,
+    accountValueUsd: Number(snapshot.netWorthUsd) || 0,
     holdings,
     positions,
     isDegraded: snapshot.isDegraded,

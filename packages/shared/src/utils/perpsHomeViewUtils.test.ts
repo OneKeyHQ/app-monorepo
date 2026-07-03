@@ -89,7 +89,7 @@ describe('mapSnapshotToPerpsHomeView', () => {
   it('maps account value + positions with derived markPx + side + abs size', () => {
     const v = mapSnapshotToPerpsHomeView(snap);
     expect(v.isEmpty).toBe(false);
-    expect(v.accountValueUsd).toBeCloseTo(146.65);
+    expect(v.accountValueUsd).toBeCloseTo(257.26);
     const eth = v.positions.find((p) => p.coin === 'ETH');
     expect(eth?.side).toBe('long');
     expect(eth?.sizeCoin).toBe('1.2');

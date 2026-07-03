@@ -194,14 +194,15 @@ export function spotHasPositiveBalance(
 export function getHyperliquidPortfolioSnapshotMaxAge(
   snapshot: Pick<
     IHyperliquidPortfolioSnapshot,
-    'perpPositions' | 'spotBalances'
+    'isDegraded' | 'perpPositions' | 'spotBalances'
   >,
 ): number {
   if (
+    snapshot.isDegraded ||
     snapshot.perpPositions.length > 0 ||
     spotBalancesNeedPriceRefresh(snapshot.spotBalances)
   ) {
-    // Open perp positions and non-stable spot holdings move with mark price.
+    // Degraded snapshots should recover quickly; marked-to-market snapshots move with price.
     return PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS;
   }
   return PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_AGE_MS;
@@ -210,7 +211,7 @@ export function getHyperliquidPortfolioSnapshotMaxAge(
 export function isHyperliquidPortfolioSnapshotFresh(
   snapshot: Pick<
     IHyperliquidPortfolioSnapshot,
-    'fetchedAt' | 'perpPositions' | 'spotBalances'
+    'fetchedAt' | 'isDegraded' | 'perpPositions' | 'spotBalances'
   >,
   now = Date.now(),
 ): boolean {
