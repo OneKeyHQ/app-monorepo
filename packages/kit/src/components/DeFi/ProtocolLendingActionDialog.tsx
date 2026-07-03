@@ -667,6 +667,12 @@ function ProtocolLendingActionBorrowContent({
 
   const [amount, setAmount] = useState('');
   const [isMaxAmount, setIsMaxAmount] = useState(isWithdraw);
+  const [submitError, setSubmitError] = useState<string | undefined>(
+    undefined,
+  );
+  // Footer confirm loading is overridden by confirmButtonProps and released
+  // early by preventClose(), so the dialog owns the build spinner and guard.
+  const [submitting, setSubmitting] = useState(false);
   const hasUserTouchedRef = useRef(false);
   const prefilledReserveRef = useRef<string | undefined>(undefined);
 
@@ -822,11 +828,10 @@ function ProtocolLendingActionBorrowContent({
   const handleBorrowRepay = useUniversalBorrowRepay({ accountId, networkId });
   const closeRef = useRef<(() => void | Promise<void>) | undefined>(undefined);
 
-  // Close the dialog before the borrow hooks navigate to tx-confirm (they show
-  // the shared confirming sheet on success), otherwise the dialog stacks above
-  // the confirm page.
+  // The dialog stays open (confirm button spinning) while the server builds
+  // the tx; onBeforeNavigate closes it right as tx-confirm opens, so a build
+  // failure lands as an inline alert with the user's input intact.
   const submitBorrowTx = useCallback(async () => {
-    await closeRef.current?.();
     const { provider, marketAddress } = source;
     const tags: string[] = [
       EEarnLabels.Borrow,
@@ -859,6 +864,9 @@ function ProtocolLendingActionBorrowContent({
         onSuccess: (data) => {
           void onSuccess?.({ accountId, networkId, data });
         },
+        onBeforeNavigate: async () => {
+          await closeRef.current?.();
+        },
       });
       return;
     }
@@ -879,6 +887,9 @@ function ProtocolLendingActionBorrowContent({
         : undefined,
       onSuccess: (data) => {
         void onSuccess?.({ accountId, networkId, data });
+      },
+      onBeforeNavigate: async () => {
+        await closeRef.current?.();
       },
     });
   }, [
@@ -916,14 +927,26 @@ function ProtocolLendingActionBorrowContent({
     preventClose: () => void;
   }) => {
     closeRef.current = close;
-    // We own the close timing: submitBorrowTx closes right before navigating,
-    // and the approve hop keeps the dialog open until it auto-submits.
+    // We own the close timing: onBeforeNavigate closes right before the
+    // tx-confirm page opens, and the approve hop keeps the dialog open until
+    // it auto-submits.
     preventClose();
-    if (needsApproval) {
-      await onApprove();
-      return;
+    if (submitting) return;
+    setSubmitting(true);
+    setSubmitError(undefined);
+    try {
+      if (needsApproval) {
+        await onApprove();
+        return;
+      }
+      await submitBorrowTx();
+    } catch (error) {
+      if (!isUserRejectedErrorMessage({ error, intl })) {
+        setSubmitError(getErrorMessage(error));
+      }
+    } finally {
+      setSubmitting(false);
     }
-    await submitBorrowTx();
   };
 
   const actionLabel = getActionLabel({
@@ -1077,9 +1100,10 @@ function ProtocolLendingActionBorrowContent({
       <LendingActionAlerts
         showLiquidationWarning={Boolean(hasDebts) && isWithdraw}
         errorMessage={
-          actionResult.isCheckAmountMessageError
+          submitError ??
+          (actionResult.isCheckAmountMessageError
             ? actionResult.checkAmountMessage
-            : undefined
+            : undefined)
         }
       />
       {actionResult.checkAmountAlerts.map((alert, index) => (
@@ -1101,7 +1125,8 @@ function ProtocolLendingActionBorrowContent({
         onConfirm={handleFooterConfirm}
         confirmButtonProps={{
           disabled: confirmDisabled,
-          loading: approveLoading || actionResult.checkAmountLoading,
+          loading:
+            approveLoading || actionResult.checkAmountLoading || submitting,
         }}
       />
     </YStack>
