@@ -1161,9 +1161,19 @@ function TokenSelector() {
     // Reset to `false` while (re)fetching for a new owner so TokenListView
     // shows a skeleton (or the per-owner cache) instead of the previous owner's
     // list for a frame — unless the SWR floor already painted the home
-    // snapshot; then keep it on screen until the live data replaces it.
+    // snapshot; then keep it on screen until the live data replaces it. Also
+    // drop the previous owner's list/maps here: the `finally` below always
+    // lifts the skeleton (`setSelectorInitialized(true)`) even when this fetch
+    // throws or is canceled, so without the reset a failed live fetch for a new
+    // owner would re-expose the prior owner's rows instead of an empty state.
+    // The floor-seeded branch is excluded on purpose — it deliberately keeps
+    // its painted list until the live data lands.
     if (!selectorFloorSeededRef.current) {
       setSelectorInitialized(false);
+      setSelectorTokenList({ tokens: [], smallBalanceTokens: [] });
+      setSelectorTokenListMap({});
+      setSelectorAggregateTokenListMap({});
+      setSelectorAggregateTokenFiatMap({});
     }
 
     try {

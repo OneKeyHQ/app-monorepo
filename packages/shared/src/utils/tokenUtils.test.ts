@@ -745,6 +745,75 @@ describe('buildSelectorTokenListFromResponses — token selector self-fetch merg
     expect(merged.smallBalanceTokens).toHaveLength(0);
   });
 
+  it('multi-network merge globally sorts across the high/low buckets (home parity)', () => {
+    // Network A classifies a $5 asset as high-value; network B classifies a $50
+    // asset as a small balance. The selector renders `tokens` ++
+    // `smallBalanceTokens` verbatim, so a per-bucket sort would strand B's $50
+    // BELOW A's $5. Home (`buildMergedAllNetworkSnapshot`) merges both buckets,
+    // value-sorts once, then re-splits — the $50 must lead.
+    const aHigh = buildTestToken({ $key: 'evm--1_0xa', networkId: 'evm--1' });
+    const bSmall = buildTestToken({ $key: 'evm--56_0xb', networkId: 'evm--56' });
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({
+          networkId: 'evm--1',
+          tokens: [aHigh],
+          tokensMap: { 'evm--1_0xa': buildFiat('5') },
+        }),
+        buildResp({
+          networkId: 'evm--56',
+          tokens: [],
+          smallBalanceTokens: [bSmall],
+          smallBalanceTokensMap: { 'evm--56_0xb': buildFiat('50') },
+        }),
+      ],
+    });
+
+    // Combined display = tokens ++ smallBalanceTokens; the $50 small-balance row
+    // now leads the $5 high-value row.
+    expect(
+      merged.tokens.concat(merged.smallBalanceTokens).map((t) => t.$key),
+    ).toEqual(['evm--56_0xb', 'evm--1_0xa']);
+  });
+
+  it('multi-network merge pushes zero-balance rows to the tail by order', () => {
+    // Two zero-value rows plus one priced row: the priced row leads, and the
+    // two zero rows fall to the tail ordered by their `order` field (home
+    // parity) rather than the network-grouped arrival order.
+    const priced = buildTestToken({ $key: 'evm--1_0xp', networkId: 'evm--1' });
+    const zeroLate = buildTestToken({
+      $key: 'evm--1_0xz2',
+      networkId: 'evm--1',
+      order: 2,
+    });
+    const zeroEarly = buildTestToken({
+      $key: 'evm--56_0xz1',
+      networkId: 'evm--56',
+      order: 1,
+    });
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({
+          networkId: 'evm--1',
+          tokens: [priced, zeroLate],
+          tokensMap: {
+            'evm--1_0xp': buildFiat('10'),
+            'evm--1_0xz2': buildFiat('0'),
+          },
+        }),
+        buildResp({
+          networkId: 'evm--56',
+          tokens: [zeroEarly],
+          tokensMap: { 'evm--56_0xz1': buildFiat('0') },
+        }),
+      ],
+    });
+
+    expect(
+      merged.tokens.concat(merged.smallBalanceTokens).map((t) => t.$key),
+    ).toEqual(['evm--1_0xp', 'evm--56_0xz1', 'evm--1_0xz2']);
+  });
+
   it('all-networks raw member rows fold into ONE aggregate row via the config map', () => {
     const buildAggregateConfig = (params: {
       commonSymbol: string;

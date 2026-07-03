@@ -4,12 +4,18 @@ import { forEach, isEmpty, isNil, isUndefined, uniqBy } from 'lodash';
 import { wrappedTokens } from '../../types/swap/SwapProvider.constants';
 import { getNetworkIdsMap } from '../config/networkIds';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
-import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
+import {
+  SEARCH_KEY_MIN_LENGTH,
+  TOKEN_LIST_HIGH_VALUE_MAX,
+} from '../consts/walletConsts';
 import { OneKeyInternalError } from '../errors';
 
 import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';
-import { isValidNumberValue } from './tokenValueUtils';
+import {
+  isUnavailableOrZeroFiatValue,
+  isValidNumberValue,
+} from './tokenValueUtils';
 
 import type { IServerNetwork } from '../../types';
 import type {
@@ -1072,29 +1078,61 @@ export function buildSelectorTokenListFromResponses({
   const hasClientFoldedAggregates =
     Object.keys(aggregateTokenListMap).length > 0;
 
-  if (normalizedResponses.length <= 1 && !hasClientFoldedAggregates) {
-    // Single-network selector: keep the server-provided order verbatim.
+  const sortMap = { ...tokenListMap, ...aggregateTokenFiatMap };
+
+  if (normalizedResponses.length <= 1) {
+    // Single-network selector: one network's server high/low split is already
+    // globally coherent, so keep the two buckets untouched. The no-fold case
+    // returns the server order verbatim; a client-folded aggregate appended its
+    // common rows to `tokens` out of order, so that case value-sorts within
+    // each bucket (aggregate rows resolve their summed fiat from `sortMap`).
+    if (!hasClientFoldedAggregates) {
+      return {
+        tokens,
+        smallBalanceTokens,
+        tokenListMap,
+        aggregateTokenFiatMap,
+        aggregateTokenListMap,
+      };
+    }
     return {
-      tokens,
-      smallBalanceTokens,
+      tokens: sortTokensByFiatValue({ tokens, map: sortMap }),
+      smallBalanceTokens: sortTokensByFiatValue({
+        tokens: smallBalanceTokens,
+        map: sortMap,
+      }),
       tokenListMap,
       aggregateTokenFiatMap,
       aggregateTokenListMap,
     };
   }
 
-  // Multi-network fan-out concat is grouped by network; TokenListView does NOT
-  // sort the selector list, so re-sort by fiat value here (aggregate rows
-  // resolve their summed fiat from `aggregateTokenFiatMap`). The stable sort
-  // keeps each network's server-provided order within equal-value (e.g. zero
-  // balance) rows.
-  const sortMap = { ...tokenListMap, ...aggregateTokenFiatMap };
+  // Multi-network fan-out: mirror Home's all-networks merge
+  // (`buildMergedAllNetworkSnapshot`). The per-network high/low split the server
+  // returns is NOT globally coherent — one network's `smallBalanceTokens` can
+  // be worth more than another network's `tokens`, and TokenListView renders
+  // as a PLAIN concat of the two buckets (no re-sort). Concat BOTH buckets,
+  // value-sort once globally, push the zero/unavailable-value tail to a stable
+  // `order` sort, then re-split by the same high-value COUNT threshold so the
+  // concatenated list stays strictly descending by value — no high-value asset
+  // stranded below a low-value one, and no floor/live reshuffle across the
+  // bucket boundary.
+  let mergedTokens = sortTokensByFiatValue({
+    tokens: [...tokens, ...smallBalanceTokens],
+    map: sortMap,
+  });
+  const zeroBalanceIndex = mergedTokens.findIndex((token) =>
+    isUnavailableOrZeroFiatValue(sortMap[token.$key]?.fiatValue),
+  );
+  if (zeroBalanceIndex > -1) {
+    mergedTokens = [
+      ...mergedTokens.slice(0, zeroBalanceIndex),
+      ...sortTokensByOrder({ tokens: mergedTokens.slice(zeroBalanceIndex) }),
+    ];
+  }
   return {
-    tokens: sortTokensByFiatValue({ tokens, map: sortMap }),
-    smallBalanceTokens: sortTokensByFiatValue({
-      tokens: smallBalanceTokens,
-      map: sortMap,
-    }),
+    tokens: mergedTokens.slice(0, TOKEN_LIST_HIGH_VALUE_MAX),
+    smallBalanceTokens: mergedTokens.slice(TOKEN_LIST_HIGH_VALUE_MAX),
     tokenListMap,
     aggregateTokenFiatMap,
     aggregateTokenListMap,
