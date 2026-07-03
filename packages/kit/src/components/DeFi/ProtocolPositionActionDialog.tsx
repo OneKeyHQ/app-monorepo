@@ -9,7 +9,6 @@ import {
   Dialog,
   SizableText,
   Stack,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -22,6 +21,7 @@ import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput
 import { SendAutoSizeAmountInput } from '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -447,6 +447,36 @@ function isUserRejectedErrorMessage({
     getErrorMessage(error) ===
     intl.formatMessage({ id: ETranslations.feedback_user_rejected })
   );
+}
+
+function showProtocolPositionActionErrorToast(error: unknown) {
+  errorToastUtils.toastIfError(error);
+  if (error && typeof error === 'object') {
+    // DeFi action submit owns the visible operation boundary. Some backend or
+    // tx-confirm errors intentionally set autoToast=false for generic callers,
+    // but this dialog must still show the failure and keep diagnostic actions.
+    (error as IOneKeyError).autoToast = true;
+  }
+  errorToastUtils.showToastOfError(error);
+}
+
+function normalizeProtocolPositionActionError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return new OneKeyLocalError(getErrorMessage(error));
+  }
+  const oneKeyError = error as IOneKeyError;
+  const normalizedError = new OneKeyLocalError({
+    message: getErrorMessage(error),
+    code: oneKeyError.code,
+    data: oneKeyError.data,
+    key: oneKeyError.key,
+    info: oneKeyError.info,
+    autoToast: oneKeyError.autoToast,
+    requestId: oneKeyError.requestId,
+    httpStatusCode: oneKeyError.httpStatusCode,
+  });
+  normalizedError.cause = error;
+  return normalizedError;
 }
 
 function getPositiveAmount(value?: string) {
@@ -954,15 +984,11 @@ function useProtocolPositionActionSubmit({
           isTxConfirmInitializing = false;
         }
         if (txConfirmInitError) {
-          errorToastUtils.toastIfErrorDisable(txConfirmInitError);
-          throw new OneKeyLocalError(getErrorMessage(txConfirmInitError));
+          throw normalizeProtocolPositionActionError(txConfirmInitError);
         }
       } catch (error) {
         if (!isUserRejectedErrorMessage({ error, intl })) {
-          errorToastUtils.toastIfErrorDisable(error);
-          Toast.error({
-            title: getErrorMessage(error),
-          });
+          showProtocolPositionActionErrorToast(error);
         }
         throw error;
       }
@@ -1244,6 +1270,7 @@ function ProtocolPositionActionAmountInput({
   availableLabel,
   maxLabel,
   insufficientLabel,
+  validator,
 }: {
   amount: string;
   onChangeAmount: (value: string) => void;
@@ -1258,6 +1285,7 @@ function ProtocolPositionActionAmountInput({
   availableLabel: string;
   maxLabel: string;
   insufficientLabel: string;
+  validator?: (value: string) => boolean;
 }) {
   return (
     <YStack gap="$5">
@@ -1267,6 +1295,7 @@ function ProtocolPositionActionAmountInput({
         maxFontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
         value={amount}
         onChange={onChangeAmount}
+        validator={validator}
         tokenSymbol={symbol}
         valueProps={{
           value: fiatValue,
@@ -1397,6 +1426,10 @@ function ProtocolPositionActionDialogContent({
     isManualAmountAction && !selectable && Boolean(manualAmountAsset);
   const availableAmount = manualAmountAsset?.amount ?? '0';
   const amountDecimals = manualAmountAsset?.asset.meta?.decimals;
+  const validateManualAmountInput = useCallback(
+    (next: string) => validateAmountInput(next, amountDecimals),
+    [amountDecimals],
+  );
   const amountBN = new BigNumber(amount || '0');
   const availableBN = new BigNumber(availableAmount || '0');
   const isAmountPositive = amountBN.isFinite() && amountBN.gt(0);
@@ -1470,7 +1503,7 @@ function ProtocolPositionActionDialogContent({
   const handleAmountChange = (next: string) => {
     // Project convention: reject keystrokes that exceed the token's decimals
     // (same gate as Send), rather than silently truncating.
-    if (!validateAmountInput(next, amountDecimals)) {
+    if (!validateManualAmountInput(next)) {
       return;
     }
     setAmount(next);
@@ -1547,8 +1580,8 @@ function ProtocolPositionActionDialogContent({
         },
       });
     } catch {
-      // submitProtocolPositionAction already surfaced the error via Toast;
-      // keep the dialog open so the user can retry instead of auto-closing.
+      // submitProtocolPositionAction already surfaced the error via global
+      // error toast; keep the dialog open so the user can retry.
       preventClose();
     }
   };
@@ -1602,6 +1635,7 @@ function ProtocolPositionActionDialogContent({
       <ProtocolPositionActionAmountInput
         amount={amount}
         onChangeAmount={handleAmountChange}
+        validator={validateManualAmountInput}
         onSelectPercent={handleSelectPercent}
         selectedPercent={selectedAmountPercent}
         symbol={manualAmountAsset?.symbol ?? ''}
