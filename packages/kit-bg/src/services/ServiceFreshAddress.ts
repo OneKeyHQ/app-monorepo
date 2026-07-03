@@ -981,20 +981,19 @@ class ServiceFreshAddress extends ServiceBase {
       dbAccount,
     });
 
-    let maxScannedIndex = BTC_FIND_ADDRESS_FALLBACK_MAX_SCANNED_INDEX;
-    [
-      ctx?.freshAddresses?.fresh?.used,
-      ctx?.freshAddresses?.fresh?.unused,
-    ].forEach((group) =>
-      group?.forEach((item) => {
-        // path format: m/86'/0'/0'/0/N — receive branch only
-        const segments = item.path.split('/').filter(Boolean);
-        if (segments[4] !== '0') return;
-        const index = Number(segments[5]);
-        if (Number.isSafeInteger(index) && index > maxScannedIndex) {
-          maxScannedIndex = index;
-        }
-      }),
+    const scannedIndexes = [
+      ...(ctx?.freshAddresses?.fresh?.used ?? []),
+      ...(ctx?.freshAddresses?.fresh?.unused ?? []),
+    ]
+      // path format: m/86'/0'/0'/0/N — receive branch (segment[4] === '0') only
+      .map((item) => item.path.split('/').filter(Boolean))
+      .filter((segments) => segments[4] === '0')
+      .map((segments) => Number(segments[5]))
+      .filter((index) => Number.isSafeInteger(index));
+
+    const maxScannedIndex = Math.max(
+      BTC_FIND_ADDRESS_FALLBACK_MAX_SCANNED_INDEX,
+      ...scannedIndexes,
     );
 
     return { maxScannedIndex };

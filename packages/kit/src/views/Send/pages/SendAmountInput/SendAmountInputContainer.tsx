@@ -1167,17 +1167,9 @@ function SendAmountInputContainer() {
 
   const maxBalance = useMemo(() => {
     if (!tokenDetails) return '0';
-    let balance: string;
-    if (currentSelectedUtxoInfo?.totalValue && tokenDetails.info) {
-      balance = new BigNumber(
-        chainValueUtils.convertTokenChainValueToAmount({
-          value: currentSelectedUtxoInfo.totalValue,
-          token: tokenDetails.info,
-        }),
-      ).toFixed();
-    } else {
-      balance = tokenDetails.balanceParsed;
-    }
+    // `??` (not `||`) so a genuine "0" subtotal is kept, not replaced by the
+    // account balance.
+    const balance = selectedUtxoTotalAmount ?? tokenDetails.balanceParsed;
 
     // Lightning balanceParsed is already in sats (decimals=0)
     if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
@@ -1185,12 +1177,7 @@ function SendAmountInputContainer() {
     }
 
     return balance;
-  }, [
-    currentSelectedUtxoInfo?.totalValue,
-    isLightningNetwork,
-    lnUnit,
-    tokenDetails,
-  ]);
+  }, [selectedUtxoTotalAmount, isLightningNetwork, lnUnit, tokenDetails]);
 
   const maxBalanceFiat = useMemo(() => {
     if (!tokenDetails) return '0';
@@ -1199,21 +1186,14 @@ function SendAmountInputContainer() {
     // UTXO-selected fiat balance never renders as "NaN".
     const priceBN = new BigNumber(tokenDetails.price ?? 0);
     if (
-      currentSelectedUtxoInfo?.totalValue &&
+      selectedUtxoTotalAmount !== undefined &&
       priceBN.isFinite() &&
-      priceBN.isGreaterThan(0) &&
-      tokenDetails.info
+      priceBN.isGreaterThan(0)
     ) {
-      const balanceInToken = new BigNumber(
-        chainValueUtils.convertTokenChainValueToAmount({
-          value: currentSelectedUtxoInfo.totalValue,
-          token: tokenDetails.info,
-        }),
-      );
-      return balanceInToken.times(priceBN).toFixed();
+      return new BigNumber(selectedUtxoTotalAmount).times(priceBN).toFixed();
     }
     return tokenDetails.fiatValue ?? '0';
-  }, [tokenDetails, currentSelectedUtxoInfo?.totalValue]);
+  }, [tokenDetails, selectedUtxoTotalAmount]);
 
   const linkedAmount = useMemo(() => {
     const amountBN = new BigNumber(amount || 0);

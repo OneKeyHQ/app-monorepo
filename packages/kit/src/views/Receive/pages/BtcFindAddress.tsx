@@ -115,6 +115,8 @@ function BtcFindAddress() {
           { variant: maxScannedIndex },
         );
 
+  const hasIndexError = showInvalidHint || isBelowMinIndex;
+
   const invalidIndexText = intl.formatMessage(
     { id: ETranslations.find_address_invalid_index__msg },
     { max: BTC_FIND_ADDRESS_MAX_INDEX },
@@ -225,7 +227,7 @@ function BtcFindAddress() {
                 value={indexText}
                 placeholder="0"
                 onChangeText={(text) => setIndexText(text.trim())}
-                error={showInvalidHint || isBelowMinIndex}
+                error={hasIndexError}
               />
               {minIndexHint ? (
                 <SizableText
@@ -252,7 +254,7 @@ function BtcFindAddress() {
           onConfirm={onConfirm}
           confirmButtonProps={{
             loading: submitting,
-            disabled: showInvalidHint || isBelowMinIndex,
+            disabled: hasIndexError,
           }}
         >
           <XStack
