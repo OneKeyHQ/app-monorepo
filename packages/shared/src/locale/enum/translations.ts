@@ -1900,6 +1900,7 @@ export enum ETranslations {
   import_hardware_phrases_warning = 'import_hardware_phrases_warning',
   import_phrase_or_private_key = 'import_phrase_or_private_key',
   incorrect_pin = 'incorrect_pin',
+  index_must_be_greater_then = 'index_must_be_greater_then',
   install_extension_first = 'install_extension_first',
   install_extension_first_desc = 'install_extension_first_desc',
   insufficient_fee_append_desc = 'insufficient_fee_append_desc',
