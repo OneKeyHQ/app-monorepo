@@ -76,6 +76,13 @@ type IStockTokenDetailFetchState = {
   scope: string;
   token: IMarketTokenDetail | undefined;
   perpsInfo: IMarketPerpsInfo | undefined;
+  // Wall-clock time of the successful fetch that produced this payload.
+  // Carried INSIDE the payload on purpose: usePromiseResult re-persists
+  // whatever the method returns to the SWR cache with a fresh entry
+  // timestamp — including the error-fallback below — so the cache entry's
+  // own timestamp cannot bound staleness across remounts. Only fetchedAt
+  // is trusted by the TTL check.
+  fetchedAt?: number;
 };
 
 let stockExecutionTokenSyncSerial = 0;
@@ -178,10 +185,8 @@ export function useSwapStockChannel() {
   const payToken = payTokenState ?? stockPairPayToken ?? swapPairStockPayToken;
   const stockNetworkId = currentStockToken?.networkId ?? '';
   const stockTokenDetailScope = currentStockTokenKey;
-  const lastGoodStockTokenDetailRef = useRef<{
-    state: IStockTokenDetailFetchState;
-    updatedAt: number;
-  } | null>(null);
+  const lastGoodStockTokenDetailRef =
+    useRef<IStockTokenDetailFetchState | null>(null);
   // Tracks the scope of the latest render so a superseded in-flight request
   // (user already switched stock) cannot clobber the last-good snapshot of
   // the currently selected stock.
@@ -206,19 +211,17 @@ export function useSwapStockChannel() {
             },
           );
         const token = response?.data?.token;
-        const nextState = {
+        const nextState: IStockTokenDetailFetchState = {
           scope: stockTokenDetailScope,
           token: token?.stock ? token : undefined,
           perpsInfo: token?.stock ? response?.data?.perpsInfo : undefined,
+          fetchedAt: Date.now(),
         };
         // A superseded response (user already switched stock while this
         // request was in flight) must not overwrite the snapshot;
         // usePromiseResult already discards its result via the nonce guard.
         if (latestStockTokenDetailScopeRef.current === stockTokenDetailScope) {
-          lastGoodStockTokenDetailRef.current = {
-            state: nextState,
-            updatedAt: Date.now(),
-          };
+          lastGoodStockTokenDetailRef.current = nextState;
         }
         return nextState;
       } catch {
@@ -230,12 +233,16 @@ export function useSwapStockChannel() {
         // cannot show a stale market open/closed state indefinitely; after
         // the TTL the channel settles into the stable unavailable state.
         let lastGood = lastGoodStockTokenDetailRef.current;
-        if (lastGood?.state.scope !== stockTokenDetailScope) {
+        if (lastGood?.scope !== stockTokenDetailScope) {
           // Re-entering the page: the render state was hydrated from the
           // SWR cache, but no request has succeeded in this mount yet, so
           // the in-memory snapshot is empty. Warm it from the same cache
-          // entry (its own timestamp keeps the TTL bound honest) so a
-          // failing first tick after remount does not clear the trade UI.
+          // entry so a failing first tick after remount does not clear the
+          // trade UI. Only the fetchedAt carried inside the payload is
+          // trusted for the TTL — the cache entry's own timestamp gets
+          // re-stamped every time this fallback result is re-persisted,
+          // which would otherwise renew the TTL indefinitely across
+          // remounts; legacy entries without fetchedAt are ignored.
           const cached = stockTokenDetailScope
             ? swrCacheUtils.getWithTimestamp<IStockTokenDetailFetchState>(
                 swrKeys.swapStockTokenDetail({
@@ -243,16 +250,20 @@ export function useSwapStockChannel() {
                 }),
               )
             : undefined;
-          if (cached?.data?.scope === stockTokenDetailScope) {
-            lastGood = { state: cached.data, updatedAt: cached.updatedAt };
+          if (
+            cached?.data?.scope === stockTokenDetailScope &&
+            cached.data.fetchedAt
+          ) {
+            lastGood = cached.data;
             lastGoodStockTokenDetailRef.current = lastGood;
           }
         }
         if (
-          lastGood?.state.scope === stockTokenDetailScope &&
-          Date.now() - lastGood.updatedAt <= SWAP_STOCK_DETAIL_LAST_GOOD_TTL_MS
+          lastGood?.scope === stockTokenDetailScope &&
+          lastGood.fetchedAt &&
+          Date.now() - lastGood.fetchedAt <= SWAP_STOCK_DETAIL_LAST_GOOD_TTL_MS
         ) {
-          return lastGood.state;
+          return lastGood;
         }
         return {
           scope: stockTokenDetailScope,
