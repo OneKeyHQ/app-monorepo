@@ -51,8 +51,9 @@ export const SHARE_CARD_CONFIG = {
     weight: 400,
     lineHeight: 20,
     color: 'rgba(0,0,0,0.88)',
+    highlightColor: '#32B826',
     monoFontFamily:
-      'GeistMono-Medium, GeistMono-Regular, ui-monospace, SFMono-Regular, Menlo, monospace',
+      'GeistMono-Regular, ui-monospace, SFMono-Regular, Menlo, monospace',
   },
   footer: {
     height: 52,
@@ -73,6 +74,37 @@ export function groupAddress(address: string, groupSize = 4): string {
     groups.push(address.slice(i, i + groupSize));
   }
   return groups.join(' ');
+}
+
+// Split the grouped address into leading / middle / trailing segments so the
+// first and last N characters can be highlighted (mirrors HighlightAddress).
+export function splitGroupedAddress(
+  address: string,
+  {
+    leadingHighlightCount = 6,
+    trailingHighlightCount = 6,
+    groupSize = 4,
+  }: {
+    leadingHighlightCount?: number;
+    trailingHighlightCount?: number;
+    groupSize?: number;
+  } = {},
+): { leading: string; middle: string; trailing: string } {
+  const grouped = groupAddress(address, groupSize);
+  const totalLen = address.length;
+  if (totalLen <= leadingHighlightCount + trailingHighlightCount) {
+    return { leading: grouped, middle: '', trailing: '' };
+  }
+  // a space is inserted every groupSize chars in the grouped string
+  const toGroupedPos = (origPos: number) =>
+    origPos + Math.floor(origPos / groupSize);
+  const leadEnd = toGroupedPos(leadingHighlightCount);
+  const trailStart = toGroupedPos(totalLen - trailingHighlightCount);
+  return {
+    leading: grouped.slice(0, leadEnd),
+    middle: grouped.slice(leadEnd, trailStart),
+    trailing: grouped.slice(trailStart),
+  };
 }
 
 // Webpack returns a URL string; Metro returns a numeric asset id requiring resolveAssetSource.

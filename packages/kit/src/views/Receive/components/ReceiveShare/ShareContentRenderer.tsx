@@ -4,7 +4,11 @@ import { Image } from 'react-native';
 
 import { QRCode, SizableText, XStack, YStack } from '@onekeyhq/components';
 
-import { ONEKEY_LOGO_URL, SHARE_CARD_CONFIG, groupAddress } from './constants';
+import {
+  ONEKEY_LOGO_URL,
+  SHARE_CARD_CONFIG,
+  splitGroupedAddress,
+} from './constants';
 
 import type { IReceiveShareData } from './types';
 
@@ -32,6 +36,8 @@ export function ShareContentRenderer({
     addressText,
     footer,
   } = SHARE_CARD_CONFIG;
+
+  const addressParts = useMemo(() => splitGroupedAddress(address), [address]);
 
   const imageCount = useMemo(() => (tokenLogoURI ? 2 : 1), [tokenLogoURI]);
   const loadedCountRef = useRef(0);
@@ -134,12 +140,28 @@ export function ShareContentRenderer({
             py={addressCell.paddingY}
           >
             <SizableText
-              fontFamily="$monoMedium"
+              fontFamily="$monoRegular"
               color={addressText.color}
               fontSize={addressText.size}
               lineHeight={addressText.lineHeight}
             >
-              {groupAddress(address)}
+              <SizableText
+                fontFamily="$monoRegular"
+                color={addressText.highlightColor}
+                fontSize={addressText.size}
+                lineHeight={addressText.lineHeight}
+              >
+                {addressParts.leading}
+              </SizableText>
+              {addressParts.middle}
+              <SizableText
+                fontFamily="$monoRegular"
+                color={addressText.highlightColor}
+                fontSize={addressText.size}
+                lineHeight={addressText.lineHeight}
+              >
+                {addressParts.trailing}
+              </SizableText>
             </SizableText>
           </YStack>
         </YStack>

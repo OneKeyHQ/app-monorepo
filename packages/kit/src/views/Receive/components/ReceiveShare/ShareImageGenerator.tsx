@@ -6,7 +6,12 @@ import { Stack } from '@onekeyhq/components';
 import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { ONEKEY_LOGO_URL, SHARE_CARD_CONFIG, groupAddress } from './constants';
+import {
+  ONEKEY_LOGO_URL,
+  SHARE_CARD_CONFIG,
+  groupAddress,
+  splitGroupedAddress,
+} from './constants';
 
 import type {
   IReceiveShareData,
@@ -330,20 +335,47 @@ export const ShareImageGenerator = forwardRef<
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = addressText.color;
       ctx.font = toCanvasFont(
         addressText.size,
         addressText.weight,
         addressText.monoFontFamily,
       );
       ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
+      // middle baseline centers each line within its line-height slot so the
+      // visual padding stays symmetric above and below the text block
+      ctx.textBaseline = 'middle';
+      const addressParts = splitGroupedAddress(address);
+      const addressRuns = [
+        { text: addressParts.leading, color: addressText.highlightColor },
+        { text: addressParts.middle, color: addressText.color },
+        { text: addressParts.trailing, color: addressText.highlightColor },
+      ].filter((run) => run.text);
+      // wrapped lines are exact substrings of the grouped address separated
+      // by single spaces, so global positions map 1:1 onto run boundaries
+      let linePos = 0;
       addressLines.forEach((line, index) => {
-        ctx.fillText(
-          line,
-          cellX + addressCell.paddingX,
-          addressCellY + addressCell.paddingY + index * addressText.lineHeight,
-        );
+        const lineStart = linePos;
+        const lineEnd = lineStart + line.length;
+        const lineY =
+          addressCellY +
+          addressCell.paddingY +
+          index * addressText.lineHeight +
+          addressText.lineHeight / 2;
+        let x = cellX + addressCell.paddingX;
+        let runStart = 0;
+        for (const run of addressRuns) {
+          const runEnd = runStart + run.text.length;
+          const overlapStart = Math.max(runStart, lineStart);
+          const overlapEnd = Math.min(runEnd, lineEnd);
+          if (overlapEnd > overlapStart) {
+            const piece = groupedAddress.slice(overlapStart, overlapEnd);
+            ctx.fillStyle = run.color;
+            ctx.fillText(piece, x, lineY);
+            x += ctx.measureText(piece).width;
+          }
+          runStart = runEnd;
+        }
+        linePos = lineEnd + 1;
       });
 
       const footerContentY = totalHeight - footer.height + 4;

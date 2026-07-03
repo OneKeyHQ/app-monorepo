@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { Image as RNImage } from 'react-native';
+import { Image as RNImage, StyleSheet } from 'react-native';
 
 import { Image, Spinner, Stack } from '@onekeyhq/components';
 
@@ -74,7 +74,12 @@ export function ShareView({ data, generatorRef }: IShareViewProps) {
     <Stack
       width="100%"
       aspectRatio={aspectRatio}
-      borderRadius="$4"
+      borderRadius={14}
+      borderCurve="continuous"
+      // dialog-only affordance to outline the image area; the exported
+      // image itself has no border
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderSubdued"
       overflow="hidden"
       backgroundColor="$bgSubdued"
       alignItems="center"

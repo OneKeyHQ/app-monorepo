@@ -15,6 +15,7 @@ import {
   Page,
   QRCode,
   SizableText,
+  Stack,
   XStack,
   YStack,
   useSafeAreaInsets,
@@ -532,13 +533,13 @@ function ReceiveToken() {
             />
           </XStack>
           {platformEnv.isNative ? null : (
-            <Icon
+            <Stack
               testID={ReceiveTestIDs.CopyAddressButton}
-              name="Copy3Outline"
-              size="$5"
-              color="$iconSubdued"
               mt="$0.5"
-            />
+              flexShrink={0}
+            >
+              <Icon name="Copy3Outline" size="$5" color="$iconSubdued" />
+            </Stack>
           )}
         </XStack>
       </ReceiveCardCell>
