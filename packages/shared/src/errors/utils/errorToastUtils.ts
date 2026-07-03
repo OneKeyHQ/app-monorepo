@@ -183,15 +183,19 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
         }
       }
 
-      appEventBus.emit(EAppEventBusNames.ShowToast, {
+      const toastPayload = {
         errorCode: err?.code,
+        errorClassName: err?.className,
+        errorName: err?.name,
         httpStatusCode,
         method: 'error' as const,
         title: err?.message ?? 'Error',
         requestId: err?.requestId,
         diagnosticText,
         i18nKey: err?.key as ETranslations | undefined,
-      });
+      };
+
+      appEventBus.emit(EAppEventBusNames.ShowToast, toastPayload);
     })();
   }
 }
