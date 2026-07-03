@@ -555,6 +555,22 @@ describe('assembleHyperliquidSnapshot', () => {
 
     expect(snap.isDegraded).toBe(true);
   });
+  it('can build a degraded perp-only snapshot without spot state', () => {
+    const snap = assembleHyperliquidSnapshot({
+      address: '0x1',
+      clearinghouse: clearing as any,
+      spot: undefined,
+      priceMap: { USDC: '1' },
+      isDegraded: true,
+      now: 1,
+    });
+
+    expect(snap.accountValue).toBe('120');
+    expect(snap.netWorthUsd).toBe('120');
+    expect(snap.spotBalances).toHaveLength(0);
+    expect(snap.isDegraded).toBe(true);
+    expect(snap.isEmpty).toBe(false);
+  });
   it('filters closed residual positions before Home snapshot fields', () => {
     const snap = assembleHyperliquidSnapshot({
       address: '0x1',

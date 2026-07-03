@@ -988,8 +988,9 @@ export default class ServiceHyperliquid extends ServiceBase {
       const user = address.toLowerCase() as IHex;
       const [clearinghouseStates, spot] = await Promise.all([
         this._fetchAllDexsClearinghouseStates(user),
-        infoClient.spotClearinghouseState({ user }),
+        infoClient.spotClearinghouseState({ user }).catch(() => undefined),
       ]);
+      const hasMissingSpotState = !spot;
       const hasMainDexState = clearinghouseStates.some(
         ({ dex, state }) => !dex && Boolean(state),
       );
@@ -1042,7 +1043,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         getSpotUniverseName: (coin) =>
           this._spotMappings.baseNameToPairName[coin],
         abstractionMode,
-        isDegraded: hasMissingSubDexState,
+        isDegraded: hasMissingSubDexState || hasMissingSpotState,
         now: Date.now(),
       });
     },
