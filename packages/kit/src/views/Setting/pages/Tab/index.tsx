@@ -23,9 +23,10 @@ import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { ESettingsTabNames, useSettingsConfig } from './config';
+import { useSettingsConfig } from './config';
 import { ConfigContext } from './configContext';
 import { SocialButtonGroup } from './CustomElement';
 import { SettingList } from './SettingList';

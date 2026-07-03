@@ -1,7 +1,6 @@
 import { createAnimations } from '@tamagui/animations-moti';
 import { createMedia } from '@tamagui/react-native-media-driver';
 import { shorthands } from '@tamagui/shorthands';
-import { themes } from '@tamagui/themes';
 import { createFont, createTokens } from '@tamagui/web';
 import { Easing } from 'react-native-reanimated';
 import { createTamagui } from 'tamagui';
@@ -648,7 +647,6 @@ const config = createTamagui({
 
   themes: {
     light: {
-      ...themes.light,
       ...lightColors,
 
       // override default theme
@@ -665,7 +663,6 @@ const config = createTamagui({
       'colorHover': mergedTokens.color.textLight,
     },
     dark: {
-      ...themes.dark,
       ...darkColors,
 
       // override default theme

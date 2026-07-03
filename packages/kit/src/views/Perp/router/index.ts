@@ -21,9 +21,7 @@ const PerpTradersHistoryList = LazyLoadPage(
   () => import('../components/OrderInfoPanel/PerpTradersHistoryListModal'),
 );
 
-const PagePerp = LazyLoadRootTabPage(
-  () => import(/* webpackPrefetch: true */ '../pages/Perp'),
-);
+const PagePerp = LazyLoadRootTabPage(() => import('../pages/Perp'));
 const MobilePerpMarketPage = LazyLoadPage(
   () => import('../pages/MobilePerpMarket'),
 );

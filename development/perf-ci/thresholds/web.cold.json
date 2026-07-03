@@ -1,0 +1,35 @@
+{
+  "defaults": {
+    "fcpMs": 1000,
+    "firstTextMs": 1000,
+    "lcpMs": 2500,
+    "jsDecodedBytes": 12582912,
+    "initialScriptRawBytes": 10485760,
+    "longTaskTotalMs": 900,
+    "largestPreLcpScriptDecodedBytes": 614400
+  },
+  "startupGraph": {
+    "moduleCount": 3300,
+    "sourceSizeBytes": 13107200,
+    "initialScriptCount": 45,
+    "initialScriptRawBytes": 7340032,
+    "initialScriptGzipBytes": 2097152,
+    "initialScriptBrotliBytes": 1638400,
+    "largestModuleBytes": 819200,
+    "forbiddenSources": [
+      "@keystonehq/",
+      "@reown/",
+      "@floating-ui/react",
+      "react-hook-form",
+      "localforage",
+      "WebStorageLegacy",
+      "translations.ts"
+    ]
+  },
+  "scenarios": {
+    "market": {
+      "businessReadyMs": 4000,
+      "marketListReadyMs": 4000
+    }
+  }
+}

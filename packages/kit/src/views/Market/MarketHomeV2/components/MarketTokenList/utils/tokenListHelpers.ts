@@ -1,5 +1,3 @@
-import BigNumber from 'bignumber.js';
-
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
@@ -39,8 +37,8 @@ export function normalizeStockMetadataValue(
     return undefined;
   }
 
-  const numericValue = new BigNumber(stringValue);
-  if (!numericValue.isFinite()) {
+  const numericValue = Number(stringValue);
+  if (!Number.isFinite(numericValue)) {
     return undefined;
   }
 
@@ -120,18 +118,15 @@ export function getNetworkLogoUri(chainOrNetworkId: string): string {
   return network?.logoURI || '';
 }
 
-/**
- * Safely parse string to number using BigNumber for precision
- */
 function safeNumber(value: string | undefined, fallback = 0): number {
   if (!value) return fallback;
 
   try {
-    const bn = new BigNumber(value);
-    if (bn.isNaN() || !bn.isFinite()) {
+    const numberValue = Number(value);
+    if (!Number.isFinite(numberValue)) {
       return fallback;
     }
-    return bn.toNumber();
+    return numberValue;
   } catch {
     return fallback;
   }
@@ -143,11 +138,11 @@ function safePositiveNumber(value: string | undefined): number | undefined {
   }
 
   try {
-    const bn = new BigNumber(value);
-    if (bn.isNaN() || !bn.isFinite() || bn.lte(0)) {
+    const numberValue = Number(value);
+    if (!Number.isFinite(numberValue) || numberValue <= 0) {
       return undefined;
     }
-    return bn.toNumber();
+    return numberValue;
   } catch {
     return undefined;
   }
@@ -190,22 +185,16 @@ export function calculateMarketTokenLivePriceChange({
     return undefined;
   }
 
-  const priceBN = new BigNumber(price);
-  const priceChangeBasePriceBN = new BigNumber(priceChangeBasePrice);
   if (
-    !priceBN.isFinite() ||
-    !priceChangeBasePriceBN.isFinite() ||
-    priceBN.lte(0) ||
-    priceChangeBasePriceBN.lte(0)
+    !Number.isFinite(price) ||
+    !Number.isFinite(priceChangeBasePrice) ||
+    price <= 0 ||
+    priceChangeBasePrice <= 0
   ) {
     return undefined;
   }
 
-  return priceBN
-    .minus(priceChangeBasePriceBN)
-    .div(priceChangeBasePriceBN)
-    .times(100)
-    .toNumber();
+  return ((price - priceChangeBasePrice) / priceChangeBasePrice) * 100;
 }
 
 /**

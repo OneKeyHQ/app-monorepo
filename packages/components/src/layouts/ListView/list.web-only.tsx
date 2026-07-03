@@ -1,0 +1,155 @@
+import type { ForwardedRef, MutableRefObject } from 'react';
+import { forwardRef, useMemo } from 'react';
+
+import { FlatList } from 'react-native';
+
+import {
+  getTokenValue,
+  usePropsAndStyle,
+  useStyle,
+} from '@onekeyhq/components/src/shared/tamagui';
+import type {
+  StackStyle,
+  Tokens,
+} from '@onekeyhq/components/src/shared/tamagui';
+
+import { DebugRenderTracker } from '../../utils/DebugRenderTracker';
+
+import type { IDebugRenderTrackerProps } from '../../utils/DebugRenderTracker';
+import type {
+  FlatListProps,
+  ListRenderItem,
+  StyleProp,
+  ViewStyle,
+} from 'react-native';
+
+export type IListViewRef<T> = FlatList<T>;
+
+export type IListViewProps<T> = Omit<
+  FlatListProps<T>,
+  | 'contentContainerStyle'
+  | 'columnWrapperStyle'
+  | 'ListHeaderComponentStyle'
+  | 'ListFooterComponentStyle'
+  | 'data'
+  | 'renderItem'
+> &
+  StackStyle & {
+    contentContainerStyle?: StackStyle;
+    columnWrapperStyle?: StackStyle;
+    ListHeaderComponentStyle?: StackStyle;
+    ListFooterComponentStyle?: StackStyle;
+  } & {
+    useFlashList?: boolean;
+    data: ArrayLike<T> | null | undefined;
+    renderItem: ListRenderItem<T> | null | undefined;
+    ref?: MutableRefObject<IListViewRef<any> | null>;
+    estimatedItemSize?: number | `$${keyof Tokens['size']}`;
+    overrideItemLayout?: (
+      layout: { span?: number; size?: number },
+      item: T,
+      index: number,
+      maxColumns: number,
+      extraData?: any,
+    ) => void;
+    getItemType?: (item: T) => string | undefined;
+    onBlankArea?: (blankAreaEvent: {
+      offsetStart: number;
+      offsetEnd: number;
+      blankArea: number;
+    }) => void;
+    debugRenderTrackerProps?: IDebugRenderTrackerProps;
+  };
+
+function BaseListView<T>(
+  {
+    data,
+    renderItem,
+    contentContainerStyle = {},
+    columnWrapperStyle,
+    ListHeaderComponentStyle = {},
+    ListFooterComponentStyle = {},
+    estimatedItemSize,
+    useFlashList: _useFlashList,
+    debugRenderTrackerProps,
+    ...props
+  }: IListViewProps<T>,
+  ref: ForwardedRef<IListViewRef<T>>,
+) {
+  const [restProps, style] = usePropsAndStyle(props, {
+    resolveValues: 'auto',
+  });
+  const contentStyle = useStyle(
+    contentContainerStyle as Record<string, unknown>,
+    {
+      resolveValues: 'auto',
+    },
+  );
+
+  const columnStyle = useStyle(
+    (columnWrapperStyle || {}) as Record<string, unknown>,
+    {
+      resolveValues: 'auto',
+    },
+  );
+
+  const listHeaderStyle = useStyle(
+    ListHeaderComponentStyle as Record<string, unknown>,
+    {
+      resolveValues: 'auto',
+    },
+  );
+
+  const listFooterStyle = useStyle(
+    ListFooterComponentStyle as Record<string, unknown>,
+    {
+      resolveValues: 'auto',
+    },
+  );
+  const itemSize = useMemo<number | undefined>(() => {
+    if (typeof estimatedItemSize === 'undefined') {
+      return undefined;
+    }
+    return typeof estimatedItemSize === 'number'
+      ? estimatedItemSize
+      : (getTokenValue(estimatedItemSize, 'size') as number);
+  }, [estimatedItemSize]);
+
+  const getItemLayout = useMemo(() => {
+    if (!itemSize) {
+      return;
+    }
+    return (_: ArrayLike<T> | null | undefined, index: number) => ({
+      length: itemSize,
+      offset: itemSize * index,
+      index,
+    });
+  }, [itemSize]);
+
+  return (
+    <DebugRenderTracker
+      position="top-right"
+      name="ListView"
+      {...debugRenderTrackerProps}
+    >
+      <FlatList
+        ref={ref}
+        style={style as StyleProp<ViewStyle>}
+        columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
+        ListHeaderComponentStyle={listHeaderStyle}
+        ListFooterComponentStyle={listFooterStyle}
+        contentContainerStyle={contentStyle}
+        data={data}
+        renderItem={renderItem}
+        getItemLayout={getItemLayout}
+        windowSize={5}
+        {...(restProps as any)}
+        refreshControl={undefined}
+      />
+    </DebugRenderTracker>
+  );
+}
+
+export const ListView = forwardRef(BaseListView) as <T>(
+  props: IListViewProps<T> & { ref?: React.Ref<FlatList<T>> },
+) => React.ReactElement | null;

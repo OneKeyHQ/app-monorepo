@@ -3099,8 +3099,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
 const createActions = memoFn(() => new AccountSelectorActions());
 
+export const getAccountSelectorActions = createActions;
+export type IAccountSelectorActionsInstance = ReturnType<
+  typeof getAccountSelectorActions
+>;
+
 export function useAccountSelectorActions() {
-  const actions = createActions();
+  const actions = getAccountSelectorActions();
   const reloadActiveAccountInfo = actions.reloadActiveAccountInfo.use();
   const getSelectedAccount = actions.getSelectedAccount.use();
   const getActiveAccount = actions.getActiveAccount.use();

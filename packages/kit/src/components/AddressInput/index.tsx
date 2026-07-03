@@ -17,8 +17,8 @@ import {
   Spinner,
   Stack,
   XStack,
-  useFormContext,
 } from '@onekeyhq/components';
+import { useFormContext } from '@onekeyhq/components/src/hooks/useForm';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type {

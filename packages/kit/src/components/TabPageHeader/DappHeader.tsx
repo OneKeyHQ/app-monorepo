@@ -1,4 +1,11 @@
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import {
+  type ReactNode,
+  Suspense,
+  lazy,
+  useCallback,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -34,11 +41,10 @@ import { KeylessWebConnectAlertContainer } from '../../provider/Container/Keyles
 import {
   useAccountSelectorContextData,
   useActiveAccount,
-} from '../../states/jotai/contexts/accountSelector';
+} from '../../states/jotai/contexts/accountSelector/atoms';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { PerpsActivityCenterAction } from '../../views/Perp/components/PerpsActivityCenterAction';
-import { useLanguageSelector } from '../../views/Setting/hooks';
-import { AccountSelectorProviderMirror } from '../AccountSelector';
+import { useLanguageSelector } from '../../views/Setting/hooks/useLanguageSelector';
+import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 import { ListItem } from '../ListItem';
 
 import {
@@ -46,15 +52,19 @@ import {
   WalletConnectionGroup,
   WebHeaderNavigation,
 } from './components';
-import {
-  WebAccountSelectorTrigger,
-  WebConnectButton,
-  WebSettingsTrigger,
-} from './components/WebAccountPanel';
+import { WebAccountSelectorTrigger } from './components/WebAccountPanel/WebAccountSelectorTrigger';
+import { WebConnectButton } from './components/WebAccountPanel/WebConnectButton';
+import { WebSettingsTrigger } from './components/WebAccountPanel/WebSettingsTrigger';
 import { HeaderTitle } from './HeaderTitle';
 import { UniversalSearchInput } from './UniversalSearchInput';
 
 import type { ITabPageHeaderProp } from './type';
+
+const LazyPerpsActivityCenterAction = lazy(async () => {
+  const { PerpsActivityCenterAction } =
+    await import('../../views/Perp/components/PerpsActivityCenterAction');
+  return { default: PerpsActivityCenterAction };
+});
 
 function LanguageListItem({
   open,
@@ -439,7 +449,9 @@ function RightActions({
         size="medium"
       />
       {isPerpsTab && isWalletConnected ? (
-        <PerpsActivityCenterAction copyAsUrl size="medium" />
+        <Suspense fallback={null}>
+          <LazyPerpsActivityCenterAction copyAsUrl size="medium" />
+        </Suspense>
       ) : null}
       <KeylessWebConnectAlertContainer />
       {isWalletConnected ? (

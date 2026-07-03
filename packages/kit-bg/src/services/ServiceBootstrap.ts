@@ -16,6 +16,12 @@ class ServiceBootstrap extends ServiceBase {
 
   public async init() {
     await this.initCritical();
+    if (platformEnv.isWeb || platformEnv.isDesktop) {
+      setTimeout(() => {
+        void this.initDeferred();
+      }, 6000);
+      return;
+    }
     void this.initDeferred();
   }
 

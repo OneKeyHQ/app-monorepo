@@ -1,18 +1,30 @@
 name: Startup Graph Budget Check
 
 on:
+  workflow_dispatch:
   pull_request:
     branches:
       - x
     paths:
+      - '.github/workflows/startup-graph-budget.yml'
       - 'packages/**'
       - 'apps/mobile/**'
+      - 'apps/web/**'
+      - 'development/babel-plugins/**'
+      - 'development/perf-ci/run-web-cold.js'
+      - 'development/perf-ci/thresholds/web.cold.json'
+      - 'development/rspack/**'
+      - 'development/webpack/**'
+      - 'package.json'
       - 'yarn.lock'
 
 # Cancel previous runs for the same PR
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 env:
   YARN_ENABLE_GLOBAL_CACHE: true
@@ -21,7 +33,8 @@ jobs:
   # Dual-thread three-bundle architecture check (Phase 4)
   # Runs unionBuild to produce allocation reports, then validates
   # forbidden packages, module budgets, and architectural rules.
-  bundle-architecture:
+  native-startup-graph-budget:
+    name: Native startup graph budget
     runs-on: ubuntu-24.04
 
     strategy:
@@ -95,4 +108,55 @@ jobs:
           path: |
             apps/mobile/dist/allocation-report-*.json
             apps/mobile/out-dir-analysis/budget-check-report.json
+          retention-days: 30
+
+  web-startup-graph-budget:
+    name: Web startup graph budget
+    runs-on: ubuntu-24.04
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Install Dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn install --immutable
+
+      - name: Build web bundle
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          MARKET_HOME_TOKEN_SEED_URL: 'data:application/json,%7B%22list%22%3A%5B%7B%22networkId%22%3A%22btc--0%22%2C%22symbol%22%3A%22BTC%22%7D%5D%2C%22total%22%3A1%7D'
+          MARKET_HOME_TOKEN_SEED_MIN_COUNT: '1'
+        run: |
+          export PATH="${GITHUB_WORKSPACE}/node_modules/.bin:${PATH}"
+          yarn workspace @onekeyhq/web build
+
+      - name: Check web startup graph budget
+        env:
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: |
+          export PATH="${GITHUB_WORKSPACE}/node_modules/.bin:${PATH}"
+          yarn workspace @onekeyhq/web check:startup-graph-budget
+
+      - name: Upload web startup graph report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-startup-graph-budget-report
+          path: apps/web/out-dir-analysis/web-startup-graph-budget-report.json
           retention-days: 30

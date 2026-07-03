@@ -11,10 +11,8 @@ import {
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type {
   IDBAccount,
   IDBDevice,

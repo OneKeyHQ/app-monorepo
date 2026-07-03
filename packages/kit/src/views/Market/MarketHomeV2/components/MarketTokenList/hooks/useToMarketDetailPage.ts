@@ -6,7 +6,6 @@ import {
   rootNavigationRef,
   useSplitViewType,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -79,6 +78,8 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           ? EEnterWay.ExtensionPopup
           : EEnterWay.ExtensionSidePanel;
 
+        const { default: backgroundApiProxy } =
+          await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
         await backgroundApiProxy.serviceApp.openExtensionMarketTokenDetail({
           ...params,
           from: params.from || enterSource,
