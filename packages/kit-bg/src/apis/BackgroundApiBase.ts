@@ -22,6 +22,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  LogLevel,
+  NativeLogger,
+} from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import performance from '@onekeyhq/shared/src/performance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAsyncStorageWriteRequest } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
@@ -104,6 +108,57 @@ function summarizeSetAtomValuePayload(value: unknown) {
     ].join(', ');
   }
   return valueType;
+}
+
+const ASYNC_STORAGE_FORWARDER_BG_LOG_PREFIX = '[AsyncStorageForwarder][BG]';
+
+function stringifyAsyncStorageForwarderBgLogValue(value: unknown) {
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    return JSON.stringify({
+      stringifyError: (error as Error)?.message || 'unknown',
+    });
+  }
+}
+
+function asyncStorageForwarderBgLog(label: string, value?: unknown) {
+  try {
+    const valueText =
+      value === undefined
+        ? ''
+        : ` ${stringifyAsyncStorageForwarderBgLogValue(value)}`;
+    NativeLogger.write(
+      LogLevel.Info,
+      `${ASYNC_STORAGE_FORWARDER_BG_LOG_PREFIX} ${label}${valueText}`,
+    );
+  } catch {
+    /* noop */
+  }
+}
+
+function getAsyncStorageWriteRequestSummary(
+  request: IAsyncStorageWriteRequest,
+) {
+  switch (request.method) {
+    case 'clear':
+      return { method: request.method };
+    case 'multiRemove':
+      return {
+        method: request.method,
+        keyCount: request.args[0].length,
+      };
+    case 'multiSet':
+    case 'multiMerge':
+      return {
+        method: request.method,
+        pairCount: request.args[0].length,
+      };
+    default: {
+      const unsupportedRequest: never = request;
+      return { method: String(unsupportedRequest) };
+    }
+  }
 }
 
 @backgroundClass()
@@ -323,28 +378,52 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   @backgroundMethod()
   async writeAsyncStorage(request: IAsyncStorageWriteRequest): Promise<void> {
-    const { default: appStorage } =
-      await import('@onekeyhq/shared/src/storage/appStorage');
+    const startedAt = Date.now();
+    const summary = getAsyncStorageWriteRequestSummary(request);
+    asyncStorageForwarderBgLog('write-start', {
+      ...summary,
+      isNativeIOS: Boolean(platformEnv.isNativeIOS),
+      isNativeMainThread: Boolean(platformEnv.isNativeMainThread),
+      isNativeBackgroundThread: Boolean(platformEnv.isNativeBackgroundThread),
+      enableNativeBackgroundThread: Boolean(
+        platformEnv.enableNativeBackgroundThread,
+      ),
+    });
+    try {
+      const { default: appStorage } =
+        await import('@onekeyhq/shared/src/storage/appStorage');
 
-    switch (request.method) {
-      case 'clear':
-        await appStorage.clear();
-        return;
-      case 'multiSet':
-        await appStorage.multiSet(request.args[0]);
-        return;
-      case 'multiRemove':
-        await appStorage.multiRemove(request.args[0]);
-        return;
-      case 'multiMerge':
-        await appStorage.multiMerge(request.args[0]);
-        return;
-      default: {
-        const unsupportedRequest: never = request;
-        throw new OneKeyLocalError(
-          `Unsupported AsyncStorage write request: ${String(unsupportedRequest)}`,
-        );
+      switch (request.method) {
+        case 'clear':
+          await appStorage.clear();
+          break;
+        case 'multiSet':
+          await appStorage.multiSet(request.args[0]);
+          break;
+        case 'multiRemove':
+          await appStorage.multiRemove(request.args[0]);
+          break;
+        case 'multiMerge':
+          await appStorage.multiMerge(request.args[0]);
+          break;
+        default: {
+          const unsupportedRequest: never = request;
+          throw new OneKeyLocalError(
+            `Unsupported AsyncStorage write request: ${String(unsupportedRequest)}`,
+          );
+        }
       }
+      asyncStorageForwarderBgLog('write-success', {
+        ...summary,
+        durationMs: Date.now() - startedAt,
+      });
+    } catch (error) {
+      asyncStorageForwarderBgLog('write-error', {
+        ...summary,
+        durationMs: Date.now() - startedAt,
+        errorMessage: (error as Error)?.message || 'unknown',
+      });
+      throw error;
     }
   }
 

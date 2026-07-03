@@ -65,6 +65,70 @@ const transportLog = (msg: string) => {
   }
 };
 
+const ASYNC_STORAGE_FORWARDER_MAIN_LOG_PREFIX = '[AsyncStorageForwarder][MAIN]';
+
+function stringifyAsyncStorageForwarderLogValue(value: unknown) {
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    return JSON.stringify({
+      stringifyError: (error as Error)?.message || 'unknown',
+    });
+  }
+}
+
+function asyncStorageForwarderLog(label: string, value?: unknown) {
+  try {
+    const valueText =
+      value === undefined
+        ? ''
+        : ` ${stringifyAsyncStorageForwarderLogValue(value)}`;
+    NativeLogger.write(
+      LogLevel.Info,
+      `${ASYNC_STORAGE_FORWARDER_MAIN_LOG_PREFIX} ${label}${valueText}`,
+    );
+  } catch {
+    /* noop */
+  }
+}
+
+function getAsyncStorageWriteArgSummary(
+  method: IAsyncStorageWriteMethod,
+  args: IAsyncStorageWriteArgs,
+) {
+  const firstArg = (args as readonly unknown[])[0];
+  switch (method) {
+    case 'clear':
+      return { method };
+    case 'multiRemove':
+      return {
+        method,
+        keyCount: Array.isArray(firstArg) ? firstArg.length : 0,
+      };
+    case 'multiSet':
+    case 'multiMerge':
+      return {
+        method,
+        pairCount: Array.isArray(firstArg) ? firstArg.length : 0,
+      };
+    default: {
+      const unsupportedMethod: never = method;
+      return { method: String(unsupportedMethod) };
+    }
+  }
+}
+
+function getAsyncStorageForwarderStack() {
+  return (
+    new Error().stack
+      ?.split('\n')
+      .slice(2, 8)
+      .map((line) => line.trim())
+      .join(' | ')
+      .slice(0, 1200) || 'unavailable'
+  );
+}
+
 const OBSERVER_RETRY_MS = 50;
 const MAX_OBSERVER_RETRY_COUNT = 600;
 const READY_TIMEOUT_MS = 10_000;
@@ -166,11 +230,21 @@ function createTransportError(message: string) {
 }
 
 function isAsyncStorageWriteForwardingEnabled() {
-  return Boolean(
+  const enabled = Boolean(
     platformEnv.isNativeIOS &&
     platformEnv.isNativeMainThread &&
     platformEnv.enableNativeBackgroundThread,
   );
+  asyncStorageForwarderLog('should-forward', {
+    enabled,
+    isNativeIOS: Boolean(platformEnv.isNativeIOS),
+    isNativeMainThread: Boolean(platformEnv.isNativeMainThread),
+    isNativeBackgroundThread: Boolean(platformEnv.isNativeBackgroundThread),
+    enableNativeBackgroundThread: Boolean(
+      platformEnv.enableNativeBackgroundThread,
+    ),
+  });
+  return enabled;
 }
 
 function buildAsyncStorageWriteRequest<T extends IAsyncStorageWriteMethod>(
@@ -182,29 +256,79 @@ function buildAsyncStorageWriteRequest<T extends IAsyncStorageWriteMethod>(
 
 function installAsyncStorageWriteForwarder() {
   const asyncStorageGlobal = getAsyncStorageWriteForwarderGlobal();
+  asyncStorageForwarderLog('install-start', {
+    isNativeIOS: Boolean(platformEnv.isNativeIOS),
+    isNativeMainThread: Boolean(platformEnv.isNativeMainThread),
+    isNativeBackgroundThread: Boolean(platformEnv.isNativeBackgroundThread),
+    enableNativeBackgroundThread: Boolean(
+      platformEnv.enableNativeBackgroundThread,
+    ),
+    hasExistingForwarder: Boolean(
+      asyncStorageGlobal.__onekeyAsyncStorageWriteForwarder,
+    ),
+    hasExistingShouldForwardGetter: Boolean(
+      asyncStorageGlobal.__onekeyAsyncStorageShouldForwardWriteGetter,
+    ),
+  });
 
   asyncStorageGlobal.__onekeyAsyncStorageWriteForwarder = async (
     method,
     args,
   ) => {
-    await callServiceRequest(
-      {
-        type: 'service-call',
-        method: 'writeAsyncStorage',
-        params: [buildAsyncStorageWriteRequest(method, args)],
-        sync: false,
-      },
-      () =>
-        Promise.reject(
-          createTransportError(
-            'AsyncStorage write forwarding requires native background thread transport',
+    const startedAt = Date.now();
+    const summary = getAsyncStorageWriteArgSummary(method, args);
+    asyncStorageForwarderLog('forward-request', {
+      ...summary,
+      transportState,
+      queuedCallCount: queuedCalls.length,
+      pendingRemoteCallCount: pendingRemoteCalls.size,
+      stack: getAsyncStorageForwarderStack(),
+    });
+    try {
+      await callServiceRequest(
+        {
+          type: 'service-call',
+          method: 'writeAsyncStorage',
+          params: [buildAsyncStorageWriteRequest(method, args)],
+          sync: false,
+        },
+        () =>
+          Promise.reject(
+            createTransportError(
+              'AsyncStorage write forwarding requires native background thread transport',
+            ),
           ),
-        ),
-    );
+      );
+      asyncStorageForwarderLog('forward-success', {
+        ...summary,
+        durationMs: Date.now() - startedAt,
+        transportState,
+        queuedCallCount: queuedCalls.length,
+        pendingRemoteCallCount: pendingRemoteCalls.size,
+      });
+    } catch (error) {
+      asyncStorageForwarderLog('forward-error', {
+        ...summary,
+        durationMs: Date.now() - startedAt,
+        transportState,
+        queuedCallCount: queuedCalls.length,
+        pendingRemoteCallCount: pendingRemoteCalls.size,
+        errorMessage: (error as Error)?.message || 'unknown',
+      });
+      throw error;
+    }
   };
 
   asyncStorageGlobal.__onekeyAsyncStorageShouldForwardWriteGetter =
     isAsyncStorageWriteForwardingEnabled;
+  asyncStorageForwarderLog('install-done', {
+    hasForwarder: Boolean(
+      asyncStorageGlobal.__onekeyAsyncStorageWriteForwarder,
+    ),
+    hasShouldForwardGetter: Boolean(
+      asyncStorageGlobal.__onekeyAsyncStorageShouldForwardWriteGetter,
+    ),
+  });
 }
 
 function getTransportGlobal() {
