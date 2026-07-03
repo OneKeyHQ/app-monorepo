@@ -23,6 +23,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { ReceiveTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -84,11 +85,33 @@ function BtcFindAddress() {
   const [indexText, setIndexText] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Indexes at or below this are auto-tracked by the gap scan and must not
+  // be claimed manually; the input rejects them up front.
+  const { result: maxScannedIndexResult } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceFreshAddress.getBtcFindAddressMaxScannedIndex({
+        accountId,
+        networkId,
+      }),
+    [accountId, networkId],
+  );
+  const maxScannedIndex = maxScannedIndexResult?.maxScannedIndex;
+
   const parsedIndex = useMemo(() => parseIndexText(indexText), [indexText]);
   const showInvalidHint = indexText.length > 0 && parsedIndex === undefined;
+  const isBelowMinIndex =
+    parsedIndex !== undefined &&
+    maxScannedIndex !== undefined &&
+    parsedIndex <= maxScannedIndex;
   const pathPreview = `${accountPath}/0/${
     parsedIndex === undefined ? 'N' : parsedIndex
   }`;
+
+  // TODO: i18n — replace with the ETranslations key once the copy lands
+  const minIndexHint =
+    maxScannedIndex === undefined
+      ? ''
+      : `Index must be greater than ${maxScannedIndex}`;
 
   const invalidIndexText = intl.formatMessage(
     { id: ETranslations.find_address_invalid_index__msg },
@@ -200,8 +223,16 @@ function BtcFindAddress() {
                 value={indexText}
                 placeholder="0"
                 onChangeText={(text) => setIndexText(text.trim())}
-                error={showInvalidHint}
+                error={showInvalidHint || isBelowMinIndex}
               />
+              {minIndexHint ? (
+                <SizableText
+                  size="$bodySm"
+                  color={isBelowMinIndex ? '$textCritical' : '$textSubdued'}
+                >
+                  {minIndexHint}
+                </SizableText>
+              ) : null}
               {showInvalidHint ? (
                 <SizableText size="$bodySm" color="$textCritical">
                   {invalidIndexText}
@@ -219,6 +250,7 @@ function BtcFindAddress() {
           onConfirm={onConfirm}
           confirmButtonProps={{
             loading: submitting,
+            disabled: showInvalidHint || isBelowMinIndex,
           }}
         >
           <XStack

@@ -15,7 +15,10 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { BTC_FIND_ADDRESS_MAX_INDEX } from '@onekeyhq/shared/src/consts/chainConsts';
+import {
+  BTC_FIND_ADDRESS_FALLBACK_MAX_SCANNED_INDEX,
+  BTC_FIND_ADDRESS_MAX_INDEX,
+} from '@onekeyhq/shared/src/consts/chainConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -952,6 +955,49 @@ class ServiceFreshAddress extends ServiceBase {
       throw new OneKeyLocalError('Failed to derive address by index');
     }
     return { index, relPath, path, address };
+  }
+
+  // Highest receive index covered by the server gap scan (used + unused
+  // fresh addresses). Everything at or below it is auto-tracked, so the
+  // find-address input rejects those indexes up front. Sparse sources
+  // (customAddresses, claimed findAddresses) are deliberately excluded —
+  // they don't extend the contiguous scan window and are still caught by
+  // the submit-time already-discovered check.
+  @backgroundMethod()
+  async getBtcFindAddressMaxScannedIndex({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }): Promise<{ maxScannedIndex: number }> {
+    const dbAccount = await this.getBtcFindAddressDbAccount({
+      accountId,
+      networkId,
+    });
+    const ctx = await this.resolveBtcAddressContext({
+      accountId,
+      networkId,
+      dbAccount,
+    });
+
+    let maxScannedIndex = BTC_FIND_ADDRESS_FALLBACK_MAX_SCANNED_INDEX;
+    [
+      ctx?.freshAddresses?.fresh?.used,
+      ctx?.freshAddresses?.fresh?.unused,
+    ].forEach((group) =>
+      group?.forEach((item) => {
+        // path format: m/86'/0'/0'/0/N — receive branch only
+        const segments = item.path.split('/').filter(Boolean);
+        if (segments[4] !== '0') return;
+        const index = Number(segments[5]);
+        if (Number.isSafeInteger(index) && index > maxScannedIndex) {
+          maxScannedIndex = index;
+        }
+      }),
+    );
+
+    return { maxScannedIndex };
   }
 
   // build a one-shot checker so callers with many addresses resolve the
