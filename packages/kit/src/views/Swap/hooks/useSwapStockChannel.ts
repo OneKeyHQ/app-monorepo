@@ -265,6 +265,10 @@ export function useSwapStockChannel() {
         ) {
           return lastGood;
         }
+        // Deliberately WITHOUT fetchedAt: this fallback empty is not a
+        // real server answer, so it must never count as landed — neither
+        // in this mount nor when it gets persisted to the SWR cache and
+        // hydrated back on a later mount.
         return {
           scope: stockTokenDetailScope,
           token: undefined,
@@ -298,21 +302,24 @@ export function useSwapStockChannel() {
         : undefined,
     },
   );
-  // A state "lands" for the current scope when it is either an honest
-  // empty answer (no token — e.g. the asset is not a stock, or the
-  // post-TTL fallback settled on unavailable) or a token payload whose
-  // fetchedAt is within the TTL. The freshness gate matters for the SWR
-  // first-frame hydration: usePromiseResult syncs the MMKV cache into the
-  // render state before any request resolves, and without this check a
-  // stale cached isOpen/description would drive the closed alert and the
-  // trade button until a slow/hung request returns. An expired hydration
-  // instead stays pending (Initializing) until the first real result.
+  // A state "lands" for the current scope only when it carries a
+  // fetchedAt from a REAL server response and that response is within the
+  // TTL. This single gate covers both hydration hazards:
+  // - stale token payloads: the SWR first-frame hydration must not drive
+  //   the closed alert / trade button off yesterday's isOpen while a
+  //   slow request is in flight;
+  // - fallback empties: the post-TTL error fallback ({ token: undefined },
+  //   deliberately without fetchedAt) also gets persisted to the cache, and
+  //   must not make a remount claim MarketUnavailable before the first
+  //   real request resolves.
+  // Anything not landed keeps stockTokenDetailPending true (Initializing);
+  // a real empty answer (asset is not a stock) still lands via its own
+  // fetchedAt and settles to unavailable.
   const stockTokenDetailLanded =
     stockTokenDetailState?.scope === stockTokenDetailScope &&
-    (!stockTokenDetailState.token ||
-      (!!stockTokenDetailState.fetchedAt &&
-        Date.now() - stockTokenDetailState.fetchedAt <=
-          SWAP_STOCK_DETAIL_LAST_GOOD_TTL_MS));
+    !!stockTokenDetailState.fetchedAt &&
+    Date.now() - stockTokenDetailState.fetchedAt <=
+      SWAP_STOCK_DETAIL_LAST_GOOD_TTL_MS;
   const stockTokenDetail = stockTokenDetailLanded
     ? stockTokenDetailState?.token
     : undefined;
