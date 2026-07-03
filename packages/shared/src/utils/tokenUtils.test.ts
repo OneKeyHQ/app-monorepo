@@ -752,7 +752,10 @@ describe('buildSelectorTokenListFromResponses — token selector self-fetch merg
     // BELOW A's $5. Home (`buildMergedAllNetworkSnapshot`) merges both buckets,
     // value-sorts once, then re-splits — the $50 must lead.
     const aHigh = buildTestToken({ $key: 'evm--1_0xa', networkId: 'evm--1' });
-    const bSmall = buildTestToken({ $key: 'evm--56_0xb', networkId: 'evm--56' });
+    const bSmall = buildTestToken({
+      $key: 'evm--56_0xb',
+      networkId: 'evm--56',
+    });
     const merged = buildSelectorTokenListFromResponses({
       responses: [
         buildResp({
