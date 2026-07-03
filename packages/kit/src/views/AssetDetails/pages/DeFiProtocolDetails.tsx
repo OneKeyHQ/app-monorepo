@@ -90,18 +90,30 @@ function DeFiProtocolDetails() {
     protocolInfo,
     accountId: routeAccountId,
     indexedAccountId: routeIndexedAccountId,
+    supportedActions: routeSupportedActions,
   } = route.params;
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
-  const { result: supportedActions = [] } = usePromiseResult(async () => {
-    try {
-      return await backgroundApiProxy.serviceDeFi.fetchSupportedDeFiProtocols();
-    } catch (error) {
-      console.error(error);
-      return [];
-    }
-  }, []);
+  // The list hands us the resolved actions so the buttons paint with the
+  // positions. Only fetch when we arrive without them (e.g. deep link).
+  const hasRouteSupportedActions = Boolean(routeSupportedActions?.length);
+  const { result: fetchedSupportedActions = [] } =
+    usePromiseResult(async () => {
+      if (routeSupportedActions && routeSupportedActions.length > 0) {
+        return routeSupportedActions;
+      }
+      try {
+        return await backgroundApiProxy.serviceDeFi.fetchSupportedDeFiProtocols();
+      } catch (error) {
+        console.error(error);
+        return [];
+      }
+    }, [routeSupportedActions]);
+  const supportedActions =
+    routeSupportedActions && hasRouteSupportedActions
+      ? routeSupportedActions
+      : fetchedSupportedActions;
   const actionAccountId = protocol.accountId ?? routeAccountId;
   const actionIndexedAccountId =
     protocol.indexedAccountId ?? routeIndexedAccountId;

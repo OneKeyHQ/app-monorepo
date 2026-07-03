@@ -51,6 +51,7 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { resolveProtocolLendingRepayAmountState } from './protocolLendingActionUtils';
 import {
   type IProtocolPositionActionSuccessParams,
   ProtocolPositionActionAmountInput,
@@ -78,6 +79,7 @@ type IProtocolLendingActionSource =
       reserveAddress: string;
       symbol: string;
       logoURI?: string;
+      providerDisplayName?: string;
       providerLogoURI?: string;
       indexedAccountId?: string;
       selectable: boolean;
@@ -93,6 +95,17 @@ type ILendingSelectorItem = {
 };
 
 const LENDING_PERCENT_PRESETS = [25, 50, 75, 100] as const;
+
+// Mirrors DEFI_ACTION_HERO_MIN_HEIGHT in ProtocolPositionActionDialog so the
+// loading skeleton reserves the same amount-hero height.
+const BORROW_HERO_SKELETON_HEIGHT = 128;
+
+// Focus ring for the keyboard-focusable asset selector rows (matches Button).
+const LENDING_SELECTOR_FOCUS_STYLE = {
+  outlineColor: '$focusRing',
+  outlineStyle: 'solid',
+  outlineWidth: 2,
+} as const;
 
 const LENDING_ACTION_TO_DEFI_ACTION: Record<
   IProtocolLendingActionType,
@@ -234,11 +247,7 @@ function LendingAssetSelectorRow({
           hoverStyle={{ bg: '$bgHover' }}
           pressStyle={{ bg: '$bgActive' }}
           focusable
-          focusVisibleStyle={{
-            outlineColor: '$focusRing',
-            outlineStyle: 'solid',
-            outlineWidth: 2,
-          }}
+          focusVisibleStyle={LENDING_SELECTOR_FOCUS_STYLE}
         >
           {rowInner}
         </ButtonFrame>
@@ -283,11 +292,7 @@ function LendingAssetSelectorRow({
                 hoverStyle={{ bg: '$bgHover' }}
                 pressStyle={{ bg: '$bgActive' }}
                 focusable
-                focusVisibleStyle={{
-                  outlineColor: '$focusRing',
-                  outlineStyle: 'solid',
-                  outlineWidth: 2,
-                }}
+                focusVisibleStyle={LENDING_SELECTOR_FOCUS_STYLE}
                 onPress={() => {
                   onSelect(selectorItem.key);
                   closePopover();
@@ -692,7 +697,11 @@ function ProtocolLendingActionBorrowContent({
 
   // Approve target, decimals, price and balances for the selected reserve
   // (reloads when the reserve address changes).
-  const { tokenInfo, protocolInfo } = useManagePage({
+  const {
+    tokenInfo,
+    protocolInfo,
+    isLoading: manageLoading,
+  } = useManagePage({
     accountId,
     indexedAccountId: source.indexedAccountId,
     networkId,
@@ -722,15 +731,33 @@ function ProtocolLendingActionBorrowContent({
         ? selectedBorrowAsset.supplied?.title?.text
         : selectedBorrowAsset.borrowed?.title?.text) ?? '0')
     : (protocolInfo?.activeBalance ?? '0');
+  // For repay the outstanding DEBT is NOT effectiveBalance: in fixed mode
+  // effectiveBalance is the manage-page repay.balance, which is the WALLET
+  // balance. Take the debt from the same fields the manage page's full-repay
+  // uses — the selected asset's borrowed amount (dropdown) or the dedicated
+  // debtBalance (fixed), falling back to maxRepayBalance so a missing debtBalance
+  // never collapses the reference to 0 (which would zero out Max/percent).
+  const debtText = selectedBorrowAsset
+    ? selectedBorrowAsset.borrowed?.title?.text
+    : (protocolInfo?.debtBalance ?? protocolInfo?.maxRepayBalance);
+  // The exit-side balance shown in the hero anchor and used as the full-close
+  // target: supplied collateral for withdraw, the outstanding debt for repay.
+  const referenceBalance = isWithdraw ? effectiveBalance : (debtText ?? '0');
 
   const [amount, setAmount] = useState('');
-  const [isMaxAmount, setIsMaxAmount] = useState(isWithdraw);
+  // Withdraw with an open loan starts at 0, not Max: pulling collateral against
+  // a debt lowers the health factor, so the full-balance default is the risky
+  // path and must be a deliberate choice. Debt-free withdraw still defaults Max.
+  const [isMaxAmount, setIsMaxAmount] = useState(isWithdraw && !hasDebts);
   const [submitError, setSubmitError] = useState<string | undefined>(undefined);
   // Footer confirm loading is overridden by confirmButtonProps and released
   // early by preventClose(), so the dialog owns the build spinner and guard.
   const [submitting, setSubmitting] = useState(false);
   const hasUserTouchedRef = useRef(false);
   const prefilledReserveRef = useRef<string | undefined>(undefined);
+  // Show the body only after the first load settles; later reserve-switch
+  // reloads keep the frame (values update in place) instead of re-flashing.
+  const hasLoadedOnceRef = useRef(false);
 
   // Withdraw prefills the full balance as an untouched Max default once the
   // balance resolves (it loads async here, unlike the defi source). Any user
@@ -738,6 +765,8 @@ function ProtocolLendingActionBorrowContent({
   // assets re-arms it.
   useEffect(() => {
     if (!isWithdraw) return;
+    // With an open loan, leave withdraw at 0 (see isMaxAmount init above).
+    if (hasDebts) return;
     if (hasUserTouchedRef.current) return;
     if (prefilledReserveRef.current === reserveAddress) return;
     const balanceBN = new BigNumber(effectiveBalance || '0');
@@ -745,7 +774,13 @@ function ProtocolLendingActionBorrowContent({
     prefilledReserveRef.current = reserveAddress;
     setAmount(clampAmountDecimals(effectiveBalance, effectiveDecimals));
     setIsMaxAmount(true);
-  }, [effectiveBalance, effectiveDecimals, isWithdraw, reserveAddress]);
+  }, [
+    effectiveBalance,
+    effectiveDecimals,
+    isWithdraw,
+    reserveAddress,
+    hasDebts,
+  ]);
 
   // Editing the amount or switching the reserve is a fresh intent — drop any
   // stale build/submit error so it doesn't linger over new input.
@@ -762,22 +797,55 @@ function ProtocolLendingActionBorrowContent({
     isAmountPositive && tokenPriceBN.isFinite() && tokenPriceBN.gt(0)
       ? amountBN.multipliedBy(tokenPriceBN).toFixed()
       : '0';
-  // Repay Max in fixed mode caps at the server's maxRepayBalance (mirrors the
-  // manage page's `valueForMax = maxBalance ?? balance`); a popover selection
-  // has no max-balance data, same as the reference.
-  const effectiveMaxBalance =
-    !isWithdraw && !selectedBorrowAsset
-      ? protocolInfo?.maxRepayBalance
-      : undefined;
-  const valueForMax = effectiveMaxBalance ?? effectiveBalance;
-  const valueForMaxBN = new BigNumber(valueForMax || '0');
-  // Full close is amount === displayed balance (dust-free withdrawAll/repayAll),
-  // whether it got there via Max, 100%, prefill, or hand-typing - the manage
-  // page's isWithdrawAll/isRepayAll comparison semantics.
-  const isFullClose = isSamePositiveAmount({
+  // Repay spends wallet tokens, but referenceBalance above is the DEBT — the user
+  // may hold less than they owe. Fetch the wallet balance of the debt's
+  // underlying token directly (the same pattern the defi content uses), so this
+  // never depends on the borrow asset-list carrying walletBalance and works in
+  // both dropdown and fixed mode. '' address = native; the API handles both
+  // uniformly. undefined = the token isn't resolved yet, so skip the fetch.
+  const repayTokenAddress = selectedBorrowAsset
+    ? (selectedBorrowAsset.token.address ?? '')
+    : baseToken?.address;
+  const { result: repayWalletBalance } = usePromiseResult(async () => {
+    if (isWithdraw || repayTokenAddress === undefined) return undefined;
+    const details = await backgroundApiProxy.serviceToken.fetchTokensDetails({
+      accountId,
+      networkId,
+      contractList: [repayTokenAddress],
+    });
+    return details?.[0]?.balanceParsed;
+  }, [accountId, isWithdraw, networkId, repayTokenAddress]);
+  // Show the wallet balance for repay whenever it has resolved — it tells the
+  // user whether they can fully close the loan and why Max may cap below the debt.
+  const walletBalanceText = isWithdraw ? undefined : repayWalletBalance;
+  const repayAllTargetAmount = selectedBorrowAsset
+    ? selectedBorrowAsset.borrowed?.amount
+    : protocolInfo?.debtBalance;
+  const repayAmountState = resolveProtocolLendingRepayAmountState({
     amount,
-    targetAmount: clampAmountDecimals(effectiveBalance, effectiveDecimals),
+    referenceBalance,
+    maxRepayBalance: protocolInfo?.maxRepayBalance,
+    repayWalletBalance,
+    repayAllTargetAmount,
   });
+  // Max fillable amount: withdraw → the full supplied balance; repay → the
+  // server-provided maxRepayBalance first (debt capped by wallet), then direct
+  // wallet balance if the server max is unavailable.
+  const valueForMax = isWithdraw
+    ? referenceBalance
+    : repayAmountState.valueForMax;
+  const valueForMaxBN = new BigNumber(valueForMax || '0');
+  // Full close uses the real debt amount for repay, not the formatted display
+  // balance. Wallet-capped Max can be 100% of the fillable amount without being
+  // a protocol-level repayAll.
+  const isFullClose = isWithdraw
+    ? isSamePositiveAmount({
+        amount,
+        targetAmount: clampAmountDecimals(referenceBalance, effectiveDecimals),
+      })
+    : repayAmountState.isFullClose;
+  const isAmountInsufficient =
+    !isWithdraw && repayAmountState.isAmountInsufficient;
   let selectedAmountPercent = 0;
   if (isMaxAmount) {
     selectedAmountPercent = 100;
@@ -823,11 +891,12 @@ function ProtocolLendingActionBorrowContent({
   const handleSelectAsset = (key: string) => {
     setReserveAddress(key);
     hasUserTouchedRef.current = false;
-    if (!isWithdraw) {
+    // Repay, and withdraw-with-debt (no prefill), reset to 0 on switch. Debt-free
+    // withdraw leaves it for the prefill effect to refill once the reserve loads.
+    if (!isWithdraw || hasDebts) {
       setAmount('');
       setIsMaxAmount(false);
     }
-    // Withdraw: the prefill effect refills once the new reserve resolves.
   };
 
   const actionResult = useUniversalBorrowAction({
@@ -905,7 +974,7 @@ function ProtocolLendingActionBorrowContent({
     const protocolLogoURI =
       source.providerLogoURI ?? protocolInfo?.providerDetail.logoURI;
     const protocolLabel = earnUtils.getEarnProviderName({
-      providerName: provider,
+      providerName: source.providerDisplayName ?? provider,
     });
     if (actionType === 'repay') {
       await handleBorrowRepay({
@@ -1020,8 +1089,16 @@ function ProtocolLendingActionBorrowContent({
     action: LENDING_ACTION_TO_DEFI_ACTION[actionType],
     intl,
   });
+  // Withdraw's anchor shows the suppliable "Available" balance; repay's shows the
+  // "Remaining debt" being paid down (matches the manage page), with the wallet
+  // balance as the secondary line beneath it.
   const availableLabel = intl.formatMessage({
-    id: ETranslations.global_available,
+    id: isWithdraw
+      ? ETranslations.global_available
+      : ETranslations.defi_borrow_repay_remaining_debt,
+  });
+  const walletBalanceLabel = intl.formatMessage({
+    id: ETranslations.global_wallet_balance,
   });
   const maxLabel = intl.formatMessage({ id: ETranslations.global_max });
   const insufficientLabel = intl.formatMessage({
@@ -1066,6 +1143,7 @@ function ProtocolLendingActionBorrowContent({
   const healthFactor = actionResult.transactionConfirmation?.healthFactor;
   const confirmDisabled =
     !isAmountPositive ||
+    isAmountInsufficient ||
     actionResult.isCheckAmountMessageError ||
     actionResult.checkAmountResult === false ||
     actionResult.checkAmountLoading;
@@ -1077,27 +1155,58 @@ function ProtocolLendingActionBorrowContent({
     assetsList.assets.length === 0 &&
     !protocolInfo;
 
+  // Wait for the asset list (dropdown mode) AND the manage-page fetch before
+  // revealing the body, so balances/decimals/price land together instead of
+  // popping in from '0'. Flips true once the first load settles (data or not),
+  // so the empty state can still show and reserve switches don't re-flash.
+  const isBusy = manageLoading || (source.selectable && assetsLoading);
+  if (!isBusy) {
+    hasLoadedOnceRef.current = true;
+  }
+  const isInitialLoading = !hasLoadedOnceRef.current;
+
   return (
     <YStack gap="$5">
       <Dialog.Header>
         <Dialog.Title>{actionLabel}</Dialog.Title>
       </Dialog.Header>
 
-      {isEmpty ? (
+      {isInitialLoading ? (
+        <YStack gap="$5">
+          {source.selectable ? (
+            <Skeleton height="$11" width="100%" borderRadius="$3" />
+          ) : null}
+          <Skeleton
+            height={BORROW_HERO_SKELETON_HEIGHT}
+            width="100%"
+            borderRadius="$3"
+          />
+          <Skeleton height="$11" width="100%" borderRadius="$3" />
+          <XStack gap="$2">
+            {LENDING_PERCENT_PRESETS.map((preset) => (
+              <Skeleton key={preset} flex={1} height="$9" borderRadius="$2" />
+            ))}
+          </XStack>
+        </YStack>
+      ) : null}
+      {!isInitialLoading && isEmpty ? (
         <YStack py="$6" alignItems="center">
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.global_select_crypto })}
           </SizableText>
         </YStack>
-      ) : (
+      ) : null}
+      {!isInitialLoading && !isEmpty ? (
         <>
-          <LendingAssetSelectorRow
-            item={selectedItem}
-            items={selectorItems}
-            selectable={selectable}
-            onSelect={handleSelectAsset}
-            columnHeaderLabel={columnHeaderLabel}
-          />
+          {selectable ? (
+            <LendingAssetSelectorRow
+              item={selectedItem}
+              items={selectorItems}
+              selectable={selectable}
+              onSelect={handleSelectAsset}
+              columnHeaderLabel={columnHeaderLabel}
+            />
+          ) : null}
           <ProtocolPositionActionAmountInput
             amount={amount}
             onChangeAmount={handleAmountChange}
@@ -1105,14 +1214,16 @@ function ProtocolLendingActionBorrowContent({
             selectedPercent={selectedAmountPercent}
             symbol={effectiveSymbol}
             tokenLogoUrl={effectiveLogo}
-            availableAmount={effectiveBalance}
+            availableAmount={referenceBalance}
             fiatValue={amountFiatValue}
             currencySymbol={currencySymbol}
-            isInsufficient={false}
+            isInsufficient={isAmountInsufficient}
             availableLabel={availableLabel}
             maxLabel={maxLabel}
             insufficientLabel={insufficientLabel}
             onFocus={handleAmountInputFocus}
+            secondaryLabel={walletBalanceLabel}
+            secondaryAmount={walletBalanceText}
           />
           {healthFactor ? (
             <YStack gap="$1">
@@ -1184,17 +1295,19 @@ function ProtocolLendingActionBorrowContent({
             </YStack>
           ) : null}
         </>
-      )}
+      ) : null}
 
-      <LendingActionAlerts
-        showLiquidationWarning={Boolean(hasDebts) && isWithdraw}
-        errorMessage={
-          submitError ??
-          (actionResult.isCheckAmountMessageError
-            ? actionResult.checkAmountMessage
-            : undefined)
-        }
-      />
+      {!isInitialLoading ? (
+        <LendingActionAlerts
+          showLiquidationWarning={Boolean(hasDebts) && isWithdraw}
+          errorMessage={
+            submitError ??
+            (actionResult.isCheckAmountMessageError
+              ? actionResult.checkAmountMessage
+              : undefined)
+          }
+        />
+      ) : null}
       {/* Server checkAmountAlerts are intentionally NOT rendered here: for the
           withdraw-with-debt case they duplicate the always-on client
           liquidation warning above (same copy), popping in after the

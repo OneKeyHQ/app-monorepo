@@ -415,10 +415,6 @@ function getManageActionLabel({
   return intl.formatMessage({ id: ETranslations.global_withdraw });
 }
 
-// Quiet neutral chips — the same interaction grammar as the rest of the app
-// (asset rows, preset buttons). Row-level actions repeat on every position,
-// so they carry no identity color: brand green lives only in the mobile
-// action badge (the "actionable" signal) and the dialog's primary Confirm.
 const INFO_OUTLINE_BUTTON_PROPS = {
   variant: 'link',
   childrenAsText: false,
@@ -426,10 +422,10 @@ const INFO_OUTLINE_BUTTON_PROPS = {
   py: '$0.5',
   borderRadius: '$2',
   borderWidth: '$px',
-  borderColor: '$borderSubdued',
+  borderColor: '$borderInfoSubdued',
   bg: '$transparent',
-  hoverStyle: { bg: '$bgSubdued' },
-  pressStyle: { bg: '$bgStrong' },
+  hoverStyle: { bg: '$bgInfoSubdued', borderColor: '$borderInfo' },
+  pressStyle: { bg: '$bgInfo', borderColor: '$borderInfo' },
 } as const;
 
 const SOLID_BUTTON_PROPS = {
@@ -438,7 +434,7 @@ const SOLID_BUTTON_PROPS = {
 
 // Full-width action(s) stacked below a position (the unified/simple layout):
 // one button fills the row, two (e.g. Withdraw + Claim) split it evenly via
-// flex. Same quiet neutral chip as the inline buttons, sized up.
+// flex. Same info-blue outline as the inline buttons, sized up.
 const BLOCK_OUTLINE_BUTTON_PROPS = {
   variant: 'link',
   childrenAsText: false,
@@ -446,10 +442,10 @@ const BLOCK_OUTLINE_BUTTON_PROPS = {
   py: '$3',
   borderRadius: '$3',
   borderWidth: '$px',
-  borderColor: '$borderSubdued',
+  borderColor: '$borderInfoSubdued',
   bg: '$transparent',
-  hoverStyle: { bg: '$bgSubdued' },
-  pressStyle: { bg: '$bgStrong' },
+  hoverStyle: { bg: '$bgInfoSubdued', borderColor: '$borderInfo' },
+  pressStyle: { bg: '$bgInfo', borderColor: '$borderInfo' },
 } as const;
 
 function getActionButtonFrameProps({
@@ -476,7 +472,7 @@ function renderActionButtonLabel({
   return (
     <SizableText
       size={isBlock ? '$bodyMdMedium' : '$bodySmMedium'}
-      color="$text"
+      color="$textInfo"
       numberOfLines={1}
     >
       {label}

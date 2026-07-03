@@ -1085,33 +1085,56 @@ function ProtocolPositionActionAnchor({
   label,
   iconNode,
   valueNode,
+  secondaryLabel,
+  secondaryValueNode,
 }: {
   label: string;
   iconNode: ReactNode;
   valueNode: ReactNode;
+  // Optional second fact rendered inside the same box (e.g. repay shows the
+  // remaining debt on top and the spendable wallet balance beneath it).
+  secondaryLabel?: string;
+  secondaryValueNode?: ReactNode;
 }) {
+  // Icon is a left accent that vertically centres against the whole block; the
+  // label/value rows live in a column beside it, so a second fact (repay's
+  // wallet balance) stacks cleanly under the first and both values right-align.
   return (
     <XStack
       alignItems="center"
-      justifyContent="space-between"
-      gap="$3"
+      gap="$2"
       bg="$bgSubdued"
       borderRadius="$3"
       px="$3"
       py="$2.5"
     >
-      <XStack alignItems="center" gap="$2" flexShrink={1} minWidth={0}>
-        {iconNode}
-        <SizableText
-          size="$bodyMd"
-          color="$textSubdued"
-          numberOfLines={1}
-          flexShrink={1}
-        >
-          {label}
-        </SizableText>
-      </XStack>
-      {valueNode}
+      {iconNode}
+      <YStack flex={1} gap="$1.5" minWidth={0}>
+        <XStack alignItems="center" justifyContent="space-between" gap="$3">
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            numberOfLines={1}
+            flexShrink={1}
+          >
+            {label}
+          </SizableText>
+          {valueNode}
+        </XStack>
+        {secondaryLabel !== undefined ? (
+          <XStack alignItems="center" justifyContent="space-between" gap="$3">
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              numberOfLines={1}
+              flexShrink={1}
+            >
+              {secondaryLabel}
+            </SizableText>
+            {secondaryValueNode}
+          </XStack>
+        ) : null}
+      </YStack>
     </XStack>
   );
 }
@@ -1334,6 +1357,8 @@ function ProtocolPositionActionAmountInput({
   insufficientLabel,
   validator,
   onFocus,
+  secondaryLabel,
+  secondaryAmount,
 }: {
   amount: string;
   onChangeAmount: (value: string) => void;
@@ -1350,6 +1375,10 @@ function ProtocolPositionActionAmountInput({
   insufficientLabel: string;
   validator?: (value: string) => boolean;
   onFocus?: () => void;
+  // Optional secondary balance line under the primary anchor (repay uses it for
+  // the spendable wallet balance beneath the remaining debt).
+  secondaryLabel?: string;
+  secondaryAmount?: string;
 }) {
   return (
     <YStack gap="$5">
@@ -1397,6 +1426,31 @@ function ProtocolPositionActionAmountInput({
               {symbol}
             </SizableText>
           </XStack>
+        }
+        secondaryLabel={
+          secondaryAmount !== undefined ? secondaryLabel : undefined
+        }
+        secondaryValueNode={
+          secondaryAmount !== undefined ? (
+            <XStack alignItems="center" gap="$1" flexShrink={0} minWidth={0}>
+              <NumberSizeableTextWrapper
+                hideValue
+                size="$bodyMdMedium"
+                color="$textSubdued"
+                formatter="balance"
+                numberOfLines={1}
+              >
+                {secondaryAmount}
+              </NumberSizeableTextWrapper>
+              <SizableText
+                size="$bodyMdMedium"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {symbol}
+              </SizableText>
+            </XStack>
+          ) : null
         }
       />
       <ProtocolPositionActionPercentPresetRow
