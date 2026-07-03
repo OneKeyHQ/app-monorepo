@@ -4,7 +4,7 @@
     "firstTextMs": 1000,
     "lcpMs": 2500,
     "jsDecodedBytes": 12582912,
-    "initialScriptRawBytes": 10485760,
+    "initialScriptRawBytes": 6291456,
     "longTaskTotalMs": 900,
     "largestPreLcpScriptDecodedBytes": 614400
   },
@@ -12,7 +12,7 @@
     "moduleCount": 3300,
     "sourceSizeBytes": 13107200,
     "initialScriptCount": 45,
-    "initialScriptRawBytes": 7340032,
+    "initialScriptRawBytes": 6291456,
     "initialScriptGzipBytes": 2097152,
     "initialScriptBrotliBytes": 1638400,
     "largestModuleBytes": 819200,
