@@ -14,6 +14,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EOneKeyIdIdentityType,
+  EPrimeAuthSessionSource,
   type IOneKeyIdAccount,
 } from '@onekeyhq/shared/types/prime/primeTypes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -106,12 +107,22 @@ function getOneKeyIdLogoutDialogContent({
   };
 }
 
-function isLegacyOneKeyIdAccountMissingOAuthIdentity(
-  onekeyAccount?: IOneKeyIdAccount,
-) {
+function isLegacyOneKeyIdAccountMissingOAuthIdentity({
+  onekeyAccount,
+  authSessionSource,
+}: {
+  onekeyAccount?: IOneKeyIdAccount;
+  authSessionSource?: EPrimeAuthSessionSource;
+}) {
   const identities = onekeyAccount?.identities ?? [];
   if (!identities.length) {
-    return false;
+    // Identity data is unavailable (e.g. persisted login state from an old
+    // build, offline, or the profile fetch failed). Fall back to the locally
+    // persisted auth session source: only a confirmed Keyless OAuth session
+    // may take the OAuth-bound (linked wallet logout) branch. Unknown
+    // identity data must never trigger wallet removal, so default to the
+    // legacy (wallet-preserving) classification.
+    return authSessionSource !== EPrimeAuthSessionSource.KeylessOAuth;
   }
   const hasLegacyEmailIdentity = identities.some(
     (identity) => identity.identityType === EOneKeyIdIdentityType.LegacyEmail,
@@ -244,10 +255,31 @@ export function useShowOneKeyIdLogoutDialog() {
 
       const isOneKeyIdLoggedIn =
         options.isOneKeyIdLoggedIn ?? isUserOneKeyIdLoggedIn;
+      // `onekeyAccount.identities` is only populated by successful profile
+      // fetches. When it is missing, read the offline-available auth session
+      // source so the classification below never falls into the destructive
+      // linked wallet logout branch just because identity data is unknown.
+      let authSessionSource: EPrimeAuthSessionSource | undefined;
+      if (
+        Boolean(keylessWallet) &&
+        isOneKeyIdLoggedIn &&
+        !userOneKeyAccount?.identities?.length
+      ) {
+        try {
+          authSessionSource =
+            await backgroundApiProxy.simpleDb.prime.getAuthSessionSource();
+        } catch {
+          // Leave the source undefined; unknown identity data defaults to
+          // the non-destructive (wallet-preserving) classification.
+        }
+      }
       const shouldSkipLinkedLogout =
         Boolean(keylessWallet) &&
         isOneKeyIdLoggedIn &&
-        isLegacyOneKeyIdAccountMissingOAuthIdentity(userOneKeyAccount);
+        isLegacyOneKeyIdAccountMissingOAuthIdentity({
+          onekeyAccount: userOneKeyAccount,
+          authSessionSource,
+        });
       const shouldLogoutKeylessWallet =
         Boolean(keylessWallet) &&
         !(
