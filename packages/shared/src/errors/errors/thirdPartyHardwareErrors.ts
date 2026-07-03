@@ -510,6 +510,21 @@ export class ThirdPartyDeviceBusy extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.DeviceBusy;
 }
 
+/** Our own in-flight request (queue guard / firmware Failure_Busy), not another app. */
+export class ThirdPartyDeviceBusyInternal extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_third_party_device_busy_internal,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.DeviceBusyInternal;
+}
+
 export class ThirdPartyDeviceNotInitialized extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
