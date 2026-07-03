@@ -1,23 +1,30 @@
+import { createElement } from 'react';
+
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadRootTabPage } from '../../../components/LazyLoadPage';
+import { RootTabLoadingFallback } from '../RootTabLoadingFallback';
 
 const EarnHome = LazyLoadRootTabPage(
   () => import('../../../views/Earn/EarnHome'),
+  createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Earn }),
 );
 
 const EarnProtocols = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnProtocols'),
+  createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Earn }),
 );
 
 const EarnProtocolDetails = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnProtocolDetails'),
+  createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Earn }),
 );
 
 const BorrowReserveDetails = LazyLoadRootTabPage(
   () => import('../../../views/Borrow/pages/ReserveDetails'),
+  createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Earn }),
 );
 
 export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [

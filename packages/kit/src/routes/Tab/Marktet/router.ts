@@ -2,21 +2,30 @@ import { createElement } from 'react';
 
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import {
   LazyLoadPage,
   LazyLoadRootTabPage,
 } from '../../../components/LazyLoadPage';
+import { RootTabLoadingFallback } from '../RootTabLoadingFallback';
 
 import { MarketDetailV2LoadingFallback } from './MarketDetailV2LoadingFallback';
 
-const MarketHome = LazyLoadRootTabPage(() => {
-  return import(/* webpackPrefetch: true */ '../../../views/Market/MarketHome');
-});
+const MarketHome = LazyLoadRootTabPage(
+  () => {
+    return import(
+      /* webpackPrefetch: true */ '../../../views/Market/MarketHome'
+    );
+  },
+  createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Market }),
+);
 
 const MarketDetail = LazyLoadPage(
   () => import('../../../views/Market/MarketDetail'),
+  undefined,
+  undefined,
+  createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Market }),
 );
 
 const MarketDetailV2 = LazyLoadPage(
@@ -28,6 +37,9 @@ const MarketDetailV2 = LazyLoadPage(
 
 const MarketBannerDetail = LazyLoadPage(
   () => import('../../../views/Market/MarketBannerDetail'),
+  undefined,
+  undefined,
+  createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Market }),
 );
 
 export const marketRouters: ITabSubNavigatorConfig<any, any>[] = [
