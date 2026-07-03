@@ -483,7 +483,7 @@ export function HomePageView({
             testID: HomeTestIDs.tabPerps,
             component: (
               <HomeTabContentMaxWidth>
-                {perpTabShowWeb ? null : <PerpsContainer />}
+                <PerpsContainer />
               </HomeTabContentMaxWidth>
             ),
           }
@@ -525,7 +525,20 @@ export function HomePageView({
         ),
       },
     ].filter(Boolean);
-  }, [intl, isDeFiEnabled, isNFTEnabled, perpDisabled, perpTabShowWeb]);
+  }, [intl, isDeFiEnabled, isNFTEnabled, perpDisabled]);
+
+  const pagerTabConfigs = useMemo(
+    () =>
+      tabConfigs.filter(
+        (tab) => !(perpTabShowWeb && tab.id === EHomeWalletTab.Perps),
+      ),
+    [perpTabShowWeb, tabConfigs],
+  );
+
+  const tabBarTabNames = useMemo(
+    () => tabConfigs.map((tab) => tab.name),
+    [tabConfigs],
+  );
 
   const tabTestIDMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -537,12 +550,24 @@ export function HomePageView({
     return map;
   }, [tabConfigs]);
 
+  const switchToPerpsWebTab = useCallback(() => {
+    navigation.switchTab(ETabRoutes.WebviewPerpTrade);
+  }, [navigation]);
+
   const handleRenderItem = useCallback(
     (props: ITabBarItemProps) => {
       const testID = tabTestIDMap[props.name];
-      return <TabBarItem {...props} testID={testID} />;
+      const nextTab = tabConfigs.find((tab) => tab.name === props.name);
+      const handlePress = (name: string) => {
+        if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
+          switchToPerpsWebTab();
+          return;
+        }
+        props.onPress(name);
+      };
+      return <TabBarItem {...props} testID={testID} onPress={handlePress} />;
     },
-    [tabTestIDMap],
+    [perpTabShowWeb, switchToPerpsWebTab, tabConfigs, tabTestIDMap],
   );
 
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
@@ -559,9 +584,9 @@ export function HomePageView({
     setStickyHost((prev) => (prev === next ? prev : next));
   }, []);
 
-  const initialTabName = tabConfigs[0]?.name ?? '';
+  const initialTabName = pagerTabConfigs[0]?.name ?? '';
   const [activeTabName, setActiveTabName] = useState(initialTabName);
-  const initialTabId = tabConfigs[0]?.id;
+  const initialTabId = pagerTabConfigs[0]?.id;
   const [activeTabId, setActiveTabId] = useState<EHomeWalletTab | undefined>(
     initialTabId,
   );
@@ -569,49 +594,32 @@ export function HomePageView({
 
   useEffect(() => {
     setActiveTabName((prev) =>
-      tabConfigs.some(
-        (tab) =>
-          tab.name === prev &&
-          !(perpTabShowWeb && tab.id === EHomeWalletTab.Perps),
-      )
+      pagerTabConfigs.some((tab) => tab.name === prev)
         ? prev
-        : (tabConfigs[0]?.name ?? ''),
+        : (pagerTabConfigs[0]?.name ?? ''),
     );
     setActiveTabId((prev) =>
-      tabConfigs.some(
-        (tab) =>
-          tab.id === prev &&
-          !(perpTabShowWeb && tab.id === EHomeWalletTab.Perps),
-      )
+      pagerTabConfigs.some((tab) => tab.id === prev)
         ? prev
-        : tabConfigs[0]?.id,
+        : pagerTabConfigs[0]?.id,
     );
-    const lastDisplayableTab = tabConfigs.find(
+    const lastDisplayableTab = pagerTabConfigs.find(
       (tab) => tab.name === lastDisplayableTabNameRef.current,
     );
-    if (
-      !lastDisplayableTab ||
-      (perpTabShowWeb && lastDisplayableTab.id === EHomeWalletTab.Perps)
-    ) {
-      lastDisplayableTabNameRef.current = tabConfigs[0]?.name ?? '';
+    if (!lastDisplayableTab) {
+      lastDisplayableTabNameRef.current = pagerTabConfigs[0]?.name ?? '';
     }
-  }, [perpTabShowWeb, tabConfigs]);
+  }, [pagerTabConfigs]);
 
   useEffect(() => {
     if (!perpTabShowWeb || activeTabId !== EHomeWalletTab.Perps) {
       return;
     }
-    const fallbackTabName = tabConfigs.find(
-      (tab) => tab.id !== EHomeWalletTab.Perps,
-    )?.name;
+    const fallbackTabName = pagerTabConfigs[0]?.name;
     if (fallbackTabName) {
       tabsRef.current?.jumpToTab(fallbackTabName);
     }
-  }, [activeTabId, perpTabShowWeb, tabConfigs]);
-
-  const switchToPerpsWebTab = useCallback(() => {
-    navigation.switchTab(ETabRoutes.WebviewPerpTrade);
-  }, [navigation]);
+  }, [activeTabId, perpTabShowWeb, pagerTabConfigs]);
 
   const renderToolbar = useCallback(
     ({ focusedTab }: { focusedTab: string }) => (
@@ -641,6 +649,8 @@ export function HomePageView({
         return (
           <Tabs.TabBar
             {...tabBarProps}
+            tabNames={tabBarTabNames}
+            indexDecimal={perpTabShowWeb ? undefined : tabBarProps.indexDecimal}
             onTabPress={handleTabPress}
             variant="pill"
             renderItem={handleRenderItem}
@@ -664,6 +674,10 @@ export function HomePageView({
           <Stack {...homePageContentMaxWidthSx}>
             <Tabs.TabBar
               {...tabBarProps}
+              tabNames={tabBarTabNames}
+              indexDecimal={
+                perpTabShowWeb ? undefined : tabBarProps.indexDecimal
+              }
               onTabPress={handleTabPress}
               variant="pill"
               renderItem={handleRenderItem}
@@ -692,6 +706,7 @@ export function HomePageView({
       switchToPerpsWebTab,
       perpTabShowWeb,
       tabConfigs,
+      tabBarTabNames,
     ],
   );
 
@@ -701,7 +716,7 @@ export function HomePageView({
       if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
         switchToPerpsWebTab();
         const fallbackTabName =
-          lastDisplayableTabNameRef.current || tabConfigs[0]?.name;
+          lastDisplayableTabNameRef.current || pagerTabConfigs[0]?.name;
         if (fallbackTabName && fallbackTabName !== data.tabName) {
           tabsRef.current?.jumpToTab(fallbackTabName);
         }
@@ -711,7 +726,7 @@ export function HomePageView({
       setActiveTabId(nextTab?.id);
       lastDisplayableTabNameRef.current = nextTab?.name ?? data.tabName;
     },
-    [perpTabShowWeb, switchToPerpsWebTab, tabConfigs],
+    [perpTabShowWeb, switchToPerpsWebTab, tabConfigs, pagerTabConfigs],
   );
 
   // When the user switches network while NOT on the wallet (token list) tab,
@@ -814,7 +829,7 @@ export function HomePageView({
         onTabChange={handleTabChange}
         renderSubHeader={renderSubHeader}
       >
-        {tabConfigs.map((tab) => (
+        {pagerTabConfigs.map((tab) => (
           <Tabs.Tab key={tab.name} name={tab.name}>
             <FreezeInactiveHomeTab tabName={tab.name}>
               {tab.component}
@@ -834,7 +849,7 @@ export function HomePageView({
     renderTabBar,
     handleTabChange,
     renderSubHeader,
-    tabConfigs,
+    pagerTabConfigs,
   ]);
 
   const handleSwitchWalletHomeTab = useCallback(
