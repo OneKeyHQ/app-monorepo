@@ -1149,6 +1149,22 @@ function SendAmountInputContainer() {
     return undefined;
   }, [selectedUTXOs, networkId, currentAccountId]);
 
+  // Coin-control subtotal in token units, threaded to the confirm page via
+  // transferPayload so its balance checks run against what the tx can
+  // actually spend (find-address claimed UTXOs are excluded from the
+  // account-level balance the confirm page fetches).
+  const selectedUtxoTotalAmount = useMemo(() => {
+    if (currentSelectedUtxoInfo?.totalValue && tokenDetails?.info) {
+      return new BigNumber(
+        chainValueUtils.convertTokenChainValueToAmount({
+          value: currentSelectedUtxoInfo.totalValue,
+          token: tokenDetails.info,
+        }),
+      ).toFixed();
+    }
+    return undefined;
+  }, [currentSelectedUtxoInfo?.totalValue, tokenDetails?.info]);
+
   const maxBalance = useMemo(() => {
     if (!tokenDetails) return '0';
     let balance: string;
@@ -2956,6 +2972,7 @@ function SendAmountInputContainer() {
                 isMaxSend: false,
                 isNFT: false,
                 isPrivateSend: true,
+                selectedUtxoTotalAmount,
                 originalRecipient: submitRecipientAddress,
                 privateSend: {
                   orderId: privateSendOrderId,
@@ -3023,6 +3040,7 @@ function SendAmountInputContainer() {
               amountToSend: realAmount,
               isMaxSend,
               isNFT,
+              selectedUtxoTotalAmount,
               originalRecipient: submitRecipientAddress,
               isToContract: submitRecipientIsContract,
               memo: recipientMemo,
@@ -3050,6 +3068,7 @@ function SendAmountInputContainer() {
       currentAccountId,
       currentSelectedUtxoKeys,
       currentUtxoSelectionStrategy,
+      selectedUtxoTotalAmount,
       displayTxMessageForm,
       form,
       isHexTxMessage,
