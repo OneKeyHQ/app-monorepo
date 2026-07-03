@@ -2,11 +2,6 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type {
-  IFormMode,
-  IReValidateMode,
-  UseFormReturn,
-} from '@onekeyhq/components';
 import {
   Form,
   IconButton,
@@ -17,9 +12,14 @@ import {
   TextAreaInput,
   XStack,
   YStack,
-  useForm,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  type IFormMode,
+  type IReValidateMode,
+  type UseFormReturn,
+  useForm,
+} from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   AddressInput,

@@ -1,5 +1,6 @@
 import { Suspense, lazy } from 'react';
 
+import '@onekeyhq/components/src/hocs/Provider/web-fonts.css';
 import { KitProvider } from '@onekeyhq/kit';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import '@onekeyhq/shared/src/web/index.css';

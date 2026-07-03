@@ -15,8 +15,8 @@ import {
   Switch,
   XStack,
   YStack,
-  useForm,
 } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';

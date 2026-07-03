@@ -5,28 +5,19 @@ import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
 import { LazyLoadRootTabPage } from '../../../components/LazyLoadPage';
 
 const EarnHome = LazyLoadRootTabPage(
-  () => import(/* webpackPrefetch: true */ '../../../views/Earn/EarnHome'),
+  () => import('../../../views/Earn/EarnHome'),
 );
 
 const EarnProtocols = LazyLoadRootTabPage(
-  () =>
-    import(
-      /* webpackPrefetch: true */ '../../../views/Earn/pages/EarnProtocols'
-    ),
+  () => import('../../../views/Earn/pages/EarnProtocols'),
 );
 
 const EarnProtocolDetails = LazyLoadRootTabPage(
-  () =>
-    import(
-      /* webpackPrefetch: true */ '../../../views/Earn/pages/EarnProtocolDetails'
-    ),
+  () => import('../../../views/Earn/pages/EarnProtocolDetails'),
 );
 
 const BorrowReserveDetails = LazyLoadRootTabPage(
-  () =>
-    import(
-      /* webpackPrefetch: true */ '../../../views/Borrow/pages/ReserveDetails'
-    ),
+  () => import('../../../views/Borrow/pages/ReserveDetails'),
 );
 
 export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [

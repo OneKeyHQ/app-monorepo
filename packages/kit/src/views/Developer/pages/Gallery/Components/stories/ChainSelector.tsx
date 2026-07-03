@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 
-import { Button, Form, Stack, useForm } from '@onekeyhq/components';
+import { Button, Form, Stack } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import { ChainSelectorInput } from '@onekeyhq/kit/src/components/ChainSelectorInput';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
 

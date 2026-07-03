@@ -1,6 +1,6 @@
 import type { ISwitchProps } from '@onekeyhq/components';
 import { Switch } from '@onekeyhq/components';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 
 /**
  * PassCodeProtectionSwitch component

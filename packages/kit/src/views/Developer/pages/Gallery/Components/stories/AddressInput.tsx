@@ -2,14 +2,8 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Form,
-  Stack,
-  Toast,
-  YStack,
-  useForm,
-} from '@onekeyhq/components';
+import { Button, Form, Stack, Toast, YStack } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
   AddressInput,

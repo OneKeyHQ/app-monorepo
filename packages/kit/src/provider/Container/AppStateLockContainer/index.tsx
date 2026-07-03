@@ -1,10 +1,11 @@
 import type { PropsWithChildren } from 'react';
-import { Suspense, useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { AnimatePresence, Spinner, YStack } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { IS_LOW_END_DEVICE } from '@onekeyhq/shared/src/performance/deviceMemory';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -12,10 +13,21 @@ import {
   shouldDeferColdStartLockRender,
 } from '@onekeyhq/shared/src/utils/coldStartLockDecision';
 
-import PasswordVerifyContainer from '../../../components/Password/container/PasswordVerifyContainer';
-
 import AppStateLock from './components/AppStateLock';
 import { AppStateUpdater } from './components/AppStateUpdater';
+
+const passwordVerifyFallback = (
+  <YStack h={46} justifyContent="center" alignItems="center">
+    <Spinner size="large" />
+  </YStack>
+);
+
+const PasswordVerifyContainer = LazyLoad(
+  () =>
+    import('../../../components/Password/container/PasswordVerifyContainer'),
+  undefined,
+  passwordVerifyFallback,
+);
 
 const isLockContainerTampered = (
   el: HTMLElement,
@@ -170,23 +182,15 @@ export function AppStateLockContainer({
               opacity: 0,
             }}
             passwordVerifyContainer={
-              <Suspense
-                fallback={
-                  <YStack h={46} justifyContent="center" alignItems="center">
-                    <Spinner size="large" />
-                  </YStack>
-                }
-              >
-                <PasswordVerifyContainer
-                  name="lock"
-                  onVerifyRes={async (data) => {
-                    // isExt support lock without password
-                    if (data || platformEnv.isExtension) {
-                      await handleUnlock();
-                    }
-                  }}
-                />
-              </Suspense>
+              <PasswordVerifyContainer
+                name="lock"
+                onVerifyRes={async (data) => {
+                  // isExt support lock without password
+                  if (data || platformEnv.isExtension) {
+                    await handleUnlock();
+                  }
+                }}
+              />
             }
           />
         ) : null}
