@@ -42,8 +42,12 @@ export function usePrimeRequirements() {
           reason:
             'usePrimeRequirements: Logout when primePersistAtom,simpleDb.prime.getActiveAuthToken is not logged in',
         });
-        // logout before login, make sure local supabase cache is cleared
-        void logout();
+        // Logout before login to make sure the local supabase cache is
+        // cleared. Preserve local keyless auth so the upcoming loginOneKeyId()
+        // can still reuse the local keyless session
+        // (prepareOneKeyIdLoginWithLocalKeyless). Await it so the cleanup
+        // cannot race the login flow below.
+        await logout({ preserveLocalKeylessAuth: true });
 
         const onConfirm = async () => {
           await loginOneKeyId();
