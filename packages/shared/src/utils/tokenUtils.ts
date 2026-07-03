@@ -167,17 +167,31 @@ function computeSearchStrength(
   token: IAccountToken,
   keywords: string[],
   network: IServerNetwork | undefined,
-): { matched: boolean; strength: ESearchStrength } {
+): {
+  matched: boolean;
+  strength: ESearchStrength;
+  // TRUE when some keyword hits the network but NOT the token's own fields —
+  // an EXPLICIT network qualifier ('eth' in "usdc eth"). A keyword hitting
+  // both sides at once ('eth' vs the ETH token on Ethereum) is NOT a
+  // qualifier: it is a symbol search that merely collides with a chain name.
+  hasPureNetworkKeyword: boolean;
+} {
   let anyTokenHit = false;
   let anyNetworkHit = false;
+  let hasPureNetworkKeyword = false;
 
   for (const kw of keywords) {
     const hitToken = tokenFieldsContainKeyword(token, kw);
     const hitNetwork = networkFieldsContainKeyword(network, kw);
     if (!hitToken && !hitNetwork)
-      return { matched: false, strength: ESearchStrength.TOKEN_ONLY };
+      return {
+        matched: false,
+        strength: ESearchStrength.TOKEN_ONLY,
+        hasPureNetworkKeyword: false,
+      };
     if (hitToken) anyTokenHit = true;
     if (hitNetwork) anyNetworkHit = true;
+    if (hitNetwork && !hitToken) hasPureNetworkKeyword = true;
   }
 
   let strength = ESearchStrength.TOKEN_ONLY;
@@ -187,7 +201,7 @@ function computeSearchStrength(
     strength = ESearchStrength.NETWORK_ONLY;
   }
 
-  return { matched: true, strength };
+  return { matched: true, strength, hasPureNetworkKeyword };
 }
 
 export function getFilteredTokenBySearchKey({
@@ -275,32 +289,41 @@ export function getFilteredTokenBySearchKey({
       const matchedSubs: Array<{
         token: IAccountToken;
         strength: ESearchStrength;
+        hasPureNetworkKeyword: boolean;
       }> = [];
       for (const sub of subTokens) {
         const network = networksMap?.[sub.networkId ?? ''];
-        const { matched, strength } = computeSearchStrength(
-          sub,
-          keywords,
-          network,
-        );
+        const { matched, strength, hasPureNetworkKeyword } =
+          computeSearchStrength(sub, keywords, network);
         if (matched) {
           const localSub = localAggregateTokenListMap?.[
             token.$key
           ]?.tokens?.find((t) => t.networkId === sub.networkId);
-          matchedSubs.push({ token: localSub ?? sub, strength });
+          matchedSubs.push({
+            token: localSub ?? sub,
+            strength,
+            hasPureNetworkKeyword,
+          });
         }
       }
 
       if (matchedSubs.length > 0) {
+        // Split into network-specific sub rows ONLY on an EXPLICIT network
+        // qualifier ('usdc eth'). A single word hitting a sub's token AND
+        // network at once ('eth' = ETH symbol + Ethereum chain — same for
+        // sol/trx/bnb/pol) is a symbol search: keep the aggregate row grouped.
         const networkQualifiedMatches = matchedSubs.filter(
-          (s) => s.strength !== ESearchStrength.TOKEN_ONLY,
+          (s) => s.hasPureNetworkKeyword,
         );
         if (networkQualifiedMatches.length > 0) {
           results.push(...networkQualifiedMatches);
         } else {
           results.push({
             token,
-            strength: ESearchStrength.TOKEN_ONLY,
+            // Rank the grouped row by its best sub match so a token+network
+            // double-hit ('eth') is not buried at TOKEN_ONLY below every
+            // network-qualified plain row.
+            strength: Math.min(...matchedSubs.map((s) => s.strength)),
           });
         }
       } else {

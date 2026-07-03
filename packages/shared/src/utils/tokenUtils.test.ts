@@ -141,6 +141,64 @@ describe('getFilteredTokenBySearchKey — aggregate token network search', () =>
       }),
     ).toEqual([ethereumUsdc]);
   });
+
+  // Symbol/chain-name collision (ETH ≈ Ethereum, same for SOL/TRX/BNB/POL):
+  // a single keyword hitting a sub's token fields AND its network at once is
+  // NOT an explicit network qualifier — the aggregate row must stay grouped.
+  const aggregateEth = buildTestToken({
+    $key: 'aggregate_ETH_',
+    address: 'aggregate_ETH_',
+    networkId: 'aggregate',
+    isAggregateToken: true,
+    symbol: 'ETH',
+    name: 'Ethereum',
+    commonSymbol: 'ETH',
+  });
+  const ethereumEth = buildTestToken({
+    $key: 'eth-native',
+    address: '',
+    networkId: 'evm--1',
+    symbol: 'ETH',
+    name: 'Ethereum',
+    isNative: true,
+  });
+  const baseEth = buildTestToken({
+    $key: 'base-native',
+    address: '',
+    networkId: 'evm--8453',
+    symbol: 'ETH',
+    name: 'Ethereum',
+    isNative: true,
+  });
+  const ethAggregateTokenListMap = {
+    [aggregateEth.$key]: {
+      tokens: [ethereumEth, baseEth],
+    },
+  };
+
+  test('keeps the aggregate grouped when a single keyword hits both the symbol and a chain name', () => {
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [aggregateEth],
+        searchKey: 'eth',
+        aggregateTokenListMap: ethAggregateTokenListMap,
+        networksMap,
+        enableNetworkSearch: true,
+      }),
+    ).toEqual([aggregateEth]);
+  });
+
+  test('still ungroups on an explicit network qualifier beyond the symbol match', () => {
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [aggregateEth],
+        searchKey: 'eth base',
+        aggregateTokenListMap: ethAggregateTokenListMap,
+        networksMap,
+        enableNetworkSearch: true,
+      }),
+    ).toEqual([baseEth]);
+  });
 });
 
 describe('calculateAccountTotalValue — tray case (no filters)', () => {
