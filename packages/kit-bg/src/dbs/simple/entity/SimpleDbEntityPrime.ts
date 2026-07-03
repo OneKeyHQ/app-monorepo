@@ -148,6 +148,17 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }
 
   @backgroundMethod()
+  async clearCachedAuthToken() {
+    // Clear only the deprecated cached token copy; keep authSessionSource so
+    // the active Supabase/OAuth session stays resolvable.
+    await this.setRawData((rawData) => ({
+      ...rawData,
+      authToken: '',
+    }));
+    supabaseStorageInstance.clearCache();
+  }
+
+  @backgroundMethod()
   async clearAuthTokens() {
     await this.setRawData((rawData) => ({
       ...rawData,

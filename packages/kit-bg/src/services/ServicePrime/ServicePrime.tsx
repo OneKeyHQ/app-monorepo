@@ -127,6 +127,18 @@ class ServicePrime extends ServiceBase {
     });
   }
 
+  private isPrimeLoginInvalidTokenError(error: unknown) {
+    if (error instanceof OneKeyErrorPrimeLoginInvalidToken) {
+      return true;
+    }
+    const e = error as OneKeyError | undefined;
+    const errorData = e?.data as { code?: number } | undefined;
+    return (
+      [90_002, 90_003].includes(Number(e?.code)) ||
+      [90_002, 90_003].includes(Number(errorData?.code))
+    );
+  }
+
   private buildPrimeApiResponseError<T>({
     response,
     fallbackMessage,
@@ -465,8 +477,10 @@ class ServicePrime extends ServiceBase {
         authSessionSource ??
         (await this.backgroundApi.simpleDb.prime.getAuthSessionSource()) ??
         EPrimeAuthSessionSource.LegacyEmailSupabase;
-      // Clear active tokens first, use the explicit request header below.
-      await this.backgroundApi.simpleDb.prime.clearAuthTokens();
+      // Clear only the deprecated cached token, use the explicit request
+      // header below. Keep authSessionSource so a transient login failure
+      // cannot orphan a still-valid session (e.g. standalone Keyless OAuth).
+      await this.backgroundApi.simpleDb.prime.clearCachedAuthToken();
       const client = await this.getPrimeClient();
       try {
         const response = await client.post<{
@@ -488,7 +502,14 @@ class ServicePrime extends ServiceBase {
           serverUserInfo: response.data.data,
         });
       } catch (error) {
-        await this.backgroundApi.simpleDb.prime.clearAuthTokens();
+        if (this.isPrimeLoginInvalidTokenError(error)) {
+          // Confirmed invalid-token rejection: drop both the cached token
+          // and the auth session source.
+          await this.backgroundApi.simpleDb.prime.clearAuthTokens();
+        }
+        // For any other failure (e.g. transient network error), keep the
+        // persisted authSessionSource so the existing session stays usable
+        // on retry.
         throw error;
       }
     });
