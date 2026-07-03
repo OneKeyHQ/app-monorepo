@@ -186,6 +186,9 @@ export function convertThirdPartyDeviceError(
     case ThirdPartyHwErrorCode.DeviceBusy:
       return new ThirdPartyErrors.ThirdPartyDeviceBusy(props);
 
+    case ThirdPartyHwErrorCode.DeviceNotInitialized:
+      return new ThirdPartyErrors.ThirdPartyDeviceNotInitialized(props);
+
     case ThirdPartyHwErrorCode.DeviceOneDeviceOnly:
       return new ThirdPartyErrors.ThirdPartyDeviceOneDeviceOnly(props);
 

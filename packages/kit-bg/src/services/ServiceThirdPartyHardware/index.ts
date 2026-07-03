@@ -162,7 +162,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
         .catch((error) => {
           defaultLogger.hardware.sdkLog.log(
             `[ServiceThirdPartyHardware] Failed to init ${vendor} adapter: ${
-              (error as Error)?.message ?? String(error)
+              error instanceof Error ? error.message : String(error)
             }`,
           );
           throw error;
@@ -268,14 +268,17 @@ class ServiceThirdPartyHardware extends ServiceBase {
 
     try {
       const result = await adapter.connectDevice(bleConnectId);
+      // Error-first: any connect failure reports the real hardware error;
+      // "mismatch" is only a successful connect with a different device_id.
       if (!result.success) {
         defaultLogger.hardware.sdkLog.log(
           `[TrezorBLEBind] candidate probe failed bleConnectId=${bleConnectId}`,
         );
-        return null;
+        throw convertThirdPartyDeviceError(result.payload, {
+          vendor: EHardwareVendor.trezor,
+        });
       }
       if (result.payload.deviceId !== featuresDeviceId) {
-        // Wrong device (different device_id) or pairing was cancelled above.
         defaultLogger.hardware.sdkLog.log(
           `[TrezorBLEBind] candidate rejected bleConnectId=${bleConnectId} expectedDeviceId=${featuresDeviceId} actualDeviceId=${result.payload.deviceId}`,
         );
@@ -287,18 +290,21 @@ class ServiceThirdPartyHardware extends ServiceBase {
         vendor: EHardwareVendor.trezor,
       });
       if (!device) {
+        // Matched but our DB record is missing — internal error, not a mismatch.
         defaultLogger.hardware.sdkLog.log(
           `[TrezorBLEBind] candidate matched but db device missing usbConnectId=${usbConnectId} deviceId=${featuresDeviceId}`,
         );
-        return null;
+        throw new OneKeyLocalError({
+          key: ETranslations.hardware_connect_failed,
+          autoToast: true,
+        });
       }
       await localDb.updateDeviceConnectId({
         dbDeviceId: device.id,
         bleConnectId,
       });
       // The DB write emits nothing on its own; notify the device-details UI so
-      // the "bind Bluetooth" row reflects the new bleConnectId immediately
-      // (otherwise it stays visible until the modal is reopened).
+      // the "bind Bluetooth" row reflects the new bleConnectId immediately.
       appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
         deviceId: device.id,
       });
@@ -309,9 +315,6 @@ class ServiceThirdPartyHardware extends ServiceBase {
         `[3rdPartyHW][Trezor] bound BLE connectId=${bleConnectId} to device_id=${featuresDeviceId}`,
       );
       return bleConnectId;
-    } catch {
-      // Connect/probe failed (e.g. pairing cancelled) — not this device.
-      return null;
     } finally {
       adapter.endBindingProbe?.();
       await adapter.disconnect(bleConnectId).catch(() => undefined);
@@ -412,7 +415,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
     } catch (error) {
       defaultLogger.hardware.sdkLog.log(
         `[ServiceThirdPartyHardware] trezor adapter dispose failed: ${
-          (error as Error)?.message ?? String(error)
+          error instanceof Error ? error.message : String(error)
         }`,
       );
     }
@@ -507,7 +510,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
     } catch (error) {
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW] getEvmAddressByStandardWallet failed: ${
-          (error as Error)?.message ?? String(error)
+          error instanceof Error ? error.message : String(error)
         }`,
       );
       throw error;

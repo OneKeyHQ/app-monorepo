@@ -510,6 +510,20 @@ export class ThirdPartyDeviceBusy extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.DeviceBusy;
 }
 
+export class ThirdPartyDeviceNotInitialized extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.trezor_device_not_initialized__desc,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.DeviceNotInitialized;
+}
+
 /** Multiple USB devices connected — only one allowed at a time */
 export class ThirdPartyDeviceOneDeviceOnly extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
