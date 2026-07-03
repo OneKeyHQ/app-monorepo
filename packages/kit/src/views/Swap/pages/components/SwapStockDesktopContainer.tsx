@@ -1236,12 +1236,12 @@ function StockTradeTicket({
   );
 }
 
-function StockMarketHeaderSkeleton() {
+function StockMarketHeaderSkeleton({ proAligned }: { proAligned?: boolean }) {
   return (
     <XStack
       alignItems="center"
       justifyContent="space-between"
-      h="$13"
+      h={proAligned ? undefined : '$13'}
       w="100%"
       gap="$3"
     >
@@ -1296,8 +1296,16 @@ function StockMarketHeaderSkeleton() {
 
 function StockMarketTokenHeader({
   storeName,
+  proAligned,
 }: {
   storeName: EJotaiContextStoreNames;
+  // The mobile layout passes true so the header visually matches Pro mode's
+  // token selector (see SwapProTokenSelect): symbol at $headingLg with a
+  // 160px cap, and intrinsic row height instead of the fixed $13 so the
+  // symbol sits at the same vertical offset as on the Pro tab and does not
+  // jump when switching tabs. The desktop stock card keeps the compact
+  // $headingSm heading and fixed row height (OK-57348).
+  proAligned?: boolean;
 }) {
   const { tokenDetail, networkId } = useCurrentStockMarketDetail();
   const stockTokenNetworkId = tokenDetail?.networkId ?? networkId;
@@ -1312,7 +1320,7 @@ function StockMarketTokenHeader({
   });
 
   if (!tokenDetail) {
-    return <StockMarketHeaderSkeleton />;
+    return <StockMarketHeaderSkeleton proAligned={proAligned} />;
   }
 
   const tokenIcon = (
@@ -1329,11 +1337,11 @@ function StockMarketTokenHeader({
   const tokenSymbolRow = (
     <XStack h="$6" alignItems="center" gap="$1" maxWidth="100%" minWidth={0}>
       <SizableText
-        size="$headingSm"
+        size={proAligned ? '$headingLg' : '$headingSm'}
         color="$text"
         numberOfLines={1}
         ellipsizeMode="tail"
-        maxWidth={132}
+        maxWidth={proAligned ? '$40' : 132}
         flexShrink={1}
       >
         {tokenDetail.symbol}
@@ -1392,7 +1400,7 @@ function StockMarketTokenHeader({
     <XStack
       alignItems="center"
       justifyContent="space-between"
-      h="$13"
+      h={proAligned ? undefined : '$13'}
       w="100%"
       gap="$3"
     >
@@ -2239,13 +2247,16 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
     >
       <YStack
         testID={SwapTestIDs.stockMobileContainer}
-        pt="$2.5"
+        // pt $1 + the header pill's py $1 puts the stock symbol at the same
+        // vertical offset as Pro mode's (pt $2 -> symbol at 8px), so the
+        // instrument name does not jump when switching tabs (OK-57348).
+        pt="$1"
         px="$5"
         pb="$5"
         gap="$2"
         flex={1}
       >
-        <StockMarketTokenHeader storeName={props.storeName} />
+        <StockMarketTokenHeader storeName={props.storeName} proAligned />
         <StockTradeTicket
           onSelectToken={props.onSelectToken}
           fetchLoading={props.fetchLoading}
