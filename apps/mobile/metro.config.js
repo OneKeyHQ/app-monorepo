@@ -377,12 +377,6 @@ if (buildTimeEnv.enableNativeBackgroundThread) {
 // ---------------------------------------------------------------
 
 // Ensure cache directories exist
-const fileMapCacheDirectoryPath = path.resolve(
-  projectRoot,
-  'node_modules',
-  '.cache/file-map-cache',
-);
-fs.ensureDirSync(fileMapCacheDirectoryPath);
 const cacheStoreDirectoryPath = path.resolve(
   projectRoot,
   'node_modules',
@@ -390,7 +384,6 @@ const cacheStoreDirectoryPath = path.resolve(
 );
 fs.ensureDirSync(cacheStoreDirectoryPath);
 
-config.fileMapCacheDirectory = fileMapCacheDirectoryPath;
 config.cacheStores = ({ FileStore }) => [
   new FileStore({
     root: cacheStoreDirectoryPath,
