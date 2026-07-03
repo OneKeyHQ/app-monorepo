@@ -60,6 +60,15 @@ export {
   ESwapStockTradeSide,
 } from './swapStockChannelUtils';
 
+// How long a failed detail poll may keep serving the last successful
+// payload before the channel degrades to unavailable. Six 10s ticks —
+// long enough to ride out transient network blips, short enough that a
+// persistently broken endpoint cannot show a stale market open/closed
+// state for more than a minute.
+const SWAP_STOCK_DETAIL_LAST_GOOD_TTL_MS = timerUtils.getTimeDurationMs({
+  minute: 1,
+});
+
 let stockExecutionTokenSyncSerial = 0;
 
 function nextStockExecutionTokenSyncId() {
@@ -161,9 +170,12 @@ export function useSwapStockChannel() {
   const stockNetworkId = currentStockToken?.networkId ?? '';
   const stockTokenDetailScope = currentStockTokenKey;
   const lastGoodStockTokenDetailRef = useRef<{
-    scope: string;
-    token: IMarketTokenDetail | undefined;
-    perpsInfo: IMarketPerpsInfo | undefined;
+    state: {
+      scope: string;
+      token: IMarketTokenDetail | undefined;
+      perpsInfo: IMarketPerpsInfo | undefined;
+    };
+    updatedAt: number;
   } | null>(null);
   // Tracks the scope of the latest render so a superseded in-flight request
   // (user already switched stock) cannot clobber the last-good snapshot of
@@ -198,17 +210,26 @@ export function useSwapStockChannel() {
         // request was in flight) must not overwrite the snapshot;
         // usePromiseResult already discards its result via the nonce guard.
         if (latestStockTokenDetailScopeRef.current === stockTokenDetailScope) {
-          lastGoodStockTokenDetailRef.current = nextState;
+          lastGoodStockTokenDetailRef.current = {
+            state: nextState,
+            updatedAt: Date.now(),
+          };
         }
         return nextState;
       } catch {
         // A transient polling failure must not wipe the channel state:
         // an undefined stock detail degrades channelStage to MissingStock
         // and resets the trade UI. Keep the last successful payload for
-        // the same token scope instead.
+        // the same token scope instead — but only within a bounded window,
+        // so a persistently broken endpoint (delisted token, backend down)
+        // cannot show a stale market open/closed state indefinitely; after
+        // the TTL the channel settles into the stable unavailable state.
         const lastGood = lastGoodStockTokenDetailRef.current;
-        if (lastGood?.scope === stockTokenDetailScope) {
-          return lastGood;
+        if (
+          lastGood?.state.scope === stockTokenDetailScope &&
+          Date.now() - lastGood.updatedAt <= SWAP_STOCK_DETAIL_LAST_GOOD_TTL_MS
+        ) {
+          return lastGood.state;
         }
         return {
           scope: stockTokenDetailScope,
