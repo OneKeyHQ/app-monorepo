@@ -637,7 +637,11 @@ function ProtocolLendingActionBorrowContent({
     accountId,
     indexedAccountId: source.indexedAccountId,
     networkId,
-    symbol: source.symbol as ISupportedSymbol,
+    // The borrow branch's request is keyed by reserveAddress, not symbol -
+    // but the client-built stakeTag (pending-status sync id) is keyed by
+    // symbol, so it must follow the dropdown selection.
+    symbol: (selectedBorrowAsset?.token.symbol ??
+      source.symbol) as ISupportedSymbol,
     provider: source.provider,
     vault: undefined,
     type: isWithdraw ? EManagePositionType.Withdraw : EManagePositionType.Repay,
