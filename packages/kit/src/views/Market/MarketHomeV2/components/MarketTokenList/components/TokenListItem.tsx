@@ -62,6 +62,9 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
   const themeName = useThemeName();
   const isDarkMode = themeName?.includes('dark');
   const isHighlighted = Boolean(isPrimed || (isDragging && isDarkMode));
+  const priceChange =
+    item.priceChangeRaw === '-' ? item.priceChangeRaw : item.change24h;
+
   return (
     <XStack
       testID={MarketTestIDs.tokenListItem(item.symbol)}
@@ -108,7 +111,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
         >
           {item.price}
         </NumberSizeableText>
-        <PriceChangeBadge change={item.change24h} />
+        <PriceChangeBadge change={priceChange} />
       </XStack>
     </XStack>
   );
