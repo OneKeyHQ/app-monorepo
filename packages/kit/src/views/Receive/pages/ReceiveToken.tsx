@@ -44,6 +44,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getReceiveArrivalTimeText } from '@onekeyhq/shared/src/utils/receiveArrivalTimeUtils';
+import { getReceiveNetworkDisplayName } from '@onekeyhq/shared/src/utils/receiveNetworkStandardUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
@@ -553,15 +554,27 @@ function ReceiveToken() {
     { token: token?.symbol ?? network?.symbol ?? '' },
   );
 
+  // e.g. "Ethereum (ERC20)" — shown for native coins and tokens alike
+  const networkDisplayName = useMemo(
+    () =>
+      getReceiveNetworkDisplayName({
+        networkName: network?.name,
+        networkId,
+        isTestnet: network?.isTestnet,
+        isCustomNetwork: network?.isCustomNetwork,
+      }),
+    [network?.name, networkId, network?.isTestnet, network?.isCustomNetwork],
+  );
+
   const shareData = useMemo<IReceiveShareData | null>(() => {
     if (!network || !displayAddress) return null;
     return {
       title: pageTitleText,
       subtitle: intl.formatMessage(
         { id: ETranslations.receive_send_asset_warning_message },
-        { network: network.name },
+        { network: networkDisplayName },
       ),
-      networkName: network.name,
+      networkName: networkDisplayName,
       address: displayAddress,
       tokenLogoURI: token?.logoURI ?? nativeToken?.logoURI,
       networkLogoURI: network.logoURI,
@@ -571,6 +584,7 @@ function ReceiveToken() {
     network,
     displayAddress,
     pageTitleText,
+    networkDisplayName,
     intl,
     token?.logoURI,
     nativeToken?.logoURI,
@@ -938,7 +952,7 @@ function ReceiveToken() {
                   values={{
                     network: (
                       <SizableText size="$bodyMdMedium">
-                        {network.name}
+                        {networkDisplayName}
                       </SizableText>
                     ),
                   }}
