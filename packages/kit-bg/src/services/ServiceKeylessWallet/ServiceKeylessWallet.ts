@@ -2564,19 +2564,20 @@ class ServiceKeylessWallet extends ServiceBase {
     }
 
     let authSessionSource =
-      await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+      await this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource();
     if (!authSessionSource) {
-      const legacyAuthToken =
-        await this.backgroundApi.simpleDb.prime.getSupabaseAuthToken();
+      // Flow-local interpretation, intentionally NOT persisted: a keyless
+      // create can proceed on a standalone keyless session without implying
+      // OneKey ID login, so an active keyless session is treated as
+      // KeylessOAuth for this flow only (the resolver must never persist
+      // that inference). With no tokens at all, keep the pre-existing
+      // default of LegacyEmailSupabase so the user is routed to the legacy
+      // OAuth bind path below.
       const keylessAuthToken =
         await this.backgroundApi.simpleDb.prime.getKeylessSupabaseAuthToken();
-      if (legacyAuthToken) {
-        authSessionSource = EPrimeAuthSessionSource.LegacyEmailSupabase;
-      } else if (keylessAuthToken) {
-        authSessionSource = EPrimeAuthSessionSource.KeylessOAuth;
-      } else {
-        authSessionSource = EPrimeAuthSessionSource.LegacyEmailSupabase;
-      }
+      authSessionSource = keylessAuthToken
+        ? EPrimeAuthSessionSource.KeylessOAuth
+        : EPrimeAuthSessionSource.LegacyEmailSupabase;
     }
 
     if (authSessionSource !== EPrimeAuthSessionSource.KeylessOAuth) {

@@ -587,22 +587,17 @@ class ServicePrime extends ServiceBase {
       return false;
     }
 
-    let authSessionSource =
-      await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+    const authSessionSource =
+      await this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource();
     if (!authSessionSource) {
-      const legacyAuthToken =
-        await this.backgroundApi.simpleDb.prime.getSupabaseAuthToken();
-      if (legacyAuthToken) {
-        authSessionSource = EPrimeAuthSessionSource.LegacyEmailSupabase;
-      }
-      const keylessAuthToken =
-        await this.backgroundApi.simpleDb.prime.getKeylessSupabaseAuthToken();
-      if (!authSessionSource && keylessAuthToken) {
-        return false;
-      }
-      if (!authSessionSource) {
-        return false;
-      }
+      // No persisted source and no legacy token: the only remaining candidate
+      // is a standalone Keyless OAuth session, which never requires the
+      // legacy bind. Still probe it so retryable keyless auth errors
+      // propagate as before, but only in this branch — the keyless getSession
+      // can trigger a network refresh and must not run when the legacy source
+      // is already resolved.
+      await this.backgroundApi.simpleDb.prime.getKeylessSupabaseAuthToken();
+      return false;
     }
 
     if (authSessionSource !== EPrimeAuthSessionSource.LegacyEmailSupabase) {

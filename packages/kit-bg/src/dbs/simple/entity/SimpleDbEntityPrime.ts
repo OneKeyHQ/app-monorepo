@@ -86,21 +86,13 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
 
   @backgroundMethod()
   async getActiveAuthToken(): Promise<string> {
-    const rawData = await this.getRawData();
-    const authSessionSource = this.normalizeAuthSessionSource(
-      rawData?.authSessionSource,
-    );
+    const authSessionSource = await this.getEffectiveAuthSessionSource();
     if (authSessionSource) {
       return this.getAuthTokenBySessionSource(authSessionSource);
     }
-    const legacyAuthToken = await this.getAuthTokenBySessionSource(
-      EPrimeAuthSessionSource.LegacyEmailSupabase,
-    );
-    if (legacyAuthToken) {
-      return legacyAuthToken;
-    }
-    // Only keep the source-less fallback for old email OneKey ID sessions.
-    // A standalone Keyless OAuth session must not imply OneKey ID login.
+    // Only the legacy migration fallback (inside the resolver) may recover a
+    // source-less session. A standalone Keyless OAuth session must not imply
+    // OneKey ID login.
     return '';
   }
 
@@ -136,6 +128,39 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       supabaseStorageInstance.clearCache();
     }
     return authSessionSource;
+  }
+
+  /**
+   * Resolve the effective auth session source, including the legacy-migration
+   * fallback for sessions persisted before authSessionSource existed:
+   * - persisted source exists -> return it;
+   * - else if a legacy Supabase token exists -> the user is a
+   *   pre-OAuth-upgrade legacy email login: return LegacyEmailSupabase and
+   *   persist it back (self-healing, one-time) so every later read is
+   *   definitive;
+   * - else -> undefined.
+   *
+   * HARD SAFETY RULE: NEVER infer or persist KeylessOAuth here. A keyless
+   * session with no persisted source means "Keyless wallet only, NOT logged
+   * into OneKey ID" — persisting KeylessOAuth would fabricate a OneKey ID
+   * login.
+   */
+  @backgroundMethod()
+  async getEffectiveAuthSessionSource(): Promise<
+    EPrimeAuthSessionSource | undefined
+  > {
+    const persistedSource = await this.getAuthSessionSource();
+    if (persistedSource) {
+      return persistedSource;
+    }
+    const legacyAuthToken = await this.getSupabaseAuthToken();
+    if (legacyAuthToken) {
+      await this.setAuthSessionSource(
+        EPrimeAuthSessionSource.LegacyEmailSupabase,
+      );
+      return EPrimeAuthSessionSource.LegacyEmailSupabase;
+    }
+    return undefined;
   }
 
   @backgroundMethod()
