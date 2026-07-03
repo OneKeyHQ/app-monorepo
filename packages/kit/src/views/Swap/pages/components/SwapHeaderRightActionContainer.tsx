@@ -70,7 +70,6 @@ import {
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
-  ESwapLimitOrderStatus,
   ESwapProTradeType,
   ESwapSlippageCustomStatus,
   ESwapSlippageSegmentKey,
@@ -82,7 +81,10 @@ import { resolveStockKLineToken } from '../../hooks/swapStockChannelUtils';
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapRecipientAddressSettingsUpdate } from '../../utils/incognitoSettings';
-import { filterSwapMarketHistoryItems } from '../../utils/swapMarketHistory';
+import {
+  filterSwapMarketHistoryItems,
+  getSwapLimitOpenOrderCount,
+} from '../../utils/swapMarketHistory';
 import { SwapKLineContentWithProvider } from '../modal/SwapKLineContent';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -792,17 +794,11 @@ const SwapHeaderRightActionContainer = ({
       ),
     [historyProtocolType, swapHistoryPendingList],
   );
-  const limitOpenStatusList = useMemo(
-    () =>
-      swapLimitOrders.filter(
-        (i) =>
-          i.status === ESwapLimitOrderStatus.OPEN ||
-          i.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
-      ),
+  const limitOpenOrderCount = useMemo(
+    () => getSwapLimitOpenOrderCount(swapLimitOrders),
     [swapLimitOrders],
   );
-  const historyBadgeCount =
-    swapPendingStatusList.length + limitOpenStatusList.length;
+  const historyBadgeCount = swapPendingStatusList.length + limitOpenOrderCount;
   const focusSwapPro =
     platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   const resolvedIconSize = iconSize ?? (compact ? 24 : 20);
