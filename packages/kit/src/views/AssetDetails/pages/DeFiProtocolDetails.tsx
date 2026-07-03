@@ -14,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { DEFI_PORTFOLIO_DETAIL_POSITION_NAME_COLOR } from '@onekeyhq/kit/src/components/DeFi/defiPortfolioDetailStyleUtils';
 import { DeFiPositionHealthFactorRow } from '@onekeyhq/kit/src/components/DeFi/DeFiPositionHealthFactorRow';
 import {
   type IProtocolPositionProviderDisplayInfo,
@@ -224,9 +225,9 @@ function DeFiProtocolDetails() {
               positionValueState.hasAvailableValue &&
               positionValueState.hasUnavailableValue;
             const actionPosition = buildActionPosition(position);
-            // Lending / debt-bearing positions put a scoped action on each
-            // supplied/borrowed/rewards row; simple positions keep a single
-            // position-level button below.
+            // Sectioned (lending / debt-bearing) positions route their block
+            // Withdraw/Repay through the lending dialog's asset dropdown; every
+            // position now renders the same bottom block-button row.
             const sectioned = isSectionedPosition(position);
 
             return (
@@ -244,7 +245,7 @@ function DeFiProtocolDetails() {
                     {positionDisplayName ? (
                       <SizableText
                         size="$bodyMdMedium"
-                        color="$text"
+                        color={DEFI_PORTFOLIO_DETAIL_POSITION_NAME_COLOR}
                         numberOfLines={1}
                         flex={1}
                         minWidth={0}
@@ -284,33 +285,19 @@ function DeFiProtocolDetails() {
                       section={section}
                       currencySymbol={settings.currencyInfo.symbol}
                       priceUnavailableLabel={priceUnavailableLabel}
-                      actionProps={
-                        sectioned
-                          ? {
-                              accountId: actionAccountId,
-                              indexedAccountId: actionIndexedAccountId,
-                              protocol,
-                              providerDisplayInfo,
-                              actionPosition,
-                              supportedActions,
-                              onActionSuccess: handleActionSuccess,
-                            }
-                          : undefined
-                      }
                     />
                   ))}
-                  {sectioned ? null : (
-                    <ProtocolPositionActionButton
-                      accountId={actionAccountId}
-                      indexedAccountId={actionIndexedAccountId}
-                      protocol={protocol}
-                      providerDisplayInfo={providerDisplayInfo}
-                      position={actionPosition}
-                      supportedActions={supportedActions}
-                      block
-                      onSuccess={handleActionSuccess}
-                    />
-                  )}
+                  <ProtocolPositionActionButton
+                    accountId={actionAccountId}
+                    indexedAccountId={actionIndexedAccountId}
+                    protocol={protocol}
+                    providerDisplayInfo={providerDisplayInfo}
+                    position={actionPosition}
+                    supportedActions={supportedActions}
+                    block
+                    preferLendingDialog={sectioned}
+                    onSuccess={handleActionSuccess}
+                  />
                 </YStack>
               </Stack>
             );
