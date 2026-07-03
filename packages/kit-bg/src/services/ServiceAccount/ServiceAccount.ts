@@ -92,7 +92,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import type {
   IChangeHistoryItem,
   IChangeHistoryUpdateItem,
@@ -7037,13 +7036,19 @@ class ServiceAccount extends ServiceBase {
   }
 
   // Diagnostic probe for the wallet backup-status investigation: reads the
-  // persisted appStatus entity raw from appStorage — bypassing the simpleDb
-  // JS-level cache — and logs whether hdWalletsBackupMigrated is present at
-  // the storage layer. Runs in the bg runtime only (this service lives in bg).
+  // persisted appStatus entity raw from the entity's own backing storage
+  // instance — bypassing the simpleDb JS-level cache — and logs whether
+  // hdWalletsBackupMigrated is present at the storage layer. The entity's
+  // appStorage field must be used instead of the default appStorage: on
+  // web/desktop/extension simpleDb persists to a dedicated store
+  // ($webStorageSimpleDB), so reading the default store there would always
+  // report the flag as missing. Runs in the bg runtime only (this service
+  // lives in bg).
   async logBackupMigrationFlagProbe({ stage }: { stage: string }) {
     try {
       const entityKey = simpleDb.appStatus.entityKey;
-      const raw = (await appStorage.getItem(entityKey)) as unknown;
+      const entityStorage = simpleDb.appStatus.appStorage;
+      const raw = (await entityStorage.getItem(entityKey)) as unknown;
       let persistedData: { hdWalletsBackupMigrated?: boolean } | undefined;
       if (typeof raw === 'string' && raw) {
         try {
@@ -7082,10 +7087,14 @@ class ServiceAccount extends ServiceBase {
     let appStatusKeyListed = false;
     let allKeysCount = -1;
     try {
+      // Read from the entity's own backing storage instance (NOT the default
+      // appStorage): on web/desktop/extension simpleDb persists to a
+      // dedicated store ($webStorageSimpleDB).
       const entityKey = simpleDb.appStatus.entityKey;
-      const raw = (await appStorage.getItem(entityKey)) as unknown;
+      const entityStorage = simpleDb.appStatus.appStorage;
+      const raw = (await entityStorage.getItem(entityKey)) as unknown;
       appStatusRawExists = !isNil(raw);
-      const allKeys = await appStorage.getAllKeys();
+      const allKeys = await entityStorage.getAllKeys();
       allKeysCount = allKeys?.length ?? -1;
       appStatusKeyListed = Boolean(allKeys?.includes(entityKey));
     } catch {
