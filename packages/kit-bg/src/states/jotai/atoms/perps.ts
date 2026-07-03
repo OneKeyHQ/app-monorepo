@@ -894,6 +894,7 @@ export interface IPerpsDepositToken {
 export interface IPerpsDepositTokensAtom {
   tokens: Record<string, IPerpsDepositToken[]>;
   currentPerpsDepositSelectedToken?: IPerpsDepositToken;
+  depositTokenListOwnerKey?: string;
 }
 export const {
   target: perpsDepositTokensAtom,

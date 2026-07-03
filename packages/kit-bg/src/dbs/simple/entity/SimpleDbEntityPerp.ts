@@ -117,6 +117,7 @@ export interface IPerpsDepositTokenListCacheToken {
 
 export interface IPerpsDepositTokenListCacheEntry {
   cacheKey: string;
+  ownerKey?: string;
   updatedAt: number;
   tokens: IPerpsDepositTokenListCacheToken[];
   tokensByNetwork: Record<string, IPerpsDepositTokenListCacheToken[]>;
@@ -952,10 +953,12 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
 =======
   async setPerpsDepositTokenListCache({
     cacheKey,
+    ownerKey,
     tokens,
     tokensByNetwork,
   }: {
     cacheKey: string;
+    ownerKey: string;
     tokens: IPerpsDepositTokenListCacheToken[];
     tokensByNetwork: Record<string, IPerpsDepositTokenListCacheToken[]>;
   }) {
@@ -966,6 +969,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
       const map = { ...prev?.perpsDepositTokenListCache };
       map[cacheKey] = {
         cacheKey,
+        ownerKey,
         updatedAt: Date.now(),
         tokens,
         tokensByNetwork,

@@ -1348,11 +1348,11 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async checkSupportSwap({ networkId }: { networkId: string }) {
-    return this.checkSupportSwapMemo({ networkId });
+    return this.checkSupportSwapMemo(networkId);
   }
 
   checkSupportSwapMemo = memoizee(
-    async ({ networkId }: { networkId: string }) => {
+    async (networkId: string) => {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const resp = await client.get<{
         data: ISwapCheckSupportResponse[];
@@ -1462,26 +1462,26 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async fetchSwapNativeTokenConfig({ networkId }: { networkId: string }) {
-    return this.fetchSwapNativeTokenConfigMemo({ networkId });
+    try {
+      return await this.fetchSwapNativeTokenConfigMemo(networkId);
+    } catch (e) {
+      console.error(e);
+      return {
+        networkId,
+        reserveGas: 0,
+      };
+    }
   }
 
   fetchSwapNativeTokenConfigMemo = memoizee(
-    async ({ networkId }: { networkId: string }) => {
-      try {
-        const client = await this.getClient(EServiceEndpointEnum.Swap);
-        const resp = await client.get<{
-          data: ISwapNativeTokenConfig;
-        }>(`/swap/v1/native-token-config`, {
-          params: { networkId },
-        });
-        return resp.data.data;
-      } catch (e) {
-        console.error(e);
-        return {
-          networkId,
-          reserveGas: 0,
-        };
-      }
+    async (networkId: string) => {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const resp = await client.get<{
+        data: ISwapNativeTokenConfig;
+      }>(`/swap/v1/native-token-config`, {
+        params: { networkId },
+      });
+      return resp.data.data;
     },
     {
       max: 50,

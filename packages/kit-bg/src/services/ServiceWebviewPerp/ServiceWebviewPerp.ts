@@ -285,17 +285,21 @@ export interface IFetchPerpsDepositTokensFromWalletTokenListParams {
 }
 
 export interface IFetchPerpsDepositTokensFromWalletTokenListResult {
+  ownerKey: string;
   tokens: IPerpsDepositToken[];
   tokensByNetwork: Record<string, IPerpsDepositToken[]>;
   selectedToken?: IPerpsDepositToken;
+  isStale?: boolean;
 }
 
 interface IPerpsDepositTokenListData {
+  ownerKey: string;
   tokens: IPerpsDepositToken[];
   tokensByNetwork: Record<string, IPerpsDepositToken[]>;
 }
 
 interface IPerpsDepositTokenListCacheParams {
+  ownerKey: string;
   allNetworksAccountId: string;
   ownerIndexId?: string;
   supportedNetworkIds: string[];
@@ -392,13 +396,33 @@ class ServiceWebviewPerp extends ServiceBase {
   }
 
   private buildPerpsDepositTokenListCacheKey({
-    allNetworksAccountId,
-    ownerIndexId,
+    ownerKey,
     supportedNetworkIds,
   }: IPerpsDepositTokenListCacheParams) {
-    return `${allNetworksAccountId}::${ownerIndexId ?? ''}::${supportedNetworkIds.join(
-      ',',
-    )}`;
+    return `${ownerKey}::${supportedNetworkIds.join(',')}`;
+  }
+
+  private buildPerpsDepositTokenListOwnerKey({
+    allNetworksAccountId,
+    ownerIndexId,
+  }: Pick<
+    IPerpsDepositTokenListCacheParams,
+    'allNetworksAccountId' | 'ownerIndexId'
+  >) {
+    return `${allNetworksAccountId}::${ownerIndexId ?? ''}`;
+  }
+
+  private async setPerpsDepositTokenListActiveOwner(ownerKey: string) {
+    await perpsDepositTokensAtom.set((prev) => {
+      if (prev.depositTokenListOwnerKey === ownerKey) {
+        return prev;
+      }
+      return {
+        ...prev,
+        depositTokenListOwnerKey: ownerKey,
+        currentPerpsDepositSelectedToken: undefined,
+      };
+    });
   }
 
   private getPerpsDepositTokenListDataMemoryCache(
@@ -416,12 +440,14 @@ class ServiceWebviewPerp extends ServiceBase {
   }
 
   private async fetchPerpsDepositTokenListDataUncached({
+    ownerKey,
     allNetworksAccountId,
     ownerIndexId,
     supportedNetworkIds,
   }: IPerpsDepositTokenListCacheParams): Promise<IPerpsDepositTokenListData> {
     if (!supportedNetworkIds.length) {
       return {
+        ownerKey,
         tokens: [],
         tokensByNetwork: {},
       };
@@ -488,6 +514,7 @@ class ServiceWebviewPerp extends ServiceBase {
       return memo;
     }, {});
     return {
+      ownerKey,
       tokens,
       tokensByNetwork,
     };
@@ -506,13 +533,12 @@ class ServiceWebviewPerp extends ServiceBase {
 
     const promise = this.fetchPerpsDepositTokenListDataUncached(params)
       .then((data) => {
-        if (data.tokens.length > 0) {
-          void this.backgroundApi.simpleDb.perp.setPerpsDepositTokenListCache({
-            cacheKey,
-            tokens: data.tokens,
-            tokensByNetwork: data.tokensByNetwork,
-          });
-        }
+        void this.backgroundApi.simpleDb.perp.setPerpsDepositTokenListCache({
+          cacheKey,
+          ownerKey: data.ownerKey,
+          tokens: data.tokens,
+          tokensByNetwork: data.tokensByNetwork,
+        });
         return data;
       })
       .catch((error: unknown) => {
@@ -530,12 +556,18 @@ class ServiceWebviewPerp extends ServiceBase {
   }
 
   private async updatePerpsDepositTokenListAtom({
+    ownerKey,
     tokens,
     tokensByNetwork,
   }: IPerpsDepositTokenListData) {
     let selectedToken: IPerpsDepositToken | undefined;
+    let isStale = false;
 
     await perpsDepositTokensAtom.set((prev) => {
+      if (prev.depositTokenListOwnerKey !== ownerKey) {
+        isStale = true;
+        return prev;
+      }
       selectedToken = resolvePerpsDepositSelectedToken({
         tokens,
         currentToken: prev.currentPerpsDepositSelectedToken,
@@ -544,10 +576,11 @@ class ServiceWebviewPerp extends ServiceBase {
         ...prev,
         tokens: tokensByNetwork,
         currentPerpsDepositSelectedToken: selectedToken,
+        depositTokenListOwnerKey: ownerKey,
       };
     });
 
-    return selectedToken;
+    return { selectedToken, isStale };
   }
 
   private refreshPerpsDepositTokenListDataInBackground(
@@ -573,24 +606,32 @@ class ServiceWebviewPerp extends ServiceBase {
         accountId,
         indexedAccountId,
       });
+    const ownerKey = this.buildPerpsDepositTokenListOwnerKey({
+      allNetworksAccountId,
+      ownerIndexId,
+    });
     const currentDepositTokens = await perpsDepositTokensAtom.get();
     const supportedNetworkIds = Object.keys(
       currentDepositTokens.tokens,
     ).toSorted();
     const cacheParams = {
+      ownerKey,
       allNetworksAccountId,
       ownerIndexId,
       supportedNetworkIds,
     };
+    await this.setPerpsDepositTokenListActiveOwner(ownerKey);
 
     const memoryCache =
       this.getPerpsDepositTokenListDataMemoryCache(cacheParams);
     if (memoryCache) {
       const data = await memoryCache;
-      const selectedToken = await this.updatePerpsDepositTokenListAtom(data);
+      const { selectedToken, isStale } =
+        await this.updatePerpsDepositTokenListAtom(data);
       return {
         ...data,
         selectedToken,
+        isStale,
       };
     }
 
@@ -603,23 +644,28 @@ class ServiceWebviewPerp extends ServiceBase {
 
     if (coldCache) {
       const data = {
+        ownerKey: coldCache.ownerKey ?? ownerKey,
         tokens: coldCache.tokens,
         tokensByNetwork: coldCache.tokensByNetwork,
       };
-      const selectedToken = await this.updatePerpsDepositTokenListAtom(data);
+      const { selectedToken, isStale } =
+        await this.updatePerpsDepositTokenListAtom(data);
       this.refreshPerpsDepositTokenListDataInBackground(cacheParams);
       return {
         ...data,
         selectedToken,
+        isStale,
       };
     }
 
     const data = await this.fetchPerpsDepositTokenListDataCached(cacheParams);
-    const selectedToken = await this.updatePerpsDepositTokenListAtom(data);
+    const { selectedToken, isStale } =
+      await this.updatePerpsDepositTokenListAtom(data);
 
     return {
       ...data,
       selectedToken,
+      isStale,
     };
   }
 

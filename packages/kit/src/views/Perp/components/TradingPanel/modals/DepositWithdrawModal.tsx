@@ -458,6 +458,21 @@ function DepositWithdrawContent({
     IPerpsDepositToken | undefined
   >(currentPerpsDepositSelectedToken);
   const previousDepositTokenIdentityRef = useRef<string | undefined>(undefined);
+  const depositTokenRequestKey = useMemo(
+    () =>
+      [
+        selectedAccount.accountId ?? '',
+        selectedAccount.indexedAccountId ?? '',
+        selectedAccount.accountAddress ?? '',
+      ].join('::'),
+    [
+      selectedAccount.accountAddress,
+      selectedAccount.accountId,
+      selectedAccount.indexedAccountId,
+    ],
+  );
+  const depositTokenRequestKeyRef = useRef(depositTokenRequestKey);
+  depositTokenRequestKeyRef.current = depositTokenRequestKey;
 
   const [depositTokensWithPrice, setDepositTokensWithPrice] = useState<
     IPerpsDepositToken[]
@@ -546,6 +561,7 @@ function DepositWithdrawContent({
 
   const { result, isLoading: balanceLoading } = usePromiseResult(
     async () => {
+      const requestKey = depositTokenRequestKey;
       if (
         !selectedAccount.accountId ||
         !selectedAccount.accountAddress ||
@@ -555,13 +571,16 @@ function DepositWithdrawContent({
         return [];
       }
       try {
-        const { tokens: depositTokens } =
+        const { isStale, tokens: depositTokens } =
           await backgroundApiProxy.serviceWebviewPerp.fetchPerpsDepositTokensFromWalletTokenList(
             {
               accountId: selectedAccount.accountId ?? '',
               indexedAccountId: selectedAccount.indexedAccountId ?? undefined,
             },
           );
+        if (isStale || depositTokenRequestKeyRef.current !== requestKey) {
+          return [];
+        }
         const nativeTokenNetworkIds = Array.from(
           new Set(
             depositTokens
@@ -583,6 +602,9 @@ function DepositWithdrawContent({
         setHasLoadedDepositTokenBalances(true);
         return depositTokens;
       } catch (error) {
+        if (depositTokenRequestKeyRef.current !== requestKey) {
+          return [];
+        }
         console.error(
           '[DepositWithdrawModal] Failed to fetch tokens balance:',
           error,
@@ -600,6 +622,7 @@ function DepositWithdrawContent({
       selectedAccount.accountId,
       selectedAccount.accountAddress,
       selectedAccount.indexedAccountId,
+      depositTokenRequestKey,
       checkAccountSupport,
       setPerpsDepositTokensAtom,
     ],
