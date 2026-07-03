@@ -92,6 +92,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import type {
   IChangeHistoryItem,
   IChangeHistoryUpdateItem,
@@ -4072,6 +4073,15 @@ class ServiceAccount extends ServiceBase {
     if (!isInImportFlow) {
       appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     }
+
+    // Wallet backup-status diagnostics: check whether the migration flag is
+    // still present at the storage layer right after wallet creation. If it
+    // was verified after the boot-time write but is already gone here, the
+    // loss happened within this session; if it is still present here but
+    // missing at the next boot, the loss happened at the file level between
+    // launches. Fire-and-forget: must never delay wallet creation.
+    void this.logBackupMigrationFlagProbe({ stage: 'afterCreateHDWallet' });
+
     return result;
   }
 
@@ -7026,10 +7036,72 @@ class ServiceAccount extends ServiceBase {
     }
   }
 
+  // Diagnostic probe for the wallet backup-status investigation: reads the
+  // persisted appStatus entity raw from appStorage — bypassing the simpleDb
+  // JS-level cache — and logs whether hdWalletsBackupMigrated is present at
+  // the storage layer. Runs in the bg runtime only (this service lives in bg).
+  async logBackupMigrationFlagProbe({ stage }: { stage: string }) {
+    try {
+      const entityKey = simpleDb.appStatus.entityKey;
+      const raw = (await appStorage.getItem(entityKey)) as unknown;
+      let persistedData: { hdWalletsBackupMigrated?: boolean } | undefined;
+      if (typeof raw === 'string' && raw) {
+        try {
+          const parsed = JSON.parse(raw) as {
+            data?: { hdWalletsBackupMigrated?: boolean };
+          };
+          persistedData = parsed?.data;
+        } catch {
+          // unparsable payload: rawExists is still reported below
+        }
+      } else if (raw && typeof raw === 'object') {
+        // web/desktop storage may persist the envelope as an object
+        persistedData = (
+          raw as { data?: { hdWalletsBackupMigrated?: boolean } }
+        )?.data;
+      }
+      defaultLogger.account.wallet.backupMigrationFlagProbe({
+        stage,
+        rawExists: !isNil(raw),
+        flagPresent: Boolean(persistedData?.hdWalletsBackupMigrated),
+      });
+    } catch {
+      // diagnostics must never break the business flow
+    }
+  }
+
   @backgroundMethod()
   async migrateHdWalletsBackedUpStatus() {
+    // Boot-time on-disk truth: this runs right after the runtime starts, so
+    // the raw read below reflects what actually survived on disk from the
+    // previous session (the storage instance cache is still fresh). If a
+    // previous launch logged flagPresent=true on the write-back probe and
+    // this boot logs appStatusRawExists=false / migratedFlag=undefined, the
+    // flag was lost at the persistence layer between launches.
+    let appStatusRawExists = false;
+    let appStatusKeyListed = false;
+    let allKeysCount = -1;
+    try {
+      const entityKey = simpleDb.appStatus.entityKey;
+      const raw = (await appStorage.getItem(entityKey)) as unknown;
+      appStatusRawExists = !isNil(raw);
+      const allKeys = await appStorage.getAllKeys();
+      allKeysCount = allKeys?.length ?? -1;
+      appStatusKeyListed = Boolean(allKeys?.includes(entityKey));
+    } catch {
+      // diagnostics only — never block the migration
+    }
+
     const appStatus = await simpleDb.appStatus.getRawData();
     if (appStatus?.hdWalletsBackupMigrated) {
+      defaultLogger.account.wallet.backupMigrationStatusCheck({
+        migratedFlag: true,
+        appStatusRawExists,
+        appStatusKeyListed,
+        allKeysCount,
+        hdWalletsCount: -1,
+        unbackedUpHdWalletIds: [],
+      });
       console.log('migrateHdWalletsBackedUpStatus: already migrated');
       return;
     }
@@ -7046,7 +7118,22 @@ class ServiceAccount extends ServiceBase {
         };
       }
     }
+    defaultLogger.account.wallet.backupMigrationStatusCheck({
+      migratedFlag: appStatus?.hdWalletsBackupMigrated,
+      appStatusRawExists,
+      appStatusKeyListed,
+      allKeysCount,
+      hdWalletsCount: wallets.filter((w) => w.type === WALLET_TYPE_HD).length,
+      unbackedUpHdWalletIds: Object.keys(walletsBackedUpStatusMap),
+    });
     await localDb.updateWalletsBackupStatus(walletsBackedUpStatusMap);
+    if (Object.keys(walletsBackedUpStatusMap).length > 0) {
+      // Smoking-gun line: these wallets were flipped to backed-up by the
+      // migration itself, not by any user backup action.
+      defaultLogger.account.wallet.backupMigrationMarkedWallets({
+        walletIds: Object.keys(walletsBackedUpStatusMap),
+      });
+    }
 
     await simpleDb.appStatus.setRawData(
       (v): ISimpleDBAppStatus => ({
@@ -7054,6 +7141,12 @@ class ServiceAccount extends ServiceBase {
         hdWalletsBackupMigrated: true,
       }),
     );
+
+    // Write-then-read-back verification: confirms the flag write reached the
+    // storage layer in THIS session before we ever rely on it at next boot.
+    await this.logBackupMigrationFlagProbe({
+      stage: 'afterMigrationFlagWrite',
+    });
 
     if (Object.keys(walletsBackedUpStatusMap).length > 0) {
       appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
