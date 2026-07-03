@@ -5,10 +5,12 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
+  ButtonFrame,
   Dialog,
   Icon,
   Popover,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -189,30 +191,58 @@ function LendingAssetSelectorRow({
 }) {
   const intl = useIntl();
 
-  const row = (
-    <XStack
-      alignItems="center"
-      gap="$2"
-      px="$3"
-      py="$2.5"
-      borderRadius="$3"
-      bg="$bgSubdued"
-    >
+  const rowInner = (
+    <>
       <LendingSelectorRowContent item={item} />
       {selectable ? (
         <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
       ) : null}
-    </XStack>
+    </>
   );
 
   if (!selectable) {
-    return row;
+    return (
+      <XStack
+        alignItems="center"
+        gap="$2"
+        px="$3"
+        py="$2.5"
+        borderRadius="$3"
+        bg="$bgSubdued"
+      >
+        {rowInner}
+      </XStack>
+    );
   }
 
   return (
     <Popover
       title={intl.formatMessage({ id: ETranslations.token_selector_title })}
-      renderTrigger={<Stack cursor="pointer">{row}</Stack>}
+      renderTrigger={
+        // ButtonFrame renders as a native <button> on web, so the asset picker
+        // is keyboard-focusable and Enter/Space opens it — a plain onPress
+        // XStack was mouse-only.
+        <ButtonFrame
+          alignItems="center"
+          justifyContent="flex-start"
+          gap="$2"
+          px="$3"
+          py="$2.5"
+          borderWidth={0}
+          borderRadius="$3"
+          bg="$bgSubdued"
+          hoverStyle={{ bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
+          focusable
+          focusVisibleStyle={{
+            outlineColor: '$focusRing',
+            outlineStyle: 'solid',
+            outlineWidth: 2,
+          }}
+        >
+          {rowInner}
+        </ButtonFrame>
+      }
       renderContent={({ closePopover }) => (
         <YStack p="$2">
           <XStack px="$3" pb="$1">
@@ -222,29 +252,49 @@ function LendingAssetSelectorRow({
           </XStack>
           {items.map((selectorItem) => {
             const isSelected = selectorItem.key === item.key;
+            // The current asset is a non-actionable state row (plain XStack);
+            // every other asset is a keyboard-focusable option button.
+            if (isSelected) {
+              return (
+                <XStack
+                  key={selectorItem.key}
+                  alignItems="center"
+                  gap="$2"
+                  px="$3"
+                  py="$2"
+                  borderRadius="$2"
+                  bg="$bgHover"
+                >
+                  <LendingSelectorRowContent item={selectorItem} />
+                </XStack>
+              );
+            }
             return (
-              <XStack
+              <ButtonFrame
                 key={selectorItem.key}
                 alignItems="center"
+                justifyContent="flex-start"
                 gap="$2"
                 px="$3"
                 py="$2"
+                borderWidth={0}
                 borderRadius="$2"
-                bg={isSelected ? '$bgHover' : undefined}
-                hoverStyle={isSelected ? undefined : { bg: '$bgHover' }}
-                pressStyle={isSelected ? undefined : { bg: '$bgActive' }}
-                cursor={isSelected ? 'default' : 'pointer'}
-                onPress={
-                  isSelected
-                    ? undefined
-                    : () => {
-                        onSelect(selectorItem.key);
-                        closePopover();
-                      }
-                }
+                bg="$transparent"
+                hoverStyle={{ bg: '$bgHover' }}
+                pressStyle={{ bg: '$bgActive' }}
+                focusable
+                focusVisibleStyle={{
+                  outlineColor: '$focusRing',
+                  outlineStyle: 'solid',
+                  outlineWidth: 2,
+                }}
+                onPress={() => {
+                  onSelect(selectorItem.key);
+                  closePopover();
+                }}
               >
                 <LendingSelectorRowContent item={selectorItem} />
-              </XStack>
+              </ButtonFrame>
             );
           })}
         </YStack>
@@ -338,6 +388,12 @@ function ProtocolLendingActionDefiContent({
   );
   const [isMaxAmount, setIsMaxAmount] = useState(isWithdraw);
   const [submitError, setSubmitError] = useState<string | undefined>(undefined);
+
+  // Editing the amount or switching the asset is a fresh intent — drop any
+  // stale build/submit error so it doesn't linger over new input.
+  useEffect(() => {
+    setSubmitError(undefined);
+  }, [amount, selectedIndex]);
 
   const amountDecimals = selectedAsset?.asset.meta?.decimals;
   const availableAmount = selectedAsset?.amount ?? '0';
@@ -474,10 +530,12 @@ function ProtocolLendingActionDefiContent({
         amount,
         isMaxAmount,
         isErrorToastSuppressed: () => !isActionDialogClosed,
-        onBeforeNavigateConfirm: async () => {
+        onBeforeNavigateConfirm: () => {
           if (isActionDialogClosed) return;
           isActionDialogClosed = true;
-          await close?.();
+          // Fire the close without awaiting it — Dialog.close resolves on a
+          // fixed 300ms teardown timer that would delay tx-confirm opening.
+          void close?.();
         },
       });
     } catch (error) {
@@ -667,9 +725,7 @@ function ProtocolLendingActionBorrowContent({
 
   const [amount, setAmount] = useState('');
   const [isMaxAmount, setIsMaxAmount] = useState(isWithdraw);
-  const [submitError, setSubmitError] = useState<string | undefined>(
-    undefined,
-  );
+  const [submitError, setSubmitError] = useState<string | undefined>(undefined);
   // Footer confirm loading is overridden by confirmButtonProps and released
   // early by preventClose(), so the dialog owns the build spinner and guard.
   const [submitting, setSubmitting] = useState(false);
@@ -690,6 +746,12 @@ function ProtocolLendingActionBorrowContent({
     setAmount(clampAmountDecimals(effectiveBalance, effectiveDecimals));
     setIsMaxAmount(true);
   }, [effectiveBalance, effectiveDecimals, isWithdraw, reserveAddress]);
+
+  // Editing the amount or switching the reserve is a fresh intent — drop any
+  // stale build/submit error so it doesn't linger over new input.
+  useEffect(() => {
+    setSubmitError(undefined);
+  }, [amount, reserveAddress]);
 
   const amountBN = new BigNumber(amount || '0');
   const isAmountPositive = amountBN.isFinite() && amountBN.gt(0);
@@ -864,8 +926,11 @@ function ProtocolLendingActionBorrowContent({
         onSuccess: (data) => {
           void onSuccess?.({ accountId, networkId, data });
         },
-        onBeforeNavigate: async () => {
-          await closeRef.current?.();
+        onBeforeNavigate: () => {
+          // Fire the close without awaiting it: Dialog.close resolves on a
+          // fixed 300ms teardown timer, which would sit serially between the
+          // build response and tx-confirm opening.
+          void closeRef.current?.();
         },
       });
       return;
@@ -888,8 +953,10 @@ function ProtocolLendingActionBorrowContent({
       onSuccess: (data) => {
         void onSuccess?.({ accountId, networkId, data });
       },
-      onBeforeNavigate: async () => {
-        await closeRef.current?.();
+      onBeforeNavigate: () => {
+        // Same as the repay call: don't serially pay Dialog.close's 300ms
+        // teardown timer before tx-confirm opens.
+        void closeRef.current?.();
       },
     });
   }, [
@@ -1094,6 +1161,28 @@ function ProtocolLendingActionBorrowContent({
               </XStack>
             </YStack>
           ) : null}
+          {/* Health factor arrives on the (separate) simulate stream after the
+              amount is set — reserve its exact height with a skeleton so the
+              dialog doesn't grow when it lands. Reuses the same anchor + label
+              so the row height matches the loaded state byte-for-byte. */}
+          {!healthFactor &&
+          isAmountPositive &&
+          !actionResult.transactionConfirmation ? (
+            <YStack gap="$1">
+              <ProtocolPositionActionAnchor
+                label={intl.formatMessage({
+                  id: ETranslations.defi_health_factor,
+                })}
+                iconNode={null}
+                valueNode={
+                  <Skeleton height="$4" width="$16" borderRadius="$1" />
+                }
+              />
+              <XStack justifyContent="flex-end">
+                <Skeleton height="$4" width="$24" borderRadius="$1" />
+              </XStack>
+            </YStack>
+          ) : null}
         </>
       )}
 
@@ -1106,13 +1195,11 @@ function ProtocolLendingActionBorrowContent({
             : undefined)
         }
       />
-      {actionResult.checkAmountAlerts.map((alert, index) => (
-        <Alert
-          key={`${alert.type}-${index}`}
-          type={alert.type}
-          description={alert.text.text}
-        />
-      ))}
+      {/* Server checkAmountAlerts are intentionally NOT rendered here: for the
+          withdraw-with-debt case they duplicate the always-on client
+          liquidation warning above (same copy), popping in after the
+          checkAmount request and jumping the dialog height. The manage page
+          keeps rendering them. */}
 
       <Dialog.Footer
         showCancelButton={false}
