@@ -27,6 +27,43 @@ Run this before shipping or approving Trade/Swap/Market work:
     selection/route sync, quote/review state machine, listener/history bridge,
     or view-model composition.
 
+## Half-Year Recurrence Stops
+
+Use this short stop list when a new requirement mentions cold start, loading,
+first entry, Stock, unsupported networks, disconnected wallet, or history:
+
+- Unsupported single-network entries must resolve to an explicit empty/Select
+  Token state or disabled action. They must not wait forever for token lists,
+  market detail, DeFi maps, or provider support checks.
+- No-wallet, disconnected-wallet, and unsupported-account alerts require
+  account info, account-selector storage, active-account init, and wallet-list
+  readiness. Do not show an unsupported-account warning while the app is still
+  deciding whether a wallet exists.
+- Disconnected-wallet history behavior is a display contract: hide local
+  history/recent pairs when required, but do not clear local data unless the
+  requirement explicitly says to delete it.
+- Separate same-session revisit, app restart, and true cold start. A fix that
+  only preserves state while the tab stays mounted is not proof that
+  cold-start cache, pre-read Home snapshot, or first-frame display works.
+- Separate first-frame display seed from trade readiness. Cached/default
+  tokens can make the first frame meaningful, but quote/build/send remains
+  gated by active token detail, market/provider state, account readiness, and
+  stale-response guards.
+- Route and handoff params are one-shot inputs. After they are consumed,
+  manual selection and channel state must win over later Home/account sync.
+- Stock and future order channels must keep `swapType`, pay token, stock token,
+  market status, build protocol, pending count, history filters, and selector
+  cache distinct from ordinary Swap even when they share Swap UI.
+- Moving between Stock, Swap, Bridge, and Limit must preserve the previous
+  channel-owned selection and must not leave the next token selector or quote
+  panel in a permanent loading state.
+- Skeleton/layout fixes are cross-surface until proven local: check Swap,
+  Stock, Swap Pro, mobile modal/bottom sheet, and extension/sidebar variants
+  when the shared skeleton, dialog height, or token-selector layout changes.
+- Gas sponsor and provider capability fields are quote/build contracts. Trace
+  quote response, build response, estimate-fee/send params, and global setting
+  before treating a fee error as a UI-only issue.
+
 ## Entry Ownership Drill
 
 Use this for bugs that mention "Home Swap", "首页兑换", direct Swap page, Earn

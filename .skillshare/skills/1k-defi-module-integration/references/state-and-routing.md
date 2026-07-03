@@ -45,6 +45,23 @@ Entry ownership rules:
 - Swap-assisted actions must stop at prefill/source context. Once Swap quote
   starts, use `1k-trade-swap-market` for execution, pending, and Swap history.
 
+## Fresh Entry And Cold Start
+
+For fresh app state, first native open, share/deep link, notification entry, or
+tab restore, validate that the route can reload without volatile source-route
+state.
+
+- Home Earn cards/lists own entry params and analytics source only.
+- Native EarnHome is a Discovery sub-tab switch; native detail/list routes are
+  pushed under Discovery after the host is ready.
+- AssetDetails and DeFi Portfolio action routes carry account id and indexed
+  account id through params or payload.
+- Operation dialogs must show bounded loading/disabled states while account,
+  provider, position, or supported-action data is incomplete. They should not
+  expose an executable button or wrong unsupported state before readiness.
+- Swap-assisted entry can prefill Swap only once. Return refresh is DeFi-owned;
+  Swap execution readiness is not.
+
 ## Data Ownership
 
 Name the owner for each data class:

@@ -74,6 +74,30 @@ AssetDetails modal pages are separate route hosts from Home tab content. When
 an action needs account identity, pass it through the route or protocol payload
 rather than reading Home-only context from the modal.
 
+## Action, Order, Permit, And Error Anchors
+
+- `packages/kit/src/components/DeFi/ProtocolPositionActionDialog.tsx`
+- `packages/kit-bg/src/services/ServiceDeFi.ts`
+- `packages/kit-bg/src/services/ServiceStaking.ts`
+- `packages/kit/src/views/Borrow/hooks/useUniversalBorrowHooks.ts`
+- `packages/shared/src/utils/defiPermitUtils.ts`
+- `packages/shared/types/defi`
+
+Important anchors:
+
+- `normalizeDeFiBuildTransactionResp`
+- `fetchSupportedDeFiProtocols`
+- `/earn/v1/defi/build-transaction`
+- `refreshAccountDeFiPositionsAfterAction`
+- `syncBorrowOrder`
+- `handleBorrowSuccess`
+- `addEarnOrder`
+- `validateLidoWithdrawPermitTypedData`
+
+Use these paths for build response shape, `orderId` tracking, approval/permit
+handling, duplicate-submit prevention, operation-level error diagnostics, and
+post-action refresh.
+
 ## Staking Operation Stack
 
 - `packages/kit/src/views/Staking/pages/ManagePosition/index.tsx`

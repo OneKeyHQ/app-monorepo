@@ -34,6 +34,28 @@ Important anchors:
 - `useSwapTokenList`
 - token key builders and native-token handling utilities
 
+## Cold Start, Readiness, And Alert Guards
+
+- `packages/kit/src/views/Swap/hooks/useSwapGlobal.ts`
+- `packages/kit/src/views/Swap/hooks/useSwapTokens.ts`
+- `packages/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils.ts`
+- `packages/kit/src/views/Swap/utils/swapNoWalletWarningGuard.ts`
+- `packages/kit/src/states/jotai/contexts/swap/atoms.ts`
+- `packages/shared/src/consts/jotaiConsts.ts`
+- `packages/kit-bg/src/states/jotai/utils/index.ts`
+
+Important anchors:
+
+- `swapSelectedTokensColdStartContextAtom`
+- `buildSwapSelectedTokensColdStartContext`
+- `shouldHandleSwapColdStartHomeAccountUpdate`
+- `shouldAllowSwapNoConnectWalletWarning`
+- `shouldShowSwapAccountUnsupportedAlert`
+
+Use these paths for first-frame defaults, unsupported-network entry, no-wallet
+warning, disconnected-wallet, app-restart, and route-param one-shot bugs. Keep
+cached display state separate from quote/build readiness.
+
 ## Cross-Surface Swap Entrypoints
 
 - `packages/kit/src/views/Home/components/WalletActions/WalletActionSwap.tsx`
@@ -119,6 +141,7 @@ Important anchors:
 - `fetchPrivateSendOrderDetailHistoryItem`
 - `maybeOpenPrivateSendHistoryDetail`
 - `isSwapHistoryProtocolExcluded`
+- `swapHistoryIdentity`
 - `ServiceHistory.batchUpdateLocalHistoryTxs`
 - chain-specific `Vault.buildDecodedTx`
 - channel-specific progress and detail display helpers
@@ -132,6 +155,10 @@ When display depends on decoded actions or `decodedTx.extraInfo`, inspect the
 chain-specific decode path as well as swap-history repair. On-chain history
 replacement should not erase locally decoded channel metadata before detail
 rendering has a richer replacement source.
+
+For disconnected-wallet display, Stock pending counts, and order-backed
+channels, treat visibility filters, local row retention, txid/order id choice,
+and detail-route fallback as separate decisions.
 
 ## Market Speed-Swap
 

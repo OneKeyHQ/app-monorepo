@@ -92,3 +92,20 @@ Use these recipes based on failure type:
 - Visible-entry merge bug: enter through route params, header tab, cold-start
   cache, and history/detail; verify visible tab normalization and internal
   execution/support/history semantics stay distinct.
+- Unsupported-network entry bug: start from the real source entry on an
+  unsupported single network, capture `importNetworkId` and imported tokens,
+  and verify the first frame resolves to empty/Select Token or a disabled state
+  without an endless skeleton. Also verify direct Swap still works for supported
+  networks.
+- No-wallet or disconnected-wallet bug: reload from a fresh state, record
+  account-info readiness, account-selector storage readiness, active-account
+  init, wallet-list readiness, and web dapp mode. Verify unsupported-account
+  warnings do not appear before those gates resolve, and verify any hidden
+  local history is hidden without being deleted.
+- Skeleton or layout jump bug: compare the skeleton and settled heights on the
+  affected surface plus the closest shared surfaces, especially Stock, Swap
+  Pro, mobile modal/bottom sheet, and extension/sidebar when a shared component
+  changed.
+- Gas sponsor or provider capability bug: compare quote payload, build payload,
+  estimate-fee/send params, global gas-account setting, and provider allowlist.
+  Do not validate from the final error toast alone.
