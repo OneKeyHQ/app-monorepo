@@ -685,6 +685,37 @@ class ServicePrime extends ServiceBase {
     });
   }
 
+  /**
+   * Single source of truth for the bg-side "log out of OneKey ID" local
+   * cleanup policy:
+   * - preserveLocalKeylessAuth: drop only the OneKey ID login state (cached
+   *   auth tokens + legacy email Supabase session) and keep the local Keyless
+   *   OAuth session usable;
+   * - otherwise: destroy every local auth session, including the legacy
+   *   Keyless OAuth token storage.
+   * Always resets the Prime persist atom to the not-logged-in state.
+   * Note: this only clears bg-runtime state and the shared native session
+   * storage; main-runtime Supabase clients keep their own in-memory session,
+   * so UI call sites must sign those out in the main runtime separately.
+   */
+  @backgroundMethod()
+  async clearOneKeyIdAuthState({
+    preserveLocalKeylessAuth,
+    callerName,
+  }: {
+    preserveLocalKeylessAuth?: boolean;
+    callerName: string;
+  }) {
+    if (preserveLocalKeylessAuth) {
+      await this.backgroundApi.simpleDb.prime.clearAuthTokens();
+      await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
+    } else {
+      await this.cleanupLegacyKeylessSessionStorage({ callerName });
+      await this.backgroundApi.simpleDb.prime.clearLocalAuthSession();
+    }
+    await this.setPrimePersistAtomNotLoggedIn();
+  }
+
   @backgroundMethod()
   async apiLogout({
     preserveLocalKeylessAuth,
@@ -716,16 +747,10 @@ class ServicePrime extends ServiceBase {
         reason:
           'ServicePrime.apiLogout: simpleDb.prime.getActiveAuthToken() is null',
       });
-      if (preserveLocalKeylessAuth) {
-        await this.backgroundApi.simpleDb.prime.clearAuthTokens();
-        await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
-      } else {
-        await this.cleanupLegacyKeylessSessionStorage({
-          callerName: 'ServicePrime.apiLogout',
-        });
-        await this.backgroundApi.simpleDb.prime.clearLocalAuthSession();
-      }
-      await this.setPrimePersistAtomNotLoggedIn();
+      await this.clearOneKeyIdAuthState({
+        preserveLocalKeylessAuth,
+        callerName: 'ServicePrime.apiLogout',
+      });
       return;
     }
     const client = await this.getPrimeClient();
@@ -758,16 +783,10 @@ class ServicePrime extends ServiceBase {
       defaultLogger.prime.subscription.onekeyIdLogout({
         reason: 'ServicePrime.apiLogout: clearing local token and atom',
       });
-      if (preserveLocalKeylessAuth) {
-        await this.backgroundApi.simpleDb.prime.clearAuthTokens();
-        await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
-      } else {
-        await this.cleanupLegacyKeylessSessionStorage({
-          callerName: 'ServicePrime.apiLogout',
-        });
-        await this.backgroundApi.simpleDb.prime.clearLocalAuthSession();
-      }
-      await this.setPrimePersistAtomNotLoggedIn();
+      await this.clearOneKeyIdAuthState({
+        preserveLocalKeylessAuth,
+        callerName: 'ServicePrime.apiLogout',
+      });
       const clearedAtomValue = await primePersistAtom.get();
       defaultLogger.prime.subscription.onekeyIdLogout({
         reason: `ServicePrime.apiLogout: atom cleared, isLoggedIn=${clearedAtomValue.isLoggedIn}, onekeyUserId=${clearedAtomValue.onekeyUserId}`,

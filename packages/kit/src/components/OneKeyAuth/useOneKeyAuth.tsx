@@ -121,13 +121,10 @@ export function useOneKeyAuthMethods() {
       // so the UI cannot keep rendering the previously-logged-in account.
       if (apiLogoutFailed) {
         try {
-          if (preserveLocalKeylessAuth) {
-            await backgroundApiProxy.simpleDb.prime.clearAuthTokens();
-            await backgroundApiProxy.simpleDb.prime.clearLegacyAuthSession();
-          } else {
-            await backgroundApiProxy.simpleDb.prime.clearLocalAuthSession();
-          }
-          await backgroundApiProxy.servicePrime.setPrimePersistAtomNotLoggedIn();
+          await backgroundApiProxy.servicePrime.clearOneKeyIdAuthState({
+            preserveLocalKeylessAuth,
+            callerName: 'useOneKeyAuth.logout',
+          });
           defaultLogger.prime.subscription.onekeyIdLogout({
             reason:
               'useOneKeyAuth.logout: force-cleared local state after apiLogout failure',
@@ -187,6 +184,7 @@ export function useOneKeyAuthMethods() {
       legacySupabaseSignOut: legacySignOut,
       keylessSupabaseSignOut: keylessSignOut,
       clearLocalSupabaseSessions,
+      clearLegacySupabaseSession,
       signInWithSocialLogin,
       persistKeylessOAuthSession,
     };
@@ -204,6 +202,7 @@ export function useOneKeyAuthMethods() {
     legacySignOut,
     keylessSignOut,
     clearLocalSupabaseSessions,
+    clearLegacySupabaseSession,
     signInWithSocialLogin,
     persistKeylessOAuthSession,
   ]);
@@ -214,7 +213,12 @@ export function useOneKeyAuth() {
   const intl = useIntl();
 
   const methods = useOneKeyAuthMethods();
-  const { logout, supabaseSignInWithOtp, supabaseVerifyOtp } = methods;
+  const {
+    logout,
+    clearLegacySupabaseSession,
+    supabaseSignInWithOtp,
+    supabaseVerifyOtp,
+  } = methods;
 
   const toOneKeyIdPage = useCallback(() => {
     navigation.pushModal(EModalRoutes.PrimeModal, {
@@ -251,9 +255,14 @@ export function useOneKeyAuth() {
           reason:
             'useLoginOneKeyId.loginOneKeyId(): clear OneKeyID local state before showing login dialog, preserving local Keyless auth',
         });
-        await backgroundApiProxy.simpleDb.prime.clearAuthTokens();
-        await backgroundApiProxy.simpleDb.prime.clearLegacyAuthSession();
-        await backgroundApiProxy.servicePrime.setPrimePersistAtomNotLoggedIn();
+        await backgroundApiProxy.servicePrime.clearOneKeyIdAuthState({
+          preserveLocalKeylessAuth: true,
+          callerName: 'useOneKeyAuth.showOneKeyIdLoginDialog',
+        });
+        // The bg clear does not touch the main-runtime legacy Supabase
+        // client's in-memory session; sign it out here so the React auth
+        // context stays consistent even if the user cancels the dialog.
+        await clearLegacySupabaseSession();
       } else {
         defaultLogger.prime.subscription.onekeyIdLogout({
           reason:
@@ -300,7 +309,7 @@ export function useOneKeyAuth() {
         });
       });
     },
-    [logout, toOneKeyIdPage],
+    [clearLegacySupabaseSession, logout, toOneKeyIdPage],
   );
 
   const loginOneKeyId = useCallback(
