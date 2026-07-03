@@ -83,7 +83,6 @@ import {
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type {
@@ -147,6 +146,7 @@ import {
   getStockDisabledActionButtonProps,
 } from './SwapStockDesktopContainer.utils';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
+import { isCurrentStockQuoteEventError } from './SwapStockTradeAlertUtils';
 import {
   SwapStockTradeProvider,
   useSwapStockTradeContext,
@@ -529,21 +529,15 @@ function StockEstimatedReceive({
         intl,
       }),
     );
-    const fromTokenMatchesQuoteError = equalTokenNoCaseSensitive({
-      token1: quoteEventError?.fromToken,
-      token2: stockChannel.fromToken,
-    });
-    const toTokenMatchesQuoteError = equalTokenNoCaseSensitive({
-      token1: quoteEventError?.toToken,
-      token2: stockChannel.toToken,
-    });
-    const isCurrentStockQuoteEventError =
-      Boolean(quoteEventError?.isStock) &&
-      Boolean(stockChannel.fromToken) &&
-      Boolean(stockChannel.toToken) &&
-      fromTokenMatchesQuoteError &&
-      toTokenMatchesQuoteError;
-    return hasStockQuoteControl || isCurrentStockQuoteEventError;
+    return (
+      hasStockQuoteControl ||
+      isCurrentStockQuoteEventError({
+        fromToken: stockChannel.fromToken,
+        fromTokenAmount: fromTokenAmount.value,
+        quoteEventError,
+        toToken: stockChannel.toToken,
+      })
+    );
   }, [
     fromTokenAmount.value,
     intl,
@@ -552,6 +546,8 @@ function StockEstimatedReceive({
     stockChannel.fromToken,
     stockChannel.toToken,
   ]);
+  const receiveQuoteLoading =
+    quoteLoading || (quoteEventFetching && !quoteResult);
   const {
     canSelectReceiveToken,
     currencySymbol,
@@ -566,8 +562,8 @@ function StockEstimatedReceive({
     setIsReceiveTokenPopoverOpen,
   } = useSwapStockEstimatedReceiveState({
     forceHideQuote: shouldHideQuoteResult,
-    quoteEventFetching,
-    quoteLoading,
+    quoteEventFetching: false,
+    quoteLoading: receiveQuoteLoading,
     quoteResult,
     stockChannel,
   });

@@ -116,7 +116,7 @@ export function useSwapQuote() {
     useSwapManualSelectQuoteProvidersAtom();
   const [swapQuoteEventTotalCount, setSwapQuoteEventTotalCount] =
     useSwapQuoteEventTotalCountAtom();
-  const [swapQuoteFetching] = useSwapQuoteFetchingAtom();
+  const [swapQuoteFetching, setSwapQuoteFetching] = useSwapQuoteFetchingAtom();
   const [swapShouldRefresh] = useSwapShouldRefreshQuoteAtom();
   const [settingsAtom] = useSettingsAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
@@ -211,13 +211,39 @@ export function useSwapQuote() {
   if (activeAccountRef.current !== swapAddressInfo) {
     activeAccountRef.current = swapAddressInfo;
   }
+  const shouldUseLeadingAmountDebounce =
+    swapTabSwitchType !== ESwapTabSwitchType.STOCK;
   const fromAmountDebounce = useDebounce(fromTokenAmount, 500, {
-    leading: true,
+    leading: shouldUseLeadingAmountDebounce,
   });
 
   const toAmountDebounce = useDebounce(toTokenAmount, 500, {
-    leading: true,
+    leading: shouldUseLeadingAmountDebounce,
   });
+
+  const isStockFromAmountDebouncing =
+    swapTabSwitchType === ESwapTabSwitchType.STOCK &&
+    fromTokenAmount.isInput &&
+    Boolean(fromTokenAmount.value) &&
+    fromTokenAmount.value !== fromAmountDebounce.value;
+
+  useEffect(() => {
+    if (swapTabSwitchType !== ESwapTabSwitchType.STOCK) {
+      return;
+    }
+    if (isStockFromAmountDebouncing && !swapQuoteFetching) {
+      setSwapQuoteFetching(true);
+    }
+    if (!fromTokenAmount.value && swapQuoteFetching) {
+      setSwapQuoteFetching(false);
+    }
+  }, [
+    fromTokenAmount.value,
+    isStockFromAmountDebouncing,
+    setSwapQuoteFetching,
+    swapQuoteFetching,
+    swapTabSwitchType,
+  ]);
 
   const toAmountDebounceRef = useRef(toAmountDebounce);
   if (toAmountDebounceRef.current !== toAmountDebounce) {
