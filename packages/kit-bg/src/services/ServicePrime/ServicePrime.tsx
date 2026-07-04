@@ -25,6 +25,7 @@ import {
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -474,6 +475,10 @@ class ServicePrime extends ServiceBase {
         authSessionSource ??
         (await this.backgroundApi.simpleDb.prime.getAuthSessionSource()) ??
         EPrimeAuthSessionSource.LegacyEmailSupabase;
+      // Invalidation site (login): the active account/session is about to
+      // change, so any user info cached before this login must not be served
+      // to post-login callers.
+      this.clearPrimeUserInfoCache();
       // Clear only the deprecated cached token, use the explicit request
       // header below. Keep authSessionSource so a transient login failure
       // cannot orphan a still-valid session (e.g. standalone Keyless OAuth).
@@ -523,6 +528,9 @@ class ServicePrime extends ServiceBase {
         throw new OneKeyLocalError('apiOAuthLogin ERROR: Invalid accessToken');
       }
 
+      // Invalidation site (OAuth login): same as apiLogin — drop any
+      // pre-login cached user info before the session changes.
+      this.clearPrimeUserInfoCache();
       await this.backgroundApi.simpleDb.prime.clearAuthTokens();
       const client = await this.getPrimeClient();
       const result = await client.post<
@@ -663,6 +671,11 @@ class ServicePrime extends ServiceBase {
         callerName: 'ServicePrime.apiBindLegacyOneKeyIdOAuth',
       });
 
+      // Invalidation site (bind): the account identity / auth session source
+      // just changed on the server, so the refresh below (and any
+      // focus-triggered refetch) must hit the network instead of returning a
+      // pre-bind cached result.
+      this.clearPrimeUserInfoCache();
       void this.apiFetchPrimeUserInfo().catch((error) => {
         defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
           reason: `ServicePrime.apiBindLegacyOneKeyIdOAuth: refresh user info failed: ${String(
@@ -1123,8 +1136,60 @@ class ServicePrime extends ServiceBase {
     });
   }
 
+  /**
+   * Single-flight + short-TTL cache for apiFetchPrimeUserInfo.
+   *
+   * Why: at startup two independent PrimeGlobalEffect effects call
+   * apiFetchPrimeUserInfo ~600ms apart, and OneKeyIdLegacyOAuthBindPrompt
+   * re-fetches on every page focus. Each call costs 2 HTTP GETs
+   * (/prime/v1/account/profile + /prime/v1/user/info) plus a full
+   * primePersistAtom rewrite, so rapid duplicate calls are pure waste.
+   * Deduping here (bg runtime) keeps every call site unchanged.
+   *
+   * TTL choice (3s): long enough to collapse the startup double-fetch and
+   * rapid focus toggles, short enough not to mask genuine refreshes (e.g.
+   * post-purchase refetch, websocket-triggered refresh, master-password
+   * checks). Auth-state changes never rely on the TTL expiring: every
+   * login / logout / bind / invalid-token / profile-update path explicitly
+   * clears this cache — see clearPrimeUserInfoCache call sites.
+   *
+   * Rejected promises are never replayed: memoizee promise mode ("then")
+   * deletes the cache entry on rejection, so an invalid-token failure (via
+   * throwIfAllPrimeUserInfoRequestsFailedByInvalidTokenError) or a network
+   * error is always re-fetched on the next call.
+   */
+  private _fetchPrimeUserInfoWithCache = memoizee(
+    async () => this._fetchPrimeUserInfo(),
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 3 }),
+    },
+  );
+
+  /**
+   * Drop any cached (or in-flight) prime user info result so the next
+   * apiFetchPrimeUserInfo call hits the network. MUST be called whenever the
+   * auth session or the server-side profile changes. Clearing while a fetch
+   * is in flight is safe: memoizee guards deleted-while-pending entries and
+   * simply never caches their result.
+   */
+  private clearPrimeUserInfoCache() {
+    void this._fetchPrimeUserInfoWithCache.clear();
+  }
+
   @backgroundMethod()
   async apiFetchPrimeUserInfo(): Promise<{
+    userInfo: IPrimeUserInfo;
+    serverUserInfo: IPrimeServerUserInfo | undefined;
+    primeSubscription: IPrimeSubscriptionInfo | undefined;
+  }> {
+    // Deduped: concurrent calls share a single in-flight request, and calls
+    // arriving within a short TTL reuse the previous result. See
+    // _fetchPrimeUserInfoWithCache for the TTL and invalidation contract.
+    return this._fetchPrimeUserInfoWithCache();
+  }
+
+  private async _fetchPrimeUserInfo(): Promise<{
     userInfo: IPrimeUserInfo;
     serverUserInfo: IPrimeServerUserInfo | undefined;
     primeSubscription: IPrimeSubscriptionInfo | undefined;
@@ -1237,6 +1302,12 @@ class ServicePrime extends ServiceBase {
 
   @backgroundMethod()
   async setPrimePersistAtomNotLoggedIn() {
+    // Invalidation site (logged-out transitions, choke point): this method is
+    // the shared final step of apiLogout -> clearOneKeyIdAuthState,
+    // handlePrimeLoginInvalidToken (invalid-token cleanup), account deletion,
+    // and keyless-wallet cleanup. Clearing here guarantees a logged-in result
+    // cached moments earlier can never be served after the state is reset.
+    this.clearPrimeUserInfoCache();
     const beforeValue = await primePersistAtom.get();
     defaultLogger.prime.subscription.onekeyIdLogout({
       reason: `setPrimePersistAtomNotLoggedIn: before clear, isLoggedIn=${beforeValue.isLoggedIn}, onekeyUserId=${beforeValue.onekeyUserId}, isPrime=${beforeValue.primeSubscription?.isActive}`,
@@ -1740,6 +1811,10 @@ class ServicePrime extends ServiceBase {
         nickname,
       },
     );
+    // Invalidation site (profile update): the server-side profile just
+    // changed, so the refresh below must bypass the short TTL instead of
+    // returning a pre-update cached avatar/nickname.
+    this.clearPrimeUserInfoCache();
     setTimeout(() => {
       void this.apiFetchPrimeUserInfo();
     });
