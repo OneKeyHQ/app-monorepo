@@ -329,13 +329,13 @@ export function useMarketTokenList({
   const effectiveIsLoading = hasNetworkId ? isLoading : false;
   const isSeedResult = Boolean(apiResult?.__fromSeed);
   const isColdCacheFallbackResult = Boolean(apiResult?.__fromColdCacheFallback);
+  const isProvisionalFirstPageResult =
+    isSeedResult || isColdCacheFallbackResult;
+  const isProvisionalFirstPageResultRef = useRef(isProvisionalFirstPageResult);
+  isProvisionalFirstPageResultRef.current = isProvisionalFirstPageResult;
 
   useEffect(() => {
-    if (
-      !platformEnv.isWeb ||
-      (!isSeedResult && !isColdCacheFallbackResult) ||
-      !hasNetworkId
-    ) {
+    if (!platformEnv.isWeb || !isProvisionalFirstPageResult || !hasNetworkId) {
       return undefined;
     }
 
@@ -348,12 +348,7 @@ export function useMarketTokenList({
       void fetchMarketTokenList().catch(() => undefined);
     }, 0);
     return () => clearTimeout(timer);
-  }, [
-    fetchMarketTokenList,
-    hasNetworkId,
-    isColdCacheFallbackResult,
-    isSeedResult,
-  ]);
+  }, [fetchMarketTokenList, hasNetworkId, isProvisionalFirstPageResult]);
 
   useEffect(() => {
     if (!hasNetworkId || !apiResult || !apiResult.list) {
@@ -438,15 +433,16 @@ export function useMarketTokenList({
 
   const refresh = useCallback(() => {
     // Don't clear data immediately - let new data load first
-    if (platformEnv.isWeb && (isSeedResult || isColdCacheFallbackResult)) {
+    if (platformEnv.isWeb && isProvisionalFirstPageResult) {
       bypassWebSeedOnceRef.current = true;
     }
     void fetchMarketTokenList().catch(() => undefined);
-  }, [fetchMarketTokenList, isColdCacheFallbackResult, isSeedResult]);
+  }, [fetchMarketTokenList, isProvisionalFirstPageResult]);
 
   const loadMore = useCallback(async () => {
     // Check if we can load more pages
     if (
+      isProvisionalFirstPageResult ||
       isLoadingMore ||
       loadedPageCount >= maxPages ||
       loadedPageCount >= totalPages ||
@@ -476,7 +472,10 @@ export function useMarketTokenList({
         timeFrame,
       });
 
-      if (currentQueryKeyRef.current !== requestQueryKey) {
+      if (
+        currentQueryKeyRef.current !== requestQueryKey ||
+        isProvisionalFirstPageResultRef.current
+      ) {
         return;
       }
 
@@ -510,6 +509,7 @@ export function useMarketTokenList({
       setIsLoadingMore(false);
     }
   }, [
+    isProvisionalFirstPageResult,
     isLoadingMore,
     loadedPageCount,
     totalCount,
@@ -532,6 +532,7 @@ export function useMarketTokenList({
 
   const canLoadMore =
     hasNetworkId &&
+    !isProvisionalFirstPageResult &&
     loadedPageCount < maxPages &&
     loadedPageCount < totalPages &&
     (totalCount === 0 || transformedData.length < totalCount) &&
