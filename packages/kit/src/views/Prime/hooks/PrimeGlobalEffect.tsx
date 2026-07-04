@@ -52,7 +52,6 @@ function PrimeGlobalEffectAfterAuthReady() {
   userRef.current = user;
   const isAppLockedRef = useRef(isAppLocked);
   isAppLockedRef.current = isAppLocked;
-  const isCheckingLocalKeylessUpgradeBindPromptRef = useRef(false);
 
   const autoRefreshPrimeUserInfo = useCallback(async () => {
     try {
@@ -141,17 +140,15 @@ function PrimeGlobalEffectAfterAuthReady() {
   }, [autoRefreshPrimeUserInfo]);
 
   useEffect(() => {
-    if (
-      isCheckingLocalKeylessUpgradeBindPromptRef.current ||
-      isAppLocked ||
-      !user?.onekeyUserId ||
-      !user?.isLoggedInOnServer
-    ) {
+    if (isAppLocked || !user?.onekeyUserId || !user?.isLoggedInOnServer) {
       return;
     }
     let isCancelled = false;
-    isCheckingLocalKeylessUpgradeBindPromptRef.current = true;
 
+    // Concurrent/duplicate runs are deduplicated by the atomic bg gate
+    // (servicePrime.checkAndMarkShouldShowLocalKeylessUpgradeBindPrompt), so
+    // no in-flight ref guard is needed here; when throttled, this is a
+    // single cheap bg round-trip.
     void (async () => {
       try {
         await showOneKeyIdLegacyOAuthBindDialogForLocalKeylessUpgrade({
@@ -163,16 +160,11 @@ function PrimeGlobalEffectAfterAuthReady() {
           'PrimeGlobalEffect.showOneKeyIdLegacyOAuthBindDialogForLocalKeylessUpgrade failed:',
           error,
         );
-      } finally {
-        if (!isCancelled) {
-          isCheckingLocalKeylessUpgradeBindPromptRef.current = false;
-        }
       }
     })();
 
     return () => {
       isCancelled = true;
-      isCheckingLocalKeylessUpgradeBindPromptRef.current = false;
     };
   }, [isAppLocked, user?.onekeyUserId, user?.isLoggedInOnServer]);
 

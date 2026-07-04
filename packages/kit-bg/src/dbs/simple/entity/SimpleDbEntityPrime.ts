@@ -15,7 +15,12 @@ export interface ISimpleDBPrime {
   // Deprecated token copy. Supabase/OAuth session storage is the source of truth.
   authToken?: string;
   authSessionSource?: EPrimeAuthSessionSource;
-  // Last auto prompt display time. The upgrade bind prompt is throttled per user.
+  // Per-user throttle timestamp for the local-keyless upgrade bind prompt.
+  // Written by ServicePrime.checkAndMarkShouldShowLocalKeylessUpgradeBindPrompt
+  // for every completed check outcome (dialog about to show, bind not
+  // required, or no local keyless wallet) — not only when the dialog is
+  // actually displayed — so the expensive check pipeline runs at most once
+  // per throttle window.
   localKeylessUpgradeBindPromptShownAtByUserId?: Record<string, number>;
 }
 

@@ -465,13 +465,11 @@ export function OneKeyIdLegacyOAuthBindPrompt({
 export async function showOneKeyIdLegacyOAuthBindDialog({
   bindProvider,
   onBindSuccess,
-  onDialogShow,
   shouldSkipBeforeShow,
   checkBindRequired = true,
 }: {
   bindProvider?: EOAuthSocialLoginProvider;
   onBindSuccess?: () => void | Promise<void>;
-  onDialogShow?: () => void | Promise<void>;
   shouldSkipBeforeShow?: () => boolean;
   checkBindRequired?: boolean;
 } = {}) {
@@ -535,12 +533,6 @@ export async function showOneKeyIdLegacyOAuthBindDialog({
           />
         ),
       });
-      void Promise.resolve(onDialogShow?.()).catch((error) => {
-        console.error(
-          'showOneKeyIdLegacyOAuthBindDialog onDialogShow failed:',
-          error,
-        );
-      });
     });
 
     if (didBind) {
@@ -570,67 +562,30 @@ export async function showOneKeyIdLegacyOAuthBindDialogForLocalKeylessUpgrade({
     return false;
   }
 
-  const hasShown =
-    await backgroundApiProxy.simpleDb.prime.hasShownLocalKeylessUpgradeBindPrompt(
+  // The whole decision pipeline (per-user throttle, local keyless wallet
+  // existence, legacy bind-required check) is evaluated and marked
+  // atomically in the bg service, so concurrent UI contexts (ext popup /
+  // sidepanel / expanded tab) cannot double-prompt, and the expensive
+  // checks run at most once per throttle window regardless of outcome.
+  const shouldShow =
+    await backgroundApiProxy.servicePrime.checkAndMarkShouldShowLocalKeylessUpgradeBindPrompt(
       {
         onekeyUserId,
+        trigger: 'localKeylessUpgradeAutoCheck',
       },
     );
-  if (hasShown) {
-    return false;
-  }
-  if (shouldSkip?.()) {
-    return false;
-  }
-
-  let hasLocalKeylessWallet = false;
-  try {
-    const result =
-      await backgroundApiProxy.serviceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless();
-    hasLocalKeylessWallet =
-      result.status !==
-      EOneKeyIdLoginWithLocalKeylessPrepareStatus.NoLocalKeyless;
-  } catch (error) {
-    console.error(
-      'showOneKeyIdLegacyOAuthBindDialogForLocalKeylessUpgrade failed:',
-      error,
-    );
-  }
-
-  if (!hasLocalKeylessWallet || shouldSkip?.()) {
-    return false;
-  }
-
-  let bindRequired = false;
-  try {
-    bindRequired =
-      await backgroundApiProxy.servicePrime.isLegacyOneKeyIdOAuthBindRequired();
-  } catch (error) {
-    console.error(
-      'showOneKeyIdLegacyOAuthBindDialogForLocalKeylessUpgrade bind required check failed:',
-      error,
-    );
-    return false;
-  }
-  if (!bindRequired) {
-    return false;
-  }
-  if (shouldSkip?.()) {
+  if (!shouldShow) {
     return false;
   }
 
   // This is the only passive restore path that may auto-show the bind dialog:
   // legacy OneKey ID is still email-only while a local Keyless wallet already
   // exists from the old version.
+  // NOTE: the throttle window is already consumed by the bg gate above; if
+  // shouldSkipBeforeShow skips here (e.g. the app got locked while the bg
+  // check was in flight), the prompt waits for the next throttle window.
   return showOneKeyIdLegacyOAuthBindDialog({
     checkBindRequired: false,
     shouldSkipBeforeShow: shouldSkip,
-    onDialogShow: async () => {
-      await backgroundApiProxy.simpleDb.prime.markLocalKeylessUpgradeBindPromptShown(
-        {
-          onekeyUserId,
-        },
-      );
-    },
   });
 }

@@ -22,6 +22,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EOneKeyIdLoginWithLocalKeylessPrepareStatus } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -611,6 +612,119 @@ class ServicePrime extends ServiceBase {
 
     const profile = await this.apiFetchOneKeyIdProfile();
     return isLegacyOneKeyIdAccountMissingOAuthIdentity(profile.onekeyAccount);
+  }
+
+  // Dedicated mutex for the local-keyless upgrade bind prompt gate. Do NOT
+  // reuse loginMutex: isLegacyOneKeyIdOAuthBindRequired() ->
+  // apiFetchOneKeyIdProfile() waits for loginMutex to unlock and would
+  // deadlock if the gate itself held it.
+  localKeylessUpgradeBindPromptCheckMutex = new Semaphore(1);
+
+  /**
+   * Atomically decide whether the local-keyless upgrade bind prompt should
+   * be auto-shown, and persist the per-user throttle timestamp for every
+   * completed check (not only when the dialog is actually shown), so that:
+   * - concurrent UI contexts (in the extension, popup / sidepanel / expanded
+   *   tab all share this single bg runtime) cannot both get `true` and
+   *   double-prompt: `runExclusive` serializes callers and the throttle mark
+   *   happens before the mutex is released, closing the check-then-mark gap;
+   * - the expensive pipeline (local keyless prepare + keyless getSession +
+   *   network profile GET) runs at most once per throttle window even when
+   *   the outcome is "no prompt needed" (no local keyless wallet, or
+   *   bindRequired=false), instead of on every app start and unlock.
+   *
+   * Transient failures (prepare / profile fetch errors) do NOT consume the
+   * throttle, so the next check retries — matching the previous UI-side
+   * behavior.
+   *
+   * NOTE: the throttle window is consumed as soon as this method returns
+   * `true`. If the calling UI context then fails to actually show the dialog
+   * (e.g. the app gets locked while the result is in flight), the prompt
+   * waits for the next throttle window. This is an accepted trade-off of
+   * the atomic gate.
+   *
+   * Explicit user-triggered bind flows (after legacy email OTP login, or the
+   * keyless-create bind step) intentionally bypass this gate and its
+   * throttle; they show the dialog directly.
+   */
+  @backgroundMethod()
+  async checkAndMarkShouldShowLocalKeylessUpgradeBindPrompt({
+    onekeyUserId,
+    trigger,
+  }: {
+    onekeyUserId: string;
+    trigger: string;
+  }): Promise<boolean> {
+    if (!onekeyUserId) {
+      return false;
+    }
+    return this.localKeylessUpgradeBindPromptCheckMutex.runExclusive(
+      async () => {
+        const isThrottled =
+          await this.backgroundApi.simpleDb.prime.hasShownLocalKeylessUpgradeBindPrompt(
+            {
+              onekeyUserId,
+            },
+          );
+        if (isThrottled) {
+          return false;
+        }
+
+        let hasLocalKeylessWallet = false;
+        try {
+          const result =
+            await this.backgroundApi.serviceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless();
+          hasLocalKeylessWallet =
+            result.status !==
+            EOneKeyIdLoginWithLocalKeylessPrepareStatus.NoLocalKeyless;
+        } catch (error) {
+          console.error(
+            `ServicePrime.checkAndMarkShouldShowLocalKeylessUpgradeBindPrompt(${trigger}): local keyless prepare failed:`,
+            error,
+          );
+          // Transient failure: keep the throttle unset so the next check
+          // retries.
+          return false;
+        }
+
+        if (!hasLocalKeylessWallet) {
+          // Definitive "no prompt needed" outcome: consume the throttle
+          // window so the local keyless prepare does not rerun on every
+          // unlock.
+          await this.backgroundApi.simpleDb.prime.markLocalKeylessUpgradeBindPromptShown(
+            {
+              onekeyUserId,
+            },
+          );
+          return false;
+        }
+
+        let bindRequired = false;
+        try {
+          bindRequired = await this.isLegacyOneKeyIdOAuthBindRequired();
+        } catch (error) {
+          console.error(
+            `ServicePrime.checkAndMarkShouldShowLocalKeylessUpgradeBindPrompt(${trigger}): bind required check failed:`,
+            error,
+          );
+          // Transient failure (e.g. profile GET network error): keep the
+          // throttle unset so the next check retries.
+          return false;
+        }
+
+        // Persist the throttle for both outcomes: bindRequired=true is about
+        // to show the dialog, and bindRequired=false must not re-run the
+        // network profile GET on every unlock. The mark happens inside the
+        // mutex, before any concurrent caller can re-enter the throttle
+        // check above.
+        await this.backgroundApi.simpleDb.prime.markLocalKeylessUpgradeBindPromptShown(
+          {
+            onekeyUserId,
+          },
+        );
+        return bindRequired;
+      },
+    );
   }
 
   @backgroundMethod()
