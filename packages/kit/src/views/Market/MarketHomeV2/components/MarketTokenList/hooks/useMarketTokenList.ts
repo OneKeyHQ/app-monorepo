@@ -329,6 +329,12 @@ export function useMarketTokenList({
         return undefined;
       }
       const requestQueryKey = currentQueryKeyRef.current;
+      // Page 1 revalidation replaces the rendered list when it settles, so
+      // pagination must be locked again until that page is rendered.
+      pendingRemoteFirstPageLoadedQueryKeyRef.current = undefined;
+      setRemoteFirstPageLoadedQueryKey((loadedQueryKey) =>
+        loadedQueryKey === requestQueryKey ? undefined : loadedQueryKey,
+      );
       const shouldBypassWebSeed =
         platformEnv.isWeb &&
         (bypassWebSeedOnceRef.current ||
@@ -513,6 +519,8 @@ export function useMarketTokenList({
     setTransformedData((prev) =>
       reuseStableMarketTokenRows({ prev, next: transformed }),
     );
+    setCurrentPage(1);
+    setHasReachedEnd(false);
 
     // Track network loading analytics
     trackNetworkLoading(networkId, apiResult.list.length);
