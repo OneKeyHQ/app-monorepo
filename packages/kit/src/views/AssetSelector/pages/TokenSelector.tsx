@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
@@ -19,6 +20,7 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIsDeFiEnabled } from '@onekeyhq/kit/src/hooks/useIsDeFiEnabled';
 import { useTokenListActions } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useTokenSelectorFilterPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
@@ -43,9 +45,8 @@ import {
   isTokenSelectorDappTokenFilterSupportedNetwork,
 } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
+  buildSelectorTokenListFromResponses,
   checkIsOnlyOneTokenHasBalance,
-  flattenAggregateTokensMap,
-  nestAggregateTokensMap,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -288,12 +289,13 @@ function TokenSelector() {
   const [selectorAggregateTokenListMap, setSelectorAggregateTokenListMap] =
     useState<Record<string, { tokens: IAccountToken[] }>>({});
   // PR-6: the flattened ($key -> summed ITokenFiat) aggregate fiat map for the
-  // selector's all-networks rows. The self-fetch response's `aggregateTokenMap`
-  // is FLAT per single-network request; we nest it by networkId and re-flatten
+  // selector's aggregate rows. Each self-fetch response's `aggregateTokenMap`
+  // is FLAT and scoped to that response's networkId (one response per network
+  // in all-networks mode); the merge nests them by networkId and re-flattens
   // with the SAME sum semantics the home `flattenAggregateTokensMapAtom` uses
-  // so the aggregate (all-networks) selector rows resolve real balance/value/
-  // price (the per-row `tokenSelectorTokenListMap` does NOT carry aggregate
-  // `$key` fiat). Threaded into TokenListView as `tokenSelectorAggregateTokenFiatMap`.
+  // so the aggregate selector rows resolve real balance/value/price (the
+  // per-row `tokenSelectorTokenListMap` does NOT carry aggregate `$key` fiat).
+  // Threaded into TokenListView as `tokenSelectorAggregateTokenFiatMap`.
   const [selectorAggregateTokenFiatMap, setSelectorAggregateTokenFiatMap] =
     useState<Record<string, ITokenFiat>>({});
   // PR-3: `false` until the self-fetch below resolves the first time. Threaded
@@ -302,6 +304,25 @@ function TokenSelector() {
   // the home tokenList mirror keeps `tokenListState.initialized === true`, so
   // TokenListView cannot infer "selector not yet fetched" on its own.
   const [selectorInitialized, setSelectorInitialized] = useState(false);
+  // SWR floor bookkeeping: `floorSeeded` marks the home-VM snapshot paint (so
+  // the live self-fetch does not flash the skeleton over it), `liveLanded`
+  // marks the live fan-out commit (so a late-resolving floor pull can never
+  // clobber fresh live data).
+  const selectorFloorSeededRef = useRef(false);
+  const selectorLiveLandedRef = useRef(false);
+  // Owner-scope the floor bookkeeping: both refs are one-way latches, so if
+  // the selector owner ever changes while this instance stays MOUNTED the
+  // stale latches would silently skip the skeleton reset (previous owner's
+  // list stays on screen) and permanently disable the floor for the new
+  // owner. Today every known owner switch remounts the selector (fresh refs);
+  // this guards the invariant instead of relying on it.
+  const selectorFloorOwnerKeyRef = useRef('');
+  const selectorFloorOwnerKey = `${accountId ?? ''}__${networkId ?? ''}`;
+  if (selectorFloorOwnerKeyRef.current !== selectorFloorOwnerKey) {
+    selectorFloorOwnerKeyRef.current = selectorFloorOwnerKey;
+    selectorFloorSeededRef.current = false;
+    selectorLiveLandedRef.current = false;
+  }
 
   const tokenSelectorFilterParams = useMemo(
     () =>
@@ -396,11 +417,13 @@ function TokenSelector() {
 
         const { tokenHasBalance, tokenHasBalanceCount } =
           checkIsOnlyOneTokenHasBalance({
-            // The selector self-fetches its per-row fiat map (`r.tokens.map` ∪
-            // `r.smallBalanceTokens.map`), which is keyed by the per-network
-            // sub-token `$key` — exactly what `checkIsOnlyOneTokenHasBalance`
-            // iterates (red-team C-F2: NOT the summed aggregate map). Replaces
-            // the deleted home `allTokenListMapAtom` read.
+            // `selectorTokenListMap` carries the per-network sub-token fiat
+            // (`r.tokens.map` ∪ `r.smallBalanceTokens.map`, keyed by sub-token
+            // `$key`) PLUS aggregate `$key` fiat composed in for the zero-balance
+            // filter (live path) / the composed home map (floor path).
+            // `checkIsOnlyOneTokenHasBalance` only looks up the sub-token `$key`s
+            // in `aggregateTokenList`, so the extra aggregate entries are inert
+            // here. Replaces the deleted home `allTokenListMapAtom` read.
             tokenMap: selectorTokenListMap,
             aggregateTokenList,
             allAggregateTokenList,
@@ -739,6 +762,10 @@ function TokenSelector() {
     !!selectorVaultSettings?.mergeDeriveAssetsEnabled &&
     !!indexedAccountId &&
     !accountUtils.isOthersAccount({ accountId });
+  // Home-owner list snapshot PULLed from the BG per-owner ViewModel (same
+  // channel WalletActions uses). Feeds the SWR floor below; EMPTY when the
+  // home VM has no entry for the mirrored owner.
+  const homeTokenListSnapshot = useHomeTokenListSnapshot();
   const useSelectorFilteredTokenList =
     !!showTokenSelectorFilter && showLpTokensOnly;
   const effectiveShowActiveAccountTokenList =
@@ -817,7 +844,7 @@ function TokenSelector() {
     setScopedActiveTokenListMap({});
 
     try {
-      const responses = await fetchFilteredTokenSelectorTokens({
+      const { responses } = await fetchFilteredTokenSelectorTokens({
         accountId,
         networkId,
         indexedAccountId,
@@ -1002,6 +1029,109 @@ function TokenSelector() {
     useSelectorFilteredTokenList,
   ]);
 
+  // SWR floor: when the selector owner IS the home owner (Send/Receive opened
+  // from home), the BG per-owner ViewModel already holds the exact list home is
+  // showing — paint it immediately instead of holding the skeleton for the
+  // full live fan-out (which on all-networks costs one request per enabled
+  // network). The snapshot pull is the same channel WalletActions uses
+  // (`useHomeTokenListSnapshot`); owner mismatch or a cold VM falls back to
+  // the skeleton path unchanged. Risky rows ride the VM raw list, so they are
+  // filtered with the risky set before seeding (the selector never offers
+  // risky tokens).
+  useEffect(() => {
+    if (
+      effectiveShowActiveAccountTokenList ||
+      selectorFloorSeededRef.current ||
+      selectorLiveLandedRef.current ||
+      !accountId ||
+      !networkId
+    ) {
+      return;
+    }
+    const snapshot = homeTokenListSnapshot;
+    if (
+      snapshot.tokens.length === 0 ||
+      snapshot.accountId !== accountId ||
+      snapshot.networkId !== networkId
+    ) {
+      return;
+    }
+    selectorFloorSeededRef.current = true;
+    void (async () => {
+      try {
+        const [frames, localAggregateTokenListMap] = await Promise.all([
+          backgroundApiProxy.serviceTokenViewModel.getTokenListFrames({
+            ownerKey: snapshot.ownerKey,
+          }),
+          backgroundApiProxy.serviceToken.getLocalAggregateTokenListMap({
+            accountId,
+            networkId,
+          }),
+        ]);
+        // Bail if the live data already landed OR a newer owner superseded this
+        // floor pull mid-flight (same staleness idiom the live self-fetch uses):
+        // either way this floor snapshot is stale and must not clobber state.
+        if (
+          selectorLiveLandedRef.current ||
+          latestSelectorTokenListRequestContextRef.current.accountId !==
+            accountId ||
+          latestSelectorTokenListRequestContextRef.current.networkId !==
+            networkId
+        ) {
+          return;
+        }
+        const riskyTokenKeys = new Set(
+          frames.riskyTokens.map((token) => token.$key),
+        );
+        // Seed the floor in the VM raw-list order VERBATIM (risky rows filtered
+        // out): the raw blob is `orderedTokens ++ smallBalanceTokens` in the
+        // exact per-owner order the SAME ingest feeds home — server order for a
+        // single-network owner, the already-merged fiat order for an
+        // all-networks owner. The live selector replaces this floor with
+        // `buildSelectorTokenListFromResponses`, whose single-network branch
+        // returns that server order VERBATIM (no re-sort) and whose
+        // all-networks branch reproduces the merged fiat order; keeping the
+        // snapshot order therefore matches the live order for BOTH cases. A
+        // fiat re-sort here would only match the all-networks live branch and
+        // would reshuffle a single-network owner whose display order is not
+        // pure fiat (pinned defaults / custom tokens) the moment the live
+        // verbatim list lands.
+        setSelectorTokenList({
+          tokens: snapshot.tokens.filter(
+            (token) => !riskyTokenKeys.has(token.$key),
+          ),
+          smallBalanceTokens: [],
+        });
+        // `snapshot.map` is the composed home map (tokenListMap + riskyMap +
+        // flattened aggregate fiat), so it serves BOTH the per-row map and the
+        // aggregate `$key` fiat lookups.
+        setSelectorTokenListMap(snapshot.map);
+        setSelectorAggregateTokenFiatMap(snapshot.map);
+        // Aggregate membership MUST ride the SAME structure frame the floor
+        // rows come from: `getTokenListFrames` is home's atomic per-owner
+        // snapshot, whereas the simpleDb copy (`getLocalAggregateTokenListMap`)
+        // is home's LAST settled write and can lag the VM by a round. Reading
+        // simpleDb here would pair the fresh structure rows with a stale/empty
+        // member map, so aggregate row clicks and the single-owned-sub-token
+        // auto-select would resolve against outdated membership. Fall back to
+        // simpleDb only when the structure frame itself is absent (cold VM).
+        setSelectorAggregateTokenListMap(
+          frames.structure?.ownedAggregateTokenListMap ??
+            localAggregateTokenListMap ??
+            {},
+        );
+        setSelectorInitialized(true);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }, [
+    homeTokenListSnapshot,
+    accountId,
+    networkId,
+    effectiveShowActiveAccountTokenList,
+  ]);
+
   // PR-3 selector self-fetch: on the NORMAL selector path (not the
   // active-account / LP-dapp branch, which already self-fetches into
   // `scopedActiveTokenList*`), fetch the displayable wallet token list + fiat
@@ -1026,52 +1156,182 @@ function TokenSelector() {
       return;
     }
 
+    const requestContext: ISelectorTokenListRequestContext = {
+      accountId,
+      networkId,
+      indexedAccountId: indexedAccountId ?? '',
+      activeAccountId: activeAccountId ?? '',
+      activeNetworkId: activeNetworkId ?? '',
+      isSelectorAllNetworks: !!isSelectorAllNetworks,
+      mergeDeriveAddressData,
+      showLpTokensOnly,
+      useSelectorFilteredTokenList,
+      showActiveAccountTokenList,
+    };
+    const isLatestRequest = () =>
+      isSameSelectorTokenListRequestContext(
+        latestSelectorTokenListRequestContextRef.current,
+        requestContext,
+      );
+
     // Reset to `false` while (re)fetching for a new owner so TokenListView
     // shows a skeleton (or the per-owner cache) instead of the previous owner's
-    // list for a frame.
-    setSelectorInitialized(false);
+    // list for a frame — unless the SWR floor already painted the home
+    // snapshot; then keep it on screen until the live data replaces it. Also
+    // drop the previous owner's list/maps here: the `finally` below always
+    // lifts the skeleton (`setSelectorInitialized(true)`) even when this fetch
+    // throws or is canceled, so without the reset a failed live fetch for a new
+    // owner would re-expose the prior owner's rows instead of an empty state.
+    // The floor-seeded branch is excluded on purpose — it deliberately keeps
+    // its painted list until the live data lands.
+    if (!selectorFloorSeededRef.current) {
+      setSelectorInitialized(false);
+      setSelectorTokenList({ tokens: [], smallBalanceTokens: [] });
+      setSelectorTokenListMap({});
+      setSelectorAggregateTokenListMap({});
+      setSelectorAggregateTokenFiatMap({});
+    }
 
-    const [r, aggregateTokenListMap] = await Promise.all([
-      backgroundApiProxy.serviceToken.fetchAccountTokens({
-        accountId,
-        networkId,
-        indexedAccountId,
-        flag: 'token-selector',
-        ...tokenSelectorFilterParams,
-      }),
-      backgroundApiProxy.serviceToken.getLocalAggregateTokenListMap({
-        accountId,
-        networkId,
-      }),
-    ]);
+    try {
+      // All-networks owners carry the mock account/network
+      // (AllNetworkMockAddress / onekeyall--*), which `fetchAccountTokens`
+      // forwards to the wallet API verbatim — the server rejects it. Fan out
+      // per real network instead (same enumeration + child requests the
+      // LP/scoped branch uses) and merge the per-network responses.
+      const [fanOut, localAggregateTokenListMap, aggregateTokenRawData] =
+        await Promise.all([
+          isSelectorAllNetworks
+            ? fetchFilteredTokenSelectorTokens({
+                accountId,
+                networkId,
+                indexedAccountId,
+                isAllNetworks: true,
+                mergeDeriveAddressData,
+                onlyBackendIndexedNetworks: false,
+                tokenSelectorFilterParams,
+              })
+            : backgroundApiProxy.serviceToken
+                .fetchAccountTokens({
+                  accountId,
+                  networkId,
+                  indexedAccountId,
+                  flag: 'token-selector',
+                  ...tokenSelectorFilterParams,
+                })
+                .then((r) => ({ responses: [r], expectedResponseCount: 1 })),
+          backgroundApiProxy.serviceToken.getLocalAggregateTokenListMap({
+            accountId,
+            networkId,
+          }),
+          // All-networks child responses carry RAW rows — aggregation is
+          // client-side authority in that mode (same aggregate config walk the
+          // home per-network handler runs).
+          isSelectorAllNetworks
+            ? backgroundApiProxy.simpleDb.aggregateToken.getRawData()
+            : Promise.resolve(undefined),
+        ]);
 
-    setSelectorTokenList({
-      tokens: r.tokens.data,
-      smallBalanceTokens: r.smallBalanceTokens.data,
-    });
-    setSelectorTokenListMap({
-      ...r.tokens.map,
-      ...r.smallBalanceTokens.map,
-    });
-    setSelectorAggregateTokenListMap(aggregateTokenListMap ?? {});
-    // The response `aggregateTokenMap` is FLAT ($key -> ITokenFiat) for this
-    // single-network request; nest it by networkId then flatten with the home
-    // sum semantics so aggregate rows resolve correct fiat in TokenListView.
-    setSelectorAggregateTokenFiatMap(
-      r.aggregateTokenMap
-        ? flattenAggregateTokensMap(
-            nestAggregateTokensMap({
-              aggregateTokenMap: r.aggregateTokenMap,
-              networkId,
-            }),
-          )
-        : {},
-    );
-    setSelectorInitialized(true);
+      if (!isLatestRequest()) {
+        return;
+      }
+
+      const { responses, expectedResponseCount } = fanOut;
+
+      // The all-networks fan-out runs continue-on-error, so a failed child
+      // network is silently DROPPED from `responses` rather than throwing.
+      // `responses.length < expectedResponseCount` therefore means this round is
+      // INCOMPLETE — it is missing one or more networks' tokens (total failure,
+      // where zero networks answered, is just the extreme case). It must NOT be
+      // treated as an authoritative full snapshot. (Single-network / derive
+      // paths report `expectedResponseCount === responses.length`, so they never
+      // trip this.)
+      const isIncompleteAllNetworksFanOut =
+        isSelectorAllNetworks && responses.length < expectedResponseCount;
+
+      // An incomplete round must not overwrite an already-painted floor: the SWR
+      // home snapshot is COMPLETE, so keep it on screen instead of replacing it
+      // with a gap-ridden live list. Re-ARM the floor latch so a later home
+      // structure frame re-seeds it with fresh, full data; `liveLanded` stays
+      // unset (cleared together with the latch) so the floor effect is not
+      // permanently short-circuited, which would pin the selector on the stale
+      // floor until the owner changes or the page reopens.
+      if (isIncompleteAllNetworksFanOut && selectorFloorSeededRef.current) {
+        selectorFloorSeededRef.current = false;
+        return;
+      }
+
+      // Each response's `aggregateTokenMap` is FLAT ($key -> ITokenFiat) and
+      // scoped to that response's networkId; the merge nests them by networkId
+      // then flattens with the home sum semantics so aggregate rows resolve
+      // correct fiat in TokenListView. Aggregate common rows dedupe by $key
+      // across the per-network responses.
+      const merged = buildSelectorTokenListFromResponses({
+        responses,
+        aggregateTokenConfigMapRawData:
+          aggregateTokenRawData?.aggregateTokenConfigMap,
+      });
+
+      setSelectorTokenList({
+        tokens: merged.tokens,
+        smallBalanceTokens: merged.smallBalanceTokens,
+      });
+      // TokenListView's selector path resolves EVERY per-row fiat lookup —
+      // including the hideZeroBalanceTokens filter — from this map only (its
+      // `aggregateTokenMap` binding is the HOST prop, empty on the selector
+      // path); `tokenSelectorAggregateTokenFiatMap` feeds row display. Compose
+      // the aggregate `$key` fiat in so aggregate rows survive the
+      // zero-balance filter (Send passes hideZeroBalanceTokens).
+      setSelectorTokenListMap({
+        ...merged.tokenListMap,
+        ...merged.aggregateTokenFiatMap,
+      });
+      // All-networks: the freshly folded member map is the authority (the local
+      // simpleDb copy is home's LAST write — absent until home settles once).
+      // Single-network: responses carry server-aggregated rows without member
+      // metadata, so the home-written local map remains the source.
+      setSelectorAggregateTokenListMap(
+        isSelectorAllNetworks &&
+          Object.keys(merged.aggregateTokenListMap).length > 0
+          ? merged.aggregateTokenListMap
+          : (localAggregateTokenListMap ?? {}),
+      );
+      setSelectorAggregateTokenFiatMap(merged.aggregateTokenFiatMap);
+      // Only LATCH live-landed for a COMPLETE round. An incomplete fan-out with
+      // no floor to fall back on is still shown as a best-effort list (better
+      // than an indefinite skeleton), but leaving the latch unset lets a later
+      // home structure frame seed the missing networks through the floor effect
+      // instead of pinning this partial list. Complete rounds (and every
+      // single-network round) latch as before, so the floor stops re-seeding.
+      if (!isIncompleteAllNetworksFanOut) {
+        selectorLiveLandedRef.current = true;
+      }
+    } catch (e) {
+      // A superseded/aborted fetch is routine (same distinction the home
+      // TokenListBlock catch makes) — don't log it at error level.
+      if (e instanceof CanceledError) {
+        console.log('token selector fetchAccountTokens canceled');
+      } else {
+        console.error(e);
+      }
+    } finally {
+      // Always leave the skeleton, even when the fetch failed — an unhandled
+      // throw here used to keep `selectorInitialized` false forever, pinning
+      // the selector on the skeleton with no self-recovery.
+      if (isLatestRequest()) {
+        setSelectorInitialized(true);
+      }
+    }
   }, [
     accountId,
     networkId,
     indexedAccountId,
+    activeAccountId,
+    activeNetworkId,
+    isSelectorAllNetworks,
+    mergeDeriveAddressData,
+    showLpTokensOnly,
+    useSelectorFilteredTokenList,
+    showActiveAccountTokenList,
     effectiveShowActiveAccountTokenList,
     tokenSelectorFilterParams,
   ]);
