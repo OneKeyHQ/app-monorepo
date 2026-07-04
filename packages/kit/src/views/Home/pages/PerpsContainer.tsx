@@ -66,7 +66,7 @@ const HYPER_EVM_LOGO_URI =
   'https://uni.onekey-asset.com/static/chain/hyper-evm.png';
 const SPAN_1: React.CSSProperties = { gridColumnEnd: 'span 1' };
 const noop = () => undefined;
-type TPerpsTradeMode = 'perp' | 'spot';
+type IPerpsTradeMode = 'perp' | 'spot';
 
 function isTradableSpotHolding(holding: IPerpsHomeHolding) {
   return Boolean(
@@ -101,7 +101,7 @@ function useOpenPerpAsset() {
   const navigation = useAppNavigation();
   const ensureHomePerpsAccount = useEnsureHomePerpsAccount();
   return useCallback(
-    (coin?: string, mode: TPerpsTradeMode = 'perp', openMarket = true) => {
+    (coin?: string, mode: IPerpsTradeMode = 'perp', openMarket = true) => {
       void (async () => {
         const activePerpsAccount = await ensureHomePerpsAccount();
         if (!activePerpsAccount) {
@@ -1096,7 +1096,7 @@ export function PerpsContainer() {
           ) : undefined
         }
       >
-        <YStack px="$5" py="$3" gap="$2" $gtMd={{ px: '$4' }}>
+        <YStack px="$5" py="$3" gap="$2" $gtMd={{ px: '$pagePadding' }}>
           {viewState === 'loading' ? <PerpsLoadingState /> : null}
           {viewState === 'empty' ? (
             <PerpsEmptyState canDeposit={canDeposit} />

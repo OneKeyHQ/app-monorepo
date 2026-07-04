@@ -850,6 +850,7 @@ export function HomePageView({
           <Tabs.Tab key={tab.name} name={tab.name}>
             <FreezeInactiveHomeTab tabName={tab.name}>
               {platformEnv.isNative ||
+              tab.id === EHomeWalletTab.Perps ||
               activeTabId === tab.id ||
               mountedHomeTabIds.has(tab.id) ? (
                 tab.component
