@@ -50,6 +50,7 @@ import {
   hasUnifiedCrossChainSwapProviderManagers,
   mergeDenyProviderStrings,
 } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
+import { capRecentTokenPairsPreservingOrder } from '@onekeyhq/shared/src/utils/swapRecentTokenPairsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -65,7 +66,6 @@ import type {
   ISwapServiceProvider,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
-  maxRecentTokenPairs,
   mevSwapNetworks,
   privateSendFallbackOrderIdPrefix,
   privateSendProvider,
@@ -2565,31 +2565,13 @@ export default class ServiceSwap extends ServiceBase {
       networkLogoURI: toToken.networkLogoURI,
       isNative: toToken.isNative,
     };
-    let newRecentTokenPairs = [
+    const newRecentTokenPairs = capRecentTokenPairsPreservingOrder([
       {
         fromToken: fromTokenBaseInfo,
         toToken: toTokenBaseInfo,
       },
       ...recentTokenPairs,
-    ];
-
-    let singleChainTokenPairs = newRecentTokenPairs.filter(
-      (t) => t.fromToken.networkId === t.toToken.networkId,
-    );
-    let crossChainTokenPairs = newRecentTokenPairs.filter(
-      (t) => t.fromToken.networkId !== t.toToken.networkId,
-    );
-
-    if (singleChainTokenPairs.length > maxRecentTokenPairs) {
-      singleChainTokenPairs = singleChainTokenPairs.slice(
-        0,
-        maxRecentTokenPairs,
-      );
-    }
-    if (crossChainTokenPairs.length > maxRecentTokenPairs) {
-      crossChainTokenPairs = crossChainTokenPairs.slice(0, maxRecentTokenPairs);
-    }
-    newRecentTokenPairs = [...singleChainTokenPairs, ...crossChainTokenPairs];
+    ]);
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
       swapRecentTokenPairs: newRecentTokenPairs,
