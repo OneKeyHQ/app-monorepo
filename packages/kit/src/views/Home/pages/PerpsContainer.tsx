@@ -46,13 +46,17 @@ import type {
   IPerpsHomeHolding,
   IPerpsHomePosition,
 } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
-import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getHyperliquidTokenImageUrl,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import {
   OVERVIEW_TILE_SHADOW,
   buildOverviewGridStyle,
 } from '../components/DeFiListBlock/DeFiOverviewLayout';
 import { resolveOverviewCols } from '../components/DeFiListBlock/overviewColsResolver';
+import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { RichBlock } from '../components/RichBlock';
 import { HomeTestIDs } from '../testIDs';
 
@@ -97,7 +101,7 @@ function useOpenPerpAsset() {
   const navigation = useAppNavigation();
   const ensureHomePerpsAccount = useEnsureHomePerpsAccount();
   return useCallback(
-    (coin?: string, mode: TPerpsTradeMode = 'perp') => {
+    (coin?: string, mode: TPerpsTradeMode = 'perp', openMarket = true) => {
       void (async () => {
         const activePerpsAccount = await ensureHomePerpsAccount();
         if (!activePerpsAccount) {
@@ -135,7 +139,7 @@ function useOpenPerpAsset() {
         } catch {
           return;
         }
-        if (platformEnv.isNative) {
+        if (platformEnv.isNative && openMarket) {
           // The Home navigator can't push into the Perp tab's stack, so go via the root.
           setTimeout(() => {
             rootNavigationRef.current?.navigate(ERootRoutes.Main, {
@@ -839,7 +843,6 @@ function PerpsMetric({
   negative,
   labelExtra,
   column,
-  showRepeat,
   emphasis,
 }: {
   labelId: ETranslations;
@@ -851,7 +854,6 @@ function PerpsMetric({
   negative?: boolean;
   labelExtra?: string;
   column?: 'left' | 'center' | 'right';
-  showRepeat?: boolean;
   emphasis?: boolean;
 }) {
   const intl = useIntl();
@@ -886,9 +888,6 @@ function PerpsMetric({
           {intl.formatMessage({ id: labelId })}
           {labelExtra}
         </SizableText>
-        {showRepeat ? (
-          <Icon name="RepeatOutline" size="$3" color="$textSubdued" />
-        ) : null}
       </XStack>
       {formatter ? (
         <NumberSizeableText
@@ -897,6 +896,9 @@ function PerpsMetric({
           $gtMd={{ size: valueGtMdSize }}
           formatter={formatter}
           formatterOptions={formatterOptions}
+          contentStyle={{ color: valueColor }}
+          decimalTextStyle={{ color: valueColor }}
+          subTextStyle={{ color: valueColor }}
         >
           {value}
         </NumberSizeableText>
@@ -926,28 +928,22 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
   });
   // priceChange formatter is fixed at 2 decimals; PositionsRow shows ROE at 1.
   const roiPercent = new BigNumber(position.roi).times(100).abs().toFixed(1);
+  const displayCoin = parseDexCoin(position.coin).displayName;
+  const positionSizeUsd = new BigNumber(position.sizeCoin)
+    .times(position.markPx)
+    .abs()
+    .toFixed();
 
   return (
     <YStack
-      py="$4"
+      py="$3"
       $gtMd={{
         bg: '$bgSubdued',
         borderRadius: '$3',
         px: '$4',
         py: '$4',
       }}
-      gap="$4"
-      cursor="pointer"
-      focusable
-      focusVisibleStyle={{
-        outlineColor: '$focusRing',
-        outlineStyle: 'solid',
-        outlineWidth: 2,
-      }}
-      hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
-      onPress={() => openPerp(position.coin)}
-      role="button"
+      gap="$3"
     >
       <XStack justifyContent="space-between" flex={1} position="relative">
         <XStack flex={1} gap="$2" alignItems="center">
@@ -972,11 +968,11 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
             </SizableText>
           </XStack>
           <SizableText
-            size="$bodyMdMedium"
+            size="$headingSm"
             color="$text"
             $gtMd={{ size: '$headingMd' }}
           >
-            {position.coin}
+            {displayCoin}
           </SizableText>
           <SizableText
             bg="$bgSubdued"
@@ -989,15 +985,9 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
             {leverageTypeText} {position.leverageValue}x
           </SizableText>
         </XStack>
-        <Icon
-          name="ShareOutline"
-          size="$3.5"
-          color="$iconSubdued"
-          $gtMd={{ size: '$4.5' }}
-        />
       </XStack>
 
-      <YStack gap="$4">
+      <YStack gap="$3">
         <XStack width="100%" justifyContent="space-between" alignItems="center">
           <PerpsMetric
             labelId={ETranslations.perp_position_pnl_mobile}
@@ -1018,15 +1008,15 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
           />
         </XStack>
 
-        <YStack gap="$4">
+        <YStack gap="$3">
           <XStack width="100%" justifyContent="space-between">
             <PerpsMetric
               labelId={ETranslations.perp_position_position_size}
-              labelExtra={` (${position.coin})`}
-              value={position.sizeCoin}
-              formatter="balance"
+              labelExtra=" (USDC)"
+              value={positionSizeUsd}
+              formatter="value"
+              formatterOptions={{ currency: '$' }}
               column="left"
-              showRepeat
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_margin}
@@ -1076,19 +1066,14 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
           </XStack>
         </YStack>
       </YStack>
-
       <Button
+        testID={HomeTestIDs.perpsManageButton}
+        size="small"
         display="flex"
         $gtMd={{ display: 'none' }}
-        size="medium"
-        variant="secondary"
-        childrenAsText={false}
-        testID={`${HomeTestIDs.perpsManageButton}-${position.side}`}
-        onPress={() => openPerp(position.coin)}
+        onPress={() => openPerp(position.coin, 'perp', false)}
       >
-        <SizableText size="$bodyMdMedium">
-          {intl.formatMessage({ id: ETranslations.global_manage })}
-        </SizableText>
+        {intl.formatMessage({ id: ETranslations.global_manage })}
       </Button>
     </YStack>
   );
@@ -1100,59 +1085,70 @@ export function PerpsContainer() {
   const { viewState, view, canDeposit } = usePerpsHomePortfolio();
 
   return (
-    <Tabs.ScrollView contentContainerStyle={{ paddingBottom: tabBarHeight }}>
-      <YStack px="$4" py="$3" gap="$2">
-        {viewState === 'loading' ? <PerpsLoadingState /> : null}
-        {viewState === 'empty' ? (
-          <PerpsEmptyState canDeposit={canDeposit} />
-        ) : null}
-        {viewState === 'ready' && view ? (
-          <>
-            <PerpsMobileHoldingsSummary
-              totalUsd={view.accountValueUsd}
-              holdings={view.holdings}
-              isDegraded={view.isDegraded}
-              canDeposit={canDeposit}
-            />
-            <YStack display="none" $gtMd={{ display: 'flex' }}>
-              <RichBlock
-                withTitleSeparator
-                title={intl.formatMessage({
-                  id: ETranslations.perp_account_panel_account_value,
-                })}
-                subTitle={
-                  <PerpsTotalUsd
-                    value={view.accountValueUsd}
-                    isDegraded={view.isDegraded}
-                    size="$headingXl"
-                    color="$textSubdued"
-                  />
-                }
-                headerContainerProps={{ px: 0, pb: 0 }}
-                headerActions={<PerpsHeaderActions canDeposit={canDeposit} />}
-                content={null}
-                plainContentContainer
-              />
-              <PerpsHoldingsBlock
+    <Stack flex={1}>
+      <Tabs.ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: tabBarHeight }}
+        nestedScrollEnabled={platformEnv.isNativeAndroid}
+        refreshControl={
+          !platformEnv.isNativeAndroid ? (
+            <PullToRefresh onRefresh={onHomePageRefresh} />
+          ) : undefined
+        }
+      >
+        <YStack px="$5" py="$3" gap="$2" $gtMd={{ px: '$4' }}>
+          {viewState === 'loading' ? <PerpsLoadingState /> : null}
+          {viewState === 'empty' ? (
+            <PerpsEmptyState canDeposit={canDeposit} />
+          ) : null}
+          {viewState === 'ready' && view ? (
+            <>
+              <PerpsMobileHoldingsSummary
+                totalUsd={view.accountValueUsd}
                 holdings={view.holdings}
-                hyperEvmLogoUri={HYPER_EVM_LOGO_URI}
+                isDegraded={view.isDegraded}
+                canDeposit={canDeposit}
               />
-            </YStack>
-            <YStack gap="$3">
-              {view.positions.length > 0 ? (
-                view.positions.map((position) => (
-                  <PerpsPositionCard
-                    key={`${position.coin}-${position.side}`}
-                    position={position}
-                  />
-                ))
-              ) : (
-                <PerpsPositionsEmptyContent />
-              )}
-            </YStack>
-          </>
-        ) : null}
-      </YStack>
-    </Tabs.ScrollView>
+              <YStack display="none" $gtMd={{ display: 'flex' }}>
+                <RichBlock
+                  withTitleSeparator
+                  title={intl.formatMessage({
+                    id: ETranslations.perp_account_panel_account_value,
+                  })}
+                  subTitle={
+                    <PerpsTotalUsd
+                      value={view.accountValueUsd}
+                      isDegraded={view.isDegraded}
+                      size="$headingXl"
+                      color="$textSubdued"
+                    />
+                  }
+                  headerContainerProps={{ px: 0, pb: 0 }}
+                  headerActions={<PerpsHeaderActions canDeposit={canDeposit} />}
+                  content={null}
+                  plainContentContainer
+                />
+                <PerpsHoldingsBlock
+                  holdings={view.holdings}
+                  hyperEvmLogoUri={HYPER_EVM_LOGO_URI}
+                />
+              </YStack>
+              <YStack gap="$2">
+                {view.positions.length > 0 ? (
+                  view.positions.map((position) => (
+                    <PerpsPositionCard
+                      key={`${position.coin}-${position.side}`}
+                      position={position}
+                    />
+                  ))
+                ) : (
+                  <PerpsPositionsEmptyContent />
+                )}
+              </YStack>
+            </>
+          ) : null}
+        </YStack>
+      </Tabs.ScrollView>
+    </Stack>
   );
 }
