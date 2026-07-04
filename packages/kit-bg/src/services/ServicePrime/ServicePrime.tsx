@@ -610,6 +610,28 @@ class ServicePrime extends ServiceBase {
       return false;
     }
 
+    // Fast path: consult the cached OneKey ID account before hitting the
+    // network. Binding is monotonic — identities are only ever added (there
+    // is no unbind flow) — so a cached "OAuth already bound" can never be
+    // stale-wrong, and we can skip the profile GET entirely. The reverse
+    // (cache says the OAuth identity is missing, or identities are absent)
+    // must still be confirmed by the server below, to avoid nagging users
+    // who bound on another device.
+    // Only trust the cache when it plausibly belongs to the current login:
+    // the atom-level onekeyUserId must match the cached account's own
+    // onekeyUserId. (The atom is also reset on logout/user-change, so a
+    // cross-user leftover should not survive here anyway.)
+    const { onekeyUserId: cachedUserId, onekeyAccount: cachedAccount } =
+      await primePersistAtom.get();
+    if (
+      cachedUserId &&
+      cachedAccount?.onekeyUserId === cachedUserId &&
+      (cachedAccount.identities?.length ?? 0) > 0 &&
+      !isLegacyOneKeyIdAccountMissingOAuthIdentity(cachedAccount)
+    ) {
+      return false;
+    }
+
     const profile = await this.apiFetchOneKeyIdProfile();
     return isLegacyOneKeyIdAccountMissingOAuthIdentity(profile.onekeyAccount);
   }
