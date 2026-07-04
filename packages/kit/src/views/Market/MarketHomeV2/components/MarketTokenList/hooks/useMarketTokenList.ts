@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useNetworkLoadingAnalytics } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/hooks/useNetworkLoadingAnalytics';
+import { markMarketReactPerf } from '@onekeyhq/kit/src/views/Market/utils/marketReactPerf';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IMarketTokenListResponse } from '@onekeyhq/shared/types/marketV2';
 
 import { TIME_RANGE_TO_API_MAP } from '../../../types';
 import {
@@ -14,6 +14,9 @@ import {
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
 
+import { fetchMarketTokenListForPlatform } from './marketTokenListPlatformApi';
+
+import type { IMarketTokenListResponseWithSource } from './marketTokenListPlatformApiTypes';
 import type { IMarketTimeRangeValue } from '../../../types';
 import type { IMarketToken } from '../MarketTokenData';
 
@@ -25,6 +28,93 @@ interface IUseMarketTokenListParams {
   type?: string;
   timeRange?: IMarketTimeRangeValue;
   pollingInterval?: number;
+}
+
+const MARKET_TOKEN_PRIMITIVE_REUSE_FIELDS = [
+  'id',
+  'name',
+  'symbol',
+  'address',
+  'decimals',
+  'price',
+  'change24h',
+  'marketCap',
+  'liquidity',
+  'transactions',
+  'uniqueTraders',
+  'holders',
+  'turnover',
+  'tokenImageUri',
+  'networkLogoUri',
+  'networkId',
+  'firstTradeTime',
+  'chainId',
+  'sortIndex',
+  'isNative',
+  'communityRecognized',
+  'perpsCoin',
+  'maxLeverage',
+  'perpsSubtitle',
+] satisfies readonly (keyof Omit<
+  IMarketToken,
+  'tokenImageUris' | 'walletInfo' | 'stock'
+>)[];
+
+function isSameStringArray(a?: string[], b?: string[]) {
+  if (a === b) {
+    return true;
+  }
+  if (!a || !b || a.length !== b.length) {
+    return false;
+  }
+  return a.every((value, index) => value === b[index]);
+}
+
+function canReuseMarketToken(prev: IMarketToken, next: IMarketToken) {
+  for (const field of MARKET_TOKEN_PRIMITIVE_REUSE_FIELDS) {
+    if (prev[field] !== next[field]) {
+      return false;
+    }
+  }
+
+  if (!isSameStringArray(prev.tokenImageUris, next.tokenImageUris)) {
+    return false;
+  }
+
+  if (
+    prev.walletInfo?.buy !== next.walletInfo?.buy ||
+    prev.walletInfo?.sell !== next.walletInfo?.sell
+  ) {
+    return false;
+  }
+
+  return prev.stock === next.stock;
+}
+
+function reuseStableMarketTokenRows({
+  prev,
+  next,
+}: {
+  prev: IMarketToken[];
+  next: IMarketToken[];
+}) {
+  if (prev.length === 0 || next.length === 0) {
+    return next;
+  }
+
+  const prevById = new Map(prev.map((item) => [item.id, item]));
+  let changed = prev.length !== next.length;
+  const reused = next.map((item, index) => {
+    const prevItem = prevById.get(item.id);
+    const nextItem =
+      prevItem && canReuseMarketToken(prevItem, item) ? prevItem : item;
+    if (prev[index] !== nextItem) {
+      changed = true;
+    }
+    return nextItem;
+  });
+
+  return changed ? reused : prev;
 }
 
 export function useMarketTokenList({
@@ -95,18 +185,22 @@ export function useMarketTokenList({
   );
   const currentQueryKeyRef = useRef(currentQueryKey);
   currentQueryKeyRef.current = currentQueryKey;
+  const forceRemoteOnceRef = useRef(false);
 
   const {
     result: apiResult,
     isLoading,
     run: fetchMarketTokenList,
-  } = usePromiseResult<IMarketTokenListResponse | undefined>(
+  } = usePromiseResult<IMarketTokenListResponseWithSource | undefined>(
     async () => {
       if (!hasNetworkId) {
         return undefined;
       }
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
+      const requestQueryKey = currentQueryKeyRef.current;
+      const forceRemote = forceRemoteOnceRef.current;
+      forceRemoteOnceRef.current = false;
+      const response = await fetchMarketTokenListForPlatform(
+        {
           networkId: apiNetworkId,
           sortBy,
           sortType,
@@ -115,10 +209,17 @@ export function useMarketTokenList({
           minLiquidity,
           type,
           timeFrame,
-        });
+        },
+        { forceRemote },
+      );
+      const responseWithSource = response as IMarketTokenListResponseWithSource;
+      if (currentQueryKeyRef.current !== requestQueryKey) {
+        return undefined;
+      }
       return {
         list: response.list,
         total: response.total,
+        __fromSeed: responseWithSource.__fromSeed,
       };
     },
     [
@@ -132,6 +233,7 @@ export function useMarketTokenList({
       timeFrame,
     ],
     {
+      checkIsFocused: !platformEnv.isWeb,
       watchLoading: hasNetworkId,
       pollingInterval,
       revalidateOnFocus: true,
@@ -140,12 +242,33 @@ export function useMarketTokenList({
   );
 
   const effectiveIsLoading = hasNetworkId ? isLoading : false;
+  const isSeedResult = Boolean(apiResult?.__fromSeed);
+
+  useEffect(() => {
+    if (!platformEnv.isWeb || !isSeedResult || !hasNetworkId) {
+      return undefined;
+    }
+
+    const requestQueryKey = currentQueryKeyRef.current;
+    const timer = setTimeout(() => {
+      if (currentQueryKeyRef.current !== requestQueryKey) {
+        return;
+      }
+      forceRemoteOnceRef.current = true;
+      void fetchMarketTokenList();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchMarketTokenList, hasNetworkId, isSeedResult]);
 
   useEffect(() => {
     if (!hasNetworkId || !apiResult || !apiResult.list) {
       return;
     }
 
+    const transformStart =
+      platformEnv.isWeb && typeof performance !== 'undefined'
+        ? performance.now()
+        : 0;
     const transformed = apiResult.list.map((item) =>
       transformApiItemToToken(item, {
         chainId: networkId,
@@ -153,16 +276,41 @@ export function useMarketTokenList({
         timeRange: timeRangeRef.current,
       }),
     );
+    const transformDuration =
+      transformStart > 0 ? performance.now() - transformStart : undefined;
+    markMarketReactPerf({
+      name: 'useMarketTokenList.transform',
+      phase: 'measure',
+      duration: transformDuration,
+      detail: {
+        count: apiResult.list.length,
+        source: apiResult.__fromSeed ? 'seed' : 'remote',
+        networkId,
+        type,
+        timeFrame,
+      },
+    });
 
-    // Update data only after successful fetch (preserve existing data during loading)
-    setTransformedData(transformed);
+    // Update only rows whose visible fields changed so Table row memoization can
+    // survive seed -> remote refresh and polling updates.
+    setTransformedData((prev) =>
+      reuseStableMarketTokenRows({ prev, next: transformed }),
+    );
 
     // Track network loading analytics
     trackNetworkLoading(networkId, apiResult.list.length);
 
     // Reset network switching state when new data arrives
     setIsNetworkSwitching(false);
-  }, [apiResult, hasNetworkId, networkId, networkLogoUri, trackNetworkLoading]);
+  }, [
+    apiResult,
+    hasNetworkId,
+    networkId,
+    networkLogoUri,
+    timeFrame,
+    trackNetworkLoading,
+    type,
+  ]);
 
   // Reset pagination when networkId, sortBy, or sortType changes
   useEffect(() => {
@@ -195,8 +343,11 @@ export function useMarketTokenList({
 
   const refresh = useCallback(() => {
     // Don't clear data immediately - let new data load first
+    if (platformEnv.isWeb && isSeedResult) {
+      forceRemoteOnceRef.current = true;
+    }
     void fetchMarketTokenList();
-  }, [fetchMarketTokenList]);
+  }, [fetchMarketTokenList, isSeedResult]);
 
   const loadMore = useCallback(async () => {
     // Check if we can load more pages
@@ -219,17 +370,16 @@ export function useMarketTokenList({
 
     try {
       // Load the next page
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
-          networkId: apiNetworkId,
-          sortBy,
-          sortType,
-          page: nextPage,
-          limit: pageSize,
-          minLiquidity,
-          type,
-          timeFrame,
-        });
+      const response = await fetchMarketTokenListForPlatform({
+        networkId: apiNetworkId,
+        sortBy,
+        sortType,
+        page: nextPage,
+        limit: pageSize,
+        minLiquidity,
+        type,
+        timeFrame,
+      });
 
       if (currentQueryKeyRef.current !== requestQueryKey) {
         return;

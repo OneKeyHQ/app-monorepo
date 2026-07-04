@@ -189,6 +189,47 @@ export class WalletScene extends BaseScene {
     return params;
   }
 
+  // ---- Wallet backup-status migration diagnostics (local log only) ----
+  // TODO(cleanup): temporary investigation scaffolding — remove these three
+  // events and their ServiceAccount call sites once the backup-status
+  // flag-loss root cause is fixed.
+  // Investigating wallets flipping to "backed up" after an app restart:
+  // migrateHdWalletsBackedUpStatus re-runs when the hdWalletsBackupMigrated
+  // flag vanishes from storage between launches (suspected iOS AsyncStorage
+  // key loss across the dual JS runtimes). These three events reconstruct
+  // the full timeline from app-latest.log alone:
+  //   1. backupMigrationStatusCheck  — on-disk truth at boot, before the
+  //      migration decides to run or skip.
+  //   2. backupMigrationMarkedWallets — the wallets the migration itself
+  //      flipped to backed-up (no user action involved).
+  //   3. backupMigrationFlagProbe — write-then-read-back verification after
+  //      the flag write, and re-checks at later stages (e.g. after wallet
+  //      creation) to narrow down when the flag disappears.
+
+  @LogToLocal()
+  public backupMigrationStatusCheck(params: {
+    migratedFlag: boolean | undefined;
+    appStatusRawExists: boolean;
+    hdWalletsCount: number;
+    unbackedUpHdWalletIds: string[];
+  }) {
+    return params;
+  }
+
+  @LogToLocal()
+  public backupMigrationMarkedWallets(params: { walletIds: string[] }) {
+    return params;
+  }
+
+  @LogToLocal()
+  public backupMigrationFlagProbe(params: {
+    stage: string;
+    rawExists: boolean;
+    flagPresent: boolean;
+  }) {
+    return params;
+  }
+
   // Funnel denominator. Deduped to once per (wallet, state) tuple per session
   // by the caller.
   @LogToServer()

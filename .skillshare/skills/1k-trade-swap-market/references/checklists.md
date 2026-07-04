@@ -6,6 +6,11 @@ Run this before shipping or approving Trade/Swap/Market work:
 
 0. Framework -> state machine -> hooks has been traced for cross-surface,
    modal, Home Token, Send, Market, Earn, Buy, Stock, Bridge, or Limit work.
+0a. Source packet is current when the task came from Jira, Slack, review, or a
+    todo ledger: issue comments, Slack context, attachments, client branch, and
+    server DTO/status branch when relevant.
+0b. Closest valid repo pattern is named, including why its account/network/token
+    provider, route, or execution semantics do or do not apply.
 1. State owner is named: server config, quote payload, build payload, atom, simpleDb, local component state, or provider adapter.
 2. Async identity is guarded: request id, event id, provider key, token key, account, amount mode, and stale response handling.
 3. Account/network/token/route identity is separated: source, target, All Networks, derive type, native/wrapped token, receiver, entry source, and behavior-changing route params such as `isNative`, `showFavoriteButton`, and `disableTrade`.
@@ -18,6 +23,60 @@ Run this before shipping or approving Trade/Swap/Market work:
 10. Platform ownership is checked: desktop, web, extension, native mobile, tablet, modal, and bottom-sheet differences.
 11. Adjacent Wallet/Receive/Home Token ownership is not assumed to match Swap/Market selector ownership.
 12. Import hierarchy is preserved.
+13. Large hooks are split only by stable responsibility: data loading,
+    selection/route sync, quote/review state machine, listener/history bridge,
+    or view-model composition.
+
+## Half-Year Recurrence Stops
+
+Use this short stop list when a new requirement mentions cold start, loading,
+first entry, Stock, unsupported networks, disconnected wallet, or history:
+
+- Unsupported single-network entries must resolve to an explicit empty/Select
+  Token state or disabled action. They must not wait forever for token lists,
+  market detail, DeFi maps, or provider support checks.
+- No-wallet, disconnected-wallet, and unsupported-account alerts require
+  account info, account-selector storage, active-account init, and wallet-list
+  readiness. Do not show an unsupported-account warning while the app is still
+  deciding whether a wallet exists.
+- Disconnected-wallet history behavior is a display contract: hide local
+  history/recent pairs when required, but do not clear local data unless the
+  requirement explicitly says to delete it.
+- Separate same-session revisit, app restart, and true cold start. A fix that
+  only preserves state while the tab stays mounted is not proof that
+  cold-start cache, pre-read Home snapshot, or first-frame display works.
+- Separate first-frame display seed from trade readiness. Cached/default
+  tokens can make the first frame meaningful, but quote/build/send remains
+  gated by active token detail, market/provider state, account readiness, and
+  stale-response guards.
+- Route and handoff params are one-shot inputs. After they are consumed,
+  manual selection and channel state must win over later Home/account sync.
+- Stock and future order channels must keep `swapType`, pay token, stock token,
+  market status, build protocol, pending count, history filters, and selector
+  cache distinct from ordinary Swap even when they share Swap UI.
+- Moving between Stock, Swap, Bridge, and Limit must preserve the previous
+  channel-owned selection and must not leave the next token selector or quote
+  panel in a permanent loading state.
+- Skeleton/layout fixes are cross-surface until proven local: check Swap,
+  Stock, Swap Pro, mobile modal/bottom sheet, and extension/sidebar variants
+  when the shared skeleton, dialog height, or token-selector layout changes.
+- Gas sponsor and provider capability fields are quote/build contracts. Trace
+  quote response, build response, estimate-fee/send params, and global setting
+  before treating a fee error as a UI-only issue.
+
+## Entry Ownership Drill
+
+Use this for bugs that mention "Home Swap", "首页兑换", direct Swap page, Earn
+funding, Send handoff, Market speed-swap, or mobile-only behavior:
+
+- Name the entry owner and the first Swap owner after `SwapMainLand` mounts.
+- Compare the handoff params against the settled Swap state: `importNetworkId`,
+  `importFromToken`, `importToToken`, `importDeriveType`, `swapTabSwitchType`,
+  `swapSource`, and any amount/preset params.
+- Separate desktop/web route or modal behavior from native mobile dialog,
+  bottom-sheet, K-line variant, keyboard, safe-area, and Limit-focus behavior.
+- If the bug is visible only on first entry, run the cold-start frame checklist
+  rather than validating only the final settled screen.
 
 ## New Channel Readiness Checklist
 
@@ -91,8 +150,8 @@ Complete this drill before wiring a stock-like protocol:
 - Lead with confirmed behavior risk, not broad process notes.
 - For each issue, name the state owner and failing transition.
 - Distinguish code blockers from validation gaps.
-- For Home Token, Send, Market, Earn, or Buy entries into Swap, review both
-  handoff params and the resulting Swap state transition before judging the
-  target hook.
+- For Wallet Home, Home Token, Send, Market, Earn, or Buy entries into Swap,
+  review both handoff params and the resulting Swap state transition before
+  judging the target hook.
 - Propose the smallest App-side change that preserves the canonical flow.
 - Before patching a Stock/order review flag, check whether the behavior is already owned by a channel state, service adapter, backend DTO, generated workflow, or pending/history filter.

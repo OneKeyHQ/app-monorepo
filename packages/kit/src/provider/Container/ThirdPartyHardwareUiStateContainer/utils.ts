@@ -24,11 +24,11 @@ export function createTrezorBleBindingDialogCallbacks({
   clearState: () => Promise<void>;
 }) {
   return {
-    onBound: (bleConnectId: string) => {
+    onBound: (connectId: string) => {
       settledRef.current = true;
       void resolveCallback({
         id: promiseId,
-        data: bleConnectId,
+        data: connectId,
       });
       void clearState();
     },
@@ -53,6 +53,7 @@ export function buildThirdPartyHardwareUiResponse(
     passphrase?: string;
     passphraseOnDevice?: boolean;
     save?: boolean;
+    pin?: string;
   },
 ): IAdapterUiResponse | null {
   switch (action) {
@@ -83,6 +84,14 @@ export function buildThirdPartyHardwareUiResponse(
           passphraseOnDevice: extras?.passphraseOnDevice === true,
           save: extras?.save === true,
         },
+      };
+    case EThirdPartyHardwareUiAction.requestTrezorPin:
+      // The payload IS the matrix position string the user tapped against the
+      // scrambled grid on the device; `confirmed=false` maps to cancel.
+      if (!confirmed) return null;
+      return {
+        type: UI_RESPONSE.RECEIVE_PIN,
+        payload: extras?.pin ?? '',
       };
     default:
       return null;

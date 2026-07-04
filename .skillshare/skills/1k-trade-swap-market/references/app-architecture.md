@@ -28,6 +28,24 @@ duplicate quote/review/build/history/status ownership in isolated surfaces.
 - History/detail owns pending rows, provider status, progress text, and fallback price data.
 - Cross-module handoffs can prefill Swap state, but must not become the source of truth after quote starts.
 
+## Entry Ownership Matrix
+
+Use this before deciding which file owns an entry bug.
+
+| Entry | Source owner | Swap owner after mount | Common validation |
+| --- | --- | --- | --- |
+| Wallet Home action | `WalletActionSwap` | route init, selected network, quote/review/build/history | Home -> Swap first frame, All Networks/single network, disabled swap action |
+| Home Token row action | `TokenActionsView` | imported token pair, unsupported-token fallback, Bridge default when applicable | BTC native, unsupported ordinary Swap, imported token icons and derive type |
+| Swap page/direct route | `SwapPageContainer` / `SwapMainLandModal` | tab state, selected tokens, account mirror, quote state | direct `/swap?tab=...`, modal reopen, route-param reset |
+| Send insufficient-balance route | Send source surface | imported token and amount, quote readiness, no-wallet warning | Send -> Swap with wallet disconnected and unsupported account states |
+| Earn/Staking funding route | `useHandleSwap` / Earn source | `ESwapSource.EARN`, imported `from/to` tokens, Swap execution | Earn -> Swap prefill, then quote/review owns execution |
+| Market speed-swap | Market detail swap panel | execution payload, build/send/history | Market token context and presets, then Swap payload proof |
+| Native/mobile Limit or K-line | mobile host/dialog owner plus Swap hooks | native-specific Limit focus and dialog/page variant | iOS/Android dialog, bottom sheet, keyboard/safe area, K-line variant |
+
+The entry source owns only prefill, analytics source, and host navigation. Once
+the Swap route is mounted and quote starts, debug selected-token atoms, quote
+progress, review snapshot, build/send, pending, and status in the Swap spine.
+
 ## Selection And Account Resolution
 
 Resolve these identities separately:
@@ -126,8 +144,9 @@ Use this when a new channel appears:
 
 Use this pass before patching broad Swap issues:
 
-1. Framework: identify the entry surface (`Swap`, `Home`, `Send`, `Market`,
-   `Earn`, `Buy`), route/modal host, provider mirrors, and package boundary.
+1. Framework: identify the entry surface (`Swap`, `Wallet Home`, `Home Token`,
+   `Send`, `Market`, `Earn`, `Buy`), route/modal host, provider mirrors, and
+   package boundary.
 2. State machine: trace visible tab type, internal execution type, route params,
    selected-token atoms, cold-start snapshot, quote progress, review snapshot,
    build/send result, local history, status listener, and replay/repair.

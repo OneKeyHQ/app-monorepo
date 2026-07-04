@@ -12,6 +12,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import { Accordion, Stack, YStack } from '@onekeyhq/components';
+import type { IProtocolPositionProviderDisplayInfo } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
 import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
@@ -90,6 +91,7 @@ const ProtocolDesktopLayout = memo(
       accountId?: string;
       indexedAccountId?: string;
       protocolDisplayInfo: IDeFiProtocolDisplayInfo;
+      providerDisplayInfo?: IProtocolPositionProviderDisplayInfo;
       isAllNetworks?: boolean;
       currencySymbol: string;
       positionCountText: string;
@@ -108,6 +110,7 @@ const ProtocolDesktopLayout = memo(
         accountId,
         indexedAccountId,
         protocolDisplayInfo,
+        providerDisplayInfo,
         isAllNetworks,
         currencySymbol,
         positionCountText,
@@ -210,6 +213,7 @@ const ProtocolDesktopLayout = memo(
                         protocol.indexedAccountId ?? indexedAccountId
                       }
                       protocol={protocol}
+                      providerDisplayInfo={providerDisplayInfo}
                       group={group}
                       currencySymbol={currencySymbol}
                       priceUnavailableLabel={priceUnavailableLabel}
@@ -281,6 +285,17 @@ function useProtocolViewModel({
       }),
     [protocol, protocolInfo],
   );
+  const providerDisplayInfo = useMemo<
+    IProtocolPositionProviderDisplayInfo | undefined
+  >(() => {
+    if (!protocolInfo?.protocolName && !protocolInfo?.protocolLogo) {
+      return undefined;
+    }
+    return {
+      providerDisplayName: protocolInfo?.protocolName || undefined,
+      providerLogoURI: protocolInfo?.protocolLogo || undefined,
+    };
+  }, [protocolInfo?.protocolLogo, protocolInfo?.protocolName]);
   const positionCountText = useMemo(
     () =>
       `${positionsLength} ${intl.formatMessage({
@@ -308,6 +323,7 @@ function useProtocolViewModel({
     positionCountText,
     priceUnavailableLabel,
     partialPriceUnavailableLabel,
+    providerDisplayInfo,
     protocolDisplayInfo,
     protocolInfo,
     supportedActions,
@@ -354,6 +370,7 @@ const Protocol = forwardRef<IProtocolHandle, IProtocolProps>(
         indexedAccountId={indexedAccountId}
         protocol={protocol}
         protocolDisplayInfo={viewModel.protocolDisplayInfo}
+        providerDisplayInfo={viewModel.providerDisplayInfo}
         isAllNetworks={isAllNetworks}
         currencySymbol={viewModel.currencySymbol}
         positionCountText={viewModel.positionCountText}

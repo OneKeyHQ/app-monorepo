@@ -36,6 +36,13 @@ export function showOneKeyIdLoginFailedToast({
   }
 
   Toast.error({
-    title: intl.formatMessage({ id: ETranslations.id_login_failed }),
+    // NOTE: the dedicated `id_login_failed` key is not present in the current
+    // auto-generated translations (dropped when merging the newer x i18n
+    // generation), so use the existing generic error message instead of
+    // hand-editing the generated locale files. Restore `id_login_failed` via
+    // `yarn i18n:pull` when reconciling this branch.
+    title: intl.formatMessage({
+      id: ETranslations.global_unknown_error_retry_message,
+    }),
   });
 }

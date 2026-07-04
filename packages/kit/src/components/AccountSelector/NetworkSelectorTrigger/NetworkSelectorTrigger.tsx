@@ -18,10 +18,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
 import {
-  useAccountSelectorActions,
   useAccountSelectorStorageReadyAtom,
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import useConfigurableChainSelector from '../../../views/ChainSelector/hooks/useChainSelector';
 import { ChainSelectorInput } from '../../ChainSelectorInput';
 import { NetworkAvatar } from '../../NetworkAvatar';

@@ -1,3 +1,4 @@
+import '@onekeyhq/components/src/hocs/Provider/web-fonts.css';
 import { createLazyKitProvider } from '@onekeyhq/kit/src/provider/createLazyKitProvider';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import '@onekeyhq/shared/src/web/index.css';

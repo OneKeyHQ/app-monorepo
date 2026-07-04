@@ -7,7 +7,7 @@ import { Dialog, Spinner, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { useSupabaseAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/useSupabaseAuth';
-import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
 import {
@@ -19,7 +19,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import supabaseStorageInstance from '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance';
-import { getSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
@@ -74,6 +73,7 @@ export function useOneKeyAuthMethods() {
     supabaseUser,
     signInWithOtp: supabaseSignInWithOtp,
     verifyOtp: supabaseVerifyOtp,
+    getSupabaseClient,
   } = useSupabaseAuth();
 
   const apiLogout = useCallback(
@@ -208,6 +208,7 @@ export function useOneKeyAuthMethods() {
     clearLegacySupabaseSession,
     signInWithSocialLogin,
     persistKeylessOAuthSession,
+    getSupabaseClient,
   ]);
 }
 

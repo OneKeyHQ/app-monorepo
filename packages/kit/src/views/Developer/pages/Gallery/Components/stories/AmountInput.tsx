@@ -12,8 +12,8 @@ import {
   Stack,
   XStack,
   YStack,
-  useForm,
 } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { NetworksFilterItem } from '@onekeyhq/kit/src/components/NetworksFilterItem';
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';

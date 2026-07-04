@@ -6,12 +6,12 @@ import { useIntl } from 'react-intl';
 import {
   Icon,
   Image,
-  Popover,
   SizableText,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
@@ -147,7 +147,7 @@ function TokenTagsPopover({
 
   return (
     <Stack onPress={handlePress}>
-      <Popover
+      <LazyPopover
         title={intl.formatMessage({ id: ETranslations.send_tag })}
         placement="bottom"
         renderTrigger={triggerElements}

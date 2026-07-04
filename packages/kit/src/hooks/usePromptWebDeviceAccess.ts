@@ -4,7 +4,27 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-import { getWebUsbDeviceFilters } from './usePromptWebDeviceAccessUtils';
+import {
+  getWebUsbDeviceFilters,
+  isWebUsbNoDeviceSelectedError,
+} from './usePromptWebDeviceAccessUtils';
+
+function serializeWebDeviceAccessError(error: unknown) {
+  if (error && typeof error === 'object') {
+    const errorRecord = error as Record<string, unknown>;
+    return {
+      name: typeof errorRecord.name === 'string' ? errorRecord.name : undefined,
+      message:
+        typeof errorRecord.message === 'string'
+          ? errorRecord.message
+          : undefined,
+      error: String(error),
+    };
+  }
+  return {
+    error: String(error),
+  };
+}
 
 export function usePromptWebDeviceAccess() {
   /**
@@ -17,10 +37,27 @@ export function usePromptWebDeviceAccess() {
         const device = await navigator.usb.requestDevice({
           filters: getWebUsbDeviceFilters(vendor),
         });
-        console.log('USB device permission granted:', device);
         return device;
       } catch (error) {
-        console.error('Failed to request USB device permission:', error);
+        if (platformEnv.isDesktop) {
+          try {
+            // Installing udev rules here prepares the next browser prompt; the
+            // current requestDevice() rejection still needs to propagate.
+            await backgroundApiProxy.serviceHardware.handleLinuxWebUsbAccessDeniedError(
+              {
+                error: serializeWebDeviceAccessError(error),
+              },
+            );
+          } catch (handleError) {
+            console.error(
+              'Failed to handle Linux WebUSB access error:',
+              handleError,
+            );
+          }
+        }
+        if (!isWebUsbNoDeviceSelectedError(error)) {
+          console.error('Failed to request USB device permission:', error);
+        }
         throw error;
       }
     },

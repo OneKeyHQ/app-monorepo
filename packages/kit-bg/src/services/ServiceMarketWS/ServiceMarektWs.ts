@@ -42,9 +42,14 @@ type ISubscriptionRetryQuery = {
   address: string;
   type: ISubscriptionType;
   networkId: string;
+  symbol?: string;
   chartType?: string;
   currency?: string;
 };
+
+function normalizeSubscriptionSymbol(symbol: string | undefined) {
+  return symbol?.trim().toUpperCase() ?? '';
+}
 
 class ServiceMarketWS extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -94,6 +99,7 @@ class ServiceMarketWS extends ServiceBase {
       address: subscription.address,
       type: subscription.type,
       networkId: subscription.networkId,
+      symbol: subscription.symbol,
       chartType: subscription.chartType,
       currency: subscription.currency,
     };
@@ -159,6 +165,34 @@ class ServiceMarketWS extends ServiceBase {
 
   private getUniqueSubscriptionNetworkId(subscriptions: ISubscription[]) {
     return subscriptions.length === 1 ? subscriptions[0].networkId : undefined;
+  }
+
+  private emitMarketDataUpdate({
+    channel,
+    tokenAddress,
+    networkId,
+    isSubscriptionAmbiguous,
+    messageType,
+    data,
+    originalData,
+  }: {
+    channel: ISubscriptionType;
+    tokenAddress: string;
+    networkId?: string;
+    isSubscriptionAmbiguous: boolean;
+    messageType: string | undefined;
+    data: unknown;
+    originalData: unknown;
+  }) {
+    appEventBus.emit(EAppEventBusNames.MarketWSDataUpdate, {
+      channel,
+      tokenAddress,
+      networkId,
+      isSubscriptionAmbiguous,
+      messageType,
+      data,
+      originalData,
+    });
   }
 
   private autoUnsubscribeStaleSubscriptions(subscriptions: ISubscription[]) {
@@ -231,12 +265,14 @@ class ServiceMarketWS extends ServiceBase {
   async ensureSubscription({
     networkId,
     tokenAddress,
+    symbol,
     chartType,
     currency,
     channel,
   }: {
     networkId: string;
     tokenAddress: string;
+    symbol?: string;
     chartType?: string;
     currency?: string;
     channel: string;
@@ -249,6 +285,7 @@ class ServiceMarketWS extends ServiceBase {
       address: tokenAddress,
       type: channel as ISubscriptionType,
       networkId,
+      symbol,
       chartType,
       currency,
     };
@@ -282,6 +319,7 @@ class ServiceMarketWS extends ServiceBase {
       await this.subscribeOHLCV({
         networkId,
         tokenAddress,
+        symbol,
         chartType,
         currency,
       });
@@ -468,11 +506,13 @@ class ServiceMarketWS extends ServiceBase {
   async subscribeOHLCV({
     networkId,
     tokenAddress,
+    symbol,
     chartType = '1m',
     currency = 'usd',
   }: {
     networkId: string;
     tokenAddress: string;
+    symbol?: string;
     chartType?: string;
     currency?: string;
   }) {
@@ -490,6 +530,7 @@ class ServiceMarketWS extends ServiceBase {
         address: tokenAddress,
         type: EChannel.ohlcv,
         networkId,
+        symbol,
         chartType,
         currency,
       });
@@ -514,6 +555,7 @@ class ServiceMarketWS extends ServiceBase {
       address: tokenAddress,
       type: EChannel.ohlcv,
       networkId,
+      symbol,
       chartType,
       currency,
     });
@@ -752,6 +794,16 @@ class ServiceMarketWS extends ServiceBase {
         type: EChannel.ohlcv,
         chartType: priceData.type,
       });
+      if (!tokenAddress) {
+        const priceDataSymbol = normalizeSubscriptionSymbol(priceData.symbol);
+        matchedSubscriptions = priceDataSymbol
+          ? matchedSubscriptions.filter(
+              (subscription) =>
+                normalizeSubscriptionSymbol(subscription.symbol) ===
+                priceDataSymbol,
+            )
+          : [];
+      }
       if (matchedSubscriptions.length === 0) {
         // If no subscription found, skip this message
         return;
@@ -762,13 +814,30 @@ class ServiceMarketWS extends ServiceBase {
 
     const isSubscriptionAmbiguous = matchedSubscriptions.length > 1;
     const networkId = this.getUniqueSubscriptionNetworkId(matchedSubscriptions);
+    if (messageType === EMessageType.PRICE_DATA && !tokenAddress) {
+      this.incrementDataCountForSubscriptions(matchedSubscriptions);
+      this.autoUnsubscribeStaleSubscriptions(matchedSubscriptions);
+      matchedSubscriptions.forEach((subscription) => {
+        this.emitMarketDataUpdate({
+          channel,
+          tokenAddress,
+          networkId: subscription.networkId,
+          isSubscriptionAmbiguous: false,
+          messageType,
+          data: processedData,
+          originalData: data,
+        });
+      });
+      return;
+    }
+
     if (!isSubscriptionAmbiguous) {
       this.incrementDataCountForSubscriptions(matchedSubscriptions);
       this.autoUnsubscribeStaleSubscriptions(matchedSubscriptions);
     }
 
     // Emit event to app event bus with standardized format
-    appEventBus.emit(EAppEventBusNames.MarketWSDataUpdate, {
+    this.emitMarketDataUpdate({
       channel,
       tokenAddress,
       networkId,

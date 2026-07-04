@@ -20,9 +20,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { MarketBannerList } from '../components/MarketBanner';
 import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketListColumnHeader } from '../components/MarketListColumnHeader';
-import { MobileMarketPerpsFlatList } from '../components/MarketPerpsList';
 import { useSyncedMarketPerpsCategory } from '../components/MarketPerpsList/hooks/useSyncedMarketPerpsCategory';
 import { MarketPerpsCategorySelector } from '../components/MarketPerpsList/MarketPerpsCategorySelector';
+import { MobileMarketPerpsFlatList } from '../components/MarketPerpsList/MobileMarketPerpsFlatList';
 import { useIsWatchlistTokenCacheReady } from '../components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import {
   type IWatchlistFilterType,

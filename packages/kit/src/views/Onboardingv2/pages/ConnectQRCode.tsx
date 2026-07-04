@@ -28,7 +28,7 @@ import { OnboardingPage } from '../components/Layout';
 import { OnboardingTestIDs } from '../testIDs';
 import { trackHardwareWalletConnection } from '../utils';
 
-import { ConnectionIndicator } from './ConnectYourDevice';
+import { ConnectionIndicator } from './ConnectionIndicator';
 
 function ConnectQRCodePage() {
   const { createQrWallet } = useCreateQrWallet();

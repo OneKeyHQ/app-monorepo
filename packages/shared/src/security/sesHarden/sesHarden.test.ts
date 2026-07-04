@@ -101,8 +101,8 @@ test('warms up override-mistake libraries before calling lockdown', () => {
 
   expect(warmUp).toHaveBeenCalledTimes(1);
   expect(lockdown).toHaveBeenCalledTimes(1);
-  // The warm-up MUST run before the freeze; otherwise an offender like
-  // decimal.js would still patch a frozen intrinsic and throw at module init.
+  // The warm-up MUST run before the freeze for dependencies that are already
+  // part of the startup graph.
   expect(calls).toEqual(['warmUp', 'lockdown']);
 });
 

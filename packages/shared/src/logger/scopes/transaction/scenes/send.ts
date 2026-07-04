@@ -68,8 +68,8 @@ export class SendScene extends BaseScene {
     return this._sendFlowId;
   }
 
-  startNewFlow() {
-    this._sendFlowId = generateUUID();
+  startNewFlow(sendFlowId = generateUUID()) {
+    this._sendFlowId = sendFlowId;
     this._addressInputMethod = undefined;
     return this._sendFlowId;
   }

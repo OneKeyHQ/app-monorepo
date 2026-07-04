@@ -21,10 +21,10 @@ import {
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import {
   getDevSettingsNetworkThrottleEnabled,
-  useAppIsLockedAtom,
   useDevSettingsPersistAtom,
-  useOnboardingConnectWalletLoadingAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/onboarding';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import {
   EAppUpdateStatus,
   EUpdateFileType,
@@ -75,7 +75,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '../components/AccountSelector';
+import { AccountSelectorProviderMirror } from '../components/AccountSelector/AccountSelectorProvider';
 import {
   AppUpdateForeground,
   isAutoUpdateStrategy,
@@ -439,30 +439,46 @@ export const useFetchCurrencyList = () => {
 
 export const useFetchMarketBasicConfig = () => {
   useEffect(() => {
-    void backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
+    const fetchMarketBasicConfig = () => {
+      void backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
+    };
+    if (platformEnv.isWeb) {
+      const timer = setTimeout(fetchMarketBasicConfig, 6000);
+      return () => clearTimeout(timer);
+    }
+    fetchMarketBasicConfig();
+    return undefined;
   }, []);
 };
 
 export const useFetchPerpConfig = () => {
   useEffect(() => {
-    void pRetry(
-      async (attemptNumber) => {
-        try {
-          if (attemptNumber === 1) {
-            return await backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
+    const fetchPerpConfig = () => {
+      void pRetry(
+        async (attemptNumber) => {
+          try {
+            if (attemptNumber === 1) {
+              return await backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
+            }
+            return await backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
+          } catch (err) {
+            errorToastUtils.toastIfErrorDisable(err);
+            throw err;
           }
-          return await backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
-        } catch (err) {
-          errorToastUtils.toastIfErrorDisable(err);
-          throw err;
-        }
-      },
-      {
-        retries: PERPS_CONFIG_FETCH_MAX_RETRIES,
-        minTimeout: PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS,
-        maxTimeout: PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS,
-      },
-    ).catch(noop);
+        },
+        {
+          retries: PERPS_CONFIG_FETCH_MAX_RETRIES,
+          minTimeout: PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS,
+          maxTimeout: PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS,
+        },
+      ).catch(noop);
+    };
+    if (platformEnv.isWeb) {
+      const timer = setTimeout(fetchPerpConfig, 6000);
+      return () => clearTimeout(timer);
+    }
+    fetchPerpConfig();
+    return undefined;
   }, []);
 };
 
@@ -545,10 +561,17 @@ export const useIntercomInit = () => {
   const isInitializedRef = useRef(false);
 
   useEffect(() => {
-    if (!isInitializedRef.current) {
-      void initIntercom();
-      isInitializedRef.current = true;
-    }
+    const timer = setTimeout(
+      () => {
+        if (isInitializedRef.current) {
+          return;
+        }
+        void initIntercom();
+        isInitializedRef.current = true;
+      },
+      timerUtils.getTimeDurationMs({ seconds: 10 }),
+    );
+    return () => clearTimeout(timer);
   }, []);
 };
 
@@ -558,25 +581,33 @@ export const useLaunchEvents = (): void => {
   const hasLaunchEventsExecutedRef = useRef(false);
   useEffect(() => {
     if (isLocked || hasLaunchEventsExecutedRef.current) {
-      return;
+      return undefined;
     }
-    void backgroundApiProxy.serviceAppUpdate
-      .getUpdateStatus()
-      .then((updateStatus: EAppUpdateStatus) => {
-        if (updateStatus === EAppUpdateStatus.ready) {
-          return;
-        }
-        hasLaunchEventsExecutedRef.current = true;
-        setTimeout(async () => {
-          await backgroundApiProxy.serviceApp.updateLaunchTimes();
-          if (
-            platformEnv.isExtensionUiPopup ||
-            platformEnv.isExtensionUiSidePanel
-          ) {
-            await launchFloatingIconEvent(intl);
+    const runLaunchEvents = () => {
+      void backgroundApiProxy.serviceAppUpdate
+        .getUpdateStatus()
+        .then((updateStatus: EAppUpdateStatus) => {
+          if (updateStatus === EAppUpdateStatus.ready) {
+            return;
           }
-        }, 250);
-      });
+          hasLaunchEventsExecutedRef.current = true;
+          setTimeout(async () => {
+            await backgroundApiProxy.serviceApp.updateLaunchTimes();
+            if (
+              platformEnv.isExtensionUiPopup ||
+              platformEnv.isExtensionUiSidePanel
+            ) {
+              await launchFloatingIconEvent(intl);
+            }
+          }, 250);
+        });
+    };
+    if (platformEnv.isWeb) {
+      const timer = setTimeout(runLaunchEvents, 6000);
+      return () => clearTimeout(timer);
+    }
+    runLaunchEvents();
+    return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLocked]);
 };

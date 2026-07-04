@@ -109,7 +109,12 @@ async function keyFromPasswordAndSalt({
 
   const saltBuffer = bufferUtils.toBuffer(salt);
 
-  if (platformEnv.isNative || ALLOW_USE_WEB_CRYPTO_SUBTLE || kdfBackend) {
+  if (
+    platformEnv.isNative ||
+    platformEnv.isJest ||
+    ALLOW_USE_WEB_CRYPTO_SUBTLE ||
+    kdfBackend
+  ) {
     const r: Buffer = await keyFromPasswordAndSaltAsync({
       password,
       salt: saltBuffer,

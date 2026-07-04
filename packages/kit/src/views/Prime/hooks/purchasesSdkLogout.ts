@@ -1,7 +1,8 @@
-import { Purchases } from '@revenuecat/purchases-js';
+import { loadPurchasesSdkWeb } from '../purchasesSdk/purchasesSdkWebLoader';
 
 export async function logoutPurchasesSdk() {
   try {
+    const { Purchases } = await loadPurchasesSdkWeb();
     if (!Purchases.isConfigured()) {
       return;
     }

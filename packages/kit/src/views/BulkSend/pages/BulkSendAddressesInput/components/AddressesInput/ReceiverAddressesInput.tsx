@@ -9,8 +9,8 @@ import {
   type IFieldErrorProps,
   SizableText,
   YStack,
-  useFormContext,
 } from '@onekeyhq/components';
+import { useFormContext } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';

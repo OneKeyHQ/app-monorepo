@@ -1,5 +1,5 @@
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IMarketBasicConfigHomeTab,
   IMarketBasicConfigNetwork,
@@ -8,6 +8,7 @@ import type {
   IMarketSpotCategory,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { fetchMarketBasicConfigForPlatform } from './fetchMarketBasicConfigForPlatform';
 import {
   formatLiquidityValue,
   getDefaultNetworkId,
@@ -29,8 +30,7 @@ const EMPTY_HOME_TABS: IMarketBasicConfigHomeTab[] = [];
 export function useMarketBasicConfig() {
   const { result, isLoading } = usePromiseResult(
     async () => {
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
+      const response = await fetchMarketBasicConfigForPlatform();
       const configData = response?.data;
 
       if (!configData) {
@@ -65,6 +65,7 @@ export function useMarketBasicConfig() {
     },
     [],
     {
+      checkIsFocused: !platformEnv.isWeb,
       watchLoading: true,
       revalidateOnReconnect: true,
     },

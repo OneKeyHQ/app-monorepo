@@ -2,6 +2,7 @@ import { memo, useMemo } from 'react';
 
 import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { DeFiPositionHealthFactorRow } from '@onekeyhq/kit/src/components/DeFi/DeFiPositionHealthFactorRow';
+import type { IProtocolPositionProviderDisplayInfo } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
 import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import {
   type ILocalizedProtocolCategoryGroup,
@@ -49,6 +50,7 @@ type IProtocolCategoryGroupProps = {
   accountId?: string;
   indexedAccountId?: string;
   protocol: IDeFiProtocol;
+  providerDisplayInfo?: IProtocolPositionProviderDisplayInfo;
   group: ILocalizedProtocolCategoryGroup;
   currencySymbol: string;
   priceUnavailableLabel: string;
@@ -64,6 +66,7 @@ const ProtocolCategoryGroup = memo(
     accountId,
     indexedAccountId,
     protocol,
+    providerDisplayInfo,
     group,
     currencySymbol,
     priceUnavailableLabel,
@@ -130,6 +133,7 @@ const ProtocolCategoryGroup = memo(
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
                   protocol={protocol}
+                  providerDisplayInfo={providerDisplayInfo}
                   position={position}
                   actionPosition={actionPosition}
                   currencySymbol={currencySymbol}
@@ -155,6 +159,7 @@ const ProtocolCategoryGroup = memo(
           accountId={accountId}
           indexedAccountId={indexedAccountId}
           protocol={protocol}
+          providerDisplayInfo={providerDisplayInfo}
           rows={group.rows}
           currencySymbol={currencySymbol}
           priceUnavailableLabel={priceUnavailableLabel}

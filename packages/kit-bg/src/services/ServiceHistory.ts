@@ -24,6 +24,7 @@ import {
   isHistoryCursorAdvanced,
   sortHistoryTxsByTime,
 } from '@onekeyhq/shared/src/utils/historyUtils';
+import { isHyperliquidDirectDepositTx } from '@onekeyhq/shared/src/utils/hyperliquidDepositUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   PROMISE_CONCURRENCY_LIMIT,
@@ -40,6 +41,7 @@ import type {
   IAddressInfo,
 } from '@onekeyhq/shared/types/address';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
+import { DEFI_PORTFOLIO_ACTION_STAKING_TAG } from '@onekeyhq/shared/types/defi';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountHistoryTx,
@@ -71,9 +73,15 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
+import { perpsDepositOrderAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import {
+  getKnownPerpsDepositOrderTxIds,
+  isPerpsDepositOrderMatchedByTxIds,
+  shouldKeepHistoryConfirmationMarker,
+} from './utils/perpsDepositHistoryUtils';
 
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
 import type { IDBAccount } from '../dbs/local/types';
@@ -151,6 +159,42 @@ function mergeNullishRecordFields<T extends Record<string, unknown>>({
     }
   });
   return result as T;
+}
+
+async function findKnownPerpsDepositOrderTx({
+  txid,
+  originalTxId,
+}: {
+  txid: string | undefined;
+  originalTxId: string | undefined;
+}) {
+  const txIds = getKnownPerpsDepositOrderTxIds({ txid, originalTxId });
+  if (txIds.size === 0) {
+    return undefined;
+  }
+  const perpsDepositOrder = await perpsDepositOrderAtom.get();
+  return perpsDepositOrder.orders.find((order) =>
+    isPerpsDepositOrderMatchedByTxIds(order, txIds),
+  );
+}
+
+async function clearHistoryConsumedPerpsDepositOrderTx({
+  txid,
+  originalTxId,
+}: {
+  txid: string | undefined;
+  originalTxId: string | undefined;
+}) {
+  const txIds = getKnownPerpsDepositOrderTxIds({ txid, originalTxId });
+  if (txIds.size === 0) {
+    return;
+  }
+  await perpsDepositOrderAtom.set((prev) => ({
+    ...prev,
+    orders: prev.orders.filter((order) =>
+      shouldKeepHistoryConfirmationMarker(order, txIds),
+    ),
+  }));
 }
 
 function mergePrivateSendPayloadFields({
@@ -1158,6 +1202,10 @@ class ServiceHistory extends ServiceBase {
         networkId: string;
       }[],
       accountsWithChangedTxs: [] as { accountId: string; networkId: string }[],
+      accountsWithCompletedDeFiPortfolioTxs: [] as {
+        accountId: string;
+        networkId: string;
+      }[],
     };
   }
 
@@ -1273,6 +1321,24 @@ class ServiceHistory extends ServiceBase {
     let confirmedTxs: IAccountHistoryTx[] = [];
     // Transactions still in pending status
     const pendingTxs: IAccountHistoryTx[] = [];
+    const accountsWithCompletedDeFiPortfolioTxs: {
+      accountId: string;
+      networkId: string;
+    }[] = [];
+    const addCompletedDeFiPortfolioTxAccount = (item: {
+      accountId: string;
+      networkId: string;
+    }) => {
+      if (
+        !accountsWithCompletedDeFiPortfolioTxs.some(
+          (account) =>
+            account.accountId === item.accountId &&
+            account.networkId === item.networkId,
+        )
+      ) {
+        accountsWithCompletedDeFiPortfolioTxs.push(item);
+      }
+    };
 
     // Fetch details of locally pending transactions
     const onChainHistoryTxsDetails = await promiseAllSettledEnhanced(
@@ -1357,13 +1423,64 @@ class ServiceHistory extends ServiceBase {
         await this.backgroundApi.serviceAccount.getDBAccountSafe({
           accountId: txAccountId,
         });
+      const knownPerpsDepositOrder = await findKnownPerpsDepositOrderTx({
+        txid: tx.decodedTx.txid,
+        originalTxId: tx.decodedTx.originalTxId,
+      });
+      const isPerpsDepositTx =
+        isHyperliquidDirectDepositTx(tx.decodedTx) ||
+        Boolean(knownPerpsDepositOrder);
+      let txAccountAddress: string | undefined;
+      let txDeriveType: string | IAccountDeriveTypes | undefined;
+      if (isPerpsDepositTx) {
+        const txAccountInfo = [...accounts, ...allAccounts].find(
+          (account) =>
+            account.accountId === txAccountId &&
+            account.networkId === tx.decodedTx.networkId,
+        );
+        txAccountAddress = txAccountInfo?.apiAddress;
+        if (!txAccountAddress) {
+          try {
+            txAccountAddress =
+              await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+                accountId: txAccountId,
+                networkId: tx.decodedTx.networkId,
+              });
+          } catch {
+            txAccountAddress = undefined;
+          }
+        }
+        const parsedTxAccountId = accountUtils.parseAccountId({
+          accountId: txAccountId,
+        });
+        const normalizedTxDeriveType = accountUtils.normalizeDeriveType(
+          parsedTxAccountId.idSuffix ?? '',
+        );
+        txDeriveType =
+          txAccountInfo?.deriveType ??
+          normalizedTxDeriveType ??
+          (parsedTxAccountId.idSuffix ? undefined : 'default');
+      }
       appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
         accountId: txAccountId,
         indexedAccountId: txDBAccount?.indexedAccountId,
+        accountAddress: txAccountAddress,
+        deriveType: txDeriveType,
+        perpsAccountId: knownPerpsDepositOrder?.accountId,
+        perpsIndexedAccountId: knownPerpsDepositOrder?.indexedAccountId,
+        perpsAccountAddress: knownPerpsDepositOrder?.perpsAccountAddress,
+        perpsDeriveType: knownPerpsDepositOrder?.perpsDeriveType,
         networkId: tx.decodedTx.networkId,
         txid: tx.decodedTx.txid,
         status: tx.decodedTx.status,
+        isPerpsDepositTx,
       });
+      if (knownPerpsDepositOrder?.keepForHistoryConfirmation) {
+        await clearHistoryConsumedPerpsDepositOrderTx({
+          txid: tx.decodedTx.txid,
+          originalTxId: tx.decodedTx.originalTxId,
+        });
+      }
     }
 
     // 3. Get the locally confirmed transactions
@@ -1581,8 +1698,20 @@ class ServiceHistory extends ServiceBase {
 
     if (changedPendingTxInfos.length > 0) {
       // Check if staking transaction status has changed, if so request backend to update order status
-      await this.backgroundApi.serviceStaking.updateEarnOrder({
-        txs: changedPendingTxInfos,
+      const updatedEarnOrders =
+        await this.backgroundApi.serviceStaking.updateEarnOrder({
+          txs: changedPendingTxInfos,
+        });
+      updatedEarnOrders.forEach(({ tx, order }) => {
+        if (
+          tx.status === EDecodedTxStatus.Confirmed &&
+          order.stakingTags?.includes(DEFI_PORTFOLIO_ACTION_STAKING_TAG)
+        ) {
+          addCompletedDeFiPortfolioTxAccount({
+            accountId: tx.accountId,
+            networkId: tx.networkId,
+          });
+        }
       });
     }
 
@@ -1635,6 +1764,7 @@ class ServiceHistory extends ServiceBase {
           networkId: n,
         };
       }),
+      accountsWithCompletedDeFiPortfolioTxs,
     };
   }
 
@@ -1751,6 +1881,10 @@ class ServiceHistory extends ServiceBase {
       string,
       { accountId: string; networkId: string }
     >();
+    const deFiPortfolioByKey = new Map<
+      string,
+      { accountId: string; networkId: string }
+    >();
     const aggregatedAllAccounts: IAllNetworkAccountInfo[] = [];
     const keyOf = (i: { accountId: string; networkId: string }) =>
       `${i.accountId}_${i.networkId}`;
@@ -1767,6 +1901,9 @@ class ServiceHistory extends ServiceBase {
         }
         for (const item of response.accountsWithChangedConfirmedTxs) {
           confirmedByKey.set(keyOf(item), item);
+        }
+        for (const item of response.accountsWithCompletedDeFiPortfolioTxs) {
+          deFiPortfolioByKey.set(keyOf(item), item);
         }
         aggregatedAllAccounts.push(...response.allAccounts);
 
@@ -1824,6 +1961,9 @@ class ServiceHistory extends ServiceBase {
       accountsWithChangedPendingTxs: dedupedPending,
       accountsWithChangedConfirmedTxs: dedupedConfirmed,
       accountsWithChangedTxs: dedupedAll,
+      accountsWithCompletedDeFiPortfolioTxs: Array.from(
+        deFiPortfolioByKey.values(),
+      ),
     };
   }
 

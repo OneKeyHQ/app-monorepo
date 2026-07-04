@@ -15,7 +15,10 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { DeFiPositionHealthFactorRow } from '@onekeyhq/kit/src/components/DeFi/DeFiPositionHealthFactorRow';
-import { ProtocolPositionActionButton } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
+import {
+  type IProtocolPositionProviderDisplayInfo,
+  ProtocolPositionActionButton,
+} from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
 import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import { ProtocolPositionSection } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionSection';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
@@ -138,6 +141,17 @@ function DeFiProtocolDetails() {
       }),
     [protocol, protocolInfo],
   );
+  const providerDisplayInfo = useMemo<
+    IProtocolPositionProviderDisplayInfo | undefined
+  >(() => {
+    if (!protocolInfo?.protocolName && !protocolInfo?.protocolLogo) {
+      return undefined;
+    }
+    return {
+      providerDisplayName: protocolInfo?.protocolName || undefined,
+      providerLogoURI: protocolInfo?.protocolLogo || undefined,
+    };
+  }, [protocolInfo?.protocolLogo, protocolInfo?.protocolName]);
 
   return (
     <Page scrollEnabled>
@@ -276,6 +290,7 @@ function DeFiProtocolDetails() {
                               accountId: actionAccountId,
                               indexedAccountId: actionIndexedAccountId,
                               protocol,
+                              providerDisplayInfo,
                               actionPosition,
                               supportedActions,
                               onActionSuccess: handleActionSuccess,
@@ -289,6 +304,7 @@ function DeFiProtocolDetails() {
                       accountId={actionAccountId}
                       indexedAccountId={actionIndexedAccountId}
                       protocol={protocol}
+                      providerDisplayInfo={providerDisplayInfo}
                       position={actionPosition}
                       supportedActions={supportedActions}
                       block

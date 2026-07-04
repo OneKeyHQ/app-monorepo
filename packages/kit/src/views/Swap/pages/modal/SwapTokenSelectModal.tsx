@@ -31,7 +31,7 @@ import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSe
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import {
   useSwapActions,
   useSwapNetworksAtom,
@@ -128,52 +128,35 @@ const getRawSwapToken = (item: ISwapToken | IFuseResult<ISwapToken>) =>
     : (item as ISwapToken);
 
 const EMPTY_SWAP_TOKEN_LIST: (ISwapToken | IFuseResult<ISwapToken>)[] = [];
-const SWAP_TOKEN_SELECTOR_LOADING_ROW_COUNT = 8;
+const TOKEN_SELECTOR_LOADING_ROW_COUNT = 5;
 
-function SwapTokenSelectListSkeletonItem({ index }: { index: number }) {
-  const isNarrowValueRow = index % 3 === 1;
-
+function SwapTokenSelectListSkeletonItem() {
   return (
     <ListItem>
+      <Skeleton w="$10" h="$10" radius="round" />
       <YStack>
-        <Skeleton w="$10" h="$10" radius="round" />
+        <YStack py="$1">
+          <Skeleton h="$4" w="$32" />
+        </YStack>
+        <YStack py="$1">
+          <Skeleton h="$3" w="$24" />
+        </YStack>
       </YStack>
-      <ListItem.Text
-        flex={1}
-        primary={<Skeleton h="$5" w={isNarrowValueRow ? '$20' : '$28'} />}
-        secondary={<Skeleton h="$4" w={isNarrowValueRow ? '$16' : '$24'} />}
-      />
-      <ListItem.Text
-        align="right"
-        alignItems="flex-end"
-        primary={<Skeleton h="$5" w={isNarrowValueRow ? '$12' : '$16'} />}
-        secondary={<Skeleton h="$4" w={isNarrowValueRow ? '$10' : '$14'} />}
-      />
-      <Stack
-        alignSelf="center"
-        w="$10"
-        h="$10"
-        alignItems="center"
-        justifyContent="center"
-      >
-        <Skeleton w="$5" h="$5" radius="round" />
-      </Stack>
     </ListItem>
   );
 }
 
 function SwapTokenSelectListSkeleton() {
   return (
-    <YStack>
-      {Array.from({ length: SWAP_TOKEN_SELECTOR_LOADING_ROW_COUNT }).map(
+    <>
+      {Array.from({ length: TOKEN_SELECTOR_LOADING_ROW_COUNT }).map(
         (_, index) => (
           <SwapTokenSelectListSkeletonItem
             key={`swap-token-select-skeleton-${index}`}
-            index={index}
           />
         ),
       )}
-    </YStack>
+    </>
   );
 }
 
@@ -1003,6 +986,23 @@ const SwapTokenSelectPage = ({
     !isSwapStockSelectTarget &&
     currentNetworkPopularTokens.length > 0 &&
     !requestedSearchKeyword;
+  const tokenListEmptyComponent = useMemo(() => {
+    if (tokenListLoading) {
+      return <SwapTokenSelectListSkeleton />;
+    }
+
+    return (
+      <Empty
+        illustration="TwoBlocks"
+        title={intl.formatMessage({
+          id: ETranslations.global_no_results,
+        })}
+        description={intl.formatMessage({
+          id: ETranslations.token_no_search_results_desc,
+        })}
+      />
+    );
+  }, [intl, tokenListLoading]);
   return (
     <Page lazyLoad={!platformEnv.isNativeIOS} safeAreaEnabled={false}>
       <Page.Header
@@ -1118,21 +1118,7 @@ const SwapTokenSelectPage = ({
               ) : null
             }
             ListFooterComponent={<Stack h={bottom || '$2'} />}
-            ListEmptyComponent={
-              tokenListLoading ? (
-                <SwapTokenSelectListSkeleton />
-              ) : (
-                <Empty
-                  illustration="TwoBlocks"
-                  title={intl.formatMessage({
-                    id: ETranslations.global_no_results,
-                  })}
-                  description={intl.formatMessage({
-                    id: ETranslations.token_no_search_results_desc,
-                  })}
-                />
-              )
-            }
+            ListEmptyComponent={tokenListEmptyComponent}
           />
         </YStack>
       </Page.Body>

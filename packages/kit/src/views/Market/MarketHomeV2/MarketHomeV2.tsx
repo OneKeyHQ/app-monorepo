@@ -27,6 +27,9 @@ import { useMarketBasicConfig } from '../hooks';
 import { useMarketHomePageEnterAnalytics } from '../hooks/useMarketEnterAnalytics';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
+import { preloadMarketHomeTokenListSeed } from '../utils/marketHomeTokenListSeed';
+import { markMarketPerf } from '../utils/marketPerf';
+import { useMarketRenderCommitProbe } from '../utils/marketReactPerf';
 
 import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
@@ -35,6 +38,9 @@ import { isMarketStockCategory } from './utils';
 
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketCategoryItem } from './types';
+
+markMarketPerf('market-home-module-eval');
+preloadMarketHomeTokenListSeed();
 
 function useRefreshWatchListV2OnFocus(isFocused: boolean) {
   const actions = useWatchListV2Actions();
@@ -47,6 +53,7 @@ function useRefreshWatchListV2OnFocus(isFocused: boolean) {
 }
 
 const useMarketHomeLayoutProps = () => {
+  markMarketPerf('market-home-layout-props-render');
   const intl = useIntl();
   const { md } = useMedia();
 
@@ -57,6 +64,10 @@ const useMarketHomeLayoutProps = () => {
     isLoading: isMarketBasicConfigLoading,
   } = useMarketBasicConfig();
   const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
+  const effectiveSelectedNetworkId =
+    platformEnv.isWeb && !selectedNetworkId
+      ? getNetworkIdsMap().onekeyall
+      : selectedNetworkId;
   const [
     { tab: selectedMarketTab, selectedSpotCategory, spotCategoryToSelect },
     setMarketSelectedTab,
@@ -67,7 +78,9 @@ const useMarketHomeLayoutProps = () => {
 
   // Market analytics hooks
   const { handleTabChange } = useTabAnalytics();
-  const { handleNetworkChange } = useNetworkAnalytics(selectedNetworkId);
+  const { handleNetworkChange } = useNetworkAnalytics(
+    effectiveSelectedNetworkId,
+  );
 
   // Initialize with "All Networks" as default (only when not yet initialized)
   useEffect(() => {
@@ -75,6 +88,7 @@ const useMarketHomeLayoutProps = () => {
     if (!selectedNetworkId) {
       // Default to "All Networks"
       const allNetworkId = getNetworkIdsMap().onekeyall;
+      markMarketPerf('market-home-selected-network-init', { allNetworkId });
       setSelectedNetworkId(allNetworkId);
     }
   }, [selectedNetworkId, setSelectedNetworkId]);
@@ -215,7 +229,7 @@ const useMarketHomeLayoutProps = () => {
   const layoutProps = useMemo(
     () => ({
       filterBarProps: {
-        selectedNetworkId,
+        selectedNetworkId: effectiveSelectedNetworkId,
         timeRange,
         liquidityFilter,
         onNetworkIdChange: handleNetworkIdChange,
@@ -225,12 +239,12 @@ const useMarketHomeLayoutProps = () => {
         categories,
         onCategoryChange: setSelectedCategory,
       },
-      selectedNetworkId,
+      selectedNetworkId: effectiveSelectedNetworkId,
       liquidityFilter,
       onTabChange: handleTabChange,
     }),
     [
-      selectedNetworkId,
+      effectiveSelectedNetworkId,
       timeRange,
       liquidityFilter,
       handleNetworkIdChange,
@@ -251,17 +265,21 @@ const useMarketHomeLayoutProps = () => {
 };
 
 function BaseMarketHomeLayout() {
+  markMarketPerf('market-home-base-layout-render');
+  useMarketRenderCommitProbe('MarketHome.BaseLayout');
   const { md, layoutProps, shouldWaitForSpotCategoryReady } =
     useMarketHomeLayoutProps();
   const isFocused = useRouteIsFocused();
   useRefreshWatchListV2OnFocus(isFocused);
 
   if (shouldWaitForSpotCategoryReady) {
-    return <LazyPageContainer>{null}</LazyPageContainer>;
+    return (
+      <LazyPageContainer eager={platformEnv.isWeb}>{null}</LazyPageContainer>
+    );
   }
 
   return (
-    <LazyPageContainer>
+    <LazyPageContainer eager={platformEnv.isWeb}>
       {md || platformEnv.isNative ? (
         <MobileLayout {...layoutProps} />
       ) : (
@@ -286,6 +304,8 @@ function BaseMarketHome() {
 }
 
 export function MarketHomeV2() {
+  markMarketPerf('market-home-render');
+  useMarketRenderCommitProbe('MarketHomeV2');
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('MarketHomeV2 render');
   }
@@ -296,6 +316,7 @@ export function MarketHomeV2() {
         sceneUrl: '',
       }}
       enabledNum={[0]}
+      waitForStorageReady={!platformEnv.isWeb}
     >
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
@@ -353,6 +374,7 @@ export function MarketHomeWithProvider({
         sceneUrl: '',
       }}
       enabledNum={[0]}
+      waitForStorageReady={!platformEnv.isWeb}
     >
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}

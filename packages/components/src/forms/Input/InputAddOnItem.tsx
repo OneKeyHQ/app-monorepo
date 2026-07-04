@@ -4,7 +4,7 @@ import type { ReactElement } from 'react';
 import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Tooltip } from '../../actions/Tooltip';
+import { LazyTooltip } from '../../actions/LazyTooltip';
 import { Icon, SizableText, Spinner, XStack, YStack } from '../../primitives';
 
 import { getSharedInputStyles } from './sharedStyles';
@@ -125,7 +125,7 @@ export const InputAddOnItem = XStack.styleable<IExtraProps, any, any>(
       ],
     );
     return tooltipProps ? (
-      <Tooltip renderTrigger={trigger} {...tooltipProps} />
+      <LazyTooltip renderTrigger={trigger} {...tooltipProps} />
     ) : (
       trigger
     );

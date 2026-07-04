@@ -20,7 +20,6 @@ import type { IButtonProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   type IBBOPriceMode,
@@ -84,7 +83,7 @@ import { shouldApplyMinimumOrderGuard } from '../../../utils/minimumOrderGuard';
 import { shouldBlockPerpsTradingForMarketData } from '../../../utils/perpsMarketDataFreshness';
 import { resolveTpSlTriggerPx } from '../../../utils/resolveTpSlTriggerPx';
 import {
-  PERP_TRADE_BUTTON_COLORS,
+  getTradingButtonStyleValues,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
 import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../PerpDialogLayout';
@@ -103,6 +102,8 @@ import {
   OrderTypeInfoButton,
 } from './PerpTradingForm';
 
+import type { ColorTokens } from 'tamagui';
+
 interface ILimitOrderFormProps {
   symbol: string;
   seededPrice: string;
@@ -111,6 +112,8 @@ interface ILimitOrderFormProps {
 }
 
 type ITradeSide = 'long' | 'short';
+const LIMIT_ORDER_CHECKBOX_SIZE = '$4';
+
 const accountActionSharedButtonProps = {
   size: 'medium' as const,
   borderRadius: '$full' as const,
@@ -147,7 +150,6 @@ export function LimitOrderForm({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { selectedAccount } = useSelectedAccount({ num: 0 });
-  const themeVariant = useThemeVariant();
 
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
@@ -561,6 +563,21 @@ export function LimitOrderForm({
     const closeLimitDialog = () => {
       onClose();
     };
+    const requestEnableTradingWithLoadingToast = async (
+      beforeDeposit?: () => void,
+    ) => {
+      const loadingToast = Toast.loading({
+        title: intl.formatMessage({
+          id: ETranslations.perp_trade_button_enable_trading,
+        }),
+        duration: Infinity,
+      });
+      try {
+        return await requestEnableTradingWithDepositFallback({ beforeDeposit });
+      } finally {
+        loadingToast?.close();
+      }
+    };
 
     if (enableTradingMode.requiresExplicitEnableTrading) {
       try {
@@ -596,9 +613,7 @@ export function LimitOrderForm({
               status: undefined,
             };
           }
-          return requestEnableTradingWithDepositFallback({
-            beforeDeposit: closeDialog,
-          });
+          return requestEnableTradingWithLoadingToast(closeDialog);
         },
       });
 
@@ -610,13 +625,12 @@ export function LimitOrderForm({
       return false;
     }
 
-    const result = await requestEnableTradingWithDepositFallback({
-      beforeDeposit: closeLimitDialog,
-    });
+    const result = await requestEnableTradingWithLoadingToast(closeLimitDialog);
     return Boolean(result.shouldContinue);
   }, [
     confirmHyperliquidTerms,
     enableTradingMode.requiresExplicitEnableTrading,
+    intl,
     onClose,
     perpsAccountStatus,
     requestEnableTradingWithDepositFallback,
@@ -901,11 +915,6 @@ export function LimitOrderForm({
     ],
   );
 
-  const longColors =
-    themeVariant === 'light'
-      ? PERP_TRADE_BUTTON_COLORS.light
-      : PERP_TRADE_BUTTON_COLORS.dark;
-
   const createActionButtonRender = useCallback(
     (props: IButtonProps) => (
       <Button
@@ -928,13 +937,15 @@ export function LimitOrderForm({
       bg,
       hoverBg,
       pressBg,
+      textColor,
       defaultText,
       onDefaultPress,
     }: {
       sideKey: ITradeSide;
-      bg: string;
-      hoverBg: string;
-      pressBg: string;
+      bg: ColorTokens;
+      hoverBg: ColorTokens;
+      pressBg: ColorTokens;
+      textColor: ColorTokens;
       defaultText: string;
       onDefaultPress: () => void;
     }) => {
@@ -949,16 +960,17 @@ export function LimitOrderForm({
           pressStyle={shouldDisableActionButtons ? undefined : { bg: pressBg }}
           onPress={onDefaultPress}
           disabled={shouldDisableActionButtons}
-          loading={isTradingActionLoading}
+          disabledStyle={{ opacity: 1, bg }}
+          opacity={shouldDisableActionButtons ? 1 : undefined}
           h={36}
         >
-          <SizableText size="$bodyMdMedium" color="$textOnColor">
+          <SizableText size="$bodyMdMedium" color={textColor}>
             {defaultText}
           </SizableText>
         </Button>
       );
     },
-    [isTradingActionLoading, shouldDisableActionButtons],
+    [shouldDisableActionButtons],
   );
   const sharedAccountActionButton = useMemo(() => {
     if (accountActionType === 'createAddress') {
@@ -997,6 +1009,14 @@ export function LimitOrderForm({
     isTradingActionLoading,
     shouldDisableAccountActionButtons,
   ]);
+  const reduceOnlyLabel = intl.formatMessage({
+    id: ETranslations.perps_reduce_only,
+  });
+  const reduceOnlyTooltip = intl.formatMessage({
+    id: ETranslations.perp_reduce_only__desc,
+  });
+  const longButtonStyles = getTradingButtonStyleValues('long');
+  const shortButtonStyles = getTradingButtonStyleValues('short');
 
   return (
     <YStack gap="$2.5">
@@ -1111,62 +1131,73 @@ export function LimitOrderForm({
 
       {!isSpot ? (
         <>
-          {/* Reduce-only (perps only), mirroring the standard order panel. */}
-          <XStack alignItems="center" mb="$2">
-            <Checkbox
-              testID="chart-limit-reduce-only-checkbox"
-              value={reduceOnly}
-              onChange={(checked) => setReduceOnly(!!checked)}
-              label={intl.formatMessage({
-                id: ETranslations.perps_reduce_only,
-              })}
-              containerProps={{
-                p: 0,
-                alignItems: 'center',
-                cursor: 'pointer',
-              }}
-              labelProps={{
-                size: '$bodyMd',
-                color: '$text',
-              }}
-            />
-          </XStack>
-
-          {/* TP/SL */}
-          <XStack
-            width="100%"
-            alignItems="center"
-            justifyContent="space-between"
-            gap="$3"
-            mb="$2"
-          >
+          <YStack gap="$1">
+            {/* Reduce-only (perps only), mirroring the standard order panel. */}
             <XStack alignItems="center" gap="$2">
               <Checkbox
-                testID="chart-limit-tpsl-checkbox"
-                value={hasTpsl}
-                onChange={(checked) => handleTpslCheckboxChange(!!checked)}
+                testID="chart-limit-reduce-only-checkbox"
+                value={reduceOnly}
+                onChange={(checked) => setReduceOnly(!!checked)}
                 containerProps={{
                   p: 0,
                   alignItems: 'center',
                   cursor: 'pointer',
                 }}
+                width={LIMIT_ORDER_CHECKBOX_SIZE}
+                height={LIMIT_ORDER_CHECKBOX_SIZE}
               />
               <DashText
-                size="$bodyMd"
+                size="$bodyMdMedium"
+                color="$text"
                 dashColor="$textDisabled"
                 dashThickness={0.5}
-                tooltip={intl.formatMessage({
-                  id: ETranslations.perp_tp_sl_tooltip,
-                })}
-                tooltipTitle={intl.formatMessage({
-                  id: ETranslations.perp_position_tp_sl,
-                })}
+                tooltip={reduceOnlyTooltip}
+                tooltipTitle={reduceOnlyLabel}
               >
-                {intl.formatMessage({ id: ETranslations.perp_position_tp_sl })}
+                {reduceOnlyLabel}
               </DashText>
             </XStack>
-            <TimeInForceSelector value={limitTif} onChange={setLimitTif} />
-          </XStack>
+
+            {/* TP/SL */}
+            <XStack
+              width="100%"
+              alignItems="center"
+              justifyContent="space-between"
+              gap="$3"
+            >
+              <XStack alignItems="center" gap="$2">
+                <Checkbox
+                  testID="chart-limit-tpsl-checkbox"
+                  value={hasTpsl}
+                  onChange={(checked) => handleTpslCheckboxChange(!!checked)}
+                  containerProps={{
+                    p: 0,
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                  }}
+                  width={LIMIT_ORDER_CHECKBOX_SIZE}
+                  height={LIMIT_ORDER_CHECKBOX_SIZE}
+                />
+                <DashText
+                  size="$bodyMd"
+                  color="$text"
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
+                  tooltip={intl.formatMessage({
+                    id: ETranslations.perp_tp_sl_tooltip,
+                  })}
+                  tooltipTitle={intl.formatMessage({
+                    id: ETranslations.perp_position_tp_sl,
+                  })}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_position_tp_sl,
+                  })}
+                </DashText>
+              </XStack>
+              <TimeInForceSelector value={limitTif} onChange={setLimitTif} />
+            </XStack>
+          </YStack>
           {hasTpsl ? (
             <YStack gap="$2">
               <TpSlFormInput
@@ -1217,15 +1248,18 @@ export function LimitOrderForm({
 
       {/* Buy / Sell */}
       {sharedAccountActionButton ? (
-        <YStack gap="$2">{sharedAccountActionButton}</YStack>
+        <YStack gap="$2" {...(!isSpot && { mt: '$1.5' })}>
+          {sharedAccountActionButton}
+        </YStack>
       ) : (
-        <XStack gap="$2.5">
+        <XStack gap="$2.5" {...(!isSpot && { mt: '$1.5' })}>
           <YStack flex={1} gap="$2">
             {renderActionButton({
               sideKey: 'long',
-              bg: longColors.long,
-              hoverBg: longColors.longHover,
-              pressBg: longColors.longPress,
+              bg: longButtonStyles.bg,
+              hoverBg: longButtonStyles.hoverBg,
+              pressBg: longButtonStyles.pressBg,
+              textColor: longButtonStyles.textColor,
               defaultText: intl.formatMessage({
                 id: isSpot
                   ? ETranslations.dexmarket_details_transactions_buy
@@ -1291,9 +1325,10 @@ export function LimitOrderForm({
           <YStack flex={1} gap="$2">
             {renderActionButton({
               sideKey: 'short',
-              bg: longColors.short,
-              hoverBg: longColors.shortHover,
-              pressBg: longColors.shortPress,
+              bg: shortButtonStyles.bg,
+              hoverBg: shortButtonStyles.hoverBg,
+              pressBg: shortButtonStyles.pressBg,
+              textColor: shortButtonStyles.textColor,
               defaultText: intl.formatMessage({
                 id: isSpot
                   ? ETranslations.dexmarket_details_transactions_sell

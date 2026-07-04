@@ -4,14 +4,57 @@ import { useEffect, useMemo, useState } from 'react';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getSupabaseAuthSessionKey } from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
-import {
-  getSupabaseClient,
-  isSupabaseTokenRefreshRuntime,
-} from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 
 import { SupabaseAuthContext } from './SupabaseAuthContext';
 
 import type { Session } from '@supabase/supabase-js';
+
+const WEB_SUPABASE_AUTH_START_DELAY_MS = 6000;
+
+const waitForSupabaseAuthStart = () => {
+  if (!platformEnv.isWeb || typeof globalThis.addEventListener !== 'function') {
+    return Promise.resolve();
+  }
+
+  return new Promise<void>((resolve) => {
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    function cleanup() {
+      if (timer) {
+        clearTimeout(timer);
+        timer = undefined;
+      }
+      globalThis.removeEventListener('pointerdown', onInteraction);
+      globalThis.removeEventListener('keydown', onInteraction);
+      globalThis.removeEventListener('touchstart', onInteraction);
+    }
+
+    function done() {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      resolve();
+    }
+
+    function onInteraction() {
+      done();
+    }
+
+    timer = setTimeout(done, WEB_SUPABASE_AUTH_START_DELAY_MS);
+    globalThis.addEventListener('pointerdown', onInteraction, {
+      once: true,
+      passive: true,
+    });
+    globalThis.addEventListener('keydown', onInteraction, { once: true });
+    globalThis.addEventListener('touchstart', onInteraction, {
+      once: true,
+      passive: true,
+    });
+  });
+};
 
 function logSupabaseAuthProvider(message: string) {
   if (
@@ -31,8 +74,21 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
   // TODO move to OneKeyAuthGlobalEffects
   // Fetch the session once, and subscribe to auth state changes
   useEffect(() => {
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
+
     const fetchSession = async () => {
       try {
+        await waitForSupabaseAuthStart();
+        if (cancelled) {
+          return;
+        }
+        const { getSupabaseClient, isSupabaseTokenRefreshRuntime } =
+          await import('@onekeyhq/shared/src/utils/supabaseClientUtils');
+        if (cancelled) {
+          return;
+        }
+        const supabaseClient = getSupabaseClient().client;
         logSupabaseAuthProvider('fetchSession start');
         setIsLoading(true);
         let session: Session | null = null;
@@ -40,8 +96,7 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
           // bg/standalone runtime: getSession() may perform a network token
           // refresh of an expired session — allowed here because this runtime
           // owns token rotation.
-          const { data, error } =
-            await getSupabaseClient().client.auth.getSession();
+          const { data, error } = await supabaseClient.auth.getSession();
           if (error) {
             console.error('Error fetching session:', error);
           }
@@ -66,29 +121,35 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
             console.error('Error reading stored session:', error);
           }
         }
+        if (cancelled) {
+          return;
+        }
         setSession(session);
+        // Auth state events only fire from THIS runtime's client (interactive
+        // flows: verifyOtp / setSession / signOut). In pure-UI runtimes the bg
+        // runtime's token refreshes do NOT emit TOKEN_REFRESHED here — that is
+        // fine because this context only tracks identity (user / isLoggedIn),
+        // which a token refresh never changes; nothing may read a steady-state
+        // access token from this context.
+        const {
+          data: { subscription },
+        } = supabaseClient.auth.onAuthStateChange((_event, nextSession) => {
+          setSession(nextSession);
+        });
+        unsubscribe = () => subscription.unsubscribe();
       } finally {
         logSupabaseAuthProvider('fetchSession done');
-        setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     };
     void fetchSession();
 
-    // Auth state events only fire from THIS runtime's client (interactive
-    // flows: verifyOtp / setSession / signOut). In pure-UI runtimes the bg
-    // runtime's token refreshes do NOT emit TOKEN_REFRESHED here — that is
-    // fine because this context only tracks identity (user / isLoggedIn),
-    // which a token refresh never changes; nothing may read a steady-state
-    // access token from this context.
-    const {
-      data: { subscription },
-    } = getSupabaseClient().client.auth.onAuthStateChange((_event, session) => {
-      console.log('Auth state changed:', { event: _event, session });
-      setSession(session);
-    });
     // Cleanup subscription on unmount
     return () => {
-      subscription.unsubscribe();
+      cancelled = true;
+      unsubscribe?.();
     };
   }, []);
 
