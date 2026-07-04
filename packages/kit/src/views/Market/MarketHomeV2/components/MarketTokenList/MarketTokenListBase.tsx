@@ -212,6 +212,7 @@ export type IMarketTokenListResult = {
   isLoading: boolean | undefined;
   isLoadingMore?: boolean;
   isNetworkSwitching?: boolean;
+  isProvisionalFirstPageResult?: boolean;
   canLoadMore?: boolean;
   loadMore?: () => void | Promise<void>;
   setSortBy: (sortBy: string | undefined) => void;
@@ -307,6 +308,7 @@ function MarketTokenListBase({
     isLoading,
     isLoadingMore,
     isNetworkSwitching,
+    isProvisionalFirstPageResult,
     canLoadMore,
     loadMore,
     setSortBy,
@@ -597,10 +599,15 @@ function MarketTokenListBase({
   );
 
   const handleEndReached = useCallback(() => {
-    if (canLoadMore && loadMore && !isLoadingMore) {
+    if (
+      canLoadMore &&
+      loadMore &&
+      !isLoadingMore &&
+      !isProvisionalFirstPageResult
+    ) {
       void loadMore();
     }
-  }, [canLoadMore, loadMore, isLoadingMore]);
+  }, [canLoadMore, loadMore, isLoadingMore, isProvisionalFirstPageResult]);
 
   // Stable onRow handler — uses refs to avoid re-creating on every render,
   // which prevents the Table from seeing a new onRow prop and re-rendering all rows.
@@ -704,13 +711,14 @@ function MarketTokenListBase({
     if (
       (!draggable || webTabIntegrated) &&
       showEndReachedIndicator &&
+      !isProvisionalFirstPageResult &&
       !canLoadMore &&
       data.length > 0
     ) {
       return <ListEndIndicator />;
     }
 
-    if (webTabIntegrated && canLoadMore) {
+    if (webTabIntegrated && canLoadMore && !isProvisionalFirstPageResult) {
       return <div ref={endSentinelRef} style={{ height: 1 }} />;
     }
 
@@ -719,6 +727,7 @@ function MarketTokenListBase({
     isLoadingMore,
     webTabIntegrated,
     showEndReachedIndicator,
+    isProvisionalFirstPageResult,
     canLoadMore,
     data.length,
     draggable,
@@ -877,6 +886,7 @@ function MarketTokenListBase({
           {draggable &&
           !webTabIntegrated &&
           showEndReachedIndicator &&
+          !isProvisionalFirstPageResult &&
           !canLoadMore &&
           data.length > 0 ? (
             <ListEndIndicator />

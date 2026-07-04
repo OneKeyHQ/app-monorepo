@@ -249,9 +249,7 @@ export function useMarketTokenList({
       }
       const requestQueryKey = currentQueryKeyRef.current;
       const shouldBypassWebSeed =
-        platformEnv.isWeb &&
-        (bypassWebSeedOnceRef.current ||
-          Boolean(trustedMarketTokenListFallbackRef.current));
+        platformEnv.isWeb && bypassWebSeedOnceRef.current;
       bypassWebSeedOnceRef.current = false;
       let response: IMarketTokenListResponseWithSource;
       try {
@@ -532,7 +530,6 @@ export function useMarketTokenList({
 
   const canLoadMore =
     hasNetworkId &&
-    !isProvisionalFirstPageResult &&
     loadedPageCount < maxPages &&
     loadedPageCount < totalPages &&
     (totalCount === 0 || transformedData.length < totalCount) &&
@@ -545,6 +542,7 @@ export function useMarketTokenList({
     isLoading: effectiveIsLoading,
     isLoadingMore,
     isNetworkSwitching,
+    isProvisionalFirstPageResult,
     initialSortBy,
     initialSortType,
     totalPages,

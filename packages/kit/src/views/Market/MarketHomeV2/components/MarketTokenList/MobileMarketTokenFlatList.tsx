@@ -53,6 +53,7 @@ function MobileMarketTokenFlatListBase({
     isLoading,
     isLoadingMore,
     isNetworkSwitching,
+    isProvisionalFirstPageResult,
     canLoadMore,
     loadMore,
   } = useMarketTokenList({
@@ -104,10 +105,10 @@ function MobileMarketTokenFlatListBase({
 
   // Handle infinite scroll
   const handleEndReached = useCallback(() => {
-    if (canLoadMore && !isLoadingMore) {
+    if (canLoadMore && !isLoadingMore && !isProvisionalFirstPageResult) {
       void loadMore();
     }
-  }, [canLoadMore, isLoadingMore, loadMore]);
+  }, [canLoadMore, isLoadingMore, isProvisionalFirstPageResult, loadMore]);
 
   // List footer - loading spinner or end indicator
   const ListFooterComponent = useMemo(() => {
@@ -119,12 +120,12 @@ function MobileMarketTokenFlatListBase({
       );
     }
 
-    if (!canLoadMore && data.length > 0) {
+    if (!isProvisionalFirstPageResult && !canLoadMore && data.length > 0) {
       return <ListEndIndicator />;
     }
 
     return null;
-  }, [isLoadingMore, canLoadMore, data.length]);
+  }, [isLoadingMore, isProvisionalFirstPageResult, canLoadMore, data.length]);
 
   const showSkeleton =
     (Boolean(isLoading) && data.length === 0) || Boolean(isNetworkSwitching);
