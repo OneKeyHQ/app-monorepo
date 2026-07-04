@@ -43,6 +43,17 @@ type IMarketTokenListCacheEntry = {
   updatedAt: number;
 };
 
+function isUsableMarketTokenListCacheData(
+  data: IMarketTokenListResponseWithSource | undefined,
+) {
+  return Boolean(
+    data &&
+    Array.isArray(data.list) &&
+    !data.__fromSeed &&
+    !data.__fromColdCacheFallback,
+  );
+}
+
 function isFreshMarketTokenListCacheEntry(
   entry: IMarketTokenListCacheEntry | undefined,
 ): entry is IMarketTokenListCacheEntry {
@@ -51,6 +62,26 @@ function isFreshMarketTokenListCacheEntry(
     Date.now() - entry.updatedAt <=
       MARKET_TOKEN_LIST_COLD_CACHE_FALLBACK_MAX_AGE_MS
   );
+}
+
+function getTrustedMarketTokenListCacheEntry(swrKey: string | undefined) {
+  if (!swrKey) {
+    return undefined;
+  }
+
+  const entry =
+    swrCacheUtils.getWithTimestamp<IMarketTokenListResponseWithSource>(swrKey);
+  const shouldRemoveEntry =
+    entry !== undefined &&
+    (!isUsableMarketTokenListCacheData(entry.data) ||
+      !isFreshMarketTokenListCacheEntry(entry));
+
+  if (shouldRemoveEntry) {
+    swrCacheUtils.remove(swrKey);
+    return undefined;
+  }
+
+  return entry;
 }
 
 const MARKET_TOKEN_PRIMITIVE_REUSE_FIELDS = [
@@ -232,8 +263,18 @@ export function useMarketTokenList({
     timeFrame,
     type,
   ]);
+  const cachedMarketTokenListEntry = useMemo(() => {
+    // `usePromiseResult` synchronously replays any value under swrKey during
+    // render. Market owns the token-list freshness policy, so stale or
+    // provisional entries must be removed before that hook sees the key.
+    return getTrustedMarketTokenListCacheEntry(marketTokenListSwrKey);
+  }, [marketTokenListSwrKey]);
   const marketTokenListSeedInitResult = useMemo(() => {
+    // The HTML bootstrap seed is only a first-page fallback for a brand-new
+    // web load. A valid local SWR cache is usually fresher, so seed is used
+    // only when there is no trusted cache for the current default query.
     if (
+      cachedMarketTokenListEntry ||
       !platformEnv.isWeb ||
       !hasNetworkId ||
       apiNetworkId !== '' ||
@@ -250,6 +291,7 @@ export function useMarketTokenList({
     return getMarketHomeTokenListSeedForInit();
   }, [
     apiNetworkId,
+    cachedMarketTokenListEntry,
     hasNetworkId,
     minLiquidity,
     pageSize,
@@ -258,27 +300,6 @@ export function useMarketTokenList({
     timeFrame,
     type,
   ]);
-  const cachedMarketTokenListEntry = useMemo(() => {
-    if (!marketTokenListSwrKey) {
-      return undefined;
-    }
-    const entry =
-      swrCacheUtils.getWithTimestamp<IMarketTokenListResponseWithSource>(
-        marketTokenListSwrKey,
-      );
-    if (
-      !entry?.data ||
-      !Array.isArray(entry.data.list) ||
-      entry.data.__fromSeed ||
-      entry.data.__fromColdCacheFallback
-    ) {
-      return undefined;
-    }
-    if (!isFreshMarketTokenListCacheEntry(entry)) {
-      return undefined;
-    }
-    return entry;
-  }, [marketTokenListSwrKey]);
   const trustedMarketTokenListFallbackRef = useRef(cachedMarketTokenListEntry);
   const trustedMarketTokenListSwrKeyRef = useRef(marketTokenListSwrKey);
   if (trustedMarketTokenListSwrKeyRef.current !== marketTokenListSwrKey) {
@@ -366,8 +387,6 @@ export function useMarketTokenList({
       revalidateOnReconnect: true,
       initResult: marketTokenListSeedInitResult,
       swrKey: marketTokenListSwrKey,
-      swrPreferInitResult: marketTokenListSeedInitResult !== undefined,
-      swrMaxAge: MARKET_TOKEN_LIST_COLD_CACHE_FALLBACK_MAX_AGE_MS,
       swrShouldPersist: (result) =>
         Boolean(
           result &&

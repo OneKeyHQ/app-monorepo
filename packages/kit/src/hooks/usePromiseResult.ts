@@ -48,38 +48,8 @@ export type IPromiseResultOptions<T> = {
    * - The real async request always fires (cache never blocks)
    */
   swrKey?: string;
-  // Prefer initResult over a sync SWR hit for bootstrapped data that is known
-  // to be fresher than a previous local cache.
-  swrPreferInitResult?: boolean;
-  // Ignore sync SWR entries older than this age.
-  swrMaxAge?: number;
   swrShouldPersist?: (result: T) => boolean;
 };
-
-type ISwrCacheEntryWithTimestamp<T> = {
-  data: T;
-  updatedAt: number;
-};
-
-function isFreshSwrCacheEntry<T>(
-  entry: ISwrCacheEntryWithTimestamp<T> | undefined,
-  maxAge: number | undefined,
-) {
-  if (entry === undefined) {
-    return false;
-  }
-  return maxAge === undefined || Date.now() - entry.updatedAt <= maxAge;
-}
-
-function getEffectiveInitResult<T>(
-  swrCacheEntry: ISwrCacheEntryWithTimestamp<T> | undefined,
-  options: IPromiseResultOptions<T>,
-) {
-  if (options.swrPreferInitResult && options.initResult !== undefined) {
-    return options.initResult;
-  }
-  return swrCacheEntry !== undefined ? swrCacheEntry.data : options.initResult;
-}
 
 export type IUsePromiseResultReturn<T> = {
   result: T | undefined;
@@ -147,13 +117,12 @@ export function usePromiseResult<T>(
   swrKeyRef.current = swrKey;
   const swrCacheEntry = useMemo(() => {
     if (!swrKey) return undefined;
-    const entry = swrCacheUtils.getWithTimestamp<T>(swrKey);
-    return isFreshSwrCacheEntry(entry, options.swrMaxAge) ? entry : undefined;
+    return swrCacheUtils.getWithTimestamp<T>(swrKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [swrKey, options.swrMaxAge]);
-  // swrKey cache hit has higher priority than initResult unless the caller
-  // explicitly marks initResult as the fresher bootstrapped source.
-  const effectiveInitResult = getEffectiveInitResult(swrCacheEntry, options);
+  }, [swrKey]);
+  // swrKey cache hit always has higher priority than initResult.
+  const effectiveInitResult =
+    swrCacheEntry !== undefined ? swrCacheEntry.data : options.initResult;
 
   const [result, setResult] = useState<T | undefined>(
     effectiveInitResult as any,
@@ -171,7 +140,11 @@ export function usePromiseResult<T>(
   if (swrKey !== prevSwrKey) {
     setPrevSwrKey(swrKey);
     if (swrKey !== undefined) {
-      setResult(getEffectiveInitResult(swrCacheEntry, options) as any);
+      setResult(
+        (swrCacheEntry !== undefined
+          ? swrCacheEntry.data
+          : options.initResult) as any,
+      );
     } else {
       // key→undefined: no cache to read, reset to default
       setResult(options.initResult as any);

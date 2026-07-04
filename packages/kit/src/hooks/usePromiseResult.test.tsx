@@ -246,49 +246,6 @@ describe('usePromiseResult', () => {
       });
     });
 
-    it('can prefer explicit initResult over cached value', async () => {
-      swrCacheUtils.set('prefer-init-test', 'cached-value');
-
-      const method = jest.fn(async () => 'fresh-value');
-
-      const { result } = renderHook(() =>
-        usePromiseResult(method, [method], {
-          initResult: 'seed-value',
-          swrKey: 'prefer-init-test',
-          swrPreferInitResult: true,
-        }),
-      );
-
-      expect(result.current.result).toBe('seed-value');
-
-      await waitFor(() => {
-        expect(result.current.result).toBe('fresh-value');
-      });
-    });
-
-    it('ignores cached value older than swrMaxAge', () => {
-      const nowSpy = jest.spyOn(Date, 'now');
-      nowSpy.mockReturnValue(1000);
-      swrCacheUtils.set('stale-test', 'cached-value');
-      nowSpy.mockReturnValue(10_000);
-
-      const method = jest.fn(() => new Promise<string>(() => {}));
-
-      try {
-        const { result } = renderHook(() =>
-          usePromiseResult(method, [method], {
-            initResult: 'explicit-init',
-            swrKey: 'stale-test',
-            swrMaxAge: 5000,
-          }),
-        );
-
-        expect(result.current.result).toBe('explicit-init');
-      } finally {
-        nowSpy.mockRestore();
-      }
-    });
-
     it('uses explicit initResult when cache misses', async () => {
       const method = jest.fn(async () => 'fresh-value');
 
