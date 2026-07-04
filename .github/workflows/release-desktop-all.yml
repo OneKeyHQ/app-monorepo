@@ -846,7 +846,7 @@ jobs:
           exit 0
 
   cleanup-release-ref:
-    if: ${{ always() && github.event.inputs.cleanup_release_ref == 'true' && startsWith(github.ref, 'refs/tags/ci/desktop-release/') }}
+    if: ${{ always() && github.event.inputs.cleanup_release_ref == 'true' && github.ref_type == 'tag' }}
     needs:
       - renderer
       - package-mac
@@ -861,6 +861,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_REF_NAME: ${{ github.ref_name }}
+          BUILD_NUMBER: ${{ github.event.inputs.build_number }}
+          BUILD_BUNDLE_VERSION: ${{ github.event.inputs.build_bundle_version }}
         run: |
           set -euo pipefail
+          EXPECTED_RELEASE_REF_NAME="${BUILD_NUMBER}-${BUILD_BUNDLE_VERSION}"
+          if [ "$RELEASE_REF_NAME" != "$EXPECTED_RELEASE_REF_NAME" ]; then
+            echo "::notice::Skip deleting non-CI release tag '${RELEASE_REF_NAME}'. Expected '${EXPECTED_RELEASE_REF_NAME}'."
+            exit 0
+          fi
+
           gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${RELEASE_REF_NAME}"
