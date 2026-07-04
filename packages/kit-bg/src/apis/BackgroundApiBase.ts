@@ -111,6 +111,7 @@ function summarizeSetAtomValuePayload(value: unknown) {
 }
 
 const ASYNC_STORAGE_FORWARDER_BG_LOG_PREFIX = '[AsyncStorageForwarder][BG]';
+const ASYNC_STORAGE_FORWARDER_COMPLETED_REQUEST_LIMIT = 512;
 
 function stringifyAsyncStorageForwarderBgLogValue(value: unknown) {
   try {
@@ -140,18 +141,21 @@ function asyncStorageForwarderBgLog(label: string, value?: unknown) {
 function getAsyncStorageWriteRequestSummary(
   request: IAsyncStorageWriteRequest,
 ) {
+  const { requestId } = request;
   switch (request.method) {
     case 'clear':
-      return { method: request.method };
+      return { method: request.method, requestId };
     case 'multiRemove':
       return {
         method: request.method,
+        requestId,
         keyCount: request.args[0].length,
       };
     case 'multiSet':
     case 'multiMerge':
       return {
         method: request.method,
+        requestId,
         pairCount: request.args[0].length,
       };
     default: {
@@ -175,6 +179,56 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   }> = [];
 
   private isFlushingPendingInjectedBridgeMessages = false;
+
+  private asyncStorageWriteRequestsInFlight = new Map<string, Promise<void>>();
+
+  private completedAsyncStorageWriteRequestIds: string[] = [];
+
+  private completedAsyncStorageWriteRequestIdSet = new Set<string>();
+
+  private rememberCompletedAsyncStorageWriteRequest(requestId: string) {
+    if (this.completedAsyncStorageWriteRequestIdSet.has(requestId)) {
+      return;
+    }
+    this.completedAsyncStorageWriteRequestIdSet.add(requestId);
+    this.completedAsyncStorageWriteRequestIds.push(requestId);
+    while (
+      this.completedAsyncStorageWriteRequestIds.length >
+      ASYNC_STORAGE_FORWARDER_COMPLETED_REQUEST_LIMIT
+    ) {
+      const expiredRequestId =
+        this.completedAsyncStorageWriteRequestIds.shift();
+      if (expiredRequestId) {
+        this.completedAsyncStorageWriteRequestIdSet.delete(expiredRequestId);
+      }
+    }
+  }
+
+  private async runAsyncStorageWriteOnce(
+    requestId: string,
+    write: () => Promise<void>,
+  ) {
+    if (this.completedAsyncStorageWriteRequestIdSet.has(requestId)) {
+      return;
+    }
+
+    const existingRequest =
+      this.asyncStorageWriteRequestsInFlight.get(requestId);
+    if (existingRequest) {
+      await existingRequest;
+      return;
+    }
+
+    const promise = write()
+      .then(() => {
+        this.rememberCompletedAsyncStorageWriteRequest(requestId);
+      })
+      .finally(() => {
+        this.asyncStorageWriteRequestsInFlight.delete(requestId);
+      });
+    this.asyncStorageWriteRequestsInFlight.set(requestId, promise);
+    await promise;
+  }
 
   private getNativeBackgroundThreadBridgeRelay() {
     const runtimeGlobal = globalThis as typeof globalThis & {
@@ -381,29 +435,31 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const startedAt = Date.now();
     const summary = getAsyncStorageWriteRequestSummary(request);
     try {
-      const { default: appStorage } =
-        await import('@onekeyhq/shared/src/storage/appStorage');
+      await this.runAsyncStorageWriteOnce(request.requestId, async () => {
+        const { default: appStorage } =
+          await import('@onekeyhq/shared/src/storage/appStorage');
 
-      switch (request.method) {
-        case 'clear':
-          await appStorage.clear();
-          break;
-        case 'multiSet':
-          await appStorage.multiSet(request.args[0]);
-          break;
-        case 'multiRemove':
-          await appStorage.multiRemove(request.args[0]);
-          break;
-        case 'multiMerge':
-          await appStorage.multiMerge(request.args[0]);
-          break;
-        default: {
-          const unsupportedRequest: never = request;
-          throw new OneKeyLocalError(
-            `Unsupported AsyncStorage write request: ${String(unsupportedRequest)}`,
-          );
+        switch (request.method) {
+          case 'clear':
+            await appStorage.clear();
+            break;
+          case 'multiSet':
+            await appStorage.multiSet(request.args[0]);
+            break;
+          case 'multiRemove':
+            await appStorage.multiRemove(request.args[0]);
+            break;
+          case 'multiMerge':
+            await appStorage.multiMerge(request.args[0]);
+            break;
+          default: {
+            const unsupportedRequest: never = request;
+            throw new OneKeyLocalError(
+              `Unsupported AsyncStorage write request: ${String(unsupportedRequest)}`,
+            );
+          }
         }
-      }
+      });
     } catch (error) {
       asyncStorageForwarderBgLog('write-error', {
         ...summary,

@@ -13,6 +13,7 @@ export type IAsyncStorageWriteArgs<
 
 export type IAsyncStorageWriteRequest = {
   [T in IAsyncStorageWriteMethod]: {
+    requestId: string;
     method: T;
     args: IAsyncStorageWriteArgsByMethod[T];
   };
