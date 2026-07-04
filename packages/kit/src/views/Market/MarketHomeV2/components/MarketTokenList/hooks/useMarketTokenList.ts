@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useNetworkLoadingAnalytics } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/hooks/useNetworkLoadingAnalytics';
+import { getMarketHomeTokenListSeedForInit } from '@onekeyhq/kit/src/views/Market/utils/marketHomeTokenListSeed';
 import { markMarketReactPerf } from '@onekeyhq/kit/src/views/Market/utils/marketReactPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -32,6 +33,24 @@ interface IUseMarketTokenListParams {
   type?: string;
   timeRange?: IMarketTimeRangeValue;
   pollingInterval?: number;
+}
+
+const MARKET_TOKEN_LIST_COLD_CACHE_FALLBACK_MAX_AGE_MS =
+  timerUtils.getTimeDurationMs({ minute: 5 });
+
+type IMarketTokenListCacheEntry = {
+  data: IMarketTokenListResponseWithSource;
+  updatedAt: number;
+};
+
+function isFreshMarketTokenListCacheEntry(
+  entry: IMarketTokenListCacheEntry | undefined,
+): entry is IMarketTokenListCacheEntry {
+  return (
+    entry !== undefined &&
+    Date.now() - entry.updatedAt <=
+      MARKET_TOKEN_LIST_COLD_CACHE_FALLBACK_MAX_AGE_MS
+  );
 }
 
 const MARKET_TOKEN_PRIMITIVE_REUSE_FIELDS = [
@@ -213,6 +232,32 @@ export function useMarketTokenList({
     timeFrame,
     type,
   ]);
+  const marketTokenListSeedInitResult = useMemo(() => {
+    if (
+      !platformEnv.isWeb ||
+      !hasNetworkId ||
+      apiNetworkId !== '' ||
+      sortBy !== 'v24hUSD' ||
+      sortType !== 'desc' ||
+      pageSize !== 20 ||
+      minLiquidity !== 5000 ||
+      type !== 'trending' ||
+      timeFrame !== '2'
+    ) {
+      return undefined;
+    }
+
+    return getMarketHomeTokenListSeedForInit();
+  }, [
+    apiNetworkId,
+    hasNetworkId,
+    minLiquidity,
+    pageSize,
+    sortBy,
+    sortType,
+    timeFrame,
+    type,
+  ]);
   const cachedMarketTokenListEntry = useMemo(() => {
     if (!marketTokenListSwrKey) {
       return undefined;
@@ -227,6 +272,9 @@ export function useMarketTokenList({
       entry.data.__fromSeed ||
       entry.data.__fromColdCacheFallback
     ) {
+      return undefined;
+    }
+    if (!isFreshMarketTokenListCacheEntry(entry)) {
       return undefined;
     }
     return entry;
@@ -267,10 +315,13 @@ export function useMarketTokenList({
           shouldBypassWebSeed ? { forceRemote: true } : undefined,
         );
       } catch (error) {
-        const cached = trustedMarketTokenListFallbackRef.current?.data;
-        if (cached && currentQueryKeyRef.current === requestQueryKey) {
+        const cachedEntry = trustedMarketTokenListFallbackRef.current;
+        if (
+          isFreshMarketTokenListCacheEntry(cachedEntry) &&
+          currentQueryKeyRef.current === requestQueryKey
+        ) {
           return {
-            ...cached,
+            ...cachedEntry.data,
             __fromColdCacheFallback: true,
           };
         }
@@ -313,7 +364,10 @@ export function useMarketTokenList({
       pollingInterval,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
+      initResult: marketTokenListSeedInitResult,
       swrKey: marketTokenListSwrKey,
+      swrPreferInitResult: marketTokenListSeedInitResult !== undefined,
+      swrMaxAge: MARKET_TOKEN_LIST_COLD_CACHE_FALLBACK_MAX_AGE_MS,
       swrShouldPersist: (result) =>
         Boolean(
           result &&

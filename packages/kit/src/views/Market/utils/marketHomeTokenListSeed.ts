@@ -31,6 +31,9 @@ const shouldUseMarketHomeTokenListBootstrapSeed = () =>
 let marketHomeTokenListSeedPromise:
   | Promise<IMarketTokenListResponseWithSource>
   | undefined;
+let marketHomeTokenListSeedSnapshot:
+  | IMarketTokenListResponseWithSource
+  | undefined;
 
 function readMarketHomeTokenListBootstrapSeed():
   | IMarketTokenListResponseWithSource
@@ -47,17 +50,20 @@ function readMarketHomeTokenListBootstrapSeed():
   }
   delete bootstrapData.marketHomeTokenListSeed;
 
-  return {
+  const seed = {
     list: data.list,
     total: data.total,
     __fromSeed: true,
   };
+  marketHomeTokenListSeedSnapshot = seed;
+  return seed;
 }
 
 function getMarketHomeTokenListSeedPromise() {
   marketHomeTokenListSeedPromise ??= (async () => {
     markMarketPerf('market-light-api-token-list-seed-start');
-    const data = readMarketHomeTokenListBootstrapSeed();
+    const data =
+      marketHomeTokenListSeedSnapshot ?? readMarketHomeTokenListBootstrapSeed();
     if (!data) {
       throw new OneKeyLocalError('Market token bootstrap seed is missing');
     }
@@ -73,6 +79,7 @@ function getMarketHomeTokenListSeedPromise() {
     })
     .catch((error) => {
       marketHomeTokenListSeedPromise = undefined;
+      marketHomeTokenListSeedSnapshot = undefined;
       throw error;
     });
 
@@ -98,7 +105,18 @@ const fetchMarketHomeTokenListSeed = async ({
     return await seedPromise;
   } finally {
     marketHomeTokenListSeedPromise = undefined;
+    marketHomeTokenListSeedSnapshot = undefined;
   }
+};
+
+const getMarketHomeTokenListSeedForInit = () => {
+  if (!shouldUseMarketHomeTokenListBootstrapSeed()) {
+    return undefined;
+  }
+
+  return (
+    marketHomeTokenListSeedSnapshot ?? readMarketHomeTokenListBootstrapSeed()
+  );
 };
 
 const preloadMarketHomeTokenListSeed = () => {
@@ -111,6 +129,7 @@ const preloadMarketHomeTokenListSeed = () => {
 
 export {
   fetchMarketHomeTokenListSeed,
+  getMarketHomeTokenListSeedForInit,
   preloadMarketHomeTokenListSeed,
   shouldUseMarketHomeTokenListBootstrapSeed,
 };
