@@ -3,7 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useNetworkLoadingAnalytics } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/hooks/useNetworkLoadingAnalytics';
-import { getMarketHomeTokenListSeedForInit } from '@onekeyhq/kit/src/views/Market/utils/marketHomeTokenListSeed';
+import {
+  discardMarketHomeTokenListSeedForInit,
+  getMarketHomeTokenListSeedForInit,
+} from '@onekeyhq/kit/src/views/Market/utils/marketHomeTokenListSeed';
 import { markMarketReactPerf } from '@onekeyhq/kit/src/views/Market/utils/marketReactPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -269,43 +272,52 @@ export function useMarketTokenList({
     // provisional entries must be removed before that hook sees the key.
     return getTrustedMarketTokenListCacheEntry(marketTokenListSwrKey);
   }, [marketTokenListSwrKey]);
+  const shouldUseMarketHomeTokenListSeedForCurrentQuery =
+    platformEnv.isWeb &&
+    hasNetworkId &&
+    apiNetworkId === '' &&
+    sortBy === 'v24hUSD' &&
+    sortType === 'desc' &&
+    pageSize === 20 &&
+    minLiquidity === 5000 &&
+    type === 'trending' &&
+    timeFrame === '2';
   const marketTokenListSeedInitResult = useMemo(() => {
     // The HTML bootstrap seed is only a first-page fallback for a brand-new
     // web load. A valid local SWR cache is usually fresher, so seed is used
     // only when there is no trusted cache for the current default query.
-    if (
-      cachedMarketTokenListEntry ||
-      !platformEnv.isWeb ||
-      !hasNetworkId ||
-      apiNetworkId !== '' ||
-      sortBy !== 'v24hUSD' ||
-      sortType !== 'desc' ||
-      pageSize !== 20 ||
-      minLiquidity !== 5000 ||
-      type !== 'trending' ||
-      timeFrame !== '2'
-    ) {
+    if (!shouldUseMarketHomeTokenListSeedForCurrentQuery) {
+      return undefined;
+    }
+    if (cachedMarketTokenListEntry) {
+      // If cache wins the first frame, drop the one-shot HTML seed so it
+      // cannot be reused later after that cache ages out.
+      discardMarketHomeTokenListSeedForInit();
       return undefined;
     }
 
     return getMarketHomeTokenListSeedForInit();
   }, [
-    apiNetworkId,
     cachedMarketTokenListEntry,
-    hasNetworkId,
-    minLiquidity,
-    pageSize,
-    sortBy,
-    sortType,
-    timeFrame,
-    type,
+    shouldUseMarketHomeTokenListSeedForCurrentQuery,
   ]);
   const trustedMarketTokenListFallbackRef = useRef(cachedMarketTokenListEntry);
   const trustedMarketTokenListSwrKeyRef = useRef(marketTokenListSwrKey);
+  const hasTrustedMarketTokenListCacheRef = useRef(
+    Boolean(cachedMarketTokenListEntry),
+  );
+  hasTrustedMarketTokenListCacheRef.current = Boolean(
+    cachedMarketTokenListEntry,
+  );
   if (trustedMarketTokenListSwrKeyRef.current !== marketTokenListSwrKey) {
     trustedMarketTokenListSwrKeyRef.current = marketTokenListSwrKey;
     trustedMarketTokenListFallbackRef.current = cachedMarketTokenListEntry;
   }
+  const [remoteFirstPageLoadedQueryKey, setRemoteFirstPageLoadedQueryKey] =
+    useState<string>();
+  const pendingRemoteFirstPageLoadedQueryKeyRef = useRef<string | undefined>(
+    undefined,
+  );
 
   const {
     result: apiResult,
@@ -318,7 +330,9 @@ export function useMarketTokenList({
       }
       const requestQueryKey = currentQueryKeyRef.current;
       const shouldBypassWebSeed =
-        platformEnv.isWeb && bypassWebSeedOnceRef.current;
+        platformEnv.isWeb &&
+        (bypassWebSeedOnceRef.current ||
+          hasTrustedMarketTokenListCacheRef.current);
       bypassWebSeedOnceRef.current = false;
       let response: IMarketTokenListResponseWithSource;
       try {
@@ -357,6 +371,7 @@ export function useMarketTokenList({
         !responseWithSource.__fromColdCacheFallback &&
         Array.isArray(responseWithSource.list)
       ) {
+        pendingRemoteFirstPageLoadedQueryKeyRef.current = requestQueryKey;
         trustedMarketTokenListFallbackRef.current = {
           data: responseWithSource,
           updatedAt: Date.now(),
@@ -400,13 +415,26 @@ export function useMarketTokenList({
   const effectiveIsLoading = hasNetworkId ? isLoading : false;
   const isSeedResult = Boolean(apiResult?.__fromSeed);
   const isColdCacheFallbackResult = Boolean(apiResult?.__fromColdCacheFallback);
+  const isAwaitingRemoteFirstPageResult =
+    hasNetworkId && remoteFirstPageLoadedQueryKey !== currentQueryKey;
+  // A normal SWR hit is still a cached page 1. Keep pagination locked until a
+  // remote page 1 lands, otherwise page 2 can be appended before page 1 gets
+  // revalidated and then replaced.
   const isProvisionalFirstPageResult =
-    isSeedResult || isColdCacheFallbackResult;
+    isSeedResult ||
+    isColdCacheFallbackResult ||
+    isAwaitingRemoteFirstPageResult;
   const isProvisionalFirstPageResultRef = useRef(isProvisionalFirstPageResult);
   isProvisionalFirstPageResultRef.current = isProvisionalFirstPageResult;
+  const shouldForceRemoteForProvisionalFirstPageResult =
+    isSeedResult || isColdCacheFallbackResult;
 
   useEffect(() => {
-    if (!platformEnv.isWeb || !isProvisionalFirstPageResult || !hasNetworkId) {
+    if (
+      !platformEnv.isWeb ||
+      !shouldForceRemoteForProvisionalFirstPageResult ||
+      !hasNetworkId
+    ) {
       return undefined;
     }
 
@@ -419,7 +447,35 @@ export function useMarketTokenList({
       void fetchMarketTokenList().catch(() => undefined);
     }, 0);
     return () => clearTimeout(timer);
-  }, [fetchMarketTokenList, hasNetworkId, isProvisionalFirstPageResult]);
+  }, [
+    fetchMarketTokenList,
+    hasNetworkId,
+    shouldForceRemoteForProvisionalFirstPageResult,
+  ]);
+
+  useEffect(() => {
+    if (
+      !apiResult ||
+      apiResult.__fromSeed ||
+      apiResult.__fromColdCacheFallback
+    ) {
+      return;
+    }
+
+    const pendingQueryKey = pendingRemoteFirstPageLoadedQueryKeyRef.current;
+    if (!pendingQueryKey) {
+      return;
+    }
+    if (pendingQueryKey !== currentQueryKey) {
+      pendingRemoteFirstPageLoadedQueryKeyRef.current = undefined;
+      return;
+    }
+
+    // Unlock pagination only after the remote page 1 result is the rendered
+    // apiResult, not merely after the request promise resolves.
+    pendingRemoteFirstPageLoadedQueryKeyRef.current = undefined;
+    setRemoteFirstPageLoadedQueryKey(pendingQueryKey);
+  }, [apiResult, currentQueryKey]);
 
   useEffect(() => {
     if (!hasNetworkId || !apiResult || !apiResult.list) {

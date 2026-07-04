@@ -119,6 +119,20 @@ const getMarketHomeTokenListSeedForInit = () => {
   );
 };
 
+const discardMarketHomeTokenListSeedForInit = () => {
+  if (!shouldUseMarketHomeTokenListBootstrapSeed()) {
+    return;
+  }
+
+  const bootstrapData = (globalThis as IGlobalWithOneKeyBootstrapData)[
+    ONEKEY_BOOTSTRAP_DATA_GLOBAL
+  ];
+  delete bootstrapData?.marketHomeTokenListSeed;
+  marketHomeTokenListSeedConsumed = true;
+  marketHomeTokenListSeedPromise = undefined;
+  marketHomeTokenListSeedSnapshot = undefined;
+};
+
 const preloadMarketHomeTokenListSeed = () => {
   if (!shouldUseMarketHomeTokenListBootstrapSeed()) {
     return;
@@ -128,6 +142,7 @@ const preloadMarketHomeTokenListSeed = () => {
 };
 
 export {
+  discardMarketHomeTokenListSeedForInit,
   fetchMarketHomeTokenListSeed,
   getMarketHomeTokenListSeedForInit,
   preloadMarketHomeTokenListSeed,
