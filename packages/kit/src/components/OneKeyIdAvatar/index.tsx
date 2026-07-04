@@ -5,41 +5,14 @@ import { Icon, Image, InnerStroke, Stack, XStack } from '@onekeyhq/components';
 import avatarFallback from '@onekeyhq/kit/assets/avatar-fallback.png';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import {
-  EOneKeyIdIdentityType,
-  EOneKeyIdOAuthProvider,
-  type IOneKeyIdAccount,
-} from '@onekeyhq/shared/types/prime/primeTypes';
+  getBoundOAuthProviders,
+  getOneKeyIdOAuthProviderIcon,
+} from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 
 interface IOneKeyIdAvatarProps {
   size?: IImageProps['width'];
   source?: IImageProps['source'];
   showSocialBadge?: boolean;
-}
-
-const ONEKEY_ID_OAUTH_PROVIDER_ORDER = [
-  EOneKeyIdOAuthProvider.Google,
-  EOneKeyIdOAuthProvider.Apple,
-];
-
-function getBoundOAuthProviders(onekeyAccount?: IOneKeyIdAccount) {
-  const providerSet = new Set<EOneKeyIdOAuthProvider>();
-  onekeyAccount?.identities?.forEach((identity) => {
-    if (
-      identity.identityType === EOneKeyIdIdentityType.OAuth &&
-      identity.oauthProvider
-    ) {
-      providerSet.add(identity.oauthProvider);
-    }
-  });
-  return ONEKEY_ID_OAUTH_PROVIDER_ORDER.filter((provider) =>
-    providerSet.has(provider),
-  );
-}
-
-function getOAuthProviderIcon(provider: EOneKeyIdOAuthProvider) {
-  return provider === EOneKeyIdOAuthProvider.Google
-    ? 'GoogleIllus'
-    : 'AppleBrand';
 }
 
 function getSocialBadgeMetrics(size: IImageProps['width']) {
@@ -137,7 +110,7 @@ function BasicOneKeyIdAvatar({
           {visibleOAuthProviders.map((provider) => (
             <Icon
               key={provider}
-              name={getOAuthProviderIcon(provider)}
+              name={getOneKeyIdOAuthProviderIcon(provider)}
               size={iconSize}
               color="$icon"
             />

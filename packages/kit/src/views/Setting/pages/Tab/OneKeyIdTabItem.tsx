@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -35,10 +36,10 @@ function BasicOneKeyIdTabItem({ selected, onPress }: IOneKeyIdTabItemProps) {
     if (!isLoggedIn) {
       return intl.formatMessage({ id: ETranslations.prime_signup_login });
     }
-    return (
-      user?.displayEmail ||
-      intl.formatMessage({ id: ETranslations.global_unknown })
-    );
+    return getDisplayEmailOrUnknown({
+      intl,
+      displayEmail: user?.displayEmail,
+    });
   }, [isLoggedIn, user?.displayEmail, intl]);
 
   const handlePress = useCallback(() => {

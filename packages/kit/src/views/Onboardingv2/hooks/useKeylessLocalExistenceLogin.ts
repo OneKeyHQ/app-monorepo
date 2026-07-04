@@ -8,16 +8,12 @@ import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConst
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { getOAuthSocialLoginProviderName } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { showKeylessWalletAccountMismatchError } from '../../../components/KeylessWallet/AccountMismatchDialog';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
-
-const PROVIDER_PLATFORM_NAME: Record<EOAuthSocialLoginProvider, string> = {
-  [EOAuthSocialLoginProvider.Google]: 'Google',
-  [EOAuthSocialLoginProvider.Apple]: 'Apple',
-};
 
 // Shared hook for the "check local keyless existence then continue" entry flow
 // used by CreateNewWallet and CreateOrImportWallet. When autoLoginKeylessProvider
@@ -68,7 +64,7 @@ export function useKeylessLocalExistenceLogin({
           });
         }
         if (autoLoginKeylessProvider) {
-          const platform = PROVIDER_PLATFORM_NAME[provider];
+          const platform = getOAuthSocialLoginProviderName(provider);
           loadingDialogRef.current = Dialog.loading({
             title: intl.formatMessage(
               { id: ETranslations.continue_with_social_platform },

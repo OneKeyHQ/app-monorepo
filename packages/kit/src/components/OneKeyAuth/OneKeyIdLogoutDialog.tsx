@@ -11,9 +11,9 @@ import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contex
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
-  EOneKeyIdIdentityType,
   EPrimeAuthSessionSource,
   type IOneKeyIdAccount,
 } from '@onekeyhq/shared/types/prime/primeTypes';
@@ -107,7 +107,7 @@ function getOneKeyIdLogoutDialogContent({
   };
 }
 
-function isLegacyOneKeyIdAccountMissingOAuthIdentity({
+function isLegacyOneKeyIdAccountMissingOAuthIdentityWithFallback({
   onekeyAccount,
   authSessionSource,
 }: {
@@ -124,13 +124,7 @@ function isLegacyOneKeyIdAccountMissingOAuthIdentity({
     // legacy (wallet-preserving) classification.
     return authSessionSource !== EPrimeAuthSessionSource.KeylessOAuth;
   }
-  const hasLegacyEmailIdentity = identities.some(
-    (identity) => identity.identityType === EOneKeyIdIdentityType.LegacyEmail,
-  );
-  const hasOAuthIdentity = identities.some(
-    (identity) => identity.identityType === EOneKeyIdIdentityType.OAuth,
-  );
-  return hasLegacyEmailIdentity && !hasOAuthIdentity;
+  return isLegacyOneKeyIdAccountMissingOAuthIdentity(onekeyAccount);
 }
 
 function OneKeyIdLogoutDialogContent({
@@ -276,7 +270,7 @@ export function useShowOneKeyIdLogoutDialog() {
       const shouldSkipLinkedLogout =
         Boolean(keylessWallet) &&
         isOneKeyIdLoggedIn &&
-        isLegacyOneKeyIdAccountMissingOAuthIdentity({
+        isLegacyOneKeyIdAccountMissingOAuthIdentityWithFallback({
           onekeyAccount: userOneKeyAccount,
           authSessionSource,
         });

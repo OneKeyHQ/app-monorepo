@@ -25,6 +25,9 @@ import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { logoutPurchasesSdk } from '../../views/Prime/hooks/purchasesSdkLogout';
+
+import { getDisplayEmailOrUnknown } from './oneKeyIdDisplayEmailUtils';
+
 // import PrimeLoginEmailDialogV2 from '../../views/Prime/components/PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2';
 
 const EmailOTPDialog = LazyLoadPage(
@@ -399,9 +402,10 @@ export function useOneKeyAuth() {
                 intl.formatMessage(
                   { id: ETranslations.prime_sent_to },
                   {
-                    email:
-                      userInfo.displayEmail ||
-                      intl.formatMessage({ id: ETranslations.global_unknown }),
+                    email: getDisplayEmailOrUnknown({
+                      intl,
+                      displayEmail: userInfo.displayEmail,
+                    }),
                   },
                 )
               }

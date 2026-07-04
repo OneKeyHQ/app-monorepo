@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useConfirmOneKeyIdLogout } from '@onekeyhq/kit/src/components/OneKeyAuth/useConfirmOneKeyIdLogout';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { OneKeyIdAvatar } from '@onekeyhq/kit/src/components/OneKeyIdAvatar';
@@ -234,8 +235,10 @@ function OneKeyIdProfilePanel({
   const intl = useIntl();
   const media = useMedia();
   const { user } = useOneKeyAuth();
-  const unknownEmail = intl.formatMessage({ id: ETranslations.global_unknown });
-  const displayEmail = user?.displayEmail || unknownEmail;
+  const displayEmail = getDisplayEmailOrUnknown({
+    intl,
+    displayEmail: user?.displayEmail,
+  });
   const displayName = user?.nickname || displayEmail;
   const email = displayEmail;
   const avatarSize = media.gtMd ? '$20' : '$12';

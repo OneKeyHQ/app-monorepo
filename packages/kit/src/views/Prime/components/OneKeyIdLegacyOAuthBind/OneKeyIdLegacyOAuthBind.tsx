@@ -26,12 +26,15 @@ import {
   type IOneKeyIdLoginWithLocalKeylessPrepareResult,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
-  EOneKeyIdIdentityType,
-  EOneKeyIdOAuthProvider,
-  type IOneKeyIdAccount,
-} from '@onekeyhq/shared/types/prime/primeTypes';
+  getBoundOAuthProviders,
+  getOAuthSocialLoginProviderName,
+  getOneKeyIdOAuthProviderIcon,
+  getOneKeyIdOAuthProviderName,
+} from '@onekeyhq/shared/src/utils/oauthProviderUtils';
+import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { EOneKeyIdOAuthProvider } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { useOneKeyIdLocalKeylessOAuth } from '../useOneKeyIdLocalKeylessOAuth';
 
@@ -40,62 +43,15 @@ export const ONEKEY_ID_BIND_OAUTH_DESC =
   'Email sign-in is legacy. Add a social sign-in method to keep access to your OneKey ID.';
 let isLegacyOAuthBindDialogVisible = false;
 
-const ONEKEY_ID_OAUTH_PROVIDER_ORDER = [
-  EOneKeyIdOAuthProvider.Google,
-  EOneKeyIdOAuthProvider.Apple,
-];
-
-function getOAuthProviderName(provider: EOAuthSocialLoginProvider) {
-  return provider === EOAuthSocialLoginProvider.Google ? 'Google' : 'Apple';
-}
-
-function getOneKeyIdOAuthProviderName(provider: EOneKeyIdOAuthProvider) {
-  return provider === EOneKeyIdOAuthProvider.Google ? 'Google' : 'Apple';
-}
-
-function getOneKeyIdOAuthProviderIcon(provider: EOneKeyIdOAuthProvider) {
-  return provider === EOneKeyIdOAuthProvider.Google
-    ? 'GoogleIllus'
-    : 'AppleBrand';
-}
-
-function getBoundOAuthProviders(onekeyAccount?: IOneKeyIdAccount) {
-  const providerSet = new Set<EOneKeyIdOAuthProvider>();
-  onekeyAccount?.identities?.forEach((identity) => {
-    if (
-      identity.identityType === EOneKeyIdIdentityType.OAuth &&
-      identity.oauthProvider
-    ) {
-      providerSet.add(identity.oauthProvider);
-    }
-  });
-  return ONEKEY_ID_OAUTH_PROVIDER_ORDER.filter((provider) =>
-    providerSet.has(provider),
-  );
-}
-
-function isOneKeyIdAccountMissingOAuthIdentity(
-  onekeyAccount?: IOneKeyIdAccount,
-) {
-  const identities = onekeyAccount?.identities ?? [];
-  const hasLegacyEmailIdentity = identities.some(
-    (identity) => identity.identityType === EOneKeyIdIdentityType.LegacyEmail,
-  );
-  const hasOAuthIdentity = identities.some(
-    (identity) => identity.identityType === EOneKeyIdIdentityType.OAuth,
-  );
-  return hasLegacyEmailIdentity && !hasOAuthIdentity;
-}
-
 function getBindOAuthTitle(provider?: EOAuthSocialLoginProvider) {
   return provider
-    ? `Add ${getOAuthProviderName(provider)} Sign-In`
+    ? `Add ${getOAuthSocialLoginProviderName(provider)} Sign-In`
     : ONEKEY_ID_BIND_OAUTH_TITLE;
 }
 
 function getBindOAuthDescription(provider?: EOAuthSocialLoginProvider) {
   return provider
-    ? `Email sign-in is legacy. Add ${getOAuthProviderName(
+    ? `Email sign-in is legacy. Add ${getOAuthSocialLoginProviderName(
         provider,
       )} sign-in method to keep access to your OneKey ID.`
     : ONEKEY_ID_BIND_OAUTH_DESC;
@@ -460,7 +416,7 @@ export function OneKeyIdLegacyOAuthBindPrompt({
     [onekeyAccount],
   );
   const shouldShowBindPrompt = useMemo(
-    () => isOneKeyIdAccountMissingOAuthIdentity(onekeyAccount),
+    () => isLegacyOneKeyIdAccountMissingOAuthIdentity(onekeyAccount),
     [onekeyAccount],
   );
 

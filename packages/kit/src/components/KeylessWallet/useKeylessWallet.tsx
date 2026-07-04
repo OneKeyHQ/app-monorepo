@@ -45,6 +45,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { showOneKeyIdLegacyOAuthBindDialog } from '../../views/Prime/components/OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
+import { getDisplayEmailOrUnknown } from '../OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 
 import { showKeylessWalletAccountMismatchError } from './AccountMismatchDialog';
@@ -655,9 +656,10 @@ export function useKeylessWallet() {
             reject(error);
           }
         };
-        const displayEmail =
-          prepareResult.displayEmail ||
-          intl.formatMessage({ id: ETranslations.global_unknown });
+        const displayEmail = getDisplayEmailOrUnknown({
+          intl,
+          displayEmail: prepareResult.displayEmail,
+        });
         Dialog.show({
           title: 'Continue with current OneKey ID?',
           description: `You are signed in as ${displayEmail}. Continue with this OneKey ID to create a Keyless wallet, or sign out to use another Google or Apple account.`,

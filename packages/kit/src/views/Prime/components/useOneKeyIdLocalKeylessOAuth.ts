@@ -5,22 +5,14 @@ import { useIntl } from 'react-intl';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { showKeylessWalletAccountMismatchError } from '@onekeyhq/kit/src/components/KeylessWallet/AccountMismatchDialog';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EOneKeyIdLoginWithLocalKeylessPrepareStatus,
   type IOneKeyIdLoginWithLocalKeylessPrepareResult,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-function getLocalKeylessOAuthProviderName(
-  provider?: EOAuthSocialLoginProvider,
-) {
-  if (!provider) {
-    return '';
-  }
-  return provider === EOAuthSocialLoginProvider.Google ? 'Google' : 'Apple';
-}
+import { getOAuthSocialLoginProviderName } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 
 export function isOneKeyIdLocalKeylessOAuthMode(
   status?: EOneKeyIdLoginWithLocalKeylessPrepareStatus,
@@ -54,7 +46,7 @@ export function useOneKeyIdLocalKeylessOAuth({
     Boolean(localKeylessProvider);
 
   const localKeylessProviderName = useMemo(
-    () => getLocalKeylessOAuthProviderName(localKeylessProvider),
+    () => getOAuthSocialLoginProviderName(localKeylessProvider),
     [localKeylessProvider],
   );
 

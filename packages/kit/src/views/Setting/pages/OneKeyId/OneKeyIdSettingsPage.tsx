@@ -16,6 +16,7 @@ import {
 import type { IIconProps, ISizableTextProps } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
+import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -31,9 +32,10 @@ import { OneKeyIdAvatar } from './OneKeyIdAvatar';
 function OneKeyIdUserProfile() {
   const { user, isLoggedIn, loginOneKeyId } = useOneKeyAuth();
   const intl = useIntl();
-  const displayEmail =
-    user?.displayEmail ||
-    intl.formatMessage({ id: ETranslations.global_unknown });
+  const displayEmail = getDisplayEmailOrUnknown({
+    intl,
+    displayEmail: user?.displayEmail,
+  });
 
   const handleLogin = useCallback(() => {
     void loginOneKeyId();

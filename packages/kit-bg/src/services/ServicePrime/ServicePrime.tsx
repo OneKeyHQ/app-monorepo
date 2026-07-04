@@ -25,6 +25,7 @@ import {
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ETranslateEngine } from '@onekeyhq/shared/types/discovery';
@@ -41,10 +42,7 @@ import type {
   IPrimeUserInfo,
   IShopifyOrder,
 } from '@onekeyhq/shared/types/prime/primeTypes';
-import {
-  EOneKeyIdIdentityType,
-  EPrimeAuthSessionSource,
-} from '@onekeyhq/shared/types/prime/primeTypes';
+import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import {
   primeLoginDialogAtom,
@@ -604,9 +602,7 @@ class ServicePrime extends ServiceBase {
     }
 
     const profile = await this.apiFetchOneKeyIdProfile();
-    return this.isLegacyOneKeyIdAccountMissingOAuthIdentity(
-      profile.onekeyAccount,
-    );
+    return isLegacyOneKeyIdAccountMissingOAuthIdentity(profile.onekeyAccount);
   }
 
   @backgroundMethod()
@@ -1105,19 +1101,6 @@ class ServicePrime extends ServiceBase {
         loginResponse.inviteCode,
       );
     }
-  }
-
-  private isLegacyOneKeyIdAccountMissingOAuthIdentity(
-    onekeyAccount: IOneKeyIdAccount,
-  ) {
-    const identities = onekeyAccount.identities ?? [];
-    const hasLegacyEmailIdentity = identities.some(
-      (identity) => identity.identityType === EOneKeyIdIdentityType.LegacyEmail,
-    );
-    const hasOAuthIdentity = identities.some(
-      (identity) => identity.identityType === EOneKeyIdIdentityType.OAuth,
-    );
-    return hasLegacyEmailIdentity && !hasOAuthIdentity;
   }
 
   async updatePrimeAtomByOneKeyIdAccount({
