@@ -1,24 +1,20 @@
 import { Toast } from '@onekeyhq/components';
-import {
-  EOneKeyErrorClassNames,
-  type IOneKeyError,
-} from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IntlShape } from 'react-intl';
 
-type IOneKeyIdLoginToastError = IOneKeyError & {
-  $$autoToastErrorTriggered?: boolean;
-};
-
 function shouldSkipOneKeyIdLoginFailedToast(error: unknown) {
-  const err = error as IOneKeyIdLoginToastError | undefined;
+  const err = error as IOneKeyError | undefined;
 
+  // Skip the manual login-failed toast when the global auto toast has already
+  // been shown for this error, auto toast is explicitly disabled, or the user
+  // canceled the login flow (dialog/OAuth cancel, aborted request, etc.)
   return (
-    err?.$$autoToastErrorTriggered ||
+    errorToastUtils.wasAutoToastShown(error) ||
     err?.autoToast === false ||
-    err?.className === EOneKeyErrorClassNames.OAuthLoginCancelError ||
-    err?.className === EOneKeyErrorClassNames.PrimeLoginDialogCancelError
+    errorToastUtils.isUserCancelStyleError(error)
   );
 }
 
