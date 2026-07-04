@@ -1103,7 +1103,19 @@ function TokenSelector() {
         // aggregate `$key` fiat lookups.
         setSelectorTokenListMap(snapshot.map);
         setSelectorAggregateTokenFiatMap(snapshot.map);
-        setSelectorAggregateTokenListMap(localAggregateTokenListMap ?? {});
+        // Aggregate membership MUST ride the SAME structure frame the floor
+        // rows come from: `getTokenListFrames` is home's atomic per-owner
+        // snapshot, whereas the simpleDb copy (`getLocalAggregateTokenListMap`)
+        // is home's LAST settled write and can lag the VM by a round. Reading
+        // simpleDb here would pair the fresh structure rows with a stale/empty
+        // member map, so aggregate row clicks and the single-owned-sub-token
+        // auto-select would resolve against outdated membership. Fall back to
+        // simpleDb only when the structure frame itself is absent (cold VM).
+        setSelectorAggregateTokenListMap(
+          frames.structure?.ownedAggregateTokenListMap ??
+            localAggregateTokenListMap ??
+            {},
+        );
         setSelectorInitialized(true);
       } catch (e) {
         console.error(e);
@@ -1222,13 +1234,17 @@ function TokenSelector() {
       // Total fan-out failure (offline / server outage): the fan-out resolves
       // with ZERO responses instead of throwing (continue-on-error), so the
       // merged result would be EMPTY. Keep an already-seeded floor on screen
-      // instead of wiping it; `liveLanded` stays unset so the floor can still
-      // re-seed on a later home structure frame.
+      // instead of wiping it, and re-ARM the floor latch so a later home
+      // structure frame re-seeds it with fresh data. `liveLanded` stays unset
+      // and `selectorFloorSeededRef` is cleared together: leaving the latch set
+      // would permanently short-circuit the floor effect, pinning the selector
+      // on the stale floor until the owner changes or the page reopens.
       if (
         isSelectorAllNetworks &&
         responses.length === 0 &&
         selectorFloorSeededRef.current
       ) {
+        selectorFloorSeededRef.current = false;
         return;
       }
 
