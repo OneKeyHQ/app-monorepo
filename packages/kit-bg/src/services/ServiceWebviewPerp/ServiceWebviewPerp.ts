@@ -577,6 +577,7 @@ class ServiceWebviewPerp extends ServiceBase {
         tokens: tokensByNetwork,
         currentPerpsDepositSelectedToken: selectedToken,
         depositTokenListOwnerKey: ownerKey,
+        depositTokenListRevision: (prev.depositTokenListRevision ?? 0) + 1,
       };
     });
 

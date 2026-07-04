@@ -19,6 +19,10 @@ function normalizeTokenAddress(address?: string) {
   return (address ?? '').toLowerCase();
 }
 
+function splitTokenFiatKey(key: string) {
+  return key.toLowerCase().split(/[:_]/).filter(Boolean);
+}
+
 function getTokenFiat({
   token,
   tokenMap,
@@ -44,10 +48,10 @@ function getTokenFiat({
   if (token.networkId && normalizedAddress) {
     const normalizedNetworkId = token.networkId.toLowerCase();
     const matchedEntry = Object.entries(tokenMap).find(([key]) => {
-      const normalizedKey = key.toLowerCase();
+      const keyParts = splitTokenFiatKey(key);
       return (
-        normalizedKey.includes(normalizedNetworkId) &&
-        normalizedKey.includes(normalizedAddress)
+        keyParts.includes(normalizedNetworkId) &&
+        keyParts.includes(normalizedAddress)
       );
     });
     if (matchedEntry) {

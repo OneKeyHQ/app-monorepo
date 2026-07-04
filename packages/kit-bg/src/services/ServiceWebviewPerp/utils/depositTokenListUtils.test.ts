@@ -228,6 +228,45 @@ describe('depositTokenListUtils', () => {
     );
   });
 
+  it('does not fuzzy match another network when token map keys share network prefixes', () => {
+    const ethToken = makeToken({
+      networkId: 'evm--1',
+      address: '0xabc',
+      symbol: 'TOKEN',
+      $key: 'missing-token-key',
+    });
+
+    const result = buildPerpsDepositTokensFromWalletTokenResponses({
+      responses: [
+        makeResponse({
+          tokens: [ethToken],
+          tokenMap: {
+            'wallet:evm--10:0xabc': makeFiat({
+              balanceParsed: '10',
+              fiatValue: '10',
+              price: 1,
+            }),
+            'wallet:evm--137:0xabc': makeFiat({
+              balanceParsed: '137',
+              fiatValue: '137',
+              price: 1,
+            }),
+          },
+        }),
+      ],
+      networkLogoURIByNetworkId: {},
+    });
+
+    expect(result[0]).toEqual(
+      expect.objectContaining({
+        symbol: 'TOKEN',
+        balanceParsed: undefined,
+        fiatValue: undefined,
+        price: undefined,
+      }),
+    );
+  });
+
   it('groups tokens by network and picks Arbitrum USDC as the default token', () => {
     const eth = makeToken({
       networkId: 'evm--1',

@@ -436,7 +436,12 @@ function DepositWithdrawContent({
   >('form');
   const amountInputRef = useRef<ISendAmountAutoSizeInputRef>(null);
   const [
-    { tokens, currentPerpsDepositSelectedToken },
+    {
+      tokens,
+      currentPerpsDepositSelectedToken,
+      depositTokenListOwnerKey,
+      depositTokenListRevision,
+    },
     setPerpsDepositTokensAtom,
   ] = usePerpsDepositTokensAtom();
 
@@ -474,6 +479,10 @@ function DepositWithdrawContent({
   );
   const depositTokenRequestKeyRef = useRef(depositTokenRequestKey);
   depositTokenRequestKeyRef.current = depositTokenRequestKey;
+  const depositTokenListOwnerKeyRef = useRef<string | undefined>(undefined);
+  const lastSyncedDepositTokenListRevisionRef = useRef<number | undefined>(
+    undefined,
+  );
 
   const [depositTokensWithPrice, setDepositTokensWithPrice] = useState<
     IPerpsDepositToken[]
@@ -560,6 +569,41 @@ function DepositWithdrawContent({
     return !isWatchingAccount;
   }, [selectedAccount.accountId]);
 
+  const syncDepositTokenBalances = useCallback(
+    async ({
+      depositTokens,
+      requestKey,
+    }: {
+      depositTokens: IPerpsDepositToken[];
+      requestKey: string;
+    }) => {
+      const nativeTokenNetworkIds = Array.from(
+        new Set(
+          depositTokens
+            .filter((token) => token.isNative)
+            .map((token) => token.networkId),
+        ),
+      );
+      const nativeTokenConfigsRes = (
+        await Promise.all(
+          nativeTokenNetworkIds.map((networkId) =>
+            backgroundApiProxy.serviceSwap.fetchSwapNativeTokenConfig({
+              networkId,
+            }),
+          ),
+        )
+      ).filter((item): item is ISwapNativeTokenConfig => Boolean(item));
+      if (depositTokenRequestKeyRef.current !== requestKey) {
+        return false;
+      }
+      setNativeTokenConfigs(nativeTokenConfigsRes);
+      setDepositTokensWithPrice(depositTokens);
+      setHasLoadedDepositTokenBalances(true);
+      return true;
+    },
+    [],
+  );
+
   const { result, isLoading: balanceLoading } = usePromiseResult(
     async () => {
       const requestKey = depositTokenRequestKey;
@@ -568,39 +612,32 @@ function DepositWithdrawContent({
         !selectedAccount.accountAddress ||
         !checkAccountSupport
       ) {
+        depositTokenListOwnerKeyRef.current = undefined;
         setHasLoadedDepositTokenBalances(true);
         return [];
       }
       try {
-        const { isStale, tokens: depositTokens } =
-          await backgroundApiProxy.serviceWebviewPerp.fetchPerpsDepositTokensFromWalletTokenList(
-            {
-              accountId: selectedAccount.accountId ?? '',
-              indexedAccountId: selectedAccount.indexedAccountId ?? undefined,
-            },
-          );
+        const {
+          isStale,
+          ownerKey,
+          tokens: depositTokens,
+        } = await backgroundApiProxy.serviceWebviewPerp.fetchPerpsDepositTokensFromWalletTokenList(
+          {
+            accountId: selectedAccount.accountId ?? '',
+            indexedAccountId: selectedAccount.indexedAccountId ?? undefined,
+          },
+        );
         if (isStale || depositTokenRequestKeyRef.current !== requestKey) {
           return [];
         }
-        const nativeTokenNetworkIds = Array.from(
-          new Set(
-            depositTokens
-              .filter((token) => token.isNative)
-              .map((token) => token.networkId),
-          ),
-        );
-        const nativeTokenConfigsRes = (
-          await Promise.all(
-            nativeTokenNetworkIds.map((networkId) =>
-              backgroundApiProxy.serviceSwap.fetchSwapNativeTokenConfig({
-                networkId,
-              }),
-            ),
-          )
-        ).filter((item): item is ISwapNativeTokenConfig => Boolean(item));
-        setNativeTokenConfigs(nativeTokenConfigsRes);
-        setDepositTokensWithPrice(depositTokens);
-        setHasLoadedDepositTokenBalances(true);
+        depositTokenListOwnerKeyRef.current = ownerKey;
+        const didSync = await syncDepositTokenBalances({
+          depositTokens,
+          requestKey,
+        });
+        if (!didSync) {
+          return [];
+        }
         return depositTokens;
       } catch (error) {
         if (depositTokenRequestKeyRef.current !== requestKey) {
@@ -626,6 +663,7 @@ function DepositWithdrawContent({
       depositTokenRequestKey,
       checkAccountSupport,
       setPerpsDepositTokensAtom,
+      syncDepositTokenBalances,
     ],
     {
       watchLoading: true,
@@ -633,6 +671,30 @@ function DepositWithdrawContent({
       revalidateOnFocus: true,
     },
   );
+
+  useEffect(() => {
+    if (
+      !checkAccountSupport ||
+      !depositTokenListOwnerKey ||
+      depositTokenListOwnerKey !== depositTokenListOwnerKeyRef.current ||
+      depositTokenListRevision === undefined ||
+      depositTokenListRevision === lastSyncedDepositTokenListRevisionRef.current
+    ) {
+      return;
+    }
+
+    lastSyncedDepositTokenListRevisionRef.current = depositTokenListRevision;
+    void syncDepositTokenBalances({
+      depositTokens: cachedDepositTokens,
+      requestKey: depositTokenRequestKeyRef.current,
+    });
+  }, [
+    cachedDepositTokens,
+    checkAccountSupport,
+    depositTokenListOwnerKey,
+    depositTokenListRevision,
+    syncDepositTokenBalances,
+  ]);
 
   useEffect(() => {
     setHasLoadedDepositTokenBalances(false);
