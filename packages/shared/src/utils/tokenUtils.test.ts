@@ -944,6 +944,59 @@ describe('buildSelectorTokenListFromResponses — token selector self-fetch merg
     expect(merged.aggregateTokenFiatMap.aggregate_USDT_.fiatValue).toBe('100');
   });
 
+  it('single all-networks response globally re-splits a low-value folded aggregate across the high/low buckets', () => {
+    // Regression: a client-folded aggregate common row is appended to the HIGH
+    // bucket (`tokens`) after the loop regardless of its summed value. If the
+    // single-response path only value-sorts WITHIN each bucket, a low-value
+    // folded aggregate stays stranded in the high bucket ahead of a
+    // higher-value small-balance token — and TokenListView renders
+    // `tokens ++ smallBalanceTokens` as a plain concat, so it would show a
+    // cheaper aggregate above a pricier asset. The fold case must fall through
+    // to the global concat -> sort -> re-split (home's all-networks merge).
+    const ethUsdt = buildTestToken({
+      $key: 'evm--1_usdt_key',
+      address: '0xTetherAddr',
+      networkId: 'evm--1',
+      symbol: 'USDT',
+      accountId: 'acc-eth',
+      networkName: 'Ethereum',
+    });
+    const ethDust = buildTestToken({
+      $key: 'evm--1_0xdust',
+      networkId: 'evm--1',
+    });
+
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({
+          networkId: 'evm--1',
+          // Server split: the aggregate member sits in the HIGH bucket (fiat 5)
+          // while a plain token worth 50 sits in the small-balance bucket — the
+          // exact incoherence a client fold can leave behind.
+          tokens: [ethUsdt],
+          smallBalanceTokens: [ethDust],
+          tokensMap: { 'evm--1_usdt_key': buildFiat('5') },
+          smallBalanceTokensMap: { 'evm--1_0xdust': buildFiat('50') },
+        }),
+      ],
+      aggregateTokenConfigMapRawData: {
+        'evm--1_0xtetheraddr': {
+          commonSymbol: 'USDT',
+          order: 1,
+          name: 'USDT',
+          logoURI: '',
+        } as unknown as IAggregateToken,
+      },
+    });
+
+    // The RENDERED order (tokens ++ smallBalanceTokens) is globally fiat-desc:
+    // the 50-value plain token precedes the 5-value folded aggregate.
+    expect(
+      [...merged.tokens, ...merged.smallBalanceTokens].map((t) => t.$key),
+    ).toEqual(['evm--1_0xdust', 'aggregate_USDT_']);
+    expect(merged.aggregateTokenFiatMap.aggregate_USDT_.fiatValue).toBe('5');
+  });
+
   it('same-network derive-account responses merge into one group row (BTC-like)', () => {
     const taprootBtc = buildTestToken({
       $key: 'acct-1_taproot_btc--0',

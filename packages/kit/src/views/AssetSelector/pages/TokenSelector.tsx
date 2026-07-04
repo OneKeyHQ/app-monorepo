@@ -47,7 +47,6 @@ import {
 import {
   buildSelectorTokenListFromResponses,
   checkIsOnlyOneTokenHasBalance,
-  sortTokensByFiatValue,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -1084,18 +1083,23 @@ function TokenSelector() {
         const riskyTokenKeys = new Set(
           frames.riskyTokens.map((token) => token.$key),
         );
-        // The VM raw list keeps the producer/ingest order, NOT the home
-        // DISPLAY order (home re-sorts in its render projection). Value-sort
-        // the floor so it matches both the home display default and the live
-        // merge's order — otherwise the list visibly reshuffles when the live
-        // fan-out replaces the floor.
+        // Seed the floor in the VM raw-list order VERBATIM (risky rows filtered
+        // out): the raw blob is `orderedTokens ++ smallBalanceTokens` in the
+        // exact per-owner order the SAME ingest feeds home — server order for a
+        // single-network owner, the already-merged fiat order for an
+        // all-networks owner. The live selector replaces this floor with
+        // `buildSelectorTokenListFromResponses`, whose single-network branch
+        // returns that server order VERBATIM (no re-sort) and whose
+        // all-networks branch reproduces the merged fiat order; keeping the
+        // snapshot order therefore matches the live order for BOTH cases. A
+        // fiat re-sort here would only match the all-networks live branch and
+        // would reshuffle a single-network owner whose display order is not
+        // pure fiat (pinned defaults / custom tokens) the moment the live
+        // verbatim list lands.
         setSelectorTokenList({
-          tokens: sortTokensByFiatValue({
-            tokens: snapshot.tokens.filter(
-              (token) => !riskyTokenKeys.has(token.$key),
-            ),
-            map: snapshot.map,
-          }),
+          tokens: snapshot.tokens.filter(
+            (token) => !riskyTokenKeys.has(token.$key),
+          ),
           smallBalanceTokens: [],
         });
         // `snapshot.map` is the composed home map (tokenListMap + riskyMap +

@@ -1084,34 +1084,30 @@ export function buildSelectorTokenListFromResponses({
 
   const sortMap = { ...tokenListMap, ...aggregateTokenFiatMap };
 
-  if (normalizedResponses.length <= 1) {
-    // Single-network selector: one network's server high/low split is already
-    // globally coherent, so keep the two buckets untouched. The no-fold case
-    // returns the server order verbatim; a client-folded aggregate appended its
-    // common rows to `tokens` out of order, so that case value-sorts within
-    // each bucket (aggregate rows resolve their summed fiat from `sortMap`).
-    if (!hasClientFoldedAggregates) {
-      return {
-        tokens,
-        smallBalanceTokens,
-        tokenListMap,
-        aggregateTokenFiatMap,
-        aggregateTokenListMap,
-      };
-    }
+  // Single-network selector with NO client fold: one network's server high/low
+  // split is already globally coherent, so return the two buckets verbatim (the
+  // server order), matching the single-network selector live shape and home's
+  // single-network display. The client-folded case does NOT early-return here:
+  // its common rows were appended to `tokens` out of value order (above), so the
+  // two buckets are no longer coherent and it MUST fall through to the global
+  // concat -> sort -> re-split below — a within-bucket sort would strand a
+  // low-value folded aggregate in the high bucket ahead of higher-value
+  // small-balance rows (TokenListView renders `tokens ++ smallBalanceTokens` as
+  // a plain concat). Home's all-networks merge re-splits globally regardless of
+  // response count, so folding through the same path keeps the selector's order
+  // identical to home's for this single-response edge case.
+  if (normalizedResponses.length <= 1 && !hasClientFoldedAggregates) {
     return {
-      tokens: sortTokensByFiatValue({ tokens, map: sortMap }),
-      smallBalanceTokens: sortTokensByFiatValue({
-        tokens: smallBalanceTokens,
-        map: sortMap,
-      }),
+      tokens,
+      smallBalanceTokens,
       tokenListMap,
       aggregateTokenFiatMap,
       aggregateTokenListMap,
     };
   }
 
-  // Multi-network fan-out: mirror Home's all-networks merge
+  // Multi-network fan-out (AND the single-response client-folded case above):
+  // mirror Home's all-networks merge
   // (`buildMergedAllNetworkSnapshot`). The per-network high/low split the server
   // returns is NOT globally coherent — one network's `smallBalanceTokens` can
   // be worth more than another network's `tokens`, and TokenListView renders
