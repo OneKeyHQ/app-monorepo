@@ -23,6 +23,8 @@ import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { getEndpointInfo } from '../endpoints';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
+import { readAuthTokenOrNull } from './ServicePrime/primeAuthSessionAccess';
+
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { AxiosInstance } from 'axios';
 
@@ -188,15 +190,12 @@ export default class ServiceBase {
   // attach per-user KYT risk data) while leaving the shared wallet client and
   // all its other callers untouched.
   getOneKeyIdAuthHeaders = async (): Promise<Record<string, string>> => {
-    try {
-      const authToken =
-        await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
-      return authToken ? { 'X-Onekey-Request-Token': authToken } : {};
-    } catch {
-      // The token is opportunistic (e.g. for per-user KYT data), so proceed
-      // without it rather than failing the whole request.
-      return {};
-    }
+    // The token is opportunistic (e.g. for per-user KYT data), so proceed
+    // without it rather than failing the whole request.
+    const authToken = await readAuthTokenOrNull(() =>
+      this.backgroundApi.simpleDb.prime.getActiveAuthToken(),
+    );
+    return authToken ? { 'X-Onekey-Request-Token': authToken } : {};
   };
 
   @backgroundMethod()

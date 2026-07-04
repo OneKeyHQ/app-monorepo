@@ -1,19 +1,13 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import supabaseStorageInstance from '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance';
-import {
-  getKeylessSupabaseAuthSessionKey,
-  getSupabaseAuthSessionKey,
-} from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
-import { isRetryableSupabaseAuthError } from '@onekeyhq/shared/src/utils/supabaseAuthErrorUtils';
-import {
-  getKeylessSupabaseClient,
-  getSupabaseClient,
-} from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import {
+  clearAllSupabaseAuthSessions,
+  clearAuthSessionBySessionSource,
+  clearSupabaseStorageCache,
+  getAuthTokenBySessionSource,
+} from '../../../services/ServicePrime/primeAuthSessionAccess';
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
-
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 const LOCAL_KEYLESS_UPGRADE_BIND_PROMPT_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
@@ -25,58 +19,24 @@ export interface ISimpleDBPrime {
   localKeylessUpgradeBindPromptShownAtByUserId?: Record<string, number>;
 }
 
+/**
+ * Persisted Prime/OneKey ID markers (authSessionSource, throttle
+ * timestamps). Live Supabase SDK session access (token reads that may hit
+ * the network, signOut, per-source client branching) lives in
+ * `primeAuthSessionAccess`; the token/session methods below are thin
+ * delegating wrappers kept for the existing bridge entry points
+ * (`backgroundApiProxy.simpleDb.prime.*`).
+ */
 export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   entityName = 'prime';
 
   override enableCache = true;
 
-  private async getSupabaseSdkAuthToken(
-    client: SupabaseClient,
-  ): Promise<string> {
-    const session = await client.auth.getSession();
-    if (session.error) {
-      if (isRetryableSupabaseAuthError(session.error)) {
-        throw session.error;
-      }
-      return '';
-    }
-    return session.data.session?.access_token || '';
-  }
-
-  private async getAuthTokenBySessionSource(
-    authSessionSource: EPrimeAuthSessionSource,
-  ): Promise<string> {
-    if (authSessionSource === EPrimeAuthSessionSource.KeylessOAuth) {
-      return this.getSupabaseSdkAuthToken(getKeylessSupabaseClient().client);
-    }
-    return this.getSupabaseSdkAuthToken(getSupabaseClient().client);
-  }
-
-  private async clearSupabaseAuthSessionBySource(
-    authSessionSource: EPrimeAuthSessionSource,
-  ) {
-    const client =
-      authSessionSource === EPrimeAuthSessionSource.KeylessOAuth
-        ? getKeylessSupabaseClient().client
-        : getSupabaseClient().client;
-    const sessionKey =
-      authSessionSource === EPrimeAuthSessionSource.KeylessOAuth
-        ? getKeylessSupabaseAuthSessionKey()
-        : getSupabaseAuthSessionKey();
-    try {
-      await client.auth.signOut({ scope: 'local' });
-    } catch {
-      // Local storage is cleared below even if the SDK session is already invalid.
-    }
-    await supabaseStorageInstance.removeItem(sessionKey);
-    supabaseStorageInstance.clearCache();
-  }
-
   @backgroundMethod()
   async getActiveAuthToken(): Promise<string> {
     const authSessionSource = await this.getEffectiveAuthSessionSource();
     if (authSessionSource) {
-      return this.getAuthTokenBySessionSource(authSessionSource);
+      return getAuthTokenBySessionSource(authSessionSource);
     }
     // Only the legacy migration fallback (inside the resolver) may recover a
     // source-less session. A standalone Keyless OAuth session must not imply
@@ -86,16 +46,14 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
 
   @backgroundMethod()
   async getSupabaseAuthToken(): Promise<string> {
-    return this.getAuthTokenBySessionSource(
+    return getAuthTokenBySessionSource(
       EPrimeAuthSessionSource.LegacyEmailSupabase,
     );
   }
 
   @backgroundMethod()
   async getKeylessSupabaseAuthToken(): Promise<string> {
-    return this.getAuthTokenBySessionSource(
-      EPrimeAuthSessionSource.KeylessOAuth,
-    );
+    return getAuthTokenBySessionSource(EPrimeAuthSessionSource.KeylessOAuth);
   }
 
   @backgroundMethod()
@@ -143,7 +101,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       ...rawData,
       authSessionSource,
     }));
-    supabaseStorageInstance.clearCache();
+    clearSupabaseStorageCache();
   }
 
   @backgroundMethod()
@@ -154,7 +112,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       ...rawData,
       authToken: '',
     }));
-    supabaseStorageInstance.clearCache();
+    clearSupabaseStorageCache();
   }
 
   @backgroundMethod()
@@ -164,7 +122,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       authToken: '',
       authSessionSource: undefined,
     }));
-    supabaseStorageInstance.clearCache();
+    clearSupabaseStorageCache();
   }
 
   @backgroundMethod()
@@ -206,43 +164,19 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
 
   @backgroundMethod()
   async clearLegacyAuthSession() {
-    await this.clearSupabaseAuthSessionBySource(
+    await clearAuthSessionBySessionSource(
       EPrimeAuthSessionSource.LegacyEmailSupabase,
     );
   }
 
   @backgroundMethod()
   async clearKeylessAuthSession() {
-    await this.clearSupabaseAuthSessionBySource(
-      EPrimeAuthSessionSource.KeylessOAuth,
-    );
+    await clearAuthSessionBySessionSource(EPrimeAuthSessionSource.KeylessOAuth);
   }
 
   @backgroundMethod()
   async clearLocalAuthSession() {
     await this.clearAuthTokens();
-    await this.clearLegacyAuthSession();
-    await this.clearKeylessAuthSession();
-    try {
-      const sessionKeys = [
-        getSupabaseAuthSessionKey(),
-        getKeylessSupabaseAuthSessionKey(),
-      ];
-      await Promise.all(
-        sessionKeys.flatMap((sessionKey) => [
-          supabaseStorageInstance.removeItem(sessionKey),
-          supabaseStorageInstance.removeItem(`${sessionKey}-user`),
-          supabaseStorageInstance.removeItem(`${sessionKey}-code-verifier`),
-        ]),
-      );
-    } catch {
-      // The fallback clear below handles cached keys seen by this runtime.
-    }
-    try {
-      await supabaseStorageInstance.clear();
-    } catch {
-      // Cache clearing below keeps the runtime from reusing a stale token.
-    }
-    supabaseStorageInstance.clearCache();
+    await clearAllSupabaseAuthSessions();
   }
 }

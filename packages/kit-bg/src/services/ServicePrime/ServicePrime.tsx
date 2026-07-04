@@ -26,7 +26,6 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import { isRetryableSupabaseAuthError } from '@onekeyhq/shared/src/utils/supabaseAuthErrorUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ETranslateEngine } from '@onekeyhq/shared/types/discovery';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -54,6 +53,8 @@ import {
   primeServerMasterPasswordStatusAtom,
 } from '../../states/jotai/atoms/prime';
 import ServiceBase from '../ServiceBase';
+
+import { readAuthTokenAllowingRetryableAuthError } from './primeAuthSessionAccess';
 
 import type {
   IPrimeLoginDialogAtomData,
@@ -377,24 +378,22 @@ class ServicePrime extends ServiceBase {
   }> {
     const authSessionSource =
       await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
-    let currentAuthToken = '';
-    try {
-      currentAuthToken = authSessionSource
-        ? await this.backgroundApi.simpleDb.prime.getActiveAuthToken()
-        : await this.backgroundApi.simpleDb.prime.getSupabaseAuthToken();
-    } catch (error) {
-      if (isRetryableSupabaseAuthError(error)) {
-        defaultLogger.prime.subscription.onekeyIdInvalidToken({
-          url: requestUrl || '',
-          errorCode: errorCode || -1,
-          errorMessage: `skip clearing invalid token response because local refresh failed: ${String(
-            error,
-          )}`,
-        });
-        return { cleared: false, authSessionSource };
-      }
-      throw error;
+    const tokenRead = await readAuthTokenAllowingRetryableAuthError(() =>
+      authSessionSource
+        ? this.backgroundApi.simpleDb.prime.getActiveAuthToken()
+        : this.backgroundApi.simpleDb.prime.getSupabaseAuthToken(),
+    );
+    if (tokenRead.retryableError) {
+      defaultLogger.prime.subscription.onekeyIdInvalidToken({
+        url: requestUrl || '',
+        errorCode: errorCode || -1,
+        errorMessage: `skip clearing invalid token response because local refresh failed: ${String(
+          tokenRead.retryableError,
+        )}`,
+      });
+      return { cleared: false, authSessionSource };
     }
+    const currentAuthToken = tokenRead.token;
 
     if (
       requestAuthToken &&
@@ -722,21 +721,19 @@ class ServicePrime extends ServiceBase {
       reason: `ServicePrime.apiLogout: starting logout for user ${currentAtomValue.onekeyUserId}`,
     });
 
-    let authToken = '';
-    try {
-      authToken = preserveLocalKeylessAuth
-        ? await this.backgroundApi.simpleDb.prime.getSupabaseAuthToken()
-        : await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
-    } catch (error) {
-      if (!isRetryableSupabaseAuthError(error)) {
-        throw error;
-      }
+    const tokenRead = await readAuthTokenAllowingRetryableAuthError(() =>
+      preserveLocalKeylessAuth
+        ? this.backgroundApi.simpleDb.prime.getSupabaseAuthToken()
+        : this.backgroundApi.simpleDb.prime.getActiveAuthToken(),
+    );
+    if (tokenRead.retryableError) {
       defaultLogger.prime.subscription.onekeyIdLogout({
         reason: `ServicePrime.apiLogout: skip server logout because auth refresh failed: ${String(
-          error,
+          tokenRead.retryableError,
         )}`,
       });
     }
+    const authToken = tokenRead.token;
     if (!authToken) {
       defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
         reason:
@@ -1281,20 +1278,18 @@ class ServicePrime extends ServiceBase {
   @backgroundMethod()
   async isLoggedIn() {
     const { isLoggedIn, isLoggedInOnServer } = await primePersistAtom.get();
-    let authToken = '';
-    try {
-      authToken = await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
-    } catch (error) {
-      if (isRetryableSupabaseAuthError(error)) {
-        defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
-          reason: `ServicePrime.isLoggedIn: auth refresh failed, keep local login state: ${String(
-            error,
-          )}`,
-        });
-        return Boolean(isLoggedIn && isLoggedInOnServer);
-      }
-      throw error;
+    const tokenRead = await readAuthTokenAllowingRetryableAuthError(() =>
+      this.backgroundApi.simpleDb.prime.getActiveAuthToken(),
+    );
+    if (tokenRead.retryableError) {
+      defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+        reason: `ServicePrime.isLoggedIn: auth refresh failed, keep local login state: ${String(
+          tokenRead.retryableError,
+        )}`,
+      });
+      return Boolean(isLoggedIn && isLoggedInOnServer);
     }
+    const authToken = tokenRead.token;
     const result = Boolean(isLoggedIn && isLoggedInOnServer && authToken);
 
     if (!result) {
