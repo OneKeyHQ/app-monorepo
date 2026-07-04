@@ -239,8 +239,9 @@ function installAsyncStorageWriteForwarder() {
   // from app-modules. This version-locked JS/package contract is intentionally
   // passive: if the package does not read these globals, this installer is inert;
   // if the package is present without this installer, writes stay on the original
-  // local path. The package reads globals lazily, so late injection is safe after
-  // the storage module has already been imported in the main runtime.
+  // local path. The package reads globals lazily on each write, so importing the
+  // storage module before this installer is fine for later writes. Writes that
+  // already completed before installation keep the legacy local-write semantics.
   asyncStorageForwarderLog('install-start', {
     isNativeIOS: Boolean(platformEnv.isNativeIOS),
     isNativeMainThread: Boolean(platformEnv.isNativeMainThread),
@@ -271,9 +272,11 @@ function installAsyncStorageWriteForwarder() {
           sync: false,
         },
         // Reads stay on the local main runtime. The app-modules AsyncStorage
-        // wrapper reloads the iOS main-runtime manifest after this promise
-        // resolves, preserving main read-after-write consistency without making
-        // reads depend on bg thread responsiveness.
+        // wrapper reloads the iOS main-runtime manifest around storage access,
+        // preserving main-origin read-after-write consistency without making
+        // reads depend on bg thread responsiveness. Bg-origin writes are not
+        // pushed into main memory; main sees them when its wrapper reloads from
+        // the shared disk manifest.
         // Never fall back to a main-runtime local write here: that would
         // reintroduce the iOS stale-manifest overwrite this forwarder avoids.
         // If bg transport is broken, surface the write failure instead.
