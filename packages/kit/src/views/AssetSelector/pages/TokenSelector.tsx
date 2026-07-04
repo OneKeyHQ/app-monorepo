@@ -844,7 +844,7 @@ function TokenSelector() {
     setScopedActiveTokenListMap({});
 
     try {
-      const responses = await fetchFilteredTokenSelectorTokens({
+      const { responses } = await fetchFilteredTokenSelectorTokens({
         accountId,
         networkId,
         indexedAccountId,
@@ -1198,7 +1198,7 @@ function TokenSelector() {
       // forwards to the wallet API verbatim — the server rejects it. Fan out
       // per real network instead (same enumeration + child requests the
       // LP/scoped branch uses) and merge the per-network responses.
-      const [responses, localAggregateTokenListMap, aggregateTokenRawData] =
+      const [fanOut, localAggregateTokenListMap, aggregateTokenRawData] =
         await Promise.all([
           isSelectorAllNetworks
             ? fetchFilteredTokenSelectorTokens({
@@ -1218,7 +1218,7 @@ function TokenSelector() {
                   flag: 'token-selector',
                   ...tokenSelectorFilterParams,
                 })
-                .then((r) => [r]),
+                .then((r) => ({ responses: [r], expectedResponseCount: 1 })),
           backgroundApiProxy.serviceToken.getLocalAggregateTokenListMap({
             accountId,
             networkId,
@@ -1235,19 +1235,27 @@ function TokenSelector() {
         return;
       }
 
-      // Total fan-out failure (offline / server outage): the fan-out resolves
-      // with ZERO responses instead of throwing (continue-on-error), so the
-      // merged result would be EMPTY. Keep an already-seeded floor on screen
-      // instead of wiping it, and re-ARM the floor latch so a later home
-      // structure frame re-seeds it with fresh data. `liveLanded` stays unset
-      // and `selectorFloorSeededRef` is cleared together: leaving the latch set
-      // would permanently short-circuit the floor effect, pinning the selector
-      // on the stale floor until the owner changes or the page reopens.
-      if (
-        isSelectorAllNetworks &&
-        responses.length === 0 &&
-        selectorFloorSeededRef.current
-      ) {
+      const { responses, expectedResponseCount } = fanOut;
+
+      // The all-networks fan-out runs continue-on-error, so a failed child
+      // network is silently DROPPED from `responses` rather than throwing.
+      // `responses.length < expectedResponseCount` therefore means this round is
+      // INCOMPLETE — it is missing one or more networks' tokens (total failure,
+      // where zero networks answered, is just the extreme case). It must NOT be
+      // treated as an authoritative full snapshot. (Single-network / derive
+      // paths report `expectedResponseCount === responses.length`, so they never
+      // trip this.)
+      const isIncompleteAllNetworksFanOut =
+        isSelectorAllNetworks && responses.length < expectedResponseCount;
+
+      // An incomplete round must not overwrite an already-painted floor: the SWR
+      // home snapshot is COMPLETE, so keep it on screen instead of replacing it
+      // with a gap-ridden live list. Re-ARM the floor latch so a later home
+      // structure frame re-seeds it with fresh, full data; `liveLanded` stays
+      // unset (cleared together with the latch) so the floor effect is not
+      // permanently short-circuited, which would pin the selector on the stale
+      // floor until the owner changes or the page reopens.
+      if (isIncompleteAllNetworksFanOut && selectorFloorSeededRef.current) {
         selectorFloorSeededRef.current = false;
         return;
       }
@@ -1288,7 +1296,15 @@ function TokenSelector() {
           : (localAggregateTokenListMap ?? {}),
       );
       setSelectorAggregateTokenFiatMap(merged.aggregateTokenFiatMap);
-      selectorLiveLandedRef.current = true;
+      // Only LATCH live-landed for a COMPLETE round. An incomplete fan-out with
+      // no floor to fall back on is still shown as a best-effort list (better
+      // than an indefinite skeleton), but leaving the latch unset lets a later
+      // home structure frame seed the missing networks through the floor effect
+      // instead of pinning this partial list. Complete rounds (and every
+      // single-network round) latch as before, so the floor stops re-seeding.
+      if (!isIncompleteAllNetworksFanOut) {
+        selectorLiveLandedRef.current = true;
+      }
     } catch (e) {
       // A superseded/aborted fetch is routine (same distinction the home
       // TokenListBlock catch makes) — don't log it at error level.
