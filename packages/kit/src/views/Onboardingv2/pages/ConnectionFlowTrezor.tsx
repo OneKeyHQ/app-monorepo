@@ -43,7 +43,7 @@ import {
   shouldRequestTrezorWebUsbPermissionBeforeListing,
   shouldShowTrezorScanTimeout,
 } from './ConnectionFlowTrezorUtils';
-import { ConnectionIndicator } from './ConnectYourDevice';
+import { ConnectionIndicator } from './ConnectionIndicator';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 import type { ReactVideoSource } from 'react-native-video';
