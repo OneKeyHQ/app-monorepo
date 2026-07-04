@@ -3,7 +3,11 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { getSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
+import { getSupabaseAuthSessionKey } from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
+import {
+  getSupabaseClient,
+  isSupabaseTokenRefreshRuntime,
+} from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 
 import { SupabaseAuthContext } from './SupabaseAuthContext';
 
@@ -31,12 +35,36 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
       try {
         logSupabaseAuthProvider('fetchSession start');
         setIsLoading(true);
-        const {
-          data: { session },
-          error,
-        } = await getSupabaseClient().client.auth.getSession();
-        if (error) {
-          console.error('Error fetching session:', error);
+        let session: Session | null = null;
+        if (isSupabaseTokenRefreshRuntime()) {
+          // bg/standalone runtime: getSession() may perform a network token
+          // refresh of an expired session — allowed here because this runtime
+          // owns token rotation.
+          const { data, error } =
+            await getSupabaseClient().client.auth.getSession();
+          if (error) {
+            console.error('Error fetching session:', error);
+          }
+          session = data.session;
+        } else {
+          // Pure-UI runtime: NEVER call client.auth.getSession() in steady
+          // state — its on-demand refresh of an expired session is NOT
+          // disabled by autoRefreshToken:false and would race the bg
+          // runtime's token rotation (see isSupabaseTokenRefreshRuntime).
+          // Read the persisted session directly instead; it is only used
+          // here for identity display (user / isLoggedIn), so a possibly
+          // expired access token is fine — steady-state token reads go
+          // through the bg bridge.
+          try {
+            const raw = await getSupabaseClient().storage.getItem(
+              getSupabaseAuthSessionKey(),
+            );
+            const parsed = raw ? (JSON.parse(raw) as Session) : null;
+            session =
+              parsed?.access_token && parsed?.refresh_token ? parsed : null;
+          } catch (error) {
+            console.error('Error reading stored session:', error);
+          }
         }
         setSession(session);
       } finally {
@@ -46,6 +74,12 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
     };
     void fetchSession();
 
+    // Auth state events only fire from THIS runtime's client (interactive
+    // flows: verifyOtp / setSession / signOut). In pure-UI runtimes the bg
+    // runtime's token refreshes do NOT emit TOKEN_REFRESHED here — that is
+    // fine because this context only tracks identity (user / isLoggedIn),
+    // which a token refresh never changes; nothing may read a steady-state
+    // access token from this context.
     const {
       data: { subscription },
     } = getSupabaseClient().client.auth.onAuthStateChange((_event, session) => {

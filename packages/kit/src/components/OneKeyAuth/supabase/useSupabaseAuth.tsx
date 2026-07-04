@@ -316,11 +316,21 @@ export function useSupabaseAuth() {
     return keylessRes;
   }, []);
 
+  // INTERACTIVE-FLOW READ ONLY (e.g. capturing the token right after an OTP
+  // sign-in, dev/debug panels). NEVER use for steady-state token reads: this
+  // runs client.auth.getSession() in the UI runtime, whose on-demand refresh
+  // of an EXPIRED session is NOT disabled by autoRefreshToken:false and
+  // would race the bg runtime's token rotation (spurious full logout — see
+  // isSupabaseTokenRefreshRuntime in supabaseClientUtils). Steady-state
+  // reads must use backgroundApiProxy.simpleDb.prime.getSupabaseAuthToken /
+  // getKeylessSupabaseAuthToken / getActiveAuthToken instead.
   const getAccessToken = useCallback(async () => {
     const res = await getSupabaseClient().client.auth.getSession();
     return res.data.session?.access_token;
   }, []);
 
+  // Dev-gallery/debug helper — same UI-runtime refresh caveat as
+  // getAccessToken above; do not use for steady-state reads.
   const getSession = useCallback(async () => {
     const result = await getSupabaseClient().client.auth.getSession();
 
@@ -352,6 +362,8 @@ export function useSupabaseAuth() {
     };
   }, []);
 
+  // Dev-gallery/debug helper — same UI-runtime refresh caveat as
+  // getAccessToken above; do not use for steady-state reads.
   const getUser = useCallback(async () => {
     const result = await getSupabaseClient().client.auth.getUser();
 
@@ -379,6 +391,9 @@ export function useSupabaseAuth() {
     };
   }, []);
 
+  // Dev-gallery/debug helper — performs an explicit UI-runtime token
+  // rotation. Only for manual debugging; production refreshes are owned by
+  // the bg runtime (see isSupabaseTokenRefreshRuntime).
   const refreshSession = useCallback(async () => {
     const result = await getSupabaseClient().client.auth.refreshSession();
 

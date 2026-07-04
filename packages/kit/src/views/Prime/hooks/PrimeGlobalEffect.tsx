@@ -45,7 +45,6 @@ function PrimeGlobalEffectAfterAuthReady() {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     supabaseUser,
     isSupabaseLoggedIn,
-    getAccessToken: getSupabaseAccessToken,
   } = useOneKeyAuth();
 
   const userRef = useRef<IPrimeUserInfo>(user);
@@ -202,7 +201,13 @@ function PrimeGlobalEffectAfterAuthReady() {
       let accessToken: string | null | undefined = '';
       try {
         if (isSupabaseLoggedIn) {
-          accessToken = await getSupabaseAccessToken();
+          // Steady-state token read: MUST go through the bg bridge (bg
+          // runtime performs any needed token refresh). Reading via the UI
+          // client's getSession() here could refresh an expired session in
+          // the UI runtime and race the bg rotation — see
+          // isSupabaseTokenRefreshRuntime in supabaseClientUtils.
+          accessToken =
+            await backgroundApiProxy.simpleDb.prime.getSupabaseAuthToken();
         }
         if (!accessToken) {
           accessToken =
@@ -241,12 +246,7 @@ function PrimeGlobalEffectAfterAuthReady() {
         );
       }
     })();
-  }, [
-    setPrimePersistAtom,
-    setPrimeInitAtom,
-    isSupabaseLoggedIn,
-    getSupabaseAccessToken,
-  ]);
+  }, [setPrimePersistAtom, setPrimeInitAtom, isSupabaseLoggedIn]);
 
   const isActive = primePersistAtom.primeSubscription?.isActive;
   useUpdateEffect(() => {
