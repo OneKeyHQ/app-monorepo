@@ -20,7 +20,8 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
-import type { ISelectSection, UseFormReturn } from '@onekeyhq/components';
+import type { ISelectSection } from '@onekeyhq/components';
+import type { UseFormReturn } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';

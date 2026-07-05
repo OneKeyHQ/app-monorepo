@@ -1,5 +1,3 @@
-import { LRUCache } from 'lru-cache';
-
 import { createJotaiContext } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 import { MaximumNumberOfTabs } from '@onekeyhq/kit/src/views/Discovery/config/Discovery.constants';
 import type {
@@ -8,6 +6,7 @@ import type {
 } from '@onekeyhq/kit/src/views/Discovery/types';
 import { computeAliveWebViewIds } from '@onekeyhq/kit/src/views/Discovery/utils/computeAliveWebViewIds';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 const {
   Provider: ProviderJotaiContextDiscovery,

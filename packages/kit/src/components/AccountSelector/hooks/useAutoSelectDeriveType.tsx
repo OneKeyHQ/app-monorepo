@@ -8,11 +8,11 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
-  useAccountSelectorActions,
   useAccountSelectorSceneInfo,
   useAccountSelectorStorageReadyAtom,
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 
 export function useAutoSelectDeriveType({ num }: { num: number }) {
   const {

@@ -6,6 +6,9 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
 
 import type { BrowserOptions, Stacktrace } from '@sentry/browser';
+
+export { navigationIntegration } from './navigationIntegration';
+
 // Check for common private key formats
 const PRIVATE_KEY_PATTERNS = [
   /^0x[a-fA-F0-9]{64}$/, // Ethereum private key (hex with 0x prefix)
@@ -134,6 +137,9 @@ const sanitizeStacktrace = (stacktrace?: Stacktrace): void => {
 
 export const SENTRY_IPC = 'sentry-ipc://';
 
+export const buildSentryReleaseName = () =>
+  `${process.env.VERSION ?? ''} (${process.env.BUILD_NUMBER ?? ''})`;
+
 const FILTERED_ERROR_TYPES = new Set([
   'AxiosError',
   'HTTPClientError',
@@ -258,11 +264,21 @@ export const buildBasicOptions = ({
     },
   }) as BrowserOptions;
 
-export const buildSentryOptions = (Sentry: typeof import('@sentry/react')) => ({
+type ISentryTransportBuilder = Pick<
+  typeof import('@sentry/react'),
+  'makeBrowserOfflineTransport' | 'makeFetchTransport'
+>;
+
+type ISentryIntegrationsBuilder = Pick<
+  typeof import('@sentry/react'),
+  'breadcrumbsIntegration'
+>;
+
+export const buildSentryOptions = (Sentry: ISentryTransportBuilder) => ({
   transport: Sentry.makeBrowserOfflineTransport(Sentry.makeFetchTransport),
 });
 
-export const buildIntegrations = (Sentry: typeof import('@sentry/react')) => [
+export const buildIntegrations = (Sentry: ISentryIntegrationsBuilder) => [
   // Performance-tracing integrations intentionally removed — they create a span
   // per navigation/interaction that leaks in the long-lived renderer (see the
   // tracesSampleRate note above). Only error reporting + breadcrumbs remain.

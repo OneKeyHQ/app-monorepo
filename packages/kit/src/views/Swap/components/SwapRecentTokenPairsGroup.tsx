@@ -6,6 +6,7 @@ import { StyleSheet } from 'react-native';
 
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { maxRecentTokenPairs } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapTabSwitchType,
   type ISwapToken,
@@ -42,7 +43,12 @@ const SwapRecentTokenPairsGroup = ({
   const fromTokenAmountBN = new BigNumber(fromTokenAmount ?? 0);
   const tokenPairsInCurrentType = useMemo(() => {
     if (visibleSwapTypes.includes(swapTypeSwitchAtom)) {
-      return tokenPairs;
+      // The store preserves global most-recent-first order while retaining
+      // up to maxRecentTokenPairs entries PER type (single-chain +
+      // cross-chain, so up to 2x in total). Show only the most recent
+      // maxRecentTokenPairs of the mix — the type composition floats with
+      // actual usage (OK-57347).
+      return tokenPairs.slice(0, maxRecentTokenPairs);
     }
     return [];
   }, [swapTypeSwitchAtom, tokenPairs, visibleSwapTypes]);

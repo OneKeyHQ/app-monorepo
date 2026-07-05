@@ -11,11 +11,11 @@ import {
 } from '@onekeyhq/shared/types';
 
 import {
-  useAccountSelectorActions,
   useAccountSelectorSceneInfo,
   useAccountSelectorStorageReadyAtom,
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 
 export function useAutoSelectAccount({ num }: { num: number }) {

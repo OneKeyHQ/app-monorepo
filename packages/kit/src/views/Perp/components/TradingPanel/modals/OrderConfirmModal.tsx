@@ -40,7 +40,7 @@ import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import {
-  GetTradingButtonStyleProps,
+  getTradingButtonStyleProps,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
 import { getTifLabel } from '../../../utils/timeInForce';
@@ -216,7 +216,7 @@ function OrderConfirmContent({
         setOnekeyFee(fee ?? 0);
       });
   }, []);
-  const buttonStyleProps = GetTradingButtonStyleProps(effectiveSide, false);
+  const buttonStyleProps = getTradingButtonStyleProps(effectiveSide, false);
   const intl = useIntl();
 
   const isTriggerMode = formData.orderMode === 'trigger';
@@ -864,7 +864,7 @@ function OrderConfirmContent({
           {...buttonStyleProps}
           childrenAsText={false}
         >
-          <SizableText size="$bodyMdMedium" color="$textOnColor">
+          <SizableText size="$bodyMdMedium" color={buttonStyleProps.textColor}>
             {buttonText}
           </SizableText>
         </Button>

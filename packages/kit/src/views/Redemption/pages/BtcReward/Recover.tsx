@@ -10,11 +10,9 @@ import {
   Page,
   SizableText,
   Toast,
-  XStack,
   YStack,
-  useForm,
-  useFormWatch,
 } from '@onekeyhq/components';
+import { useForm, useFormWatch } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import {
@@ -22,7 +20,6 @@ import {
   createValidateAddressRule,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { AddressInputContext } from '@onekeyhq/kit/src/components/AddressInput/AddressInputContext';
-import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { RedemptionTestIDs } from '@onekeyhq/kit/src/views/Redemption/testIDs';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -223,20 +220,6 @@ function BtcRewardRecoverPage() {
                   label={intl.formatMessage({
                     id: ETranslations.redemption_btc_recover_original_address_label,
                   })}
-                  labelAddon={
-                    <XStack alignItems="center" gap="$1.5" flexShrink={1}>
-                      <NetworkAvatar networkId={baseNetworkId} size="$4" />
-                      <SizableText
-                        size="$bodyMdMedium"
-                        numberOfLines={1}
-                        flexShrink={1}
-                      >
-                        {intl.formatMessage({
-                          id: ETranslations.redemption_btc_select_address_network_title,
-                        })}
-                      </SizableText>
-                    </XStack>
-                  }
                   rules={{
                     validate: createValidateAddressRule({
                       defaultErrorMessage: intl.formatMessage({

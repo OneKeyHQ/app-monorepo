@@ -78,7 +78,10 @@ import {
 } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { buildSwapBatchTransferType } from '../utils/buildSwapReviewState';
 import { shouldAllowSwapNoConnectWalletWarning } from '../utils/swapNoWalletWarningGuard';
-import { getStockQuoteTradeControl } from '../utils/swapStockTradeControl';
+import {
+  getStockQuoteTradeControl,
+  isStockQuoteInputAmountMatched,
+} from '../utils/swapStockTradeControl';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 
@@ -116,6 +119,7 @@ function useSwapWarningCheck() {
         accountInfoReady: swapFromAddressInfo.accountInfo?.ready,
         accountSelectorActiveAccountInitDone,
         accountSelectorStorageInitDone,
+        hasAccount: Boolean(swapFromAddressInfo.accountInfo?.account),
         hasAccountWallet: Boolean(swapFromAddressInfo.accountInfo?.wallet),
         isWebDappMode: Boolean(platformEnv.isWebDappMode),
         walletListResolvedNoWallet: walletListResult?.wallets.length === 0,
@@ -123,6 +127,7 @@ function useSwapWarningCheck() {
     [
       accountSelectorActiveAccountInitDone,
       accountSelectorStorageInitDone,
+      swapFromAddressInfo.accountInfo?.account,
       swapFromAddressInfo.accountInfo?.ready,
       swapFromAddressInfo.accountInfo?.wallet,
       walletListResult?.wallets.length,
@@ -275,16 +280,23 @@ export function useSwapQuoteProgressState() {
       ) {
         return false;
       }
-      return Boolean(
-        (quote.kind === ESwapQuoteKind.BUY
+      const inputAmountMatched =
+        swapTypeSwitch === ESwapTabSwitchType.STOCK
+          ? isStockQuoteInputAmountMatched({
+              quote,
+              fromAmount: fromTokenAmount.value,
+              toAmount: toTokenAmount.value,
+            })
+          : isSwapQuoteInputAmountMatched({
+              quote,
+              fromAmount: fromTokenAmount.value,
+              toAmount: toTokenAmount.value,
+            });
+      const inputAmount =
+        quote.kind === ESwapQuoteKind.BUY
           ? toTokenAmount.value
-          : fromTokenAmount.value) &&
-        isSwapQuoteInputAmountMatched({
-          quote,
-          fromAmount: fromTokenAmount.value,
-          toAmount: toTokenAmount.value,
-        }),
-      );
+          : fromTokenAmount.value;
+      return Boolean(inputAmount && inputAmountMatched);
     });
     return sortSwapQuotes(list, {
       sort: ESwapProviderSort.RECOMMENDED,
@@ -439,16 +451,25 @@ export function useSwapActionState() {
       quoteCurrentSelect?.kind === ESwapQuoteKind.BUY
         ? toTokenAmount.value
         : fromTokenAmount.value;
-    return Boolean(
-      quoteCurrentSelect &&
-      inputAmount &&
-      !isSwapQuoteInputAmountMatched({
-        quote: quoteCurrentSelect,
-        fromAmount: fromTokenAmount.value,
-        toAmount: toTokenAmount.value,
-      }),
-    );
-  }, [fromTokenAmount.value, quoteCurrentSelect, toTokenAmount.value]);
+    const inputAmountMatched =
+      swapTypeSwitchValue === ESwapTabSwitchType.STOCK
+        ? isStockQuoteInputAmountMatched({
+            quote: quoteCurrentSelect,
+            fromAmount: fromTokenAmount.value,
+            toAmount: toTokenAmount.value,
+          })
+        : isSwapQuoteInputAmountMatched({
+            quote: quoteCurrentSelect,
+            fromAmount: fromTokenAmount.value,
+            toAmount: toTokenAmount.value,
+          });
+    return Boolean(quoteCurrentSelect && inputAmount && !inputAmountMatched);
+  }, [
+    fromTokenAmount.value,
+    quoteCurrentSelect,
+    swapTypeSwitchValue,
+    toTokenAmount.value,
+  ]);
   const quoteResultNoMatch = useMemo(
     () =>
       (quoteCurrentSelect &&
@@ -552,6 +573,7 @@ export function useSwapActionState() {
         infoRes.disable = true;
       }
       const stockTradeControl =
+        !quoteInputAmountNoMatch &&
         quoteCurrentSelect?.protocol === EProtocolOfExchange.STOCK
           ? getStockQuoteTradeControl({
               quoteResult: quoteCurrentSelect,

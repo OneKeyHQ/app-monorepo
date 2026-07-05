@@ -329,28 +329,12 @@ export function ActionButton({
     shouldUseColoredStyle = false;
   }
 
-  const buttonStyleProps = shouldUseColoredStyle
+  const buttonStyleProps: IButtonProps = shouldUseColoredStyle
     ? {
-        bg:
-          tradeType === ESwapDirection.BUY
-            ? '$buttonSuccess'
-            : '$buttonCritical',
-        color: '$textOnColor',
-        borderColor:
-          tradeType === ESwapDirection.BUY
-            ? '$buttonSuccess'
-            : '$buttonCritical',
-        shadowOpacity: 0,
-        elevation: 0,
-        hoverStyle: {
-          opacity: 0.9,
-        },
-        pressStyle: {
-          opacity: 0.8,
-        },
+        variant: tradeType === ESwapDirection.BUY ? 'accent' : 'destructive',
       }
     : {
-        variant: 'primary' as const,
+        variant: 'primary',
       };
 
   const handlePress = useCallback(

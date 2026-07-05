@@ -5,16 +5,12 @@ import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
-import SwapHistoryListModalFallback from '../pages/modal/SwapHistoryListModalFallback';
 
 const LimitOrderDetailModal = LazyLoadPage(
   () => import('../pages/modal/LimitOrderDetailModal'),
 );
 const SwapHistoryListModal = LazyLoadPage(
   () => import('../pages/modal/SwapHistoryListModal'),
-  undefined,
-  undefined,
-  <SwapHistoryListModalFallback />,
 );
 
 const SwapHistoryDetailModal = LazyLoadPage(

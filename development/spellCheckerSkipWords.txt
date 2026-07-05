@@ -236,6 +236,7 @@ checkbox
 Checkbox
 checksum
 Checksum
+chokepoint
 cip
 ciphertext
 ckb
@@ -472,6 +473,7 @@ integrations
 Integrations
 Interpolator
 ints
+inversifyjs
 invoker
 ipc
 Ipc
@@ -829,6 +831,7 @@ terra
 terra2
 testnet
 Testnet
+devnet
 textarea
 textgroup
 Themeable

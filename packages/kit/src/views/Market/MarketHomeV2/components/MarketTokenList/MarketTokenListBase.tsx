@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -20,9 +20,15 @@ import {
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
-import type { ETableSortType, ITableColumn } from '@onekeyhq/components';
+import type {
+  ETableSortType,
+  ITableColumn,
+  IXStackProps,
+} from '@onekeyhq/components';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
+import { useMarketRenderCommitProbe } from '@onekeyhq/kit/src/views/Market/utils/marketReactPerf';
+import { useMarketWebDeferredFeaturesReady } from '@onekeyhq/kit/src/views/Market/utils/useMarketWebDeferredFeaturesReady';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   EAppEventBusNames,
@@ -60,6 +66,12 @@ const MARKET_HOME_WS_OVERSCAN_ROWS = 5;
 const MARKET_HOME_WS_MAX_SUBSCRIPTIONS = 80;
 const MARKET_HOME_WS_SCROLL_SYNC_DELAY_MS = 120;
 const MARKET_HOME_WS_DEBUG_SUBSCRIPTION_ROW_BG = 'rgba(255, 72, 72, 0.12)';
+const MARKET_HOME_WEB_EAGER_RICH_ROW_COUNT = 4;
+const MARKET_HOME_WEB_INITIAL_RENDER_ROW_COUNT = 12;
+const MARKET_HOME_WEB_ROW_CONTENT_VISIBILITY_STYLE = {
+  contentVisibility: 'auto',
+  containIntrinsicSize: '60px',
+} satisfies CSSProperties;
 // Watchlist mode: only these 3 columns are sortable (server-side sort)
 const SORTABLE_COLUMNS = {
   liquidity: 'liquidity',
@@ -200,6 +212,7 @@ export type IMarketTokenListResult = {
   isLoading: boolean | undefined;
   isLoadingMore?: boolean;
   isNetworkSwitching?: boolean;
+  isProvisionalFirstPageResult?: boolean;
   canLoadMore?: boolean;
   loadMore?: () => void | Promise<void>;
   setSortBy: (sortBy: string | undefined) => void;
@@ -273,6 +286,11 @@ function MarketTokenListBase({
   rowBg,
   testID,
 }: IMarketTokenListBaseProps) {
+  useMarketRenderCommitProbe('MarketTokenListBase', {
+    tabName,
+    isWatchlistMode,
+    tabIntegrated: Boolean(tabIntegrated),
+  });
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
   const { navigateToPerps } = usePerpsNavigation();
@@ -281,12 +299,16 @@ function MarketTokenListBase({
   const isTabFocused = !tabName || stickyHeaderCtx?.activeTabName === tabName;
   const listRootRef = useRef<HTMLElement | null>(null);
   const [devSettings] = useDevSettingsPersistAtom();
+  const webTabIntegrated = tabIntegrated && !platformEnv.isNative;
+  const enableDeferredWebFeatures =
+    useMarketWebDeferredFeaturesReady(webTabIntegrated);
 
   const {
     data: rawData,
     isLoading,
     isLoadingMore,
     isNetworkSwitching,
+    isProvisionalFirstPageResult,
     canLoadMore,
     loadMore,
     setSortBy,
@@ -296,8 +318,13 @@ function MarketTokenListBase({
     currentSortBy,
     currentSortType,
   } = result;
+  const canEnableWebSocket =
+    platformEnv.isDesktop || (platformEnv.isWeb && !md);
   const webSocketEnabled = Boolean(
-    enableWebSocket && isTabFocused && !platformEnv.isNative && !md,
+    enableWebSocket &&
+    isTabFocused &&
+    canEnableWebSocket &&
+    (!platformEnv.isWeb || !webTabIntegrated || enableDeferredWebFeatures),
   );
   const orderedData = useMemo(() => {
     if (!clientSort || !currentSortBy || !currentSortType) {
@@ -427,6 +454,14 @@ function MarketTokenListBase({
       shouldUseStockMetadataColumnsForTokens(rawData),
     [isWatchlistMode, rawData, showStockSubtitle],
   );
+  // Web tab integration gives the inner FlatList the full tab height so the
+  // outer Tabs.Container can own vertical scroll. During cold start, keep only
+  // the first rows rich and defer extra media/interactive decoration until
+  // after the measured startup window.
+  const deferRichRowAfterIndex =
+    platformEnv.isWeb && webTabIntegrated && !enableDeferredWebFeatures
+      ? MARKET_HOME_WEB_EAGER_RICH_ROW_COUNT
+      : undefined;
 
   const marketTokenColumns = useMarketTokenColumns(
     networkId,
@@ -439,6 +474,7 @@ function MarketTokenListBase({
     hiddenDesktopColumns,
     change24hColumnTitle,
     useStockMetadataColumns,
+    deferRichRowAfterIndex,
   );
 
   const data = useMemo(() => {
@@ -563,10 +599,15 @@ function MarketTokenListBase({
   );
 
   const handleEndReached = useCallback(() => {
-    if (canLoadMore && loadMore && !isLoadingMore) {
+    if (
+      canLoadMore &&
+      loadMore &&
+      !isLoadingMore &&
+      !isProvisionalFirstPageResult
+    ) {
       void loadMore();
     }
-  }, [canLoadMore, loadMore, isLoadingMore]);
+  }, [canLoadMore, loadMore, isLoadingMore, isProvisionalFirstPageResult]);
 
   // Stable onRow handler — uses refs to avoid re-creating on every render,
   // which prevents the Table from seeing a new onRow prop and re-rendering all rows.
@@ -632,6 +673,10 @@ function MarketTokenListBase({
   // until new data arrives — avoids unnecessary skeleton flash.
   const showSkeleton =
     (Boolean(isLoading) || Boolean(isNetworkSwitching)) && data.length === 0;
+  const skeletonRowCount =
+    platformEnv.isWeb && webTabIntegrated
+      ? MARKET_HOME_WEB_INITIAL_RENDER_ROW_COUNT
+      : 30;
 
   const TableEmptyComponent = useMemo(() => {
     if (isLoading) return null;
@@ -649,7 +694,6 @@ function MarketTokenListBase({
   // On web with tabIntegrated, disable FlatList's own scroll so the outer
   // Tabs.Container handles scrolling (allows header to scroll away naturally).
   // Use IntersectionObserver as a replacement for onEndReached.
-  const webTabIntegrated = tabIntegrated && !platformEnv.isNative;
   const endSentinelRef = useRef<HTMLDivElement>(null);
 
   const TableFooterComponent = useMemo(() => {
@@ -667,13 +711,14 @@ function MarketTokenListBase({
     if (
       (!draggable || webTabIntegrated) &&
       showEndReachedIndicator &&
+      !isProvisionalFirstPageResult &&
       !canLoadMore &&
       data.length > 0
     ) {
       return <ListEndIndicator />;
     }
 
-    if (webTabIntegrated && canLoadMore) {
+    if (webTabIntegrated && canLoadMore && !isProvisionalFirstPageResult) {
       return <div ref={endSentinelRef} style={{ height: 1 }} />;
     }
 
@@ -682,6 +727,7 @@ function MarketTokenListBase({
     isLoadingMore,
     webTabIntegrated,
     showEndReachedIndicator,
+    isProvisionalFirstPageResult,
     canLoadMore,
     data.length,
     draggable,
@@ -763,6 +809,18 @@ function MarketTokenListBase({
     }),
     [],
   );
+  const tableRowProps = useMemo<IXStackProps | undefined>(() => {
+    const hasWebRowStyle = platformEnv.isWeb && webTabIntegrated;
+    if (!rowBg && !hasWebRowStyle) {
+      return undefined;
+    }
+    return {
+      ...(rowBg ? { bg: rowBg } : undefined),
+      ...(hasWebRowStyle
+        ? { style: MARKET_HOME_WEB_ROW_CONTENT_VISIBILITY_STYLE }
+        : undefined),
+    };
+  }, [rowBg, webTabIntegrated]);
 
   return (
     <Stack ref={listRootRef as any} flex={1} width="100%" testID={testID}>
@@ -796,7 +854,7 @@ function MarketTokenListBase({
           {showSkeleton ? (
             <Table.Skeleton
               columns={marketTokenColumns}
-              count={30}
+              count={skeletonRowCount}
               rowProps={{
                 minHeight: '$14',
               }}
@@ -820,7 +878,7 @@ function MarketTokenListBase({
               TableFooterComponent={TableFooterComponent}
               estimatedItemSize={60}
               onRow={stableOnRow}
-              {...(rowBg ? { rowProps: { bg: rowBg } } : undefined)}
+              rowProps={tableRowProps}
             />
           )}
           {/* Render end indicator outside the Table for draggable lists
@@ -828,6 +886,7 @@ function MarketTokenListBase({
           {draggable &&
           !webTabIntegrated &&
           showEndReachedIndicator &&
+          !isProvisionalFirstPageResult &&
           !canLoadMore &&
           data.length > 0 ? (
             <ListEndIndicator />

@@ -13,7 +13,7 @@ import type { ComponentType } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { Toast } from '@onekeyhq/components';
+import { Toast } from '@onekeyhq/components/src/actions/Toast';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   EAppEventBusNames,

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Suspense, lazy, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -15,15 +15,44 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-import { PerpFooterTicker } from '../../views/Perp/components/FooterTicker/PerpFooterTicker';
-import { PerpsProviderMirror } from '../../views/Perp/PerpsProviderMirror';
 import { NetworkStatus } from '../NetworkStatus';
-import { PerpRefreshButton } from '../PerpRefreshButton';
 
 import { FooterLink } from './components/FooterLink';
 import { FooterNavigation } from './components/FooterNavigation';
 
 const PERP_TELEGRAM_URL = 'https://t.me/OneKeyPerps';
+
+const LazyPerpFooterRefreshButton = lazy(async () => {
+  const [{ PerpsProviderMirror }, { PerpRefreshButton }] = await Promise.all([
+    import('../../views/Perp/PerpsProviderMirror'),
+    import('../PerpRefreshButton'),
+  ]);
+  return {
+    default: function PerpFooterRefreshButtonLazyImpl() {
+      return (
+        <PerpsProviderMirror>
+          <PerpRefreshButton />
+        </PerpsProviderMirror>
+      );
+    },
+  };
+});
+
+const LazyPerpFooterTicker = lazy(async () => {
+  const [{ PerpsProviderMirror }, { PerpFooterTicker }] = await Promise.all([
+    import('../../views/Perp/PerpsProviderMirror'),
+    import('../../views/Perp/components/FooterTicker/PerpFooterTicker'),
+  ]);
+  return {
+    default: function PerpFooterTickerLazyImpl() {
+      return (
+        <PerpsProviderMirror>
+          <PerpFooterTicker />
+        </PerpsProviderMirror>
+      );
+    },
+  };
+});
 
 const getLinks = () => [
   {
@@ -172,16 +201,16 @@ export function Footer() {
       <XStack gap="$2" alignItems="center" flexShrink={0}>
         <NetworkStatus />
         {isInPerpRoute ? (
-          <PerpsProviderMirror>
-            <PerpRefreshButton />
-          </PerpsProviderMirror>
+          <Suspense fallback={null}>
+            <LazyPerpFooterRefreshButton />
+          </Suspense>
         ) : null}
       </XStack>
 
       {isInPerpRoute ? (
-        <PerpsProviderMirror>
-          <PerpFooterTicker />
-        </PerpsProviderMirror>
+        <Suspense fallback={null}>
+          <LazyPerpFooterTicker />
+        </Suspense>
       ) : null}
 
       <XStack gap="$3" alignItems="center" flexShrink={0}>

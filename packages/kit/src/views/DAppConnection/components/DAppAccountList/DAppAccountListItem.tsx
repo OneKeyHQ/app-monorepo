@@ -25,10 +25,8 @@ import { NetworkSelectorTriggerDappConnectionCmp } from '@onekeyhq/kit/src/compo
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  useAccountSelectorActions,
-  useAccountSelectorSyncLoadingAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorSyncLoadingAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type {
   IDBIndexedAccount,
   IDBWallet,

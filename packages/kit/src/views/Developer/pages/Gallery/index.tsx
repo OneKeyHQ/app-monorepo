@@ -42,6 +42,10 @@ const CheckboxGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Checkbox'),
 );
+const ColorPickerGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ColorPicker'),
+);
 const DatePickerGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DatePicker'),
@@ -93,6 +97,10 @@ const LedgerAppOpsGallery = LazyLoadPage(
 const TrezorMultiTransportGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TrezorMultiTransport'),
+);
+const ThirdPartyHardwareActionsGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ThirdPartyHardwareActions'),
 );
 const IconGallery = LazyLoadPage(
   () =>
@@ -596,6 +604,7 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentListItem, component: ListItemGallery },
   { name: EGalleryRoutes.ComponentSkeleton, component: SkeletonGallery },
   { name: EGalleryRoutes.ComponentCheckbox, component: CheckboxGallery },
+  { name: EGalleryRoutes.ComponentColorPicker, component: ColorPickerGallery },
   { name: EGalleryRoutes.ComponentActionList, component: ActionListGallery },
   { name: EGalleryRoutes.ComponentPopover, component: PopoverGallery },
   { name: EGalleryRoutes.ComponentProgress, component: ProgressGallery },
@@ -705,6 +714,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentTrezorMultiTransport,
     component: TrezorMultiTransportGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentThirdPartyHardwareActions,
+    component: ThirdPartyHardwareActionsGallery,
   },
   {
     name: EGalleryRoutes.ComponentImage,

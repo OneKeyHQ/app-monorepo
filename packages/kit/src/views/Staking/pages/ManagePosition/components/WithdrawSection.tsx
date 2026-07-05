@@ -11,6 +11,7 @@ import {
   type IRepayWithCollateralConfirmParams,
 } from '@onekeyhq/kit/src/views/Borrow/components/BorrowRepayPosition';
 import { ManagePosition } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
+import { resolveBorrowRepayAllBalance } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/utils';
 import {
   useUniversalBorrowRepay,
   useUniversalBorrowRepayWithCollateral,
@@ -113,6 +114,17 @@ export const WithdrawSection = ({
     () => earnUtils.isNativeProvider({ providerName }),
     [providerName],
   );
+  const borrowProviderDisplayName = useMemo(() => {
+    if (
+      protocolInfo?.providerDetail.name &&
+      protocolInfo.providerDetail.name !== providerName
+    ) {
+      return protocolInfo.providerDetail.name;
+    }
+    return earnUtils.getEarnProviderName({
+      providerName,
+    });
+  }, [protocolInfo?.providerDetail.name, providerName]);
 
   const approveSpenderAddress = useMemo(() => {
     if (isNativeProvider) {
@@ -758,9 +770,7 @@ export const WithdrawSection = ({
           stakingInfo: effectiveToken
             ? {
                 label: EEarnLabels.Repay,
-                protocol: earnUtils.getEarnProviderName({
-                  providerName: provider,
-                }),
+                protocol: borrowProviderDisplayName,
                 protocolLogoURI: protocolInfo?.providerDetail.logoURI,
                 send: { token: effectiveToken, amount },
                 tags: buildTags('repay'),
@@ -782,9 +792,7 @@ export const WithdrawSection = ({
         stakingInfo: effectiveToken
           ? {
               label: EEarnLabels.Withdraw,
-              protocol: earnUtils.getEarnProviderName({
-                providerName: provider,
-              }),
+              protocol: borrowProviderDisplayName,
               protocolLogoURI: protocolInfo?.providerDetail.logoURI,
               receive: { token: effectiveToken, amount },
               tags: buildTags('withdraw'),
@@ -797,6 +805,7 @@ export const WithdrawSection = ({
     },
     [
       borrowApiCtx,
+      borrowProviderDisplayName,
       effectiveReserveAddress,
       effectiveToken,
       handleBorrowRepay,
@@ -837,6 +846,28 @@ export const WithdrawSection = ({
       ],
       { watchLoading: true },
     );
+
+  const effectiveRepayAllBalance = useMemo(() => {
+    if (borrowAction !== 'repay') {
+      return undefined;
+    }
+    return resolveBorrowRepayAllBalance({
+      selectedDebtBalance: selectedAsset?.borrowed?.amount,
+      protocolDebtBalance: protocolInfo?.debtBalance,
+      reserveAddress: effectiveReserveAddress,
+      tokenAddress: token?.address,
+      repayTokenSymbol: effectiveTokenSymbol,
+      borrowedAssets: freshBorrowReserves?.borrowed?.assets,
+    });
+  }, [
+    borrowAction,
+    effectiveReserveAddress,
+    effectiveTokenSymbol,
+    freshBorrowReserves?.borrowed?.assets,
+    protocolInfo?.debtBalance,
+    selectedAsset?.borrowed?.amount,
+    token?.address,
+  ]);
 
   const collateralAssets = useMemo(() => {
     const suppliedAssets = freshBorrowReserves?.supplied?.assets ?? [];
@@ -891,9 +922,7 @@ export const WithdrawSection = ({
         routeKey,
         stakingInfo: {
           label: EEarnLabels.Repay,
-          protocol: earnUtils.getEarnProviderName({
-            providerName: provider,
-          }),
+          protocol: borrowProviderDisplayName,
           protocolLogoURI: protocolInfo?.providerDetail.logoURI,
           send: {
             token: {
@@ -913,6 +942,7 @@ export const WithdrawSection = ({
     },
     [
       borrowApiCtx,
+      borrowProviderDisplayName,
       effectiveReserveAddress,
       handleBorrowRepayWithCollateral,
       networkId,
@@ -981,6 +1011,7 @@ export const WithdrawSection = ({
           decimals={effectiveDecimals}
           balance={effectiveBalance}
           maxBalance={effectiveMaxBalance}
+          repayAllBalance={effectiveRepayAllBalance}
           tokenSymbol={effectiveTokenSymbol}
           tokenImageUri={effectiveTokenImageUri}
           onWalletConfirm={onBorrowConfirm}

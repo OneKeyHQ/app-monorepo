@@ -121,8 +121,19 @@ yarn perf:web:prepare --headed
 # run release perf job (3 runs; median aggregation + thresholds)
 yarn perf:web:release --headed
 
-# optional: skip build when repeating
-PERF_SKIP_BUILD=1 yarn perf:web:release --headed
+# first-visit cold load matrix for entry routes.
+# This uses a fresh browser context, disables browser cache, blocks service workers,
+# and keeps budget failures non-fatal so it can be used to establish baselines.
+yarn perf:web:cold:entries --headed
+
+# CI-style hard gate for all cold entry routes. This is also the default
+# scenario set for yarn perf:web:cold. It builds the web bundle, checks the
+# startup graph, then checks per-entry cold budgets from
+# development/perf-ci/thresholds/web.cold.json.
+yarn perf:web:cold
+
+# optional: narrow the cold matrix while investigating
+PERF_WEB_COLD_SCENARIOS=perps,swap,defi,refer-friends yarn perf:web:cold --headed
 ```
 
 Desktop:
@@ -286,6 +297,7 @@ Files:
 - Android Debug: `development/perf-ci/thresholds/android.debug.json`
 - Android Release: `development/perf-ci/thresholds/android.release.json`
 - Web Release: `development/perf-ci/thresholds/web.release.json`
+- Web Cold: `development/perf-ci/thresholds/web.cold.json`
 - Desktop Release: `development/perf-ci/thresholds/desktop.release.json`
 - Ext Release: `development/perf-ci/thresholds/ext.release.json`
 

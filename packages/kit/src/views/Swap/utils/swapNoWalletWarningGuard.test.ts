@@ -1,6 +1,7 @@
 import {
   removeSwapNoConnectWalletAlerts,
   shouldAllowSwapNoConnectWalletWarning,
+  shouldShowSwapAccountUnsupportedAlert,
 } from './swapNoWalletWarningGuard';
 
 describe('shouldAllowSwapNoConnectWalletWarning', () => {
@@ -10,6 +11,7 @@ describe('shouldAllowSwapNoConnectWalletWarning', () => {
         accountInfoReady: false,
         accountSelectorActiveAccountInitDone: true,
         accountSelectorStorageInitDone: true,
+        hasAccount: false,
         hasAccountWallet: false,
         isWebDappMode: false,
         walletListResolvedNoWallet: true,
@@ -23,6 +25,7 @@ describe('shouldAllowSwapNoConnectWalletWarning', () => {
         accountInfoReady: true,
         accountSelectorActiveAccountInitDone: true,
         accountSelectorStorageInitDone: true,
+        hasAccount: true,
         hasAccountWallet: true,
         isWebDappMode: false,
         walletListResolvedNoWallet: true,
@@ -36,6 +39,7 @@ describe('shouldAllowSwapNoConnectWalletWarning', () => {
         accountInfoReady: true,
         accountSelectorActiveAccountInitDone: false,
         accountSelectorStorageInitDone: true,
+        hasAccount: false,
         hasAccountWallet: false,
         isWebDappMode: false,
         walletListResolvedNoWallet: false,
@@ -49,6 +53,7 @@ describe('shouldAllowSwapNoConnectWalletWarning', () => {
         accountInfoReady: true,
         accountSelectorActiveAccountInitDone: true,
         accountSelectorStorageInitDone: true,
+        hasAccount: false,
         hasAccountWallet: false,
         isWebDappMode: false,
         walletListResolvedNoWallet: true,
@@ -62,11 +67,40 @@ describe('shouldAllowSwapNoConnectWalletWarning', () => {
         accountInfoReady: true,
         accountSelectorActiveAccountInitDone: false,
         accountSelectorStorageInitDone: false,
+        hasAccount: false,
         hasAccountWallet: false,
         isWebDappMode: true,
         walletListResolvedNoWallet: false,
       }),
     ).toBe(true);
+  });
+
+  it('allows the warning in web dapp mode when a stale wallet remains without an account', () => {
+    expect(
+      shouldAllowSwapNoConnectWalletWarning({
+        accountInfoReady: true,
+        accountSelectorActiveAccountInitDone: false,
+        accountSelectorStorageInitDone: false,
+        hasAccount: false,
+        hasAccountWallet: true,
+        isWebDappMode: true,
+        walletListResolvedNoWallet: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('blocks the warning in web dapp mode when an account is connected', () => {
+    expect(
+      shouldAllowSwapNoConnectWalletWarning({
+        accountInfoReady: true,
+        accountSelectorActiveAccountInitDone: false,
+        accountSelectorStorageInitDone: false,
+        hasAccount: true,
+        hasAccountWallet: true,
+        isWebDappMode: true,
+        walletListResolvedNoWallet: false,
+      }),
+    ).toBe(false);
   });
 });
 
@@ -78,5 +112,40 @@ describe('removeSwapNoConnectWalletAlerts', () => {
         { noConnectWallet: true },
       ]),
     ).toEqual([{ message: 'keep me' }]);
+  });
+});
+
+describe('shouldShowSwapAccountUnsupportedAlert', () => {
+  it('blocks the alert when no real account is connected', () => {
+    expect(
+      shouldShowSwapAccountUnsupportedAlert({
+        hasFromToken: true,
+        fromAddress: undefined,
+        walletId: 'external',
+        accountId: undefined,
+      }),
+    ).toBe(false);
+  });
+
+  it('allows the alert for a connected non-indexed wallet without a swap address', () => {
+    expect(
+      shouldShowSwapAccountUnsupportedAlert({
+        hasFromToken: true,
+        fromAddress: undefined,
+        walletId: 'external',
+        accountId: 'external--60--0xabc',
+      }),
+    ).toBe(true);
+  });
+
+  it('blocks the alert for HD wallets so address creation checks can handle them', () => {
+    expect(
+      shouldShowSwapAccountUnsupportedAlert({
+        hasFromToken: true,
+        fromAddress: undefined,
+        walletId: 'hd-1',
+        accountId: 'hd-1--m/44/60/0/0/0',
+      }),
+    ).toBe(false);
   });
 });

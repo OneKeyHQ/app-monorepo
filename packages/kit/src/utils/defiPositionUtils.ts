@@ -857,7 +857,8 @@ function getProtocolActionBadgeLabelIds({
     })) {
       const labelId = getProtocolActionBadgeLabelId(
         resolved.action,
-        hasRewards,
+        // Remapped LP withdraws don't claim on-chain — plain "Remove" only.
+        hasRewards && !resolved.buildAction,
       );
       if (labelId) available.add(labelId);
     }

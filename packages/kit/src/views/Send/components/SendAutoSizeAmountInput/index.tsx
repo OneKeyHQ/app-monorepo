@@ -199,9 +199,13 @@ export type ISendAmountAutoSizeInputRef = {
 type ISendAmountAutoSizeInputProps = {
   value?: string;
   onChange?: (value: string) => void;
+  validator?: (value: string) => boolean;
   reversible?: boolean;
   tokenSymbol?: string;
   inlineTextAlignMode?: 'auto' | 'center';
+  // Cap the display font (in px). Defaults to the full 56*scale ramp; pass a
+  // smaller value to line the amount up with a sibling hero.
+  maxFontSize?: number;
   inputProps?: Omit<IInputProps, 'value' | 'onChangeText' | 'onChange'> & {
     loading?: boolean;
   };
@@ -224,10 +228,12 @@ function SendAutoSizeAmountInputComponent(
     inputProps,
     reversible,
     onChange,
+    validator,
     value: controlledValue,
     valueProps,
     tokenSymbol,
     inlineTextAlignMode,
+    maxFontSize: maxFontSizeProp,
     extraContent,
     onLayout,
     ...rest
@@ -290,27 +296,47 @@ function SendAutoSizeAmountInputComponent(
     });
   }, [inputValue]);
 
+  const forceNativeTextWriteBack = useCallback(
+    (nextText: string, keepOverride = true) => {
+      clearForceWriteBackTimer();
+      const pulseText = makeIOSForceWriteBackPulseText(nextText);
+      setForcedNativeText(pulseText);
+      forceWriteBackTimerRef.current = setTimeout(() => {
+        setForcedNativeText(keepOverride ? nextText : null);
+        forceWriteBackTimerRef.current = null;
+      }, 0);
+    },
+    [clearForceWriteBackTimer],
+  );
+
   const handleChangeText = useCallback(
     (text: string) => {
       const sanitizedText = sanitizeAmountInputText(text);
+      if (validator && !validator(sanitizedText)) {
+        if (platformEnv.isNativeIOS) {
+          forceNativeTextWriteBack(inputValue, false);
+        }
+        return;
+      }
+
       onChange?.(sanitizedText);
 
       // iOS native input can keep stale text when parent value does not change.
       // Force a pulse write-back so native receives a prop change every time.
       if (platformEnv.isNativeIOS && sanitizedText !== text) {
-        clearForceWriteBackTimer();
-        const pulseText = makeIOSForceWriteBackPulseText(sanitizedText);
-        setForcedNativeText(pulseText);
-        forceWriteBackTimerRef.current = setTimeout(() => {
-          setForcedNativeText(sanitizedText);
-          forceWriteBackTimerRef.current = null;
-        }, 0);
+        forceNativeTextWriteBack(sanitizedText);
       } else {
         clearForceWriteBackTimer();
         setForcedNativeText((prev) => (prev === null ? prev : null));
       }
     },
-    [clearForceWriteBackTimer, onChange],
+    [
+      clearForceWriteBackTimer,
+      forceNativeTextWriteBack,
+      inputValue,
+      onChange,
+      validator,
+    ],
   );
 
   const handleInputLayout = useCallback(
@@ -349,9 +375,11 @@ function SendAutoSizeAmountInputComponent(
   const returnKeyType = inputProps?.returnKeyType;
   const onFocus = inputProps?.onFocus;
   const onBlur = inputProps?.onBlur;
-  const fontSize = getAmountFontSize(
-    effectiveValue?.length || 0,
-    fontSizeScale,
+  // Default keeps the original full-size ramp; callers can cap it (maxFontSizeProp).
+  const maxFontSize = maxFontSizeProp ?? Math.round(56 * fontSizeScale);
+  const fontSize = Math.min(
+    getAmountFontSize(effectiveValue?.length || 0, fontSizeScale),
+    maxFontSize,
   );
   const availableInlineWidth = Math.max(
     Math.floor(layoutWidth || windowWidth || 0),
@@ -359,9 +387,9 @@ function SendAutoSizeAmountInputComponent(
   );
   const isCompactInlineWidth =
     md && availableInlineWidth > 0 && availableInlineWidth < 360;
-  const maxFontSize = Math.round(56 * fontSizeScale);
-  const minFontSize = Math.round(
-    (isCompactInlineWidth ? 12 : 14) * fontSizeScale,
+  const minFontSize = Math.min(
+    Math.round((isCompactInlineWidth ? 12 : 14) * fontSizeScale),
+    maxFontSize,
   );
   const wrappedSymbolFontSize = Math.max(
     WRAPPED_SYMBOL_MIN_FONT_SIZE,
@@ -462,6 +490,9 @@ function SendAutoSizeAmountInputComponent(
           px="$1"
           borderRadius="$2"
           alignSelf="center"
+          maxWidth="100%"
+          minWidth={0}
+          overflow="hidden"
           disabled={valueProps?.loading}
           onPress={valueProps?.onPress}
           {...(reversible && {
@@ -486,6 +517,10 @@ function SendAutoSizeAmountInputComponent(
                 }}
                 size="$headingLg"
                 color={valueProps?.color ?? '$textSubdued'}
+                numberOfLines={1}
+                flexShrink={1}
+                minWidth={0}
+                maxWidth="100%"
               >
                 {valueProps?.value || '0.00'}
               </NumberSizeableText>

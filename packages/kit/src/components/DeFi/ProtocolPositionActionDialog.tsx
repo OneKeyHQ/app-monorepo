@@ -9,7 +9,6 @@ import {
   Dialog,
   SizableText,
   Stack,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -19,28 +18,26 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token, TokenGroup } from '@onekeyhq/kit/src/components/Token';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
-import { PerpsSlider } from '@onekeyhq/kit/src/views/Perp/components/PerpsSlider';
 import { SendAutoSizeAmountInput } from '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  EthereumStETH,
-  EthereumStETHWithdrawalQueue,
-} from '@onekeyhq/shared/src/consts/addresses';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   buildDeFiActionBps,
   resolveDeFiActionTxAmount,
 } from '@onekeyhq/shared/src/utils/defiActionUtils';
+import defiPermitUtils from '@onekeyhq/shared/src/utils/defiPermitUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
+  DEFI_PORTFOLIO_ACTION_STAKING_TAG,
   EDeFiPositionAction,
   type IDeFiActionExtraParams,
   type IDeFiActionTxConfirmInfo,
   type IDeFiAsset,
-  type IDeFiUnknownRecord,
   type IResolvedDeFiPositionAction,
   type IResolvedDeFiPositionActionAsset,
 } from '@onekeyhq/shared/types/defi';
@@ -56,8 +53,18 @@ import {
 } from './ProtocolValueCell';
 
 const DEFAULT_ACTION_PERCENT = 100;
-const PERCENTAGE_SLIDER_SEGMENTS = 4;
 const PERCENTAGE_PRESET_VALUES = [25, 50, 75, 100] as const;
+
+// Both action heroes (typed-amount and percentage) reserve this height and
+// center their content, so the Dialog stays the same size in either mode and
+// never resizes as the typed amount changes length. 128px matches the
+// percentage hero's natural height ($heading5xl value + fiat row + $6 breathing).
+const DEFI_ACTION_HERO_MIN_HEIGHT = 128;
+
+// Cap the typed-amount font to the percentage hero's $heading5xl (40px) so the
+// two heroes read as one, and so a short amount can't grow past the reserved
+// height (SendAutoSizeAmountInput otherwise ramps up to ~84px on desktop).
+const MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE = 40;
 const resolveActionTxAmount = resolveDeFiActionTxAmount as (params: {
   percentageAction: boolean;
   percent?: number;
@@ -338,12 +345,16 @@ function ProtocolPositionActionAssetRow({
       gap="$3"
       py="$3"
       px="$3"
-      borderRadius="$2"
+      borderRadius="$3"
       bg={isSelected ? '$bgActive' : '$bgSubdued'}
       borderWidth="$px"
       borderColor={isSelected ? '$borderActive' : '$borderSubdued'}
       cursor={selectable ? 'pointer' : 'default'}
       userSelect="none"
+      {...(selectable && {
+        hoverStyle: { bg: isSelected ? '$bgActive' : '$bgStrong' },
+        pressStyle: { bg: isSelected ? '$bgActive' : '$bgStrong' },
+      })}
       onPress={() => {
         if (selectable) {
           onSelect(index, !isSelected);
@@ -438,6 +449,36 @@ function isUserRejectedErrorMessage({
   );
 }
 
+function showProtocolPositionActionErrorToast(error: unknown) {
+  errorToastUtils.toastIfError(error);
+  if (error && typeof error === 'object') {
+    // DeFi action submit owns the visible operation boundary. Some backend or
+    // tx-confirm errors intentionally set autoToast=false for generic callers,
+    // but this dialog must still show the failure and keep diagnostic actions.
+    (error as IOneKeyError).autoToast = true;
+  }
+  errorToastUtils.showToastOfError(error);
+}
+
+function normalizeProtocolPositionActionError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return new OneKeyLocalError(getErrorMessage(error));
+  }
+  const oneKeyError = error as IOneKeyError;
+  const normalizedError = new OneKeyLocalError({
+    message: getErrorMessage(error),
+    code: oneKeyError.code,
+    data: oneKeyError.data,
+    key: oneKeyError.key,
+    info: oneKeyError.info,
+    autoToast: oneKeyError.autoToast,
+    requestId: oneKeyError.requestId,
+    httpStatusCode: oneKeyError.httpStatusCode,
+  });
+  normalizedError.cause = error;
+  return normalizedError;
+}
+
 function getPositiveAmount(value?: string) {
   if (!value) return undefined;
   const amountBN = new BigNumber(value);
@@ -495,127 +536,6 @@ function isLidoProtocol(protocolId: string) {
   );
 }
 
-function asRecord(value: unknown): IDeFiUnknownRecord | undefined {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return undefined;
-  }
-  return value as IDeFiUnknownRecord;
-}
-
-function parsePermitTypedDataMessage(message: unknown): IDeFiUnknownRecord {
-  if (typeof message === 'string') {
-    try {
-      const parsed = JSON.parse(message) as unknown;
-      const record = asRecord(parsed);
-      if (record) return record;
-    } catch {
-      // Throw a stable local error below.
-    }
-    throw new OneKeyLocalError('Invalid DeFi permit typed data');
-  }
-
-  const record = asRecord(message);
-  if (record) return record;
-
-  throw new OneKeyLocalError('Invalid DeFi permit typed data');
-}
-
-function normalizePermitAddress(value: unknown) {
-  return typeof value === 'string' && value.trim()
-    ? value.trim().toLowerCase()
-    : undefined;
-}
-
-function assertPermitAddress({
-  actual,
-  expected,
-  fieldName,
-}: {
-  actual: unknown;
-  expected: string | undefined;
-  fieldName: string;
-}) {
-  const normalizedActual = normalizePermitAddress(actual);
-  const normalizedExpected = normalizePermitAddress(expected);
-  if (
-    !normalizedActual ||
-    !normalizedExpected ||
-    normalizedActual !== normalizedExpected
-  ) {
-    throw new OneKeyLocalError(`Invalid DeFi permit ${fieldName}`);
-  }
-}
-
-function normalizePermitChainId(value: unknown) {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return String(value);
-  }
-  if (typeof value === 'bigint') {
-    return value.toString();
-  }
-  if (typeof value === 'string' && value.trim()) {
-    return value.trim();
-  }
-  return undefined;
-}
-
-function validateLidoWithdrawPermitTypedData({
-  message,
-  accountAddress,
-  networkId,
-  selectedAsset,
-}: {
-  message: unknown;
-  accountAddress: string;
-  networkId: string;
-  selectedAsset: IResolvedDeFiPositionActionAsset;
-}) {
-  if (networkId !== getNetworkIdsMap().eth) {
-    throw new OneKeyLocalError('Invalid DeFi permit network');
-  }
-
-  const typedData = parsePermitTypedDataMessage(message);
-  const domain = asRecord(typedData.domain);
-  const permitMessage = asRecord(typedData.message);
-
-  if (!domain || !permitMessage) {
-    throw new OneKeyLocalError('Invalid DeFi permit typed data');
-  }
-
-  if (normalizePermitChainId(domain.chainId) !== '1') {
-    throw new OneKeyLocalError('Invalid DeFi permit chainId');
-  }
-
-  assertPermitAddress({
-    actual: permitMessage.owner,
-    expected: accountAddress,
-    fieldName: 'owner',
-  });
-  assertPermitAddress({
-    actual: domain.verifyingContract,
-    expected: EthereumStETH,
-    fieldName: 'verifyingContract',
-  });
-  assertPermitAddress({
-    actual: selectedAsset.tokenAddress,
-    expected: EthereumStETH,
-    fieldName: 'tokenAddress',
-  });
-  assertPermitAddress({
-    actual: permitMessage.spender,
-    expected: EthereumStETHWithdrawalQueue,
-    fieldName: 'spender',
-  });
-
-  if (normalizePermitAddress(permitMessage.token)) {
-    assertPermitAddress({
-      actual: permitMessage.token,
-      expected: selectedAsset.tokenAddress,
-      fieldName: 'token',
-    });
-  }
-}
-
 function buildDeFiActionTxConfirmInfo({
   action,
   selectedAsset,
@@ -633,6 +553,36 @@ function buildDeFiActionTxConfirmInfo({
   intl: ReturnType<typeof useIntl>;
   hasRewards?: boolean;
 }): IDeFiActionTxConfirmInfo {
+  // LP removes redeem the position as one unit; any per-token amount here is
+  // a preview estimate, so show only the pool pair + percent and let the
+  // decoded tx details carry the real amounts.
+  if (action.action === EDeFiPositionAction.RemoveLiquidity) {
+    const underlyingAssets = selectedAsset.underlyingAssets ?? [];
+    const underlyingLogoUrls = underlyingAssets
+      .map((item) => item.meta?.logoUrl)
+      .filter((logoUrl): logoUrl is string => Boolean(logoUrl));
+    return {
+      actionLabel: getActionLabel({ action: action.action, intl, hasRewards }),
+      protocolId: action.protocolId,
+      assetSymbol: getSelectedAssetDisplaySymbol({
+        action: action.action,
+        selectedAsset,
+      }),
+      assetLogoUrl: selectedAsset.asset.meta?.logoUrl,
+      // Same threshold as the joined pair symbol (>1 underlying), so the
+      // icons always match the text; missing logos degrade to fewer icons.
+      assetLogoUrls:
+        underlyingAssets.length > 1 && underlyingLogoUrls.length > 0
+          ? underlyingLogoUrls
+          : undefined,
+      extraLabel: getActionExtraLabel({
+        action: action.action,
+        asset: selectedAsset,
+        percent,
+      }),
+    };
+  }
+
   const explicitAmount = amount !== undefined && amount.trim() !== '';
   let assetAmount: string;
   if (explicitAmount) {
@@ -693,30 +643,61 @@ function getDeFiActionEarnLabel(action: EDeFiPositionAction) {
   return EEarnLabels.Unknown;
 }
 
+function logDeFiActionEarnOrderError(error: unknown) {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  defaultLogger.app.error.log(
+    `DeFi action earn order registration failed: ${errorMessage}`,
+  );
+}
+
 async function addDeFiActionEarnOrders({
   action,
   networkId,
   data,
+  orderIdsByBusinessTxIndex,
 }: {
   action: IResolvedDeFiPositionAction;
   networkId: string;
   data: ISendTxOnSuccessData[];
+  orderIdsByBusinessTxIndex: string[];
 }) {
-  for (const orderTx of data) {
-    if (orderTx?.signedTx?.txid) {
-      await backgroundApiProxy.serviceStaking.addEarnOrder({
-        orderId: generateUUID(),
-        networkId,
-        txId: orderTx.signedTx.txid,
-        status: orderTx.decodedTx.status,
-        stakingLabel: getDeFiActionEarnLabel(action.action),
-        stakingProtocol: action.protocolId,
-        stakingTags: [
-          'defi-portfolio-action',
-          action.protocolId,
-          action.action,
-        ],
-      });
+  for (
+    let txIndex = 0;
+    txIndex < orderIdsByBusinessTxIndex.length;
+    txIndex += 1
+  ) {
+    const orderId = orderIdsByBusinessTxIndex[txIndex];
+    const orderTx = data[txIndex];
+    if (!orderTx) {
+      logDeFiActionEarnOrderError(
+        new OneKeyLocalError('DeFi transaction result is missing'),
+      );
+    } else {
+      const txId = orderTx?.signedTx?.txid ?? orderTx?.decodedTx?.txid;
+      if (!txId) {
+        logDeFiActionEarnOrderError(
+          new OneKeyLocalError('DeFi transaction hash is missing'),
+        );
+      } else {
+        try {
+          await backgroundApiProxy.serviceStaking.addEarnOrder({
+            orderId,
+            networkId,
+            txId,
+            status: orderTx.decodedTx.status,
+            stakingLabel: getDeFiActionEarnLabel(action.action),
+            stakingProtocol: action.protocolId,
+            stakingTags: [
+              DEFI_PORTFOLIO_ACTION_STAKING_TAG,
+              action.protocolId,
+              // Tag what actually executed on the wire.
+              action.buildAction ?? action.action,
+            ],
+          });
+        } catch (error) {
+          logDeFiActionEarnOrderError(error);
+        }
+      }
     }
   }
 }
@@ -807,9 +788,14 @@ function useProtocolPositionActionSubmit({
         throw new OneKeyLocalError('DeFi action asset is missing');
       }
 
-      const isWithdraw = action.action === EDeFiPositionAction.Withdraw;
+      // The wire action for build-transaction; `action.action` keeps the
+      // displayed semantics (e.g. Stake DAO shows Remove but builds withdraw).
+      const buildActionType = action.buildAction ?? action.action;
+      const isWithdraw = buildActionType === EDeFiPositionAction.Withdraw;
       const isRemoveLiquidity =
-        action.action === EDeFiPositionAction.RemoveLiquidity;
+        buildActionType === EDeFiPositionAction.RemoveLiquidity;
+      const isLpWithdraw =
+        isWithdraw && action.action === EDeFiPositionAction.RemoveLiquidity;
       const percentageAction = isPercentageAction(action.action);
       const { amount: amountForApi, bps } = resolveActionTxAmount({
         percentageAction,
@@ -821,8 +807,16 @@ function useProtocolPositionActionSubmit({
         throw new OneKeyLocalError('Invalid DeFi action amount');
       }
 
+      // Lido withdraw goes through the permit two-step flow, and its build API
+      // expects an EMPTY tokenAddress — passing the stETH cert address is
+      // rejected on the amount path ("Token does not exist"). bps happened to
+      // work only because it ignores tokenAddress. amount stays human-readable;
+      // the backend scales it by the token decimals.
+      const isLidoWithdraw = isLidoProtocol(action.protocolId) && isWithdraw;
+
       try {
         const unsignedTxs: IUnsignedTxPro[] = [];
+        const orderIdsByBusinessTxIndex: string[] = [];
         let prevNonce: number | undefined;
 
         for (const selectedAsset of selectedAssets) {
@@ -831,23 +825,31 @@ function useProtocolPositionActionSubmit({
             selectedAsset,
             percent,
           });
+          // RemoveLiquidity omits tokenAddress; Lido withdraw and LP-unit
+          // withdraws (Stake DAO) must send it EMPTY — the build API requires
+          // the field but resolves the tx from poolAddress, and an LP unit has
+          // no single token to name. Everything else uses the asset's token.
+          let buildTokenAddress: string | undefined =
+            selectedAsset.tokenAddress;
+          if (isRemoveLiquidity) {
+            buildTokenAddress = undefined;
+          } else if (isLidoWithdraw || isLpWithdraw) {
+            buildTokenAddress = '';
+          }
           let resp = await backgroundApiProxy.serviceDeFi.buildDeFiTransaction({
             accountId,
             networkId,
             protocolId: action.protocolId,
-            action:
-              isLidoProtocol(action.protocolId) && isWithdraw
-                ? EDeFiPositionAction.Permit
-                : action.action,
-            tokenAddress: isRemoveLiquidity
-              ? undefined
-              : selectedAsset.tokenAddress,
+            action: isLidoWithdraw
+              ? EDeFiPositionAction.Permit
+              : buildActionType,
+            tokenAddress: buildTokenAddress,
             amount: amountForApi,
             bps,
             extraParams,
           });
 
-          if (isLidoProtocol(action.protocolId) && isWithdraw) {
+          if (isLidoWithdraw) {
             if (!resp.permit) {
               throw new OneKeyLocalError('DeFi permit response is missing');
             }
@@ -855,7 +857,7 @@ function useProtocolPositionActionSubmit({
               accountId,
               networkId,
             });
-            validateLidoWithdrawPermitTypedData({
+            defiPermitUtils.validateLidoWithdrawPermitTypedData({
               message: resp.permit.message,
               accountAddress: account.address,
               networkId,
@@ -880,8 +882,8 @@ function useProtocolPositionActionSubmit({
               accountId,
               networkId,
               protocolId: action.protocolId,
-              action: action.action,
-              tokenAddress: selectedAsset.tokenAddress,
+              action: buildActionType,
+              tokenAddress: buildTokenAddress,
               amount: amountForApi,
               bps,
               extraParams: {
@@ -895,6 +897,7 @@ function useProtocolPositionActionSubmit({
           if (!resp.tx) {
             throw new OneKeyLocalError('DeFi transaction is missing');
           }
+          const orderId = resp.orderId || generateUUID();
 
           const withUuid =
             selectedAssets.length > 1 || Boolean(resp.approvalTx);
@@ -927,6 +930,7 @@ function useProtocolPositionActionSubmit({
           // confirm info scale by percent.
           const displayAmount =
             amountForApi ?? (isMaxAmount ? selectedAsset.amount : undefined);
+          orderIdsByBusinessTxIndex.push(orderId);
           unsignedTxs.push(
             attachDeFiActionTxConfirmInfo({
               unsignedTx,
@@ -952,13 +956,12 @@ function useProtocolPositionActionSubmit({
             // not request Gas Account sponsorship.
             gasAccountScenario: 'defi',
             onSuccess: async (data: ISendTxOnSuccessData[]) => {
-              // Tag the tx for pending tracking, but don't block the confirming
-              // sheet on it: showing the sheet in the same tick the confirm
-              // modal pops keeps the handoff smooth instead of flashing the page
-              // underneath while the earn-order call resolves.
-              void addDeFiActionEarnOrders({ action, networkId, data }).catch(
-                () => undefined,
-              );
+              void addDeFiActionEarnOrders({
+                action,
+                networkId,
+                data,
+                orderIdsByBusinessTxIndex,
+              }).catch(logDeFiActionEarnOrderError);
               // Block on the confirming sheet until the tx settles, then run
               // the caller's refresh so the position reflects the result.
               const finalStatus = await showDeFiActionTxConfirmDialog({
@@ -981,13 +984,11 @@ function useProtocolPositionActionSubmit({
           isTxConfirmInitializing = false;
         }
         if (txConfirmInitError) {
-          throw new OneKeyLocalError(getErrorMessage(txConfirmInitError));
+          throw normalizeProtocolPositionActionError(txConfirmInitError);
         }
       } catch (error) {
         if (!isUserRejectedErrorMessage({ error, intl })) {
-          Toast.error({
-            title: getErrorMessage(error),
-          });
+          showProtocolPositionActionErrorToast(error);
         }
         throw error;
       }
@@ -1040,27 +1041,6 @@ function ProtocolPositionActionPercentPresetRow({
         );
       })}
     </XStack>
-  );
-}
-
-function ProtocolPositionActionPercentSlider({
-  percent,
-  onChange,
-}: {
-  percent: number;
-  onChange: (percent: number) => void;
-}) {
-  const normalizedPercent = normalizeActionPercent(percent);
-  return (
-    <PerpsSlider
-      value={normalizedPercent}
-      onChange={(value) => onChange(normalizeActionPercent(value))}
-      min={0}
-      max={100}
-      segments={PERCENTAGE_SLIDER_SEGMENTS}
-      sliderHeight={6}
-      snapTapToSegment
-    />
   );
 }
 
@@ -1124,10 +1104,15 @@ function ProtocolPositionActionPercentHero({
   const normalizedPercent = normalizeActionPercent(percent);
   // Mirror the typed-amount hero (SendAutoSizeAmountInput): no top label — the
   // Dialog.Title already carries the verb — a large centered value with the
-  // fiat at $headingLg beneath, and the same py="$6" breathing room, so the
+  // fiat at $headingLg beneath, sharing DEFI_ACTION_HERO_MIN_HEIGHT so the
   // percentage and typed-amount flows read as one hero, not two screens.
   return (
-    <YStack gap="$2" alignItems="center" py="$6">
+    <YStack
+      gap="$2"
+      alignItems="center"
+      justifyContent="center"
+      minHeight={DEFI_ACTION_HERO_MIN_HEIGHT}
+    >
       <SizableText
         size="$heading5xl"
         color="$text"
@@ -1285,6 +1270,7 @@ function ProtocolPositionActionAmountInput({
   availableLabel,
   maxLabel,
   insufficientLabel,
+  validator,
 }: {
   amount: string;
   onChangeAmount: (value: string) => void;
@@ -1299,19 +1285,35 @@ function ProtocolPositionActionAmountInput({
   availableLabel: string;
   maxLabel: string;
   insufficientLabel: string;
+  validator?: (value: string) => boolean;
 }) {
   return (
     <YStack gap="$5">
       <SendAutoSizeAmountInput
-        py="$6"
+        minHeight={DEFI_ACTION_HERO_MIN_HEIGHT}
+        justifyContent="center"
+        maxFontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
         value={amount}
         onChange={onChangeAmount}
+        validator={validator}
         tokenSymbol={symbol}
         valueProps={{
           value: fiatValue,
           currency: currencySymbol,
           formatter: 'value',
         }}
+        extraContent={
+          // Reserved-height error slot right under the amount (same shape as
+          // the Perp deposit/withdraw modal): the message toggles without
+          // shifting the hero, keeping the dialog height stable.
+          <Stack h="$6" justifyContent="center" alignItems="center">
+            {isInsufficient ? (
+              <SizableText size="$bodySm" color="$textCritical">
+                {insufficientLabel}
+              </SizableText>
+            ) : null}
+          </Stack>
+        }
       />
       <ProtocolPositionActionAnchor
         label={availableLabel}
@@ -1337,11 +1339,6 @@ function ProtocolPositionActionAmountInput({
         maxLabel={maxLabel}
         onChange={onSelectPercent}
       />
-      {isInsufficient ? (
-        <SizableText size="$bodySm" color="$textCritical" textAlign="center">
-          {insufficientLabel}
-        </SizableText>
-      ) : null}
     </YStack>
   );
 }
@@ -1422,14 +1419,17 @@ function ProtocolPositionActionDialogContent({
     action.action === EDeFiPositionAction.Repay;
   const manualAmountAsset = selectedAssets[0];
   // Manual entry only applies to a single fungible token; a multi-asset
-  // selection or Lido's permit withdraw keep the percentage slider.
+  // selection keeps the percentage slider. Lido's permit withdraw still uses
+  // manual amount input — the permit signature is handled at submit time and
+  // does not affect the input UI.
   const useManualAmountInput =
-    isManualAmountAction &&
-    !selectable &&
-    !isLidoProtocol(action.protocolId) &&
-    Boolean(manualAmountAsset);
+    isManualAmountAction && !selectable && Boolean(manualAmountAsset);
   const availableAmount = manualAmountAsset?.amount ?? '0';
   const amountDecimals = manualAmountAsset?.asset.meta?.decimals;
+  const validateManualAmountInput = useCallback(
+    (next: string) => validateAmountInput(next, amountDecimals),
+    [amountDecimals],
+  );
   const amountBN = new BigNumber(amount || '0');
   const availableBN = new BigNumber(availableAmount || '0');
   const isAmountPositive = amountBN.isFinite() && amountBN.gt(0);
@@ -1503,7 +1503,7 @@ function ProtocolPositionActionDialogContent({
   const handleAmountChange = (next: string) => {
     // Project convention: reject keystrokes that exceed the token's decimals
     // (same gate as Send), rather than silently truncating.
-    if (!validateAmountInput(next, amountDecimals)) {
+    if (!validateManualAmountInput(next)) {
       return;
     }
     setAmount(next);
@@ -1580,8 +1580,8 @@ function ProtocolPositionActionDialogContent({
         },
       });
     } catch {
-      // submitProtocolPositionAction already surfaced the error via Toast;
-      // keep the dialog open so the user can retry instead of auto-closing.
+      // submitProtocolPositionAction already surfaced the error via global
+      // error toast; keep the dialog open so the user can retry.
       preventClose();
     }
   };
@@ -1635,6 +1635,7 @@ function ProtocolPositionActionDialogContent({
       <ProtocolPositionActionAmountInput
         amount={amount}
         onChangeAmount={handleAmountChange}
+        validator={validateManualAmountInput}
         onSelectPercent={handleSelectPercent}
         selectedPercent={selectedAmountPercent}
         symbol={manualAmountAsset?.symbol ?? ''}
@@ -1700,17 +1701,11 @@ function ProtocolPositionActionDialogContent({
             }
           />
         ) : null}
-        <YStack gap="$3">
-          <ProtocolPositionActionPercentSlider
-            percent={actionPercent}
-            onChange={setActionPercent}
-          />
-          <ProtocolPositionActionPercentPresetRow
-            percent={actionPercent}
-            maxLabel={maxLabel}
-            onChange={setActionPercent}
-          />
-        </YStack>
+        <ProtocolPositionActionPercentPresetRow
+          percent={actionPercent}
+          maxLabel={maxLabel}
+          onChange={setActionPercent}
+        />
         <ProtocolPositionActionReceive
           label={resultLabel}
           assets={aggregatedOutputPreviewAssets}

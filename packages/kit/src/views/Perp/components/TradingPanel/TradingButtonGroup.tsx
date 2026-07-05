@@ -25,7 +25,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   type ITradingFormData,
   type ITradingFormEmptySizeParams,
@@ -110,7 +109,7 @@ import {
   shouldSkipPerpsOrderPanelComputedSizeValidation,
 } from '../../utils/perpsOrderPanelEnableTrading';
 import { getScaleOrderValidationErrorMessage } from '../../utils/scaleOrderValidation';
-import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
+import { getTradingButtonStyleValues } from '../../utils/styleUtils';
 
 import { showEnableTradingStepsDialog } from './modals/EnableTradingStepsDialog';
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
@@ -249,6 +248,11 @@ const EstLiqPriceLeaf = memo(({ side }: { side: 'long' | 'short' }) => {
 });
 EstLiqPriceLeaf.displayName = 'EstLiqPriceLeaf';
 
+function getPerpSideButtonStyles(isLong: boolean) {
+  const styles = getTradingButtonStyleValues(isLong ? 'long' : 'short');
+  return styles;
+}
+
 function SideButtonInternal({
   side,
   isMobile,
@@ -260,7 +264,6 @@ function SideButtonInternal({
 }: ISideButtonProps) {
   const intl = useIntl();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
-  const themeVariant = useThemeVariant();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
@@ -452,8 +455,6 @@ function SideButtonInternal({
       perpsAccountLoading.selectAccountLoading,
     ],
   );
-  const shouldShowButtonLoading = shouldDisableForAccountLoading;
-
   const hasNonColdStartDisabledReason = useMemo(
     () =>
       Boolean(
@@ -472,6 +473,7 @@ function SideButtonInternal({
   );
 
   const shouldPreserveDisabledButtonStyle =
+    isSubmitting ||
     shouldPreserveColdStartButtonVisualState({
       isLiveStatusPending,
       hasNonColdStartDisabledReason,
@@ -1159,35 +1161,8 @@ function SideButtonInternal({
     ],
   );
 
-  const buttonStyles = useMemo(() => {
-    const colors = PERP_TRADE_BUTTON_COLORS;
-    const getBgColor = () => {
-      if (shouldShowButtonLoading) return undefined;
-      return themeVariant === 'light'
-        ? colors.light[isLong ? 'long' : 'short']
-        : colors.dark[isLong ? 'long' : 'short'];
-    };
-
-    const getHoverBgColor = () => {
-      if (shouldShowButtonLoading) return undefined;
-      return themeVariant === 'light'
-        ? colors.light[isLong ? 'longHover' : 'shortHover']
-        : colors.dark[isLong ? 'longHover' : 'shortHover'];
-    };
-
-    const getPressBgColor = () => {
-      if (shouldShowButtonLoading) return undefined;
-      return themeVariant === 'light'
-        ? colors.light[isLong ? 'longPress' : 'shortPress']
-        : colors.dark[isLong ? 'longPress' : 'shortPress'];
-    };
-
-    return {
-      bg: getBgColor(),
-      hoverBg: getHoverBgColor(),
-      pressBg: getPressBgColor(),
-    };
-  }, [isLong, shouldShowButtonLoading, themeVariant]);
+  const buttonStyles = getPerpSideButtonStyles(isLong);
+  const labelColor = buttonStyles.textColor;
 
   const handlePress = useDebouncedCallback(
     async (): Promise<void> => {
@@ -1454,8 +1429,11 @@ function SideButtonInternal({
         pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
         disabled={buttonDisabled}
         disabledStyle={
-          shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
+          shouldPreserveDisabledButtonStyle
+            ? { opacity: 1, bg: buttonStyles.bg }
+            : undefined
         }
+        opacity={shouldPreserveDisabledButtonStyle ? 1 : undefined}
         onPress={handlePress}
         h={36}
         py={!orderValue.isZero() && orderValue.isFinite() ? '$0.5' : undefined}
@@ -1464,7 +1442,7 @@ function SideButtonInternal({
           <SizableText
             size="$bodyMdMedium"
             lineHeight={18}
-            color="$textOnColor"
+            color={labelColor}
             numberOfLines={1}
           >
             {buttonText}
@@ -1473,7 +1451,7 @@ function SideButtonInternal({
           {buttonSecondaryText ? (
             <SizableText
               fontSize={11}
-              color="$textOnColor"
+              color={labelColor}
               opacity={0.8}
               lineHeight={11}
               numberOfLines={1}
@@ -1624,7 +1602,6 @@ function EmptySizeSideButton({
 }: Omit<ISideButtonProps, 'handleConfirm' | 'marketDataFreshness'>) {
   const intl = useIntl();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
-  const themeVariant = useThemeVariant();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
@@ -1679,9 +1656,6 @@ function EmptySizeSideButton({
     shouldDisableForAccountLoading &&
     !perpsAccountLoading.enableTradingTriggered &&
     !hasNonColdStartDisabledReason;
-  const shouldShowButtonLoading =
-    shouldDisableForAccountLoading &&
-    !shouldPreserveAccountLoadingButtonVisualState;
   const buttonDisabled =
     isLiveStatusPending ||
     shouldDisableForAccountLoading ||
@@ -1689,6 +1663,7 @@ function EmptySizeSideButton({
     isServerActionDisabled ||
     (!shouldEnableTradingBeforeOrder && !perpsAccountStatus.canTrade);
   const shouldPreserveDisabledButtonStyle =
+    isSubmitting ||
     shouldPreserveAccountLoadingButtonVisualState ||
     shouldPreserveColdStartButtonVisualState({
       isLiveStatusPending,
@@ -1744,35 +1719,8 @@ function EmptySizeSideButton({
     spotTradeSymbol,
   ]);
 
-  const buttonStyles = useMemo(() => {
-    const colors = PERP_TRADE_BUTTON_COLORS;
-    const getBgColor = () => {
-      if (shouldShowButtonLoading) return undefined;
-      return themeVariant === 'light'
-        ? colors.light[isLong ? 'long' : 'short']
-        : colors.dark[isLong ? 'long' : 'short'];
-    };
-
-    const getHoverBgColor = () => {
-      if (shouldShowButtonLoading) return undefined;
-      return themeVariant === 'light'
-        ? colors.light[isLong ? 'longHover' : 'shortHover']
-        : colors.dark[isLong ? 'longHover' : 'shortHover'];
-    };
-
-    const getPressBgColor = () => {
-      if (shouldShowButtonLoading) return undefined;
-      return themeVariant === 'light'
-        ? colors.light[isLong ? 'longPress' : 'shortPress']
-        : colors.dark[isLong ? 'longPress' : 'shortPress'];
-    };
-
-    return {
-      bg: getBgColor(),
-      hoverBg: getHoverBgColor(),
-      pressBg: getPressBgColor(),
-    };
-  }, [isLong, shouldShowButtonLoading, themeVariant]);
+  const buttonStyles = getPerpSideButtonStyles(isLong);
+  const labelColor = buttonStyles.textColor;
 
   const requestEmptySizeEnableTrading = useCallback(
     async ({
@@ -1972,8 +1920,11 @@ function EmptySizeSideButton({
         pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
         disabled={buttonDisabled}
         disabledStyle={
-          shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
+          shouldPreserveDisabledButtonStyle
+            ? { opacity: 1, bg: buttonStyles.bg }
+            : undefined
         }
+        opacity={shouldPreserveDisabledButtonStyle ? 1 : undefined}
         onPress={handlePress}
         h={36}
       >
@@ -1981,7 +1932,7 @@ function EmptySizeSideButton({
           <SizableText
             size="$bodyMdMedium"
             lineHeight={18}
-            color="$textOnColor"
+            color={labelColor}
             numberOfLines={1}
           >
             {buttonText}
