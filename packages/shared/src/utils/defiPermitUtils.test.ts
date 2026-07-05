@@ -140,6 +140,22 @@ describe('defiPermitUtils.validateLidoWithdrawPermitTypedData', () => {
     ).toThrow('Invalid DeFi permit tokenAddress');
   });
 
+  it('rejects unsupported display token even when poolAddress is supported', () => {
+    expect(() =>
+      defiPermitUtils.validateLidoWithdrawPermitTypedData({
+        message: buildLidoPermitTypedData({
+          verifyingContract: EthereumWstETH,
+        }),
+        accountAddress,
+        networkId: getNetworkIdsMap().eth,
+        selectedAsset: {
+          tokenAddress: '0x000000000000000000000000000000000000dEaD',
+          extraParams: { poolAddress: EthereumWstETH },
+        },
+      }),
+    ).toThrow('Invalid DeFi permit tokenAddress');
+  });
+
   it('rejects Lido wstETH permit when selected token is stETH', () => {
     expect(() =>
       defiPermitUtils.validateLidoWithdrawPermitTypedData({

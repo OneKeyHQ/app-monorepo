@@ -46,6 +46,7 @@ export function shouldShowSwapLocalData({
   accountSelectorActiveAccountInitDone,
   accountSelectorStorageInitDone,
   hasAccount,
+  hasDbAccount,
   hasAccountWallet,
   hasIndexedAccount,
 }: {
@@ -53,6 +54,7 @@ export function shouldShowSwapLocalData({
   accountSelectorActiveAccountInitDone: boolean;
   accountSelectorStorageInitDone: boolean;
   hasAccount: boolean;
+  hasDbAccount: boolean;
   hasAccountWallet: boolean;
   hasIndexedAccount: boolean;
 }) {
@@ -64,7 +66,7 @@ export function shouldShowSwapLocalData({
     return false;
   }
 
-  return hasAccountWallet && (hasAccount || hasIndexedAccount);
+  return hasAccountWallet && (hasAccount || hasDbAccount || hasIndexedAccount);
 }
 
 export function buildSwapLimitOrdersAccountIdKey({

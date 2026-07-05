@@ -791,6 +791,7 @@ export default class ServiceSwap extends ServiceBase {
     const accountIdKey =
       indexedAccountId ?? otherWalletTypeAccountId ?? 'noAccountId';
     let swapSupportAccounts: IAllNetworkAccountInfo[] = [];
+    let supportAccountsFetchFailed = false;
     if (indexedAccountId || otherWalletTypeAccountId) {
       try {
         const allNetAccountId = indexedAccountId
@@ -858,10 +859,11 @@ export default class ServiceSwap extends ServiceBase {
           );
         });
       } catch (e) {
+        supportAccountsFetchFailed = true;
         console.error(e);
       }
     }
-    return { accountIdKey, swapSupportAccounts };
+    return { accountIdKey, swapSupportAccounts, supportAccountsFetchFailed };
   }
 
   @backgroundMethod()
@@ -2737,12 +2739,27 @@ export default class ServiceSwap extends ServiceBase {
     const swapLimitSupportNetworks = swapSupportNetworks.filter(
       (item) => item.supportLimit,
     );
-    const { accountIdKey, swapSupportAccounts } =
+    const { accountIdKey, swapSupportAccounts, supportAccountsFetchFailed } =
       await this.getSupportSwapAllAccounts({
         indexedAccountId,
         otherWalletTypeAccountId,
         swapSupportNetworks: swapLimitSupportNetworks,
       });
+    if (supportAccountsFetchFailed) {
+      await inAppNotificationAtom.set((pre) => ({
+        ...pre,
+        swapLimitOrdersLoading: false,
+      }));
+      this.limitOrderStateInterval = setTimeout(() => {
+        void this.swapLimitOrdersFetchLoop(
+          indexedAccountId,
+          otherWalletTypeAccountId,
+          false,
+          true,
+        );
+      }, ESwapLimitOrderUpdateInterval);
+      return;
+    }
     if (swapSupportAccounts.length > 0) {
       const { swapLimitOrders } = await inAppNotificationAtom.get();
       if (

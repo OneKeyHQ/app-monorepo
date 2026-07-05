@@ -126,6 +126,7 @@ describe('shouldShowSwapLocalData', () => {
         accountSelectorActiveAccountInitDone: true,
         accountSelectorStorageInitDone: true,
         hasAccount: true,
+        hasDbAccount: false,
         hasAccountWallet: true,
         hasIndexedAccount: false,
       }),
@@ -139,6 +140,7 @@ describe('shouldShowSwapLocalData', () => {
         accountSelectorActiveAccountInitDone: false,
         accountSelectorStorageInitDone: true,
         hasAccount: true,
+        hasDbAccount: false,
         hasAccountWallet: true,
         hasIndexedAccount: false,
       }),
@@ -152,6 +154,7 @@ describe('shouldShowSwapLocalData', () => {
         accountSelectorActiveAccountInitDone: true,
         accountSelectorStorageInitDone: true,
         hasAccount: false,
+        hasDbAccount: false,
         hasAccountWallet: true,
         hasIndexedAccount: false,
       }),
@@ -165,6 +168,7 @@ describe('shouldShowSwapLocalData', () => {
         accountSelectorActiveAccountInitDone: true,
         accountSelectorStorageInitDone: true,
         hasAccount: true,
+        hasDbAccount: false,
         hasAccountWallet: true,
         hasIndexedAccount: false,
       }),
@@ -178,8 +182,23 @@ describe('shouldShowSwapLocalData', () => {
         accountSelectorActiveAccountInitDone: true,
         accountSelectorStorageInitDone: true,
         hasAccount: false,
+        hasDbAccount: false,
         hasAccountWallet: true,
         hasIndexedAccount: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('shows local data for a connected dbAccount such as external wallets', () => {
+    expect(
+      shouldShowSwapLocalData({
+        accountInfoReady: true,
+        accountSelectorActiveAccountInitDone: true,
+        accountSelectorStorageInitDone: true,
+        hasAccount: false,
+        hasDbAccount: true,
+        hasAccountWallet: true,
+        hasIndexedAccount: false,
       }),
     ).toBe(true);
   });
@@ -195,6 +214,7 @@ describe('shouldShowSwapLocalData', () => {
       shouldShowSwapLocalData({
         ...baseReadyState,
         hasAccount: true,
+        hasDbAccount: false,
         hasAccountWallet: true,
         hasIndexedAccount: false,
       }),
@@ -203,6 +223,7 @@ describe('shouldShowSwapLocalData', () => {
       shouldShowSwapLocalData({
         ...baseReadyState,
         hasAccount: false,
+        hasDbAccount: false,
         hasAccountWallet: true,
         hasIndexedAccount: false,
       }),
@@ -211,6 +232,7 @@ describe('shouldShowSwapLocalData', () => {
       shouldShowSwapLocalData({
         ...baseReadyState,
         hasAccount: true,
+        hasDbAccount: false,
         hasAccountWallet: true,
         hasIndexedAccount: false,
       }),

@@ -100,6 +100,12 @@ function resolveLidoWithdrawTokenAddress(
     if (!isSupportedLidoWithdrawTokenAddress(poolAddress)) {
       throw new OneKeyLocalError('Invalid DeFi permit tokenAddress');
     }
+    if (
+      selectedTokenAddress &&
+      !isSupportedLidoWithdrawTokenAddress(selectedTokenAddress)
+    ) {
+      throw new OneKeyLocalError('Invalid DeFi permit tokenAddress');
+    }
     // Lido portfolio rows may display/redeem as stETH while the server uses
     // poolAddress as the actual permit token, for example wstETH withdrawals.
     return poolAddress;
