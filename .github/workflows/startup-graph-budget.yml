@@ -138,15 +138,16 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: yarn install --immutable
 
-      # Current cold-entry median baseline, measured from a production web build
-      # with 3 fresh-browser runs on 2026-07-05. Keep scenario budgets in
-      # development/perf-ci/thresholds/web.cold.json close to this baseline:
-      # root: 16.67 MiB JS, 168 scripts, 237 resources, 1404 ms LCP
-      # market: 16.67 MiB JS, 168 scripts, 236 resources, 1360 ms LCP
-      # perps: 16.93 MiB JS, 173 scripts, 214 resources, 820 ms LCP
-      # swap: 16.55 MiB JS, 168 scripts, 217 resources, 968 ms LCP
-      # defi: 16.74 MiB JS, 170 scripts, 217 resources, 792 ms LCP
-      # referFriends: 16.60 MiB JS, 166 scripts, 197 resources, 1220 ms LCP
+      # Current GitHub Actions cold-entry median baseline, measured on
+      # ubuntu-24.04 with 3 fresh-browser runs in PR #12286 run 28733529052.
+      # Keep scenario budgets in development/perf-ci/thresholds/web.cold.json
+      # close to these per-entry baselines:
+      # root: 15.86 MiB JS, 157 scripts, 206 resources, 2380 ms LCP, 1737 ms long tasks
+      # market: 15.86 MiB JS, 157 scripts, 205 resources, 2064 ms LCP, 1624 ms long tasks
+      # perps: 16.21 MiB JS, 165 scripts, 204 resources, 2024 ms LCP, 1271 ms long tasks
+      # swap: 15.81 MiB JS, 159 scripts, 192 resources, 1432 ms LCP, 971 ms long tasks
+      # defi: 15.95 MiB JS, 160 scripts, 190 resources, 1332 ms LCP, 1092 ms long tasks
+      # referFriends: 15.85 MiB JS, 157 scripts, 175 resources, 1980 ms LCP, 692 ms long tasks
       - name: Check web startup/cold entry budgets
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
