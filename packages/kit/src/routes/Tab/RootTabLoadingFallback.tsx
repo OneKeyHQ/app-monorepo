@@ -1,10 +1,10 @@
 import { Page, Spinner, Stack, useMedia } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
-import { TabPageHeader } from '../../../components/TabPageHeader';
+import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
+import { TabPageHeader } from '../../components/TabPageHeader';
 
 function LoadingSpinner() {
   return (
@@ -14,7 +14,19 @@ function LoadingSpinner() {
   );
 }
 
-export function MarketDetailV2LoadingFallback() {
+const DEFAULT_ENABLED_NUM = [0];
+
+type IRootTabLoadingFallbackProps = {
+  tabRoute: ETabRoutes;
+  sceneName?: EAccountSelectorSceneName;
+  enabledNum?: number[];
+};
+
+export function RootTabLoadingFallback({
+  tabRoute,
+  sceneName = EAccountSelectorSceneName.home,
+  enabledNum = DEFAULT_ENABLED_NUM,
+}: IRootTabLoadingFallbackProps) {
   const media = useMedia();
 
   if (platformEnv.isNative || media.md) {
@@ -29,15 +41,12 @@ export function MarketDetailV2LoadingFallback() {
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: EAccountSelectorSceneName.home,
+        sceneName,
         sceneUrl: '',
       }}
-      enabledNum={[0]}
+      enabledNum={enabledNum}
     >
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.Market}
-      />
+      <TabPageHeader sceneName={sceneName} tabRoute={tabRoute} />
       <LoadingSpinner />
     </AccountSelectorProviderMirror>
   );
