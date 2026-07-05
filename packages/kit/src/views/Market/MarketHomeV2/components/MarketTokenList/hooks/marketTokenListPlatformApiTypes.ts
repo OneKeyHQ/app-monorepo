@@ -14,6 +14,7 @@ type IMarketTokenListRequestParams = {
 
 type IMarketTokenListResponseWithSource = IMarketTokenListResponse & {
   __fromSeed?: boolean;
+  __fromColdCacheFallback?: boolean;
 };
 
 type IFetchMarketTokenListForPlatformOptions = {

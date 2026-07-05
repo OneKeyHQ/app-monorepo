@@ -34,7 +34,7 @@ const DEFAULT_BUDGETS = {
   largestPreLcpScriptDecodedBytes: 600 * 1024,
 };
 
-const DEFAULT_SCENARIOS = [
+const ALL_SCENARIOS = [
   {
     name: 'root',
     path: '/',
@@ -45,7 +45,36 @@ const DEFAULT_SCENARIOS = [
     path: '/market',
     businessReady: 'marketList',
   },
+  {
+    name: 'perps',
+    path: '/perps',
+    businessReady: null,
+  },
+  {
+    name: 'swap',
+    path: '/swap',
+    businessReady: null,
+  },
+  {
+    name: 'defi',
+    path: '/defi',
+    businessReady: null,
+  },
+  {
+    name: 'referFriends',
+    path: '/refer-friends',
+    businessReady: null,
+  },
 ];
+
+const ENTRY_SCENARIO_NAMES = [
+  'market',
+  'perps',
+  'swap',
+  'defi',
+  'referFriends',
+];
+const DEFAULT_SCENARIOS = ALL_SCENARIOS;
 
 function hasFlag(name) {
   return process.argv.includes(name);
@@ -120,6 +149,21 @@ function loadBudgetConfig(repoRoot) {
   return normalizeBudgetConfig(readJsonIfExists(budgetPath));
 }
 
+function expandScenarioNames(names) {
+  const expanded = [];
+  for (const rawName of names) {
+    const name = rawName === 'refer-friends' ? 'referFriends' : rawName;
+    if (name === 'all') {
+      expanded.push(...ALL_SCENARIOS.map((scenario) => scenario.name));
+    } else if (name === 'entries') {
+      expanded.push(...ENTRY_SCENARIO_NAMES);
+    } else {
+      expanded.push(name);
+    }
+  }
+  return [...new Set(expanded)];
+}
+
 function getScenarioBudgets(budgetConfig, scenario) {
   return {
     ...budgetConfig.defaults,
@@ -136,15 +180,17 @@ function parseScenarios() {
   }
 
   const scenariosByName = new Map(
-    DEFAULT_SCENARIOS.map((scenario) => [scenario.name, scenario]),
+    ALL_SCENARIOS.map((scenario) => [scenario.name, scenario]),
   );
-  return scenarioNames.map((name) => {
+  return expandScenarioNames(scenarioNames).map((name) => {
     const scenario = scenariosByName.get(name);
     if (!scenario) {
       throw new Error(
-        `unknown PERF_WEB_COLD_SCENARIOS entry "${name}". Known: ${DEFAULT_SCENARIOS.map(
+        `unknown PERF_WEB_COLD_SCENARIOS entry "${name}". Known: ${ALL_SCENARIOS.map(
           (item) => item.name,
-        ).join(', ')}`,
+        )
+          .concat(['all', 'entries', 'refer-friends'])
+          .join(', ')}`,
       );
     }
     return scenario;
@@ -719,6 +765,8 @@ function checkBudgets(summary, budgets) {
     ['lcpMs', summary.lcp],
     ['businessReadyMs', summary.businessReady],
     ['marketListReadyMs', summary.marketListReady],
+    ['resourceCount', summary.resourceCount],
+    ['scriptCount', summary.scriptCount],
     ['jsDecodedBytes', summary.jsDecodedBytes],
     ['initialScriptRawBytes', summary.initialScriptRawBytes],
     ['longTaskTotalMs', summary.longTaskTotalMs],
@@ -814,6 +862,8 @@ function printReport({
     lcpMs: formatMs,
     businessReadyMs: formatMs,
     marketListReadyMs: formatMs,
+    resourceCount: String,
+    scriptCount: String,
     jsDecodedBytes: formatBytes,
     initialScriptRawBytes: formatBytes,
     longTaskTotalMs: formatMs,
