@@ -185,7 +185,6 @@ function main() {
     );
   }
 
-  const budgetConfig = readJsonIfExists(budgetPath);
   const budgets = loadBudgets();
   const meta = readJsonIfExists(metaPath);
 
