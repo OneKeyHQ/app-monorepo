@@ -14,6 +14,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -520,6 +521,12 @@ function useAllNetworkRequests<T>(params: {
         alwaysSetStateForThisRun ||
         skipAccountsCacheRef.current ||
         ignoreDisabledForThisRun;
+      let requestKind = 'token';
+      if (isNFTRequests) {
+        requestKind = 'nft';
+      } else if (isDeFiRequests) {
+        requestKind = 'defi';
+      }
       if (
         shouldSkipRedundantAllNetworkRun({
           isMustRun,
@@ -539,6 +546,17 @@ function useAllNetworkRequests<T>(params: {
       // so the consumer's LWW materialized view rejects a stale earlier run.
       const runGeneration = runGenerationRef.current;
       isFetching.current = true;
+
+      defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+        runtime: 'main',
+        phase: 'all-network-hook-run-start',
+        networkId: currentNetworkId,
+        isAllNetworks: true,
+        allNetworkDataInit: allNetworkDataInit.current,
+        isMustRun,
+        ownerPresent: !!currentAccountId,
+        reason: requestKind,
+      });
 
       let onStartedError: unknown;
       let onStartedTask: Promise<void> | undefined;
@@ -618,6 +636,18 @@ function useAllNetworkRequests<T>(params: {
           allAccountsInfo,
         } = accountsInfoResult;
         perf.markEnd('getAllNetworkAccountsWithEnabledNetworks');
+        defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+          runtime: 'main',
+          phase: 'all-network-accounts-resolved',
+          networkId: currentNetworkId,
+          isAllNetworks: true,
+          accountsCount: accountsInfo?.length ?? 0,
+          backendIndexedCount: accountsInfoBackendIndexed?.length ?? 0,
+          backendNotIndexedCount: accountsInfoBackendNotIndexed?.length ?? 0,
+          allAccountsCount: allAccountsInfo?.length ?? 0,
+          ownerPresent: !!currentAccountId,
+          reason: requestKind,
+        });
         perfMark('AllNet:getAllNetworkAccounts:done', {
           duration: Date.now() - allNetAccountsStart,
           counts: {
@@ -712,6 +742,18 @@ function useAllNetworkRequests<T>(params: {
             if (cachedData && !isEmpty(cachedData)) {
               cacheHasData = true;
               allNetworkDataInit.current = true;
+              defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace(
+                {
+                  runtime: 'main',
+                  phase: 'all-network-cache-probe',
+                  networkId: currentNetworkId,
+                  isAllNetworks: true,
+                  hasCache: true,
+                  cacheCount: cachedData.length,
+                  ownerPresent: !!currentAccountId,
+                  reason: requestKind,
+                },
+              );
               perf.done();
               perfTokenListView.markEnd(
                 'useAllNetworkRequestsRun',
@@ -727,6 +769,20 @@ function useAllNetworkRequests<T>(params: {
           } catch (e) {
             console.error(e);
           } finally {
+            if (!cacheHasData) {
+              defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace(
+                {
+                  runtime: 'main',
+                  phase: 'all-network-cache-probe',
+                  networkId: currentNetworkId,
+                  isAllNetworks: true,
+                  hasCache: false,
+                  cacheCount: 0,
+                  ownerPresent: !!currentAccountId,
+                  reason: requestKind,
+                },
+              );
+            }
             try {
               await onCacheChecked?.({
                 accountId: currentAccountId,
@@ -837,6 +893,18 @@ function useAllNetworkRequests<T>(params: {
         if (accountsInfo.length && accountsInfo.length > 0) {
           allNetworkDataInit.current = true;
         }
+
+        defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+          runtime: 'main',
+          phase: 'all-network-hook-run-finished',
+          networkId: currentNetworkId,
+          isAllNetworks: true,
+          allNetworkDataInit: allNetworkDataInit.current,
+          resultCount: resp?.length ?? 0,
+          accountsCount: accountsInfo.length,
+          ownerPresent: !!currentAccountId,
+          reason: requestKind,
+        });
 
         return resp;
       } finally {

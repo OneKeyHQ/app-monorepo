@@ -45,7 +45,8 @@ export function computeShowTokenListSkeleton(
   if (
     p.showActiveAccountTokenList &&
     !p.activeAccountTokenListInitialized &&
-    p.activeAccountTokenListIsRefreshing
+    p.activeAccountTokenListIsRefreshing &&
+    p.displayCount === 0
   ) {
     return true;
   }
@@ -73,11 +74,12 @@ export function computeShowTokenListSkeleton(
   // the home atoms. The home mirror keeps `tokenListInitialized` true, so the
   // final clause never fires for the selector and it would flash EmptyToken for
   // a frame before the self-fetch lands. Skeleton until the selector self-fetch
-  // resolves.
+  // resolves, but only when there is genuinely nothing cached to display.
   if (
     p.isTokenSelector &&
     !p.showActiveAccountTokenList &&
-    !p.tokenSelectorInitialized
+    !p.tokenSelectorInitialized &&
+    p.displayCount === 0
   ) {
     return true;
   }
