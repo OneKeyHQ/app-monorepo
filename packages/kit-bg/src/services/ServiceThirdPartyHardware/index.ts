@@ -136,6 +136,13 @@ class ServiceThirdPartyHardware extends ServiceBase {
     Promise<void>
   >();
 
+  /** In-flight BLE binding dialog request; concurrent callers share it. */
+  private _pendingTrezorBleBindingRequest?: {
+    usbConnectId: string;
+    featuresDeviceId: string;
+    promise: Promise<string | null>;
+  };
+
   private isRegisteredThirdPartyVendor(
     vendor: string | undefined,
   ): vendor is IThirdPartyVendor {
@@ -354,7 +361,25 @@ class ServiceThirdPartyHardware extends ServiceBase {
       return null;
     }
 
-    const bleConnectId = await new Promise<string | null>((resolve, reject) => {
+    // One binding dialog at a time: same device joins it, another device gives up.
+    const pending = this._pendingTrezorBleBindingRequest;
+    if (pending) {
+      if (
+        pending.usbConnectId === usbConnectId &&
+        pending.featuresDeviceId === featuresDeviceId
+      ) {
+        defaultLogger.hardware.sdkLog.log(
+          `[3rdPartyHW][Trezor] joining in-flight BLE binding request usbConnectId=${usbConnectId}`,
+        );
+        return pending.promise;
+      }
+      defaultLogger.hardware.sdkLog.log(
+        `[3rdPartyHW][Trezor] skip BLE binding request: another binding in flight (usbConnectId=${pending.usbConnectId})`,
+      );
+      return null;
+    }
+
+    const requestPromise = new Promise<string | null>((resolve, reject) => {
       const promiseId = this.backgroundApi.servicePromise.createCallback({
         resolve,
         reject,
@@ -370,9 +395,17 @@ class ServiceThirdPartyHardware extends ServiceBase {
           trezorBleBindingMode: 'auto-fallback',
         },
       });
-    });
+    }).then((bleConnectId) => bleConnectId || null);
 
-    return bleConnectId || null;
+    const record = { usbConnectId, featuresDeviceId, promise: requestPromise };
+    this._pendingTrezorBleBindingRequest = record;
+    try {
+      return await requestPromise;
+    } finally {
+      if (this._pendingTrezorBleBindingRequest === record) {
+        this._pendingTrezorBleBindingRequest = undefined;
+      }
+    }
   }
 
   /**
