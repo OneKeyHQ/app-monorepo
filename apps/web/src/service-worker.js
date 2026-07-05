@@ -32,6 +32,14 @@ let versionCheckPromise = null;
 // Precache app shell (manifest injected by InjectManifest at build time)
 precacheAndRoute(self.__WB_MANIFEST);
 
+self.addEventListener('install', (event) => {
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
 class ServiceWorkerVersionError extends Error {
   constructor(message) {
     super(message);
@@ -110,6 +118,17 @@ function getCriticalCacheName(version) {
 
 function getCriticalTempCacheName(version) {
   return `${CRITICAL_TEMP_CACHE_PREFIX}${version}`;
+}
+
+async function deleteVersionCaches(version) {
+  if (!version) {
+    return;
+  }
+  await Promise.all([
+    caches.delete(getHtmlCacheName(version)),
+    caches.delete(getCriticalCacheName(version)),
+    caches.delete(getCriticalTempCacheName(version)),
+  ]);
 }
 
 function isValidManifest(manifest) {
@@ -244,6 +263,58 @@ async function writeVersionHtml(version, html) {
   );
 }
 
+async function getCachedHtmlResponse(version) {
+  if (!version) {
+    return undefined;
+  }
+  const cache = await caches.open(getHtmlCacheName(version));
+  return cache.match(INDEX_HTML_URL);
+}
+
+async function isReadyVersionCacheValid(state) {
+  const { readyVersion, readyManifest } = state;
+  if (
+    !readyVersion ||
+    !readyManifest ||
+    readyManifest.version !== readyVersion ||
+    !isValidManifest(readyManifest)
+  ) {
+    return false;
+  }
+
+  const htmlResponse = await getCachedHtmlResponse(readyVersion);
+  if (!htmlResponse) {
+    return false;
+  }
+
+  const criticalCache = await caches.open(getCriticalCacheName(readyVersion));
+  for (const asset of readyManifest.critical) {
+    const response = await criticalCache.match(asset.url);
+    if (!response) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+async function clearReadyVersionState(
+  state,
+  lastError = 'ready_cache_missing',
+) {
+  const { readyVersion } = state;
+  await deleteVersionCaches(readyVersion);
+
+  const nextState = {
+    ...state,
+    readyVersion: '',
+    readyManifest: undefined,
+    lastError,
+  };
+  await writeVersionState(nextState);
+  return nextState;
+}
+
 async function cacheVersionHtml(manifest) {
   const html = await fetchCandidateHtml(manifest);
   await writeVersionHtml(manifest.version, html);
@@ -292,7 +363,7 @@ async function checkForVersionUpdate({ client } = {}) {
     try {
       const manifest = await fetchVersionManifest();
       attemptedVersion = manifest.version;
-      const state = await readVersionState();
+      let state = await readVersionState();
 
       if (!state.activeVersion) {
         await cacheVersionHtml(manifest);
@@ -307,18 +378,21 @@ async function checkForVersionUpdate({ client } = {}) {
         return nextState;
       }
 
-      if (
-        manifest.version === state.activeVersion ||
-        manifest.version === state.readyVersion
-      ) {
+      if (manifest.version === state.activeVersion) {
         sendMessageToClient(client, MESSAGE_TYPES.VERSION_STATE, state);
-        if (manifest.version === state.readyVersion) {
+        return state;
+      }
+
+      if (manifest.version === state.readyVersion) {
+        if (await isReadyVersionCacheValid(state)) {
+          sendMessageToClient(client, MESSAGE_TYPES.VERSION_STATE, state);
           sendMessageToClient(client, MESSAGE_TYPES.UPDATE_READY, {
             version: state.readyVersion,
             manifest: state.readyManifest,
           });
+          return state;
         }
-        return state;
+        state = await clearReadyVersionState(state);
       }
 
       if (
@@ -367,10 +441,16 @@ async function checkForVersionUpdate({ client } = {}) {
   return versionCheckPromise;
 }
 
-async function activateReadyVersion(version) {
-  const state = await readVersionState();
-  if (!state.readyVersion || state.readyVersion !== version) {
+async function promoteReadyVersionState(
+  state,
+  { shouldBroadcast = true } = {},
+) {
+  if (!state.readyVersion) {
     return state;
+  }
+
+  if (!(await isReadyVersionCacheValid(state))) {
+    return clearReadyVersionState(state);
   }
 
   const previousVersions = [
@@ -391,10 +471,30 @@ async function activateReadyVersion(version) {
   };
   await writeVersionState(nextState);
   await cleanupVersionCaches(nextState);
-  await broadcastMessage(MESSAGE_TYPES.VERSION_ACTIVATED, {
-    version: nextState.activeVersion,
-  });
+  if (shouldBroadcast) {
+    await broadcastMessage(MESSAGE_TYPES.VERSION_ACTIVATED, {
+      version: nextState.activeVersion,
+    });
+  }
   return nextState;
+}
+
+async function activateReadyVersion(version, { client } = {}) {
+  const state = await readVersionState();
+  if (!state.readyVersion || state.readyVersion !== version) {
+    return state;
+  }
+
+  if (!(await isReadyVersionCacheValid(state))) {
+    const nextState = await clearReadyVersionState(state);
+    sendMessageToClient(client, MESSAGE_TYPES.UPDATE_FAILED, {
+      error: nextState.lastError,
+    });
+    await checkForVersionUpdate({ client });
+    return nextState;
+  }
+
+  return promoteReadyVersionState(state);
 }
 
 async function cleanupVersionCaches(state) {
@@ -424,13 +524,23 @@ async function cleanupVersionCaches(state) {
 }
 
 async function handleNavigation() {
-  const state = await readVersionState();
-  if (state.activeVersion) {
-    const cache = await caches.open(getHtmlCacheName(state.activeVersion));
-    const response = await cache.match(INDEX_HTML_URL);
-    if (response) {
-      return response;
+  let state = await readVersionState();
+
+  if (state.readyVersion) {
+    if (await isReadyVersionCacheValid(state)) {
+      state = await promoteReadyVersionState(state);
+      const readyResponse = await getCachedHtmlResponse(state.activeVersion);
+      if (readyResponse) {
+        return readyResponse;
+      }
+    } else {
+      state = await clearReadyVersionState(state);
     }
+  }
+
+  const activeResponse = await getCachedHtmlResponse(state.activeVersion);
+  if (activeResponse) {
+    return activeResponse;
   }
 
   return fetch(INDEX_HTML_URL, {
@@ -442,6 +552,7 @@ async function handleNavigation() {
 self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate') {
     event.respondWith(handleNavigation());
+    event.waitUntil(checkForVersionUpdate());
   }
 });
 
@@ -470,7 +581,7 @@ self.addEventListener('message', (event) => {
   }
 
   if (type === MESSAGE_TYPES.ACTIVATE_VERSION) {
-    event.waitUntil(activateReadyVersion(payload.version));
+    event.waitUntil(activateReadyVersion(payload.version, { client }));
   }
 });
 

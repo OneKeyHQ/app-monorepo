@@ -21,6 +21,9 @@ The desired behavior is:
 4. It prompts the user only after the critical resource set is ready.
 5. A user refresh or the next accepted navigation switches HTML to the ready
    version instead of starting from an unprepared network HTML response.
+6. If the old page JS fails to boot, browser navigations still let the service
+   worker discover and prepare the next version, then the following navigation
+   promotes the prepared HTML automatically.
 
 ## Runtime Boundary
 
@@ -113,16 +116,40 @@ sequenceDiagram
   end
 
   Page->>SW: repeat CHECK_VERSION on interval and visibilitychange
+  Note over Page,SW: If page JS cannot boot, navigation fetch events still trigger SW checks.
 ```
 
 ## Service Worker Update Flow
 
-The service worker only announces `UPDATE_READY` after the next version HTML and
-critical resources have been fetched, validated, and written to versioned caches.
+The service worker script should update as soon as the browser sees a newer
+`/service-worker.js`. This only updates recovery logic and fetch handling. It
+does not automatically serve new app HTML.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Browser
+  participant OldSW as Current SW
+  participant NewSW as New /service-worker.js
+  participant Cache as Version caches
+
+  Browser->>OldSW: registration.update()
+  Browser->>NewSW: install new SW script
+  NewSW->>NewSW: skipWaiting()
+  NewSW->>Browser: activate immediately
+  NewSW->>NewSW: clients.claim()
+  Browser->>NewSW: controlled navigations and messages
+  NewSW->>Cache: keep activeVersion/readyVersion state
+  Note over NewSW,Cache: App HTML switches only after ready caches validate and promote.
+```
+
+The app-version flow only announces `UPDATE_READY` after the next version HTML
+and critical resources have been fetched, validated, and written to versioned
+caches.
 
 ```mermaid
 flowchart TD
-  A["CHECK_VERSION"] --> B["Fetch /sw-version-manifest.json<br/>cache: no-store"]
+  A["CHECK_VERSION or navigation fetch"] --> B["Fetch /sw-version-manifest.json<br/>cache: no-store"]
   B --> C{"Valid manifest?"}
   C -- "No" --> Z["UPDATE_FAILED<br/>write retryAt"]
   C -- "Yes" --> D{"Has activeVersion?"}
@@ -132,7 +159,10 @@ flowchart TD
   D -- "Yes" --> G{"manifest.version == activeVersion?"}
   G -- "Yes" --> H["send VERSION_STATE<br/>no prompt"]
   G -- "No" --> I{"manifest.version == readyVersion?"}
-  I -- "Yes" --> J["send UPDATE_READY<br/>to requesting client"]
+  I -- "Yes" --> J{"Ready caches still complete?<br/>HTML + critical assets"}
+  J -- "Yes" --> J1["send UPDATE_READY<br/>to requesting client"]
+  J -- "No" --> J2["Clear readyVersion<br/>delete broken ready caches"]
+  J2 --> K
   I -- "No" --> K{"Failed recently?"}
   K -- "Yes" --> L["send VERSION_STATE<br/>wait for retryAt"]
   K -- "No" --> M["Fetch candidate /index.html<br/>verify it contains publicUrl"]
@@ -144,6 +174,22 @@ flowchart TD
   Q --> R["Warm static-resources<br/>write onekey-web-html:next"]
   R --> S["Write readyVersion"]
   S --> T["Broadcast UPDATE_READY<br/>to controlled tabs"]
+```
+
+Navigation has one additional recovery path:
+
+```mermaid
+flowchart TD
+  A["Navigation request"] --> B{"readyVersion exists?"}
+  B -- "Yes" --> C{"Ready caches complete?"}
+  C -- "Yes" --> D["Promote readyVersion to activeVersion"]
+  D --> E["Serve ready /index.html"]
+  C -- "No" --> F["Clear ready state<br/>delete broken caches"]
+  F --> G{"active HTML cached?"}
+  B -- "No" --> G
+  G -- "Yes" --> H["Serve active /index.html"]
+  G -- "No" --> I["Fetch network /index.html"]
+  A -. "waitUntil" .-> J["Run version check in SW<br/>without page JS"]
 ```
 
 ## Operations Workflow
@@ -184,6 +230,7 @@ flowchart LR
   H --> O["Controlled clients keep current HTML<br/>until SW marks next ready"]
   I --> O
   O --> P["Rollback = republish previous root HTML/manifest<br/>keep old asset dirs"]
+  J --> Q["New SW script auto-activates<br/>to update recovery logic"]
 ```
 
 ## Build Manifest
@@ -288,14 +335,36 @@ cache and the normal runtime `CacheFirst` route once the page is controlled.
 
 Navigation requests are no longer `NetworkFirst`.
 
+- Every navigation schedules a service worker version check with
+  `event.waitUntil()`. This check does not block the HTML response, and it does
+  not require page JS to boot.
 - If an active version HTML is cached, serve it for app navigations.
-- If a ready version exists but has not been activated, keep serving the current
-  version.
+- If a ready version exists, validate its cached HTML and every critical asset.
+- If the ready caches are complete, promote it to `activeVersion` and serve the
+  ready HTML. This is the second-refresh recovery path.
+- If the ready caches are incomplete, delete the broken ready caches, clear
+  `readyVersion`, and continue serving the current active HTML.
 - After `ACTIVATE_VERSION`, serve the ready version HTML.
 - If no versioned HTML exists, fall back to network `/index.html`.
 
 This prevents the browser from switching to a new HTML document before the next
 version's critical resources are ready.
+
+## Anti-Bricking Invariants
+
+The update path must keep working even when the currently cached page cannot run
+its JS bundle.
+
+- Updated service worker scripts auto-activate with `skipWaiting()` and
+  `clients.claim()` so recovery logic can be replaced without a page prompt.
+- App HTML activation is still version-state controlled. A new SW script does
+  not directly serve new HTML.
+- Navigation fetch events trigger version checks independently from page JS.
+- `UPDATE_READY` is sent only if ready HTML and critical assets still exist in
+  CacheStorage.
+- `ACTIVATE_VERSION` and navigation auto-promotion both revalidate the ready
+  caches before switching `activeVersion`.
+- A broken ready cache is deleted and rebuilt instead of being promoted.
 
 ## Cache Policy
 
@@ -329,6 +398,14 @@ Clicking refresh should:
 3. Reload the current tab only.
 
 Other tabs receive update-ready state but are not forced to reload.
+
+If the page JS cannot boot and the banner is unavailable, users can still
+recover by refreshing twice after a new version is published:
+
+1. The first controlled refresh is served from the active HTML cache while the
+   service worker prefetches the next version in the background.
+2. The second controlled refresh validates and promotes the ready version, then
+   serves the new HTML.
 
 ## Observability
 
