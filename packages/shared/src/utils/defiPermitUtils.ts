@@ -2,6 +2,7 @@ import { getNetworkIdsMap } from '../config/networkIds';
 import {
   EthereumStETH,
   EthereumStETHWithdrawalQueue,
+  EthereumWstETH,
 } from '../consts/addresses';
 import { OneKeyLocalError } from '../errors';
 
@@ -9,6 +10,11 @@ import type {
   IDeFiUnknownRecord,
   IResolvedDeFiPositionActionAsset,
 } from '../../types/defi';
+
+const supportedLidoWithdrawTokenAddresses = new Set([
+  EthereumStETH.toLowerCase(),
+  EthereumWstETH.toLowerCase(),
+]);
 
 function asRecord(value: unknown): IDeFiUnknownRecord | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -74,6 +80,41 @@ function normalizePermitChainId(value: unknown) {
   return undefined;
 }
 
+function isSupportedLidoWithdrawTokenAddress(address: string | undefined) {
+  return Boolean(address && supportedLidoWithdrawTokenAddresses.has(address));
+}
+
+function resolveLidoWithdrawTokenAddress(
+  selectedAsset: Pick<
+    IResolvedDeFiPositionActionAsset,
+    'tokenAddress' | 'extraParams'
+  >,
+) {
+  const poolAddress = normalizePermitAddress(
+    selectedAsset.extraParams?.poolAddress,
+  );
+  const selectedTokenAddress = normalizePermitAddress(
+    selectedAsset.tokenAddress,
+  );
+  if (poolAddress) {
+    if (!isSupportedLidoWithdrawTokenAddress(poolAddress)) {
+      throw new OneKeyLocalError('Invalid DeFi permit tokenAddress');
+    }
+    // Lido portfolio rows may display/redeem as stETH while the server uses
+    // poolAddress as the actual permit token, for example wstETH withdrawals.
+    return poolAddress;
+  }
+
+  if (selectedTokenAddress) {
+    if (!isSupportedLidoWithdrawTokenAddress(selectedTokenAddress)) {
+      throw new OneKeyLocalError('Invalid DeFi permit tokenAddress');
+    }
+    return selectedTokenAddress;
+  }
+
+  return EthereumStETH.toLowerCase();
+}
+
 function validateLidoWithdrawPermitTypedData({
   message,
   accountAddress,
@@ -83,7 +124,10 @@ function validateLidoWithdrawPermitTypedData({
   message: unknown;
   accountAddress: string;
   networkId: string;
-  selectedAsset: Pick<IResolvedDeFiPositionActionAsset, 'tokenAddress'>;
+  selectedAsset: Pick<
+    IResolvedDeFiPositionActionAsset,
+    'tokenAddress' | 'extraParams'
+  >;
 }) {
   if (networkId !== getNetworkIdsMap().eth) {
     throw new OneKeyLocalError('Invalid DeFi permit network');
@@ -106,21 +150,12 @@ function validateLidoWithdrawPermitTypedData({
     expected: accountAddress,
     fieldName: 'owner',
   });
+  const expectedTokenAddress = resolveLidoWithdrawTokenAddress(selectedAsset);
   assertPermitAddress({
     actual: domain.verifyingContract,
-    expected: EthereumStETH,
+    expected: expectedTokenAddress,
     fieldName: 'verifyingContract',
   });
-  const selectedTokenAddress = normalizePermitAddress(
-    selectedAsset.tokenAddress,
-  );
-  if (selectedTokenAddress) {
-    assertPermitAddress({
-      actual: selectedTokenAddress,
-      expected: EthereumStETH,
-      fieldName: 'tokenAddress',
-    });
-  }
   assertPermitAddress({
     actual: permitMessage.spender,
     expected: EthereumStETHWithdrawalQueue,
@@ -130,7 +165,7 @@ function validateLidoWithdrawPermitTypedData({
   if (normalizePermitAddress(permitMessage.token)) {
     assertPermitAddress({
       actual: permitMessage.token,
-      expected: selectedTokenAddress ?? EthereumStETH,
+      expected: expectedTokenAddress,
       fieldName: 'token',
     });
   }

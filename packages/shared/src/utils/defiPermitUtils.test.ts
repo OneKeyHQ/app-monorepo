@@ -2,6 +2,7 @@ import { getNetworkIdsMap } from '../config/networkIds';
 import {
   EthereumStETH,
   EthereumStETHWithdrawalQueue,
+  EthereumWstETH,
 } from '../consts/addresses';
 
 import defiPermitUtils from './defiPermitUtils';
@@ -76,6 +77,82 @@ describe('defiPermitUtils.validateLidoWithdrawPermitTypedData', () => {
     ).toThrow('Invalid DeFi permit tokenAddress');
   });
 
+  it('allows Lido wstETH withdraw permit when selected asset tokenAddress matches', () => {
+    expect(() =>
+      defiPermitUtils.validateLidoWithdrawPermitTypedData({
+        message: buildLidoPermitTypedData({
+          verifyingContract: EthereumWstETH,
+        }),
+        accountAddress,
+        networkId: getNetworkIdsMap().eth,
+        selectedAsset: { tokenAddress: EthereumWstETH },
+      }),
+    ).not.toThrow();
+  });
+
+  it('allows Lido wstETH withdraw permit when poolAddress matches', () => {
+    expect(() =>
+      defiPermitUtils.validateLidoWithdrawPermitTypedData({
+        message: buildLidoPermitTypedData({
+          verifyingContract: EthereumWstETH,
+        }),
+        accountAddress,
+        networkId: getNetworkIdsMap().eth,
+        selectedAsset: {
+          tokenAddress: '',
+          extraParams: { poolAddress: EthereumWstETH },
+        },
+      }),
+    ).not.toThrow();
+  });
+
+  it('allows Lido wstETH permit when poolAddress differs from display token', () => {
+    expect(() =>
+      defiPermitUtils.validateLidoWithdrawPermitTypedData({
+        message: buildLidoPermitTypedData({
+          verifyingContract: EthereumWstETH,
+        }),
+        accountAddress,
+        networkId: getNetworkIdsMap().eth,
+        selectedAsset: {
+          tokenAddress: EthereumStETH,
+          extraParams: { poolAddress: EthereumWstETH },
+        },
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejects unsupported Lido poolAddress', () => {
+    expect(() =>
+      defiPermitUtils.validateLidoWithdrawPermitTypedData({
+        message: buildLidoPermitTypedData({
+          verifyingContract: EthereumWstETH,
+        }),
+        accountAddress,
+        networkId: getNetworkIdsMap().eth,
+        selectedAsset: {
+          tokenAddress: EthereumStETH,
+          extraParams: {
+            poolAddress: '0x000000000000000000000000000000000000dEaD',
+          },
+        },
+      }),
+    ).toThrow('Invalid DeFi permit tokenAddress');
+  });
+
+  it('rejects Lido wstETH permit when selected token is stETH', () => {
+    expect(() =>
+      defiPermitUtils.validateLidoWithdrawPermitTypedData({
+        message: buildLidoPermitTypedData({
+          verifyingContract: EthereumWstETH,
+        }),
+        accountAddress,
+        networkId: getNetworkIdsMap().eth,
+        selectedAsset: { tokenAddress: EthereumStETH },
+      }),
+    ).toThrow('Invalid DeFi permit verifyingContract');
+  });
+
   it('validates optional permit token against stETH when selected asset tokenAddress is empty', () => {
     expect(() =>
       defiPermitUtils.validateLidoWithdrawPermitTypedData({
@@ -83,6 +160,20 @@ describe('defiPermitUtils.validateLidoWithdrawPermitTypedData', () => {
         accountAddress,
         networkId: getNetworkIdsMap().eth,
         selectedAsset: { tokenAddress: '' },
+      }),
+    ).not.toThrow();
+  });
+
+  it('validates optional permit token against wstETH', () => {
+    expect(() =>
+      defiPermitUtils.validateLidoWithdrawPermitTypedData({
+        message: buildLidoPermitTypedData({
+          verifyingContract: EthereumWstETH,
+          token: EthereumWstETH,
+        }),
+        accountAddress,
+        networkId: getNetworkIdsMap().eth,
+        selectedAsset: { tokenAddress: EthereumWstETH },
       }),
     ).not.toThrow();
   });
