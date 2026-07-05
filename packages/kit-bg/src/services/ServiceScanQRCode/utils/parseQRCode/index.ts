@@ -41,8 +41,10 @@ export const parseQRCode: IQRCodeHandlerParse<IBaseValue> = async (
           };
           break;
         }
-      } catch (e) {
-        console.warn('parse next', e);
+      } catch {
+        defaultLogger.app.error.log(
+          `[ScanQRCode] parse handler failed: ${handlerName}`,
+        );
       }
     }
   }

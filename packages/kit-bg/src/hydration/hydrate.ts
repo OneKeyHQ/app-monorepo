@@ -48,9 +48,8 @@
 // snapshot was primed from IDB; everything else fell back to defaults
 // ('skipped' is the deliberate dev-mode no-op).
 
-/* eslint-disable no-console */
-
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   flushColdStartCacheNow,
@@ -252,7 +251,9 @@ const promise: Promise<void> = (async () => {
   // localhost can verify web cold-start cache paths that use usePromiseResult
   // with swrKey. SWR entries are individually versioned by their key builders.
   if (process.env.NODE_ENV !== 'production') {
-    console.log('[ColdStartHydration] dev mode, priming SWR only');
+    defaultLogger.app.appUpdate.log(
+      '[ColdStartHydration] dev mode, priming SWR only',
+    );
     try {
       const result = await withTimeout(
         readAllColdStartEntriesFromIdb(),
@@ -409,10 +410,10 @@ const promise: Promise<void> = (async () => {
     setGlobal(COLD_START_RESULT_GLOBAL, status);
     globalColdStartHydrationReadyHandler.status = status;
     if (process.env.NODE_ENV !== 'production') {
-      console.log(
-        `[ColdStartHydration] ready in ${Math.round(t1 - t0)}ms`,
-        `status=${status}`,
-        `didHydrate=${didHydrate}`,
+      defaultLogger.app.appUpdate.log(
+        `[ColdStartHydration] ready in ${Math.round(
+          t1 - t0,
+        )}ms status=${status} didHydrate=${didHydrate}`,
       );
     }
     // Pass didHydrate (telemetry); GlobalJotaiReady ignores the value and
