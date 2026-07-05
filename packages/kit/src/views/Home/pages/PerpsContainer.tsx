@@ -377,7 +377,7 @@ function PerpsHoldingsBlock({
             hyperEvmLogoUri={hyperEvmLogoUri}
             onPress={
               isTradableSpotHolding(holding)
-                ? () => openPerp(holding.spotUniverseName, 'spot')
+                ? () => openPerp(holding.spotUniverseName, 'spot', false)
                 : undefined
             }
           />
@@ -840,7 +840,7 @@ function PerpsMobileHoldingsSummary({
               hyperEvmLogoUri={HYPER_EVM_LOGO_URI}
               onPress={
                 isTradableSpotHolding(holding)
-                  ? () => openPerp(holding.spotUniverseName, 'spot')
+                  ? () => openPerp(holding.spotUniverseName, 'spot', false)
                   : undefined
               }
             />
