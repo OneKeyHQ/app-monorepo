@@ -8,7 +8,6 @@ export type IReceiveShareData = {
   address: string;
   tokenLogoURI?: string;
   networkLogoURI?: string;
-  networkId?: string;
 };
 
 export type IReceiveShareImageGeneratorRef = {

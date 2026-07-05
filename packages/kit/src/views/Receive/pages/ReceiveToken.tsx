@@ -555,9 +555,13 @@ function ReceiveToken() {
     [networkId, network?.isTestnet, network?.isCustomNetwork],
   );
 
-  const pageTitleText = intl.formatMessage(
-    { id: ETranslations.receive_token__title },
-    { token: token?.symbol ?? network?.symbol ?? '' },
+  const pageTitleText = useMemo(
+    () =>
+      intl.formatMessage(
+        { id: ETranslations.receive_token__title },
+        { token: token?.symbol ?? network?.symbol ?? '' },
+      ),
+    [intl, token?.symbol, network?.symbol],
   );
 
   // e.g. "Ethereum (ERC20)" — shown for native coins and tokens alike
@@ -584,7 +588,6 @@ function ReceiveToken() {
       address: displayAddress,
       tokenLogoURI: token?.logoURI ?? nativeToken?.logoURI,
       networkLogoURI: network.logoURI,
-      networkId,
     };
   }, [
     network,
@@ -594,7 +597,6 @@ function ReceiveToken() {
     intl,
     token?.logoURI,
     nativeToken?.logoURI,
-    networkId,
   ]);
 
   const canShowShareEntry = shouldShowQRCode && !!displayAddress && !!shareData;

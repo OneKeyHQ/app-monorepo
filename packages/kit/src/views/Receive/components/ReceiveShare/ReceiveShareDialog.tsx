@@ -13,6 +13,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { useShareActions } from '../../../RookieGuide/components/RookieShare/useShareActions';
 import { ReceiveTestIDs } from '../../testIDs';
 
+import { SHARE_CARD_CONFIG } from './constants';
 import { ControlPanel } from './ControlPanel';
 import { ShareView } from './ShareView';
 
@@ -23,6 +24,13 @@ import type {
 
 // Track if a dialog is currently showing to prevent duplicate dialogs
 let isDialogShowing = false;
+
+// estimated dialog chrome around the preview: header + paddings + action row
+const PREVIEW_RESERVED_HEIGHT = 260;
+const PREVIEW_MIN_HEIGHT = 240;
+// time for the dialog close animation to finish before presenting the
+// system share sheet on native
+const DIALOG_CLOSE_ANIMATION_MS = 350;
 
 interface IShareContentProps {
   data: IReceiveShareData;
@@ -48,32 +56,40 @@ function ShareContent({
   // past the viewport (ext popup is only 600px tall).
   // Reserved space ≈ dialog header + paddings + action row.
   const { height: windowHeight } = useWindowDimensions();
-  const previewMaxHeight = Math.max(240, windowHeight - 260);
+  const previewMaxHeight = Math.max(
+    PREVIEW_MIN_HEIGHT,
+    windowHeight - PREVIEW_RESERVED_HEIGHT,
+  );
 
   const { saveImage, shareImage } = useShareActions();
   const [isActionLoading, setIsActionLoading] = useState(false);
 
-  const getShareImage = useCallback(async (): Promise<string> => {
-    if (presetImage) return presetImage;
-    const generator: IReceiveShareImageGeneratorRef | null =
-      generatorRef.current;
-    if (!generator) return '';
-    return generator.generate();
-  }, [presetImage]);
+  // shared preamble for both actions: loading flag, image fetch, empty guard
+  const runWithImage = useCallback(
+    async (action: (base64: string) => Promise<void>) => {
+      setIsActionLoading(true);
+      try {
+        const base64: string = presetImage
+          ? presetImage
+          : ((await generatorRef.current?.generate()) ?? '');
+        if (!base64) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.generate_image_failed__msg,
+            }),
+          });
+          return;
+        }
+        await action(base64);
+      } finally {
+        setIsActionLoading(false);
+      }
+    },
+    [presetImage, intl],
+  );
 
   const handleSaveImage = useCallback(async () => {
-    setIsActionLoading(true);
-    try {
-      const base64: string = await getShareImage();
-      if (!base64) {
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.generate_image_failed__msg,
-          }),
-        });
-        return;
-      }
-
+    await runWithImage(async (base64) => {
       const result = await saveImage(base64);
 
       if (result?.permissionPermanentlyDenied) {
@@ -96,39 +112,27 @@ function ShareContent({
           },
         });
       }
-    } finally {
-      setIsActionLoading(false);
-    }
-  }, [getShareImage, saveImage, intl]);
+    });
+  }, [runWithImage, saveImage, intl]);
 
   const handleShareImage = useCallback(async () => {
-    setIsActionLoading(true);
-    try {
-      const base64: string = await getShareImage();
-      if (!base64) {
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.generate_image_failed__msg,
-          }),
-        });
-        return;
-      }
-
+    await runWithImage(async (base64) => {
       if (platformEnv.isNative) {
         // the dialog's RN modal sits above the system share sheet; dismiss
         // it and wait out the close animation before presenting the sheet
         await closeDialog?.();
-        await timerUtils.wait(350);
+        await timerUtils.wait(DIALOG_CLOSE_ANIMATION_MS);
       }
       await shareImage(base64);
-    } finally {
-      setIsActionLoading(false);
-    }
-  }, [getShareImage, shareImage, closeDialog, intl]);
+    });
+  }, [runWithImage, shareImage, closeDialog]);
 
   const desktopLayout = (
     <YStack gap="$5">
-      <Stack width={360} testID={ReceiveTestIDs.ShareDialogPreview}>
+      <Stack
+        width={SHARE_CARD_CONFIG.width}
+        testID={ReceiveTestIDs.ShareDialogPreview}
+      >
         <ShareView
           data={data}
           generatorRef={generatorRef}

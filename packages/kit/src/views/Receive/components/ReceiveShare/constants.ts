@@ -72,38 +72,34 @@ export const SHARE_CARD_CONFIG = {
   },
 } as const;
 
-export function groupAddress(address: string, groupSize = 4): string {
+const ADDRESS_GROUP_SIZE = 4;
+const ADDRESS_HIGHLIGHT_COUNT = 6; // leading and trailing highlighted chars
+
+export function groupAddress(address: string): string {
   const groups: string[] = [];
-  for (let i = 0; i < address.length; i += groupSize) {
-    groups.push(address.slice(i, i + groupSize));
+  for (let i = 0; i < address.length; i += ADDRESS_GROUP_SIZE) {
+    groups.push(address.slice(i, i + ADDRESS_GROUP_SIZE));
   }
   return groups.join(' ');
 }
 
 // Split the grouped address into leading / middle / trailing segments so the
 // first and last N characters can be highlighted (mirrors HighlightAddress).
-export function splitGroupedAddress(
-  address: string,
-  {
-    leadingHighlightCount = 6,
-    trailingHighlightCount = 6,
-    groupSize = 4,
-  }: {
-    leadingHighlightCount?: number;
-    trailingHighlightCount?: number;
-    groupSize?: number;
-  } = {},
-): { leading: string; middle: string; trailing: string } {
-  const grouped = groupAddress(address, groupSize);
+export function splitGroupedAddress(address: string): {
+  leading: string;
+  middle: string;
+  trailing: string;
+} {
+  const grouped = groupAddress(address);
   const totalLen = address.length;
-  if (totalLen <= leadingHighlightCount + trailingHighlightCount) {
+  if (totalLen <= ADDRESS_HIGHLIGHT_COUNT * 2) {
     return { leading: grouped, middle: '', trailing: '' };
   }
-  // a space is inserted every groupSize chars in the grouped string
+  // a space is inserted every ADDRESS_GROUP_SIZE chars in the grouped string
   const toGroupedPos = (origPos: number) =>
-    origPos + Math.floor(origPos / groupSize);
-  const leadEnd = toGroupedPos(leadingHighlightCount);
-  const trailStart = toGroupedPos(totalLen - trailingHighlightCount);
+    origPos + Math.floor(origPos / ADDRESS_GROUP_SIZE);
+  const leadEnd = toGroupedPos(ADDRESS_HIGHLIGHT_COUNT);
+  const trailStart = toGroupedPos(totalLen - ADDRESS_HIGHLIGHT_COUNT);
   return {
     leading: grouped.slice(0, leadEnd),
     middle: grouped.slice(leadEnd, trailStart),

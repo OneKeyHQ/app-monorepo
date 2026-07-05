@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Image } from 'react-native';
 
@@ -23,7 +23,8 @@ interface IShareContentRendererProps {
   onImagesReady?: () => void;
 }
 
-export function ShareContentRenderer({
+// memoized: rendered inside the permanently-mounted offscreen generator
+export const ShareContentRenderer = memo(function ShareContentRenderer({
   data,
   onImagesReady,
 }: IShareContentRendererProps) {
@@ -260,4 +261,4 @@ export function ShareContentRenderer({
       </XStack>
     </YStack>
   );
-}
+});
