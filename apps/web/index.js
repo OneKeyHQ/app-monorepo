@@ -28,6 +28,21 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import App from './App';
 
 const DEFERRED_SENTRY_INIT_DELAY_MS = 6000;
+const SERVICE_WORKER_UPDATE_CHECK_INTERVAL_MS = timerUtils.getTimeDurationMs({
+  minute: 30,
+});
+const SERVICE_WORKER_MESSAGE_TYPES = {
+  GET_VERSION_STATE: 'GET_VERSION_STATE',
+  CHECK_VERSION: 'CHECK_VERSION',
+  ACTIVATE_VERSION: 'ACTIVATE_VERSION',
+  SKIP_WAITING: 'SKIP_WAITING',
+  VERSION_STATE: 'VERSION_STATE',
+  UPDATE_READY: 'UPDATE_READY',
+  VERSION_ACTIVATED: 'VERSION_ACTIVATED',
+};
+
+let pendingVersionActivation = '';
+let pendingServiceWorkerCodeReload = false;
 
 class WebRootErrorBoundary extends React.PureComponent {
   state = { error: null };
@@ -113,9 +128,9 @@ if (process.env.NODE_ENV !== 'production') {
   debugLandingLog('registerRootComponent called');
 }
 
-function showUpdateBanner() {
+function showUpdateBanner(onRefresh) {
   const show = () => {
-    if (document.getElementById('sw-update-banner')) return;
+    document.getElementById('sw-update-banner')?.remove();
 
     const banner = document.createElement('div');
     banner.id = 'sw-update-banner';
@@ -153,7 +168,13 @@ function showUpdateBanner() {
       fontWeight: '600',
       cursor: 'pointer',
     });
-    refreshBtn.addEventListener('click', () => window.location.reload());
+    refreshBtn.addEventListener('click', () => {
+      if (onRefresh) {
+        onRefresh();
+      } else {
+        window.location.reload();
+      }
+    });
 
     const dismissBtn = document.createElement('button');
     dismissBtn.textContent = '\u00D7';
@@ -180,6 +201,128 @@ function showUpdateBanner() {
   }
 }
 
+function getCurrentWebVersion() {
+  const commit =
+    process.env.WORKFLOW_GITHUB_SHA || process.env.GITHUB_SHA || '';
+  return `${commit || 'local'}-${process.env.BUILD_NUMBER || '0'}`;
+}
+
+function postMessageToServiceWorker(type, payload = {}) {
+  navigator.serviceWorker.controller?.postMessage({
+    type,
+    payload: {
+      clientVersion: getCurrentWebVersion(),
+      ...payload,
+    },
+  });
+}
+
+function activateReadyVersion(version) {
+  if (!version) {
+    window.location.reload();
+    return;
+  }
+  pendingVersionActivation = version;
+  postMessageToServiceWorker(SERVICE_WORKER_MESSAGE_TYPES.ACTIVATE_VERSION, {
+    version,
+  });
+  setTimeout(() => {
+    if (pendingVersionActivation === version) {
+      window.location.reload();
+    }
+  }, 3000);
+}
+
+function showReadyVersionBanner(version) {
+  if (!version || pendingVersionActivation === version) {
+    return;
+  }
+  showUpdateBanner(() => activateReadyVersion(version));
+}
+
+function requestServiceWorkerVersionCheck() {
+  if (!navigator.serviceWorker.controller) {
+    return;
+  }
+  postMessageToServiceWorker(SERVICE_WORKER_MESSAGE_TYPES.GET_VERSION_STATE);
+  postMessageToServiceWorker(SERVICE_WORKER_MESSAGE_TYPES.CHECK_VERSION);
+}
+
+function setupServiceWorkerVersionProtocol(registration) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    const type = event.data?.type;
+    const payload = event.data?.payload || {};
+
+    if (type === SERVICE_WORKER_MESSAGE_TYPES.UPDATE_READY) {
+      showReadyVersionBanner(payload.version);
+    }
+
+    if (
+      type === SERVICE_WORKER_MESSAGE_TYPES.VERSION_STATE &&
+      payload.readyVersion
+    ) {
+      showReadyVersionBanner(payload.readyVersion);
+    }
+
+    if (type === SERVICE_WORKER_MESSAGE_TYPES.VERSION_ACTIVATED) {
+      const version = payload.version;
+      if (pendingVersionActivation === version) {
+        pendingVersionActivation = '';
+        window.location.reload();
+      }
+    }
+  });
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (pendingServiceWorkerCodeReload) {
+      window.location.reload();
+    }
+  });
+
+  const promptWaitingServiceWorker = () => {
+    const waitingWorker = registration.waiting;
+    if (!waitingWorker || !navigator.serviceWorker.controller) {
+      return;
+    }
+    showUpdateBanner(() => {
+      pendingServiceWorkerCodeReload = true;
+      waitingWorker.postMessage({
+        type: SERVICE_WORKER_MESSAGE_TYPES.SKIP_WAITING,
+      });
+      setTimeout(() => {
+        if (pendingServiceWorkerCodeReload) {
+          window.location.reload();
+        }
+      }, 3000);
+    });
+  };
+
+  promptWaitingServiceWorker();
+  registration.addEventListener('updatefound', () => {
+    const newWorker = registration.installing;
+    if (!newWorker) return;
+    newWorker.addEventListener('statechange', () => {
+      if (
+        newWorker.state === 'installed' &&
+        navigator.serviceWorker.controller
+      ) {
+        promptWaitingServiceWorker();
+      }
+    });
+  });
+
+  requestServiceWorkerVersionCheck();
+  setInterval(
+    requestServiceWorkerVersionCheck,
+    SERVICE_WORKER_UPDATE_CHECK_INTERVAL_MS,
+  );
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      requestServiceWorkerVersionCheck();
+    }
+  });
+}
+
 // Register service worker in production only
 if (
   typeof window !== 'undefined' &&
@@ -187,37 +330,16 @@ if (
   process.env.NODE_ENV === 'production'
 ) {
   window.addEventListener('load', () => {
-    const serviceWorkerBaseUrl = new URL(
-      process.env.PUBLIC_URL || '/',
-      window.location.href,
-    );
-    const serviceWorkerBasePath = serviceWorkerBaseUrl.pathname.endsWith('/')
-      ? serviceWorkerBaseUrl.pathname
-      : `${serviceWorkerBaseUrl.pathname}/`;
-
     navigator.serviceWorker
-      .register(`${serviceWorkerBasePath}service-worker.js`, { scope: '/' })
+      .register('/service-worker.js', {
+        scope: '/',
+        updateViaCache: 'none',
+      })
       .then((registration) => {
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          if (!newWorker) return;
-          newWorker.addEventListener('statechange', () => {
-            if (
-              newWorker.state === 'installed' &&
-              navigator.serviceWorker.controller
-            ) {
-              showUpdateBanner();
-            }
-          });
-        });
-
-        // Check for updates every 30 minutes
-        setInterval(
-          () => {
-            registration.update().catch(() => {});
-          },
-          timerUtils.getTimeDurationMs({ minute: 30 }),
-        );
+        setupServiceWorkerVersionProtocol(registration);
+        setInterval(() => {
+          registration.update().catch(() => {});
+        }, SERVICE_WORKER_UPDATE_CHECK_INTERVAL_MS);
       })
       .catch((error) => {
         console.error('Service worker registration failed:', error);
