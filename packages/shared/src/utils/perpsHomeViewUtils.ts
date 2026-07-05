@@ -40,8 +40,7 @@ export function mapSnapshotToPerpsHomeView(
 ): IPerpsHomeView {
   const positions: IPerpsHomePosition[] = snapshot.perpPositions
     .toSorted(
-      (a, b) =>
-        Number(b.positionValue || 0) - Number(a.positionValue || 0),
+      (a, b) => Number(b.positionValue || 0) - Number(a.positionValue || 0),
     )
     .map((p) => {
       const sziBN = new BigNumber(p.szi);

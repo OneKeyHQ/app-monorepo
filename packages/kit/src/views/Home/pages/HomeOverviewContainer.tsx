@@ -11,12 +11,12 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   settingsValuePersistAtom,
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';

@@ -54,6 +54,7 @@ import {
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import { convertFiat } from '../../../utils/fiatConvert';
 import {
   OVERVIEW_TILE_SHADOW,
   buildOverviewGridStyle,
@@ -62,7 +63,6 @@ import { resolveOverviewCols } from '../components/DeFiListBlock/overviewColsRes
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { RichBlock } from '../components/RichBlock';
 import { HomeTestIDs } from '../testIDs';
-import { convertFiat } from '../../../utils/fiatConvert';
 
 import { usePerpsHomePortfolio } from './usePerpsHomePortfolio';
 
