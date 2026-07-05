@@ -243,6 +243,7 @@ export function useMarketTokenList({
   const currentQueryKeyRef = useRef(currentQueryKey);
   currentQueryKeyRef.current = currentQueryKey;
   const bypassWebSeedOnceRef = useRef(false);
+  const forcedRemoteProvisionalQueryKeysRef = useRef<Set<string>>(new Set());
   const marketTokenListSwrKey = useMemo(() => {
     if (!platformEnv.isWeb || !hasNetworkId) {
       return undefined;
@@ -434,17 +435,30 @@ export function useMarketTokenList({
   isProvisionalFirstPageResultRef.current = isProvisionalFirstPageResult;
   const shouldForceRemoteForProvisionalFirstPageResult =
     isSeedResult || isColdCacheFallbackResult;
+  let provisionalFirstPageSource: 'seed' | 'cold-cache' | undefined;
+  if (isSeedResult) {
+    provisionalFirstPageSource = 'seed';
+  } else if (isColdCacheFallbackResult) {
+    provisionalFirstPageSource = 'cold-cache';
+  }
 
   useEffect(() => {
     if (
       !platformEnv.isWeb ||
       !shouldForceRemoteForProvisionalFirstPageResult ||
-      !hasNetworkId
+      !hasNetworkId ||
+      !provisionalFirstPageSource
     ) {
       return undefined;
     }
 
     const requestQueryKey = currentQueryKeyRef.current;
+    const forcedRemoteKey = `${provisionalFirstPageSource}:${requestQueryKey}`;
+    if (forcedRemoteProvisionalQueryKeysRef.current.has(forcedRemoteKey)) {
+      return undefined;
+    }
+    forcedRemoteProvisionalQueryKeysRef.current.add(forcedRemoteKey);
+
     const timer = setTimeout(() => {
       if (currentQueryKeyRef.current !== requestQueryKey) {
         return;
@@ -456,6 +470,7 @@ export function useMarketTokenList({
   }, [
     fetchMarketTokenList,
     hasNetworkId,
+    provisionalFirstPageSource,
     shouldForceRemoteForProvisionalFirstPageResult,
   ]);
 

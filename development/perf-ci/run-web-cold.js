@@ -155,13 +155,11 @@ function expandScenarioNames(names) {
     const name = rawName === 'refer-friends' ? 'referFriends' : rawName;
     if (name === 'all') {
       expanded.push(...ALL_SCENARIOS.map((scenario) => scenario.name));
-      continue;
-    }
-    if (name === 'entries') {
+    } else if (name === 'entries') {
       expanded.push(...ENTRY_SCENARIO_NAMES);
-      continue;
+    } else {
+      expanded.push(name);
     }
-    expanded.push(name);
   }
   return [...new Set(expanded)];
 }
