@@ -51,13 +51,21 @@ let oneKeyRequestDeviceQRPromise:
   | undefined;
 
 function loadQrWalletSdk() {
-  qrWalletSdkPromise ??= import('@onekeyhq/qr-wallet-sdk');
+  qrWalletSdkPromise ??= import('@onekeyhq/qr-wallet-sdk').catch((error) => {
+    qrWalletSdkPromise = undefined;
+    throw error;
+  });
   return qrWalletSdkPromise;
 }
 
 function loadOneKeyRequestDeviceQR() {
   oneKeyRequestDeviceQRPromise ??=
-    import('@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR');
+    import('@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR').catch(
+      (error) => {
+        oneKeyRequestDeviceQRPromise = undefined;
+        throw error;
+      },
+    );
   return oneKeyRequestDeviceQRPromise;
 }
 

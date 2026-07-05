@@ -9,6 +9,11 @@ type IMarketTokenListResponseWithSource = IMarketTokenListResponse & {
   __fromColdCacheFallback?: boolean;
 };
 
+type IMarketHomeTokenListSeedSnapshot = {
+  data: IMarketTokenListResponseWithSource;
+  capturedAt: number;
+};
+
 type IOneKeyBootstrapData = {
   marketHomeTokenListSeed?: IMarketTokenListResponse;
 };
@@ -20,6 +25,8 @@ type IGlobalWithOneKeyBootstrapData = typeof globalThis & {
 // Web HTML injects this generic bootstrap payload before app bundles so Market
 // can paint the first token list without an extra cold-start seed request.
 const ONEKEY_BOOTSTRAP_DATA_GLOBAL = '__ONEKEY_BOOTSTRAP_DATA__';
+const MARKET_HOME_TOKEN_LIST_SEED_MAX_AGE_MS = 30 * 1000;
+const marketHomeTokenListSeedModuleLoadedAt = Date.now();
 
 let marketHomeTokenListSeedConsumed = false;
 
@@ -32,8 +39,37 @@ let marketHomeTokenListSeedPromise:
   | Promise<IMarketTokenListResponseWithSource>
   | undefined;
 let marketHomeTokenListSeedSnapshot:
-  | IMarketTokenListResponseWithSource
+  | IMarketHomeTokenListSeedSnapshot
   | undefined;
+
+function clearMarketHomeTokenListSeed({ consume }: { consume: boolean }) {
+  const bootstrapData = (globalThis as IGlobalWithOneKeyBootstrapData)[
+    ONEKEY_BOOTSTRAP_DATA_GLOBAL
+  ];
+  delete bootstrapData?.marketHomeTokenListSeed;
+
+  if (consume) {
+    marketHomeTokenListSeedConsumed = true;
+  }
+  marketHomeTokenListSeedPromise = undefined;
+  marketHomeTokenListSeedSnapshot = undefined;
+}
+
+function getFreshMarketHomeTokenListSeedSnapshot():
+  | IMarketTokenListResponseWithSource
+  | undefined {
+  if (!marketHomeTokenListSeedSnapshot) {
+    return undefined;
+  }
+  if (
+    Date.now() - marketHomeTokenListSeedSnapshot.capturedAt >
+    MARKET_HOME_TOKEN_LIST_SEED_MAX_AGE_MS
+  ) {
+    clearMarketHomeTokenListSeed({ consume: true });
+    return undefined;
+  }
+  return marketHomeTokenListSeedSnapshot.data;
+}
 
 function readMarketHomeTokenListBootstrapSeed():
   | IMarketTokenListResponseWithSource
@@ -55,15 +91,22 @@ function readMarketHomeTokenListBootstrapSeed():
     total: data.total,
     __fromSeed: true,
   };
-  marketHomeTokenListSeedSnapshot = seed;
+  marketHomeTokenListSeedSnapshot = {
+    data: seed,
+    capturedAt: marketHomeTokenListSeedModuleLoadedAt,
+  };
   return seed;
 }
 
 function getMarketHomeTokenListSeedPromise() {
+  if (!getFreshMarketHomeTokenListSeedSnapshot()) {
+    marketHomeTokenListSeedPromise = undefined;
+  }
   marketHomeTokenListSeedPromise ??= (async () => {
     markMarketPerf('market-light-api-token-list-seed-start');
     const data =
-      marketHomeTokenListSeedSnapshot ?? readMarketHomeTokenListBootstrapSeed();
+      getFreshMarketHomeTokenListSeedSnapshot() ??
+      readMarketHomeTokenListBootstrapSeed();
     if (!data) {
       throw new OneKeyLocalError('Market token bootstrap seed is missing');
     }
@@ -115,7 +158,8 @@ const getMarketHomeTokenListSeedForInit = () => {
   }
 
   return (
-    marketHomeTokenListSeedSnapshot ?? readMarketHomeTokenListBootstrapSeed()
+    getFreshMarketHomeTokenListSeedSnapshot() ??
+    readMarketHomeTokenListBootstrapSeed()
   );
 };
 
@@ -124,13 +168,7 @@ const discardMarketHomeTokenListSeedForInit = () => {
     return;
   }
 
-  const bootstrapData = (globalThis as IGlobalWithOneKeyBootstrapData)[
-    ONEKEY_BOOTSTRAP_DATA_GLOBAL
-  ];
-  delete bootstrapData?.marketHomeTokenListSeed;
-  marketHomeTokenListSeedConsumed = true;
-  marketHomeTokenListSeedPromise = undefined;
-  marketHomeTokenListSeedSnapshot = undefined;
+  clearMarketHomeTokenListSeed({ consume: true });
 };
 
 const preloadMarketHomeTokenListSeed = () => {

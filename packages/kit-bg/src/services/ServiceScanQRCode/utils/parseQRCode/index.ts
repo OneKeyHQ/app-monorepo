@@ -26,9 +26,9 @@ export const parseQRCode: IQRCodeHandlerParse<IBaseValue> = async (
   });
 
   for (const handlerName of handlerNames) {
-    const handler = await getParseHandler(handlerName);
-    if (handler) {
-      try {
+    try {
+      const handler = await getParseHandler(handlerName);
+      if (handler) {
         const itemResult = await handler(value, {
           ...options,
           urlResult,
@@ -41,11 +41,11 @@ export const parseQRCode: IQRCodeHandlerParse<IBaseValue> = async (
           };
           break;
         }
-      } catch {
-        defaultLogger.app.error.log(
-          `[ScanQRCode] parse handler failed: ${handlerName}`,
-        );
       }
+    } catch {
+      defaultLogger.app.error.log(
+        `[ScanQRCode] parse handler failed: ${handlerName}`,
+      );
     }
   }
   if (!result) {

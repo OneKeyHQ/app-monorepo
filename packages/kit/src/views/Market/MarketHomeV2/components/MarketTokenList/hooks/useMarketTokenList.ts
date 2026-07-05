@@ -316,9 +316,20 @@ export function useMarketTokenList({
   }
   const [remoteFirstPageLoadedQueryKey, setRemoteFirstPageLoadedQueryKey] =
     useState<string>();
+  const remoteFirstPageLoadedQueryKeyRef = useRef(
+    remoteFirstPageLoadedQueryKey,
+  );
+  remoteFirstPageLoadedQueryKeyRef.current = remoteFirstPageLoadedQueryKey;
   const pendingRemoteFirstPageLoadedQueryKeyRef = useRef<string | undefined>(
     undefined,
   );
+  const latestAuthoritativeFirstPageResultRef = useRef<
+    | {
+        queryKey: string;
+        result: IMarketTokenListResponseWithSource;
+      }
+    | undefined
+  >(undefined);
 
   const {
     result: apiResult,
@@ -330,12 +341,9 @@ export function useMarketTokenList({
         return undefined;
       }
       const requestQueryKey = currentQueryKeyRef.current;
-      // Page 1 revalidation replaces the rendered list when it settles, so
-      // pagination must be locked again until that page is rendered.
+      const shouldAllowColdCacheFallback =
+        remoteFirstPageLoadedQueryKeyRef.current !== requestQueryKey;
       pendingRemoteFirstPageLoadedQueryKeyRef.current = undefined;
-      setRemoteFirstPageLoadedQueryKey((loadedQueryKey) =>
-        loadedQueryKey === requestQueryKey ? undefined : loadedQueryKey,
-      );
       const shouldBypassWebSeed =
         platformEnv.isWeb &&
         (bypassWebSeedOnceRef.current ||
@@ -357,8 +365,19 @@ export function useMarketTokenList({
           shouldBypassWebSeed ? { forceRemote: true } : undefined,
         );
       } catch (error) {
+        const latestAuthoritativeResult =
+          latestAuthoritativeFirstPageResultRef.current;
+        if (
+          latestAuthoritativeResult?.queryKey === requestQueryKey &&
+          remoteFirstPageLoadedQueryKeyRef.current === requestQueryKey &&
+          currentQueryKeyRef.current === requestQueryKey
+        ) {
+          return latestAuthoritativeResult.result;
+        }
+
         const cachedEntry = trustedMarketTokenListFallbackRef.current;
         if (
+          shouldAllowColdCacheFallback &&
           isFreshMarketTokenListCacheEntry(cachedEntry) &&
           currentQueryKeyRef.current === requestQueryKey
         ) {
@@ -373,6 +392,12 @@ export function useMarketTokenList({
       if (currentQueryKeyRef.current !== requestQueryKey) {
         return undefined;
       }
+      const nextResult = {
+        list: response.list,
+        total: response.total,
+        __fromSeed: responseWithSource.__fromSeed,
+        __fromColdCacheFallback: responseWithSource.__fromColdCacheFallback,
+      };
       if (
         !responseWithSource.__fromSeed &&
         !responseWithSource.__fromColdCacheFallback &&
@@ -380,16 +405,15 @@ export function useMarketTokenList({
       ) {
         pendingRemoteFirstPageLoadedQueryKeyRef.current = requestQueryKey;
         trustedMarketTokenListFallbackRef.current = {
-          data: responseWithSource,
+          data: nextResult,
           updatedAt: Date.now(),
         };
+        latestAuthoritativeFirstPageResultRef.current = {
+          queryKey: requestQueryKey,
+          result: nextResult,
+        };
       }
-      return {
-        list: response.list,
-        total: response.total,
-        __fromSeed: responseWithSource.__fromSeed,
-        __fromColdCacheFallback: responseWithSource.__fromColdCacheFallback,
-      };
+      return nextResult;
     },
     [
       hasNetworkId,
@@ -495,6 +519,7 @@ export function useMarketTokenList({
     // Unlock pagination only after the remote page 1 result is the rendered
     // apiResult, not merely after the request promise resolves.
     pendingRemoteFirstPageLoadedQueryKeyRef.current = undefined;
+    remoteFirstPageLoadedQueryKeyRef.current = pendingQueryKey;
     setRemoteFirstPageLoadedQueryKey(pendingQueryKey);
   }, [apiResult, currentQueryKey]);
 
