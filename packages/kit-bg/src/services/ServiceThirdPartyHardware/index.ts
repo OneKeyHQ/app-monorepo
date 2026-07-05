@@ -268,9 +268,14 @@ class ServiceThirdPartyHardware extends ServiceBase {
 
     try {
       const result = await adapter.connectDevice(bleConnectId);
-      // Error-first: any connect failure reports the real hardware error;
-      // "mismatch" is only a successful connect with a different device_id.
       if (!result.success) {
+        // Probe suppressed the pairing request — "not this device", not an error.
+        if (adapter.wasBindingProbeCancelled?.()) {
+          defaultLogger.hardware.sdkLog.log(
+            `[TrezorBLEBind] candidate rejected by probe cancel bleConnectId=${bleConnectId}`,
+          );
+          return null;
+        }
         defaultLogger.hardware.sdkLog.log(
           `[TrezorBLEBind] candidate probe failed bleConnectId=${bleConnectId}`,
         );

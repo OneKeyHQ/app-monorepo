@@ -136,6 +136,117 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
     expect(disconnect).toHaveBeenCalledWith('BLE_CONNECT_ID');
   });
 
+  it('treats a probe-suppressed pairing cancel as not-this-device', async () => {
+    const connectDevice = jest.fn().mockResolvedValue({
+      success: false,
+      payload: {
+        code: HardwareErrorCode.UserAborted,
+        error: 'User aborted operation',
+      },
+    });
+    const endBindingProbe = jest.fn();
+    const { updateDeviceConnectId } = getLocalDbMock();
+    const adapter = {
+      beginBindingProbe: jest.fn(),
+      endBindingProbe,
+      wasBindingProbeCancelled: jest.fn().mockReturnValue(true),
+      connectDevice,
+      disconnect: jest.fn().mockResolvedValue(undefined),
+    } as unknown as IThirdPartyHardwareAdapter;
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    (
+      service as unknown as {
+        thirdPartyAdapters: Map<string, IThirdPartyHardwareAdapter>;
+      }
+    ).thirdPartyAdapters.set('trezor', adapter);
+
+    await expect(
+      service.bindTrezorBleConnectId({
+        usbConnectId: 'USB_CONNECT_ID',
+        featuresDeviceId: 'FEATURES_DEVICE_ID',
+        bleConnectId: 'BLE_CONNECT_ID',
+      }),
+    ).resolves.toBeNull();
+
+    expect(updateDeviceConnectId).not.toHaveBeenCalled();
+    expect(endBindingProbe).toHaveBeenCalled();
+  });
+
+  it('throws the real hardware error when the probe connect fails without a probe cancel', async () => {
+    const connectDevice = jest.fn().mockResolvedValue({
+      success: false,
+      payload: {
+        code: HardwareErrorCode.DeviceNotInitialized,
+        error: 'Device not initialized',
+      },
+    });
+    const adapter = {
+      beginBindingProbe: jest.fn(),
+      endBindingProbe: jest.fn(),
+      wasBindingProbeCancelled: jest.fn().mockReturnValue(false),
+      connectDevice,
+      disconnect: jest.fn().mockResolvedValue(undefined),
+    } as unknown as IThirdPartyHardwareAdapter;
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    (
+      service as unknown as {
+        thirdPartyAdapters: Map<string, IThirdPartyHardwareAdapter>;
+      }
+    ).thirdPartyAdapters.set('trezor', adapter);
+
+    await expect(
+      service.bindTrezorBleConnectId({
+        usbConnectId: 'USB_CONNECT_ID',
+        featuresDeviceId: 'FEATURES_DEVICE_ID',
+        bleConnectId: 'BLE_CONNECT_ID',
+      }),
+    ).rejects.toMatchObject({
+      code: HardwareErrorCode.DeviceNotInitialized,
+      autoToast: true,
+    });
+  });
+
+  it('does not mask a genuine user abort as device mismatch', async () => {
+    // User cancel without the probe flag must throw, not read as mismatch.
+    const connectDevice = jest.fn().mockResolvedValue({
+      success: false,
+      payload: {
+        code: HardwareErrorCode.UserAborted,
+        error: 'User aborted operation',
+      },
+    });
+    const adapter = {
+      beginBindingProbe: jest.fn(),
+      endBindingProbe: jest.fn(),
+      wasBindingProbeCancelled: jest.fn().mockReturnValue(false),
+      connectDevice,
+      disconnect: jest.fn().mockResolvedValue(undefined),
+    } as unknown as IThirdPartyHardwareAdapter;
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    (
+      service as unknown as {
+        thirdPartyAdapters: Map<string, IThirdPartyHardwareAdapter>;
+      }
+    ).thirdPartyAdapters.set('trezor', adapter);
+
+    await expect(
+      service.bindTrezorBleConnectId({
+        usbConnectId: 'USB_CONNECT_ID',
+        featuresDeviceId: 'FEATURES_DEVICE_ID',
+        bleConnectId: 'BLE_CONNECT_ID',
+      }),
+    ).rejects.toMatchObject({
+      code: HardwareErrorCode.UserAborted,
+      autoToast: false,
+    });
+  });
+
   it('passes waitForAllTransports to Trezor adapter search', async () => {
     const searchDevices = jest.fn().mockResolvedValue([]);
     const adapter = {

@@ -162,12 +162,20 @@ export class TrezorAdapter
   // instead of popping the THP pairing dialog. Set by beginBindingProbe().
   private _bindingProbeConnectId?: string;
 
+  // Set when the probe suppressed a pairing request — "not this device".
+  private _bindingProbeCancelled = false;
+
   beginBindingProbe(connectId: string): void {
     this._bindingProbeConnectId = connectId;
+    this._bindingProbeCancelled = false;
   }
 
   endBindingProbe(): void {
     this._bindingProbeConnectId = undefined;
+  }
+
+  wasBindingProbeCancelled(): boolean {
+    return this._bindingProbeCancelled;
   }
 
   constructor(hw: IHardwareWallet, disposeSdkEvents?: () => void) {
@@ -253,6 +261,7 @@ export class TrezorAdapter
         (!payload.connectId ||
           payload.connectId === this._bindingProbeConnectId)
       ) {
+        this._bindingProbeCancelled = true;
         void this.hw.cancel(this._bindingProbeConnectId);
         return;
       }
