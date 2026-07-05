@@ -151,7 +151,8 @@ jobs:
       - name: Check web startup/cold entry budgets
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
-          MARKET_HOME_TOKEN_SEED_MIN_COUNT: '1'
+          MARKET_HOME_TOKEN_SEED_MIN_COUNT: '20'
+          MARKET_HOME_TOKEN_SEED_REQUIRED: '1'
           PERF_WEB_COLD_OUT: apps/web/out-dir-analysis/web-cold-budget-report.json
           PERF_WEB_STARTUP_GRAPH_OUT: apps/web/out-dir-analysis/web-startup-graph-budget-report.json
         run: |
