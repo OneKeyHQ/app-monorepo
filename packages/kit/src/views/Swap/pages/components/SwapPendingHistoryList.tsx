@@ -32,6 +32,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
+import { useShouldShowSwapLocalData } from '../../hooks/useSwapLocalDataVisibility';
 import { SwapTestIDs } from '../../testIDs';
 import {
   filterSwapMarketHistoryItems,
@@ -51,14 +52,18 @@ const SwapPendingHistoryListComponent = ({
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
+  const shouldShowSwapLocalData = useShouldShowSwapLocalData();
   const { result: swapTxHistoryList } = usePromiseResult(
     async () => {
+      if (!shouldShowSwapLocalData) {
+        return [];
+      }
       const histories =
         await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
       return histories;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [swapHistoryPendingList],
+    [swapHistoryPendingList, shouldShowSwapLocalData],
     {
       // Sync-read the cached list on (re)mount so returning to this surface
       // (e.g. from the Stock/Limit tab, which unmounts this component) shows
@@ -100,6 +105,7 @@ const SwapPendingHistoryListComponent = ({
   );
   const fromTokenAmountBN = new BigNumber(fromTokenAmount.value ?? 0);
   if (
+    !shouldShowSwapLocalData ||
     (!fromTokenAmountBN.isZero() && !fromTokenAmountBN.isNaN()) ||
     listData.length === 0 ||
     swapTabSwitchType === ESwapTabSwitchType.LIMIT
