@@ -677,10 +677,14 @@ function PerpsMobileHoldingRow({
   return (
     <XStack
       py="$2"
+      px="$3"
+      mx="$-3"
+      borderRadius="$3"
       alignItems="center"
       justifyContent="space-between"
       gap="$3"
       cursor={isPressable ? 'pointer' : 'default'}
+      hoverStyle={isPressable ? { bg: '$bgHover' } : undefined}
       pressStyle={isPressable ? { bg: '$bgActive' } : undefined}
       onPress={onPress ?? noop}
       role={isPressable ? 'button' : undefined}
@@ -931,8 +935,10 @@ function PerpsMetric({
 
 function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
   const intl = useIntl();
+  const media = useMedia();
   const openPerp = useOpenPerpAsset();
   const isLong = position.side === 'long';
+  const isCardPressable = media.gtMd;
   const sideColor = isLong ? '$green11' : '$red11';
   const handleOpenPerp = useCallback(() => {
     openPerp(position.coin, 'perp', false);
@@ -954,17 +960,21 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
   return (
     <YStack
       py="$3"
-      cursor="pointer"
-      focusable
-      role="button"
-      hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
-      focusVisibleStyle={{
-        outlineColor: '$focusRing',
-        outlineStyle: 'solid',
-        outlineWidth: 2,
-      }}
-      onPress={handleOpenPerp}
+      cursor={isCardPressable ? 'pointer' : 'default'}
+      focusable={isCardPressable}
+      role={isCardPressable ? 'button' : undefined}
+      hoverStyle={isCardPressable ? { bg: '$bgHover' } : undefined}
+      pressStyle={isCardPressable ? { bg: '$bgActive' } : undefined}
+      focusVisibleStyle={
+        isCardPressable
+          ? {
+              outlineColor: '$focusRing',
+              outlineStyle: 'solid',
+              outlineWidth: 2,
+            }
+          : undefined
+      }
+      onPress={isCardPressable ? handleOpenPerp : undefined}
       $gtMd={{
         bg: '$bgSubdued',
         borderRadius: '$3',
