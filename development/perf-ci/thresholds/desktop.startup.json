@@ -1,0 +1,54 @@
+{
+  "rendererStartupGraph": {
+    "moduleCount": 6800,
+    "sourceSizeBytes": 32505856,
+    "initialScriptCount": 30,
+    "initialScriptRawBytes": 15728640,
+    "initialScriptGzipBytes": 3984589,
+    "initialScriptBrotliBytes": 3145728,
+    "allScriptRawBytes": 110100480,
+    "largestModuleBytes": 665600,
+    "forbiddenSources": [
+      "@sentry/",
+      "@sentry-internal/"
+    ]
+  },
+  "mainBundle": {
+    "appRawBytes": 7864320,
+    "appGzipBytes": 1677722,
+    "appBrotliBytes": 1310720,
+    "preloadRawBytes": 81920,
+    "preloadGzipBytes": 24576,
+    "serviceIndexRawBytes": 102400,
+    "largestInputBytes": 2621440,
+    "forbiddenBundledInputs": [
+      "node_modules/@sentry/electron",
+      "node_modules/electron-updater",
+      "node_modules/adm-zip",
+      "node_modules/systeminformation",
+      "node_modules/iconv-lite"
+    ],
+    "maxInputBytesBySource": [
+      {
+        "pattern": "injectedDesktopCode.text-js",
+        "bytes": 2411725
+      },
+      {
+        "pattern": "openpgp/dist/node/openpgp.min.js",
+        "bytes": 943718
+      },
+      {
+        "pattern": "@onekeyfe/hwk-trezor-core/dist/index.mjs",
+        "bytes": 576717
+      },
+      {
+        "pattern": "locale/enum/translations.ts",
+        "bytes": 471860
+      },
+      {
+        "pattern": "locale/json/",
+        "bytes": 2048
+      }
+    ]
+  }
+}

@@ -8,12 +8,14 @@ on:
     paths:
       - '.github/workflows/startup-graph-budget.yml'
       - 'packages/**'
+      - 'apps/desktop/**'
       - 'apps/mobile/**'
       - 'apps/web/**'
       - 'development/babel-plugins/**'
       - 'development/perf-ci/run-web-cold.js'
       - 'development/perf-ci/lib/**'
       - 'development/perf-ci/thresholds/web.cold.json'
+      - 'development/perf-ci/thresholds/desktop.startup.json'
       - 'development/rspack/**'
       - 'development/webpack/**'
       - 'package.json'
@@ -195,4 +197,61 @@ jobs:
           path: |
             apps/web/out-dir-analysis/web-startup-graph-budget-report.json
             apps/web/out-dir-analysis/web-cold-budget-report.json
+          retention-days: 30
+
+  desktop-startup-budget:
+    name: Desktop startup budget
+    runs-on: ubuntu-24.04
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Install Dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn install --immutable
+
+      - name: Build desktop renderer with Rspack
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn workspace @onekeyhq/desktop build:renderer:rspack
+
+      - name: Check desktop renderer startup graph budget
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn workspace @onekeyhq/desktop check:renderer-startup-budget
+
+      - name: Build desktop main with esbuild metafile
+        env:
+          ESBUILD_METAFILE: '1'
+          NODE_ENV: production
+        run: yarn workspace @onekeyhq/desktop build:main
+
+      - name: Check desktop main/preload bundle budget
+        run: yarn workspace @onekeyhq/desktop check:main-bundle-budget
+
+      - name: Upload desktop startup budget reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-startup-budget-reports
+          path: |
+            apps/desktop/out-dir-analysis/desktop-renderer-startup-graph-budget-report.json
+            apps/desktop/out-dir-analysis/desktop-main-bundle-budget-report.json
+            apps/desktop/app/dist/meta.json
           retention-days: 30

@@ -1,8 +1,6 @@
-import { showExportLogsDialog } from '@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs/showExportLogsDialog';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { addBreadcrumb } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getTimerCensus } from '@onekeyhq/shared/src/utils/timerRegistry';
 
@@ -52,19 +50,7 @@ function installLongTaskObserver() {
 
           if (breadcrumbsInWindow < SENTRY_BREADCRUMB_RATE_LIMIT_PER_MIN) {
             breadcrumbsInWindow += 1;
-            try {
-              addBreadcrumb({
-                category: 'longtask',
-                level: 'warning',
-                message: `LongTask ${Math.round(entry.duration)}ms (${entry.name})`,
-                data: {
-                  durationMs: Math.round(entry.duration),
-                  name: entry.name,
-                },
-              });
-            } catch {
-              // Sentry not initialized yet (e.g. dev build) — ignore.
-            }
+            void addLongTaskBreadcrumb(entry);
           }
         }
       }
@@ -72,6 +58,24 @@ function installLongTaskObserver() {
     observer.observe({ entryTypes: ['longtask'] });
   } catch (error) {
     defaultLogger.app.perf.longTaskInitFailed(error);
+  }
+}
+
+async function addLongTaskBreadcrumb(entry: PerformanceEntry) {
+  try {
+    const { addBreadcrumb } =
+      await import('@onekeyhq/shared/src/modules3rdParty/sentry');
+    addBreadcrumb({
+      category: 'longtask',
+      level: 'warning',
+      message: `LongTask ${Math.round(entry.duration)}ms (${entry.name})`,
+      data: {
+        durationMs: Math.round(entry.duration),
+        name: entry.name,
+      },
+    });
+  } catch {
+    // Sentry not initialized yet (e.g. dev build) — ignore.
   }
 }
 
@@ -93,6 +97,8 @@ function installExportLogsListener() {
         // appLocale.intl.formatMessage; otherwise the title would degrade
         // to the raw translation key.
         await appLocale.isReady;
+        const { showExportLogsDialog } =
+          await import('@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs/showExportLogsDialog');
         showExportLogsDialog({
           // eslint-disable-next-line onekey/no-app-locale-main-thread
           title: appLocale.intl.formatMessage({
