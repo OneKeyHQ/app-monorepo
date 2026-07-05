@@ -90,6 +90,7 @@ describe('mapSnapshotToPerpsHomeView', () => {
     const v = mapSnapshotToPerpsHomeView(snap);
     expect(v.isEmpty).toBe(false);
     expect(v.accountValueUsd).toBeCloseTo(257.26);
+    expect(v.positions.map((p) => p.coin)).toEqual(['BTC', 'ETH']);
     const eth = v.positions.find((p) => p.coin === 'ETH');
     expect(eth?.side).toBe('long');
     expect(eth?.sizeCoin).toBe('1.2');
@@ -103,6 +104,12 @@ describe('mapSnapshotToPerpsHomeView', () => {
   });
   it('maps holdings with spot pnl = value - entryNtl, undefined when price missing', () => {
     const v = mapSnapshotToPerpsHomeView(snap);
+    expect(v.holdings.map((h) => h.symbol)).toEqual([
+      'USDC',
+      'HYPE',
+      'UETH',
+      'WEIRD',
+    ]);
     const hype = v.holdings.find((h) => h.symbol === 'HYPE');
     expect(hype?.displaySymbol).toBe('HYPE');
     expect(hype?.spotUniverseName).toBe('HYPE/USDC');
