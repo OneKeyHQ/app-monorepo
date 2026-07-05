@@ -610,6 +610,7 @@ function PerpsDepositButton({
       px="$3"
       h={28}
       bg="$brand8"
+      cursor="pointer"
     >
       <Icon name="AlignBottomOutline" size="$4" color="$iconOnColor" />
       <SizableText size="$bodySmMedium" color="$textOnColor">
@@ -620,9 +621,6 @@ function PerpsDepositButton({
 }
 
 function PerpsHeaderActions({ canDeposit }: { canDeposit: boolean }) {
-  const intl = useIntl();
-  const openPerp = useOpenPerpAsset();
-
   if (!canDeposit) {
     return null;
   }
@@ -633,19 +631,6 @@ function PerpsHeaderActions({ canDeposit }: { canDeposit: boolean }) {
         testID={HomeTestIDs.perpsDesktopDepositButton}
         canDeposit={canDeposit}
       />
-      <Button
-        size="medium"
-        variant="secondary"
-        childrenAsText={false}
-        testID={HomeTestIDs.perpsManageButton}
-        onPress={() => openPerp()}
-      >
-        <SizableText size="$bodySmMedium">
-          {intl.formatMessage({
-            id: ETranslations.global_manage,
-          })}
-        </SizableText>
-      </Button>
     </XStack>
   );
 }
@@ -920,6 +905,9 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
   const openPerp = useOpenPerpAsset();
   const isLong = position.side === 'long';
   const sideColor = isLong ? '$green11' : '$red11';
+  const handleOpenPerp = useCallback(() => {
+    openPerp(position.coin, 'perp', false);
+  }, [openPerp, position.coin]);
   const leverageTypeText = intl.formatMessage({
     id:
       position.leverageType === 'cross'
@@ -937,6 +925,17 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
   return (
     <YStack
       py="$3"
+      cursor="pointer"
+      focusable
+      role="button"
+      hoverStyle={{ bg: '$bgHover' }}
+      pressStyle={{ bg: '$bgActive' }}
+      focusVisibleStyle={{
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+        outlineWidth: 2,
+      }}
+      onPress={handleOpenPerp}
       $gtMd={{
         bg: '$bgSubdued',
         borderRadius: '$3',
@@ -985,6 +984,15 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
             {leverageTypeText} {position.leverageValue}x
           </SizableText>
         </XStack>
+        <SizableText
+          testID={HomeTestIDs.perpsManageButton}
+          display="none"
+          size="$bodyXs"
+          color="$textSubdued"
+          $gtMd={{ display: 'flex', size: '$bodySm' }}
+        >
+          {intl.formatMessage({ id: ETranslations.global_manage })}
+        </SizableText>
       </XStack>
 
       <YStack gap="$3">
@@ -1071,7 +1079,7 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
         size="small"
         display="flex"
         $gtMd={{ display: 'none' }}
-        onPress={() => openPerp(position.coin, 'perp', false)}
+        onPress={handleOpenPerp}
       >
         {intl.formatMessage({ id: ETranslations.global_manage })}
       </Button>
@@ -1096,7 +1104,13 @@ export function PerpsContainer() {
           ) : undefined
         }
       >
-        <YStack px="$5" py="$3" gap="$2" $gtMd={{ px: '$pagePadding' }}>
+        <YStack
+          px="$5"
+          py="$3"
+          pb="$4"
+          gap="$2"
+          $gtMd={{ px: '$pagePadding', pb: '$8' }}
+        >
           {viewState === 'loading' ? <PerpsLoadingState /> : null}
           {viewState === 'empty' ? (
             <PerpsEmptyState canDeposit={canDeposit} />
