@@ -12,6 +12,7 @@ on:
       - 'apps/web/**'
       - 'development/babel-plugins/**'
       - 'development/perf-ci/run-web-cold.js'
+      - 'development/perf-ci/lib/**'
       - 'development/perf-ci/thresholds/web.cold.json'
       - 'development/rspack/**'
       - 'development/webpack/**'
@@ -137,26 +138,32 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: yarn install --immutable
 
-      - name: Build web bundle
+      # Current cold-entry median baseline, measured from a production web build
+      # with 3 fresh-browser runs on 2026-07-05. Keep scenario budgets in
+      # development/perf-ci/thresholds/web.cold.json close to this baseline:
+      # root: 16.67 MiB JS, 168 scripts, 237 resources, 1404 ms LCP
+      # market: 16.67 MiB JS, 168 scripts, 236 resources, 1360 ms LCP
+      # perps: 16.93 MiB JS, 173 scripts, 214 resources, 820 ms LCP
+      # swap: 16.55 MiB JS, 168 scripts, 217 resources, 968 ms LCP
+      # defi: 16.74 MiB JS, 170 scripts, 217 resources, 792 ms LCP
+      # referFriends: 16.60 MiB JS, 166 scripts, 197 resources, 1220 ms LCP
+      - name: Check web startup/cold entry budgets
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           MARKET_HOME_TOKEN_SEED_URL: 'data:application/json,%7B%22list%22%3A%5B%7B%22networkId%22%3A%22btc--0%22%2C%22symbol%22%3A%22BTC%22%7D%5D%2C%22total%22%3A1%7D'
           MARKET_HOME_TOKEN_SEED_MIN_COUNT: '1'
+          PERF_WEB_COLD_OUT: apps/web/out-dir-analysis/web-cold-budget-report.json
+          PERF_WEB_STARTUP_GRAPH_OUT: apps/web/out-dir-analysis/web-startup-graph-budget-report.json
         run: |
           export PATH="${GITHUB_WORKSPACE}/node_modules/.bin:${PATH}"
-          yarn workspace @onekeyhq/web build
+          yarn perf:web:cold
 
-      - name: Check web startup graph budget
-        env:
-          NODE_OPTIONS: '--max_old_space_size=4096'
-        run: |
-          export PATH="${GITHUB_WORKSPACE}/node_modules/.bin:${PATH}"
-          yarn workspace @onekeyhq/web check:startup-graph-budget
-
-      - name: Upload web startup graph report
+      - name: Upload web startup/cold budget reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: web-startup-graph-budget-report
-          path: apps/web/out-dir-analysis/web-startup-graph-budget-report.json
+          name: web-startup-cold-budget-reports
+          path: |
+            apps/web/out-dir-analysis/web-startup-graph-budget-report.json
+            apps/web/out-dir-analysis/web-cold-budget-report.json
           retention-days: 30

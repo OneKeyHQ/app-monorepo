@@ -3,7 +3,7 @@
     "fcpMs": 1000,
     "firstTextMs": 1000,
     "lcpMs": 2500,
-    "jsDecodedBytes": 12582912,
+    "jsDecodedBytes": 18874368,
     "initialScriptRawBytes": 6291456,
     "longTaskTotalMs": 900,
     "largestPreLcpScriptDecodedBytes": 614400
@@ -15,6 +15,7 @@
     "initialScriptRawBytes": 6291456,
     "initialScriptGzipBytes": 2097152,
     "initialScriptBrotliBytes": 1638400,
+    "allScriptRawBytes": 94371840,
     "largestModuleBytes": 819200,
     "forbiddenSources": [
       "@keystonehq/",
@@ -27,9 +28,49 @@
     ]
   },
   "scenarios": {
+    "root": {
+      "lcpMs": 2500,
+      "resourceCount": 240,
+      "scriptCount": 169,
+      "jsDecodedBytes": 17616077,
+      "longTaskTotalMs": 600
+    },
     "market": {
+      "lcpMs": 2500,
+      "resourceCount": 240,
+      "scriptCount": 169,
+      "jsDecodedBytes": 17616077,
+      "longTaskTotalMs": 600,
       "businessReadyMs": 4000,
       "marketListReadyMs": 4000
+    },
+    "perps": {
+      "lcpMs": 2000,
+      "resourceCount": 218,
+      "scriptCount": 174,
+      "jsDecodedBytes": 17930650,
+      "longTaskTotalMs": 650
+    },
+    "swap": {
+      "lcpMs": 2000,
+      "resourceCount": 220,
+      "scriptCount": 169,
+      "jsDecodedBytes": 17458790,
+      "longTaskTotalMs": 600
+    },
+    "defi": {
+      "lcpMs": 2000,
+      "resourceCount": 222,
+      "scriptCount": 171,
+      "jsDecodedBytes": 17668506,
+      "longTaskTotalMs": 600
+    },
+    "referFriends": {
+      "lcpMs": 2200,
+      "resourceCount": 200,
+      "scriptCount": 167,
+      "jsDecodedBytes": 17511219,
+      "longTaskTotalMs": 500
     }
   }
 }
