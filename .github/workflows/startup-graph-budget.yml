@@ -151,12 +151,39 @@ jobs:
       - name: Check web startup/cold entry budgets
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
-          MARKET_HOME_TOKEN_SEED_URL: 'data:application/json,%7B%22list%22%3A%5B%7B%22networkId%22%3A%22btc--0%22%2C%22symbol%22%3A%22BTC%22%7D%5D%2C%22total%22%3A1%7D'
           MARKET_HOME_TOKEN_SEED_MIN_COUNT: '1'
           PERF_WEB_COLD_OUT: apps/web/out-dir-analysis/web-cold-budget-report.json
           PERF_WEB_STARTUP_GRAPH_OUT: apps/web/out-dir-analysis/web-startup-graph-budget-report.json
         run: |
           export PATH="${GITHUB_WORKSPACE}/node_modules/.bin:${PATH}"
+          MARKET_HOME_TOKEN_SEED_URL="$(
+          node <<'NODE'
+          const tokens = Array.from({ length: 20 }, (_, index) => {
+            const rank = index + 1;
+            return {
+              address: '',
+              chainId: '0',
+              communityRecognized: true,
+              decimals: 8,
+              isNative: true,
+              liquidity: String(100_000_000 - index * 1_000_000),
+              marketCap: String(2_000_000_000_000 - index * 10_000_000_000),
+              name: `Cold Seed ${rank}`,
+              networkId: 'btc--0',
+              price: String(100_000 - index * 100),
+              price24hAgo: String(99_000 - index * 100),
+              priceChange24hPercent: '1.23',
+              symbol: `SEED${rank}`,
+              volume24h: String(1_000_000_000 - index * 5_000_000),
+            };
+          });
+          const payload = { list: tokens, total: 100 };
+          process.stdout.write(
+            `data:application/json,${encodeURIComponent(JSON.stringify(payload))}`,
+          );
+          NODE
+          )"
+          export MARKET_HOME_TOKEN_SEED_URL
           yarn perf:web:cold
 
       - name: Upload web startup/cold budget reports
