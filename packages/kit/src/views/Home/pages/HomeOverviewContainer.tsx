@@ -16,8 +16,11 @@ import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
+import { PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import { SHOW_WALLET_FUNCTION_BLOCK_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -28,6 +31,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   calculateAccountTokensValue,
@@ -127,6 +131,55 @@ function HomeOverviewContainer() {
   } = useAccountOverviewActions().current;
 
   const [settings] = useSettingsPersistAtom();
+  const isPerpsEnabled = useMemo(() => {
+    if (network?.isAllNetworks) return true;
+    return networkUtils.isEvmNetwork({ networkId: network?.id });
+  }, [network?.id, network?.isAllNetworks]);
+
+  const { result: perpsNetWorthUsd } = usePromiseResult<string | undefined>(
+    async () => {
+      if (!isPerpsEnabled) return undefined;
+      const accountId = account?.id;
+      const indexedAccountId = account?.indexedAccountId;
+      if (!accountId && !indexedAccountId) return undefined;
+
+      const deriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: PERPS_NETWORK_ID,
+        });
+      if (!deriveType) return undefined;
+
+      let address = '';
+      try {
+        const acc = await backgroundApiProxy.serviceAccount.getNetworkAccount({
+          accountId: indexedAccountId ? undefined : accountId,
+          indexedAccountId,
+          deriveType,
+          networkId: PERPS_NETWORK_ID,
+        });
+        address = acc?.addressDetail?.normalizedAddress || acc?.address || '';
+      } catch {
+        return undefined;
+      }
+
+      if (!address) return undefined;
+
+      const snapshot =
+        await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
+          { address },
+        );
+
+      return snapshot?.netWorthUsd;
+    },
+    [account?.id, account?.indexedAccountId, isPerpsEnabled],
+    {
+      swrKey:
+        account?.id || account?.indexedAccountId
+          ? `home-overview-perps-worth:${account?.indexedAccountId ?? account?.id}`
+          : undefined,
+      pollingInterval: PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
+    },
+  );
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -630,10 +683,11 @@ function HomeOverviewContainer() {
       targetCurrency: USD_CURRENCY_ID,
       currencyMap,
     });
+    const perpsWorthUsd = perpsNetWorthUsd ?? '0';
 
     return calculateAccountTotalValue({
       tokensValue: tokenWorthUsd,
-      deFiNetWorth: deFiWorthUsd,
+      deFiNetWorth: new BigNumber(deFiWorthUsd).plus(perpsWorthUsd).toFixed(),
     });
   }, [
     account?.id,
@@ -645,6 +699,7 @@ function HomeOverviewContainer() {
     isCurrentAccountDeFiReady,
     isCurrentAccountWorthReady,
     network?.isAllNetworks,
+    perpsNetWorthUsd,
     settings.currencyInfo.id,
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);

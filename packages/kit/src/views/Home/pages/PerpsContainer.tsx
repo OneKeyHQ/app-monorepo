@@ -31,7 +31,10 @@ import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/
 import {
   spotActiveAssetAtom,
   tradingModeAtom,
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import {
   EAppEventBusNames,
@@ -59,6 +62,7 @@ import { resolveOverviewCols } from '../components/DeFiListBlock/overviewColsRes
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { RichBlock } from '../components/RichBlock';
 import { HomeTestIDs } from '../testIDs';
+import { convertFiat } from '../../../utils/fiatConvert';
 
 import { usePerpsHomePortfolio } from './usePerpsHomePortfolio';
 
@@ -180,15 +184,40 @@ function PerpsTotalUsd({
   value: number | undefined;
   isDegraded?: boolean;
 } & Omit<ISizableTextProps, 'children'>) {
+  const [settings] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
+  const displayValue =
+    value === undefined
+      ? undefined
+      : convertFiat({
+          value,
+          sourceCurrency: USD_CURRENCY_ID,
+          targetCurrency: settings.currencyInfo.id,
+          currencyMap,
+        });
   if (!isDegraded) {
-    return <PerpsUsd value={value} {...rest} />;
+    return (
+      <NumberSizeableText
+        formatter="value"
+        formatterOptions={{ currency: settings.currencyInfo.symbol }}
+        {...rest}
+      >
+        {displayValue}
+      </NumberSizeableText>
+    );
   }
   return (
     <XStack minWidth={0} alignItems="baseline" gap="$0.5">
       <SizableText size={rest.size} color={rest.color ?? '$textSubdued'}>
         ≈
       </SizableText>
-      <PerpsUsd value={value} {...rest} />
+      <NumberSizeableText
+        formatter="value"
+        formatterOptions={{ currency: settings.currencyInfo.symbol }}
+        {...rest}
+      >
+        {displayValue}
+      </NumberSizeableText>
     </XStack>
   );
 }
