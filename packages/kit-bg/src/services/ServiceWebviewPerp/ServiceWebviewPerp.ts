@@ -417,10 +417,15 @@ class ServiceWebviewPerp extends ServiceBase {
       if (prev.depositTokenListOwnerKey === ownerKey) {
         return prev;
       }
+      const emptyTokensByNetwork = Object.fromEntries(
+        Object.keys(prev.tokens).map((networkId) => [networkId, []]),
+      );
       return {
         ...prev,
+        tokens: emptyTokensByNetwork,
         depositTokenListOwnerKey: ownerKey,
         currentPerpsDepositSelectedToken: undefined,
+        depositTokenListRevision: (prev.depositTokenListRevision ?? 0) + 1,
       };
     });
   }
@@ -484,14 +489,18 @@ class ServiceWebviewPerp extends ServiceBase {
       },
     );
 
-    const responses = (
-      await promiseAllSettledEnhanced(requestFactories, {
-        continueOnError: true,
-        concurrency: 3,
-      })
-    ).filter((response): response is IFetchAccountTokensResp =>
-      Boolean(response),
+    const settledResponses = await promiseAllSettledEnhanced(requestFactories, {
+      continueOnError: true,
+      concurrency: 3,
+    });
+    const responses = settledResponses.filter(
+      (response): response is IFetchAccountTokensResp => Boolean(response),
     );
+    if (responses.length !== supportedNetworkIds.length) {
+      throw new OneKeyError(
+        '[ServiceWebviewPerp] Failed to fetch all perps deposit token networks',
+      );
+    }
     const { networks } =
       await this.backgroundApi.serviceNetwork.getNetworksByIds({
         networkIds: supportedNetworkIds,

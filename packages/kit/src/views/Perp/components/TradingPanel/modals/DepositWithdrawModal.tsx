@@ -697,6 +697,10 @@ function DepositWithdrawContent({
   ]);
 
   useEffect(() => {
+    depositTokenListOwnerKeyRef.current = undefined;
+    lastSyncedDepositTokenListRevisionRef.current = undefined;
+    setDepositTokensWithPrice([]);
+    setNativeTokenConfigs([]);
     setHasLoadedDepositTokenBalances(false);
   }, [
     selectedAccount.accountId,
