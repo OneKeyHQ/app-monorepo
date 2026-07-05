@@ -425,7 +425,7 @@ function findSegmentSyncCycles(segmentEdges) {
   }
 
   const indexByKey = new Map();
-  const lowlinkByKey = new Map();
+  const lowLinkByKey = new Map();
   const stack = [];
   const onStack = new Set();
   const cycles = [];
@@ -433,7 +433,7 @@ function findSegmentSyncCycles(segmentEdges) {
 
   const visit = (segmentKey) => {
     indexByKey.set(segmentKey, nextIndex);
-    lowlinkByKey.set(segmentKey, nextIndex);
+    lowLinkByKey.set(segmentKey, nextIndex);
     nextIndex += 1;
     stack.push(segmentKey);
     onStack.add(segmentKey);
@@ -441,19 +441,19 @@ function findSegmentSyncCycles(segmentEdges) {
     for (const depKey of segmentEdges.get(segmentKey) || []) {
       if (!indexByKey.has(depKey)) {
         visit(depKey);
-        lowlinkByKey.set(
+        lowLinkByKey.set(
           segmentKey,
-          Math.min(lowlinkByKey.get(segmentKey), lowlinkByKey.get(depKey)),
+          Math.min(lowLinkByKey.get(segmentKey), lowLinkByKey.get(depKey)),
         );
       } else if (onStack.has(depKey)) {
-        lowlinkByKey.set(
+        lowLinkByKey.set(
           segmentKey,
-          Math.min(lowlinkByKey.get(segmentKey), indexByKey.get(depKey)),
+          Math.min(lowLinkByKey.get(segmentKey), indexByKey.get(depKey)),
         );
       }
     }
 
-    if (lowlinkByKey.get(segmentKey) !== indexByKey.get(segmentKey)) {
+    if (lowLinkByKey.get(segmentKey) !== indexByKey.get(segmentKey)) {
       return;
     }
 
