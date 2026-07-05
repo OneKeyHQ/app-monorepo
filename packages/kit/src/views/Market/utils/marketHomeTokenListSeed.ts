@@ -6,6 +6,12 @@ import { markMarketPerf } from './marketPerf';
 
 type IMarketTokenListResponseWithSource = IMarketTokenListResponse & {
   __fromSeed?: boolean;
+  __fromColdCacheFallback?: boolean;
+};
+
+type IMarketHomeTokenListSeedSnapshot = {
+  data: IMarketTokenListResponseWithSource;
+  capturedAt: number;
 };
 
 type IOneKeyBootstrapData = {
@@ -19,6 +25,8 @@ type IGlobalWithOneKeyBootstrapData = typeof globalThis & {
 // Web HTML injects this generic bootstrap payload before app bundles so Market
 // can paint the first token list without an extra cold-start seed request.
 const ONEKEY_BOOTSTRAP_DATA_GLOBAL = '__ONEKEY_BOOTSTRAP_DATA__';
+const MARKET_HOME_TOKEN_LIST_SEED_MAX_AGE_MS = 30 * 1000;
+const marketHomeTokenListSeedModuleLoadedAt = Date.now();
 
 let marketHomeTokenListSeedConsumed = false;
 
@@ -30,6 +38,38 @@ const shouldUseMarketHomeTokenListBootstrapSeed = () =>
 let marketHomeTokenListSeedPromise:
   | Promise<IMarketTokenListResponseWithSource>
   | undefined;
+let marketHomeTokenListSeedSnapshot:
+  | IMarketHomeTokenListSeedSnapshot
+  | undefined;
+
+function clearMarketHomeTokenListSeed({ consume }: { consume: boolean }) {
+  const bootstrapData = (globalThis as IGlobalWithOneKeyBootstrapData)[
+    ONEKEY_BOOTSTRAP_DATA_GLOBAL
+  ];
+  delete bootstrapData?.marketHomeTokenListSeed;
+
+  if (consume) {
+    marketHomeTokenListSeedConsumed = true;
+  }
+  marketHomeTokenListSeedPromise = undefined;
+  marketHomeTokenListSeedSnapshot = undefined;
+}
+
+function getFreshMarketHomeTokenListSeedSnapshot():
+  | IMarketTokenListResponseWithSource
+  | undefined {
+  if (!marketHomeTokenListSeedSnapshot) {
+    return undefined;
+  }
+  if (
+    Date.now() - marketHomeTokenListSeedSnapshot.capturedAt >
+    MARKET_HOME_TOKEN_LIST_SEED_MAX_AGE_MS
+  ) {
+    clearMarketHomeTokenListSeed({ consume: true });
+    return undefined;
+  }
+  return marketHomeTokenListSeedSnapshot.data;
+}
 
 function readMarketHomeTokenListBootstrapSeed():
   | IMarketTokenListResponseWithSource
@@ -46,17 +86,27 @@ function readMarketHomeTokenListBootstrapSeed():
   }
   delete bootstrapData.marketHomeTokenListSeed;
 
-  return {
+  const seed = {
     list: data.list,
     total: data.total,
     __fromSeed: true,
   };
+  marketHomeTokenListSeedSnapshot = {
+    data: seed,
+    capturedAt: marketHomeTokenListSeedModuleLoadedAt,
+  };
+  return seed;
 }
 
 function getMarketHomeTokenListSeedPromise() {
+  if (!getFreshMarketHomeTokenListSeedSnapshot()) {
+    marketHomeTokenListSeedPromise = undefined;
+  }
   marketHomeTokenListSeedPromise ??= (async () => {
     markMarketPerf('market-light-api-token-list-seed-start');
-    const data = readMarketHomeTokenListBootstrapSeed();
+    const data =
+      getFreshMarketHomeTokenListSeedSnapshot() ??
+      readMarketHomeTokenListBootstrapSeed();
     if (!data) {
       throw new OneKeyLocalError('Market token bootstrap seed is missing');
     }
@@ -72,6 +122,7 @@ function getMarketHomeTokenListSeedPromise() {
     })
     .catch((error) => {
       marketHomeTokenListSeedPromise = undefined;
+      marketHomeTokenListSeedSnapshot = undefined;
       throw error;
     });
 
@@ -97,7 +148,27 @@ const fetchMarketHomeTokenListSeed = async ({
     return await seedPromise;
   } finally {
     marketHomeTokenListSeedPromise = undefined;
+    marketHomeTokenListSeedSnapshot = undefined;
   }
+};
+
+const getMarketHomeTokenListSeedForInit = () => {
+  if (!shouldUseMarketHomeTokenListBootstrapSeed()) {
+    return undefined;
+  }
+
+  return (
+    getFreshMarketHomeTokenListSeedSnapshot() ??
+    readMarketHomeTokenListBootstrapSeed()
+  );
+};
+
+const discardMarketHomeTokenListSeedForInit = () => {
+  if (!shouldUseMarketHomeTokenListBootstrapSeed()) {
+    return;
+  }
+
+  clearMarketHomeTokenListSeed({ consume: true });
 };
 
 const preloadMarketHomeTokenListSeed = () => {
@@ -109,7 +180,9 @@ const preloadMarketHomeTokenListSeed = () => {
 };
 
 export {
+  discardMarketHomeTokenListSeedForInit,
   fetchMarketHomeTokenListSeed,
+  getMarketHomeTokenListSeedForInit,
   preloadMarketHomeTokenListSeed,
   shouldUseMarketHomeTokenListBootstrapSeed,
 };

@@ -575,10 +575,16 @@ function useHyperliquidAccountSelect() {
   // perpsAccountStatusRef.current = perpsAccountStatus;
 
   const lastCheckTimeRef = useRef(0);
-  const checkPerpsAccountStatus = useCallback(async () => {
-    await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
-    lastCheckTimeRef.current = Date.now();
-  }, []);
+  const checkPerpsAccountStatus = useCallback(
+    async (accountAddress?: string | null) => {
+      if (!accountAddress && !perpsAccountAddressRef.current) {
+        return;
+      }
+      await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+      lastCheckTimeRef.current = Date.now();
+    },
+    [],
+  );
 
   const { result: globalDeriveType, run: refreshGlobalDeriveType } =
     usePromiseResult(
@@ -659,13 +665,13 @@ function useHyperliquidAccountSelect() {
     selectAccountRunIdRef.current = runId;
     isSelectingAccountRef.current = true;
     try {
-      await actions.current.changeActivePerpsAccount({
+      const perpsAccount = await actions.current.changeActivePerpsAccount({
         indexedAccountId: activeAccount?.indexedAccount?.id || null,
         accountId: activeAccount?.account?.id || null,
         walletId: activeAccount?.wallet?.id || null,
         deriveType: globalDeriveType,
       });
-      await checkPerpsAccountStatus();
+      await checkPerpsAccountStatus(perpsAccount?.accountAddress);
     } catch (error) {
       lastSelectParamsRef.current = null;
       lastSelectAddressRef.current = null;

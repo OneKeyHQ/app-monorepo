@@ -622,6 +622,7 @@ export function TradingViewPerpsV2(
         containerStyle={tradingViewWebViewStyleProps.containerStyle}
         style={tradingViewWebViewStyleProps.style}
         customReceiveHandler={customReceiveHandler}
+        skipBackgroundBridge
         onWebViewRef={onWebViewRef}
         onLoadEnd={onLoadEnd}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
