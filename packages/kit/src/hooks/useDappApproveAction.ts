@@ -51,9 +51,11 @@ function useDappApproveAction({
         error: toPlainErrorObject(newError),
       });
       if (isExtStandaloneWindow) {
-        // timeout wait reject done.
+        // timeout wait reject done. Skip close() (modal pop): the whole
+        // window is about to be destroyed, and popping the modal first
+        // paints the Home tab underneath for a frame before window.close()
+        // lands.
         setTimeout(() => {
-          close?.();
           window.close();
         }, 0);
       } else {
@@ -73,11 +75,15 @@ function useDappApproveAction({
           id,
           data,
         });
-        close?.();
         if (isExtStandaloneWindow && closeWindowAfterResolved) {
+          // Skip close() (modal pop): the whole window is about to be
+          // destroyed, and popping the modal first paints the Home tab
+          // underneath for a frame before window.close() lands.
           setTimeout(() => {
             window.close();
           }, 0);
+        } else {
+          close?.();
         }
       } catch (error) {
         console.error('getResolveData ERROR:', error);
