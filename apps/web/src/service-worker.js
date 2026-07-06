@@ -708,7 +708,9 @@ async function handleNavigation() {
   if (await isReadyVersionCacheValid(state).catch(() => false)) {
     const readyResponse = await getCachedHtmlResponse(state.readyVersion);
     if (readyResponse) {
-      await promoteReadyVersionState(state).catch(() => undefined);
+      await promoteReadyVersionState(state, { shouldBroadcast: false }).catch(
+        () => undefined,
+      );
       return readyResponse;
     }
   }
