@@ -66,9 +66,6 @@ jobs:
       - name: Validate generated file scope
         run: yarn lavamoat:validate-generated-scope
 
-      - name: Summarize LavaMoat policy review
-        run: cat lavamoat/review/summary.json >> "$GITHUB_STEP_SUMMARY"
-
       - name: Check working tree
         id: check-working-tree
         run: |
