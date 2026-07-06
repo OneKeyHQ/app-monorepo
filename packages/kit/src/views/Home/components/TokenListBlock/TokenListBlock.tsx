@@ -772,7 +772,7 @@ function TokenListBlock({
       }));
 
       try {
-        const responses = await fetchFilteredTokenSelectorTokens({
+        const { responses } = await fetchFilteredTokenSelectorTokens({
           accountId: account.id,
           networkId: network.id,
           indexedAccountId: indexedAccount?.id,

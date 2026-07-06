@@ -28,6 +28,7 @@ export function useShowDepositWithdrawModal() {
           intl,
         );
       } else {
+        await import('../components/TradingPanel/modals/DepositWithdrawModal');
         navigation.pushModal(EModalRoutes.PerpModal, {
           screen: EModalPerpRoutes.MobileDepositWithdrawModal,
           params: { actionType },

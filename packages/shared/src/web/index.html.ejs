@@ -43,12 +43,16 @@
       // `__ONEKEY_CTX_ATOM_SNAPSHOT__` global — so the self-contained,
       // currency-gated, provisional SLC token-list slim cold-start activates in
       // dev for local verification, while the generic L2 context-atom hydration
-      // (the schema-drift-prone part) stays OFF. Prod keeps its real hydrate.ts
-      // path untouched.
+      // (the schema-drift-prone part) stays OFF. We also pre-read the SWR blob
+      // so localhost can verify web cold-start cache paths that use
+      // usePromiseResult({ swrKey }). Prod keeps its real hydrate.ts path
+      // untouched.
       (function () {
         try {
           var DBN = 'onekey-cold-start-cache';
           var SNAP_KEY = 'onekey_jotai_context_atoms_snapshot';
+          var SWR_KEY = 'onekey_swr_cache';
+          var KEYS = [SNAP_KEY, SWR_KEY];
           navigator.storageBuckets
             .open(DBN, { persisted: true, durability: 'strict' })
             .then(function (bk) {
@@ -64,21 +68,35 @@
             .then(function (db) {
               return new Promise(function (res, rej) {
                 var tx = db.transaction('kv', 'readonly');
-                var req = tx.objectStore('kv').get(SNAP_KEY);
-                req.onsuccess = function () {
-                  try { db.close(); } catch (e) {}
-                  res(req.result);
+                var store = tx.objectStore('kv');
+                var remaining = KEYS.length;
+                var entries = [];
+                var done = function () {
+                  remaining -= 1;
+                  if (remaining === 0) {
+                    try { db.close(); } catch (e) {}
+                    res(entries);
+                  }
                 };
-                req.onerror = function () { rej(req.error); };
+                KEYS.forEach(function (key) {
+                  var req = store.get(key);
+                  req.onsuccess = function () {
+                    entries.push({ key: key, value: req.result });
+                    done();
+                  };
+                  req.onerror = function () { rej(req.error); };
+                });
               });
             })
-            .then(function (blob) {
-              if (typeof blob !== 'string') return;
+            .then(function (entries) {
               var g = globalThis;
               var map = g.__ONEKEY_COLD_START_CACHE_MAP__;
               if (!map) { map = new Map(); g.__ONEKEY_COLD_START_CACHE_MAP__ = map; }
-              // Do NOT clobber a value a facade write may already have set.
-              if (!map.has(SNAP_KEY)) map.set(SNAP_KEY, blob);
+              entries.forEach(function (entry) {
+                if (typeof entry.value !== 'string') return;
+                // Do NOT clobber a value a facade write may already have set.
+                if (!map.has(entry.key)) map.set(entry.key, entry.value);
+              });
             })
             .catch(function () { /* best-effort: no cold paint, no harm */ });
         } catch (e) { /* storageBuckets unsupported -> no-op */ }

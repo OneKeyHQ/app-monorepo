@@ -57,6 +57,7 @@
     "perf:web:release": "node development/perf-ci/run-web-perf-release.js",
     "perf:web:release:daemon": "node development/perf-ci/run-web-perf-release-daemon.js",
     "perf:web:cold": "node development/perf-ci/run-web-cold.js",
+    "perf:web:cold:entries": "cross-env PERF_WEB_COLD_SCENARIOS=entries PERF_WEB_COLD_BUDGET_FAIL=0 node development/perf-ci/run-web-cold.js",
     "perf:web:prepare": "node development/perf-ci/run-web-perf-prepare.js",
     "perf:desktop:release": "node development/perf-ci/run-desktop-perf-release.js",
     "perf:desktop:release:daemon": "node development/perf-ci/run-desktop-perf-release-daemon.js",

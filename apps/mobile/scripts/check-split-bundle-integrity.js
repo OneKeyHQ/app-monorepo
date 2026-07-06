@@ -207,12 +207,19 @@ function transitiveClosure(manifest, startSegKey) {
  * don't belong to this runtime's manifest (avoids cross-runtime leakage when
  * scanning main vs background).
  */
-function buildModuleIndex(idMap, manifest) {
+function buildModuleIndex(idMap, manifest, runtimeLabel) {
   const index = new Map();
   const allowedSegKeys = new Set(Object.keys(manifest.segments || {}));
   for (const [segKey, entry] of Object.entries(idMap.segments || {})) {
     if (!allowedSegKeys.has(segKey)) continue;
-    const modules = entry.modules || {};
+    let modules = entry.modules || {};
+    if (entry.runtime === 'shared') {
+      const runtimeOwned =
+        runtimeLabel === 'main' ? entry.mainOwned : entry.bgOwned;
+      if (runtimeOwned) {
+        modules = runtimeOwned;
+      }
+    }
     for (const idStr of Object.keys(modules)) {
       index.set(Number(idStr), segKey);
     }
@@ -282,7 +289,7 @@ function scanRuntime({
   // resolves against main's segment definitions (from its manifest), and a
   // 'background' segment's deps resolve against bg's definitions. The actual
   // module→segment ownership lives in idMap.segments, NOT in the manifest.
-  const moduleToSegment = buildModuleIndex(idMap, manifest);
+  const moduleToSegment = buildModuleIndex(idMap, manifest, runtimeLabel);
   const eager = buildEagerIdSet(idMap, runtimeBucketNames);
 
   // id -> path (for prettier error messages). Prefer segment definitions,
@@ -332,6 +339,9 @@ function scanRuntime({
     const closure = transitiveClosure(manifest, segKey);
     const segJs = fs.readFileSync(path.join(segmentsDir, fname), 'utf8');
     const moduleDefs = parseModuleDefs(segJs);
+    const currentSegmentModuleIds = new Set(
+      moduleDefs.map(({ moduleId }) => moduleId),
+    );
 
     // Phase 3.2: any Metro default-async-require URL that the serializer
     // failed to rewrite to `seg:<key>` form will hit
@@ -372,6 +382,7 @@ function scanRuntime({
       if (ownedIdSet && !ownedIdSet.has(moduleId)) continue;
       for (const depId of deps) {
         if (eager.has(depId)) continue; // eager — always available
+        if (currentSegmentModuleIds.has(depId)) continue; // same file — OK
         const depSeg = moduleToSegment.get(depId);
         if (depSeg === segKey) continue; // same segment — OK
         if (depSeg) {

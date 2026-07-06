@@ -48,9 +48,8 @@
 // snapshot was primed from IDB; everything else fell back to defaults
 // ('skipped' is the deliberate dev-mode no-op).
 
-/* eslint-disable no-console */
-
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   flushColdStartCacheNow,
@@ -59,6 +58,7 @@ import {
   resetColdStartCache,
   writeColdStartMeta,
 } from '@onekeyhq/shared/src/storage/instance/webColdStartStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { normalizeSwapColdStartCacheSnapshot } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 
 import { globalColdStartHydrationReadyHandler } from '../states/jotai/coldStartReady';
@@ -68,10 +68,12 @@ import type { IColdStartHydrationStatus } from '../states/jotai/coldStartReady';
 // ---- Constants ----
 
 const META_KEY_PREFIX = '__meta:';
-const CTX_SNAPSHOT_KEY = 'onekey_jotai_context_atoms_snapshot';
 const BUILD_HASH_KEY = '__meta:buildHash';
 const KILL_SWITCH_LS_KEY = '__cold_start_kill__';
 const COLD_START_RESULT_GLOBAL = '__ONEKEY_COLD_START_RESULT__';
+const CTX_SNAPSHOT_KEY =
+  EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot;
+const SWR_CACHE_KEY = EAppSyncStorageKeys.onekey_swr_cache;
 // Hard cap on how long we wait for IDB before giving up and degrading to
 // defaults. The ready gate is awaited by GlobalJotaiReady on web/desktop,
 // so an unbounded await here would block React mount on a stalled IDB.
@@ -244,13 +246,27 @@ export function shouldProceedAfterReset(
 }
 
 const promise: Promise<void> = (async () => {
-  // Skip in development to avoid schema drift between code changes.
-  // Atoms will use defaults and jotaiInit will populate from JotaiStorage
-  // as today. To test cold-start manually, build a production bundle.
+  // In development, keep generic L2 context-atom hydration disabled to avoid
+  // schema drift between local code changes. We still prime the SWR blob so
+  // localhost can verify web cold-start cache paths that use usePromiseResult
+  // with swrKey. SWR entries are individually versioned by their key builders.
   if (process.env.NODE_ENV !== 'production') {
-    console.log(
-      '[ColdStartHydration] dev mode, skipping (cold-start is production-only)',
+    defaultLogger.app.appUpdate.log(
+      '[ColdStartHydration] dev mode, priming SWR only',
     );
+    try {
+      const result = await withTimeout(
+        readAllColdStartEntriesFromIdb(),
+        HYDRATION_TIMEOUT_MS,
+      );
+      const swrCache = result?.get(SWR_CACHE_KEY);
+      if (typeof swrCache === 'string') {
+        primeColdStartCacheMap([[SWR_CACHE_KEY, swrCache]]);
+      }
+    } catch {
+      // Dev-only best effort: keep the old skipped behavior if IDB is missing
+      // or slow.
+    }
     // Deliberate no-op: mark as 'skipped' so the finally block does not log
     // this as 'error' (the initial value). Keeps dev-mode skips distinct from
     // genuine IDB failures for any telemetry / debugging that inspects status.
@@ -394,10 +410,10 @@ const promise: Promise<void> = (async () => {
     setGlobal(COLD_START_RESULT_GLOBAL, status);
     globalColdStartHydrationReadyHandler.status = status;
     if (process.env.NODE_ENV !== 'production') {
-      console.log(
-        `[ColdStartHydration] ready in ${Math.round(t1 - t0)}ms`,
-        `status=${status}`,
-        `didHydrate=${didHydrate}`,
+      defaultLogger.app.appUpdate.log(
+        `[ColdStartHydration] ready in ${Math.round(
+          t1 - t0,
+        )}ms status=${status} didHydrate=${didHydrate}`,
       );
     }
     // Pass didHydrate (telemetry); GlobalJotaiReady ignores the value and

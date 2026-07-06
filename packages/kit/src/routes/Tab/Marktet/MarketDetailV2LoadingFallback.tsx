@@ -3,7 +3,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 
 function LoadingSpinner() {
