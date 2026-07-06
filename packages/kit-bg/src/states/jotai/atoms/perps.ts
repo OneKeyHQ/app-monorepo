@@ -1108,6 +1108,14 @@ export const { target: perpsLayoutStateAtom, use: usePerpsLayoutStateAtom } =
     initialValue: DEFAULT_PERPS_LAYOUT_STATE,
   });
 
+export const {
+  target: perpsPendingInfoPanelTabAtom,
+  use: usePerpsPendingInfoPanelTabAtom,
+} = globalAtom<'Positions' | 'Balances' | undefined>({
+  name: EAtomNames.perpsPendingInfoPanelTabAtom,
+  initialValue: undefined,
+});
+
 // #region Footer Ticker
 export type IPerpsFooterTickerMode = 'popular' | 'favorites' | 'none';
 

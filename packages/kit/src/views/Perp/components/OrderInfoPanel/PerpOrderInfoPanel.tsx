@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -16,14 +16,20 @@ import {
   usePerpsActiveOpenOrdersAtom,
   usePerpsActivePositionAtom,
   usePerpsActiveTwapOrdersAtom,
+  useTradeRouteViewStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsAbstractionModeAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountSummaryAtom,
+  usePerpsPendingInfoPanelTabAtom,
   useSpotActiveOpenOrdersAtom,
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -169,7 +175,45 @@ function TabBarItem({
 function PerpOrderInfoPanel() {
   const tabsRef = useRef<ITabContainerRef | null>(null);
   const actions = useHyperliquidActions();
-  const [activeTab, setActiveTab] = useState('Positions');
+  const [tradeRouteViewState] = useTradeRouteViewStateAtom();
+  const [pendingInfoPanelTab, setPendingInfoPanelTab] =
+    usePerpsPendingInfoPanelTabAtom();
+  const initialTabName =
+    tradeRouteViewState.infoPanelTab === 'Balances' ? 'Balances' : 'Positions';
+  const [activeTab, setActiveTab] = useState(initialTabName);
+
+  useEffect(() => {
+    if (activeTab !== initialTabName) {
+      tabsRef.current?.jumpToTab(initialTabName);
+      setActiveTab(initialTabName);
+    }
+  }, [activeTab, initialTabName]);
+
+  useEffect(() => {
+    if (!pendingInfoPanelTab) {
+      return;
+    }
+    tabsRef.current?.jumpToTab(pendingInfoPanelTab);
+    setActiveTab(pendingInfoPanelTab);
+    actions.current.setTradeRouteViewState({ infoPanelTab: pendingInfoPanelTab });
+    void setPendingInfoPanelTab(undefined);
+  }, [actions, pendingInfoPanelTab, setPendingInfoPanelTab]);
+
+  useEffect(() => {
+    const handler = (
+      payload: {
+        tab: 'Positions' | 'Balances';
+      },
+    ) => {
+      tabsRef.current?.jumpToTab(payload.tab);
+      setActiveTab(payload.tab);
+      actions.current.setTradeRouteViewState({ infoPanelTab: payload.tab });
+    };
+    appEventBus.on(EAppEventBusNames.PerpSwitchInfoPanelTab, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.PerpSwitchInfoPanelTab, handler);
+    };
+  }, [actions]);
 
   const handleViewTpslOrders = () => {
     tabsRef.current?.jumpToTab('Open Orders');
@@ -179,7 +223,7 @@ function PerpOrderInfoPanel() {
     <Tabs.Container
       ref={tabsRef as any}
       headerHeight={80}
-      initialTabName="Positions"
+      initialTabName={initialTabName}
       disableScroll={!platformEnv.isNative}
       onTabChange={async (tab) => {
         setActiveTab(tab.tabName);

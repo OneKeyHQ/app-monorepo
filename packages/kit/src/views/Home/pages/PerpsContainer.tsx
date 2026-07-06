@@ -29,6 +29,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import {
+  perpsPendingInfoPanelTabAtom,
   spotActiveAssetAtom,
   tradingModeAtom,
   useCurrencyPersistAtom,
@@ -71,6 +72,7 @@ const HYPER_EVM_LOGO_URI =
 const SPAN_1: React.CSSProperties = { gridColumnEnd: 'span 1' };
 const noop = () => undefined;
 type IPerpsTradeMode = 'perp' | 'spot';
+type IPerpsInfoPanelTab = 'Positions' | 'Balances';
 
 function isTradableSpotHolding(holding: IPerpsHomeHolding) {
   return Boolean(
@@ -105,7 +107,12 @@ function useOpenPerpAsset() {
   const navigation = useAppNavigation();
   const ensureHomePerpsAccount = useEnsureHomePerpsAccount();
   return useCallback(
-    (coin?: string, mode: IPerpsTradeMode = 'perp', openMarket = true) => {
+    (
+      coin?: string,
+      mode: IPerpsTradeMode = 'perp',
+      openMarket = true,
+      infoPanelTab?: IPerpsInfoPanelTab,
+    ) => {
       void (async () => {
         const activePerpsAccount = await ensureHomePerpsAccount();
         if (!activePerpsAccount) {
@@ -131,6 +138,9 @@ function useOpenPerpAsset() {
         } catch {
           return;
         }
+        if (infoPanelTab) {
+          await perpsPendingInfoPanelTabAtom.set(infoPanelTab);
+        }
         navigation.switchTab(ETabRoutes.Perp);
         if (!coin) {
           return;
@@ -140,6 +150,13 @@ function useOpenPerpAsset() {
             mode,
             coin,
           });
+          if (infoPanelTab) {
+            setTimeout(() => {
+              appEventBus.emit(EAppEventBusNames.PerpSwitchInfoPanelTab, {
+                tab: infoPanelTab,
+              });
+            }, 0);
+          }
         } catch {
           return;
         }
@@ -377,7 +394,13 @@ function PerpsHoldingsBlock({
             hyperEvmLogoUri={hyperEvmLogoUri}
             onPress={
               isTradableSpotHolding(holding)
-                ? () => openPerp(holding.spotUniverseName, 'spot', false)
+                ? () =>
+                    openPerp(
+                      holding.spotUniverseName,
+                      'spot',
+                      false,
+                      'Balances',
+                    )
                 : undefined
             }
           />
@@ -455,18 +478,26 @@ function PerpsPositionSkeletonCard() {
         <Skeleton.BodyLg w={72} />
       </XStack>
       <XStack justifyContent="space-between">
-        <Skeleton.BodyMd w={100} />
-        <XStack flex={1} justifyContent="center">
+        <XStack width={120}>
+          <Skeleton.BodyMd w={100} />
+        </XStack>
+        <XStack flex={1} alignItems="center">
           <Skeleton.BodyMd w={88} />
         </XStack>
-        <Skeleton.BodyMd w={104} />
+        <XStack width={120} alignItems="flex-end">
+          <Skeleton.BodyMd w={104} />
+        </XStack>
       </XStack>
       <XStack justifyContent="space-between">
-        <Skeleton.BodyMd w={80} />
-        <XStack flex={1} justifyContent="center">
+        <XStack width={120}>
+          <Skeleton.BodyMd w={80} />
+        </XStack>
+        <XStack flex={1} alignItems="center">
           <Skeleton.BodyMd w={88} />
         </XStack>
-        <Skeleton.BodyMd w={104} />
+        <XStack width={120} alignItems="flex-end">
+          <Skeleton.BodyMd w={104} />
+        </XStack>
       </XStack>
     </YStack>
   );
@@ -839,7 +870,13 @@ function PerpsMobileHoldingsSummary({
               hyperEvmLogoUri={HYPER_EVM_LOGO_URI}
               onPress={
                 isTradableSpotHolding(holding)
-                  ? () => openPerp(holding.spotUniverseName, 'spot', false)
+                  ? () =>
+                      openPerp(
+                        holding.spotUniverseName,
+                        'spot',
+                        false,
+                        'Balances',
+                      )
                   : undefined
               }
             />
@@ -941,7 +978,7 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
   const assetBadgeBgColor = isLong ? '$bgAccent' : '$bgCriticalStrong';
   const assetBadgeTextColor = isLong ? '$textInverse' : '$textOnColor';
   const handleOpenPerp = useCallback(() => {
-    openPerp(position.coin, 'perp', false);
+    openPerp(position.coin, 'perp', false, 'Positions');
   }, [openPerp, position.coin]);
   const leverageTypeText = intl.formatMessage({
     id:

@@ -21,10 +21,15 @@ import {
   usePerpsAbstractionModeAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountSummaryAtom,
+  usePerpsPendingInfoPanelTabAtom,
   usePerpsSpotBalancesAtom,
   useSpotActiveOpenOrdersAtom,
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
@@ -37,6 +42,7 @@ import {
   usePerpsActiveOpenOrdersAtom,
   usePerpsActivePositionAtom,
   usePerpsActiveTwapOrdersAtom,
+  useTradeRouteViewStateAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
 import { PerpOpenOrdersList } from '../components/OrderInfoPanel/List/PerpOpenOrdersList';
 import { PerpPositionsList } from '../components/OrderInfoPanel/List/PerpPositionsList';
@@ -122,7 +128,14 @@ TabBarItem.displayName = 'TabBarItem';
 
 export function PerpMobileLayout() {
   const tabBarHeight = useScrollContentTabBarOffset();
-  const [activeTab, setActiveTab] = useState<ETabName>(ETabName.Positions);
+  const [tradeRouteViewState] = useTradeRouteViewStateAtom();
+  const [pendingInfoPanelTab, setPendingInfoPanelTab] =
+    usePerpsPendingInfoPanelTabAtom();
+  const [activeTab, setActiveTab] = useState<ETabName>(
+    tradeRouteViewState.infoPanelTab === 'Balances'
+      ? ETabName.Balances
+      : ETabName.Positions,
+  );
   const [refreshing, setRefreshing] = useState(false);
   const layoutRectsRef = useRef<
     Record<string, IPerpsMobileLayoutTraceRect | undefined>
@@ -132,6 +145,44 @@ export function PerpMobileLayout() {
   const navigation =
     useAppNavigation<IModalNavigationProp<IModalPerpParamList>>();
   const actions = useHyperliquidActions();
+
+  useEffect(() => {
+    setActiveTab(
+      tradeRouteViewState.infoPanelTab === 'Balances'
+        ? ETabName.Balances
+        : ETabName.Positions,
+    );
+  }, [tradeRouteViewState.infoPanelTab]);
+
+  useEffect(() => {
+    if (!pendingInfoPanelTab) {
+      return;
+    }
+    setActiveTab(
+      pendingInfoPanelTab === 'Balances'
+        ? ETabName.Balances
+        : ETabName.Positions,
+    );
+    actions.current.setTradeRouteViewState({ infoPanelTab: pendingInfoPanelTab });
+    void setPendingInfoPanelTab(undefined);
+  }, [actions, pendingInfoPanelTab, setPendingInfoPanelTab]);
+
+  useEffect(() => {
+    const handler = (
+      payload: {
+        tab: 'Positions' | 'Balances';
+      },
+    ) => {
+      setActiveTab(
+        payload.tab === 'Balances' ? ETabName.Balances : ETabName.Positions,
+      );
+      actions.current.setTradeRouteViewState({ infoPanelTab: payload.tab });
+    };
+    appEventBus.on(EAppEventBusNames.PerpSwitchInfoPanelTab, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.PerpSwitchInfoPanelTab, handler);
+    };
+  }, [actions]);
 
   const handleViewTpslOrders = useCallback(() => {
     setActiveTab(ETabName.OpenOrders);
