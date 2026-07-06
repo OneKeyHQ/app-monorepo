@@ -38,14 +38,12 @@ const SERVICE_WORKER_MESSAGE_TYPES = {
   GET_VERSION_STATE: 'GET_VERSION_STATE',
   CHECK_VERSION: 'CHECK_VERSION',
   ACTIVATE_VERSION: 'ACTIVATE_VERSION',
-  SKIP_WAITING: 'SKIP_WAITING',
   VERSION_STATE: 'VERSION_STATE',
   UPDATE_READY: 'UPDATE_READY',
   VERSION_ACTIVATED: 'VERSION_ACTIVATED',
 };
 
 let pendingVersionActivation = '';
-let pendingServiceWorkerCodeReload = false;
 
 function formatLocaleMessage(id, defaultMessage, values) {
   return appLocale.intl.formatMessage({ id, defaultMessage }, values);
@@ -264,7 +262,7 @@ function requestServiceWorkerVersionCheck() {
   postMessageToServiceWorker(SERVICE_WORKER_MESSAGE_TYPES.CHECK_VERSION);
 }
 
-function setupServiceWorkerVersionProtocol(registration) {
+function setupServiceWorkerVersionProtocol() {
   navigator.serviceWorker.addEventListener('message', (event) => {
     const type = event.data?.type;
     const payload = event.data?.payload || {};
@@ -290,43 +288,7 @@ function setupServiceWorkerVersionProtocol(registration) {
   });
 
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (pendingServiceWorkerCodeReload) {
-      window.location.reload();
-      return;
-    }
     requestServiceWorkerVersionCheck();
-  });
-
-  const promptWaitingServiceWorker = () => {
-    const waitingWorker = registration.waiting;
-    if (!waitingWorker || !navigator.serviceWorker.controller) {
-      return;
-    }
-    showUpdateBanner(() => {
-      pendingServiceWorkerCodeReload = true;
-      waitingWorker.postMessage({
-        type: SERVICE_WORKER_MESSAGE_TYPES.SKIP_WAITING,
-      });
-      setTimeout(() => {
-        if (pendingServiceWorkerCodeReload) {
-          window.location.reload();
-        }
-      }, 3000);
-    });
-  };
-
-  promptWaitingServiceWorker();
-  registration.addEventListener('updatefound', () => {
-    const newWorker = registration.installing;
-    if (!newWorker) return;
-    newWorker.addEventListener('statechange', () => {
-      if (
-        newWorker.state === 'installed' &&
-        navigator.serviceWorker.controller
-      ) {
-        promptWaitingServiceWorker();
-      }
-    });
   });
 
   requestServiceWorkerVersionCheck();
@@ -354,7 +316,7 @@ if (
         updateViaCache: 'none',
       })
       .then((registration) => {
-        setupServiceWorkerVersionProtocol(registration);
+        setupServiceWorkerVersionProtocol();
         navigator.serviceWorker.ready
           .then(() => requestServiceWorkerVersionCheck())
           .catch(() => {});

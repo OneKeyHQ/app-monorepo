@@ -14,13 +14,14 @@ const CRITICAL_CACHE_PREFIX = 'onekey-web-critical:';
 const CRITICAL_TEMP_CACHE_PREFIX = 'onekey-web-critical-temp:';
 const STATIC_RESOURCES_CACHE = 'static-resources';
 const STATIC_RESOURCES_MAX_ENTRIES = 300;
+const STATIC_RESOURCES_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const STATIC_RESOURCE_CACHE_TIME_HEADER = 'x-onekey-cache-time';
 const PREVIOUS_VERSION_LIMIT = 1;
 
 const MESSAGE_TYPES = {
   GET_VERSION_STATE: 'GET_VERSION_STATE',
   CHECK_VERSION: 'CHECK_VERSION',
   ACTIVATE_VERSION: 'ACTIVATE_VERSION',
-  SKIP_WAITING: 'SKIP_WAITING',
   VERSION_STATE: 'VERSION_STATE',
   UPDATE_CHECKING: 'UPDATE_CHECKING',
   UPDATE_READY: 'UPDATE_READY',
@@ -270,6 +271,34 @@ async function copyCacheEntries(sourceCacheName, targetCacheName) {
   );
 }
 
+function createStaticResourceCacheResponse(response) {
+  const cachedResponse = response.clone();
+  const headers = new Headers(cachedResponse.headers);
+  headers.set(STATIC_RESOURCE_CACHE_TIME_HEADER, String(Date.now()));
+  return new Response(cachedResponse.body, {
+    status: cachedResponse.status,
+    statusText: cachedResponse.statusText,
+    headers,
+  });
+}
+
+function getStaticResourceCacheTime(response) {
+  const cacheTime = Number(
+    response.headers.get(STATIC_RESOURCE_CACHE_TIME_HEADER),
+  );
+  if (Number.isFinite(cacheTime) && cacheTime > 0) {
+    return cacheTime;
+  }
+
+  const responseTime = Date.parse(response.headers.get('Date') || '');
+  return Number.isFinite(responseTime) ? responseTime : 0;
+}
+
+function isStaticResourceCacheFresh(response) {
+  const cacheTime = getStaticResourceCacheTime(response);
+  return cacheTime > 0 && Date.now() - cacheTime <= STATIC_RESOURCES_MAX_AGE_MS;
+}
+
 async function warmStaticResourceCache(cacheName) {
   const sourceCache = await caches.open(cacheName);
   const staticCache = await caches.open(STATIC_RESOURCES_CACHE);
@@ -278,7 +307,10 @@ async function warmStaticResourceCache(cacheName) {
     requests.map(async (request) => {
       const response = await sourceCache.match(request);
       if (response) {
-        await staticCache.put(request, response);
+        await staticCache.put(
+          request,
+          createStaticResourceCacheResponse(response),
+        );
       }
     }),
   );
@@ -395,10 +427,7 @@ function getNextRetryAt() {
   return Date.now() + 5 * 60 * 1000;
 }
 
-async function checkForVersionUpdate({
-  client,
-  promoteReadyVersion = false,
-} = {}) {
+async function checkForVersionUpdate({ client } = {}) {
   if (versionCheckPromise) {
     return versionCheckPromise;
   }
@@ -460,9 +489,6 @@ async function checkForVersionUpdate({
             version: state.readyVersion,
             manifest: state.readyManifest,
           });
-          if (promoteReadyVersion) {
-            return promoteReadyVersionState(state);
-          }
           return state;
         }
         state = await clearReadyVersionState(state);
@@ -496,9 +522,6 @@ async function checkForVersionUpdate({
         version: manifest.version,
         manifest,
       });
-      if (promoteReadyVersion) {
-        return promoteReadyVersionState(nextState);
-      }
       return nextState;
     } catch (error) {
       const state = await readVersionState();
@@ -654,7 +677,7 @@ function scheduleStaticResourceCacheUpdate(event, cache, request, response) {
     return;
   }
   const updatePromise = cache
-    .put(request, response.clone())
+    .put(request, createStaticResourceCacheResponse(response))
     .then(() =>
       trimCacheEntries(STATIC_RESOURCES_CACHE, STATIC_RESOURCES_MAX_ENTRIES),
     )
@@ -668,7 +691,10 @@ async function handleScriptStyleRequest(request, event) {
     staticCache = await caches.open(STATIC_RESOURCES_CACHE);
     const staticResponse = await staticCache.match(request);
     if (staticResponse) {
-      return staticResponse;
+      if (isStaticResourceCacheFresh(staticResponse)) {
+        return staticResponse;
+      }
+      await staticCache.delete(request);
     }
   } catch {
     staticCache = undefined;
@@ -705,7 +731,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(navigationResponsePromise);
     event.waitUntil(
       navigationResponsePromise
-        .then(() => checkForVersionUpdate({ promoteReadyVersion: true }))
+        .then(() => checkForVersionUpdate())
         .catch(() => undefined),
     );
   }
@@ -715,11 +741,6 @@ self.addEventListener('message', (event) => {
   const type = event.data?.type;
   const payload = event.data?.payload || {};
   const client = event.source;
-
-  if (type === MESSAGE_TYPES.SKIP_WAITING) {
-    event.waitUntil(self.skipWaiting());
-    return;
-  }
 
   if (type === MESSAGE_TYPES.GET_VERSION_STATE) {
     event.waitUntil(
