@@ -13,9 +13,11 @@ import {
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
+import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import { useMarketTokenList } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenList';
 import { useMarketWatchlistTokenList } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
+import { buildMarketSearchTokenDetailPreview } from '../../utils/marketDetailPreview';
 
 import {
   COLUMN_WIDTH_CHANGE,
@@ -32,11 +34,15 @@ import { MarketTokenSelectorRow } from './MarketTokenSelectorRow';
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type { IMarketTimeRangeValue } from '../../../MarketHomeV2/types';
 
+type IMarketTokenSelectorItem = IMarketToken & {
+  tokenDetailPreview?: IMarketTokenDetailPreview;
+};
+
 interface IMarketTokenSelectorListProps {
   networkId: string;
   selectedCategory?: string;
   timeRange?: IMarketTimeRangeValue;
-  onItemPress: (item: IMarketToken) => void;
+  onItemPress: (item: IMarketTokenSelectorItem) => void;
   pollingInterval?: number;
   isWatchlistMode?: boolean;
   searchQuery?: string;
@@ -52,10 +58,10 @@ function TokenSelectorListView({
   onItemPress,
   emptyMessage,
 }: {
-  data: IMarketToken[];
+  data: IMarketTokenSelectorItem[];
   isLoading?: boolean;
   networkId: string;
-  onItemPress: (item: IMarketToken) => void;
+  onItemPress: (item: IMarketTokenSelectorItem) => void;
   emptyMessage?: string;
 }) {
   if (isLoading && data.length === 0) {
@@ -99,7 +105,7 @@ const WatchlistTokenSelectorList = memo(
     pollingInterval,
   }: {
     networkId: string;
-    onItemPress: (item: IMarketToken) => void;
+    onItemPress: (item: IMarketTokenSelectorItem) => void;
     pollingInterval?: number;
   }) => {
     const intl = useIntl();
@@ -142,7 +148,7 @@ const CategoryTokenSelectorList = memo(
     networkId: string;
     selectedCategory?: string;
     timeRange?: IMarketTimeRangeValue;
-    onItemPress: (item: IMarketToken) => void;
+    onItemPress: (item: IMarketTokenSelectorItem) => void;
     pollingInterval?: number;
   }) => {
     const { data, isLoading } = useMarketTokenList({
@@ -174,12 +180,16 @@ const SearchTokenSelectorList = memo(
   }: {
     searchResults: (IMarketSearchV2Token & { networkLogoURI: string })[];
     searchLoading?: boolean;
-    onItemPress: (item: IMarketToken) => void;
+    onItemPress: (item: IMarketTokenSelectorItem) => void;
     networkId: string;
   }) => {
     const intl = useIntl();
     const data = useMemo(
-      () => searchResults.map(convertSearchTokenToMarketToken),
+      () =>
+        searchResults.map((item) => ({
+          ...convertSearchTokenToMarketToken(item),
+          tokenDetailPreview: buildMarketSearchTokenDetailPreview(item),
+        })),
       [searchResults],
     );
 
