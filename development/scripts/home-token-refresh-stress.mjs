@@ -510,13 +510,6 @@ function parseCrashReport(file) {
   };
 }
 
-function formatErrorForLog(e) {
-  if (e instanceof Error) {
-    return { name: e.name };
-  }
-  return { name: typeof e };
-}
-
 function copyNativeLogTail(label) {
   try {
     const appData = getAppDataDir();
@@ -535,10 +528,9 @@ function copyNativeLogTail(label) {
     });
     fs.writeFileSync(out, result.stdout);
     return out;
-  } catch (e) {
+  } catch {
     writeEvent({
       phase: 'native-log-tail-failed',
-      error: formatErrorForLog(e),
     });
     return undefined;
   }
@@ -669,12 +661,12 @@ try {
   writeSummary('passed-no-crash-detected');
   writeEvent({ phase: 'run:done', status: 'passed-no-crash-detected' });
   console.log(`[home-token-stress] done: ${summaryPath}`);
-} catch (e) {
-  writeEvent({ phase: 'run:error', error: formatErrorForLog(e) });
+} catch {
+  writeEvent({ phase: 'run:error' });
   writeSummary(
     crashDetected ? 'failed-crash-detected' : 'failed-command-error',
   );
-  console.error(`[home-token-stress] failed: ${formatErrorForLog(e).name}`);
+  console.error('[home-token-stress] failed');
   console.error(`[home-token-stress] summary: ${summaryPath}`);
   process.exit(1);
 }
