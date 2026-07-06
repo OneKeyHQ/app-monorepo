@@ -886,6 +886,11 @@ function handleRuntimeSignal() {
         `background runtime bootId changed while transport ready: ${previousBootId} -> ${runtimePayload.bootId}`,
       );
       updateBackgroundThreadReadyPayload(runtimePayload);
+      // The new bg runtime has already signaled ready, so keep the transport
+      // ready for new calls. Old in-flight calls belonged to the previous bg
+      // JS heap and cannot receive a reliable response anymore. Do not replay
+      // generic service calls here: many are not idempotent. AsyncStorage writes
+      // are the special case that owns a request-status fence and retry loop.
       rejectQueuedCalls(reason);
       rejectPendingRemoteCalls(reason);
     }
