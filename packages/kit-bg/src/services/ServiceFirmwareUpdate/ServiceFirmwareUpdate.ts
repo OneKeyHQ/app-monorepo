@@ -1646,10 +1646,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   async completeUpdateWorkflow({
     params,
-    updateFlow,
   }: {
     params: IUpdateFirmwareWorkflowParams;
-    updateFlow: 'v1' | 'v2';
   }) {
     const updateFirmwareInfo = params.releaseResult.updateInfos?.firmware;
     const { fromFirmwareType, toFirmwareType } = updateFirmwareInfo ?? {
@@ -1664,7 +1662,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     defaultLogger.update.firmware.firmwareUpdateResult({
       deviceType: params.releaseResult.deviceType,
       transportType: hardwareTransportType,
-      updateFlow,
+      updateFlow: 'v2',
       firmwareVersions: parseFirmwareVersions(params.releaseResult),
       fromFirmwareType,
       toFirmwareType,
@@ -1681,11 +1679,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   async failUpdateWorkflow({
     params,
-    updateFlow,
     error,
   }: {
     params: IUpdateFirmwareWorkflowParams;
-    updateFlow: 'v1' | 'v2';
     error: unknown;
   }) {
     const err = toPlainErrorObject(error as any);
@@ -1697,7 +1693,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     defaultLogger.update.firmware.firmwareUpdateResult({
       deviceType: params.releaseResult.deviceType,
       transportType: hardwareTransportType,
-      updateFlow,
+      updateFlow: 'v2',
       firmwareVersions: parseFirmwareVersions(params.releaseResult),
       fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
       toFirmwareType: updateFirmwareInfo?.toFirmwareType,
@@ -1812,12 +1808,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
         await this.runUpdateWorkflowV2(params);
         await this.completeUpdateWorkflow({
           params,
-          updateFlow: 'v2',
         });
       } catch (error) {
         await this.failUpdateWorkflow({
           params,
-          updateFlow: 'v2',
           error,
         });
       }
