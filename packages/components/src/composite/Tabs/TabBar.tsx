@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { StyleSheet, View } from 'react-native';
 import Animated, {
@@ -17,15 +24,23 @@ import { useThrottledCallback } from 'use-debounce';
 import { Divider } from '../../content';
 import { ListView, ScrollView } from '../../layouts';
 import { GradientMask, SizableText, XStack, YStack } from '../../primitives';
-import { useTheme } from '../../shared/tamagui';
+import { getConfig, useTheme } from '../../shared/tamagui';
+import { getFontToken } from '../../utils/getFontSize';
 import { fs } from '../../utils/scale';
+import { webFontFamily } from '../../utils/webFontFamily';
 
-import type { IListViewRef } from '../../layouts';
-import type { ISizableTextProps, IYStackProps } from '../../primitives';
+import type { IListViewRef, IScrollViewProps } from '../../layouts';
+import type {
+  ISizableTextProps,
+  IXStackProps,
+  IYStackProps,
+} from '../../primitives';
+import type { FontSizeTokens } from '../../shared/tamagui';
 import type {
   LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  TextStyle,
 } from 'react-native';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 import type { SharedValue } from 'react-native-reanimated';
@@ -41,12 +56,16 @@ const PILL_SCROLL_CONTENT_STYLE = {
   px: '$pagePadding',
   py: '$2',
 } as const;
+const TEXT_SCROLL_CONTENT_STYLE = {
+  px: '$2',
+  py: '$2',
+} as const;
 const DIRECT_TAB_PRESS_ANIMATION_DURATION = 220;
 const DIRECT_TAB_PRESS_NATIVE_SYNC_TIMEOUT = 900;
 const DIRECT_TAB_PRESS_SETTLE_TIMEOUT = 450;
 const DIRECT_TAB_PRESS_MIN_INTERVAL = 600;
 
-export type ITabBarVariant = 'default' | 'pill';
+export type ITabBarVariant = 'default' | 'pill' | 'text';
 export type IDirectTabPressAnimationMode = 'timing' | 'instant';
 
 const animatedTextStyles = StyleSheet.create({
@@ -58,18 +77,23 @@ const animatedTextStyles = StyleSheet.create({
   },
 });
 
-function AnimatedPillText({
+function AnimatedTabBarItemText({
   name,
   index: tabIndex,
   indexDecimal,
+  variant = 'pill',
+  isFocused,
 }: {
   name: string;
   index: number;
   indexDecimal: IReadonlySharedValue<number>;
+  variant?: Exclude<ITabBarVariant, 'default'>;
+  isFocused?: boolean;
 }) {
   const theme = useTheme();
-  const activeColor = theme.textInverse.val;
-  const inactiveColor = theme.text.val;
+  const isTextVariant = variant === 'text';
+  const activeColor = isTextVariant ? theme.text.val : theme.textInverse.val;
+  const inactiveColor = isTextVariant ? theme.textSubdued.val : theme.text.val;
 
   const animatedColorStyle = useAnimatedStyle(() => {
     const color = interpolateColor(
@@ -80,9 +104,34 @@ function AnimatedPillText({
     return { color };
   });
 
+  // Text variant bumps the focused label to $headingMd; resolve the style
+  // from the font tokens so this animated path cannot drift from the
+  // SizableText fallback path rendering the same tab.
+  const baseTextStyle = useMemo(() => {
+    const sizeToken: FontSizeTokens =
+      isTextVariant && isFocused ? '$headingMd' : '$bodyLgMedium';
+    const token = getFontToken(sizeToken);
+    if (!token || typeof token !== 'object') {
+      return animatedTextStyles.text;
+    }
+    const fontWeightValue = Number(token.fontWeight ?? 500);
+    // Native maps weights to explicit faces (e.g. Roobert-SemiBold); web has
+    // no face map and uses the family stack with a CSS font-weight.
+    const faceMap = getConfig().fontsParsed.$body?.face as
+      | Partial<Record<number, { normal?: string }>>
+      | undefined;
+    const faceFamily = faceMap?.[fontWeightValue]?.normal;
+    return {
+      fontSize: token.fontSize,
+      lineHeight: token.lineHeight,
+      fontWeight: String(fontWeightValue) as TextStyle['fontWeight'],
+      fontFamily: faceFamily ?? webFontFamily,
+    } as const;
+  }, [isTextVariant, isFocused]);
+
   const combinedStyle = useMemo(
-    () => [animatedTextStyles.text, animatedColorStyle],
-    [animatedColorStyle],
+    () => [baseTextStyle, animatedColorStyle],
+    [baseTextStyle, animatedColorStyle],
   );
 
   return (
@@ -108,6 +157,14 @@ export function TabBarItem({
   const handlePress = useCallback(() => {
     onPress(name);
   }, [name, onPress]);
+
+  // Hover state for the text variant: no background change on hover, only
+  // the label color moves to $text. (Cannot use group/$group-hover here —
+  // on web `group` emits `container-type: inline-size`, which collapses the
+  // content-sized item width to zero.)
+  const [isHovered, setIsHovered] = useState(false);
+  const handleHoverIn = useCallback(() => setIsHovered(true), []);
+  const handleHoverOut = useCallback(() => setIsHovered(false), []);
 
   const resolvedTextSize = textSize ?? '$bodyLgMedium';
 
@@ -147,7 +204,7 @@ export function TabBarItem({
         {...(isFocused ? focusedTabStyle : undefined)}
       >
         {useAnimatedText ? (
-          <AnimatedPillText
+          <AnimatedTabBarItemText
             name={name}
             index={tabIndex}
             indexDecimal={indexDecimal}
@@ -156,6 +213,50 @@ export function TabBarItem({
           <SizableText
             size={resolvedTextSize}
             color={isFocused ? '$textInverse' : '$text'}
+            userSelect="none"
+          >
+            {name}
+          </SizableText>
+        )}
+      </YStack>
+    );
+  }
+
+  if (variant === 'text') {
+    // Text variant animates per-item color only — there is no indicator, so
+    // indexDecimal/index alone are enough (no readiness gate needed: both
+    // $text and $textSubdued are visible without a background from frame one).
+    const useAnimatedText =
+      indexDecimal !== undefined && tabIndex !== undefined;
+
+    return (
+      <YStack
+        testID={testID}
+        ai="center"
+        jc="center"
+        px="$3"
+        py="$1.5"
+        key={name}
+        onPress={handlePress}
+        // The animated label never reads hover state — skip the setState churn.
+        onHoverIn={useAnimatedText ? undefined : handleHoverIn}
+        onHoverOut={useAnimatedText ? undefined : handleHoverOut}
+        cursor="default"
+        {...tabItemStyle}
+        {...(isFocused ? focusedTabStyle : undefined)}
+      >
+        {useAnimatedText ? (
+          <AnimatedTabBarItemText
+            variant="text"
+            name={name}
+            index={tabIndex}
+            indexDecimal={indexDecimal}
+            isFocused={isFocused}
+          />
+        ) : (
+          <SizableText
+            size={isFocused ? '$headingMd' : resolvedTextSize}
+            color={isFocused || isHovered ? '$text' : '$textSubdued'}
             userSelect="none"
           >
             {name}
@@ -524,7 +625,8 @@ export interface ITabBarItemProps {
   // When true, the pill background is handled by AnimatedPillIndicator,
   // so TabBarItem should not render its own background color.
   animatedPillIndicator?: boolean;
-  // Provided when animatedPillIndicator is true for UI-thread text color.
+  // Provided for UI-thread text color: when animatedPillIndicator is true
+  // (pill variant) or when the text variant animates per-item color.
   indexDecimal?: SharedValue<number>;
   index?: number;
   testID?: string;
@@ -532,14 +634,18 @@ export interface ITabBarItemProps {
 
 const PILL_GRADIENT_THRESHOLD = 2;
 
-function PillTabBarContent({
+function ScrollableTabBarContent({
   tabItems,
   pillIndicator,
   renderToolbar,
+  contentContainerStyle,
+  itemsGap,
 }: {
   tabItems: React.ReactNode;
   pillIndicator?: React.ReactNode;
   renderToolbar?: React.ReactNode;
+  contentContainerStyle: IScrollViewProps['contentContainerStyle'];
+  itemsGap: IXStackProps['gap'];
 }) {
   const [showLeft, setShowLeft] = useState(false);
   const [showRight, setShowRight] = useState(false);
@@ -594,9 +700,9 @@ function PillTabBarContent({
           onScroll={handleScroll}
           onLayout={handleLayout}
           onContentSizeChange={handleContentSizeChange}
-          contentContainerStyle={PILL_SCROLL_CONTENT_STYLE}
+          contentContainerStyle={contentContainerStyle}
         >
-          <XStack position="relative" gap="$2" ai="center">
+          <XStack position="relative" gap={itemsGap} ai="center">
             {pillIndicator}
             {tabItems}
           </XStack>
@@ -692,6 +798,12 @@ export function TabBar({
   // provided — only the text rendering needs the guard.
   const useAnimatedPillIndicator =
     !!indexDecimal && variant === 'pill' && !scrollable;
+
+  // Text variant has no indicator, so animated color is item-local and safe
+  // even with a custom renderItem (props are forwarded to TabBarItem).
+  // !textSize because the animated text style hardcodes fs(16).
+  const useAnimatedTextColor =
+    !!indexDecimal && variant === 'text' && !scrollable && !textSize;
 
   const handleItemLayout = useCallback(
     (index: number, layout: IItemLayout) => {
@@ -980,6 +1092,7 @@ export function TabBar({
   );
 
   const isPill = variant === 'pill';
+  const isText = variant === 'text';
 
   const tabItems = useMemo(() => {
     if (useAnimatedDefault && animatedDefaultIndexDecimal) {
@@ -1014,9 +1127,11 @@ export function TabBar({
     // the focused tab would get textInverse (white) color with no dark
     // background behind it, making the label invisible on cold start.
     const pillIndicatorReady = itemsLayout.length === tabNames.length;
+    const hasAnimatedIndicator =
+      useAnimatedPillIndicator && !!renderItem && pillIndicatorReady;
+    const shouldPassAnimatedProps =
+      hasAnimatedIndicator || useAnimatedTextColor;
     return tabNames.map((name, index) => {
-      const hasAnimatedIndicator =
-        useAnimatedPillIndicator && !!renderItem && pillIndicatorReady;
       const itemNode = renderItem ? (
         renderItem(
           {
@@ -1028,8 +1143,8 @@ export function TabBar({
             variant,
             textSize,
             animatedPillIndicator: hasAnimatedIndicator,
-            indexDecimal: hasAnimatedIndicator ? indexDecimal : undefined,
-            index: hasAnimatedIndicator ? index : undefined,
+            indexDecimal: shouldPassAnimatedProps ? indexDecimal : undefined,
+            index: shouldPassAnimatedProps ? index : undefined,
           },
           index,
         )
@@ -1043,6 +1158,8 @@ export function TabBar({
           focusedTabStyle={focusedTabStyle}
           variant={variant}
           textSize={textSize}
+          indexDecimal={useAnimatedTextColor ? indexDecimal : undefined}
+          index={useAnimatedTextColor ? index : undefined}
         />
       );
       // Wrap with onLayout to collect layout data for animated pill indicator
@@ -1060,12 +1177,18 @@ export function TabBar({
           </View>
         );
       }
+      // renderItem output may lack a key (ITabBarItemProps has no key field),
+      // so key it here to keep the mapped array keyed by tab name.
+      if (renderItem) {
+        return <Fragment key={name}>{itemNode}</Fragment>;
+      }
       return itemNode;
     });
   }, [
     useAnimatedDefault,
     useAnimatedPill,
     useAnimatedPillIndicator,
+    useAnimatedTextColor,
     animatedDefaultIndexDecimal,
     indexDecimal,
     currentTab,
@@ -1098,12 +1221,18 @@ export function TabBar({
     if (scrollable) {
       return null;
     }
-    if (isPill) {
+    // Text variant reuses the pill scroll container (horizontal ScrollView +
+    // gradient masks + toolbar row); pillIndicator is already null for it.
+    if (isPill || isText) {
       return (
-        <PillTabBarContent
+        <ScrollableTabBarContent
           tabItems={tabItems}
           pillIndicator={pillIndicator}
           renderToolbar={renderToolbar?.({ focusedTab: currentTab })}
+          contentContainerStyle={
+            isText ? TEXT_SCROLL_CONTENT_STYLE : PILL_SCROLL_CONTENT_STYLE
+          }
+          itemsGap={isText ? undefined : '$2'}
         />
       );
     }
@@ -1143,6 +1272,7 @@ export function TabBar({
     currentTab,
     divider,
     isPill,
+    isText,
     pillIndicator,
     renderToolbar,
     scrollable,
