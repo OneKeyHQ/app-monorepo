@@ -1,12 +1,7 @@
 {
   "description": "浏览器存储、剪贴板、cookie、文件读取等隐私相关 API",
   "resources": {
-    "@onekeyhq/core>@alephium/web3": {
-      "globals": {
-        "FileReader": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>cross-fetch": {
+    "@onekeyhq/core>@ckb-lumos/ckb-indexer>cross-fetch": {
       "globals": {
         "FileReader": true
       }

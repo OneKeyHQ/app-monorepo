@@ -98,13 +98,6 @@
     "value": true
   },
   {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/core>@alephium/web3",
-    "type": "global",
-    "value": true
-  },
-  {
     "category": "network",
     "name": "fetch",
     "resource": "@onekeyhq/core>@alephium/web3",
@@ -112,37 +105,16 @@
     "value": true
   },
   {
-    "category": "storage-privacy",
-    "name": "FileReader",
-    "resource": "@onekeyhq/core>@alephium/web3",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "XMLHttpRequest",
-    "resource": "@onekeyhq/core>@alephium/web3",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "FileReader",
-    "resource": "@onekeyhq/core>@alephium/web3>cross-fetch",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "XMLHttpRequest",
-    "resource": "@onekeyhq/core>@alephium/web3>cross-fetch",
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "@onekeyhq/core>@alephium/web3>@noble/curves>@noble/hashes",
     "type": "global",
     "value": true
   },
   {
     "category": "crypto-random",
     "name": "crypto",
-    "resource": "@onekeyhq/core>@alephium/web3>crypto-browserify>randomfill",
+    "resource": "@onekeyhq/core>@alephium/web3>@noble/secp256k1",
     "type": "global",
     "value": true
   },
@@ -206,6 +178,20 @@
     "category": "code-execution",
     "name": "WebAssembly",
     "resource": "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/base>blake2b>blake2b-wasm",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "FileReader",
+    "resource": "@onekeyhq/core>@ckb-lumos/ckb-indexer>cross-fetch",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "XMLHttpRequest",
+    "resource": "@onekeyhq/core>@ckb-lumos/ckb-indexer>cross-fetch",
     "type": "global",
     "value": true
   },
@@ -332,13 +318,6 @@
     "category": "network",
     "name": "fetch",
     "resource": "@onekeyhq/core>@solana/web3.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/core>@solana/web3.js>@noble/curves>@noble/hashes",
     "type": "global",
     "value": true
   },
@@ -890,7 +869,21 @@
   },
   {
     "category": "extension-desktop-bridge",
+    "name": "desktopApi.channel",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
     "name": "desktopApi.nobleBle.checkAvailability",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApi.platform",
     "resource": "@onekeyhq/kit-bg",
     "type": "global",
     "value": true
@@ -1039,20 +1032,6 @@
     "category": "dom-injection-navigation",
     "name": "location.pathname",
     "resource": "@onekeyhq/kit>expo-camera>expo",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document.createElement",
-    "resource": "@onekeyhq/kit>expo-camera>expo>expo-font",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document.createElement",
-    "resource": "@onekeyhq/kit>expo-camera>expo>expo-font>fontfaceobserver",
     "type": "global",
     "value": true
   },
@@ -1325,6 +1304,13 @@
   {
     "category": "extension-desktop-bridge",
     "name": "desktopApi.platform",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApi.processStartAt",
     "resource": "@onekeyhq/shared",
     "type": "global",
     "value": true
@@ -1955,7 +1941,7 @@
   {
     "category": "network",
     "name": "fetch",
-    "resource": "external:../../node_modules/@onekeyfe/hwk-trezor-connector/dist/index.mjs",
+    "resource": "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs",
     "type": "global",
     "value": true
   },
@@ -3167,6 +3153,13 @@
     "category": "crypto-random",
     "name": "crypto.getRandomValues",
     "resource": "external:../../node_modules/ox/_esm/core/Bytes.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "external:../../node_modules/randomfill/browser.js",
     "type": "global",
     "value": true
   },

@@ -73,16 +73,6 @@
         "WebAssembly": true
       }
     },
-    "external:../../node_modules/@sentry-internal/replay-canvas/build/npm/esm/index.js": {
-      "globals": {
-        "Worker": true
-      }
-    },
-    "external:../../node_modules/@sentry-internal/replay/build/npm/esm/index.js": {
-      "globals": {
-        "Worker": true
-      }
-    },
     "external:../../node_modules/@sentry/browser/build/npm/esm/eventbuilder.js": {
       "globals": {
         "WebAssembly": true

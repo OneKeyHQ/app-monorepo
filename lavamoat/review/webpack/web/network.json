@@ -13,13 +13,7 @@
     },
     "@onekeyhq/core>@alephium/web3": {
       "globals": {
-        "fetch": true,
-        "XMLHttpRequest": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>cross-fetch": {
-      "globals": {
-        "XMLHttpRequest": true
+        "fetch": true
       }
     },
     "@onekeyhq/core>@aptos-labs/ts-sdk": {
@@ -30,6 +24,11 @@
     "@onekeyhq/core>@aptos-labs/ts-sdk>@aptos-labs/script-composer-pack": {
       "globals": {
         "fetch": true
+      }
+    },
+    "@onekeyhq/core>@ckb-lumos/ckb-indexer>cross-fetch": {
+      "globals": {
+        "XMLHttpRequest": true
       }
     },
     "@onekeyhq/core>@glif/filecoin-address>ethers>@ethersproject/providers": {
@@ -191,7 +190,7 @@
         "XMLHttpRequest": true
       }
     },
-    "external:../../node_modules/@onekeyfe/hwk-trezor-connector/dist/index.mjs": {
+    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": {
       "globals": {
         "fetch": true
       }
