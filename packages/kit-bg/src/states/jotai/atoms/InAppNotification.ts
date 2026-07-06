@@ -14,6 +14,7 @@ export type IInAppNotificationAtom = {
   swapHistoryPendingList: (ISwapTxHistory | null | undefined)[];
   swapLimitOrders: IFetchLimitOrderRes[];
   swapLimitOrdersLoading: boolean;
+  swapLimitOrdersAccountIdKey?: string;
   swapApprovingTransaction: ISwapApproveTransaction | undefined;
   speedSwapApprovingTransaction: ISwapApproveTransaction | undefined;
   speedSwapApprovingLoading: boolean;
@@ -39,6 +40,7 @@ export const { target: inAppNotificationAtom, use: useInAppNotificationAtom } =
       swapHistoryPendingList: [],
       swapLimitOrders: [],
       swapLimitOrdersLoading: false,
+      swapLimitOrdersAccountIdKey: undefined,
       swapApprovingTransaction: undefined,
       speedSwapApprovingTransaction: undefined,
       swapRecentTokenPairs: [],
