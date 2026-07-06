@@ -8,6 +8,7 @@
  */
 import BigNumber from 'bignumber.js';
 
+import { TOKEN_LIST_HIGH_VALUE_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
@@ -227,5 +228,92 @@ describe('buildMergedAllNetworkSnapshot', () => {
     expect(snap.orderedTokens.map((t) => t.$key)).toEqual([
       'btc--0_xpubabc_native',
     ]);
+  });
+
+  it('uses aggregate fiat when partitioning the zero-value tail', () => {
+    const aggregateBtc = makeToken('aggregate_BTC_', {
+      symbol: 'BTC',
+      isAggregateToken: true,
+      order: 2,
+    });
+    const zeroToken = makeToken('zero', { order: 1 });
+
+    const snap = buildMergedAllNetworkSnapshot({
+      rounds: [
+        makeRound({
+          networkId: 'btc--0',
+          tokens: {
+            data: [aggregateBtc, zeroToken],
+            keys: 'kbtc',
+            map: { zero: makeFiat('0') },
+          },
+          aggregateTokenMap: {
+            aggregate_BTC_: makeFiat('100', {
+              balance: '1',
+              balanceParsed: '1',
+            }),
+          },
+          aggregateTokenListMap: {
+            aggregate_BTC_: {
+              tokens: [makeToken('btc-sub', { networkId: 'btc--0' })],
+            },
+          },
+        }),
+      ],
+      mergeDeriveAssetsByNetworkId: {},
+      accountId: 'acc1',
+    });
+
+    expect(snap.orderedTokens.map((t) => t.$key)).toEqual([
+      'aggregate_BTC_',
+      'zero',
+    ]);
+  });
+
+  it('includes aggregate fiat in the small-balance scalar', () => {
+    const highValueTokens = Array.from(
+      { length: TOKEN_LIST_HIGH_VALUE_MAX },
+      (_, index) => makeToken(`token-${index}`),
+    );
+    const aggregateBtc = makeToken('aggregate_BTC_', {
+      symbol: 'BTC',
+      isAggregateToken: true,
+    });
+
+    const snap = buildMergedAllNetworkSnapshot({
+      rounds: [
+        makeRound({
+          networkId: 'btc--0',
+          tokens: {
+            data: [...highValueTokens, aggregateBtc],
+            keys: 'kbtc',
+            map: Object.fromEntries(
+              highValueTokens.map((token, index) => [
+                token.$key,
+                makeFiat(`${TOKEN_LIST_HIGH_VALUE_MAX - index + 1}`),
+              ]),
+            ),
+          },
+          aggregateTokenMap: {
+            aggregate_BTC_: makeFiat('1', {
+              balance: '0.01',
+              balanceParsed: '0.01',
+            }),
+          },
+          aggregateTokenListMap: {
+            aggregate_BTC_: {
+              tokens: [makeToken('btc-sub', { networkId: 'btc--0' })],
+            },
+          },
+        }),
+      ],
+      mergeDeriveAssetsByNetworkId: {},
+      accountId: 'acc1',
+    });
+
+    expect(snap.smallBalanceTokens.map((t) => t.$key)).toEqual([
+      'aggregate_BTC_',
+    ]);
+    expect(snap.smallBalanceFiatValue).toBe('1');
   });
 });

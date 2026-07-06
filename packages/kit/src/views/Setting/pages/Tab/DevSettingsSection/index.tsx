@@ -1493,11 +1493,11 @@ const BaseDevSettingsSection = () => {
                             isUncontrolled
                             size={ESwitchSize.small}
                             defaultChecked={
-                              !!devSettings.settings?.showPerformanceMonitor
+                              !!devSettings.settings?.showPerformanceMonitorV2
                             }
                             onChange={(v) => {
                               void backgroundApiProxy.serviceDevSetting.updateDevSetting(
-                                'showPerformanceMonitor',
+                                'showPerformanceMonitorV2',
                                 v,
                               );
                               setTimeout(() => {

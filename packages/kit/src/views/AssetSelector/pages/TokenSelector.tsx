@@ -37,6 +37,10 @@ import type { IAssetSelectorParamList } from '@onekeyhq/shared/src/routes';
 import { EAssetSelectorRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED,
@@ -82,6 +86,23 @@ type ITokenSelectorSearchFilterContext =
   | 'all-token'
   | 'wallet-token'
   | 'dapp-token';
+
+type ITokenSelectorNormalViewSnapshot = {
+  tokenList: {
+    tokens: IAccountToken[];
+    smallBalanceTokens: IAccountToken[];
+  };
+  tokenListMap: Record<string, ITokenFiat>;
+  aggregateTokenListMap: Record<string, { tokens: IAccountToken[] }>;
+  aggregateTokenFiatMap: Record<string, ITokenFiat>;
+};
+
+type ITokenSelectorScopedViewSnapshot = {
+  tokenList: IScopedActiveTokenList;
+  tokenListMap: Record<string, ITokenFiat>;
+};
+
+const TOKEN_SELECTOR_VIEW_CACHE_MAX_TOKEN_ROWS = 300;
 
 type ITokenSelectorHeaderRightProps = {
   showDeFiTokenSwitch?: boolean;
@@ -174,6 +195,151 @@ function isSameSelectorTokenListRequestContext(
   );
 }
 
+function readTokenSelectorViewSnapshot<T>(key: string | undefined) {
+  return key ? swrCacheUtils.get<T>(key) : undefined;
+}
+
+function writeTokenSelectorViewSnapshot<T>({
+  key,
+  snapshot,
+}: {
+  key: string | undefined;
+  snapshot: T;
+}) {
+  if (key) {
+    swrCacheUtils.set(key, snapshot);
+  }
+}
+
+function hasNormalTokenSelectorSnapshotData(
+  snapshot: ITokenSelectorNormalViewSnapshot | undefined,
+) {
+  return Boolean(
+    snapshot &&
+    (snapshot.tokenList.tokens.length > 0 ||
+      snapshot.tokenList.smallBalanceTokens.length > 0),
+  );
+}
+
+function getNormalTokenSelectorSnapshotRowCount(
+  snapshot: ITokenSelectorNormalViewSnapshot,
+) {
+  return (
+    snapshot.tokenList.tokens.length +
+    snapshot.tokenList.smallBalanceTokens.length
+  );
+}
+
+function getScopedTokenSelectorSnapshotRowCount(
+  snapshot: ITokenSelectorScopedViewSnapshot,
+) {
+  return snapshot.tokenList.tokens.length;
+}
+
+function isTokenSelectorViewCacheSizeSafe(rowCount: number) {
+  return rowCount <= TOKEN_SELECTOR_VIEW_CACHE_MAX_TOKEN_ROWS;
+}
+
+function readNormalTokenSelectorViewSnapshot(key: string | undefined) {
+  const snapshot =
+    readTokenSelectorViewSnapshot<ITokenSelectorNormalViewSnapshot>(key);
+  if (
+    snapshot &&
+    !isTokenSelectorViewCacheSizeSafe(
+      getNormalTokenSelectorSnapshotRowCount(snapshot),
+    )
+  ) {
+    if (key) {
+      swrCacheUtils.remove(key);
+    }
+    return undefined;
+  }
+  return snapshot;
+}
+
+function readScopedTokenSelectorViewSnapshot(key: string | undefined) {
+  const snapshot =
+    readTokenSelectorViewSnapshot<ITokenSelectorScopedViewSnapshot>(key);
+  if (
+    snapshot &&
+    !isTokenSelectorViewCacheSizeSafe(
+      getScopedTokenSelectorSnapshotRowCount(snapshot),
+    )
+  ) {
+    if (key) {
+      swrCacheUtils.remove(key);
+    }
+    return undefined;
+  }
+  return snapshot;
+}
+
+function writeNormalTokenSelectorViewSnapshot({
+  key,
+  snapshot,
+}: {
+  key: string | undefined;
+  snapshot: ITokenSelectorNormalViewSnapshot;
+}) {
+  if (!key) {
+    return;
+  }
+  if (
+    !isTokenSelectorViewCacheSizeSafe(
+      getNormalTokenSelectorSnapshotRowCount(snapshot),
+    )
+  ) {
+    swrCacheUtils.remove(key);
+    return;
+  }
+  writeTokenSelectorViewSnapshot({ key, snapshot });
+}
+
+function writeScopedTokenSelectorViewSnapshot({
+  key,
+  snapshot,
+}: {
+  key: string | undefined;
+  snapshot: ITokenSelectorScopedViewSnapshot;
+}) {
+  if (!key) {
+    return;
+  }
+  if (
+    !isTokenSelectorViewCacheSizeSafe(
+      getScopedTokenSelectorSnapshotRowCount(snapshot),
+    )
+  ) {
+    swrCacheUtils.remove(key);
+    return;
+  }
+  writeTokenSelectorViewSnapshot({ key, snapshot });
+}
+
+function buildNormalTokenSelectorViewSnapshot({
+  tokenList,
+  tokenListMap,
+  aggregateTokenListMap,
+  aggregateTokenFiatMap,
+}: ITokenSelectorNormalViewSnapshot): ITokenSelectorNormalViewSnapshot {
+  return {
+    tokenList,
+    tokenListMap,
+    aggregateTokenListMap,
+    aggregateTokenFiatMap,
+  };
+}
+
+function buildScopedTokenSelectorViewSnapshot({
+  tokenList,
+  tokenListMap,
+}: ITokenSelectorScopedViewSnapshot): ITokenSelectorScopedViewSnapshot {
+  return {
+    tokenList,
+    tokenListMap,
+  };
+}
+
 function TokenSelector() {
   const intl = useIntl();
   const { updateCreateAccountState, updateProcessingTokenState } =
@@ -249,18 +415,168 @@ function TokenSelector() {
       ? 'dapp-token'
       : 'wallet-token';
   }
+
+  const tokenSelectorFilterParams = useMemo(
+    () =>
+      showTokenSelectorFilter
+        ? buildTokenSelectorDappTokenFilterParams({
+            lpToken: showLpTokensOnly,
+          })
+        : {},
+    [showLpTokensOnly, showTokenSelectorFilter],
+  );
+
+  const showActiveAccountTokenList = useMemo(() => {
+    if (!activeAccountId || !activeNetworkId) {
+      return false;
+    }
+
+    if (forceShowActiveAccountTokenList) {
+      return true;
+    }
+
+    return activeAccountId !== accountId && activeNetworkId !== networkId;
+  }, [
+    activeAccountId,
+    activeNetworkId,
+    accountId,
+    forceShowActiveAccountTokenList,
+    networkId,
+  ]);
+
+  const mergeDeriveAddressData =
+    !!selectorVaultSettings?.mergeDeriveAssetsEnabled &&
+    !!indexedAccountId &&
+    !accountUtils.isOthersAccount({ accountId });
+  const homeTokenListSnapshot = useHomeTokenListSnapshot();
+  const useSelectorFilteredTokenList =
+    !!showTokenSelectorFilter && showLpTokensOnly;
+  const effectiveShowActiveAccountTokenList =
+    showActiveAccountTokenList || useSelectorFilteredTokenList;
+  const effectiveHideZeroBalanceTokens =
+    showTokenSelectorFilter && showLpTokensOnly ? false : hideZeroBalanceTokens;
+
+  const normalTokenSelectorViewSWRKey = useMemo(
+    () =>
+      !effectiveShowActiveAccountTokenList && accountId && networkId
+        ? swrKeys.tokenSelectorView({
+            ownerMode: 'normal',
+            filterMode: tokenSelectorSearchFilterContext,
+            accountId,
+            networkId,
+            indexedAccountId,
+            isAllNetworks: !!isSelectorAllNetworks,
+            mergeDeriveAddressData,
+          })
+        : undefined,
+    [
+      accountId,
+      effectiveShowActiveAccountTokenList,
+      indexedAccountId,
+      isSelectorAllNetworks,
+      mergeDeriveAddressData,
+      networkId,
+      tokenSelectorSearchFilterContext,
+    ],
+  );
+
+  const filteredTokenSelectorViewSWRKey = useMemo(
+    () =>
+      useSelectorFilteredTokenList &&
+      !showActiveAccountTokenList &&
+      accountId &&
+      networkId
+        ? swrKeys.tokenSelectorView({
+            ownerMode: 'filtered',
+            filterMode: tokenSelectorSearchFilterContext,
+            accountId,
+            networkId,
+            indexedAccountId,
+            isAllNetworks: !!isSelectorAllNetworks,
+            mergeDeriveAddressData,
+          })
+        : undefined,
+    [
+      accountId,
+      indexedAccountId,
+      isSelectorAllNetworks,
+      mergeDeriveAddressData,
+      networkId,
+      showActiveAccountTokenList,
+      tokenSelectorSearchFilterContext,
+      useSelectorFilteredTokenList,
+    ],
+  );
+
+  const activeAccountTokenSelectorViewSWRKey = useMemo(
+    () =>
+      showActiveAccountTokenList && activeAccountId && activeNetworkId
+        ? swrKeys.tokenSelectorView({
+            ownerMode: 'active-account',
+            filterMode: tokenSelectorSearchFilterContext,
+            accountId: activeAccountId,
+            networkId: activeNetworkId,
+            indexedAccountId,
+            activeAccountId,
+            activeNetworkId,
+            isAllNetworks: !!isSelectorAllNetworks,
+            mergeDeriveAddressData,
+          })
+        : undefined,
+    [
+      activeAccountId,
+      activeNetworkId,
+      indexedAccountId,
+      isSelectorAllNetworks,
+      mergeDeriveAddressData,
+      showActiveAccountTokenList,
+      tokenSelectorSearchFilterContext,
+    ],
+  );
+
+  const routeTokenSelectorCache = useMemo<ITokenSelectorNormalViewSnapshot>(
+    () =>
+      buildNormalTokenSelectorViewSnapshot({
+        tokenList: {
+          tokens: [],
+          smallBalanceTokens: [],
+        },
+        tokenListMap: {},
+        aggregateTokenListMap: {},
+        aggregateTokenFiatMap: {},
+      }),
+    [],
+  );
+
+  const initialNormalTokenSelectorSnapshot = useMemo(
+    () =>
+      readNormalTokenSelectorViewSnapshot(normalTokenSelectorViewSWRKey) ??
+      routeTokenSelectorCache,
+    [normalTokenSelectorViewSWRKey, routeTokenSelectorCache],
+  );
+
+  const initialScopedTokenSelectorSnapshot = useMemo(
+    () =>
+      readScopedTokenSelectorViewSnapshot(
+        activeAccountTokenSelectorViewSWRKey,
+      ) ?? readScopedTokenSelectorViewSnapshot(filteredTokenSelectorViewSWRKey),
+    [activeAccountTokenSelectorViewSWRKey, filteredTokenSelectorViewSWRKey],
+  );
+
   const [scopedActiveTokenList, setScopedActiveTokenList] =
-    useState<IScopedActiveTokenList>({
-      tokens: [],
-      keys: '',
-    });
+    useState<IScopedActiveTokenList>(
+      initialScopedTokenSelectorSnapshot?.tokenList ?? {
+        tokens: [],
+        keys: '',
+      },
+    );
   const [scopedActiveTokenListMap, setScopedActiveTokenListMap] = useState<
     Record<string, ITokenFiat>
-  >({});
+  >(initialScopedTokenSelectorSnapshot?.tokenListMap ?? {});
   const [scopedActiveTokenListState, setScopedActiveTokenListState] =
     useState<IScopedActiveTokenListState>({
       isRefreshing: false,
-      initialized: false,
+      initialized: !!initialScopedTokenSelectorSnapshot,
     });
   const [isLpTokenSwitchLoading, setIsLpTokenSwitchLoading] = useState(false);
   const [searchTokenState, setSearchTokenState] = useState({
@@ -272,6 +588,20 @@ function TokenSelector() {
     filterContext: ITokenSelectorSearchFilterContext;
   }>({ tokens: [], searchKey: '', filterContext: 'all-token' });
   const latestSearchRequestContextRef = useRef('');
+  const lastTokenSelectorErrorToastAtRef = useRef(0);
+
+  const showFetchTokenListErrorToast = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTokenSelectorErrorToastAtRef.current < 2000) {
+      return;
+    }
+    lastTokenSelectorErrorToastAtRef.current = now;
+    Toast.error({
+      title: intl.formatMessage({
+        id: ETranslations.global_network_error,
+      }),
+    });
+  }, [intl]);
 
   // PR-3 (tokenList cells full-delete): the selector self-fetches its displayed
   // list + fiat map + owned-aggregate map and threads them as props into
@@ -282,57 +612,42 @@ function TokenSelector() {
   const [selectorTokenList, setSelectorTokenList] = useState<{
     tokens: IAccountToken[];
     smallBalanceTokens: IAccountToken[];
-  }>({ tokens: [], smallBalanceTokens: [] });
+  }>(initialNormalTokenSelectorSnapshot.tokenList);
   const [selectorTokenListMap, setSelectorTokenListMap] = useState<
     Record<string, ITokenFiat>
-  >({});
+  >(initialNormalTokenSelectorSnapshot.tokenListMap);
   const [selectorAggregateTokenListMap, setSelectorAggregateTokenListMap] =
-    useState<Record<string, { tokens: IAccountToken[] }>>({});
+    useState<Record<string, { tokens: IAccountToken[] }>>(
+      initialNormalTokenSelectorSnapshot.aggregateTokenListMap,
+    );
   // PR-6: the flattened ($key -> summed ITokenFiat) aggregate fiat map for the
-  // selector's aggregate rows. Each self-fetch response's `aggregateTokenMap`
-  // is FLAT and scoped to that response's networkId (one response per network
-  // in all-networks mode); the merge nests them by networkId and re-flattens
+  // selector's all-networks rows. The self-fetch response's `aggregateTokenMap`
+  // is FLAT per single-network request; we nest it by networkId and re-flatten
   // with the SAME sum semantics the home `flattenAggregateTokensMapAtom` uses
-  // so the aggregate selector rows resolve real balance/value/price (the
-  // per-row `tokenSelectorTokenListMap` does NOT carry aggregate `$key` fiat).
-  // Threaded into TokenListView as `tokenSelectorAggregateTokenFiatMap`.
+  // so the aggregate (all-networks) selector rows resolve real balance/value/
+  // price (the per-row `tokenSelectorTokenListMap` does NOT carry aggregate
+  // `$key` fiat). Threaded into TokenListView as `tokenSelectorAggregateTokenFiatMap`.
   const [selectorAggregateTokenFiatMap, setSelectorAggregateTokenFiatMap] =
-    useState<Record<string, ITokenFiat>>({});
+    useState<Record<string, ITokenFiat>>(
+      initialNormalTokenSelectorSnapshot.aggregateTokenFiatMap,
+    );
   // PR-3: `false` until the self-fetch below resolves the first time. Threaded
   // into TokenListView so the selector shows a skeleton (or its per-owner
   // cached list) until the self-fetch lands instead of flashing EmptyToken —
   // the home tokenList mirror keeps `tokenListState.initialized === true`, so
   // TokenListView cannot infer "selector not yet fetched" on its own.
-  const [selectorInitialized, setSelectorInitialized] = useState(false);
-  // SWR floor bookkeeping: `floorSeeded` marks the home-VM snapshot paint (so
-  // the live self-fetch does not flash the skeleton over it), `liveLanded`
-  // marks the live fan-out commit (so a late-resolving floor pull can never
-  // clobber fresh live data).
+  const [selectorInitialized, setSelectorInitialized] = useState(
+    hasNormalTokenSelectorSnapshotData(initialNormalTokenSelectorSnapshot),
+  );
   const selectorFloorSeededRef = useRef(false);
   const selectorLiveLandedRef = useRef(false);
-  // Owner-scope the floor bookkeeping: both refs are one-way latches, so if
-  // the selector owner ever changes while this instance stays MOUNTED the
-  // stale latches would silently skip the skeleton reset (previous owner's
-  // list stays on screen) and permanently disable the floor for the new
-  // owner. Today every known owner switch remounts the selector (fresh refs);
-  // this guards the invariant instead of relying on it.
   const selectorFloorOwnerKeyRef = useRef('');
-  const selectorFloorOwnerKey = `${accountId ?? ''}__${networkId ?? ''}`;
+  const selectorFloorOwnerKey = [accountId ?? '', networkId ?? ''].join('__');
   if (selectorFloorOwnerKeyRef.current !== selectorFloorOwnerKey) {
     selectorFloorOwnerKeyRef.current = selectorFloorOwnerKey;
     selectorFloorSeededRef.current = false;
     selectorLiveLandedRef.current = false;
   }
-
-  const tokenSelectorFilterParams = useMemo(
-    () =>
-      showTokenSelectorFilter
-        ? buildTokenSelectorDappTokenFilterParams({
-            lpToken: showLpTokensOnly,
-          })
-        : {},
-    [showLpTokensOnly, showTokenSelectorFilter],
-  );
 
   const handleLpTokenFilterChange = useCallback(
     (value: boolean) => {
@@ -417,13 +732,11 @@ function TokenSelector() {
 
         const { tokenHasBalance, tokenHasBalanceCount } =
           checkIsOnlyOneTokenHasBalance({
-            // `selectorTokenListMap` carries the per-network sub-token fiat
-            // (`r.tokens.map` ∪ `r.smallBalanceTokens.map`, keyed by sub-token
-            // `$key`) PLUS aggregate `$key` fiat composed in for the zero-balance
-            // filter (live path) / the composed home map (floor path).
-            // `checkIsOnlyOneTokenHasBalance` only looks up the sub-token `$key`s
-            // in `aggregateTokenList`, so the extra aggregate entries are inert
-            // here. Replaces the deleted home `allTokenListMapAtom` read.
+            // The selector self-fetches its per-row fiat map (`r.tokens.map` ∪
+            // `r.smallBalanceTokens.map`), which is keyed by the per-network
+            // sub-token `$key` — exactly what `checkIsOnlyOneTokenHasBalance`
+            // iterates (red-team C-F2: NOT the summed aggregate map). Replaces
+            // the deleted home `allTokenListMapAtom` read.
             tokenMap: selectorTokenListMap,
             aggregateTokenList,
             allAggregateTokenList,
@@ -740,38 +1053,77 @@ function TokenSelector() {
     ],
   );
 
-  const showActiveAccountTokenList = useMemo(() => {
-    if (!activeAccountId || !activeNetworkId) {
+  const applyNormalTokenSelectorSnapshot = useCallback(
+    (snapshot: ITokenSelectorNormalViewSnapshot) => {
+      setSelectorTokenList(snapshot.tokenList);
+      setSelectorTokenListMap(snapshot.tokenListMap);
+      setSelectorAggregateTokenListMap(snapshot.aggregateTokenListMap);
+      setSelectorAggregateTokenFiatMap(snapshot.aggregateTokenFiatMap);
+      setSelectorInitialized(true);
+    },
+    [],
+  );
+
+  const applyScopedTokenSelectorSnapshot = useCallback(
+    ({
+      snapshot,
+      state,
+    }: {
+      snapshot: ITokenSelectorScopedViewSnapshot;
+      state: IScopedActiveTokenListState;
+    }) => {
+      setScopedActiveTokenList(snapshot.tokenList);
+      setScopedActiveTokenListMap(snapshot.tokenListMap);
+      setScopedActiveTokenListState(state);
+    },
+    [],
+  );
+
+  const restoreCachedNormalTokenSelectorSnapshot = useCallback(() => {
+    const cachedSnapshot =
+      readNormalTokenSelectorViewSnapshot(normalTokenSelectorViewSWRKey) ??
+      routeTokenSelectorCache;
+    if (!hasNormalTokenSelectorSnapshotData(cachedSnapshot)) {
       return false;
     }
-
-    if (forceShowActiveAccountTokenList) {
-      return true;
-    }
-
-    return activeAccountId !== accountId && activeNetworkId !== networkId;
+    applyNormalTokenSelectorSnapshot(cachedSnapshot);
+    return true;
   }, [
-    activeAccountId,
-    activeNetworkId,
-    accountId,
-    forceShowActiveAccountTokenList,
-    networkId,
+    applyNormalTokenSelectorSnapshot,
+    normalTokenSelectorViewSWRKey,
+    routeTokenSelectorCache,
   ]);
 
-  const mergeDeriveAddressData =
-    !!selectorVaultSettings?.mergeDeriveAssetsEnabled &&
-    !!indexedAccountId &&
-    !accountUtils.isOthersAccount({ accountId });
-  // Home-owner list snapshot PULLed from the BG per-owner ViewModel (same
-  // channel WalletActions uses). Feeds the SWR floor below; EMPTY when the
-  // home VM has no entry for the mirrored owner.
-  const homeTokenListSnapshot = useHomeTokenListSnapshot();
-  const useSelectorFilteredTokenList =
-    !!showTokenSelectorFilter && showLpTokensOnly;
-  const effectiveShowActiveAccountTokenList =
-    showActiveAccountTokenList || useSelectorFilteredTokenList;
-  const effectiveHideZeroBalanceTokens =
-    showTokenSelectorFilter && showLpTokensOnly ? false : hideZeroBalanceTokens;
+  useEffect(() => {
+    if (effectiveShowActiveAccountTokenList) {
+      return;
+    }
+    restoreCachedNormalTokenSelectorSnapshot();
+  }, [
+    effectiveShowActiveAccountTokenList,
+    restoreCachedNormalTokenSelectorSnapshot,
+  ]);
+
+  useEffect(() => {
+    const scopedKey =
+      activeAccountTokenSelectorViewSWRKey ?? filteredTokenSelectorViewSWRKey;
+    const snapshot = readScopedTokenSelectorViewSnapshot(scopedKey);
+    if (!snapshot) {
+      return;
+    }
+    applyScopedTokenSelectorSnapshot({
+      snapshot,
+      state: {
+        initialized: true,
+        isRefreshing: false,
+      },
+    });
+  }, [
+    activeAccountTokenSelectorViewSWRKey,
+    applyScopedTokenSelectorSnapshot,
+    filteredTokenSelectorViewSWRKey,
+  ]);
+
   const latestSelectorTokenListRequestContextRef =
     useRef<ISelectorTokenListRequestContext>({
       accountId: accountId ?? '',
@@ -833,28 +1185,61 @@ function TokenSelector() {
       return;
     }
 
-    setScopedActiveTokenListState({
-      initialized: false,
-      isRefreshing: true,
-    });
-    setScopedActiveTokenList({
-      tokens: [],
-      keys: '',
-    });
-    setScopedActiveTokenListMap({});
+    const cachedSnapshot = readScopedTokenSelectorViewSnapshot(
+      filteredTokenSelectorViewSWRKey,
+    );
+    const hasRestoredSnapshot = Boolean(cachedSnapshot);
+    if (cachedSnapshot) {
+      applyScopedTokenSelectorSnapshot({
+        snapshot: cachedSnapshot,
+        state: {
+          initialized: true,
+          isRefreshing: true,
+        },
+      });
+    } else {
+      setScopedActiveTokenListState({
+        initialized: false,
+        isRefreshing: true,
+      });
+      setScopedActiveTokenList({
+        tokens: [],
+        keys: '',
+      });
+      setScopedActiveTokenListMap({});
+    }
 
     try {
-      const { responses } = await fetchFilteredTokenSelectorTokens({
-        accountId,
-        networkId,
-        indexedAccountId,
-        isAllNetworks: !!isSelectorAllNetworks,
-        mergeDeriveAddressData,
-        onlyBackendIndexedNetworks: showLpTokensOnly,
-        tokenSelectorFilterParams,
-      });
+      const { responses, expectedResponseCount } =
+        await fetchFilteredTokenSelectorTokens({
+          accountId,
+          networkId,
+          indexedAccountId,
+          isAllNetworks: !!isSelectorAllNetworks,
+          mergeDeriveAddressData,
+          onlyBackendIndexedNetworks: showLpTokensOnly,
+          tokenSelectorFilterParams,
+        });
 
       if (!isLatestRequest()) {
+        return;
+      }
+
+      const isIncompleteAllNetworksFanOut =
+        isSelectorAllNetworks && responses.length < expectedResponseCount;
+      if (isIncompleteAllNetworksFanOut) {
+        if (hasRestoredSnapshot) {
+          setScopedActiveTokenListState({
+            initialized: true,
+            isRefreshing: false,
+          });
+        } else {
+          setScopedActiveTokenListState({
+            initialized: true,
+            isRefreshing: false,
+          });
+          showFetchTokenListErrorToast();
+        }
         return;
       }
 
@@ -867,16 +1252,32 @@ function TokenSelector() {
           keySuffix: tokenFilterKeySuffix,
         });
 
-      setScopedActiveTokenList(tokenList);
-      setScopedActiveTokenListMap(tokenListMap);
+      const snapshot = buildScopedTokenSelectorViewSnapshot({
+        tokenList,
+        tokenListMap,
+      });
+      applyScopedTokenSelectorSnapshot({
+        snapshot,
+        state: {
+          initialized: true,
+          isRefreshing: false,
+        },
+      });
+      writeScopedTokenSelectorViewSnapshot({
+        key: filteredTokenSelectorViewSWRKey,
+        snapshot,
+      });
     } catch (e) {
-      console.error(e);
-    } finally {
       if (isLatestRequest()) {
         setScopedActiveTokenListState({
           initialized: true,
           isRefreshing: false,
         });
+        showFetchTokenListErrorToast();
+      }
+      console.error(e);
+    } finally {
+      if (isLatestRequest()) {
         setIsLpTokenSwitchLoading(false);
       }
     }
@@ -884,12 +1285,15 @@ function TokenSelector() {
     activeAccountId,
     activeNetworkId,
     accountId,
+    applyScopedTokenSelectorSnapshot,
+    filteredTokenSelectorViewSWRKey,
     indexedAccountId,
     isSelectorAllNetworks,
     mergeDeriveAddressData,
     networkId,
     showActiveAccountTokenList,
     showLpTokensOnly,
+    showFetchTokenListErrorToast,
     tokenSelectorFilterParams,
     useSelectorFilteredTokenList,
   ]);
@@ -918,15 +1322,28 @@ function TokenSelector() {
         return;
       }
 
-      setScopedActiveTokenListState({
-        initialized: false,
-        isRefreshing: true,
-      });
-      setScopedActiveTokenList({
-        tokens: [],
-        keys: '',
-      });
-      setScopedActiveTokenListMap({});
+      const cachedSnapshot = readScopedTokenSelectorViewSnapshot(
+        activeAccountTokenSelectorViewSWRKey,
+      );
+      if (cachedSnapshot) {
+        applyScopedTokenSelectorSnapshot({
+          snapshot: cachedSnapshot,
+          state: {
+            initialized: true,
+            isRefreshing: true,
+          },
+        });
+      } else {
+        setScopedActiveTokenListState({
+          initialized: false,
+          isRefreshing: true,
+        });
+        setScopedActiveTokenList({
+          tokens: [],
+          keys: '',
+        });
+        setScopedActiveTokenListMap({});
+      }
 
       try {
         if (showLpTokensOnly) {
@@ -967,17 +1384,26 @@ function TokenSelector() {
           return;
         }
 
-        setScopedActiveTokenList({
-          tokens: [...r.tokens.data, ...r.smallBalanceTokens.data],
-          keys: `${r.tokens.keys}_${r.smallBalanceTokens.keys}`,
+        const snapshot = buildScopedTokenSelectorViewSnapshot({
+          tokenList: {
+            tokens: [...r.tokens.data, ...r.smallBalanceTokens.data],
+            keys: `${r.tokens.keys}_${r.smallBalanceTokens.keys}`,
+          },
+          tokenListMap: {
+            ...r.tokens.map,
+            ...r.smallBalanceTokens.map,
+          },
         });
-        setScopedActiveTokenListMap({
-          ...r.tokens.map,
-          ...r.smallBalanceTokens.map,
+        applyScopedTokenSelectorSnapshot({
+          snapshot,
+          state: {
+            isRefreshing: false,
+            initialized: true,
+          },
         });
-        setScopedActiveTokenListState({
-          isRefreshing: false,
-          initialized: true,
+        writeScopedTokenSelectorViewSnapshot({
+          key: activeAccountTokenSelectorViewSWRKey,
+          snapshot,
         });
 
         // Update network value cache so ChainSelector shows fresh values on back
@@ -1007,6 +1433,14 @@ function TokenSelector() {
             },
           );
         }
+      } catch {
+        if (isLatestRequest()) {
+          setScopedActiveTokenListState({
+            isRefreshing: false,
+            initialized: true,
+          });
+          showFetchTokenListErrorToast();
+        }
       } finally {
         if (isLatestRequest()) {
           setIsLpTokenSwitchLoading(false);
@@ -1017,27 +1451,23 @@ function TokenSelector() {
     }
   }, [
     activeAccountId,
+    activeAccountTokenSelectorViewSWRKey,
     activeNetworkId,
     accountId,
+    applyScopedTokenSelectorSnapshot,
     indexedAccountId,
     isSelectorAllNetworks,
     mergeDeriveAddressData,
     networkId,
     showActiveAccountTokenList,
     showLpTokensOnly,
+    showFetchTokenListErrorToast,
     tokenSelectorFilterParams,
     useSelectorFilteredTokenList,
   ]);
 
-  // SWR floor: when the selector owner IS the home owner (Send/Receive opened
-  // from home), the BG per-owner ViewModel already holds the exact list home is
-  // showing — paint it immediately instead of holding the skeleton for the
-  // full live fan-out (which on all-networks costs one request per enabled
-  // network). The snapshot pull is the same channel WalletActions uses
-  // (`useHomeTokenListSnapshot`); owner mismatch or a cold VM falls back to
-  // the skeleton path unchanged. Risky rows ride the VM raw list, so they are
-  // filtered with the risky set before seeding (the selector never offers
-  // risky tokens).
+  // When opened from home for the same owner, seed the selector from the home
+  // ViewModel snapshot instead of waiting for the full selector fetch.
   useEffect(() => {
     if (
       effectiveShowActiveAccountTokenList ||
@@ -1068,9 +1498,6 @@ function TokenSelector() {
             networkId,
           }),
         ]);
-        // Bail if the live data already landed OR a newer owner superseded this
-        // floor pull mid-flight (same staleness idiom the live self-fetch uses):
-        // either way this floor snapshot is stale and must not clobber state.
         if (
           selectorLiveLandedRef.current ||
           latestSelectorTokenListRequestContextRef.current.accountId !==
@@ -1083,44 +1510,25 @@ function TokenSelector() {
         const riskyTokenKeys = new Set(
           frames.riskyTokens.map((token) => token.$key),
         );
-        // Seed the floor in the VM raw-list order VERBATIM (risky rows filtered
-        // out): the raw blob is `orderedTokens ++ smallBalanceTokens` in the
-        // exact per-owner order the SAME ingest feeds home — server order for a
-        // single-network owner, the already-merged fiat order for an
-        // all-networks owner. The live selector replaces this floor with
-        // `buildSelectorTokenListFromResponses`, whose single-network branch
-        // returns that server order VERBATIM (no re-sort) and whose
-        // all-networks branch reproduces the merged fiat order; keeping the
-        // snapshot order therefore matches the live order for BOTH cases. A
-        // fiat re-sort here would only match the all-networks live branch and
-        // would reshuffle a single-network owner whose display order is not
-        // pure fiat (pinned defaults / custom tokens) the moment the live
-        // verbatim list lands.
-        setSelectorTokenList({
-          tokens: snapshot.tokens.filter(
-            (token) => !riskyTokenKeys.has(token.$key),
-          ),
-          smallBalanceTokens: [],
-        });
-        // `snapshot.map` is the composed home map (tokenListMap + riskyMap +
-        // flattened aggregate fiat), so it serves BOTH the per-row map and the
-        // aggregate `$key` fiat lookups.
-        setSelectorTokenListMap(snapshot.map);
-        setSelectorAggregateTokenFiatMap(snapshot.map);
-        // Aggregate membership MUST ride the SAME structure frame the floor
-        // rows come from: `getTokenListFrames` is home's atomic per-owner
-        // snapshot, whereas the simpleDb copy (`getLocalAggregateTokenListMap`)
-        // is home's LAST settled write and can lag the VM by a round. Reading
-        // simpleDb here would pair the fresh structure rows with a stale/empty
-        // member map, so aggregate row clicks and the single-owned-sub-token
-        // auto-select would resolve against outdated membership. Fall back to
-        // simpleDb only when the structure frame itself is absent (cold VM).
-        setSelectorAggregateTokenListMap(
-          frames.structure?.ownedAggregateTokenListMap ??
+        const floorSnapshot = buildNormalTokenSelectorViewSnapshot({
+          tokenList: {
+            tokens: snapshot.tokens.filter(
+              (token) => !riskyTokenKeys.has(token.$key),
+            ),
+            smallBalanceTokens: [],
+          },
+          tokenListMap: snapshot.map,
+          aggregateTokenListMap:
+            frames.structure?.ownedAggregateTokenListMap ??
             localAggregateTokenListMap ??
             {},
-        );
-        setSelectorInitialized(true);
+          aggregateTokenFiatMap: snapshot.map,
+        });
+        applyNormalTokenSelectorSnapshot(floorSnapshot);
+        writeNormalTokenSelectorViewSnapshot({
+          key: normalTokenSelectorViewSWRKey,
+          snapshot: floorSnapshot,
+        });
       } catch (e) {
         console.error(e);
       }
@@ -1130,6 +1538,8 @@ function TokenSelector() {
     accountId,
     networkId,
     effectiveShowActiveAccountTokenList,
+    applyNormalTokenSelectorSnapshot,
+    normalTokenSelectorViewSWRKey,
   ]);
 
   // PR-3 selector self-fetch: on the NORMAL selector path (not the
@@ -1148,11 +1558,13 @@ function TokenSelector() {
       return;
     }
     if (!accountId || !networkId) {
-      setSelectorTokenList({ tokens: [], smallBalanceTokens: [] });
-      setSelectorTokenListMap({});
-      setSelectorAggregateTokenListMap({});
-      setSelectorAggregateTokenFiatMap({});
-      setSelectorInitialized(true);
+      if (!restoreCachedNormalTokenSelectorSnapshot()) {
+        setSelectorTokenList({ tokens: [], smallBalanceTokens: [] });
+        setSelectorTokenListMap({});
+        setSelectorAggregateTokenListMap({});
+        setSelectorAggregateTokenFiatMap({});
+        setSelectorInitialized(true);
+      }
       return;
     }
 
@@ -1174,30 +1586,22 @@ function TokenSelector() {
         requestContext,
       );
 
-    // Reset to `false` while (re)fetching for a new owner so TokenListView
-    // shows a skeleton (or the per-owner cache) instead of the previous owner's
-    // list for a frame — unless the SWR floor already painted the home
-    // snapshot; then keep it on screen until the live data replaces it. Also
-    // drop the previous owner's list/maps here: the `finally` below always
-    // lifts the skeleton (`setSelectorInitialized(true)`) even when this fetch
-    // throws or is canceled, so without the reset a failed live fetch for a new
-    // owner would re-expose the prior owner's rows instead of an empty state.
-    // The floor-seeded branch is excluded on purpose — it deliberately keeps
-    // its painted list until the live data lands.
-    if (!selectorFloorSeededRef.current) {
-      setSelectorInitialized(false);
+    if (!isLatestRequest()) {
+      return;
+    }
+
+    const hasRestoredSnapshot = restoreCachedNormalTokenSelectorSnapshot();
+    if (!hasRestoredSnapshot && !selectorFloorSeededRef.current) {
+      // Reset to `false` while fetching a new owner with no view snapshot so
+      // TokenListView skeletons instead of showing the previous owner's rows.
       setSelectorTokenList({ tokens: [], smallBalanceTokens: [] });
       setSelectorTokenListMap({});
       setSelectorAggregateTokenListMap({});
       setSelectorAggregateTokenFiatMap({});
+      setSelectorInitialized(false);
     }
 
     try {
-      // All-networks owners carry the mock account/network
-      // (AllNetworkMockAddress / onekeyall--*), which `fetchAccountTokens`
-      // forwards to the wallet API verbatim — the server rejects it. Fan out
-      // per real network instead (same enumeration + child requests the
-      // LP/scoped branch uses) and merge the per-network responses.
       const [fanOut, localAggregateTokenListMap, aggregateTokenRawData] =
         await Promise.all([
           isSelectorAllNetworks
@@ -1223,9 +1627,6 @@ function TokenSelector() {
             accountId,
             networkId,
           }),
-          // All-networks child responses carry RAW rows — aggregation is
-          // client-side authority in that mode (same aggregate config walk the
-          // home per-network handler runs).
           isSelectorAllNetworks
             ? backgroundApiProxy.simpleDb.aggregateToken.getRawData()
             : Promise.resolve(undefined),
@@ -1236,104 +1637,81 @@ function TokenSelector() {
       }
 
       const { responses, expectedResponseCount } = fanOut;
-
-      // The all-networks fan-out runs continue-on-error, so a failed child
-      // network is silently DROPPED from `responses` rather than throwing.
-      // `responses.length < expectedResponseCount` therefore means this round is
-      // INCOMPLETE — it is missing one or more networks' tokens (total failure,
-      // where zero networks answered, is just the extreme case). It must NOT be
-      // treated as an authoritative full snapshot. (Single-network / derive
-      // paths report `expectedResponseCount === responses.length`, so they never
-      // trip this.)
       const isIncompleteAllNetworksFanOut =
         isSelectorAllNetworks && responses.length < expectedResponseCount;
 
-      // An incomplete round must not overwrite an already-painted floor: the SWR
-      // home snapshot is COMPLETE, so keep it on screen instead of replacing it
-      // with a gap-ridden live list. Re-ARM the floor latch so a later home
-      // structure frame re-seeds it with fresh, full data; `liveLanded` stays
-      // unset (cleared together with the latch) so the floor effect is not
-      // permanently short-circuited, which would pin the selector on the stale
-      // floor until the owner changes or the page reopens.
-      if (isIncompleteAllNetworksFanOut && selectorFloorSeededRef.current) {
+      if (
+        isIncompleteAllNetworksFanOut &&
+        (selectorFloorSeededRef.current || hasRestoredSnapshot)
+      ) {
         selectorFloorSeededRef.current = false;
         return;
       }
 
-      // Each response's `aggregateTokenMap` is FLAT ($key -> ITokenFiat) and
-      // scoped to that response's networkId; the merge nests them by networkId
-      // then flattens with the home sum semantics so aggregate rows resolve
-      // correct fiat in TokenListView. Aggregate common rows dedupe by $key
-      // across the per-network responses.
       const merged = buildSelectorTokenListFromResponses({
         responses,
         aggregateTokenConfigMapRawData:
           aggregateTokenRawData?.aggregateTokenConfigMap,
       });
-
-      setSelectorTokenList({
-        tokens: merged.tokens,
-        smallBalanceTokens: merged.smallBalanceTokens,
-      });
-      // TokenListView's selector path resolves EVERY per-row fiat lookup —
-      // including the hideZeroBalanceTokens filter — from this map only (its
-      // `aggregateTokenMap` binding is the HOST prop, empty on the selector
-      // path); `tokenSelectorAggregateTokenFiatMap` feeds row display. Compose
-      // the aggregate `$key` fiat in so aggregate rows survive the
-      // zero-balance filter (Send passes hideZeroBalanceTokens).
-      setSelectorTokenListMap({
-        ...merged.tokenListMap,
-        ...merged.aggregateTokenFiatMap,
-      });
-      // All-networks: the freshly folded member map is the authority (the local
-      // simpleDb copy is home's LAST write — absent until home settles once).
-      // Single-network: responses carry server-aggregated rows without member
-      // metadata, so the home-written local map remains the source.
-      setSelectorAggregateTokenListMap(
+      const aggregateTokenListMap =
         isSelectorAllNetworks &&
-          Object.keys(merged.aggregateTokenListMap).length > 0
+        Object.keys(merged.aggregateTokenListMap).length > 0
           ? merged.aggregateTokenListMap
-          : (localAggregateTokenListMap ?? {}),
-      );
-      setSelectorAggregateTokenFiatMap(merged.aggregateTokenFiatMap);
-      // Only LATCH live-landed for a COMPLETE round. An incomplete fan-out with
-      // no floor to fall back on is still shown as a best-effort list (better
-      // than an indefinite skeleton), but leaving the latch unset lets a later
-      // home structure frame seed the missing networks through the floor effect
-      // instead of pinning this partial list. Complete rounds (and every
-      // single-network round) latch as before, so the floor stops re-seeding.
+          : (localAggregateTokenListMap ?? {});
+      const snapshot = buildNormalTokenSelectorViewSnapshot({
+        tokenList: {
+          tokens: merged.tokens,
+          smallBalanceTokens: merged.smallBalanceTokens,
+        },
+        tokenListMap: {
+          ...merged.tokenListMap,
+          ...merged.aggregateTokenFiatMap,
+        },
+        aggregateTokenListMap,
+        aggregateTokenFiatMap: merged.aggregateTokenFiatMap,
+      });
+      applyNormalTokenSelectorSnapshot(snapshot);
       if (!isIncompleteAllNetworksFanOut) {
+        writeNormalTokenSelectorViewSnapshot({
+          key: normalTokenSelectorViewSWRKey,
+          snapshot,
+        });
         selectorLiveLandedRef.current = true;
       }
     } catch (e) {
-      // A superseded/aborted fetch is routine (same distinction the home
-      // TokenListBlock catch makes) — don't log it at error level.
       if (e instanceof CanceledError) {
         console.log('token selector fetchAccountTokens canceled');
       } else {
         console.error(e);
+        if (isLatestRequest()) {
+          showFetchTokenListErrorToast();
+        }
+      }
+      if (isLatestRequest()) {
+        void restoreCachedNormalTokenSelectorSnapshot();
       }
     } finally {
-      // Always leave the skeleton, even when the fetch failed — an unhandled
-      // throw here used to keep `selectorInitialized` false forever, pinning
-      // the selector on the skeleton with no self-recovery.
       if (isLatestRequest()) {
         setSelectorInitialized(true);
       }
     }
   }, [
-    accountId,
-    networkId,
-    indexedAccountId,
     activeAccountId,
     activeNetworkId,
+    accountId,
+    effectiveShowActiveAccountTokenList,
+    indexedAccountId,
     isSelectorAllNetworks,
     mergeDeriveAddressData,
-    showLpTokensOnly,
-    useSelectorFilteredTokenList,
+    networkId,
+    normalTokenSelectorViewSWRKey,
+    applyNormalTokenSelectorSnapshot,
+    restoreCachedNormalTokenSelectorSnapshot,
     showActiveAccountTokenList,
-    effectiveShowActiveAccountTokenList,
+    showFetchTokenListErrorToast,
+    showLpTokensOnly,
     tokenSelectorFilterParams,
+    useSelectorFilteredTokenList,
   ]);
 
   useEffect(() => {
