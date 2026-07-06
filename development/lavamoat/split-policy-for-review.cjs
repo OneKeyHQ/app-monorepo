@@ -506,8 +506,9 @@ function createReviewIndex(summaries) {
       '',
     );
     const target = policyRelativeToLavamoat.replace(/\/policy\.json$/, '');
+    const policyLink = toPosixPath(path.join('..', policyRelativeToLavamoat));
     lines.push(
-      `| \`${target}\` | ${getTargetLabel(target)} | [policy](${policyRelativeToLavamoat}) | ${summary.totalResources} | ${summary.highRiskResources} | ${summary.highRiskEntries} | ${summary.packageEdgesToRiskyResources} |`,
+      `| \`${target}\` | ${getTargetLabel(target)} | [policy](${policyLink}) | ${summary.totalResources} | ${summary.highRiskResources} | ${summary.highRiskEntries} | ${summary.packageEdgesToRiskyResources} |`,
     );
   }
 
@@ -559,7 +560,7 @@ function createReviewIndex(summaries) {
     );
     const target = policyRelativeToLavamoat.replace(/\/policy\.json$/, '');
     const reviewDir = path.dirname(policyRelativeToLavamoat);
-    const link = (name) => toPosixPath(path.join('review', reviewDir, name));
+    const link = (name) => toPosixPath(path.join(reviewDir, name));
     const categoryLinks = riskRules
       .map((rule) => `[${rule.category}](${link(`${rule.category}.json`)})`)
       .join(' / ');
@@ -624,7 +625,7 @@ writeJson(path.join(reviewRoot, 'summary.json'), {
   policies: summaries,
   totalPolicies: summaries.length,
 });
-writeText(path.join(lavamoatRoot, 'README.review.md'), createReviewIndex(summaries));
+writeText(path.join(reviewRoot, 'README.review.md'), createReviewIndex(summaries));
 
 console.log(
   `Generated LavaMoat review files for ${summaries.length} policies.`,
