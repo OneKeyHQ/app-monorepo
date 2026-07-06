@@ -164,16 +164,6 @@ function getActionPositionSources(
   return [position, ...sourcePositions, ...assets];
 }
 
-function hasDebt(position: IDeFiProtocol['positions'][number]) {
-  return (
-    position.debts.some((debt) => isPositiveAmount(debt.amount)) ||
-    (position.sourcePositions?.some((sourcePosition) =>
-      sourcePosition.debts.some((debt) => isPositiveAmount(debt.amount)),
-    ) ??
-      false)
-  );
-}
-
 function getPrimarySuppliedAsset(
   position: IDeFiProtocol['positions'][number],
 ): IDeFiAsset | undefined {
@@ -223,7 +213,10 @@ function getAaveBorrowManageParams({
   actionType: 'withdraw' | 'repay';
   markets: IBorrowMarketItem[] | undefined;
 }): IBorrowManageParams | undefined {
-  if (!isAaveProtocol(protocol.protocol) || !hasDebt(position)) {
+  if (
+    !isAaveProtocol(protocol.protocol) ||
+    !defiActionUtils.positionHasDebts(position)
+  ) {
     return undefined;
   }
 
@@ -551,7 +544,9 @@ const ProtocolPositionActionButton = memo(
       [position, protocol, shouldResolveActionButtons, supportedActions],
     );
     const hasAaveDebt = useMemo(
-      () => isAaveProtocol(protocol.protocol) && hasDebt(position),
+      () =>
+        isAaveProtocol(protocol.protocol) &&
+        defiActionUtils.positionHasDebts(position),
       [position, protocol.protocol],
     );
     // Borrow-stack whitelist for the current environment. Only fetched for

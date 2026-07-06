@@ -138,6 +138,29 @@ function getLendingColumnHeaderLabel({
   });
 }
 
+// Highlight a percent preset only when the typed amount lands exactly on it
+// (Max → 100%); a free-typed amount matches nothing. `maxBN` is the actionable
+// max the percent is measured against (supplied balance or fillable repay).
+function resolveSelectedAmountPercent({
+  isMaxAmount,
+  isAmountPositive,
+  amountBN,
+  maxBN,
+}: {
+  isMaxAmount: boolean;
+  isAmountPositive: boolean;
+  amountBN: BigNumber;
+  maxBN: BigNumber;
+}): number {
+  if (isMaxAmount) return 100;
+  if (!isAmountPositive || !maxBN.gt(0)) return 0;
+  const pct = amountBN.div(maxBN).multipliedBy(100);
+  return (
+    LENDING_PERCENT_PRESETS.find((preset) => pct.minus(preset).abs().lt(0.5)) ??
+    0
+  );
+}
+
 // The fiat sub-line for a defi selector row: the balance's value at the asset's
 // price, formatted to the display currency. Undefined when the price is missing
 // so the row falls back to the balance alone.
@@ -441,18 +464,12 @@ function ProtocolLendingActionDefiContent({
     ? amountBN.multipliedBy(selectedAsset?.asset.price ?? 0).toFixed()
     : '0';
 
-  // Highlight a preset only when the typed amount lands exactly on it (Max →
-  // 100%); a free-typed amount highlights nothing.
-  let selectedAmountPercent = 0;
-  if (isMaxAmount) {
-    selectedAmountPercent = 100;
-  } else if (isAmountPositive && availableBN.gt(0)) {
-    const pct = amountBN.div(availableBN).multipliedBy(100);
-    selectedAmountPercent =
-      LENDING_PERCENT_PRESETS.find((preset) =>
-        pct.minus(preset).abs().lt(0.5),
-      ) ?? 0;
-  }
+  const selectedAmountPercent = resolveSelectedAmountPercent({
+    isMaxAmount,
+    isAmountPositive,
+    amountBN,
+    maxBN: availableBN,
+  });
 
   // The withdraw prefill is an untouched Max default; first focus clears it so
   // the user can type. A Max the user pressed deliberately (preset row) is never
@@ -850,16 +867,12 @@ function ProtocolLendingActionBorrowContent({
     : repayAmountState.isFullClose;
   const isAmountInsufficient =
     !isWithdraw && repayAmountState.isAmountInsufficient;
-  let selectedAmountPercent = 0;
-  if (isMaxAmount) {
-    selectedAmountPercent = 100;
-  } else if (isAmountPositive && valueForMaxBN.gt(0)) {
-    const pct = amountBN.div(valueForMaxBN).multipliedBy(100);
-    selectedAmountPercent =
-      LENDING_PERCENT_PRESETS.find((preset) =>
-        pct.minus(preset).abs().lt(0.5),
-      ) ?? 0;
-  }
+  const selectedAmountPercent = resolveSelectedAmountPercent({
+    isMaxAmount,
+    isAmountPositive,
+    amountBN,
+    maxBN: valueForMaxBN,
+  });
 
   const handleAmountChange = (next: string) => {
     if (!validateAmountInput(next, effectiveDecimals)) return;
