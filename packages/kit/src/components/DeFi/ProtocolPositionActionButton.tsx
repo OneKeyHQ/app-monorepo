@@ -11,9 +11,12 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Button, SizableText, XStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import defiActionUtils from '@onekeyhq/shared/src/utils/defiActionUtils';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
   EDeFiPositionAction,
   type IDeFiAsset,
@@ -22,11 +25,13 @@ import {
   type IDeFiUnknownRecord,
   type IResolvedDeFiPositionAction,
 } from '@onekeyhq/shared/types/defi';
+import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
 import {
   type IProtocolLendingActionType,
   showProtocolLendingActionDialog,
 } from './ProtocolLendingActionDialog';
+import { findSupportedBorrowMarket } from './protocolLendingActionUtils';
 import {
   type IProtocolPositionActionSuccessParams,
   getActionLabel,
@@ -209,12 +214,14 @@ function getAaveBorrowManageParams({
   manageAsset,
   providerDisplayInfo,
   actionType,
+  markets,
 }: {
   protocol: Pick<IDeFiProtocol, 'networkId' | 'protocol'>;
   position: IDeFiProtocol['positions'][number];
   manageAsset?: IDeFiAsset;
   providerDisplayInfo?: IProtocolPositionProviderDisplayInfo;
   actionType: 'withdraw' | 'repay';
+  markets: IBorrowMarketItem[] | undefined;
 }): IBorrowManageParams | undefined {
   if (!isAaveProtocol(protocol.protocol) || !hasDebt(position)) {
     return undefined;
@@ -281,10 +288,31 @@ function getAaveBorrowManageParams({
     return undefined;
   }
 
+  // Environment gate: only route into the /earn/v1/borrow/* stack when the
+  // current environment's markets list actually supports this market.
+  // Fail-closed — no whitelist match (including markets still loading or the
+  // fetch having failed) keeps the generic DeFi action path.
+  if (
+    !findSupportedBorrowMarket({
+      markets,
+      provider,
+      networkId: protocol.networkId,
+      marketAddress,
+    })
+  ) {
+    return undefined;
+  }
+
   return {
     provider,
-    marketAddress,
-    reserveAddress,
+    marketAddress: earnUtils.normalizeBorrowAddress({
+      networkId: protocol.networkId,
+      address: marketAddress,
+    }),
+    reserveAddress: earnUtils.normalizeBorrowAddress({
+      networkId: protocol.networkId,
+      address: reserveAddress,
+    }),
     symbol,
     logoURI: targetAsset?.meta?.logoUrl,
     providerDisplayName:
@@ -524,6 +552,22 @@ const ProtocolPositionActionButton = memo(
       () => isAaveProtocol(protocol.protocol) && hasDebt(position),
       [position, protocol.protocol],
     );
+    // Borrow-stack whitelist for the current environment. Only fetched for
+    // Aave debt positions (the sole borrow-dialog entry); the service call is
+    // promise-memoized so per-row instances share one request. initResult []
+    // + error-keeps-last-result = fail-closed while loading or on error.
+    const { result: borrowMarkets } = usePromiseResult(
+      async () => {
+        if (!hasAaveDebt) {
+          return [];
+        }
+        return backgroundApiProxy.serviceStaking.getBorrowMarkets();
+      },
+      [hasAaveDebt],
+      // Repo precedent for typed empty initResult: ProtocolLendingActionDialog
+      // :692 (`assets: [] as IBorrowAsset[]`). Never let it infer never[].
+      { initResult: [] as IBorrowMarketItem[] },
+    );
     // Removing an LP that holds rewards also claims them — drives the
     // "Remove" vs "Remove & Claim rewards" label.
     const hasRewards = useMemo(
@@ -546,8 +590,9 @@ const ProtocolPositionActionButton = memo(
           manageAsset,
           providerDisplayInfo,
           actionType: 'withdraw',
+          markets: borrowMarkets,
         }),
-      [manageAsset, position, protocol, providerDisplayInfo],
+      [manageAsset, position, protocol, providerDisplayInfo, borrowMarkets],
     );
     const repayManageParams = useMemo(
       () =>
@@ -557,8 +602,9 @@ const ProtocolPositionActionButton = memo(
           manageAsset,
           providerDisplayInfo,
           actionType: 'repay',
+          markets: borrowMarkets,
         }),
-      [manageAsset, position, protocol, providerDisplayInfo],
+      [manageAsset, position, protocol, providerDisplayInfo, borrowMarkets],
     );
     const fallbackBlockingActions = useMemo(
       () => (shouldResolveActionButtons ? actions : []),
