@@ -18,6 +18,10 @@ import { useThrottledCallback } from 'use-debounce';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
@@ -190,6 +194,16 @@ function WebModalNavigator({
   }, [navigation, goBackCall]);
 
   useBackHandler(handleBackPress, true, false);
+
+  // Let SplashProvider know the modal chunk is on screen: the ext standalone
+  // window keeps its splash up until this fires, so the Home tab never
+  // flashes through while the lazy-loaded modal navigator is fetched.
+  useEffect(() => {
+    if (platformEnv.isExtensionUiStandaloneWindow) {
+      (globalThis as any).$$onekeyExtModalNavigatorMounted = true;
+      appEventBus.emit(EAppEventBusNames.ModalNavigatorMounted, undefined);
+    }
+  }, []);
 
   const handleBackdropClick = useThrottledCallback(() => {
     if (descriptor.options.dismissOnOverlayPress === false) {
