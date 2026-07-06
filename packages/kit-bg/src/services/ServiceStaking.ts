@@ -2313,15 +2313,25 @@ class ServiceStaking extends ServiceBase {
     return response.data.data;
   }
 
+  _getBorrowMarkets = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Earn);
+      const response = await client.get<{
+        data: {
+          markets: IBorrowMarketItem[];
+        };
+      }>('/earn/v1/borrow/markets');
+      return response.data.data?.markets || [];
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
   @backgroundMethod()
   async getBorrowMarkets() {
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const response = await client.get<{
-      data: {
-        markets: IBorrowMarketItem[];
-      };
-    }>('/earn/v1/borrow/markets');
-    return response.data.data?.markets || [];
+    return this._getBorrowMarkets();
   }
 
   @backgroundMethod()
