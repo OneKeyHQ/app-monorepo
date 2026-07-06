@@ -241,6 +241,7 @@ function normalizeBorrowAddressParams<
     networkId: string;
     marketAddress?: string;
     reserveAddress?: string;
+    collateralReserveAddress?: string;
   },
 >(params: T): T {
   if (!networkUtils.isEvmNetwork({ networkId: params.networkId })) {
@@ -253,6 +254,15 @@ function normalizeBorrowAddressParams<
       : {}),
     ...(params.reserveAddress
       ? { reserveAddress: params.reserveAddress.toLowerCase() }
+      : {}),
+    // repay-with-collateral / setup-LUT / check-amount forward this sibling
+    // reserve too; it comes from the same checksum-cased indexer data, so it
+    // needs the same lowercasing to survive the case-sensitive earn service.
+    ...(params.collateralReserveAddress
+      ? {
+          collateralReserveAddress:
+            params.collateralReserveAddress.toLowerCase(),
+        }
       : {}),
   };
 }
