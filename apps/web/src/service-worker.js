@@ -5,24 +5,8 @@ import { precacheAndRoute } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
 import { CacheFirst } from 'workbox-strategies';
 
-const SERVICE_WORKER_FILE_NAME = 'service-worker.js';
-const serviceWorkerScriptUrl = new URL(self.location.href);
-const serviceWorkerBasePath = serviceWorkerScriptUrl.pathname.endsWith(
-  SERVICE_WORKER_FILE_NAME,
-)
-  ? serviceWorkerScriptUrl.pathname.slice(
-      0,
-      -SERVICE_WORKER_FILE_NAME.length,
-    ) || '/'
-  : '/';
-const VERSION_MANIFEST_URL = new URL(
-  'sw-version-manifest.json',
-  `${self.location.origin}${serviceWorkerBasePath}`,
-).pathname;
-const INDEX_HTML_URL = new URL(
-  'index.html',
-  `${self.location.origin}${serviceWorkerBasePath}`,
-).pathname;
+const VERSION_MANIFEST_URL = '/sw-version-manifest.json';
+const INDEX_HTML_URL = '/index.html';
 const INTERNAL_STATE_CACHE = 'onekey-web-version-state';
 const INTERNAL_STATE_URL = '/__onekey_web_version_state__';
 const HTML_CACHE_PREFIX = 'onekey-web-html:';
