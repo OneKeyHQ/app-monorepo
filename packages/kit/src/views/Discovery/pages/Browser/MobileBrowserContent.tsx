@@ -1,32 +1,46 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { StyleSheet, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 
 import { Stack } from '@onekeyhq/components';
 import type { IWebViewOnScrollEvent } from '@onekeyhq/kit/src/components/WebView/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { KeepAliveFreeze } from '../../components/KeepAliveFreeze';
 import WebContent from '../../components/WebContent/WebContent';
 import { useDiscoveryMessageHandler } from '../../hooks/useDiscoveryMessageHandler';
 import {
   useActiveTabId,
-  useDisplayHomePageFlag,
   useShouldKeepWebViewAlive,
   useWebTabDataById,
 } from '../../hooks/useWebTabs';
 import { captureViewRefs } from '../../utils/explorerUtils';
 
+const styles = StyleSheet.create({
+  webPageLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  webPageVisible: {
+    opacity: 1,
+    zIndex: 1,
+  },
+  webPageHidden: {
+    opacity: 0,
+    zIndex: 0,
+  },
+});
+
 function MobileBrowserContent({
   id,
+  isBrowserContentVisible,
   onScroll,
 }: {
   id: string;
+  isBrowserContentVisible: boolean;
   onScroll?: (event: IWebViewOnScrollEvent) => void;
 }) {
   const { tab } = useWebTabDataById(id);
   const { activeTabId } = useActiveTabId();
-  const { displayHomePage } = useDisplayHomePageFlag();
   const [, setBackEnabled] = useState(false);
   const [, setForwardEnabled] = useState(false);
 
@@ -39,11 +53,18 @@ function MobileBrowserContent({
   // memory. The active tab is always alive, so it stays mounted here.
   const keepAlive = useShouldKeepWebViewAlive(tab?.id);
 
-  // "Current" means the user is actually looking at this tab's WebView: the
-  // active tab AND not collapsed to the Discovery home. Gate isCurrent on this
-  // (not just isActive) so a minimized-but-still-mounted WebView doesn't keep
-  // consuming the Android hardware Back handler while the home page is showing.
-  const isCurrent = isActive && !displayHomePage;
+  // "Current" means the user is actually looking at this tab's WebView. Gate
+  // isCurrent on this (not just isActive) so a hidden-but-still-mounted WebView
+  // can pause foreground-only work while Discovery home / Market / Earn shows.
+  const isCurrent = isActive && isBrowserContentVisible;
+
+  // The tab URL is live navigation state. Keep the WebView source stable after
+  // first mount; explicit navigations use crossWebviewLoadUrl/loadUrl instead.
+  const webViewInitialUrlRef = useRef<string | undefined>(undefined);
+  if (!webViewInitialUrlRef.current && tab?.url) {
+    webViewInitialUrlRef.current = tab.url;
+  }
+  const webViewInitialUrl = webViewInitialUrlRef.current;
 
   // Lazy first mount: restored tabs enter the keep-alive window on cold start
   // without ever being opened. Mount a tab's WebView only after it has been
@@ -81,7 +102,7 @@ function MobileBrowserContent({
   );
 
   const content = useMemo(() => {
-    if (!tab || !tab?.id) {
+    if (!tab?.id || !webViewInitialUrl) {
       return null;
     }
     // Evicted (cold) or never-shown tab: render nothing. Inactive tabs are
@@ -91,10 +112,17 @@ function MobileBrowserContent({
       return null;
     }
     return (
-      // Keep every alive tab mounted AND attached; hide inactive ones without
-      // detaching their native view, so the WKWebView never reloads on tab
-      // switch (see KeepAliveFreeze).
-      <KeepAliveFreeze key={tab.id} freeze={!isActive}>
+      <View
+        key={tab.id}
+        collapsable={false}
+        pointerEvents={isActive ? 'auto' : 'none'}
+        accessibilityElementsHidden={!isActive}
+        importantForAccessibility={isActive ? 'auto' : 'no-hide-descendants'}
+        style={[
+          styles.webPageLayer,
+          isActive ? styles.webPageVisible : styles.webPageHidden,
+        ]}
+      >
         <ViewShot ref={initCaptureViewRef} style={{ flex: 1 }}>
           <Stack
             flex={1}
@@ -105,7 +133,7 @@ function MobileBrowserContent({
           >
             <WebContent
               id={tab.id}
-              url={tab.url}
+              url={webViewInitialUrl}
               siteMode={tab.siteMode}
               isCurrent={isCurrent}
               setBackEnabled={setBackEnabled}
@@ -115,13 +143,13 @@ function MobileBrowserContent({
             />
           </Stack>
         </ViewShot>
-      </KeepAliveFreeze>
+      </View>
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     tab?.id,
-    tab?.url,
     tab?.siteMode,
+    webViewInitialUrl,
     isActive,
     isCurrent,
     keepAlive,

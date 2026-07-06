@@ -65,9 +65,9 @@ import { MarketHomeWithProvider } from '../../../Market/MarketHomeV2/MarketHomeV
 import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
-import { KeepAliveFreeze } from '../../components/KeepAliveFreeze';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import { OuterTabPagerView } from '../../components/OuterTabPagerView';
+import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
 // import { useEdgeSwipeDetection } from '../../hooks/useEdgeSwipeDetection';
 import useMobileBottomBarAnimation from '../../hooks/useMobileBottomBarAnimation';
@@ -187,12 +187,22 @@ const popToDiscoveryHomePage = (depth = 0) => {
   }
 };
 
-// KeepAliveFreeze hides the WebView host without detaching it for the browser
-// home/minimize path. The zIndex keeps it above Dashboard within the browser
-// pane when visible.
+// The phone root WebView layer stays outside OuterTabPagerView so its
+// react-freeze boundary never owns the native WebView tree.
 const styles = StyleSheet.create({
   webPageLayer: {
+    ...StyleSheet.absoluteFillObject,
     zIndex: 3,
+  },
+  webPageRootLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 3,
+  },
+  webPageVisible: {
+    opacity: 1,
+  },
+  webPageHidden: {
+    opacity: 0,
   },
 });
 
@@ -259,6 +269,8 @@ function MobileBrowser() {
     }
     return displayHomePage;
   }, [isTabletMainView, isTabletDetailView, displayHomePage, isLandscape]);
+  const isBrowserWebPageVisible =
+    selectedHeaderTab === ETranslations.global_browser && !showDiscoveryPage;
 
   useEffect(() => {
     if (!tabs?.length) {
@@ -362,9 +374,14 @@ function MobileBrowser() {
   const content = useMemo(
     () =>
       tabs.map((t) => (
-        <MobileBrowserContent id={t.id} key={t.id} onScroll={handleScroll} />
+        <MobileBrowserContent
+          id={t.id}
+          key={t.id}
+          isBrowserContentVisible={isBrowserWebPageVisible}
+          onScroll={handleScroll}
+        />
       )),
-    [tabs, handleScroll],
+    [tabs, handleScroll, isBrowserWebPageVisible],
   );
 
   useNotifyTabBarDisplay(
@@ -389,7 +406,7 @@ function MobileBrowser() {
     [tabs, navigation, activeTabId],
   );
 
-  const { top } = useSafeAreaInsets();
+  const { top, bottom } = useSafeAreaInsets();
   // iOS 26: the Discover search bar opts into the Liquid Glass capsule (so it
   // matches the Wallet header's glass search bar) and is nudged down so its
   // center vertically aligns with the Wallet search bar — which sits centered in
@@ -498,6 +515,11 @@ function MobileBrowser() {
   }
 
   const displayBottomBar = !showDiscoveryPage;
+  const shouldShowRootWebPageLayer = useOuterPager && isBrowserWebPageVisible;
+  const rootWebPageLayerStyle = [
+    styles.webPageRootLayer,
+    { bottom: BROWSER_BOTTOM_BAR_HEIGHT + bottom },
+  ];
 
   return (
     <Page fullPage>
@@ -525,69 +547,81 @@ function MobileBrowser() {
         {/* HandleRebuildBrowserData must mount early regardless of active tab */}
         <HandleRebuildBrowserData />
         {useOuterPager ? (
-          <OuterTabPagerView
-            selectedHeaderTab={selectedHeaderTab}
-            showDiscoveryPage={showDiscoveryPage}
-            onPageSelectedBySwipe={handleExploreTabSwipe}
-            pageScrollPosition={outerPageScrollPosition}
-            marketTabsRef={marketTabsRef}
-            earnTabsRef={earnTabsRef}
-            earnBorrowPagerRef={earnBorrowPagerRef}
-            marketContent={
-              <MarketHomeWithProvider
-                isFocused={selectedHeaderTab === ETranslations.global_market}
-                nestedPager={useOuterPager}
-                tabsRef={marketTabsRef}
-              />
-            }
-            earnContent={
-              <EarnHomeWithProvider
-                showHeader={false}
-                showContent={selectedHeaderTab === ETranslations.global_earn}
-                defaultTab={earnTab}
-                tabsRef={earnTabsRef}
-                useSwipePager={useOuterPager}
-                earnBorrowPagerRef={earnBorrowPagerRef}
-              />
-            }
-            browserContent={
-              <Stack flex={1} zIndex={3}>
-                <Stack flex={1}>
-                  <View
-                    style={{
-                      display: showDiscoveryPage ? 'flex' : 'none',
-                      flex: showDiscoveryPage ? 1 : undefined,
-                    }}
-                  >
-                    <DashboardContent onScroll={handleScroll} />
-                  </View>
-                  <KeepAliveFreeze
-                    freeze={showDiscoveryPage}
-                    style={styles.webPageLayer}
-                  >
-                    {content}
-                  </KeepAliveFreeze>
+          <>
+            <OuterTabPagerView
+              selectedHeaderTab={selectedHeaderTab}
+              showDiscoveryPage={showDiscoveryPage}
+              onPageSelectedBySwipe={handleExploreTabSwipe}
+              pageScrollPosition={outerPageScrollPosition}
+              marketTabsRef={marketTabsRef}
+              earnTabsRef={earnTabsRef}
+              earnBorrowPagerRef={earnBorrowPagerRef}
+              marketContent={
+                <MarketHomeWithProvider
+                  isFocused={selectedHeaderTab === ETranslations.global_market}
+                  nestedPager={useOuterPager}
+                  tabsRef={marketTabsRef}
+                />
+              }
+              earnContent={
+                <EarnHomeWithProvider
+                  showHeader={false}
+                  showContent={selectedHeaderTab === ETranslations.global_earn}
+                  defaultTab={earnTab}
+                  tabsRef={earnTabsRef}
+                  useSwipePager={useOuterPager}
+                  earnBorrowPagerRef={earnBorrowPagerRef}
+                />
+              }
+              browserContent={
+                <Stack flex={1} zIndex={3}>
+                  <Stack flex={1}>
+                    <View
+                      style={{
+                        display: showDiscoveryPage ? 'flex' : 'none',
+                        flex: showDiscoveryPage ? 1 : undefined,
+                      }}
+                    >
+                      <DashboardContent onScroll={handleScroll} />
+                    </View>
+                  </Stack>
+                  <Freeze freeze={!displayBottomBar}>
+                    <Animated.View
+                      style={[
+                        toolbarAnimatedStyle,
+                        {
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                        },
+                      ]}
+                    >
+                      <MobileBrowserBottomBar
+                        id={activeTabId ?? ''}
+                        onGoBackHomePage={handleGoBackHome}
+                      />
+                    </Animated.View>
+                  </Freeze>
                 </Stack>
-                <Freeze freeze={!displayBottomBar}>
-                  <Animated.View
-                    style={[
-                      toolbarAnimatedStyle,
-                      {
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                      },
-                    ]}
-                  >
-                    <MobileBrowserBottomBar
-                      id={activeTabId ?? ''}
-                      onGoBackHomePage={handleGoBackHome}
-                    />
-                  </Animated.View>
-                </Freeze>
-              </Stack>
-            }
-          />
+              }
+            />
+            <View
+              collapsable={false}
+              pointerEvents={shouldShowRootWebPageLayer ? 'auto' : 'none'}
+              accessibilityElementsHidden={!shouldShowRootWebPageLayer}
+              importantForAccessibility={
+                shouldShowRootWebPageLayer ? 'auto' : 'no-hide-descendants'
+              }
+              style={[
+                rootWebPageLayerStyle,
+                shouldShowRootWebPageLayer
+                  ? styles.webPageVisible
+                  : styles.webPageHidden,
+              ]}
+            >
+              {content}
+            </View>
+          </>
         ) : (
           <>
             {/* Tablet / DualScreen: keep legacy display:none/flex switching */}
@@ -625,12 +659,22 @@ function MobileBrowser() {
                   <DashboardContent onScroll={handleScroll} />
                 </View>
                 {!isTabletMainView ? (
-                  <KeepAliveFreeze
-                    freeze={showDiscoveryPage}
-                    style={styles.webPageLayer}
+                  <View
+                    collapsable={false}
+                    pointerEvents={showDiscoveryPage ? 'none' : 'auto'}
+                    accessibilityElementsHidden={showDiscoveryPage}
+                    importantForAccessibility={
+                      showDiscoveryPage ? 'no-hide-descendants' : 'auto'
+                    }
+                    style={[
+                      styles.webPageLayer,
+                      showDiscoveryPage
+                        ? styles.webPageHidden
+                        : styles.webPageVisible,
+                    ]}
                   >
                     {content}
-                  </KeepAliveFreeze>
+                  </View>
                 ) : null}
               </Stack>
               <Freeze freeze={!displayBottomBar}>
