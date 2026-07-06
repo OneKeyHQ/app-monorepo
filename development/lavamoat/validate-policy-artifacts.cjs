@@ -268,14 +268,14 @@ function validateDisabledTargetDirs() {
 
 function validateReviewSummary() {
   const summaryFile = path.join(lavamoatRoot, 'review/summary.json');
-  const reviewIndexFile = path.join(lavamoatRoot, 'review/README.md');
+  const reviewIndexFile = path.join(lavamoatRoot, 'README.review.md');
   assert(
     fs.existsSync(summaryFile),
     'Missing review summary: review/summary.json',
   );
   assert(
     fs.existsSync(reviewIndexFile),
-    'Missing review index: review/README.md',
+    'Missing review index: README.review.md',
   );
 
   const summary = readJson(summaryFile);
