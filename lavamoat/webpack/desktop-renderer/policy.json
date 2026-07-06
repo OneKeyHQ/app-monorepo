@@ -18,26 +18,12 @@
         "clearTimeout": true,
         "desktopApi.addIpcEventListener": true,
         "document": true,
-        "FontFace": true,
+        "process.env.IS_STATIC": true,
         "removeEventListener": true,
-        "require": true,
         "setTimeout": true
       },
       "meta": {
         "webpack-optimization": [
-          "Dependency 'external:../../node_modules/@tamagui/core/dist/esm/index.mjs' reexports from 'external:../../node_modules/@tamagui/compose-refs/dist/esm/compose-refs.mjs' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@tamagui/core/dist/esm/index.mjs' reexports from 'external:../../node_modules/@tamagui/web/dist/esm/config.mjs' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@tamagui/core/dist/esm/index.mjs' reexports from 'external:../../node_modules/@tamagui/web/dist/esm/createVariable.mjs' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@tamagui/core/dist/esm/index.mjs' reexports from 'external:../../node_modules/@tamagui/web/dist/esm/helpers/themeable.mjs' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@tamagui/core/dist/esm/index.mjs' reexports from 'external:../../node_modules/@tamagui/web/dist/esm/views/TamaguiProvider.mjs' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@tamagui/web/dist/esm/index.mjs' reexports from 'external:../../node_modules/@tamagui/helpers/dist/esm/index.mjs' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@tamagui/web/dist/esm/index.mjs' reexports from 'external:../../node_modules/@tamagui/web/dist/esm/helpers/createStyledContext.mjs' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@tamagui/web/dist/esm/index.mjs' reexports from 'external:../../node_modules/@tamagui/web/dist/esm/hooks/useMedia.mjs' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@tamagui/web/dist/esm/index.mjs' reexports from 'external:../../node_modules/@tamagui/web/dist/esm/hooks/useProps.mjs' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@tamagui/web/dist/esm/index.mjs' reexports from 'external:../../node_modules/@tamagui/web/dist/esm/hooks/useTheme.mjs' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@tamagui/web/dist/esm/index.mjs' reexports from 'external:../../node_modules/@tamagui/web/dist/esm/hooks/useThemeName.mjs' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@tamagui/web/dist/esm/index.mjs' reexports from 'external:../../node_modules/@tamagui/web/dist/esm/views/Theme.mjs' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@tamagui/web/dist/esm/index.mjs' reexports from 'external:../../node_modules/@tamagui/web/dist/esm/views/View.mjs' and webpack collapsed that to a direct import.",
           "Dependency 'external:../../node_modules/expo-image/src/index.ts' reexports from 'external:../../node_modules/expo-image/src/utils/resolveSources.tsx' and webpack collapsed that to a direct import."
         ]
       },
@@ -58,9 +44,7 @@
         "@onekeyhq/components>react-native-root-siblings": true,
         "@onekeyhq/components>react-native-svg": true,
         "@onekeyhq/core>xrpl>bignumber.js": true,
-        "@onekeyhq/kit": true,
         "@onekeyhq/kit>date-fns>@babel/runtime": true,
-        "@onekeyhq/kit>expo-camera>expo>expo-font": true,
         "@onekeyhq/kit>expo-camera>react-native-web": true,
         "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true,
         "@onekeyhq/kit>react-freeze": true,
@@ -73,62 +57,41 @@
         "external:../../node_modules/@onekeyfe/react-native-text-input/src/enum.ts": true,
         "external:../../node_modules/@rehookify/datepicker/dist/index.esm.mjs": true,
         "external:../../node_modules/@shopify/flash-list/dist/index.js": true,
-        "external:../../node_modules/@tamagui/accordion/dist/esm/Accordion.mjs": true,
-        "external:../../node_modules/@tamagui/accordion/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/animate-presence/dist/esm/AnimatePresence.mjs": true,
-        "external:../../node_modules/@tamagui/animate-presence/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/animations-moti/dist/esm/createAnimations.mjs": true,
         "external:../../node_modules/@tamagui/animations-moti/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/compose-refs/dist/esm/compose-refs.mjs": true,
         "external:../../node_modules/@tamagui/core/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/create-context/dist/esm/create-context.mjs": true,
-        "external:../../node_modules/@tamagui/create-context/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/dialog/dist/esm/Dialog.mjs": true,
-        "external:../../node_modules/@tamagui/dialog/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/focus-scope/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/focusable/dist/esm/focusableInputHOC.mjs": true,
-        "external:../../node_modules/@tamagui/focusable/dist/esm/index.mjs": true,
-        "external:../../node_modules/@tamagui/focusable/dist/esm/registerFocusable.mjs": true,
         "external:../../node_modules/@tamagui/font-size/dist/esm/getFontSize.mjs": true,
-        "external:../../node_modules/@tamagui/font-size/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/form/dist/esm/Form.mjs": true,
-        "external:../../node_modules/@tamagui/form/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/get-button-sized/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/get-font-sized/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/get-token/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/group/dist/esm/Group.mjs": true,
-        "external:../../node_modules/@tamagui/group/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/helpers/dist/esm/index.mjs": true,
-        "external:../../node_modules/@tamagui/label/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/label/dist/esm/Label.mjs": true,
-        "external:../../node_modules/@tamagui/popover/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/popover/dist/esm/Popover.mjs": true,
         "external:../../node_modules/@tamagui/portal/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/radio-group/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/react-native-media-driver/dist/esm/index.mjs": true,
-        "external:../../node_modules/@tamagui/separator/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/separator/dist/esm/Separator.mjs": true,
-        "external:../../node_modules/@tamagui/sheet/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/sheet/dist/esm/Sheet.mjs": true,
         "external:../../node_modules/@tamagui/shorthands/dist/esm/index.mjs": true,
-        "external:../../node_modules/@tamagui/slider/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/slider/dist/esm/Slider.mjs": true,
-        "external:../../node_modules/@tamagui/stacks/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/stacks/dist/esm/Stacks.mjs": true,
         "external:../../node_modules/@tamagui/stacks/dist/esm/ThemeableStack.mjs": true,
         "external:../../node_modules/@tamagui/switch/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/text/dist/esm/Headings.mjs": true,
         "external:../../node_modules/@tamagui/text/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/text/dist/esm/SizableText.mjs": true,
-        "external:../../node_modules/@tamagui/themes/dist/esm/generated-new.mjs": true,
-        "external:../../node_modules/@tamagui/themes/dist/esm/index.mjs": true,
-        "external:../../node_modules/@tamagui/toast/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/toast/dist/esm/Toast.mjs": true,
         "external:../../node_modules/@tamagui/toast/dist/esm/ToastProvider.mjs": true,
         "external:../../node_modules/@tamagui/toast/dist/esm/ToastViewport.mjs": true,
-        "external:../../node_modules/@tamagui/toggle-group/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/toggle-group/dist/esm/ToggleGroup.mjs": true,
-        "external:../../node_modules/@tamagui/tooltip/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/tooltip/dist/esm/Tooltip.mjs": true,
         "external:../../node_modules/@tamagui/web/dist/esm/config.mjs": true,
         "external:../../node_modules/@tamagui/web/dist/esm/createComponent.mjs": true,
@@ -150,7 +113,6 @@
         "external:../../node_modules/expo-blur/build/index.js": true,
         "external:../../node_modules/expo-clipboard/build/Clipboard.js": true,
         "external:../../node_modules/expo-device/build/Device.js": true,
-        "external:../../node_modules/expo-haptics/src/Haptics.ts": true,
         "external:../../node_modules/expo-haptics/src/Haptics.types.ts": true,
         "external:../../node_modules/expo-image/src/Image.tsx": true,
         "external:../../node_modules/expo-image/src/index.ts": true,
@@ -166,7 +128,6 @@
         "external:../../node_modules/react-mobile-cropper/dist/style.css": true,
         "external:../../node_modules/react-native-draggable-flatlist/lib/module/index.js": true,
         "external:../../node_modules/react-native-draggable-flatlist/src/context/globalRef.tsx": true,
-        "external:../../node_modules/react-native-video/src/types/ResizeMode.ts": true,
         "external:../../node_modules/react-virtualized/dist/es/index.js": true,
         "external:../../node_modules/sonner/dist/index.mjs": true,
         "external:../../node_modules/tamagui/dist/esm/createTamagui.mjs": true,
@@ -600,7 +561,7 @@
       },
       "packages": {
         "@onekeyhq/components>lodash": true,
-        "@onekeyhq/core>@alephium/web3>blakejs": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "@onekeyhq/core>@aptos-labs/siwa": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/base": true,
@@ -616,10 +577,10 @@
         "@onekeyhq/core>@onekeyfe/bitcoinforksjs-lib": true,
         "@onekeyhq/core>@onekeyfe/cardano-coin-selection-asmjs": true,
         "@onekeyhq/core>@onekeyfe/coinselect": true,
+        "@onekeyhq/core>@onekeyfe/coinselect>blakejs": true,
         "@onekeyhq/core>@onekeyfe/kaspa-core-lib": true,
         "@onekeyhq/core>@onekeyfe/kaspa-wasm": true,
         "@onekeyhq/core>@solana/web3.js": true,
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
         "@onekeyhq/core>@solana/web3.js>bs58": true,
         "@onekeyhq/core>@starcoin/starcoin>@ethersproject/bytes": true,
         "@onekeyhq/core>@starcoin/starcoin>@ethersproject/hash>@ethersproject/address": true,
@@ -650,7 +611,6 @@
         "@onekeyhq/core>eth-sig-util>ethereumjs-util>ethjs-util": true,
         "@onekeyhq/core>ethereumjs-util": true,
         "@onekeyhq/core>js-conflux-sdk": true,
-        "@onekeyhq/core>jsrsasign": true,
         "@onekeyhq/core>near-api-js": true,
         "@onekeyhq/core>near-api-js>bn.js": true,
         "@onekeyhq/core>near-api-js>borsh": true,
@@ -700,200 +660,42 @@
       "globals": {
         "AbortController": true,
         "Blob": true,
-        "Buffer": true,
-        "clearTimeout": true,
-        "console": true,
-        "crypto": true,
-        "define": true,
-        "document": true,
+        "console.error": true,
+        "console.log": true,
         "fetch": true,
-        "FileReader": true,
         "FormData": true,
-        "msCrypto": true,
-        "process.binding": true,
-        "process.browser": true,
-        "process.nextTick": true,
-        "process.stderr": true,
-        "process.stdout": true,
-        "process.version.split": true,
         "setTimeout": true,
         "TextDecoder": true,
-        "TextEncoder": true,
-        "URLSearchParams.prototype.isPrototypeOf": true,
-        "XMLHttpRequest": true
+        "TextEncoder": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/hashes": true,
+        "@onekeyhq/core>@alephium/web3>@noble/secp256k1": true,
+        "@onekeyhq/core>@alephium/web3>base-x": true
       }
     },
-    "@onekeyhq/core>@alephium/web3>blakejs": {
+    "@onekeyhq/core>@alephium/web3>@noble/curves": {
+      "packages": {
+        "@onekeyhq/core>@alephium/web3>@noble/curves>@noble/hashes": true
+      }
+    },
+    "@onekeyhq/core>@alephium/web3>@noble/curves>@noble/hashes": {
       "globals": {
-        "console.log": true,
+        "crypto": true,
+        "TextDecoder": true,
         "TextEncoder": true
       }
     },
-    "@onekeyhq/core>@alephium/web3>cross-fetch": {
+    "@onekeyhq/core>@alephium/web3>@noble/hashes": {
       "globals": {
-        "Blob": true,
-        "FileReader": true,
-        "FormData": true,
-        "URLSearchParams.prototype.isPrototypeOf": true,
-        "XMLHttpRequest": true
+        "TextDecoder": true,
+        "TextEncoder": true
       }
     },
-    "@onekeyhq/core>@alephium/web3>crypto-browserify": {
-      "packages": {
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>browserify-cipher": true,
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>browserify-sign": true,
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>create-ecdh": true,
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>diffie-hellman": true,
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>public-encrypt": true,
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>randomfill": true,
-        "@onekeyhq/core>@onekeyfe/coinselect>create-hmac": true,
-        "@onekeyhq/core>cardano-crypto.js>pbkdf2": true,
-        "@onekeyhq/core>ecpair>randombytes": true,
-        "@onekeyhq/core>ethereumjs-util>create-hash": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>crypto-browserify>browserify-cipher": {
-      "packages": {
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>browserify-cipher>browserify-des": true,
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>browserify-cipher>evp_bytestokey": true,
-        "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>browserify-aes": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>crypto-browserify>browserify-cipher>browserify-des": {
-      "packages": {
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>browserify-cipher>browserify-des>des.js": true,
-        "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
-        "@onekeyhq/core>ethereumjs-util>create-hash>cipher-base": true,
-        "glob>inherits": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>crypto-browserify>browserify-cipher>browserify-des>des.js": {
-      "packages": {
-        "@onekeyhq/core>elliptic>minimalistic-assert": true,
-        "glob>inherits": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>crypto-browserify>browserify-cipher>evp_bytestokey": {
-      "packages": {
-        "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
-        "@onekeyhq/core>ethereumjs-util>create-hash>md5.js": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>crypto-browserify>browserify-sign": {
-      "packages": {
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>public-encrypt>browserify-rsa": true,
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>public-encrypt>parse-asn1": true,
-        "@onekeyhq/core>@onekeyfe/coinselect>create-hmac": true,
-        "@onekeyhq/core>cip-23>keccak>readable-stream": true,
-        "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
-        "@onekeyhq/core>elliptic": true,
-        "@onekeyhq/core>ethereumjs-util>create-hash": true,
-        "@onekeyhq/core>near-api-js>bn.js": true,
-        "glob>inherits": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>crypto-browserify>create-ecdh": {
+    "@onekeyhq/core>@alephium/web3>@noble/secp256k1": {
       "globals": {
-        "Buffer": true
-      },
-      "packages": {
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>create-ecdh>bn.js": true,
-        "@onekeyhq/core>algosdk>buffer": true,
-        "@onekeyhq/core>elliptic": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>crypto-browserify>create-ecdh>bn.js": {
-      "globals": {
-        "Buffer": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>crypto-browserify>diffie-hellman": {
-      "globals": {
-        "Buffer": true
-      },
-      "packages": {
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>diffie-hellman>bn.js": true,
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>diffie-hellman>miller-rabin": true,
-        "@onekeyhq/core>algosdk>buffer": true,
-        "@onekeyhq/core>ecpair>randombytes": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>crypto-browserify>diffie-hellman>bn.js": {
-      "globals": {
-        "Buffer": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>crypto-browserify>diffie-hellman>miller-rabin": {
-      "packages": {
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>diffie-hellman>miller-rabin>bn.js": true,
-        "@onekeyhq/core>elliptic>brorand": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>crypto-browserify>diffie-hellman>miller-rabin>bn.js": {
-      "globals": {
-        "Buffer": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>crypto-browserify>public-encrypt": {
-      "packages": {
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>public-encrypt>bn.js": true,
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>public-encrypt>browserify-rsa": true,
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>public-encrypt>parse-asn1": true,
-        "@onekeyhq/core>ecpair>randombytes": true,
-        "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
-        "@onekeyhq/core>ethereumjs-util>create-hash": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>crypto-browserify>public-encrypt>bn.js": {
-      "globals": {
-        "Buffer": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>crypto-browserify>public-encrypt>browserify-rsa": {
-      "globals": {
-        "Buffer": true
-      },
-      "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
-        "@onekeyhq/core>ecpair>randombytes": true,
-        "@onekeyhq/core>near-api-js>bn.js": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>crypto-browserify>public-encrypt>parse-asn1": {
-      "packages": {
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>browserify-cipher>evp_bytestokey": true,
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>public-encrypt>parse-asn1>asn1.js": true,
-        "@onekeyhq/core>cardano-crypto.js>pbkdf2": true,
-        "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
-        "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>browserify-aes": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>crypto-browserify>public-encrypt>parse-asn1>asn1.js": {
-      "packages": {
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>public-encrypt>parse-asn1>asn1.js>bn.js": true,
-        "@onekeyhq/core>elliptic>minimalistic-assert": true,
-        "glob>inherits": true,
-        "node-fetch>encoding>iconv-lite>safer-buffer": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>crypto-browserify>public-encrypt>parse-asn1>asn1.js>bn.js": {
-      "globals": {
-        "Buffer": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>crypto-browserify>randomfill": {
-      "globals": {
-        "crypto": true,
-        "msCrypto": true,
-        "process.browser": true,
-        "process.nextTick": true
-      },
-      "packages": {
-        "@onekeyhq/core>ecpair>randombytes": true,
-        "@onekeyhq/core>ecpair>randombytes>safe-buffer": true
+        "crypto": true
       }
     },
     "@onekeyhq/core>@aptos-labs/siwa": {
@@ -923,6 +725,7 @@
         "TextEncoder": true
       },
       "packages": {
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>@aptos-labs/aptos-client": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>@aptos-labs/script-composer-pack": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>@noble/hashes": true,
@@ -931,7 +734,6 @@
         "@onekeyhq/core>@aptos-labs/ts-sdk>js-base64": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>jwt-decode": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>poseidon-lite": true,
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>tronweb>eventemitter3": true
       }
@@ -974,9 +776,9 @@
     },
     "@onekeyhq/core>@aptos-labs/ts-sdk>@scure/bip32": {
       "packages": {
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>@scure/bip32>@noble/hashes": true,
-        "@onekeyhq/core>@aptos-labs/ts-sdk>@scure/bip32>@scure/base": true,
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true
+        "@onekeyhq/core>@aptos-labs/ts-sdk>@scure/bip32>@scure/base": true
       }
     },
     "@onekeyhq/core>@aptos-labs/ts-sdk>@scure/bip32>@noble/hashes": {
@@ -1029,12 +831,12 @@
         "setTimeout": true
       },
       "packages": {
-        "@onekeyhq/core>@alephium/web3>cross-fetch": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/base": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/bi": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/codec": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/rpc": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/toolkit": true,
+        "@onekeyhq/core>@ckb-lumos/ckb-indexer>cross-fetch": true,
         "webpack>events": true
       }
     },
@@ -1096,14 +898,23 @@
         "setTimeout": true
       },
       "packages": {
-        "@onekeyhq/core>@alephium/web3>cross-fetch": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/bi": true,
+        "@onekeyhq/core>@ckb-lumos/ckb-indexer>cross-fetch": true,
         "@onekeyhq/kit>expo-camera>react-native>abort-controller": true
       }
     },
     "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/toolkit": {
       "packages": {
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/bi": true
+      }
+    },
+    "@onekeyhq/core>@ckb-lumos/ckb-indexer>cross-fetch": {
+      "globals": {
+        "Blob": true,
+        "FileReader": true,
+        "FormData": true,
+        "URLSearchParams.prototype.isPrototypeOf": true,
+        "XMLHttpRequest": true
       }
     },
     "@onekeyhq/core>@ckb-lumos/common-scripts": {
@@ -1515,6 +1326,14 @@
         "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/beet-solana>bs58>base-x": true
       }
     },
+    "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/js>@bundlr-network/client>arweave>asn1.js": {
+      "packages": {
+        "@onekeyhq/core>elliptic>minimalistic-assert": true,
+        "@onekeyhq/core>near-api-js>bn.js": true,
+        "glob>inherits": true,
+        "node-fetch>encoding>iconv-lite>safer-buffer": true
+      }
+    },
     "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/js>@bundlr-network/client>inquirer>rxjs": {
       "globals": {
         "clearInterval": true,
@@ -1740,10 +1559,10 @@
         "setTimeout": true
       },
       "packages": {
-        "@onekeyhq/core>@alephium/web3>blakejs": true,
         "@onekeyhq/core>@onekeyfe/coinselect>bip66": true,
         "@onekeyhq/core>@onekeyfe/coinselect>bitcoin-ops": true,
         "@onekeyhq/core>@onekeyfe/coinselect>blake-hash": true,
+        "@onekeyhq/core>@onekeyfe/coinselect>blakejs": true,
         "@onekeyhq/core>@onekeyfe/coinselect>bs58": true,
         "@onekeyhq/core>@onekeyfe/coinselect>bs58check": true,
         "@onekeyhq/core>@onekeyfe/coinselect>create-hmac": true,
@@ -1772,6 +1591,12 @@
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>cip-23>keccak>readable-stream": true
+      }
+    },
+    "@onekeyhq/core>@onekeyfe/coinselect>blakejs": {
+      "globals": {
+        "console.log": true,
+        "TextEncoder": true
       }
     },
     "@onekeyhq/core>@onekeyfe/coinselect>bs58": {
@@ -1820,14 +1645,9 @@
       },
       "packages": {
         "@onekeyhq/core>@onekeyfe/coinselect>create-hmac": true,
-        "@onekeyhq/core>@onekeyfe/coinselect>tiny-secp256k1>bn.js": true,
         "@onekeyhq/core>algosdk>buffer": true,
-        "@onekeyhq/core>elliptic": true
-      }
-    },
-    "@onekeyhq/core>@onekeyfe/coinselect>tiny-secp256k1>bn.js": {
-      "globals": {
-        "Buffer": true
+        "@onekeyhq/core>elliptic": true,
+        "@onekeyhq/core>near-api-js>bn.js": true
       }
     },
     "@onekeyhq/core>@onekeyfe/coinselect>wif": {
@@ -1851,13 +1671,13 @@
         "@onekeyhq/components>lodash": true,
         "@onekeyhq/core>@noble/secp256k1": true,
         "@onekeyhq/core>@onekeyfe/kaspa-core-lib>@noble/hashes": true,
-        "@onekeyhq/core>@onekeyfe/kaspa-core-lib>bn.js": true,
         "@onekeyhq/core>@onekeyfe/kaspa-core-lib>buffer-compare": true,
         "@onekeyhq/core>@onekeyfe/kaspa-core-lib>inherits": true,
         "@onekeyhq/core>@onekeyfe/kaspa-core-lib>url": true,
         "@onekeyhq/core>@solana/web3.js>bs58": true,
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>elliptic": true,
+        "@onekeyhq/core>near-api-js>bn.js": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true,
         "@onekeyhq/shared": true
       }
@@ -2051,8 +1871,8 @@
         "setTimeout": true
       },
       "packages": {
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "@onekeyhq/core>@noble/hashes": true,
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
         "@onekeyhq/core>@solana/web3.js>@solana/buffer-layout": true,
         "@onekeyhq/core>@solana/web3.js>@solana/codecs-numbers": true,
         "@onekeyhq/core>@solana/web3.js>bs58": true,
@@ -2062,18 +1882,6 @@
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>near-api-js>bn.js": true,
         "@onekeyhq/core>near-api-js>borsh": true
-      }
-    },
-    "@onekeyhq/core>@solana/web3.js>@noble/curves": {
-      "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves>@noble/hashes": true
-      }
-    },
-    "@onekeyhq/core>@solana/web3.js>@noble/curves>@noble/hashes": {
-      "globals": {
-        "crypto": true,
-        "TextDecoder": true,
-        "TextEncoder": true
       }
     },
     "@onekeyhq/core>@solana/web3.js>@solana/buffer-layout": {
@@ -2320,8 +2128,8 @@
         "setTimeout": true
       },
       "packages": {
-        "@onekeyhq/core>@alephium/web3>blakejs": true,
         "@onekeyhq/core>@glif/filecoin-address>leb128": true,
+        "@onekeyhq/core>@onekeyfe/coinselect>blakejs": true,
         "@onekeyhq/core>@zondax/izari-filecoin>@bitcoinerlab/secp256k1": true,
         "@onekeyhq/core>@zondax/izari-filecoin>@ipld/dag-cbor": true,
         "@onekeyhq/core>@zondax/izari-filecoin>multiformats": true,
@@ -2558,7 +2366,7 @@
     },
     "@onekeyhq/core>bip322-js>@bitcoinerlab/secp256k1": {
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true
       }
     },
     "@onekeyhq/core>bip322-js>bitcoinjs-lib": {
@@ -2730,20 +2538,15 @@
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>bitcoinjs-message>secp256k1>bip66": true,
-        "@onekeyhq/core>bitcoinjs-message>secp256k1>bn.js": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
         "@onekeyhq/core>elliptic": true,
-        "@onekeyhq/core>ethereumjs-util>create-hash": true
+        "@onekeyhq/core>ethereumjs-util>create-hash": true,
+        "@onekeyhq/core>near-api-js>bn.js": true
       }
     },
     "@onekeyhq/core>bitcoinjs-message>secp256k1>bip66": {
       "packages": {
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true
-      }
-    },
-    "@onekeyhq/core>bitcoinjs-message>secp256k1>bn.js": {
-      "globals": {
-        "Buffer": true
       }
     },
     "@onekeyhq/core>bitcoinjs-message>varuint-bitcoin": {
@@ -2897,10 +2700,10 @@
         "WeakRef": true
       },
       "packages": {
+        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>call-bound>get-intrinsic>es-define-property": true,
         "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>call-bound>get-intrinsic>has-symbols": true,
         "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>call-bind-apply-helpers": true,
         "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-define-property": true,
         "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
         "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>get-proto": true,
         "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>gopd": true,
@@ -2932,33 +2735,9 @@
     },
     "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind": {
       "packages": {
-        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>es-define-property": true,
         "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>call-bind-apply-helpers": true,
+        "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>es-define-property": true,
         "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>set-function-length": true
-      }
-    },
-    "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>es-define-property": {
-      "packages": {
-        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>get-intrinsic": true
-      }
-    },
-    "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>get-intrinsic": {
-      "globals": {
-        "AggregateError": true,
-        "FinalizationRegistry": true,
-        "WeakRef": true
-      },
-      "packages": {
-        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>get-intrinsic>hasown": true,
-        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic>has-proto": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>has-tostringtag>has-symbols": true,
-        "@types/node-fetch>form-data>hasown>function-bind": true
-      }
-    },
-    "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>get-intrinsic>hasown": {
-      "packages": {
-        "@types/node-fetch>form-data>hasown>function-bind": true
       }
     },
     "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bound": {
@@ -2975,10 +2754,10 @@
         "WeakRef": true
       },
       "packages": {
+        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bound>get-intrinsic>es-define-property": true,
         "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bound>get-intrinsic>has-symbols": true,
         "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>call-bind-apply-helpers": true,
         "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-define-property": true,
         "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
         "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>get-proto": true,
         "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>gopd": true,
@@ -3140,18 +2919,13 @@
     },
     "@onekeyhq/core>elliptic": {
       "packages": {
-        "@onekeyhq/core>elliptic>bn.js": true,
         "@onekeyhq/core>elliptic>brorand": true,
         "@onekeyhq/core>elliptic>hash.js": true,
         "@onekeyhq/core>elliptic>hmac-drbg": true,
         "@onekeyhq/core>elliptic>minimalistic-assert": true,
         "@onekeyhq/core>elliptic>minimalistic-crypto-utils": true,
+        "@onekeyhq/core>near-api-js>bn.js": true,
         "glob>inherits": true
-      }
-    },
-    "@onekeyhq/core>elliptic>bn.js": {
-      "globals": {
-        "Buffer": true
       }
     },
     "@onekeyhq/core>elliptic>brorand": {
@@ -3193,13 +2967,8 @@
       },
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
-        "@onekeyhq/core>eth-sig-util>ethereumjs-abi>bn.js": true,
-        "@onekeyhq/core>eth-sig-util>ethereumjs-abi>ethereumjs-util": true
-      }
-    },
-    "@onekeyhq/core>eth-sig-util>ethereumjs-abi>bn.js": {
-      "globals": {
-        "Buffer": true
+        "@onekeyhq/core>eth-sig-util>ethereumjs-abi>ethereumjs-util": true,
+        "@onekeyhq/core>near-api-js>bn.js": true
       }
     },
     "@onekeyhq/core>eth-sig-util>ethereumjs-abi>ethereumjs-util": {
@@ -3209,11 +2978,11 @@
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>elliptic": true,
-        "@onekeyhq/core>eth-sig-util>ethereumjs-abi>bn.js": true,
         "@onekeyhq/core>eth-sig-util>ethereumjs-abi>ethereumjs-util>ethereum-cryptography": true,
         "@onekeyhq/core>eth-sig-util>ethereumjs-abi>ethereumjs-util>rlp": true,
         "@onekeyhq/core>eth-sig-util>ethereumjs-util>ethjs-util": true,
         "@onekeyhq/core>ethereumjs-util>create-hash": true,
+        "@onekeyhq/core>near-api-js>bn.js": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true
       }
     },
@@ -3236,12 +3005,7 @@
       },
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
-        "@onekeyhq/core>eth-sig-util>ethereumjs-abi>ethereumjs-util>rlp>bn.js": true
-      }
-    },
-    "@onekeyhq/core>eth-sig-util>ethereumjs-abi>ethereumjs-util>rlp>bn.js": {
-      "globals": {
-        "Buffer": true
+        "@onekeyhq/core>near-api-js>bn.js": true
       }
     },
     "@onekeyhq/core>eth-sig-util>ethereumjs-util": {
@@ -3252,17 +3016,12 @@
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
         "@onekeyhq/core>elliptic": true,
-        "@onekeyhq/core>eth-sig-util>ethereumjs-util>bn.js": true,
         "@onekeyhq/core>eth-sig-util>ethereumjs-util>ethereum-cryptography": true,
         "@onekeyhq/core>eth-sig-util>ethereumjs-util>ethjs-util": true,
         "@onekeyhq/core>eth-sig-util>ethereumjs-util>rlp": true,
         "@onekeyhq/core>ethereumjs-util>create-hash": true,
+        "@onekeyhq/core>near-api-js>bn.js": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true
-      }
-    },
-    "@onekeyhq/core>eth-sig-util>ethereumjs-util>bn.js": {
-      "globals": {
-        "Buffer": true
       }
     },
     "@onekeyhq/core>eth-sig-util>ethereumjs-util>ethereum-cryptography": {
@@ -3299,12 +3058,7 @@
       },
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
-        "@onekeyhq/core>eth-sig-util>ethereumjs-util>rlp>bn.js": true
-      }
-    },
-    "@onekeyhq/core>eth-sig-util>ethereumjs-util>rlp>bn.js": {
-      "globals": {
-        "Buffer": true
+        "@onekeyhq/core>near-api-js>bn.js": true
       }
     },
     "@onekeyhq/core>eth-sig-util>tweetnacl-util": {
@@ -3381,11 +3135,11 @@
         "Buffer.concat": true
       },
       "packages": {
-        "@onekeyhq/core>@alephium/web3>crypto-browserify>browserify-cipher>evp_bytestokey": true,
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
         "@onekeyhq/core>ethereumjs-util>create-hash>cipher-base": true,
         "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>browserify-aes>buffer-xor": true,
+        "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>browserify-aes>evp_bytestokey": true,
         "glob>inherits": true
       }
     },
@@ -3395,6 +3149,12 @@
       },
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true
+      }
+    },
+    "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>browserify-aes>evp_bytestokey": {
+      "packages": {
+        "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
+        "@onekeyhq/core>ethereumjs-util>create-hash>md5.js": true
       }
     },
     "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>secp256k1": {
@@ -3506,17 +3266,12 @@
         "@onekeyhq/core>elliptic": true,
         "@onekeyhq/core>ethereumjs-util>create-hash": true,
         "@onekeyhq/core>js-conflux-sdk>secp256k1>bip66": true,
-        "@onekeyhq/core>js-conflux-sdk>secp256k1>bn.js": true
+        "@onekeyhq/core>near-api-js>bn.js": true
       }
     },
     "@onekeyhq/core>js-conflux-sdk>secp256k1>bip66": {
       "packages": {
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true
-      }
-    },
-    "@onekeyhq/core>js-conflux-sdk>secp256k1>bn.js": {
-      "globals": {
-        "Buffer": true
       }
     },
     "@onekeyhq/core>js-conflux-sdk>superagent": {
@@ -3600,27 +3355,6 @@
         "WebKitMutationObserver": true
       }
     },
-    "@onekeyhq/core>jsrsasign": {
-      "globals": {
-        "_isHex": true,
-        "_ResponseData": "write",
-        "_SingleResponseList": "write",
-        "alert": true,
-        "attrTypeAndValueStr": true,
-        "Bitcoin.Util.isArray": true,
-        "Buffer": true,
-        "Erorr": true,
-        "hEnc": "write",
-        "pGeneralNames": "write",
-        "result": "write",
-        "sjcl.codec.hex.fromBits": true,
-        "sjcl.codec.hex.toBits": true,
-        "sjcl.hash.sha256": true
-      },
-      "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
-      }
-    },
     "@onekeyhq/core>near-api-js": {
       "packages": {
         "@onekeyhq/core>near-api-js>@near-js/accounts": true,
@@ -3647,18 +3381,33 @@
       },
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyhq/core>near-api-js>@near-js/accounts>ajv": true,
+        "@onekeyhq/core>near-api-js>@near-js/accounts>ajv-formats": true,
         "@onekeyhq/core>near-api-js>@near-js/crypto": true,
         "@onekeyhq/core>near-api-js>@near-js/providers": true,
         "@onekeyhq/core>near-api-js>@near-js/signers": true,
         "@onekeyhq/core>near-api-js>@near-js/transactions": true,
         "@onekeyhq/core>near-api-js>@near-js/types": true,
         "@onekeyhq/core>near-api-js>@near-js/utils": true,
-        "@onekeyhq/core>near-api-js>ajv": true,
-        "@onekeyhq/core>near-api-js>ajv-formats": true,
         "@onekeyhq/core>near-api-js>bn.js": true,
         "@onekeyhq/core>near-api-js>borsh": true,
         "@onekeyhq/core>near-api-js>depd": true,
         "@onekeyhq/core>near-api-js>near-abi": true
+      }
+    },
+    "@onekeyhq/core>near-api-js>@near-js/accounts>ajv": {
+      "globals": {
+        "console": true
+      },
+      "packages": {
+        "@onekeyhq/components>@react-navigation/native>fast-deep-equal": true,
+        "@onekeyhq/core>near-api-js>ajv>json-schema-traverse": true,
+        "webpack>schema-utils>ajv>uri-js": true
+      }
+    },
+    "@onekeyhq/core>near-api-js>@near-js/accounts>ajv-formats": {
+      "packages": {
+        "@onekeyhq/core>near-api-js>@near-js/accounts>ajv": true
       }
     },
     "@onekeyhq/core>near-api-js>@near-js/crypto": {
@@ -3771,21 +3520,6 @@
         "@onekeyhq/core>near-api-js>borsh": true
       }
     },
-    "@onekeyhq/core>near-api-js>ajv": {
-      "globals": {
-        "console": true
-      },
-      "packages": {
-        "@onekeyhq/components>@react-navigation/native>fast-deep-equal": true,
-        "@onekeyhq/core>near-api-js>ajv>json-schema-traverse": true,
-        "webpack>schema-utils>ajv>uri-js": true
-      }
-    },
-    "@onekeyhq/core>near-api-js>ajv-formats": {
-      "packages": {
-        "@onekeyhq/core>near-api-js>ajv": true
-      }
-    },
     "@onekeyhq/core>near-api-js>bn.js": {
       "globals": {
         "Buffer": true
@@ -3853,11 +3587,11 @@
       },
       "meta": {
         "webpack-optimization": [
-          "Dependency '@onekeyhq/core>tronweb>ethereum-cryptography' reexports from '@onekeyhq/core>@solana/web3.js>@noble/curves' and webpack collapsed that to a direct import."
+          "Dependency '@onekeyhq/core>tronweb>ethereum-cryptography' reexports from '@onekeyhq/core>@alephium/web3>@noble/curves' and webpack collapsed that to a direct import."
         ]
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>tronweb>ethereum-cryptography": true,
         "@onekeyhq/core>tronweb>ethers": true,
@@ -3875,7 +3609,7 @@
         "setTimeout": true
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "@onekeyhq/core>tronweb>ethers>@noble/hashes": true,
         "@onekeyhq/core>tronweb>ethers>aes-js": true
       }
@@ -3903,7 +3637,7 @@
         "TextDecoder": true
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "@onekeyhq/core>web3-utils>ethereum-cryptography>@noble/hashes": true
       }
     },
@@ -4041,12 +3775,7 @@
         "@onekeyhq/core>@onekeyfe/coinselect>create-hmac": true,
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>elliptic": true,
-        "@onekeyhq/core>xrpl>bip32>tiny-secp256k1>bn.js": true
-      }
-    },
-    "@onekeyhq/core>xrpl>bip32>tiny-secp256k1>bn.js": {
-      "globals": {
-        "Buffer": true
+        "@onekeyhq/core>near-api-js>bn.js": true
       }
     },
     "@onekeyhq/core>xrpl>ripple-address-codec": {
@@ -4225,6 +3954,21 @@
       },
       "meta": {
         "webpack-optimization": [
+          "Dependency '@onekeyhq/components' reexports from '@onekeyhq/components>@react-navigation/native>@react-navigation/core' and webpack collapsed that to a direct import.",
+          "Dependency '@onekeyhq/components' reexports from '@onekeyhq/components>@react-navigation/stack>react-native-safe-area-context' and webpack collapsed that to a direct import.",
+          "Dependency '@onekeyhq/components' reexports from '@onekeyhq/components>react-hook-form' and webpack collapsed that to a direct import.",
+          "Dependency '@onekeyhq/components' reexports from '@onekeyhq/kit>expo-camera>react-native-web' and webpack collapsed that to a direct import.",
+          "Dependency '@onekeyhq/components' reexports from '@onekeyhq/shared' and webpack collapsed that to a direct import.",
+          "Dependency '@onekeyhq/components' reexports from 'external:../../node_modules/@onekeyfe/react-native-text-input/src/enum.ts' and webpack collapsed that to a direct import.",
+          "Dependency '@onekeyhq/components' reexports from 'external:../../node_modules/@tamagui/accordion/dist/esm/Accordion.mjs' and webpack collapsed that to a direct import.",
+          "Dependency '@onekeyhq/components' reexports from 'external:../../node_modules/@tamagui/font-size/dist/esm/getFontSize.mjs' and webpack collapsed that to a direct import.",
+          "Dependency '@onekeyhq/components' reexports from 'external:../../node_modules/@tamagui/group/dist/esm/Group.mjs' and webpack collapsed that to a direct import.",
+          "Dependency '@onekeyhq/components' reexports from 'external:../../node_modules/@tamagui/web/dist/esm/config.mjs' and webpack collapsed that to a direct import.",
+          "Dependency '@onekeyhq/components' reexports from 'external:../../node_modules/@tamagui/web/dist/esm/hooks/useProps.mjs' and webpack collapsed that to a direct import.",
+          "Dependency '@onekeyhq/components' reexports from 'external:../../node_modules/@tamagui/web/dist/esm/hooks/useTheme.mjs' and webpack collapsed that to a direct import.",
+          "Dependency '@onekeyhq/components' reexports from 'external:../../node_modules/@tamagui/web/dist/esm/hooks/useThemeName.mjs' and webpack collapsed that to a direct import.",
+          "Dependency '@onekeyhq/components' reexports from 'external:../../node_modules/expo-haptics/src/Haptics.types.ts' and webpack collapsed that to a direct import.",
+          "Dependency '@onekeyhq/components' reexports from 'external:../../node_modules/react-native-video/src/types/ResizeMode.ts' and webpack collapsed that to a direct import.",
           "Dependency '@onekeyhq/components>moti' reexports from '@onekeyhq/components>moti>framer-motion' and webpack collapsed that to a direct import.",
           "Dependency '@onekeyhq/core>@glif/filecoin-address>ethers' reexports from '@onekeyhq/core>@starcoin/starcoin>@ethersproject/hash' and webpack collapsed that to a direct import.",
           "Dependency 'external:../../node_modules/@reown/appkit-controllers/dist/esm/exports/index.js' reexports from 'external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js' and webpack collapsed that to a direct import.",
@@ -4264,7 +4008,6 @@
         "@onekeyhq/kit>date-fns>@babel/runtime": true,
         "@onekeyhq/kit>expo-camera": true,
         "@onekeyhq/kit>expo-camera>expo>@expo/cli>@expo/devcert>glob>jackspeak>@isaacs/cliui>string-width>emoji-regex": true,
-        "@onekeyhq/kit>expo-camera>expo>@expo/cli>@expo/devcert>glob>path-scurry>lru-cache": true,
         "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
         "@onekeyhq/kit>expo-camera>expo>react-native-webview": true,
         "@onekeyhq/kit>expo-camera>react-native-web": true,
@@ -4294,8 +4037,9 @@
         "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/index.mjs": true,
         "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/ui-events.mjs": true,
         "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/constants.mjs": true,
+        "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": true,
         "external:../../node_modules/@onekeyfe/onekey-cross-webview/dist/index.js": true,
+        "external:../../node_modules/@onekeyfe/react-native-text-input/src/enum.ts": true,
         "external:../../node_modules/@reown/appkit-controllers/dist/esm/exports/index.js": true,
         "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true,
         "external:../../node_modules/@reown/appkit-core-react-native/lib/module/index.js": true,
@@ -4306,15 +4050,22 @@
         "external:../../node_modules/@shopify/flash-list/dist/index.js": true,
         "external:../../node_modules/@shopify/react-native-skia/lib/module/index.js": true,
         "external:../../node_modules/@shopify/react-native-skia/lib/module/web/index.js": true,
+        "external:../../node_modules/@tamagui/accordion/dist/esm/Accordion.mjs": true,
         "external:../../node_modules/@tamagui/core/dist/esm/index.mjs": true,
+        "external:../../node_modules/@tamagui/font-size/dist/esm/getFontSize.mjs": true,
+        "external:../../node_modules/@tamagui/group/dist/esm/Group.mjs": true,
         "external:../../node_modules/@tamagui/themes/dist/esm/index.mjs": true,
         "external:../../node_modules/@tamagui/themes/dist/esm/tokens.mjs": true,
+        "external:../../node_modules/@tamagui/web/dist/esm/config.mjs": true,
+        "external:../../node_modules/@tamagui/web/dist/esm/hooks/useProps.mjs": true,
         "external:../../node_modules/@tamagui/web/dist/esm/hooks/useTheme.mjs": true,
+        "external:../../node_modules/@tamagui/web/dist/esm/hooks/useThemeName.mjs": true,
         "external:../../node_modules/@tamagui/web/dist/esm/styled.mjs": true,
         "external:../../node_modules/canvaskit-wasm/bin/full/canvaskit.wasm": true,
         "external:../../node_modules/ethersV6/lib.esm/index.js": true,
         "external:../../node_modules/expo-clipboard/build/Clipboard.js": true,
         "external:../../node_modules/expo-device/build/Device.js": true,
+        "external:../../node_modules/expo-haptics/src/Haptics.types.ts": true,
         "external:../../node_modules/expo-image-picker/build/ImagePicker.js": true,
         "external:../../node_modules/expo-keep-awake/build/index.js": true,
         "external:../../node_modules/expo-linking/build/Linking.js": true,
@@ -4335,6 +4086,7 @@
         "external:../../node_modules/react-beautiful-dnd/dist/react-beautiful-dnd.esm.js": true,
         "external:../../node_modules/react-native-confirmation-code-field/esm/index.js": true,
         "external:../../node_modules/react-native-image-colors/build/index.js": true,
+        "external:../../node_modules/react-native-video/src/types/ResizeMode.ts": true,
         "external:../../node_modules/worker-loader/dist/runtime/inline.js": true,
         "external:../../node_modules/zxcvbn/lib/main.js": true,
         "semver": true,
@@ -4374,7 +4126,9 @@
         "clearInterval": true,
         "clearTimeout": true,
         "crypto": true,
+        "desktopApi.channel": true,
         "desktopApi.nobleBle.checkAvailability": true,
+        "desktopApi.platform": true,
         "desktopApiBridge.call": true,
         "desktopApiProxy": "write",
         "fetch": true,
@@ -4429,7 +4183,7 @@
         "@onekeyhq/components>lodash": true,
         "@onekeyhq/core": true,
         "@onekeyhq/core>@alephium/web3": true,
-        "@onekeyhq/core>@alephium/web3>blakejs": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "@onekeyhq/core>@aptos-labs/siwa": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer": true,
@@ -4450,10 +4204,10 @@
         "@onekeyhq/core>@magiceden-oss/open_creator_protocol": true,
         "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata": true,
         "@onekeyhq/core>@noble/hashes": true,
+        "@onekeyhq/core>@onekeyfe/coinselect>blakejs": true,
         "@onekeyhq/core>@onekeyfe/kaspa-core-lib": true,
         "@onekeyhq/core>@solana/spl-token": true,
         "@onekeyhq/core>@solana/web3.js": true,
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
         "@onekeyhq/core>@solana/web3.js>bs58": true,
         "@onekeyhq/core>@starcoin/starcoin>@ethersproject/hash>@ethersproject/address": true,
         "@onekeyhq/core>@starcoin/starcoin>@ethersproject/keccak256": true,
@@ -4690,69 +4444,10 @@
         "@onekeyhq/kit>expo-camera>react-native-web": true
       }
     },
-    "@onekeyhq/kit>expo-camera>expo>@expo/cli>@expo/devcert>glob>path-scurry>lru-cache": {
-      "globals": {
-        "AbortController": true,
-        "AbortSignal": true,
-        "performance": true,
-        "process": true,
-        "setTimeout": true
-      },
-      "packages": {
-        "@onekeyhq/kit>date-fns>@babel/runtime": true
-      }
-    },
-    "@onekeyhq/kit>expo-camera>expo>expo-asset": {
-      "globals": {
-        "Image": true,
-        "URL": true,
-        "URLSearchParams": true
-      },
-      "packages": {
-        "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
-        "@onekeyhq/kit>expo-camera>react-native-web": true,
-        "@onekeyhq/kit>expo-camera>react-native>@react-native/assets-registry": true
-      }
-    },
     "@onekeyhq/kit>expo-camera>expo>expo-file-system": {
       "packages": {
         "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
         "@onekeyhq/kit>expo-camera>react-native-web": true
-      }
-    },
-    "@onekeyhq/kit>expo-camera>expo>expo-font": {
-      "globals": {
-        "CSSFontFaceRule": true,
-        "document.createElement": true,
-        "document.createTextNode": true,
-        "document.getElementById": true,
-        "document.head": true,
-        "document.removeChild": true,
-        "HTMLStyleElement": true,
-        "navigator.userAgent": true
-      },
-      "packages": {
-        "@onekeyhq/kit>expo-camera>expo>expo-asset": true,
-        "@onekeyhq/kit>expo-camera>expo>expo-font>fontfaceobserver": true,
-        "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
-        "@onekeyhq/kit>react-intl>react": true
-      }
-    },
-    "@onekeyhq/kit>expo-camera>expo>expo-font>fontfaceobserver": {
-      "globals": {
-        "clearTimeout": true,
-        "document.addEventListener": true,
-        "document.attachEvent": true,
-        "document.body": true,
-        "document.createElement": true,
-        "document.createTextNode": true,
-        "document.detachEvent": true,
-        "document.readyState": true,
-        "document.removeEventListener": true,
-        "FontFaceObserver": "write",
-        "navigator.userAgent": true,
-        "navigator.vendor": true,
-        "setTimeout": true
       }
     },
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": {
@@ -4891,15 +4586,6 @@
     "@onekeyhq/kit>expo-camera>react-native>@react-native/community-cli-plugin>@react-native-community/cli>@react-native-community/cli-server-api>pretty-format>react-is": {
       "globals": {
         "process.env.NODE_ENV": true
-      }
-    },
-    "@onekeyhq/kit>expo-camera>react-native>promise": {
-      "globals": {
-        "AggregateError": true,
-        "clearTimeout": true,
-        "console.warn": true,
-        "setImmediate": true,
-        "setTimeout": true
       }
     },
     "@onekeyhq/kit>expo-camera>react-native>scheduler": {
@@ -5524,7 +5210,7 @@
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>@keystonehq/alias-sampling": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>cbor-sync": true,
-        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>crc": true
+        "electron-builder>dmg-builder>dmg-license>crc": true
       }
     },
     "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>cbor-sync": {
@@ -5534,20 +5220,6 @@
       },
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true
-      }
-    },
-    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>crc": {
-      "packages": {
-        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>crc>buffer": true
-      }
-    },
-    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>crc>buffer": {
-      "globals": {
-        "console": true
-      },
-      "packages": {
-        "@onekeyhq/core>algosdk>buffer>ieee754": true,
-        "@onekeyhq/kit>expo-camera>react-native>base64-js": true
       }
     },
     "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>pako": {
@@ -5610,6 +5282,7 @@
         "desktopApi.on": true,
         "desktopApi.onAppState": true,
         "desktopApi.platform": true,
+        "desktopApi.processStartAt": true,
         "desktopApi.setConsecutiveBootFailCount": true,
         "desktopApi.systemVersion": true,
         "desktopApiProxy": true,
@@ -5698,7 +5371,6 @@
         "@onekeyhq/components>@react-navigation/native": true,
         "@onekeyhq/components>iso-639-1": true,
         "@onekeyhq/components>lodash": true,
-        "@onekeyhq/core>@alephium/web3>crypto-browserify": true,
         "@onekeyhq/core>@conflux-dev/conflux-address-js": true,
         "@onekeyhq/core>@glif/filecoin-address>ethers>@ethersproject/wallet": true,
         "@onekeyhq/core>@noble/hashes": true,
@@ -5714,10 +5386,8 @@
         "@onekeyhq/core>tronweb>validator": true,
         "@onekeyhq/core>xrpl>bignumber.js": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true,
-        "@onekeyhq/core>xrpl>ripple-binary-codec>decimal.js": true,
         "@onekeyhq/kit>date-fns": true,
         "@onekeyhq/kit>date-fns>@babel/runtime": true,
-        "@onekeyhq/kit>expo-camera>expo>@expo/cli>@expo/devcert>glob>path-scurry>lru-cache": true,
         "@onekeyhq/kit>expo-camera>expo>expo-file-system": true,
         "@onekeyhq/kit>expo-camera>react-native-web": true,
         "@onekeyhq/kit>fuse.js": true,
@@ -5757,15 +5427,14 @@
         "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": true,
         "external:../../node_modules/@onekeyfe/hwk-trezor-connector-electron-ble/dist/index.mjs": true,
         "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/index.js": true,
         "external:../../node_modules/@sentry/react/build/esm/errorboundary.js": true,
         "external:../../node_modules/@sentry/react/build/esm/index.js": true,
         "external:../../node_modules/@sentry/react/build/esm/profiler.js": true,
         "external:../../node_modules/@supabase/supabase-js/dist/esm/wrapper.mjs": true,
         "external:../../node_modules/array.prototype.flatmap/index.js": true,
         "external:../../node_modules/array.prototype.toreversed/index.js": true,
-        "external:../../node_modules/array.prototype.tosorted/index.js": true,
         "external:../../node_modules/asmcrypto.js/asmcrypto.all.es8.js": true,
+        "external:../../node_modules/crypto-browserify/index.js": true,
         "external:../../node_modules/expo-device/build/Device.js": true,
         "external:../../node_modules/expo-image-manipulator/src/ImageManipulator.ts": true,
         "external:../../node_modules/expo-image-manipulator/src/ImageManipulator.types.ts": true,
@@ -5777,7 +5446,6 @@
         "external:../../node_modules/expo-sharing/build/Sharing.js": true,
         "external:../../node_modules/js-md5/src/md5.js": true,
         "external:../../node_modules/memoizee/index.js": true,
-        "external:../../node_modules/mobile-detect/mobile-detect.js": true,
         "external:../../node_modules/natsort/lib/index.js": true,
         "external:../../node_modules/react-native-mmkv/lib/index.js": true,
         "external:../../node_modules/shamir-secret-sharing/esm/index.js": true,
@@ -6090,6 +5758,30 @@
         "@types/node-fetch>form-data>hasown>function-bind": true
       }
     },
+    "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>es-define-property": {
+      "packages": {
+        "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>es-define-property>get-intrinsic": true
+      }
+    },
+    "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>es-define-property>get-intrinsic": {
+      "globals": {
+        "AggregateError": true,
+        "FinalizationRegistry": true,
+        "WeakRef": true
+      },
+      "packages": {
+        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic>has-proto": true,
+        "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>es-define-property>get-intrinsic>hasown": true,
+        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
+        "@types/node-fetch>form-data>es-set-tostringtag>has-tostringtag>has-symbols": true,
+        "@types/node-fetch>form-data>hasown>function-bind": true
+      }
+    },
+    "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>es-define-property>get-intrinsic>hasown": {
+      "packages": {
+        "@types/node-fetch>form-data>hasown>function-bind": true
+      }
+    },
     "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>set-function-length": {
       "packages": {
         "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>set-function-length>define-data-property": true,
@@ -6101,33 +5793,9 @@
     },
     "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>set-function-length>define-data-property": {
       "packages": {
-        "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>set-function-length>define-data-property>es-define-property": true,
+        "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>es-define-property": true,
         "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>set-function-length>define-data-property>gopd": true,
         "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true
-      }
-    },
-    "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>set-function-length>define-data-property>es-define-property": {
-      "packages": {
-        "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>set-function-length>define-data-property>es-define-property>get-intrinsic": true
-      }
-    },
-    "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>set-function-length>define-data-property>es-define-property>get-intrinsic": {
-      "globals": {
-        "AggregateError": true,
-        "FinalizationRegistry": true,
-        "WeakRef": true
-      },
-      "packages": {
-        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic>has-proto": true,
-        "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>set-function-length>define-data-property>es-define-property>get-intrinsic>hasown": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>has-tostringtag>has-symbols": true,
-        "@types/node-fetch>form-data>hasown>function-bind": true
-      }
-    },
-    "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>set-function-length>define-data-property>es-define-property>get-intrinsic>hasown": {
-      "packages": {
-        "@types/node-fetch>form-data>hasown>function-bind": true
       }
     },
     "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>set-function-length>define-data-property>gopd": {
@@ -6174,17 +5842,7 @@
     },
     "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>set-function-length>has-property-descriptors": {
       "packages": {
-        "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>set-function-length>has-property-descriptors>es-define-property": true
-      }
-    },
-    "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>set-function-length>has-property-descriptors>es-define-property": {
-      "packages": {
-        "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>set-function-length>get-intrinsic": true
-      }
-    },
-    "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true
+        "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>es-define-property": true
       }
     },
     "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>get-proto": {
@@ -6196,7 +5854,6 @@
     "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>get-proto>dunder-proto": {
       "packages": {
         "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>call-bind-apply-helpers": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
         "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>gopd": true
       }
     },
@@ -6213,6 +5870,20 @@
     "concurrently>rxjs>tslib": {
       "globals": {
         "SuppressedError": true
+      }
+    },
+    "electron-builder>dmg-builder>dmg-license>crc": {
+      "packages": {
+        "electron-builder>dmg-builder>dmg-license>crc>buffer": true
+      }
+    },
+    "electron-builder>dmg-builder>dmg-license>crc>buffer": {
+      "globals": {
+        "console": true
+      },
+      "packages": {
+        "@onekeyhq/core>algosdk>buffer>ieee754": true,
+        "@onekeyhq/kit>expo-camera>react-native>base64-js": true
       }
     },
     "electron-log": {
@@ -11501,7 +11172,7 @@
     },
     "external:../../node_modules/@ledgerhq/device-signer-kit-ethereum/node_modules/ethers/lib.esm/crypto/signing-key.js": {
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/@ledgerhq/device-signer-kit-ethereum/node_modules/ethers/lib.esm/crypto/signature.js": true,
         "external:../../node_modules/@ledgerhq/device-signer-kit-ethereum/node_modules/ethers/lib.esm/utils/data.js": true,
         "external:../../node_modules/@ledgerhq/device-signer-kit-ethereum/node_modules/ethers/lib.esm/utils/errors.js": true,
@@ -14404,9 +14075,9 @@
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>eth-sig-util>ethereumjs-util>ethjs-util": true,
+        "@onekeyhq/core>near-api-js>bn.js": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util": true,
-        "external:../../node_modules/@metamask/eth-sig-util/dist/utils.js": true,
-        "external:../../node_modules/@metamask/eth-sig-util/node_modules/bn.js/lib/bn.js": true
+        "external:../../node_modules/@metamask/eth-sig-util/dist/utils.js": true
       }
     },
     "external:../../node_modules/@metamask/eth-sig-util/dist/index.js": {
@@ -14445,11 +14116,6 @@
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>eth-sig-util>ethereumjs-util>ethjs-util": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util": true
-      }
-    },
-    "external:../../node_modules/@metamask/eth-sig-util/node_modules/bn.js/lib/bn.js": {
-      "globals": {
-        "Buffer": true
       }
     },
     "external:../../node_modules/@msgpack/msgpack/dist.esm/CachedKeyDecoder.mjs": {
@@ -14822,7 +14488,7 @@
         ]
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
         "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/hex.mjs": true,
         "external:../../node_modules/@mysten/sui/dist/cryptography/keypair.mjs": true,
@@ -14838,7 +14504,7 @@
         ]
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
         "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs": true,
         "external:../../node_modules/@mysten/sui/dist/cryptography/publickey.mjs": true,
@@ -17078,7 +16744,7 @@
     },
     "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/errors.mjs": {
       "packages": {
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-D5OZT7RZ.mjs": true
+        "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-JPP3QN5E.mjs": true
       }
     },
     "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/index.mjs": {
@@ -17089,7 +16755,7 @@
       },
       "packages": {
         "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-6JWUE3GT.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-D5OZT7RZ.mjs": true,
+        "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-JPP3QN5E.mjs": true,
         "external:../../node_modules/@onekeyfe/hwk-adapter-core/node_modules/@noble/hashes/esm/sha256.js": true,
         "external:../../node_modules/@onekeyfe/hwk-adapter-core/node_modules/@noble/hashes/esm/utils.js": true
       }
@@ -17154,11 +16820,14 @@
       }
     },
     "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": {
+      "globals": {
+        "fetch": true
+      },
       "packages": {
         "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/index.mjs": true
       }
     },
-    "external:../../node_modules/@onekeyfe/hwk-trezor-connector-electron-ble/dist/chunk-KNBLSVDP.mjs": {
+    "external:../../node_modules/@onekeyfe/hwk-trezor-connector-electron-ble/dist/chunk-JRFR54HU.mjs": {
       "globals": {
         "require": true
       }
@@ -17173,21 +16842,14 @@
         "@onekeyhq/core>algosdk>buffer": true,
         "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/index.mjs": true,
         "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-connector-electron-ble/dist/chunk-KNBLSVDP.mjs": true,
+        "external:../../node_modules/@onekeyfe/hwk-trezor-connector-electron-ble/dist/chunk-JRFR54HU.mjs": true,
         "external:../../node_modules/@onekeyfe/hwk-trezor-connector/dist/index.mjs": true,
         "external:../../node_modules/@onekeyfe/hwk-trezor-core/dist/index.mjs": true
       }
     },
-    "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/constants.mjs": {
-      "packages": {
-        "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/chunk-LG4BKSHP.mjs": true
-      }
-    },
     "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": {
       "globals": {
-        "clearTimeout": true,
-        "navigator": true,
-        "setTimeout": true
+        "navigator": true
       },
       "meta": {
         "webpack-optimization": [
@@ -17204,8 +16866,7 @@
     },
     "external:../../node_modules/@onekeyfe/hwk-trezor-connector/dist/index.mjs": {
       "globals": {
-        "Buffer.from": true,
-        "fetch": true
+        "Buffer.from": true
       },
       "meta": {
         "webpack-optimization": [
@@ -20231,7 +19892,7 @@
         ]
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-crypto/bundle.js": true,
         "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-crypto/index.js": true,
         "external:../../node_modules/@polkadot/util/has.js": true,
@@ -20246,7 +19907,7 @@
         ]
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-crypto/bundle.js": true,
         "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-crypto/index.js": true,
         "external:../../node_modules/@polkadot/util/has.js": true,
@@ -20261,7 +19922,7 @@
         ]
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-crypto/bundle.js": true,
         "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-crypto/index.js": true,
         "external:../../node_modules/@polkadot/util/has.js": true,
@@ -20606,7 +20267,7 @@
     },
     "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/secp256k1/compress.js": {
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-crypto/bundle.js": true,
         "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-crypto/index.js": true,
         "external:../../node_modules/@polkadot/util/has.js": true,
@@ -20639,7 +20300,7 @@
         ]
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/bn.js": true,
         "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-crypto/bundle.js": true,
         "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-crypto/index.js": true,
@@ -20664,7 +20325,7 @@
         ]
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-crypto/bundle.js": true,
         "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-crypto/index.js": true,
         "external:../../node_modules/@polkadot/util/has.js": true,
@@ -20679,7 +20340,7 @@
         ]
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/secp256k1/compress.js": true,
         "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/secp256k1/expand.js": true,
         "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-crypto/bundle.js": true,
@@ -20697,7 +20358,7 @@
         ]
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/bn.js": true,
         "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/secp256k1/hasher.js": true,
         "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-crypto/bundle.js": true,
@@ -24297,7 +23958,7 @@
         ]
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/@polkadot/types/node_modules/@polkadot/util-crypto/bn.js": true,
         "external:../../node_modules/@polkadot/util/bn/toU8a.js": true,
         "external:../../node_modules/@polkadot/util/has.js": true,
@@ -24846,7 +24507,7 @@
         ]
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-crypto/bundle.js": true,
         "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-crypto/index.js": true,
         "external:../../node_modules/@polkadot/util/has.js": true,
@@ -24874,7 +24535,7 @@
         ]
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-crypto/bundle.js": true,
         "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-crypto/index.js": true,
         "external:../../node_modules/@polkadot/util/has.js": true,
@@ -24889,7 +24550,7 @@
         ]
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-crypto/bundle.js": true,
         "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-crypto/index.js": true,
         "external:../../node_modules/@polkadot/util/has.js": true,
@@ -25632,7 +25293,7 @@
     },
     "external:../../node_modules/@polkadot/util-crypto/secp256k1/compress.js": {
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-crypto/bundle.js": true,
         "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-crypto/index.js": true,
         "external:../../node_modules/@polkadot/util/has.js": true,
@@ -25665,7 +25326,7 @@
         ]
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/@polkadot/util-crypto/bn.js": true,
         "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-crypto/bundle.js": true,
         "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-crypto/index.js": true,
@@ -25701,7 +25362,7 @@
         ]
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-crypto/bundle.js": true,
         "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-crypto/index.js": true,
         "external:../../node_modules/@polkadot/util/has.js": true,
@@ -25716,7 +25377,7 @@
         ]
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-crypto/bundle.js": true,
         "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-crypto/index.js": true,
         "external:../../node_modules/@polkadot/util-crypto/secp256k1/compress.js": true,
@@ -25734,7 +25395,7 @@
         ]
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/@polkadot/util-crypto/bn.js": true,
         "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-crypto/bundle.js": true,
         "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-crypto/index.js": true,
@@ -30562,705 +30223,6 @@
         "external:../../node_modules/@sentry/hub/esm/hub.js": true,
         "external:../../node_modules/@sentry/hub/esm/index.js": true,
         "external:../../node_modules/@sentry/minimal/node_modules/tslib/tslib.es6.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/client.js": {
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true,
-        "@sentry/electron>@sentry/browser": true,
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/debugsymbolicatorutils.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/sdkinfo.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/spotlight.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/replay/mobilereplay.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/envelope.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/ignorerequirecyclelogs.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/outcome.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/rnlibraries.web.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/feedback/defaults.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/utils.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackButton.js": {
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true,
-        "@onekeyhq/kit>react-intl>react": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/defaults.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackWidget.styles.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackWidget.theme.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackWidgetManager.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/icons.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/lazy.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackWidget.js": {
-      "globals": {
-        "setTimeout": true
-      },
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true,
-        "@onekeyhq/kit>react-intl>react": true,
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/branding.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/defaults.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackWidget.styles.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackWidget.theme.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackWidgetManager.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/lazy.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/ScreenshotButton.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/utils.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/environment.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackWidget.theme.js": {
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/integration.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackWidgetManager.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/lazy.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/environment.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackWidgetProvider.js": {
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true,
-        "@onekeyhq/kit>react-intl>react": true,
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackButton.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackWidget.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackWidget.styles.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackWidget.theme.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackWidgetManager.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/integration.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/ScreenshotButton.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/utils.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/environment.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/feedback/integration.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/feedback/lazy.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/integration.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/feedback/ScreenshotButton.js": {
-      "globals": {
-        "setTimeout": true
-      },
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true,
-        "@onekeyhq/kit>react-intl>react": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/defaults.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackWidget.styles.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackWidget.theme.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackWidgetManager.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/icons.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/lazy.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/feedback/utils.js": {
-      "globals": {
-        "atob": true
-      },
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/environment.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/rnlibraries.web.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/worldwide.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/index.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/client.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackButton.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackWidget.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackWidgetManager.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/exports.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/replay/CustomMask.web.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/sdk.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/touchevents.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/index.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/version.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/errorboundary.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/index.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/profiler.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/redux.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/integrations/appRegistry.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/environment.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/fill.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/rnlibraries.web.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/integrations/debugsymbolicator.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/debugsymbolicatorutils.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/error.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/integrations/debugsymbolicatorutils.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/rnlibraries.web.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/xhr.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/integrations/default.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/exports.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/index.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/environment.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/integrations/devicecontext.js": {
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true,
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/breadcrumb.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/integrations/expocontext.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/environment.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/expomodules.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/integrations/exports.js": {
-      "meta": {
-        "webpack-optimization": [
-          "Dependency 'external:../../node_modules/@sentry/react/build/esm/index.js' reexports from '@sentry/electron>@sentry/browser' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@sentry/react/build/esm/index.js' reexports from '@sentry/electron>@sentry/core' and webpack collapsed that to a direct import."
-        ]
-      },
-      "packages": {
-        "@sentry/electron>@sentry/browser": true,
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/integration.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/appRegistry.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/debugsymbolicator.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/devicecontext.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/eventorigin.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/expocontext.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/modulesloader.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/nativelinkederrors.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/reactnativeerrorhandlers.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/reactnativeinfo.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/release.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/rewriteframes.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/screenshot.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/sdkinfo.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/spotlight.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/viewhierarchy.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/profiling/integration.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/replay/browserReplay.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/replay/mobilereplay.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/integrations/appStart.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/integrations/nativeFrames.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/integrations/stalltracking.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/integrations/timeToDisplayIntegration.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/integrations/userInteraction.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/index.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/integrations/modulesloader.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/integrations/nativelinkederrors.js": {
-      "packages": {
-        "@sentry/electron>@sentry/browser": true,
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/integrations/reactnativeerrorhandlers.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/reactnativeerrorhandlersutils.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/environment.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/error.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/worldwide.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/integrations/reactnativeerrorhandlersutils.js": {
-      "globals": {
-        "require": true
-      },
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native>promise": true,
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/rnlibraries.web.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/worldwide.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/integrations/reactnativeinfo.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/environment.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/integrations/release.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/integrations/rewriteframes.js": {
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true,
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/environment.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/integrations/screenshot.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/integrations/sdkinfo.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/environment.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/version.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/integrations/spotlight.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/rnlibraries.web.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/xhr.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/integrations/viewhierarchy.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/profiling/convertHermesProfile.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/profiling/constants.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/profiling/hermes.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/profiling/debugid.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/profiling/hermes.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/profiling/hermes.js": {
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/rewriteframes.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/profiling/integration.js": {
-      "globals": {
-        "clearTimeout": true,
-        "setTimeout": true
-      },
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true,
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/profiling/cache.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/profiling/constants.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/profiling/convertHermesProfile.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/profiling/utils.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/environment.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/span.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/profiling/utils.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/profiling/debugid.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/environment.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/replay/CustomMask.web.js": {
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true,
-        "@onekeyhq/kit>react-intl>react": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/replay/mobilereplay.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/misc.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/replay/xhrUtils.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/clientutils.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/environment.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/replay/networkUtils.js": {
-      "globals": {
-        "Blob": true,
-        "FormData": true,
-        "URLSearchParams": true
-      },
-      "packages": {
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/worldwide.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/vendor/index.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/replay/xhrUtils.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/replay/networkUtils.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/scopeSync.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/react-native/dist/js/breadcrumb.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/fill.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/normalize.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/sdk.js": {
-      "meta": {
-        "webpack-optimization": [
-          "Dependency 'external:../../node_modules/@sentry/react/build/esm/index.js' reexports from '@sentry/electron>@sentry/browser' and webpack collapsed that to a direct import."
-        ]
-      },
-      "packages": {
-        "@onekeyhq/kit>react-intl>react": true,
-        "@sentry/electron>@sentry/browser": true,
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/client.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/feedback/FeedbackWidgetProvider.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/debugsymbolicatorutils.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/default.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/options.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/scopeSync.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/touchevents.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/index.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/transports/encodePolyfill.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/transports/native.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/environment.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/safe.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/index.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/touchevents.js": {
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true,
-        "@onekeyhq/kit>react-intl>react": true,
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/factory.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/integrations/userInteraction.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/ops.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/origin.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/tracing/gesturetracing.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/integrations/userInteraction.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/ops.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/origin.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/tracing/index.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/gesturetracing.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/ops.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/reactnativenavigation.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/reactnativeprofiler.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/reactnativetracing.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/reactnavigation.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/span.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/timetodisplay.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/tracing/integrations/appStart.js": {
-      "meta": {
-        "webpack-optimization": [
-          "Dependency 'external:../../node_modules/@sentry/react-native/dist/js/tracing/semanticAttributes.js' reexports from '@sentry/electron>@sentry/core' and webpack collapsed that to a direct import."
-        ]
-      },
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/appRegistry.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/measurements.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/ops.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/origin.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/semanticAttributes.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/span.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/utils.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/span.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/tracing/integrations/nativeFrames.js": {
-      "globals": {
-        "setTimeout": true
-      },
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/AsyncExpiringMap.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/span.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/tracing/integrations/stalltracking.js": {
-      "globals": {
-        "clearTimeout": true,
-        "setTimeout": true
-      },
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true,
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/measurements.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/utils.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/span.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/tracing/integrations/timeToDisplayIntegration.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/ops.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/origin.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/reactnavigation.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/semanticAttributes.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/span.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/timeToDisplayFallback.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/utils.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/tracing/integrations/userInteraction.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/onSpanEndUtils.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/origin.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/reactnativetracing.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/span.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/tracing/onSpanEndUtils.js": {
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true,
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/span.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/tracing/reactnativenavigation.js": {
-      "globals": {
-        "clearTimeout": true,
-        "setTimeout": true
-      },
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/onSpanEndUtils.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/origin.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/reactnativetracing.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/span.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/span.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/tracing/reactnativeprofiler.js": {
-      "meta": {
-        "webpack-optimization": [
-          "Dependency 'external:../../node_modules/@sentry/react/build/esm/index.js' reexports from '@sentry/electron>@sentry/core' and webpack collapsed that to a direct import."
-        ]
-      },
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/appRegistry.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/factory.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/integrations/appStart.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/index.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/profiler.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/tracing/reactnativetracing.js": {
-      "packages": {
-        "@sentry/electron>@sentry/browser": true,
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/debugsymbolicatorutils.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/span.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/environment.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/tracing/reactnavigation.js": {
-      "globals": {
-        "clearTimeout": true,
-        "setTimeout": true
-      },
-      "meta": {
-        "webpack-optimization": [
-          "Dependency 'external:../../node_modules/@sentry/react-native/dist/js/tracing/semanticAttributes.js' reexports from '@sentry/electron>@sentry/core' and webpack collapsed that to a direct import."
-        ]
-      },
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/integrations/appRegistry.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/onSpanEndUtils.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/origin.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/reactnativetracing.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/semanticAttributes.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/span.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/timeToDisplayFallback.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/span.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/worldwide.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/tracing/semanticAttributes.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/tracing/span.js": {
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true,
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/onSpanEndUtils.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/origin.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/span.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/tracing/timetodisplay.js": {
-      "globals": {
-        "clearTimeout": true,
-        "setTimeout": true
-      },
-      "packages": {
-        "@onekeyhq/kit>react-intl>react": true,
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/origin.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/timetodisplaynative.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/tracing/utils.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/tracing/timeToDisplayFallback.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/AsyncExpiringMap.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/tracing/timetodisplaynative.js": {
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true,
-        "@onekeyhq/kit>react-intl>react": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/environment.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/rnlibraries.web.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/tracing/utils.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/worldwide.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/transports/encodePolyfill.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/worldwide.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/vendor/index.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/transports/native.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/utils/AsyncExpiringMap.js": {
-      "globals": {
-        "clearInterval": true,
-        "setInterval": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/utils/envelope.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/utils/environment.js": {
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/expomodules.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/rnlibraries.web.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/worldwide.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/utils/expomodules.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/worldwide.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/utils/ignorerequirecyclelogs.js": {
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/utils/normalize.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/utils/span.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/utils/worldwide.js": {
-      "packages": {
-        "@sentry/electron>@sentry/core": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/vendor/base64-js/index.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/react-native/dist/js/vendor/base64-js/fromByteArray.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/vendor/index.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/react-native/dist/js/vendor/base64-js/index.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/vendor/buffer/index.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/vendor/buffer/utf8ToBytes.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/vendor/react-native/index.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react-native/dist/js/wrapper.js": {
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true,
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/misc.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/environment.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/normalize.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/utils/rnlibraries.web.js": true,
-        "external:../../node_modules/@sentry/react-native/dist/js/vendor/index.js": true
       }
     },
     "external:../../node_modules/@sentry/react/build/esm/debug-build.js": {
@@ -38330,7 +37292,7 @@
     },
     "external:../../node_modules/@walletconnect/jsonrpc-http-connection/dist/index.es.js": {
       "packages": {
-        "@onekeyhq/core>@alephium/web3>cross-fetch": true,
+        "@onekeyhq/core>@ckb-lumos/ckb-indexer>cross-fetch": true,
         "external:../../node_modules/@walletconnect/jsonrpc-utils/dist/esm/index.js": true,
         "external:../../node_modules/@walletconnect/safe-json/dist/esm/index.js": true,
         "webpack>events": true
@@ -38563,8 +37525,8 @@
         ]
       },
       "packages": {
-        "@onekeyhq/core>@alephium/web3>blakejs": true,
         "@onekeyhq/core>@glif/filecoin-message>uint8arrays": true,
+        "@onekeyhq/core>@onekeyfe/coinselect>blakejs": true,
         "@onekeyhq/core>algosdk>buffer": true,
         "external:../../node_modules/@msgpack/msgpack/dist.esm/decode.mjs": true,
         "external:../../node_modules/@msgpack/msgpack/dist.esm/encode.mjs": true,
@@ -38898,596 +37860,6 @@
         "external:../../node_modules/es-shim-unscopables/index.js": true
       }
     },
-    "external:../../node_modules/array.prototype.tosorted/implementation.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ArrayCreate.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/CompareArrayElements.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/CreateDataPropertyOrThrow.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/IsCallable.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/LengthOfArrayLike.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/SortIndexedProperties.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToObject.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToString.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/index.js": {
-      "packages": {
-        "electron>@electron/get>global-agent>roarr>globalthis>define-properties": true,
-        "external:../../node_modules/array.prototype.tosorted/implementation.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/call-bind/index.js": true,
-        "external:../../node_modules/array.prototype.tosorted/polyfill.js": true,
-        "external:../../node_modules/array.prototype.tosorted/shim.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/call-bind/index.js": {
-      "packages": {
-        "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>set-function-length": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>hasown>function-bind": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/call-bind/node_modules/es-define-property/index.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/call-bind/node_modules/get-intrinsic/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/call-bind/node_modules/es-define-property/index.js": {
-      "packages": {
-        "external:../../node_modules/array.prototype.tosorted/node_modules/call-bind/node_modules/get-intrinsic/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/call-bind/node_modules/get-intrinsic/index.js": {
-      "globals": {
-        "AggregateError": true,
-        "FinalizationRegistry": true,
-        "WeakRef": true
-      },
-      "packages": {
-        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic>has-proto": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>has-tostringtag>has-symbols": true,
-        "@types/node-fetch>form-data>hasown>function-bind": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/call-bind/node_modules/hasown/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/call-bind/node_modules/hasown/index.js": {
-      "packages": {
-        "@types/node-fetch>form-data>hasown>function-bind": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ArrayCreate.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>math-intrinsics": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/node_modules/get-intrinsic/index.js": true,
-        "external:../../node_modules/set-proto/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/BigInt/lessThan.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/Call.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/IsArray.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/node_modules/get-intrinsic/index.js": true,
-        "external:../../node_modules/call-bound/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/CompareArrayElements.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>math-intrinsics": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/Call.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/IsLessThan.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToNumber.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToString.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/CreateDataProperty.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/OrdinaryDefineOwnProperty.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/isPropertyKey.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/CreateDataPropertyOrThrow.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/CreateDataProperty.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/isPropertyKey.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/floor.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>math-intrinsics": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/FromPropertyDescriptor.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/fromPropertyDescriptor.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/records/property-descriptor.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/Get.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/isPropertyKey.js": true,
-        "external:../../node_modules/object-inspect/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/HasProperty.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/isPropertyKey.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/IsAccessorDescriptor.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>hasown": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/records/property-descriptor.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/IsArray.js": {
-      "packages": {
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/IsArray.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/IsCallable.js": {
-      "packages": {
-        "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/IsDataDescriptor.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>hasown": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/records/property-descriptor.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/IsExtensible.js": {
-      "packages": {
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/isPrimitive.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/node_modules/get-intrinsic/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/IsGenericDescriptor.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/IsAccessorDescriptor.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/IsDataDescriptor.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/records/property-descriptor.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/IsLessThan.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>math-intrinsics": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/BigInt/lessThan.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/Number/lessThan.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/StringToBigInt.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToNumeric.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToPrimitive.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/node_modules/get-intrinsic/index.js": true,
-        "external:../../node_modules/call-bound/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/LengthOfArrayLike.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/Get.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToLength.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/Number/lessThan.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/isNaN.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/OrdinaryDefineOwnProperty.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>gopd": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/IsAccessorDescriptor.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/IsExtensible.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/SameValue.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToPropertyDescriptor.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ValidateAndApplyPropertyDescriptor.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/isPropertyKey.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/records/property-descriptor.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/SameValue.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>math-intrinsics": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/SortIndexedProperties.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>math-intrinsics": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/Get.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/HasProperty.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToString.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/isAbstractClosure.js": true,
-        "external:../../node_modules/call-bound/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/StringToBigInt.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/node_modules/get-intrinsic/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/StringToNumber.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/node_modules/get-intrinsic/index.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/string.prototype.trim/index.js": true,
-        "external:../../node_modules/call-bound/index.js": true,
-        "external:../../node_modules/safe-regex-test/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToIntegerOrInfinity.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>math-intrinsics": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToNumber.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/truncate.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToLength.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>math-intrinsics": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToIntegerOrInfinity.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToNumber.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/StringToNumber.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToPrimitive.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/isPrimitive.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/node_modules/get-intrinsic/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToNumeric.js": {
-      "packages": {
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToNumber.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToPrimitive.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/isPrimitive.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/node_modules/get-intrinsic/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToObject.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToPrimitive.js": {
-      "packages": {
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-to-primitive/es2015.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToPropertyDescriptor.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
-        "@types/node-fetch>form-data>hasown": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/IsCallable.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToBoolean.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToString.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/node_modules/get-intrinsic/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/truncate.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/floor.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ValidateAndApplyPropertyDescriptor.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/FromPropertyDescriptor.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/IsAccessorDescriptor.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/IsDataDescriptor.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/IsGenericDescriptor.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/SameValue.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/DefineOwnProperty.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/isFullyPopulatedPropertyDescriptor.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/isPropertyKey.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/records/property-descriptor.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/DefineOwnProperty.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-define-property": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/IsArray.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/has-property-descriptors/index.js": true,
-        "external:../../node_modules/call-bound/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/isAbstractClosure.js": {
-      "packages": {
-        "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/IsArray.js": {
-      "packages": {
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/node_modules/get-intrinsic/index.js": true,
-        "external:../../node_modules/call-bound/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/isFullyPopulatedPropertyDescriptor.js": {
-      "packages": {
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/records/property-descriptor.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/helpers/records/property-descriptor.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>hasown": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/node_modules/get-intrinsic/index.js": {
-      "globals": {
-        "AggregateError": true,
-        "FinalizationRegistry": true,
-        "Float16Array": true,
-        "WeakRef": true
-      },
-      "packages": {
-        "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>call-bind-apply-helpers": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-define-property": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>get-proto": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>gopd": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>math-intrinsics": true,
-        "@types/node-fetch>form-data>hasown": true,
-        "@types/node-fetch>form-data>hasown>function-bind": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/node_modules/has-symbols/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/node_modules/has-symbols/index.js": {
-      "packages": {
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/node_modules/has-symbols/shams.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-shim-unscopables/index.js": {
-      "packages": {
-        "@types/node-fetch>form-data>hasown": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/es-to-primitive/es2015.js": {
-      "packages": {
-        "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-to-primitive/helpers/isPrimitive.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/is-symbol/index.js": true,
-        "external:../../node_modules/is-date-object/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/implementation.js": {
-      "globals": {
-        "document": true
-      },
-      "packages": {
-        "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": true,
-        "@types/node-fetch>form-data>hasown": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/node_modules/call-bound/index.js": true,
-        "external:../../node_modules/functions-have-names/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/index.js": {
-      "packages": {
-        "electron>@electron/get>global-agent>roarr>globalthis>define-properties": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/implementation.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/node_modules/call-bind/index.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/polyfill.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/shim.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/node_modules/call-bind/index.js": {
-      "packages": {
-        "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>call-bind-apply-helpers": true,
-        "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>set-function-length": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/node_modules/call-bind/node_modules/es-define-property/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/node_modules/call-bind/node_modules/es-define-property/index.js": {
-      "packages": {
-        "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/node_modules/get-intrinsic/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/node_modules/call-bound/index.js": {
-      "packages": {
-        "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>call-bind-apply-helpers": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/node_modules/call-bound/node_modules/get-intrinsic/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/node_modules/call-bound/node_modules/get-intrinsic/index.js": {
-      "globals": {
-        "AggregateError": true,
-        "FinalizationRegistry": true,
-        "WeakRef": true
-      },
-      "packages": {
-        "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>call-bind-apply-helpers": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-define-property": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>get-proto": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>gopd": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>math-intrinsics": true,
-        "@types/node-fetch>form-data>hasown": true,
-        "@types/node-fetch>form-data>hasown>function-bind": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/node_modules/call-bound/node_modules/has-symbols/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/node_modules/call-bound/node_modules/has-symbols/index.js": {
-      "packages": {
-        "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/node_modules/call-bound/node_modules/has-symbols/shams.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/node_modules/get-intrinsic/index.js": {
-      "globals": {
-        "AggregateError": true,
-        "FinalizationRegistry": true,
-        "WeakRef": true
-      },
-      "packages": {
-        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic>has-proto": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>has-tostringtag>has-symbols": true,
-        "@types/node-fetch>form-data>hasown>function-bind": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/node_modules/get-intrinsic/node_modules/hasown/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/node_modules/get-intrinsic/node_modules/hasown/index.js": {
-      "packages": {
-        "@types/node-fetch>form-data>hasown>function-bind": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/polyfill.js": {
-      "packages": {
-        "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/implementation.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/shim.js": {
-      "packages": {
-        "electron>@electron/get>global-agent>roarr>globalthis>define-properties": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/function.prototype.name/polyfill.js": true,
-        "external:../../node_modules/functions-have-names/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/has-property-descriptors/index.js": {
-      "packages": {
-        "external:../../node_modules/array.prototype.tosorted/node_modules/has-property-descriptors/node_modules/es-define-property/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/has-property-descriptors/node_modules/es-define-property/index.js": {
-      "packages": {
-        "external:../../node_modules/array.prototype.tosorted/node_modules/has-property-descriptors/node_modules/get-intrinsic/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/has-property-descriptors/node_modules/get-intrinsic/index.js": {
-      "globals": {
-        "AggregateError": true,
-        "FinalizationRegistry": true,
-        "WeakRef": true
-      },
-      "packages": {
-        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic>has-proto": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>has-tostringtag>has-symbols": true,
-        "@types/node-fetch>form-data>hasown>function-bind": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/has-property-descriptors/node_modules/hasown/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/has-property-descriptors/node_modules/hasown/index.js": {
-      "packages": {
-        "@types/node-fetch>form-data>hasown>function-bind": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/is-symbol/index.js": {
-      "packages": {
-        "external:../../node_modules/array.prototype.tosorted/node_modules/is-symbol/node_modules/has-symbols/index.js": true,
-        "external:../../node_modules/call-bound/index.js": true,
-        "external:../../node_modules/safe-regex-test/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/is-symbol/node_modules/has-symbols/index.js": {
-      "packages": {
-        "external:../../node_modules/array.prototype.tosorted/node_modules/is-symbol/node_modules/has-symbols/shams.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/string.prototype.trim/implementation.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-abstract/2024/ToString.js": true,
-        "external:../../node_modules/call-bound/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/string.prototype.trim/index.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
-        "electron>@electron/get>global-agent>roarr>globalthis>define-properties": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/string.prototype.trim/implementation.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/string.prototype.trim/node_modules/call-bind/index.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/string.prototype.trim/polyfill.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/string.prototype.trim/shim.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/string.prototype.trim/node_modules/call-bind/index.js": {
-      "packages": {
-        "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>call-bind-apply-helpers": true,
-        "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>set-function-length": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/string.prototype.trim/node_modules/es-define-property/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/string.prototype.trim/node_modules/es-define-property/index.js": {
-      "packages": {
-        "external:../../node_modules/array.prototype.tosorted/node_modules/string.prototype.trim/node_modules/get-intrinsic/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/string.prototype.trim/node_modules/get-intrinsic/index.js": {
-      "globals": {
-        "AggregateError": true,
-        "FinalizationRegistry": true,
-        "WeakRef": true
-      },
-      "packages": {
-        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic>has-proto": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>has-tostringtag>has-symbols": true,
-        "@types/node-fetch>form-data>hasown>function-bind": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/string.prototype.trim/node_modules/hasown/index.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/string.prototype.trim/node_modules/hasown/index.js": {
-      "packages": {
-        "@types/node-fetch>form-data>hasown>function-bind": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/string.prototype.trim/polyfill.js": {
-      "packages": {
-        "external:../../node_modules/array.prototype.tosorted/node_modules/string.prototype.trim/implementation.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/node_modules/string.prototype.trim/shim.js": {
-      "packages": {
-        "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>set-function-length>define-data-property": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/has-property-descriptors/index.js": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/string.prototype.trim/polyfill.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/polyfill.js": {
-      "packages": {
-        "external:../../node_modules/array.prototype.tosorted/implementation.js": true
-      }
-    },
-    "external:../../node_modules/array.prototype.tosorted/shim.js": {
-      "packages": {
-        "electron>@electron/get>global-agent>roarr>globalthis>define-properties": true,
-        "external:../../node_modules/array.prototype.tosorted/node_modules/es-shim-unscopables/index.js": true,
-        "external:../../node_modules/array.prototype.tosorted/polyfill.js": true
-      }
-    },
     "external:../../node_modules/asmcrypto.js/asmcrypto.all.es8.js": {
       "globals": {
         "atob": true,
@@ -39501,6 +37873,68 @@
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/shared": true
+      }
+    },
+    "external:../../node_modules/browserify-cipher/browser.js": {
+      "packages": {
+        "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>browserify-aes": true,
+        "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>browserify-aes>evp_bytestokey": true,
+        "external:../../node_modules/browserify-des/index.js": true,
+        "external:../../node_modules/browserify-des/modes.js": true
+      }
+    },
+    "external:../../node_modules/browserify-des/index.js": {
+      "packages": {
+        "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
+        "@onekeyhq/core>ethereumjs-util>create-hash>cipher-base": true,
+        "external:../../node_modules/des.js/lib/des.js": true,
+        "glob>inherits": true
+      }
+    },
+    "external:../../node_modules/browserify-rsa/index.js": {
+      "globals": {
+        "Buffer": true
+      },
+      "packages": {
+        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyhq/core>ecpair>randombytes": true,
+        "@onekeyhq/core>near-api-js>bn.js": true
+      }
+    },
+    "external:../../node_modules/browserify-sign/algos.js": {
+      "packages": {
+        "external:../../node_modules/browserify-sign/browser/algorithms.json": true
+      }
+    },
+    "external:../../node_modules/browserify-sign/browser/index.js": {
+      "packages": {
+        "@onekeyhq/core>cip-23>keccak>readable-stream": true,
+        "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
+        "@onekeyhq/core>ethereumjs-util>create-hash": true,
+        "external:../../node_modules/browserify-sign/browser/algorithms.json": true,
+        "external:../../node_modules/browserify-sign/browser/sign.js": true,
+        "external:../../node_modules/browserify-sign/browser/verify.js": true,
+        "glob>inherits": true
+      }
+    },
+    "external:../../node_modules/browserify-sign/browser/sign.js": {
+      "packages": {
+        "@onekeyhq/core>@onekeyfe/coinselect>create-hmac": true,
+        "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
+        "@onekeyhq/core>elliptic": true,
+        "@onekeyhq/core>near-api-js>bn.js": true,
+        "external:../../node_modules/browserify-rsa/index.js": true,
+        "external:../../node_modules/browserify-sign/browser/curves.json": true,
+        "external:../../node_modules/parse-asn1/index.js": true
+      }
+    },
+    "external:../../node_modules/browserify-sign/browser/verify.js": {
+      "packages": {
+        "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
+        "@onekeyhq/core>elliptic": true,
+        "@onekeyhq/core>near-api-js>bn.js": true,
+        "external:../../node_modules/browserify-sign/browser/curves.json": true,
+        "external:../../node_modules/parse-asn1/index.js": true
       }
     },
     "external:../../node_modules/bytebuffer/dist/bytebuffer.js": {
@@ -39533,13 +37967,13 @@
       "packages": {
         "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>call-bind-apply-helpers": true,
         "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-define-property": true,
         "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
         "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>get-proto": true,
         "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>gopd": true,
         "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>math-intrinsics": true,
         "@types/node-fetch>form-data>hasown": true,
         "@types/node-fetch>form-data>hasown>function-bind": true,
+        "external:../../node_modules/call-bound/node_modules/es-define-property/index.js": true,
         "external:../../node_modules/call-bound/node_modules/has-symbols/index.js": true
       }
     },
@@ -39590,6 +38024,31 @@
       "globals": {
         "classNames": "write",
         "define": true
+      }
+    },
+    "external:../../node_modules/create-ecdh/browser.js": {
+      "globals": {
+        "Buffer": true
+      },
+      "packages": {
+        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyhq/core>elliptic": true,
+        "@onekeyhq/core>near-api-js>bn.js": true
+      }
+    },
+    "external:../../node_modules/crypto-browserify/index.js": {
+      "packages": {
+        "@onekeyhq/core>@onekeyfe/coinselect>create-hmac": true,
+        "@onekeyhq/core>cardano-crypto.js>pbkdf2": true,
+        "@onekeyhq/core>ecpair>randombytes": true,
+        "@onekeyhq/core>ethereumjs-util>create-hash": true,
+        "external:../../node_modules/browserify-cipher/browser.js": true,
+        "external:../../node_modules/browserify-sign/algos.js": true,
+        "external:../../node_modules/browserify-sign/browser/index.js": true,
+        "external:../../node_modules/create-ecdh/browser.js": true,
+        "external:../../node_modules/diffie-hellman/browser.js": true,
+        "external:../../node_modules/public-encrypt/browser.js": true,
+        "external:../../node_modules/randomfill/browser.js": true
       }
     },
     "external:../../node_modules/crypto-js/aes.js": {
@@ -39990,6 +38449,42 @@
         "btoa": true
       }
     },
+    "external:../../node_modules/des.js/lib/des.js": {
+      "packages": {
+        "external:../../node_modules/des.js/lib/des/cbc.js": true,
+        "external:../../node_modules/des.js/lib/des/cipher.js": true,
+        "external:../../node_modules/des.js/lib/des/des.js": true,
+        "external:../../node_modules/des.js/lib/des/ede.js": true,
+        "external:../../node_modules/des.js/lib/des/utils.js": true
+      }
+    },
+    "external:../../node_modules/des.js/lib/des/cbc.js": {
+      "packages": {
+        "@onekeyhq/core>elliptic>minimalistic-assert": true,
+        "glob>inherits": true
+      }
+    },
+    "external:../../node_modules/des.js/lib/des/cipher.js": {
+      "packages": {
+        "@onekeyhq/core>elliptic>minimalistic-assert": true
+      }
+    },
+    "external:../../node_modules/des.js/lib/des/des.js": {
+      "packages": {
+        "@onekeyhq/core>elliptic>minimalistic-assert": true,
+        "external:../../node_modules/des.js/lib/des/cipher.js": true,
+        "external:../../node_modules/des.js/lib/des/utils.js": true,
+        "glob>inherits": true
+      }
+    },
+    "external:../../node_modules/des.js/lib/des/ede.js": {
+      "packages": {
+        "@onekeyhq/core>elliptic>minimalistic-assert": true,
+        "external:../../node_modules/des.js/lib/des/cipher.js": true,
+        "external:../../node_modules/des.js/lib/des/des.js": true,
+        "glob>inherits": true
+      }
+    },
     "external:../../node_modules/destr/dist/index.mjs": {
       "globals": {
         "console.warn": true
@@ -40000,6 +38495,36 @@
         "document": true,
         "navigator": true,
         "process": true
+      }
+    },
+    "external:../../node_modules/diffie-hellman/browser.js": {
+      "globals": {
+        "Buffer": true
+      },
+      "packages": {
+        "@onekeyhq/core>algosdk>buffer": true,
+        "external:../../node_modules/diffie-hellman/lib/dh.js": true,
+        "external:../../node_modules/diffie-hellman/lib/generatePrime.js": true,
+        "external:../../node_modules/diffie-hellman/lib/primes.json": true
+      }
+    },
+    "external:../../node_modules/diffie-hellman/lib/dh.js": {
+      "globals": {
+        "Buffer": true
+      },
+      "packages": {
+        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyhq/core>ecpair>randombytes": true,
+        "@onekeyhq/core>near-api-js>bn.js": true,
+        "external:../../node_modules/diffie-hellman/lib/generatePrime.js": true,
+        "external:../../node_modules/miller-rabin/lib/mr.js": true
+      }
+    },
+    "external:../../node_modules/diffie-hellman/lib/generatePrime.js": {
+      "packages": {
+        "@onekeyhq/core>ecpair>randombytes": true,
+        "@onekeyhq/core>near-api-js>bn.js": true,
+        "external:../../node_modules/miller-rabin/lib/mr.js": true
       }
     },
     "external:../../node_modules/dom-helpers/esm/canUseDOM.js": {
@@ -40588,7 +39113,7 @@
     },
     "external:../../node_modules/ethersV6/lib.esm/crypto/signing-key.js": {
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/ethersV6/lib.esm/crypto/signature.js": true,
         "external:../../node_modules/ethersV6/lib.esm/utils/data.js": true,
         "external:../../node_modules/ethersV6/lib.esm/utils/errors.js": true,
@@ -40954,13 +39479,8 @@
     },
     "external:../../node_modules/ethjs-unit/lib/index.js": {
       "packages": {
-        "external:../../node_modules/ethjs-unit/node_modules/bn.js/lib/bn.js": true,
+        "@onekeyhq/core>near-api-js>bn.js": true,
         "external:../../node_modules/number-to-bn/src/index.js": true
-      }
-    },
-    "external:../../node_modules/ethjs-unit/node_modules/bn.js/lib/bn.js": {
-      "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
       }
     },
     "external:../../node_modules/event-source-polyfill/src/eventsource.js": {
@@ -41983,11 +40503,10 @@
         "external:../../node_modules/merge-options/index.js": true
       }
     },
-    "external:../../node_modules/mobile-detect/mobile-detect.js": {
-      "globals": {
-        "define": true,
-        "MobileDetect": "write",
-        "screen": true
+    "external:../../node_modules/miller-rabin/lib/mr.js": {
+      "packages": {
+        "@onekeyhq/core>elliptic>brorand": true,
+        "@onekeyhq/core>near-api-js>bn.js": true
       }
     },
     "external:../../node_modules/node-vibrant/dist/esm/browser.js": {
@@ -42023,15 +40542,10 @@
         "external:../../node_modules/@vibrant/quantizer-mmcq/dist/esm/index.js": true
       }
     },
-    "external:../../node_modules/number-to-bn/node_modules/bn.js/lib/bn.js": {
-      "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
-      }
-    },
     "external:../../node_modules/number-to-bn/src/index.js": {
       "packages": {
         "@onekeyhq/core>eth-sig-util>ethereumjs-util>ethjs-util>strip-hex-prefix": true,
-        "external:../../node_modules/number-to-bn/node_modules/bn.js/lib/bn.js": true
+        "@onekeyhq/core>near-api-js>bn.js": true
       }
     },
     "external:../../node_modules/object-inspect/index.js": {
@@ -42135,7 +40649,7 @@
         "TextEncoder": true
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/ox/_esm/core/Errors.js": true,
         "external:../../node_modules/ox/_esm/core/Hex.js": true,
         "external:../../node_modules/ox/_esm/core/internal/bytes.js": true,
@@ -42168,7 +40682,7 @@
         "TextEncoder": true
       },
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/ox/_esm/core/Bytes.js": true,
         "external:../../node_modules/ox/_esm/core/Errors.js": true,
         "external:../../node_modules/ox/_esm/core/internal/bytes.js": true,
@@ -42214,7 +40728,7 @@
     },
     "external:../../node_modules/ox/_esm/core/Signature.js": {
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/ox/_esm/core/Bytes.js": true,
         "external:../../node_modules/ox/_esm/core/Errors.js": true,
         "external:../../node_modules/ox/_esm/core/Hex.js": true,
@@ -42385,9 +40899,80 @@
         "setTimeout": true
       }
     },
+    "external:../../node_modules/parse-asn1/asn1.js": {
+      "packages": {
+        "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/js>@bundlr-network/client>arweave>asn1.js": true,
+        "external:../../node_modules/parse-asn1/certificate.js": true
+      }
+    },
+    "external:../../node_modules/parse-asn1/certificate.js": {
+      "packages": {
+        "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/js>@bundlr-network/client>arweave>asn1.js": true
+      }
+    },
+    "external:../../node_modules/parse-asn1/fixProc.js": {
+      "packages": {
+        "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
+        "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>browserify-aes": true,
+        "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>browserify-aes>evp_bytestokey": true
+      }
+    },
+    "external:../../node_modules/parse-asn1/index.js": {
+      "packages": {
+        "@onekeyhq/core>cardano-crypto.js>pbkdf2": true,
+        "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
+        "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>browserify-aes": true,
+        "external:../../node_modules/parse-asn1/aesid.json": true,
+        "external:../../node_modules/parse-asn1/asn1.js": true,
+        "external:../../node_modules/parse-asn1/fixProc.js": true
+      }
+    },
     "external:../../node_modules/pino/browser.js": {
       "packages": {
         "external:../../node_modules/quick-format-unescaped/index.js": true
+      }
+    },
+    "external:../../node_modules/public-encrypt/browser.js": {
+      "packages": {
+        "external:../../node_modules/public-encrypt/privateDecrypt.js": true,
+        "external:../../node_modules/public-encrypt/publicEncrypt.js": true
+      }
+    },
+    "external:../../node_modules/public-encrypt/mgf.js": {
+      "packages": {
+        "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
+        "@onekeyhq/core>ethereumjs-util>create-hash": true
+      }
+    },
+    "external:../../node_modules/public-encrypt/privateDecrypt.js": {
+      "packages": {
+        "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
+        "@onekeyhq/core>ethereumjs-util>create-hash": true,
+        "@onekeyhq/core>near-api-js>bn.js": true,
+        "external:../../node_modules/browserify-rsa/index.js": true,
+        "external:../../node_modules/parse-asn1/index.js": true,
+        "external:../../node_modules/public-encrypt/mgf.js": true,
+        "external:../../node_modules/public-encrypt/withPublic.js": true,
+        "external:../../node_modules/public-encrypt/xor.js": true
+      }
+    },
+    "external:../../node_modules/public-encrypt/publicEncrypt.js": {
+      "packages": {
+        "@onekeyhq/core>ecpair>randombytes": true,
+        "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
+        "@onekeyhq/core>ethereumjs-util>create-hash": true,
+        "@onekeyhq/core>near-api-js>bn.js": true,
+        "external:../../node_modules/browserify-rsa/index.js": true,
+        "external:../../node_modules/parse-asn1/index.js": true,
+        "external:../../node_modules/public-encrypt/mgf.js": true,
+        "external:../../node_modules/public-encrypt/withPublic.js": true,
+        "external:../../node_modules/public-encrypt/xor.js": true
+      }
+    },
+    "external:../../node_modules/public-encrypt/withPublic.js": {
+      "packages": {
+        "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
+        "@onekeyhq/core>near-api-js>bn.js": true
       }
     },
     "external:../../node_modules/purify-ts/esm/Codec.js": {
@@ -42455,6 +41040,18 @@
       "globals": {
         "cancelAnimationFrame": true,
         "requestAnimationFrame": true
+      }
+    },
+    "external:../../node_modules/randomfill/browser.js": {
+      "globals": {
+        "crypto": true,
+        "msCrypto": true,
+        "process.browser": true,
+        "process.nextTick": true
+      },
+      "packages": {
+        "@onekeyhq/core>ecpair>randombytes": true,
+        "@onekeyhq/core>ecpair>randombytes>safe-buffer": true
       }
     },
     "external:../../node_modules/react-advanced-cropper/dist/index.esm-bundler.js": {
@@ -43586,45 +42183,12 @@
         "external:../../node_modules/rtl-detect/lib/rtl-detect.js": true
       }
     },
-    "external:../../node_modules/safe-regex-test/index.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "external:../../node_modules/call-bound/index.js": true,
-        "external:../../node_modules/safe-regex-test/node_modules/is-regex/index.js": true
-      }
-    },
-    "external:../../node_modules/safe-regex-test/node_modules/has-tostringtag/shams.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>has-tostringtag>has-symbols": true
-      }
-    },
-    "external:../../node_modules/safe-regex-test/node_modules/is-regex/index.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>gopd": true,
-        "@types/node-fetch>form-data>hasown": true,
-        "external:../../node_modules/call-bound/index.js": true,
-        "external:../../node_modules/safe-regex-test/node_modules/has-tostringtag/shams.js": true
-      }
-    },
     "external:../../node_modules/secure-json-parse/index.js": {
       "globals": {
         "Buffer": true
       },
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true
-      }
-    },
-    "external:../../node_modules/set-proto/index.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>get-proto>dunder-proto": true,
-        "external:../../node_modules/set-proto/Object.setPrototypeOf.js": true,
-        "external:../../node_modules/set-proto/Reflect.setPrototypeOf.js": true
-      }
-    },
-    "external:../../node_modules/set-proto/Object.setPrototypeOf.js": {
-      "packages": {
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true
       }
     },
     "external:../../node_modules/shamir-secret-sharing/esm/csprng.js": {
@@ -43661,7 +42225,6 @@
       "packages": {
         "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>call-bind-apply-helpers": true,
         "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-define-property": true,
         "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
         "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>get-proto": true,
         "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>gopd": true,
@@ -43671,6 +42234,7 @@
         "external:../../node_modules/async-function/index.js": true,
         "external:../../node_modules/async-generator-function/index.js": true,
         "external:../../node_modules/generator-function/index.js": true,
+        "external:../../node_modules/side-channel-map/node_modules/es-define-property/index.js": true,
         "external:../../node_modules/side-channel-map/node_modules/has-symbols/index.js": true
       }
     },
@@ -43698,7 +42262,6 @@
       "packages": {
         "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>call-bind-apply-helpers": true,
         "@types/node-fetch>form-data>es-set-tostringtag>es-errors": true,
-        "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-define-property": true,
         "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
         "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>get-proto": true,
         "@types/node-fetch>form-data>es-set-tostringtag>get-intrinsic>gopd": true,
@@ -43708,6 +42271,7 @@
         "external:../../node_modules/async-function/index.js": true,
         "external:../../node_modules/async-generator-function/index.js": true,
         "external:../../node_modules/generator-function/index.js": true,
+        "external:../../node_modules/side-channel-weakmap/node_modules/es-define-property/index.js": true,
         "external:../../node_modules/side-channel-weakmap/node_modules/has-symbols/index.js": true
       }
     },
@@ -44258,9 +42822,9 @@
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>algosdk>js-sha256": true,
         "@onekeyhq/core>algosdk>tweetnacl": true,
+        "@onekeyhq/core>near-api-js>bn.js": true,
         "external:../../node_modules/ethjs-unit/lib/index.js": true,
-        "external:../../node_modules/isomorphic-webcrypto/src/browser.mjs": true,
-        "external:../../node_modules/tonweb/node_modules/bn.js/lib/bn.js": true
+        "external:../../node_modules/isomorphic-webcrypto/src/browser.mjs": true
       }
     },
     "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs": {
@@ -46526,7 +45090,7 @@
     },
     "external:../../node_modules/viem/_esm/utils/signature/recoverPublicKey.js": {
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/viem/_esm/utils/data/isHex.js": true,
         "external:../../node_modules/viem/_esm/utils/data/size.js": true,
         "external:../../node_modules/viem/_esm/utils/encoding/fromHex.js": true,
@@ -46535,7 +45099,7 @@
     },
     "external:../../node_modules/viem/_esm/utils/signature/serializeSignature.js": {
       "packages": {
-        "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "external:../../node_modules/viem/_esm/utils/encoding/fromHex.js": true,
         "external:../../node_modules/viem/_esm/utils/encoding/toBytes.js": true
       }

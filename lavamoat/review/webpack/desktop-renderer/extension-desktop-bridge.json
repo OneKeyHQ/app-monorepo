@@ -45,7 +45,9 @@
         "chrome.tabs.get": true,
         "chrome.tabs.onActivated.addListener": true,
         "chrome.tabs.query": true,
+        "desktopApi.channel": true,
         "desktopApi.nobleBle.checkAvailability": true,
+        "desktopApi.platform": true,
         "desktopApiBridge.call": true,
         "desktopApiProxy": "write"
       }
@@ -68,6 +70,7 @@
         "desktopApi.on": true,
         "desktopApi.onAppState": true,
         "desktopApi.platform": true,
+        "desktopApi.processStartAt": true,
         "desktopApi.setConsecutiveBootFailCount": true,
         "desktopApi.systemVersion": true,
         "desktopApiProxy": true

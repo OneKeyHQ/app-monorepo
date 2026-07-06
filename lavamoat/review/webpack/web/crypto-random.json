@@ -6,12 +6,12 @@
         "crypto": true
       }
     },
-    "@onekeyhq/core>@alephium/web3": {
+    "@onekeyhq/core>@alephium/web3>@noble/curves>@noble/hashes": {
       "globals": {
         "crypto": true
       }
     },
-    "@onekeyhq/core>@alephium/web3>crypto-browserify>randomfill": {
+    "@onekeyhq/core>@alephium/web3>@noble/secp256k1": {
       "globals": {
         "crypto": true
       }
@@ -57,11 +57,6 @@
       }
     },
     "@onekeyhq/core>@onekeyfe/kaspa-core-lib>@noble/hashes": {
-      "globals": {
-        "crypto": true
-      }
-    },
-    "@onekeyhq/core>@solana/web3.js>@noble/curves>@noble/hashes": {
       "globals": {
         "crypto": true
       }
@@ -358,6 +353,11 @@
     "external:../../node_modules/ox/_esm/core/Bytes.js": {
       "globals": {
         "crypto.getRandomValues": true
+      }
+    },
+    "external:../../node_modules/randomfill/browser.js": {
+      "globals": {
+        "crypto": true
       }
     },
     "external:../../node_modules/reflect-metadata/Reflect.js": {

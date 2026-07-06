@@ -64,16 +64,6 @@
         "location.pathname": true
       }
     },
-    "@onekeyhq/kit>expo-camera>expo>expo-font": {
-      "globals": {
-        "document.createElement": true
-      }
-    },
-    "@onekeyhq/kit>expo-camera>expo>expo-font>fontfaceobserver": {
-      "globals": {
-        "document.createElement": true
-      }
-    },
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": {
       "globals": {
         "document.createElement": true,
