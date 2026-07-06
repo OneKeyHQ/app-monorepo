@@ -5,7 +5,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 type IPrimeLoginInvalidTokenPayload =
@@ -52,7 +51,7 @@ function PrimeGlobalEffectLazyCmp() {
       hasPendingInvalidTokenEventRef.current = true;
       // Buffer the payload so the replay keeps the source-aware cleanup
       // information (authSessionSource / clearedByBackground) — a payload
-      // dropped to undefined would misroute the handler to the payload-less
+      // dropped to undefined would send the handler down the payload-less
       // legacy fallback branch instead of the keyless sign-out.
       pendingInvalidTokenPayloadRef.current = payload;
       requestMount();
