@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
@@ -8,6 +8,8 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { prewarmMarketTokenDetailPreviewImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
+import { buildMarketTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -20,7 +22,9 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-interface IMarketToken {
+import type { IMarketToken as IMarketHomeToken } from '../MarketTokenData';
+
+interface IMarketToken extends Partial<IMarketHomeToken> {
   tokenAddress: string;
   networkId: string;
   symbol: string;
@@ -46,11 +50,48 @@ interface IUseToDetailPageOptions {
 
 const EXTENSION_POPUP_CLOSE_DELAY_MS = 100;
 
+function preloadMarketDetailV2Page() {
+  void import(/* webpackPrefetch: true */ '../../../../MarketDetailV2').catch(
+    () => undefined,
+  );
+}
+
 export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
   const tokenDetailActions = useTokenDetailActions();
   const splitViewType = useSplitViewType();
+
+  useEffect(() => {
+    preloadMarketDetailV2Page();
+  }, []);
+
+  const preparePreviewTokenDetail = useCallback(
+    (item: IMarketToken) => {
+      const previewAddress = item.address ?? item.tokenAddress;
+
+      if (
+        (!previewAddress && !item.isNative) ||
+        !item.name ||
+        typeof item.decimals !== 'number'
+      ) {
+        tokenDetailActions.current.clearTokenDetail();
+        return;
+      }
+
+      const tokenDetailPreview = buildMarketTokenDetailPreview({
+        ...(item as IMarketHomeToken),
+        address: previewAddress,
+        networkId: item.networkId,
+        symbol: item.symbol,
+        isNative: item.isNative,
+      });
+
+      prewarmMarketTokenDetailPreviewImages(tokenDetailPreview);
+      tokenDetailActions.current.prepareTokenDetailPreview(tokenDetailPreview);
+    },
+    [tokenDetailActions],
+  );
 
   const toMarketDetailPage = useCallback(
     async (item: IMarketToken) => {
@@ -92,8 +133,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           }, EXTENSION_POPUP_CLOSE_DELAY_MS);
         }
       } else if (options?.switchToMarketTabFirst) {
-        // Clear token detail before navigation
-        tokenDetailActions.current.clearTokenDetail();
+        preparePreviewTokenDetail(item);
 
         const targetTab = platformEnv.isNative
           ? ETabRoutes.Discovery
@@ -126,8 +166,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           }, 500);
         }
       } else {
-        // Clear token detail before navigation
-        tokenDetailActions.current.clearTokenDetail();
+        preparePreviewTokenDetail(item);
 
         // Clean existing token detail pages in tablet split view mode before pushing new one
         if (splitViewType !== ESplitViewType.UNKNOWN) {
@@ -143,7 +182,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
     },
     [
       navigation,
-      tokenDetailActions,
+      preparePreviewTokenDetail,
       options?.switchToMarketTabFirst,
       options?.from,
       options?.showFavoriteButton,

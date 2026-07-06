@@ -56,7 +56,8 @@ export const PROGRESSIVE_PAINT_THROTTLE_MS = 350;
  * One entry in the all-network LWW-Map materialized view: a
  * `buildMergedAllNetworkSnapshot` round plus the active owner at production time
  * (for the per-paint owner guard) and an `origin` discriminator ('cache' floor
- * seed, already derive-merged → `mergeDeriveAssets:false`; vs 'live' raw result).
+ * seed, whose derive-merge hint is read from cached token metadata; vs 'live'
+ * raw result, whose derive-merge flag is resolved before building a snapshot).
  */
 export type IProgressiveRound = IAllNetworkSnapshotRound & {
   ownerAccountId?: string;
@@ -132,6 +133,14 @@ type IIngestOwnerToken = {
   ownerKey: string;
 };
 
+function getCacheSeedMergeDeriveAssets(item: ICacheSeedItem): boolean {
+  return (
+    item.tokenList.some((token) => Boolean(token.mergeAssets)) ||
+    item.smallBalanceTokenList.some((token) => Boolean(token.mergeAssets)) ||
+    item.riskyTokenList.some((token) => Boolean(token.mergeAssets))
+  );
+}
+
 export function useTokenListReactivePipeline(
   params: ITokenListReactivePipelineParams,
 ): ITokenListReactivePipeline {
@@ -184,11 +193,16 @@ export function useTokenListReactivePipeline(
       const liveNetworkIds = Array.from(
         new Set(
           rounds
-            .filter((r) => r.origin === 'live')
+            .filter(
+              (r) => r.origin === 'live' && r.mergeDeriveAssets === undefined,
+            )
             .map((r) => r.networkId)
             .filter((id): id is string => Boolean(id)),
         ),
       );
+      if (!liveNetworkIds.length) {
+        return rounds;
+      }
       const liveMergeFlagByNetworkId: Record<string, boolean> = {};
       await Promise.all(
         liveNetworkIds.map(async (networkId) => {
@@ -204,7 +218,7 @@ export function useTokenListReactivePipeline(
         }),
       );
       return rounds.map((r) =>
-        r.origin === 'cache'
+        r.mergeDeriveAssets !== undefined || r.origin !== 'live'
           ? r
           : {
               ...r,
@@ -359,7 +373,7 @@ export function useTokenListReactivePipeline(
             ownerAccountId,
             ownerNetworkId,
             origin: 'cache',
-            mergeDeriveAssets: false,
+            mergeDeriveAssets: getCacheSeedMergeDeriveAssets(item),
           },
           generation,
         );
