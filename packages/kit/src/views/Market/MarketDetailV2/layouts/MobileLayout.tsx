@@ -37,20 +37,20 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { MarketWatchListProviderMirrorV2 } from '../../MarketWatchListProviderMirrorV2';
+import { InformationPanel } from '../components/InformationPanel/InformationPanel';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
+import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import {
   useMarketTradingViewParams,
   useTokenDetail,
 } from '../hooks/useTokenDetail';
 
-import type { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
 import type { IMarketTradingViewProps } from '../components/MarketTradingView/MarketTradingView';
 import type { SwapPanel } from '../components/SwapPanel/SwapPanel';
 import type { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
 
-type IMobileInformationTabsProps = ComponentProps<typeof MobileInformationTabs>;
 type ISwapPanelProps = ComponentProps<typeof SwapPanel>;
 type ISwapPanelWrapProps = ComponentProps<typeof SwapPanelWrap>;
 type ITokenActivityOverviewProps = {
@@ -73,8 +73,6 @@ function ModuleLoadingFallback({ minHeight }: { minHeight?: number }) {
 }
 
 const chartLoadingFallback = <ModuleLoadingFallback minHeight={240} />;
-const infoPanelLoadingFallback = <ModuleLoadingFallback minHeight={120} />;
-const mobileTabsLoadingFallback = <ModuleLoadingFallback minHeight={320} />;
 const swapPanelLoadingFallback = <ModuleLoadingFallback minHeight={96} />;
 const overviewLoadingFallback = <ModuleLoadingFallback minHeight={240} />;
 
@@ -89,28 +87,6 @@ const LazyMarketTradingView = LazyLoad<IMarketTradingViewProps>(
     ),
   undefined,
   chartLoadingFallback,
-);
-
-const LazyInformationPanel = LazyLoad<Record<string, never>>(
-  () =>
-    import('../components/InformationPanel/InformationPanel').then(
-      ({ InformationPanel }) => ({
-        default: InformationPanel,
-      }),
-    ),
-  undefined,
-  infoPanelLoadingFallback,
-);
-
-const LazyMobileInformationTabs = LazyLoad<IMobileInformationTabsProps>(
-  () =>
-    import('../components/InformationTabs/layout/MobileInformationTabs').then(
-      ({ MobileInformationTabs }) => ({
-        default: MobileInformationTabs,
-      }),
-    ),
-  undefined,
-  mobileTabsLoadingFallback,
 );
 
 const LazySwapPanel = LazyLoad<ISwapPanelProps>(
@@ -476,7 +452,7 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
         >
           <YStack>
             <PerpetualTradingBanner px="$5" />
-            <LazyInformationPanel />
+            <InformationPanel />
           </YStack>
         </HeaderScrollGestureWrapper>
         <Stack position="relative">
@@ -577,7 +553,7 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
       if (index === 0) {
         return (
           <YStack flex={1} height={height}>
-            <LazyMobileInformationTabs
+            <MobileInformationTabs
               onScrollEnd={noop}
               renderHeader={renderInformationHeader}
               scrollEnabled={!isTradingViewScrollLocked}

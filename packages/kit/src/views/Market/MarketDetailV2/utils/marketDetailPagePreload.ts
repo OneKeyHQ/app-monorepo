@@ -47,7 +47,9 @@ export function preloadMarketDetailV2TradingView() {
   ).catch(() => undefined);
 }
 
-export function preloadMarketDetailV2SwapPanel() {
+export function preloadMarketDetailV2SwapPanel(
+  target: IMarketDetailLayoutPreloadTarget = resolveDefaultLayoutTarget(),
+) {
   if (shouldSkipMarketDetailPreload()) {
     return;
   }
@@ -55,25 +57,25 @@ export function preloadMarketDetailV2SwapPanel() {
   void import(
     /* webpackPrefetch: true */ '../components/SwapPanel/SwapPanel'
   ).catch(() => undefined);
-  void import(
-    /* webpackPrefetch: true */ '../components/SwapPanel/SwapPanelWrap'
-  ).catch(() => undefined);
+  if (target === 'mobile') {
+    void import(
+      /* webpackPrefetch: true */ '../components/SwapPanel/SwapPanelWrap'
+    ).catch(() => undefined);
+  }
 }
 
-export function preloadMarketDetailV2InfoPanel() {
+export function preloadMarketDetailV2InfoPanel(
+  target: IMarketDetailLayoutPreloadTarget = resolveDefaultLayoutTarget(),
+) {
   if (shouldSkipMarketDetailPreload()) {
     return;
   }
 
-  void import(
-    /* webpackPrefetch: true */ '../components/InformationPanel/InformationPanel'
-  ).catch(() => undefined);
-  void import(
-    /* webpackPrefetch: true */ '../components/InformationTabs/layout/DesktopInformationTabs'
-  ).catch(() => undefined);
-  void import(
-    /* webpackPrefetch: true */ '../components/InformationTabs/layout/MobileInformationTabs'
-  ).catch(() => undefined);
+  if (target === 'desktop') {
+    void import(
+      /* webpackPrefetch: true */ '../components/InformationTabs/layout/DesktopInformationTabs'
+    ).catch(() => undefined);
+  }
 }
 
 export function preloadMarketDetailV2BodyModules({
@@ -90,8 +92,8 @@ export function preloadMarketDetailV2BodyModules({
   }
 
   preloadMarketDetailV2TradingView();
-  preloadMarketDetailV2SwapPanel();
-  preloadMarketDetailV2InfoPanel();
+  preloadMarketDetailV2SwapPanel(layout);
+  preloadMarketDetailV2InfoPanel(layout);
 }
 
 export function preloadMarketDetailV2Page({

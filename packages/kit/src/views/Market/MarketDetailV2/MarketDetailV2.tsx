@@ -25,8 +25,7 @@ import { MarketTestIDs } from '../testIDs';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
 import { BtcMetadataProvider, useAutoRefreshTokenDetail } from './hooks';
-import { DesktopLayout } from './layouts/DesktopLayout';
-import { MobileLayout } from './layouts/MobileLayout';
+import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
 import { preloadMarketDetailV2BodyModules } from './utils/marketDetailPagePreload';
 
 function normalizeRouteBooleanParam(
@@ -115,15 +114,13 @@ function MarketDetail({
           pt={isChartFullscreen ? 0 : bodyPaddingTop}
           testID={MarketTestIDs.detailPage}
         >
-          {isDesktopLayout ? (
-            <DesktopLayout
-              isChartFullscreen={isChartFullscreen}
-              onChartFullscreenChange={onChartFullscreenChange}
-              showFavoriteButton={showFavoriteButton}
-            />
-          ) : (
-            <MobileLayout disableTrade={disableTrade} />
-          )}
+          <MarketDetailResponsiveLayout
+            isDesktopLayout={isDesktopLayout}
+            isChartFullscreen={isChartFullscreen}
+            onChartFullscreenChange={onChartFullscreenChange}
+            showFavoriteButton={showFavoriteButton}
+            disableTrade={disableTrade}
+          />
         </Page.Body>
       </Page>
     </BtcMetadataProvider>
