@@ -135,4 +135,31 @@ export class AccountSelectorListDataScene extends BaseScene {
   }) {
     return params;
   }
+
+  @LogToLocal()
+  public buildActiveAccountInfoResult(params: {
+    selectedWalletId: string | undefined;
+    selectedIndexedAccountId: string | undefined;
+    selectedNetworkId: string | undefined;
+    selectedDeriveType: IAccountDeriveTypes | undefined;
+    walletId: string | undefined;
+    indexedAccountId: string | undefined;
+    networkId: string | undefined;
+    deriveType: IAccountDeriveTypes | undefined;
+    hasWallet: boolean;
+    isWalletUnusable: boolean;
+    hasIndexedAccount: boolean;
+    hasAccount: boolean;
+    hasDbAccount: boolean;
+    hasDevice: boolean;
+    hasNetwork: boolean;
+    isAllNetwork: boolean;
+    isOthersWallet: boolean;
+    canCreateAddress: boolean;
+    isNetworkNotMatched: boolean;
+    deriveInfoItemsLength: number;
+    ready: boolean;
+  }) {
+    return params;
+  }
 }

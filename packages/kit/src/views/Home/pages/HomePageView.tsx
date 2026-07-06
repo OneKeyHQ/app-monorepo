@@ -33,6 +33,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -199,9 +200,11 @@ export function HomePageView({
       accountName,
       network,
       deriveInfo,
+      deriveType,
       wallet,
       ready,
       device,
+      dbAccount,
       indexedAccount,
       vaultSettings: cachedVaultSettings,
     },
@@ -811,7 +814,7 @@ export function HomePageView({
 
   const { result: accountNetworkNotSupported } = usePromiseResult(
     async () => {
-      if (!network?.id) return undefined;
+      if (!network?.id || (!wallet?.id && !account?.id)) return undefined;
       const checkResult =
         await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
           {
@@ -921,6 +924,8 @@ export function HomePageView({
     wallet,
     account,
   });
+  const walletListCount = walletListResult?.wallets.length;
+  const walletListResolvedNoWallet = walletListCount === 0;
   const walletPageContent = useMemo(
     () =>
       platformEnv.isNative ? (
@@ -934,8 +939,64 @@ export function HomePageView({
     hasNoUsableWallet,
     accountSelectorStorageInitDone,
     accountSelectorActiveAccountInitDone,
-    walletListResolvedNoWallet: walletListResult?.wallets.length === 0,
+    walletListResolvedNoWallet,
   });
+  const activeWalletId = wallet?.id;
+  const activeIndexedAccountId = indexedAccount?.id;
+  const activeNetworkId = network?.id;
+  const hasAccount = Boolean(account);
+  const hasDbAccount = Boolean(dbAccount);
+  const hasWallet = Boolean(wallet);
+  const hasIndexedAccount = Boolean(indexedAccount);
+  const hasNetwork = Boolean(network);
+  const homePageContentState = (() => {
+    if (!ready) return 'loading';
+    if (showNoWalletContent) return 'noWallet';
+    if (!hasNoUsableWallet) return 'wallet';
+    return 'blankNoUsableWallet';
+  })();
+
+  useEffect(() => {
+    defaultLogger.accountSelector.render.homePageState({
+      ready,
+      walletId: activeWalletId,
+      indexedAccountId: activeIndexedAccountId,
+      networkId: activeNetworkId,
+      deriveType,
+      hasAccount,
+      hasDbAccount,
+      hasWallet,
+      hasIndexedAccount,
+      hasNetwork,
+      hasNoUsableWallet,
+      showNoWalletContent,
+      accountSelectorStorageInitDone,
+      accountSelectorActiveAccountInitDone,
+      walletListResolvedNoWallet,
+      walletListCount,
+      accountNetworkNotSupported,
+      contentState: homePageContentState,
+    });
+  }, [
+    activeIndexedAccountId,
+    activeNetworkId,
+    activeWalletId,
+    accountNetworkNotSupported,
+    accountSelectorActiveAccountInitDone,
+    accountSelectorStorageInitDone,
+    deriveType,
+    hasAccount,
+    hasDbAccount,
+    hasIndexedAccount,
+    hasNetwork,
+    hasNoUsableWallet,
+    hasWallet,
+    homePageContentState,
+    ready,
+    showNoWalletContent,
+    walletListCount,
+    walletListResolvedNoWallet,
+  ]);
 
   const homePage = useMemo(() => {
     if (!ready) {

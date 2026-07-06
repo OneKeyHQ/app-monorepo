@@ -420,6 +420,30 @@ class ServiceAccountSelector extends ServiceBase {
       isNetworkNotMatched,
     };
 
+    defaultLogger.accountSelector.listData.buildActiveAccountInfoResult({
+      selectedWalletId: walletId,
+      selectedIndexedAccountId: indexedAccountId,
+      selectedNetworkId: networkId,
+      selectedDeriveType: deriveType,
+      walletId: wallet?.id,
+      indexedAccountId: indexedAccount?.id,
+      networkId: network?.id,
+      deriveType,
+      hasWallet: Boolean(wallet),
+      isWalletUnusable,
+      hasIndexedAccount: Boolean(indexedAccount),
+      hasAccount: Boolean(account),
+      hasDbAccount: Boolean(dbAccount),
+      hasDevice: Boolean(device),
+      hasNetwork: Boolean(network),
+      isAllNetwork,
+      isOthersWallet,
+      canCreateAddress,
+      isNetworkNotMatched,
+      deriveInfoItemsLength: deriveInfoItems.length,
+      ready: activeAccount.ready,
+    });
+
     // const activeAccount0: IAccountSelectorActiveAccountInfo = {
     //   account: undefined,
     //   indexedAccount: undefined,
