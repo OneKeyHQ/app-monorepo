@@ -1,6 +1,7 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAppUpdateRoutes,
+  EDAppConnectionModal,
   EModalReferFriendsRoutes,
   EModalRewardCenterRoutes,
   EModalRoutes,
@@ -78,9 +79,20 @@ const stakingPathConfig = [
   route({ name: EModalStakingRoutes.ManagePosition, exact: true }),
 ];
 
+// Ext standalone windows cold-start from the URL hash (see
+// getStateFromPath.ext.ts), so every screen opened via ServiceDApp.openModal
+// must be listed here, or the window resolves to NotFound.
+const dAppConnectionPathConfig = Object.values(EDAppConnectionModal).map(
+  (name) => route({ name }),
+);
+
 const signatureConfirmPathConfig = [
   route({ name: EModalSignatureConfirmRoutes.TxConfirmFromDApp }),
   route({ name: EModalSignatureConfirmRoutes.MessageConfirmFromDApp }),
+  route({ name: EModalSignatureConfirmRoutes.LnurlPayRequest }),
+  route({ name: EModalSignatureConfirmRoutes.LnurlWithdraw }),
+  route({ name: EModalSignatureConfirmRoutes.LnurlAuth }),
+  route({ name: EModalSignatureConfirmRoutes.WeblnSendPayment }),
 ];
 
 const onboardingV2PagePathConfig = [
@@ -126,6 +138,10 @@ const modalRouteOverrides: Partial<Record<EModalRoutes, IRoutePathConfig>> = {
     name: EModalRoutes.ReferFriendsModal,
     children: [route({ name: EModalReferFriendsRoutes.ReferAFriend })],
   }),
+  [EModalRoutes.DAppConnectionModal]: route({
+    name: EModalRoutes.DAppConnectionModal,
+    children: dAppConnectionPathConfig,
+  }),
   [EModalRoutes.SignatureConfirmModal]: route({
     name: EModalRoutes.SignatureConfirmModal,
     children: signatureConfirmPathConfig,
@@ -151,7 +167,10 @@ export const fullModalRouterPathConfig: IRoutePathConfig[] = [
     name: EModalRoutes.AppUpdateModal,
     children: appUpdatePathConfig,
   }),
-  route({ name: EModalRoutes.DAppConnectionModal }),
+  route({
+    name: EModalRoutes.DAppConnectionModal,
+    children: dAppConnectionPathConfig,
+  }),
   route({ name: EModalRoutes.ReceiveModal }),
   route({ name: EModalRoutes.SendModal }),
   route({
