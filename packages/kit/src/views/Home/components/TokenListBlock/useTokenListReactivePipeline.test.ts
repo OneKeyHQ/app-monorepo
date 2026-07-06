@@ -261,6 +261,73 @@ describe('useTokenListReactivePipeline', () => {
     );
   });
 
+  it('cache seed resolves merge-derive vault settings before painting', async () => {
+    mockGetVaultSettings.mockResolvedValueOnce({
+      mergeDeriveAssetsEnabled: true,
+    });
+    const { result } = render(true);
+    const btcAccount = { accountId: 'btc-derive-86', networkId: 'btc--0' };
+    act(() => {
+      result.current.setEnabledKeys([btcAccount]);
+    });
+    await act(async () => {
+      await result.current.seedAndFlushCache({
+        data: [
+          makeCacheItem({
+            accountId: btcAccount.accountId,
+            networkId: btcAccount.networkId,
+            tokenList: [
+              {
+                $key: 'btc--0_xpub86_native',
+                name: 'Bitcoin',
+                symbol: 'BTC',
+                decimals: 8,
+                address: 'native',
+                isNative: true,
+                mergeAssets: true,
+              },
+              {
+                $key: 'btc--0_xpub84_native',
+                name: 'Bitcoin',
+                symbol: 'BTC',
+                decimals: 8,
+                address: 'native',
+                isNative: true,
+                mergeAssets: true,
+              },
+            ] as ICacheSeedItem['tokenList'],
+            tokenListMap: {
+              'btc--0_xpub86_native': {
+                balance: '1',
+                balanceParsed: '1',
+                fiatValue: '10',
+                price: 10,
+              },
+              'btc--0_xpub84_native': {
+                balance: '2',
+                balanceParsed: '2',
+                fiatValue: '20',
+                price: 10,
+              },
+            },
+          }),
+        ],
+        accountId: OWNER.accountId,
+        networkId: OWNER.networkId,
+        generation: 1,
+      });
+    });
+
+    expect(mockIngestRound).toHaveBeenCalledTimes(1);
+    const arg = mockIngestRound.mock.calls[0][0] as {
+      orderedTokens: { $key: string }[];
+      tokenListMap: Record<string, { balance?: string; fiatValue?: string }>;
+    };
+    expect(arg.orderedTokens.map((t) => t.$key)).toEqual(['btc--0_native']);
+    expect(arg.tokenListMap['btc--0_native']?.balance).toBe('3');
+    expect(arg.tokenListMap['btc--0_native']?.fiatValue).toBe('30');
+  });
+
   it('buildAuthoritativeSnapshot + commit → authoritative ingest', async () => {
     const { result } = render(true);
     act(() => {

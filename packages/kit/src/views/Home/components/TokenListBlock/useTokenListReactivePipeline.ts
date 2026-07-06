@@ -56,7 +56,8 @@ export const PROGRESSIVE_PAINT_THROTTLE_MS = 350;
  * One entry in the all-network LWW-Map materialized view: a
  * `buildMergedAllNetworkSnapshot` round plus the active owner at production time
  * (for the per-paint owner guard) and an `origin` discriminator ('cache' floor
- * seed, already derive-merged → `mergeDeriveAssets:false`; vs 'live' raw result).
+ * seed vs 'live' raw result). Derive-merge flags are resolved per round before
+ * building a merged snapshot unless a round explicitly carries an override.
  */
 export type IProgressiveRound = IAllNetworkSnapshotRound & {
   ownerAccountId?: string;
@@ -181,35 +182,35 @@ export function useTokenListReactivePipeline(
 
   const resolveRoundsWithMergeFlag = useCallback(
     async (rounds: IProgressiveRound[]): Promise<IProgressiveRound[]> => {
-      const liveNetworkIds = Array.from(
+      const networkIdsNeedingLookup = Array.from(
         new Set(
           rounds
-            .filter((r) => r.origin === 'live')
+            .filter((r) => r.mergeDeriveAssets === undefined)
             .map((r) => r.networkId)
             .filter((id): id is string => Boolean(id)),
         ),
       );
-      const liveMergeFlagByNetworkId: Record<string, boolean> = {};
+      const mergeFlagByNetworkId: Record<string, boolean> = {};
       await Promise.all(
-        liveNetworkIds.map(async (networkId) => {
+        networkIdsNeedingLookup.map(async (networkId) => {
           try {
-            liveMergeFlagByNetworkId[networkId] = !!(
+            mergeFlagByNetworkId[networkId] = !!(
               await backgroundApiProxy.serviceNetwork.getVaultSettings({
                 networkId,
               })
             ).mergeDeriveAssetsEnabled;
           } catch (_e) {
-            liveMergeFlagByNetworkId[networkId] = false;
+            mergeFlagByNetworkId[networkId] = false;
           }
         }),
       );
       return rounds.map((r) =>
-        r.origin === 'cache'
+        r.mergeDeriveAssets !== undefined
           ? r
           : {
               ...r,
               mergeDeriveAssets: r.networkId
-                ? liveMergeFlagByNetworkId[r.networkId]
+                ? mergeFlagByNetworkId[r.networkId]
                 : false,
             },
       );
@@ -359,7 +360,6 @@ export function useTokenListReactivePipeline(
             ownerAccountId,
             ownerNetworkId,
             origin: 'cache',
-            mergeDeriveAssets: false,
           },
           generation,
         );
