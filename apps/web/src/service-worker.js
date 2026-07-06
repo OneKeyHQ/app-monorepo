@@ -658,7 +658,7 @@ async function getCriticalAssetResponse(request) {
     state.readyVersion,
     ...(state.previousVersions || []),
   ].filter(Boolean);
-  for (const version of [...new Set(versions)]) {
+  for (const version of new Set(versions)) {
     try {
       const cache = await caches.open(getCriticalCacheName(version));
       const response = await cache.match(request);
@@ -670,6 +670,35 @@ async function getCriticalAssetResponse(request) {
     }
   }
   return undefined;
+}
+
+function requestMatchesManifestPublicUrl(request, manifest) {
+  if (!manifest?.publicUrl) {
+    return false;
+  }
+
+  try {
+    return request.url.startsWith(
+      new URL(manifest.publicUrl, self.location.origin).toString(),
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function recoverFromActiveAssetFailure(request) {
+  const state = await readVersionState();
+  if (
+    !state.activeVersion ||
+    !state.readyVersion ||
+    !requestMatchesManifestPublicUrl(request, state.activeManifest)
+  ) {
+    return;
+  }
+
+  if (await isReadyVersionCacheValid(state)) {
+    await promoteReadyVersionState(state);
+  }
 }
 
 function scheduleStaticResourceCacheUpdate(event, cache, request, response) {
@@ -687,6 +716,7 @@ function scheduleStaticResourceCacheUpdate(event, cache, request, response) {
 
 async function handleScriptStyleRequest(request, event) {
   let staticCache;
+  let staleStaticResponse;
   try {
     staticCache = await caches.open(STATIC_RESOURCES_CACHE);
     const staticResponse = await staticCache.match(request);
@@ -694,10 +724,11 @@ async function handleScriptStyleRequest(request, event) {
       if (isStaticResourceCacheFresh(staticResponse)) {
         return staticResponse;
       }
-      await staticCache.delete(request);
+      staleStaticResponse = staticResponse;
     }
   } catch {
     staticCache = undefined;
+    staleStaticResponse = undefined;
   }
 
   const criticalResponse = await getCriticalAssetResponse(request);
@@ -711,7 +742,17 @@ async function handleScriptStyleRequest(request, event) {
     return criticalResponse;
   }
 
-  const networkResponse = await fetch(request);
+  let networkResponse;
+  try {
+    networkResponse = await fetch(request);
+  } catch (error) {
+    if (staleStaticResponse) {
+      return staleStaticResponse;
+    }
+    await recoverFromActiveAssetFailure(request).catch(() => {});
+    throw error;
+  }
+
   if (networkResponse.ok && staticCache) {
     scheduleStaticResourceCacheUpdate(
       event,
@@ -719,6 +760,11 @@ async function handleScriptStyleRequest(request, event) {
       request,
       networkResponse,
     );
+  } else if (!networkResponse.ok) {
+    if (staleStaticResponse) {
+      return staleStaticResponse;
+    }
+    await recoverFromActiveAssetFailure(request).catch(() => {});
   }
   return networkResponse;
 }
