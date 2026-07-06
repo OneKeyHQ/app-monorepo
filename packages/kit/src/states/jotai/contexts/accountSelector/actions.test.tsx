@@ -120,6 +120,9 @@ const mockGetDBAccount: jest.MockedFunction<
 const mockGetWalletSafe: jest.MockedFunction<
   ({ walletId }: { walletId: string }) => Promise<IWallet | undefined>
 > = jest.fn();
+const mockIsTempWalletRemoved: jest.MockedFunction<
+  ({ wallet }: { wallet: IWallet }) => Promise<boolean>
+> = jest.fn();
 const mockColdStartCacheStorageData = new Map<string, unknown>();
 const mockColdStartCacheStorage = {
   delete: jest.fn((key: string) => {
@@ -208,6 +211,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockGetWalletSafe({ walletId }),
       isWalletHasIndexedAccounts: ({ walletId }: { walletId: string }) =>
         mockIsWalletHasIndexedAccounts({ walletId }),
+      isTempWalletRemoved: ({ wallet }: { wallet: IWallet }) =>
+        mockIsTempWalletRemoved({ wallet }),
     },
     serviceAccountSelector: {
       buildActiveAccountInfoFromSelectedAccount: () =>
@@ -331,6 +336,7 @@ describe('useAccountSelectorActions', () => {
     });
     mockGetSingletonAccountsOfWallet.mockResolvedValue({ accounts: [] });
     mockGetWalletSafe.mockResolvedValue({ id: 'hd-1' } as IWallet);
+    mockIsTempWalletRemoved.mockResolvedValue(false);
   });
 
   afterEach(() => {
@@ -1155,6 +1161,74 @@ describe('useAccountSelectorActions', () => {
         ready: true,
         network: {
           id: 'onekeyall',
+        } as ReturnType<typeof defaultActiveAccountInfo>['network'],
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: 'hw-standard',
+      focusedWallet: 'hw-standard',
+      indexedAccountId: undefined,
+      othersWalletAccountId: undefined,
+    });
+  });
+
+  it('selects an empty hardware wallet after a temp hidden wallet is removed', async () => {
+    const hiddenWalletSelection = {
+      ...defaultSelectedAccount(),
+      walletId: 'hw-standard--hidden',
+      indexedAccountId: 'hw-standard--hidden-indexed-1',
+      networkId: 'evm--1',
+      deriveType: 'default' as const,
+      focusedWallet: 'hw-standard--hidden',
+    };
+    const hiddenWallet = {
+      id: 'hw-standard--hidden',
+      name: 'Hidden wallet',
+      isTemp: true,
+    } as IWallet;
+    const standardWallet = {
+      id: 'hw-standard',
+      name: 'Standard wallet',
+    } as IWallet;
+
+    mockGetAllHdHwQrWallets.mockResolvedValue({
+      wallets: [standardWallet],
+    });
+    mockIsWalletHasIndexedAccounts.mockResolvedValue(true);
+    mockGetIndexedAccountsOfWallet.mockResolvedValue({ accounts: [] });
+    mockGetWalletSafe.mockImplementation(async ({ walletId }) => {
+      if (walletId === hiddenWallet.id) {
+        return hiddenWallet;
+      }
+      return standardWallet;
+    });
+    mockIsTempWalletRemoved.mockImplementation(
+      async ({ wallet }) => wallet.id === hiddenWallet.id,
+    );
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: hiddenWalletSelection,
+    });
+    store.set(accountSelectorStorageInitDoneAtom(), true);
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+        network: {
+          id: 'evm--1',
         } as ReturnType<typeof defaultActiveAccountInfo>['network'],
       },
     });

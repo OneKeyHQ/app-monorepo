@@ -3214,8 +3214,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             selectedWallet = await serviceAccount.getWalletSafe({
               walletId: selectedWalletId,
             });
-            if (!selectedWallet) {
+            if (
+              !selectedWallet ||
+              (await serviceAccount.isTempWalletRemoved({
+                wallet: selectedWallet,
+              }))
+            ) {
               selectedWalletId = undefined;
+              selectedWallet = undefined;
             }
           }
           let selectedIndexedAccountId =
@@ -3266,7 +3272,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               const { wallets } = await serviceAccount.getAllHdHwQrWallets();
               let firstAvailableWallet: IDBWallet | undefined;
               for (const wallet0 of wallets) {
-                if (!accountUtils.isWalletDeprecatedOrMocked(wallet0)) {
+                const isWalletUnavailable =
+                  accountUtils.isWalletDeprecatedOrMocked(wallet0) ||
+                  (await serviceAccount.isTempWalletRemoved({
+                    wallet: wallet0,
+                  }));
+                if (!isWalletUnavailable) {
                   firstAvailableWallet = firstAvailableWallet || wallet0;
                   if (
                     await serviceAccount.isWalletHasIndexedAccounts({
@@ -3414,7 +3425,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             const finalWallet = await serviceAccount.getWalletSafe({
               walletId: selectedAccountNew.walletId,
             });
-            if (!finalWallet) {
+            if (
+              !finalWallet ||
+              (await serviceAccount.isTempWalletRemoved({
+                wallet: finalWallet,
+              }))
+            ) {
               selectedAccountNew.walletId = undefined;
               selectedAccountNew.indexedAccountId = undefined;
               selectedAccountNew.othersWalletAccountId = undefined;
