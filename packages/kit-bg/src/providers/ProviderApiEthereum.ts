@@ -296,8 +296,10 @@ class ProviderApiEthereum extends ProviderApiBase {
 
     // A repeated connect click queues behind the pending request on the
     // semaphore below and never reaches openModal, so surface the existing
-    // approval window here first.
-    this.backgroundApi.serviceDApp.tryOpenExistingExtensionWindow();
+    // approval window here first (same-origin only, checked inside).
+    this.backgroundApi.serviceDApp.tryOpenExistingExtensionWindow({
+      origin: request.origin,
+    });
 
     return this.semaphore.runExclusive(async () => {
       const accounts = await this.eth_accounts(request);

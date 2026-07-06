@@ -129,6 +129,11 @@ class ServiceDApp extends ServiceBase {
 
   private existingWindowId: number | null | undefined = null;
 
+  // Origin of the request the pending approval window belongs to; focusing is
+  // restricted to same-origin repeats so DApp B's connect click never surfaces
+  // DApp A's approval window.
+  private existingWindowOrigin: string | null = null;
+
   private isAlignPrimaryAccountProcessing = false;
 
   // Temporary store for sensitive clipboard text to avoid logging through
@@ -173,7 +178,7 @@ class ServiceDApp extends ServiceBase {
       params,
     });
     // Try to open an existing window anyway in the extension
-    this.tryOpenExistingExtensionWindow();
+    this.tryOpenExistingExtensionWindow({ origin: request.origin });
 
     return this.semaphore.runExclusive(async () => {
       try {
@@ -212,6 +217,8 @@ class ServiceDApp extends ServiceBase {
             walletConnectVerifyContext,
           };
 
+          this.existingWindowOrigin = request.origin;
+
           const routeParams = {
             // stringify required, nested object not working with Ext route linking
             query: JSON.stringify(
@@ -241,6 +248,7 @@ class ServiceDApp extends ServiceBase {
         });
       } finally {
         this.existingWindowId = null;
+        this.existingWindowOrigin = null;
       }
     });
   }
@@ -299,9 +307,18 @@ class ServiceDApp extends ServiceBase {
 
   // Public so provider APIs that queue connect requests on their own
   // semaphore (e.g. eth_requestAccounts) can surface the pending approval
-  // window before the queued call ever reaches openModal.
-  tryOpenExistingExtensionWindow() {
-    if (platformEnv.isExtension && this.existingWindowId) {
+  // window before the queued call ever reaches openModal. Focusing requires
+  // the caller's origin to own the pending window — surfacing DApp A's
+  // approval window on DApp B's connect click invites approving the wrong
+  // origin; cross-origin requests just stay queued until their own modal
+  // window is created.
+  tryOpenExistingExtensionWindow({ origin }: { origin?: string | null } = {}) {
+    if (
+      platformEnv.isExtension &&
+      this.existingWindowId &&
+      origin &&
+      origin === this.existingWindowOrigin
+    ) {
       extUtils.focusExistWindow({ windowId: this.existingWindowId });
     }
   }
