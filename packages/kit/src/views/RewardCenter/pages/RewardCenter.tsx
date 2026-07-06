@@ -291,10 +291,10 @@ function RewardCenterDetails() {
             body: {
               method: 'get',
               url: '/api/account',
-              data: {},
-              params: {
+              data: {
                 fromAddress: account.address,
               },
+              params: {},
             },
             returnRawData: true,
           });
