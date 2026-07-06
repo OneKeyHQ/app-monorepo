@@ -171,6 +171,14 @@ function normalizeWebNavigationUrlForComparison(
   url: string,
   allowLocalhostUrl: boolean,
 ) {
+  // Web and desktop start navigation from different timing paths and do not
+  // need this slash-only suppression. Keep the comparison normalization limited
+  // to native WebView (iOS/Android), where the reported normalized URL can race
+  // the tab URL and otherwise trigger a reload loop.
+  if (!platformEnv.isNative) {
+    return url;
+  }
+
   if (!/^https?:\/\//i.test(url)) {
     return url;
   }

@@ -952,6 +952,64 @@ describe('useBrowserTabActions', () => {
     );
   });
 
+  it('does not apply native trailing-slash suppression to desktop navigation', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserAction().current;
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: [
+            {
+              id: 'tab-1',
+              url: 'https://app.osmosis.zone',
+              title: 'Osmosis',
+              isActive: true,
+              timestamp: 1,
+            },
+          ],
+          displayHomePage: false,
+        }),
+      },
+    );
+
+    await act(async () => {
+      result.current.actions.onNavigation({
+        id: 'tab-1',
+        url: 'https://app.osmosis.zone/',
+        title: 'Osmosis',
+        loading: true,
+        canGoBack: false,
+        canGoForward: false,
+      });
+      await Promise.resolve();
+    });
+
+    expect(mockCrossWebviewLoadUrl).toHaveBeenCalledWith({
+      tabId: 'tab-1',
+      url: 'https://app.osmosis.zone',
+    });
+    expect(result.current.tabs.find((tab) => tab.id === 'tab-1')).toEqual(
+      expect.objectContaining({
+        displayUrl: 'https://app.osmosis.zone/',
+        loading: true,
+      }),
+    );
+  });
+
   it('treats OneKey referral landing URLs as app routes in the browser', async () => {
     const referralUrl = 'https://app.onekey.so/r/R7EKUT/app/perps';
     const { result } = renderHook(
