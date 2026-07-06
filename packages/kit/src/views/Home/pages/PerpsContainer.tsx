@@ -5,10 +5,8 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
-  Badge,
   Button,
   DashText,
-  Empty,
   Icon,
   Image,
   NumberSizeableText,
@@ -28,9 +26,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
-import {
-  LeverageBadge,
-} from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import { LeverageBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useNavigateToMarketTab } from '@onekeyhq/kit/src/views/Market/hooks';
 import { PriceChangeBadge } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/PriceChangeBadge';
 import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
@@ -578,23 +574,6 @@ function PerpsLoadingState() {
   );
 }
 
-function PerpsPositionsEmptyContent() {
-  const intl = useIntl();
-
-  return (
-    <Empty
-      py="$8"
-      illustration="Orders"
-      title={intl.formatMessage({
-        id: ETranslations.perp_position_empty,
-      })}
-      description={intl.formatMessage({
-        id: ETranslations.perp_position_empty_desc,
-      })}
-    />
-  );
-}
-
 function PerpsEmptyRecommendSection() {
   const intl = useIntl();
   const media = useMedia();
@@ -617,7 +596,9 @@ function PerpsEmptyRecommendSection() {
     <YStack mt="$6" gap="$3">
       <XStack alignItems="center" justifyContent="space-between" gap="$3">
         <SizableText size="$headingLg" $gtMd={{ size: '$headingLg' }}>
-          热门市场
+          {intl.formatMessage({
+            id: ETranslations.perp_home_hot_markets__title,
+          })}
         </SizableText>
         <Button
           display="none"
@@ -671,7 +652,12 @@ function PerpsEmptyRecommendSection() {
                   fallbackIcon="CryptoCoinOutline"
                 />
                 <YStack flex={1} minWidth={0}>
-                  <XStack alignItems="center" gap="$1" minWidth={0} overflow="hidden">
+                  <XStack
+                    alignItems="center"
+                    gap="$1"
+                    minWidth={0}
+                    overflow="hidden"
+                  >
                     <SizableText
                       size="$bodyLgMedium"
                       numberOfLines={1}
@@ -760,51 +746,6 @@ function PerpsEmptyRecommendSection() {
   );
 }
 
-function PerpsEmptyState({ canDeposit }: { canDeposit: boolean }) {
-  const intl = useIntl();
-
-  return (
-    <>
-      <YStack display="flex" $gtMd={{ display: 'none' }} gap="$3" py="$2">
-        <XStack alignItems="center" justifyContent="space-between" gap="$4">
-          <XStack flex={1} minWidth={0} alignItems="center" gap="$1">
-            <SizableText size="$headingXl" color="$text" numberOfLines={1}>
-              {intl.formatMessage({ id: ETranslations.global_perp })}
-            </SizableText>
-            <SizableText size="$headingXl" color="$textSubdued">
-              ·
-            </SizableText>
-            <SizableText
-              size="$headingXl"
-              color="$textSubdued"
-              numberOfLines={1}
-            >
-              $0.00
-            </SizableText>
-          </XStack>
-          <PerpsDepositButton
-            testID={HomeTestIDs.perpsDepositButton}
-            canDeposit={canDeposit}
-          />
-        </XStack>
-      </YStack>
-      <YStack display="none" $gtMd={{ display: 'flex' }}>
-        <RichBlock
-          withTitleSeparator
-          title={intl.formatMessage({
-            id: ETranslations.perp_account_panel_account_value,
-          })}
-          subTitle="$0.00"
-          headerContainerProps={{ px: 0, pb: 0 }}
-          headerActions={<PerpsHeaderActions canDeposit={canDeposit} />}
-          content={null}
-          plainContentContainer
-        />
-      </YStack>
-    </>
-  );
-}
-
 function PerpsDepositButton({
   testID,
   canDeposit,
@@ -867,6 +808,51 @@ function PerpsHeaderActions({ canDeposit }: { canDeposit: boolean }) {
         canDeposit={canDeposit}
       />
     </XStack>
+  );
+}
+
+function PerpsEmptyState({ canDeposit }: { canDeposit: boolean }) {
+  const intl = useIntl();
+
+  return (
+    <>
+      <YStack display="flex" $gtMd={{ display: 'none' }} gap="$3" py="$2">
+        <XStack alignItems="center" justifyContent="space-between" gap="$4">
+          <XStack flex={1} minWidth={0} alignItems="center" gap="$1">
+            <SizableText size="$headingXl" color="$text" numberOfLines={1}>
+              {intl.formatMessage({ id: ETranslations.global_perp })}
+            </SizableText>
+            <SizableText size="$headingXl" color="$textSubdued">
+              ·
+            </SizableText>
+            <SizableText
+              size="$headingXl"
+              color="$textSubdued"
+              numberOfLines={1}
+            >
+              $0.00
+            </SizableText>
+          </XStack>
+          <PerpsDepositButton
+            testID={HomeTestIDs.perpsDepositButton}
+            canDeposit={canDeposit}
+          />
+        </XStack>
+      </YStack>
+      <YStack display="none" $gtMd={{ display: 'flex' }}>
+        <RichBlock
+          withTitleSeparator
+          title={intl.formatMessage({
+            id: ETranslations.perp_account_panel_account_value,
+          })}
+          subTitle="$0.00"
+          headerContainerProps={{ px: 0, pb: 0 }}
+          headerActions={<PerpsHeaderActions canDeposit={canDeposit} />}
+          content={null}
+          plainContentContainer
+        />
+      </YStack>
+    </>
   );
 }
 
@@ -1411,10 +1397,16 @@ export function PerpsContainer() {
           {viewState !== 'loading' ? (
             <>
               <PerpsEmptyRecommendSection />
-              <YStack gap="$6" mx="$-5" $gtMd={{ gap: '$8', mx: '$-pagePadding' }}>
+              <YStack
+                gap="$6"
+                mx="$-5"
+                $gtMd={{ gap: '$8', mx: '$-pagePadding' }}
+              >
                 <Upgrade />
                 <SupportHub
-                  helpCenterTitle="合约指南"
+                  helpCenterTitle={intl.formatMessage({
+                    id: ETranslations.perp_guide_title,
+                  })}
                   helpCenterLink={HOME_PERPS_GUIDE_URL}
                 />
               </YStack>

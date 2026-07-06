@@ -183,28 +183,19 @@ function PerpOrderInfoPanel() {
   const [activeTab, setActiveTab] = useState(initialTabName);
 
   useEffect(() => {
-    if (activeTab !== initialTabName) {
-      tabsRef.current?.jumpToTab(initialTabName);
-      setActiveTab(initialTabName);
-    }
-  }, [activeTab, initialTabName]);
-
-  useEffect(() => {
     if (!pendingInfoPanelTab) {
       return;
     }
     tabsRef.current?.jumpToTab(pendingInfoPanelTab);
     setActiveTab(pendingInfoPanelTab);
-    actions.current.setTradeRouteViewState({ infoPanelTab: pendingInfoPanelTab });
+    actions.current.setTradeRouteViewState({
+      infoPanelTab: pendingInfoPanelTab,
+    });
     void setPendingInfoPanelTab(undefined);
   }, [actions, pendingInfoPanelTab, setPendingInfoPanelTab]);
 
   useEffect(() => {
-    const handler = (
-      payload: {
-        tab: 'Positions' | 'Balances';
-      },
-    ) => {
+    const handler = (payload: { tab: 'Positions' | 'Balances' }) => {
       tabsRef.current?.jumpToTab(payload.tab);
       setActiveTab(payload.tab);
       actions.current.setTradeRouteViewState({ infoPanelTab: payload.tab });
