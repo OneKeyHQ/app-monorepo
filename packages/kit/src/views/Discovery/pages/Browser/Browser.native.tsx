@@ -3,7 +3,12 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import * as ExpoDevice from 'expo-device';
 import { Freeze } from 'react-freeze';
-import { BackHandler, type LayoutChangeEvent, View } from 'react-native';
+import {
+  BackHandler,
+  type LayoutChangeEvent,
+  StyleSheet,
+  View,
+} from 'react-native';
 import Animated, { useSharedValue } from 'react-native-reanimated';
 
 import {
@@ -60,6 +65,7 @@ import { MarketHomeWithProvider } from '../../../Market/MarketHomeV2/MarketHomeV
 import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
+import { KeepAliveFreeze } from '../../components/KeepAliveFreeze';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import { OuterTabPagerView } from '../../components/OuterTabPagerView';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
@@ -180,6 +186,17 @@ const popToDiscoveryHomePage = (depth = 0) => {
     }
   }
 };
+
+// The WebView host layer must stay OUTSIDE every react-freeze boundary (hence
+// it lives here, not inside OuterTabPagerView which freezes the browser page
+// when Market/DeFi is selected) so the WebView is never detached and reloaded.
+// KeepAliveFreeze then hides it on the Discovery home without detaching it.
+// `zIndex: 3` keeps it above the pager (Dashboard) sibling when visible.
+const styles = StyleSheet.create({
+  webPageLayer: {
+    zIndex: 3,
+  },
+});
 
 function MobileBrowser() {
   const isTabletMainView = useSplitMainView();
@@ -537,34 +554,14 @@ function MobileBrowser() {
             }
             browserContent={
               <Stack flex={1} zIndex={3}>
-                <Stack flex={1}>
-                  <View
-                    style={{
-                      display: showDiscoveryPage ? 'flex' : 'none',
-                      flex: showDiscoveryPage ? 1 : undefined,
-                    }}
-                  >
-                    <DashboardContent onScroll={handleScroll} />
-                  </View>
-                  <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
-                </Stack>
-                <Freeze freeze={!displayBottomBar}>
-                  <Animated.View
-                    style={[
-                      toolbarAnimatedStyle,
-                      {
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                      },
-                    ]}
-                  >
-                    <MobileBrowserBottomBar
-                      id={activeTabId ?? ''}
-                      onGoBackHomePage={handleGoBackHome}
-                    />
-                  </Animated.View>
-                </Freeze>
+                <View
+                  style={{
+                    display: showDiscoveryPage ? 'flex' : 'none',
+                    flex: showDiscoveryPage ? 1 : undefined,
+                  }}
+                >
+                  <DashboardContent onScroll={handleScroll} />
+                </View>
               </Stack>
             }
           />
@@ -605,7 +602,12 @@ function MobileBrowser() {
                   <DashboardContent onScroll={handleScroll} />
                 </View>
                 {!isTabletMainView ? (
-                  <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
+                  <KeepAliveFreeze
+                    freeze={showDiscoveryPage}
+                    style={styles.webPageLayer}
+                  >
+                    {content}
+                  </KeepAliveFreeze>
                 ) : null}
               </Stack>
               <Freeze freeze={!displayBottomBar}>
@@ -645,6 +647,31 @@ function MobileBrowser() {
             ) : null}
           </>
         )}
+        {useOuterPager ? (
+          <KeepAliveFreeze
+            freeze={showDiscoveryPage}
+            style={styles.webPageLayer}
+          >
+            <Stack flex={1}>{content}</Stack>
+            <Freeze freeze={!displayBottomBar}>
+              <Animated.View
+                style={[
+                  toolbarAnimatedStyle,
+                  {
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                  },
+                ]}
+              >
+                <MobileBrowserBottomBar
+                  id={activeTabId ?? ''}
+                  onGoBackHomePage={handleGoBackHome}
+                />
+              </Animated.View>
+            </Freeze>
+          </KeepAliveFreeze>
+        ) : null}
       </Page.Body>
       {showDiscoveryPage ? (
         <YStack
