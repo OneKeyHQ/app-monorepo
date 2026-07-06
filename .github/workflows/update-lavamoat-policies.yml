@@ -301,9 +301,9 @@ jobs:
           GH_TOKEN: ${{ secrets.ONEKEYBOT_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           if [ "${USES_POLICY_UPDATE_BOT_TOKEN}" = "true" ]; then
-            gh pr comment "${PR_NUMBER}" --repo "${REPO}" --body "LavaMoat policies updated. Please review \`policy.json\` diffs and \`lavamoat/README.review.md\` before requesting security approval."
+            gh pr comment "${PR_NUMBER}" --repo "${REPO}" --body "LavaMoat policies updated. Please review \`policy.json\` diffs and \`lavamoat/review/summary.json\` before requesting security approval."
           else
-            gh pr comment "${PR_NUMBER}" --repo "${REPO}" --body "LavaMoat policies updated with the default GITHUB_TOKEN. Please review \`policy.json\` diffs and \`lavamoat/README.review.md\`, then manually re-run or approve CI if no follow-up workflow starts automatically."
+            gh pr comment "${PR_NUMBER}" --repo "${REPO}" --body "LavaMoat policies updated with the default GITHUB_TOKEN. Please review \`policy.json\` diffs and \`lavamoat/review/summary.json\`, then manually re-run or approve CI if no follow-up workflow starts automatically."
           fi
 
       - name: Post comment when validation failed without diffs
