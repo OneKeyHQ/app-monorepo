@@ -1,5 +1,8 @@
 import BigNumber from 'bignumber.js';
 
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
+
 function toNonNegativeAmountBN(value?: string) {
   const amountBN = new BigNumber(value ?? '');
   if (!amountBN.isFinite() || amountBN.lt(0)) return undefined;
@@ -93,4 +96,40 @@ export function resolveProtocolLendingRepayAmountState({
       targetAmount: repayAllTargetAmount ?? referenceBalance,
     }),
   };
+}
+
+// The server's /earn/v1/borrow/markets list is the per-environment source of
+// truth for which (provider, network, market) combos the borrow stack
+// supports. Fail-closed by design: no markets (still loading, fetch failed,
+// or env without the market) → undefined → callers keep the generic path.
+export function findSupportedBorrowMarket({
+  markets,
+  provider,
+  networkId,
+  marketAddress,
+}: {
+  markets:
+    | Array<Pick<IBorrowMarketItem, 'provider' | 'networkId' | 'marketAddress'>>
+    | undefined;
+  provider: string | undefined;
+  networkId: string;
+  marketAddress: string | undefined;
+}) {
+  if (!markets?.length || !provider || !marketAddress) {
+    return undefined;
+  }
+  const normalizedProvider = provider.trim().toLowerCase();
+  const normalizedAddress = earnUtils.normalizeBorrowAddress({
+    networkId,
+    address: marketAddress,
+  });
+  return markets.find(
+    (market) =>
+      market.networkId === networkId &&
+      market.provider.trim().toLowerCase() === normalizedProvider &&
+      earnUtils.normalizeBorrowAddress({
+        networkId: market.networkId,
+        address: market.marketAddress,
+      }) === normalizedAddress,
+  );
 }
