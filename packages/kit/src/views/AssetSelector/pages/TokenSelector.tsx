@@ -1235,8 +1235,8 @@ function TokenSelector() {
           });
         } else {
           setScopedActiveTokenListState({
-            initialized: false,
-            isRefreshing: true,
+            initialized: true,
+            isRefreshing: false,
           });
           showFetchTokenListErrorToast();
         }
