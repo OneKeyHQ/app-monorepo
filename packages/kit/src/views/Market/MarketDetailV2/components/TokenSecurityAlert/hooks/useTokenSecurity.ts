@@ -34,6 +34,7 @@ export const useTokenSecurity = ({
     [tokenAddress, networkId],
     {
       initResult: null,
+      undefinedResultIfReRun: true,
     },
   );
 
