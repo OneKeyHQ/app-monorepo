@@ -26,7 +26,8 @@ const MarketDetail = LazyLoadPage(
 );
 
 const MarketDetailV2 = LazyLoadPage(
-  () => import('../../../views/Market/MarketDetailV2'),
+  () =>
+    import(/* webpackPrefetch: true */ '../../../views/Market/MarketDetailV2'),
   undefined,
   undefined,
   createElement(MarketDetailV2LoadingFallback),

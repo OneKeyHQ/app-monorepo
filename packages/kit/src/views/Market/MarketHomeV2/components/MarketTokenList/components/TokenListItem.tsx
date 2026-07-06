@@ -1,7 +1,8 @@
 import type { FC } from 'react';
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 
 import { NumberSizeableText, XStack, useThemeName } from '@onekeyhq/components';
+import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketTestIDs } from '../../../testIDs';
@@ -65,13 +66,26 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
   const priceChange =
     item.priceChangeRaw === '-' ? item.priceChangeRaw : item.change24h;
 
+  const prewarmTokenImages = useCallback(() => {
+    prewarmMarketTokenImages(item);
+  }, [item]);
+
+  const handlePressIn = useCallback(
+    (event: GestureResponderEvent) => {
+      prewarmTokenImages();
+      onPressIn?.(event);
+    },
+    [onPressIn, prewarmTokenImages],
+  );
+
   return (
     <XStack
       testID={MarketTestIDs.tokenListItem(item.symbol)}
       pressStyle={{ opacity: 0.8 }}
       onPress={onPress}
       onLongPress={onLongPress}
-      onPressIn={onPressIn}
+      onPressIn={handlePressIn}
+      onHoverIn={prewarmTokenImages}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
       onPressOut={onPressOut}
