@@ -97,14 +97,35 @@ export const verifiedWebAuth = async (
     }
     return cred;
   } catch (e) {
+    // TEMP DIAGNOSTIC (remove after keychain-fault repro): capture the RAW
+    // WebAuthn error before it is collapsed into cancelError/undefined, so we
+    // can tell "credential lost/corrupted" apart from "user cancelled".
+    const rawErr = e as { name?: string; message?: string; code?: number };
+    // eslint-disable-next-line no-console
+    console.log('[KeychainLogUploadDiag] verifiedWebAuth raw error', {
+      name: rawErr?.name,
+      message: rawErr?.message,
+      code: rawErr?.code,
+      ctor: (e as { constructor?: { name?: string } })?.constructor?.name,
+      isDOMException: e instanceof DOMException,
+      str: String(e),
+    });
     if (
       e instanceof DOMException &&
       (e.name === 'NotAllowedError' || e.name === 'AbortError')
     ) {
+      // eslint-disable-next-line no-console
+      console.log(
+        '[KeychainLogUploadDiag] verifiedWebAuth -> throw cancelError',
+      );
       const cancelError = new Error('');
       cancelError.name = BIOLOGY_AUTH_CANCEL_ERROR;
       throw cancelError;
     }
+    // eslint-disable-next-line no-console
+    console.log(
+      '[KeychainLogUploadDiag] verifiedWebAuth -> return undefined (non-cancel error)',
+    );
     return undefined;
   }
 };

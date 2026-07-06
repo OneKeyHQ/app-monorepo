@@ -96,16 +96,42 @@ const AppStateLock = ({
       // `platformAuthenticatorOnly` forces THIS device's built-in biometric and
       // blocks the cross-device "use a passkey on another device" / USB-key
       // flows.
+      // eslint-disable-next-line no-console
+      console.log('[KeychainLogUploadDiag] extension branch', {
+        hasCredentialId: !!webAuthCredentialId,
+      });
       if (webAuthCredentialId) {
         try {
           const cred = await verifiedWebAuth(webAuthCredentialId, {
             platformAuthenticatorOnly: true,
           });
+          // eslint-disable-next-line no-console
+          console.log('[KeychainLogUploadDiag] verifiedWebAuth resolved', {
+            hasCred: !!cred,
+            credId: (cred as { id?: string } | undefined)?.id,
+            expected: webAuthCredentialId,
+            match:
+              (cred as { id?: string } | undefined)?.id === webAuthCredentialId,
+          });
           if (cred?.id !== webAuthCredentialId) {
+            // eslint-disable-next-line no-console
+            console.log(
+              '[KeychainLogUploadDiag] mismatch/undefined -> return, dialog BLOCKED',
+            );
             return;
           }
-        } catch {
+        } catch (e) {
           // user cancelled or verification failed
+          const caught = e as { name?: string; message?: string };
+          // eslint-disable-next-line no-console
+          console.log(
+            '[KeychainLogUploadDiag] handler caught error -> return, dialog BLOCKED',
+            {
+              name: caught?.name,
+              message: caught?.message,
+              str: String(e),
+            },
+          );
           return;
         }
       }
@@ -115,6 +141,8 @@ const AppStateLock = ({
         return;
       }
     }
+    // eslint-disable-next-line no-console
+    console.log('[KeychainLogUploadDiag] passing gate -> showExportLogsDialog');
     showExportLogsDialog({
       title: intl.formatMessage({
         id: ETranslations.settings_upload_state_logs,
