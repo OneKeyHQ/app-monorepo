@@ -48,10 +48,10 @@ export interface IAllNetworkSnapshotRound {
   /**
    * Per-round merge-derive flag. When defined it OVERRIDES the
    * `mergeDeriveAssetsByNetworkId[networkId]` lookup for THIS round. Required by
-   * the cold-owner cache∪live merge: a cache round (already derive-merged →
-   * `false`) and a live round (raw → the network's real flag) for the SAME
-   * networkId can coexist during a partial-settle window, so the flag must live
-   * on the round, not be looked up per-networkId.
+   * the cold-owner cache∪live merge: a cache round can carry the cached token
+   * rows' merge hint while a live round uses the network's real flag for the
+   * SAME networkId during a partial-settle window, so the flag must live on the
+   * round, not be looked up per-networkId.
    */
   mergeDeriveAssets?: boolean;
 }
