@@ -185,19 +185,22 @@ function useDappApproveAction({
   // also trigger browser refresh
   useEffect(() => {
     // const registerWindowUnload = isExt && !platformEnv.isDev;
-    const registerWindowUnload = isExtStandaloneWindow;
-    // TODO do not reject with hardware interaction when before-unload
-    if (registerWindowUnload) {
-      // isForce: the window is going away — this reject must reach bg even
-      // while a resolve is mid-flight, or the request semaphore jams.
-      window.addEventListener('beforeunload', () => reject({ isForce: true }));
+    if (!isExtStandaloneWindow) {
+      return undefined;
     }
+    // Use one stable reference for add/remove so cleanup actually detaches the
+    // listener. With two separate arrow functions the removeEventListener is a
+    // no-op, and a dependency change (e.g. rejectError) that re-runs this
+    // effect would leave a stale beforeunload handler — on window close both
+    // the stale and the new handler fire, double-calling reject (the stale one
+    // possibly with an already-invalid id).
+    // isForce: the window is going away — this reject must reach bg even while
+    // a resolve is mid-flight, or the request semaphore jams.
+    // TODO do not reject with hardware interaction when before-unload
+    const handleBeforeUnload = () => reject({ isForce: true });
+    window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
-      if (registerWindowUnload) {
-        window.removeEventListener('beforeunload', () =>
-          reject({ isForce: true }),
-        );
-      }
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [isExtStandaloneWindow, reject]);
 
