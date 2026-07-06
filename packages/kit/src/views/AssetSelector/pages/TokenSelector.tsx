@@ -1227,11 +1227,19 @@ function TokenSelector() {
 
       const isIncompleteAllNetworksFanOut =
         isSelectorAllNetworks && responses.length < expectedResponseCount;
-      if (isIncompleteAllNetworksFanOut && hasRestoredSnapshot) {
-        setScopedActiveTokenListState({
-          initialized: true,
-          isRefreshing: false,
-        });
+      if (isIncompleteAllNetworksFanOut) {
+        if (hasRestoredSnapshot) {
+          setScopedActiveTokenListState({
+            initialized: true,
+            isRefreshing: false,
+          });
+        } else {
+          setScopedActiveTokenListState({
+            initialized: false,
+            isRefreshing: true,
+          });
+          showFetchTokenListErrorToast();
+        }
         return;
       }
 
@@ -1255,12 +1263,10 @@ function TokenSelector() {
           isRefreshing: false,
         },
       });
-      if (!isIncompleteAllNetworksFanOut) {
-        writeScopedTokenSelectorViewSnapshot({
-          key: filteredTokenSelectorViewSWRKey,
-          snapshot,
-        });
-      }
+      writeScopedTokenSelectorViewSnapshot({
+        key: filteredTokenSelectorViewSWRKey,
+        snapshot,
+      });
     } catch (e) {
       if (isLatestRequest()) {
         setScopedActiveTokenListState({
