@@ -185,6 +185,24 @@ function normalizeWebNavigationUrlForComparison(
   return uriUtils.validateUrl(url, { allowLocalhostUrl });
 }
 
+function isNoopWebNavigationAfterLoadValidation({
+  url,
+  tabUrl,
+  allowLocalhostUrl,
+}: {
+  url: string;
+  tabUrl?: string;
+  allowLocalhostUrl: boolean;
+}) {
+  if (platformEnv.isNative || !tabUrl || !/^https?:\/\//i.test(url)) {
+    return false;
+  }
+  // Non-native keeps raw URL comparison, but avoid a same-URL reload when
+  // `gotoSite` would canonicalize the reported URL back to the current tab URL.
+  const validatedUrl = uriUtils.validateUrl(url, { allowLocalhostUrl });
+  return Boolean(validatedUrl && validatedUrl === tabUrl);
+}
+
 export const homeResettingFlags: Record<string, number> = {};
 
 // Tracks last navigation time per tab id for the 500ms redirect-loop
@@ -1330,7 +1348,13 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           ? normalizeWebNavigationUrlForComparison(tab.url, allowLocalhostUrl)
           : tab.url;
       const isValidNewUrl =
-        typeof url === 'string' && comparableUrl !== comparableTabUrl;
+        typeof url === 'string' &&
+        comparableUrl !== comparableTabUrl &&
+        !isNoopWebNavigationAfterLoadValidation({
+          url,
+          tabUrl: tab.url,
+          allowLocalhostUrl,
+        });
 
       if (url) {
         if (parseReferralLandingUrl(url)) {

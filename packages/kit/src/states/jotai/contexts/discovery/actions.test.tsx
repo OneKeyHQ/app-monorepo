@@ -960,7 +960,7 @@ describe('useBrowserTabActions', () => {
     );
   });
 
-  it('does not apply native trailing-slash suppression to desktop navigation', async () => {
+  it('does not reload desktop navigation when load validation keeps the current URL', async () => {
     Object.assign(platformEnv, {
       isDesktop: true,
       isNative: false,
@@ -1006,12 +1006,10 @@ describe('useBrowserTabActions', () => {
       await Promise.resolve();
     });
 
-    expect(mockCrossWebviewLoadUrl).toHaveBeenCalledWith({
-      tabId: 'tab-1',
-      url: 'https://app.osmosis.zone',
-    });
+    expect(mockCrossWebviewLoadUrl).not.toHaveBeenCalled();
     expect(result.current.tabs.find((tab) => tab.id === 'tab-1')).toEqual(
       expect.objectContaining({
+        url: 'https://app.osmosis.zone',
         displayUrl: 'https://app.osmosis.zone/',
         loading: true,
       }),
