@@ -527,29 +527,34 @@ async function checkForVersionUpdate({ client } = {}) {
         return state;
       }
 
-      if (isManifestOlderThan(manifest, state.activeManifest)) {
+      const isOlderThanActiveManifest = isManifestOlderThan(
+        manifest,
+        state.activeManifest,
+      );
+      if (isOlderThanActiveManifest) {
         const nextState = await rollbackToManifestVersionState(state, manifest);
         sendMessageToClient(client, MESSAGE_TYPES.VERSION_STATE, nextState);
         return nextState;
       }
 
-      if (
+      const isOlderThanReadyManifest = Boolean(
         state.readyVersion &&
-        manifest.version !== state.readyVersion &&
-        isManifestOlderThan(manifest, state.readyManifest)
-      ) {
-        if (state.readyVersion) {
-          state = await clearReadyVersionState(state, 'version_downgrade');
+          manifest.version !== state.readyVersion &&
+          isManifestOlderThan(manifest, state.readyManifest),
+      );
+      const shouldClearVersionDowngradeBackoff =
+        state.failedVersion === manifest.version &&
+        state.lastError === 'version_downgrade';
+      if (isOlderThanReadyManifest) {
+        state = await clearReadyVersionState(state, 'ready_replaced');
+        if (shouldClearVersionDowngradeBackoff) {
+          state = {
+            ...state,
+            failedVersion: '',
+            retryAt: 0,
+          };
+          await writeVersionState(state);
         }
-        const nextState = {
-          ...state,
-          failedVersion: manifest.version,
-          retryAt: getNextRetryAt(),
-          lastError: 'version_downgrade',
-        };
-        await writeVersionState(nextState);
-        sendMessageToClient(client, MESSAGE_TYPES.VERSION_STATE, nextState);
-        return nextState;
       }
 
       if (manifest.version === state.readyVersion) {
@@ -567,7 +572,8 @@ async function checkForVersionUpdate({ client } = {}) {
       if (
         state.failedVersion === manifest.version &&
         state.retryAt &&
-        Date.now() < state.retryAt
+        Date.now() < state.retryAt &&
+        state.lastError !== 'version_downgrade'
       ) {
         sendMessageToClient(client, MESSAGE_TYPES.VERSION_STATE, state);
         return state;
