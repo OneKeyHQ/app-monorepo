@@ -1,10 +1,13 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Page, YStack } from '@onekeyhq/components';
-import type { IPerpsDepositToken } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  type IPerpsDepositToken,
+  usePerpsDepositTokensAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalPerpRoutes,
@@ -27,6 +30,18 @@ function DepositSelectTokenModal() {
     navigation.goBack();
   }, [navigation]);
 
+  const [{ tokens }] = usePerpsDepositTokensAtom();
+  const routeDepositTokens = useMemo(
+    () => (route.params.depositTokensWithPrice ?? []) as IPerpsDepositToken[],
+    [route.params.depositTokensWithPrice],
+  );
+  const depositTokensWithPrice = useMemo(() => {
+    if (routeDepositTokens.length > 0) {
+      return routeDepositTokens;
+    }
+    return Object.values(tokens).flat();
+  }, [routeDepositTokens, tokens]);
+
   return (
     <Page>
       <Page.Header
@@ -36,11 +51,9 @@ function DepositSelectTokenModal() {
         <YStack px="$4" flex={1}>
           <DepositTokenSelectionContent
             symbol={route.params.symbol}
-            depositTokensWithPrice={
-              route.params.depositTokensWithPrice as IPerpsDepositToken[]
-            }
+            depositTokensWithPrice={depositTokensWithPrice}
             onClose={handleClose}
-            hasLoaded
+            hasLoaded={depositTokensWithPrice.length > 0}
           />
         </YStack>
       </Page.Body>

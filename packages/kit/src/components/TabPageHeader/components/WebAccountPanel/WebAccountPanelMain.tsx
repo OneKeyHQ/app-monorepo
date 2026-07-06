@@ -202,14 +202,14 @@ function PerpsSection({
     // account from this account first — otherwise the dialog errors with a
     // missing-account toast when opened off the perps route.
     await ensureActivePerpsAccount();
-    await showDepositWithdrawModal('deposit');
     onRequestClose();
+    void showDepositWithdrawModal('deposit');
   }, [ensureActivePerpsAccount, showDepositWithdrawModal, onRequestClose]);
 
   const handleWithdraw = useCallback(async () => {
     await ensureActivePerpsAccount();
-    await showDepositWithdrawModal('withdraw');
     onRequestClose();
+    void showDepositWithdrawModal('withdraw');
   }, [ensureActivePerpsAccount, showDepositWithdrawModal, onRequestClose]);
 
   return (
