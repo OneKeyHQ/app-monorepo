@@ -130,6 +130,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 registerRootComponent(RootApp);
+logCurrentWebVersionInfo();
 
 if (process.env.NODE_ENV !== 'production') {
   const { debugLandingLog } = require('@onekeyhq/shared/src/performance/init');
@@ -215,10 +216,28 @@ function showUpdateBanner(onRefresh) {
   }
 }
 
-function getCurrentWebVersion() {
+function getCurrentWebVersionInfo() {
   const commit =
     process.env.WORKFLOW_GITHUB_SHA || process.env.GITHUB_SHA || '';
-  return `${commit || 'local'}-${process.env.BUILD_NUMBER || '0'}`;
+  const buildNumber = process.env.BUILD_NUMBER || '0';
+  return {
+    appVersion: process.env.VERSION || '',
+    bundleVersion: process.env.BUNDLE_VERSION || '',
+    buildNumber,
+    commitHash: commit || 'local',
+    webVersion: `${commit || 'local'}-${buildNumber}`,
+  };
+}
+
+function getCurrentWebVersion() {
+  return getCurrentWebVersionInfo().webVersion;
+}
+
+function logCurrentWebVersionInfo() {
+  const versionInfo = getCurrentWebVersionInfo();
+  console.info(
+    `[OneKey Web] appVersion=${versionInfo.appVersion || 'unknown'} commitHash=${versionInfo.commitHash} buildNumber=${versionInfo.buildNumber} bundleVersion=${versionInfo.bundleVersion || 'unknown'} webVersion=${versionInfo.webVersion}`,
+  );
 }
 
 function postMessageToServiceWorker(type, payload = {}) {
