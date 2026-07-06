@@ -301,6 +301,11 @@ const SwapHeaderContainer = ({
   }
 
   const isCompactLayout = !showDesktopLayout;
+  const useDesktopModalHeaderActions =
+    pageType === 'modal' &&
+    gtLg &&
+    !platformEnv.isNative &&
+    !platformEnv.isExtensionUiSidePanel;
   const tabs = (
     <>
       <CustomTabItem
@@ -367,7 +372,7 @@ const SwapHeaderContainer = ({
         <SwapHeaderRightActionContainer
           pageType={pageType}
           marketPresetSettings={marketPresetSettings}
-          compact={isCompactLayout}
+          compact={isCompactLayout && !useDesktopModalHeaderActions}
         />
       ) : null}
     </XStack>
