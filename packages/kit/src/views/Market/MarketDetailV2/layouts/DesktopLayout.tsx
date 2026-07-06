@@ -28,7 +28,10 @@ import {
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
 import { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
-import { useTokenDetail } from '../hooks/useTokenDetail';
+import {
+  useMarketTradingViewParams,
+  useTokenDetail,
+} from '../hooks/useTokenDetail';
 
 const MARKET_DETAIL_LAYOUT = {
   chartHeight: 550,
@@ -160,18 +163,26 @@ export function DesktopLayout({
     [isChartFullscreen],
   );
 
+  const marketTradingViewParams = useMarketTradingViewParams({
+    tokenAddress,
+    networkId,
+    tokenDetail,
+    isNative,
+    websocketConfig,
+  });
+
   const marketTradingView = useMemo(() => {
-    if (!networkId || !tokenDetail?.symbol) {
+    if (!marketTradingViewParams) {
       return null;
     }
 
     return (
       <MarketTradingView
-        tokenAddress={tokenAddress}
-        networkId={networkId}
-        tokenSymbol={tokenDetail.symbol}
-        isNative={isNative}
-        dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
+        tokenAddress={marketTradingViewParams.tokenAddress}
+        networkId={marketTradingViewParams.networkId}
+        tokenSymbol={marketTradingViewParams.tokenSymbol}
+        isNative={marketTradingViewParams.isNative}
+        dataSource={marketTradingViewParams.dataSource}
         onTouchScroll={handleTradingViewTouchScroll}
         nativeChartTypeControlMode="select"
         nativeIndicatorControlMode="popover"
@@ -187,11 +198,7 @@ export function DesktopLayout({
     handleChartFullscreenChange,
     handleTradingViewTouchScroll,
     isChartFullscreen,
-    isNative,
-    networkId,
-    tokenAddress,
-    tokenDetail?.symbol,
-    websocketConfig?.kline,
+    marketTradingViewParams,
   ]);
 
   return (
