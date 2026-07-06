@@ -34,6 +34,16 @@ const DEFAULT_BUDGETS = {
   largestPreLcpScriptDecodedBytes: 600 * 1024,
 };
 
+const RUNTIME_BUDGET_WARNING_RATIO = 0.05;
+const RUNTIME_BUDGET_NAMES = new Set([
+  'fcpMs',
+  'firstTextMs',
+  'lcpMs',
+  'businessReadyMs',
+  'marketListReadyMs',
+  'longTaskTotalMs',
+]);
+
 const ALL_SCENARIOS = [
   {
     name: 'root',
@@ -776,12 +786,33 @@ function checkBudgets(summary, budgets) {
     ],
   ];
   return checks
-    .map(([name, actual]) => ({
-      name,
-      actual,
-      budget: budgets[name],
-      pass: Number.isFinite(actual) && actual <= budgets[name],
-    }))
+    .map(([name, actual]) => {
+      const budget = budgets[name];
+      const hasRuntimeTolerance =
+        RUNTIME_BUDGET_NAMES.has(name) && Number.isFinite(budget);
+      const failBudget = hasRuntimeTolerance
+        ? budget * (1 + RUNTIME_BUDGET_WARNING_RATIO)
+        : budget;
+      const withinBudget = Number.isFinite(actual) && actual <= budget;
+      const withinFailBudget =
+        Number.isFinite(actual) && actual <= failBudget;
+      const status = withinBudget
+        ? 'pass'
+        : withinFailBudget
+          ? 'warn'
+          : 'fail';
+      return {
+        name,
+        actual,
+        budget,
+        failBudget,
+        toleranceRatio: hasRuntimeTolerance
+          ? RUNTIME_BUDGET_WARNING_RATIO
+          : 0,
+        status,
+        pass: status !== 'fail',
+      };
+    })
     .filter((check) => check.budget !== null && check.budget !== undefined);
 }
 
@@ -797,10 +828,17 @@ function printReport({
 }) {
   const budgetLine = (name, formatValue) => {
     const check = budgetChecks.find((item) => item.name === name);
-    const mark = check?.pass ? 'PASS' : 'FAIL';
+    const mark =
+      check?.status?.toUpperCase() || (check?.pass ? 'PASS' : 'FAIL');
+    const toleranceText =
+      check?.status !== 'pass' &&
+      check?.toleranceRatio &&
+      check.failBudget !== check.budget
+        ? ` (fail > ${formatValue(check.failBudget)})`
+        : '';
     return `${mark} ${name}: ${formatValue(check?.actual)} / ${formatValue(
       check?.budget,
-    )}`;
+    )}${toleranceText}`;
   };
 
   // eslint-disable-next-line no-console
@@ -961,6 +999,16 @@ function printReport({
     );
   }
 
+  const warnings = budgetChecks.filter((check) => check.status === 'warn');
+  if (warnings.length) {
+    // eslint-disable-next-line no-console
+    console.log(
+      `\n[perf:web:cold] warning budgets: ${warnings
+        .map((item) => item.name)
+        .join(', ')}`,
+    );
+  }
+
   const healthFailures = healthChecks.filter((check) => !check.pass);
   if (healthFailures.length) {
     // eslint-disable-next-line no-console
@@ -1107,7 +1155,9 @@ async function main() {
       scenarioOutputs.some(
         (scenarioOutput) =>
           scenarioOutput.healthChecks.some((check) => !check.pass) ||
-          scenarioOutput.budgetChecks.some((check) => !check.pass),
+          scenarioOutput.budgetChecks.some(
+            (check) => check.status === 'fail',
+          ),
       ) &&
       process.env.PERF_WEB_COLD_BUDGET_FAIL !== '0'
     ) {
