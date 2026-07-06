@@ -10,6 +10,7 @@ import {
   useFirmwareUpdateWorkflowRunningAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -120,6 +121,7 @@ export function FirmwareUpdateCheckList({
                   });
 
                 const updateFirmwareInfo = result?.updateInfos?.firmware;
+                let shouldResetWorkflowRunningInUi = true;
                 try {
                   await dialog.close();
 
@@ -150,26 +152,33 @@ export function FirmwareUpdateCheckList({
                       result,
                     });
                     setWorkflowIsRunning(true);
-                    await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflowV2(
-                      {
-                        backuped: true,
-                        usbConnected: true,
-                        releaseResult: result,
-                      },
-                    );
-                  } else {
-                    navigation.push(EModalFirmwareUpdateRoutes.Install, {
-                      result,
-                    });
-                    setWorkflowIsRunning(true);
-                    await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflow(
-                      {
-                        backuped: true,
-                        usbConnected: true,
-                        releaseResult: result,
-                      },
+                    const { backgroundTaskStarted } =
+                      await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflowV2(
+                        {
+                          backuped: true,
+                          usbConnected: true,
+                          releaseResult: result,
+                        },
+                      );
+                    if (backgroundTaskStarted) {
+                      shouldResetWorkflowRunningInUi = false;
+                      return;
+                    }
+                    throw new OneKeyLocalError(
+                      'Firmware update background task failed to start',
                     );
                   }
+                  navigation.push(EModalFirmwareUpdateRoutes.Install, {
+                    result,
+                  });
+                  setWorkflowIsRunning(true);
+                  await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflow(
+                    {
+                      backuped: true,
+                      usbConnected: true,
+                      releaseResult: result,
+                    },
+                  );
 
                   defaultLogger.update.firmware.firmwareUpdateResult({
                     deviceType: result?.deviceType,
@@ -218,7 +227,9 @@ export function FirmwareUpdateCheckList({
                     errorMessage: err?.message,
                   });
                 } finally {
-                  setWorkflowIsRunning(false);
+                  if (shouldResetWorkflowRunningInUi) {
+                    setWorkflowIsRunning(false);
+                  }
                 }
               }
             : undefined
