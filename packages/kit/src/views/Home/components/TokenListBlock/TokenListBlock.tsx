@@ -1212,7 +1212,7 @@ function TokenListBlock({
       networkId?: string;
     }) => {
       if (accountId && networkId) {
-        await backgroundApiProxy.serviceToken.updateCurrentAccount({
+        void backgroundApiProxy.serviceToken.updateCurrentAccount({
           accountId,
           networkId,
         });
