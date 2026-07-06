@@ -18,16 +18,23 @@ import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
-import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type { IMarketCategoryItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
 import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapPro';
 import { useMarketTokenSelectorConfigAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
+
+import { useMarketDetailHeaderDisplayData } from '../../hooks/useMarketDetailDisplayData';
+import { buildMarketTokenDetailPreview } from '../../utils/marketDetailPreview';
 
 import { ALL_NETWORK_ID, TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
 import { MarketTokenSelectorList } from './MarketTokenSelectorList';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
+
+type IMarketTokenSelectorItem = IMarketToken & {
+  tokenDetailPreview?: IMarketTokenDetailPreview;
+};
 
 function normalizeRouteBooleanParam(value: boolean | string | undefined) {
   if (typeof value === 'string') {
@@ -144,6 +151,7 @@ function BaseMarketTokenSelectorContent() {
       networkId: string;
       isNative?: boolean;
       perpsCoin?: string;
+      tokenDetailPreview?: IMarketTokenDetailPreview;
     }) => {
       if (token.perpsCoin) {
         void closePopover?.();
@@ -155,14 +163,19 @@ function BaseMarketTokenSelectorContent() {
         tokenDetailActions,
         beforeNavigate: () => void closePopover?.(),
         showFavoriteButton,
+        tokenDetailPreview: token.tokenDetailPreview,
       });
     },
     [tokenDetailActions, closePopover, navigateToPerps, showFavoriteButton],
   );
 
   const handleSelectToken = useCallback(
-    (item: IMarketToken) => {
-      navigateToTokenDetail(item);
+    (item: IMarketTokenSelectorItem) => {
+      navigateToTokenDetail({
+        ...item,
+        tokenDetailPreview:
+          item.tokenDetailPreview ?? buildMarketTokenDetailPreview(item),
+      });
     },
     [navigateToTokenDetail],
   );
@@ -244,7 +257,7 @@ const MarketTokenSelectorContentMemo = memo(MarketTokenSelectorContent);
 function BaseMarketTokenSelector() {
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
-  const { tokenDetail, networkId } = useTokenDetail();
+  const { tokenDetail, networkId } = useMarketDetailHeaderDisplayData();
 
   const effectiveNetworkLogoUri = useNetworkLogoUri({
     logoUri: undefined,

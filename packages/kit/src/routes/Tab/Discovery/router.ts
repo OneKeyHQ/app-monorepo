@@ -26,7 +26,8 @@ const EarnProtocolDetails = LazyLoadRootTabPage(
 
 // Market pages for native platforms (Market is embedded in Discovery on mobile)
 const MarketDetailV2 = LazyLoadPage(
-  () => import('../../../views/Market/MarketDetailV2'),
+  () =>
+    import(/* webpackPrefetch: true */ '../../../views/Market/MarketDetailV2'),
 );
 
 const MarketBannerDetail = LazyLoadPage(
