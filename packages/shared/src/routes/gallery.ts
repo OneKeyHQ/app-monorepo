@@ -101,6 +101,7 @@ export enum EGalleryRoutes {
   ComponentUsePromiseResult = 'component-UsePromiseResult',
   ComponentWalletAvatar = 'component-WalletAvatar',
   ComponentWebEmbed = 'component-WebEmbed',
+  ComponentWebViewFreeze = 'component-WebViewFreeze',
   ComponentWebview = 'component-Webview',
   ComponentWebViewOverlay = 'component-WebViewOverlay',
   HapticsGallery = 'component-Haptics',
