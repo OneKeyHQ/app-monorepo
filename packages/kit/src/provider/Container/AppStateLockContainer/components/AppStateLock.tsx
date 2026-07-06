@@ -30,6 +30,7 @@ import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/
 import { useV4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/v4migration';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { APP_STATE_LOCK_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 import { verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
@@ -96,26 +97,26 @@ const AppStateLock = ({
       // `platformAuthenticatorOnly` forces THIS device's built-in biometric and
       // blocks the cross-device "use a passkey on another device" / USB-key
       // flows.
-      // eslint-disable-next-line no-console
-      console.log('[KeychainLogUploadDiag] extension branch', {
-        hasCredentialId: !!webAuthCredentialId,
-      });
+      defaultLogger.app.webAuth.log(
+        `[KeychainLogUploadDiag] extension branch hasCredentialId=${!!webAuthCredentialId}`,
+      );
       if (webAuthCredentialId) {
         try {
           const cred = await verifiedWebAuth(webAuthCredentialId, {
             platformAuthenticatorOnly: true,
           });
-          // eslint-disable-next-line no-console
-          console.log('[KeychainLogUploadDiag] verifiedWebAuth resolved', {
-            hasCred: !!cred,
-            credId: (cred as { id?: string } | undefined)?.id,
-            expected: webAuthCredentialId,
-            match:
-              (cred as { id?: string } | undefined)?.id === webAuthCredentialId,
-          });
+          defaultLogger.app.webAuth.log(
+            `[KeychainLogUploadDiag] verifiedWebAuth resolved ${JSON.stringify({
+              hasCred: !!cred,
+              credId: (cred as { id?: string } | undefined)?.id,
+              expected: webAuthCredentialId,
+              match:
+                (cred as { id?: string } | undefined)?.id ===
+                webAuthCredentialId,
+            })}`,
+          );
           if (cred?.id !== webAuthCredentialId) {
-            // eslint-disable-next-line no-console
-            console.log(
+            defaultLogger.app.webAuth.log(
               '[KeychainLogUploadDiag] mismatch/undefined -> return, dialog BLOCKED',
             );
             return;
@@ -123,14 +124,14 @@ const AppStateLock = ({
         } catch (e) {
           // user cancelled or verification failed
           const caught = e as { name?: string; message?: string };
-          // eslint-disable-next-line no-console
-          console.log(
-            '[KeychainLogUploadDiag] handler caught error -> return, dialog BLOCKED',
-            {
-              name: caught?.name,
-              message: caught?.message,
-              str: String(e),
-            },
+          defaultLogger.app.webAuth.log(
+            `[KeychainLogUploadDiag] handler caught error -> return, dialog BLOCKED ${JSON.stringify(
+              {
+                name: caught?.name,
+                message: caught?.message,
+                str: String(e),
+              },
+            )}`,
           );
           return;
         }
@@ -141,8 +142,9 @@ const AppStateLock = ({
         return;
       }
     }
-    // eslint-disable-next-line no-console
-    console.log('[KeychainLogUploadDiag] passing gate -> showExportLogsDialog');
+    defaultLogger.app.webAuth.log(
+      '[KeychainLogUploadDiag] passing gate -> showExportLogsDialog',
+    );
     showExportLogsDialog({
       title: intl.formatMessage({
         id: ETranslations.settings_upload_state_logs,

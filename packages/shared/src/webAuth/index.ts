@@ -1,6 +1,7 @@
 import { Base64 } from 'js-base64';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { BIOLOGY_AUTH_CANCEL_ERROR } from '@onekeyhq/shared/types/password';
 
@@ -97,33 +98,32 @@ export const verifiedWebAuth = async (
     }
     return cred;
   } catch (e) {
-    // TEMP DIAGNOSTIC (remove after keychain-fault repro): capture the RAW
-    // WebAuthn error before it is collapsed into cancelError/undefined, so we
-    // can tell "credential lost/corrupted" apart from "user cancelled".
+    // Capture the RAW WebAuthn error before it is collapsed into
+    // cancelError/undefined, so a lost/corrupted platform credential can be
+    // told apart from a genuine user cancel (see AppStateLock log-upload gate).
     const rawErr = e as { name?: string; message?: string; code?: number };
-    // eslint-disable-next-line no-console
-    console.log('[KeychainLogUploadDiag] verifiedWebAuth raw error', {
-      name: rawErr?.name,
-      message: rawErr?.message,
-      code: rawErr?.code,
-      ctor: (e as { constructor?: { name?: string } })?.constructor?.name,
-      isDOMException: e instanceof DOMException,
-      str: String(e),
-    });
+    defaultLogger.app.webAuth.log(
+      `[KeychainLogUploadDiag] verifiedWebAuth raw error ${JSON.stringify({
+        name: rawErr?.name,
+        message: rawErr?.message,
+        code: rawErr?.code,
+        ctor: (e as { constructor?: { name?: string } })?.constructor?.name,
+        isDOMException: e instanceof DOMException,
+        str: String(e),
+      })}`,
+    );
     if (
       e instanceof DOMException &&
       (e.name === 'NotAllowedError' || e.name === 'AbortError')
     ) {
-      // eslint-disable-next-line no-console
-      console.log(
+      defaultLogger.app.webAuth.log(
         '[KeychainLogUploadDiag] verifiedWebAuth -> throw cancelError',
       );
       const cancelError = new Error('');
       cancelError.name = BIOLOGY_AUTH_CANCEL_ERROR;
       throw cancelError;
     }
-    // eslint-disable-next-line no-console
-    console.log(
+    defaultLogger.app.webAuth.log(
       '[KeychainLogUploadDiag] verifiedWebAuth -> return undefined (non-cancel error)',
     );
     return undefined;
