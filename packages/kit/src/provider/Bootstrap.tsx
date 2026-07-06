@@ -811,6 +811,9 @@ export function Bootstrap() {
     devSettings,
     !!platformEnv.isNative,
   );
+  const performanceMonitorEnabled =
+    devSettings.enabled &&
+    devSettings.settings?.showPerformanceMonitorV2 === true;
 
   const [, setOnboardingConnectWalletLoading] =
     useOnboardingConnectWalletLoadingAtom();
@@ -899,7 +902,7 @@ export function Bootstrap() {
   }, []);
 
   useEffect(() => {
-    if (devSettings.enabled && devSettings.settings?.showPerformanceMonitor) {
+    if (performanceMonitorEnabled) {
       performance.showOverlay();
     } else {
       performance.hideOverlay();
@@ -907,7 +910,7 @@ export function Bootstrap() {
     return () => {
       performance.hideOverlay();
     };
-  }, [devSettings.enabled, devSettings.settings?.showPerformanceMonitor]);
+  }, [performanceMonitorEnabled]);
 
   // Dev-only: expose a global handle to control the native performance
   // overlay from the JS console or an automation harness. On iOS the overlay
@@ -927,9 +930,7 @@ export function Bootstrap() {
         toggle: () => void;
       };
     };
-    let shown = Boolean(
-      devSettings.enabled && devSettings.settings?.showPerformanceMonitor,
-    );
+    let shown = performanceMonitorEnabled;
     globalRef.$onekeyPerfMonitor = {
       show: () => {
         shown = true;
@@ -951,7 +952,7 @@ export function Bootstrap() {
     return () => {
       delete globalRef.$onekeyPerfMonitor;
     };
-  }, [devSettings.enabled, devSettings.settings?.showPerformanceMonitor]);
+  }, [performanceMonitorEnabled]);
 
   // Bridge native memory-warning notifications to the cross-process
   // appEventBus, so background services and JS-side caches can react.
