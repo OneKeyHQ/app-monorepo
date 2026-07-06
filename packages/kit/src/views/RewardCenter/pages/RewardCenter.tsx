@@ -208,6 +208,12 @@ function RewardCenterDetails({
   const [isLoadingResourceState, setIsLoadingResourceState] = useState(false);
 
   const { account, network, isClaimResourceAvailable } = rewardState;
+  let accountSelectorLinkNetworkId: string | undefined;
+  if (networkUtils.isTronNetworkByNetworkId(network?.id)) {
+    accountSelectorLinkNetworkId = network?.id;
+  } else if (networkUtils.isTronNetworkByNetworkId(networkId)) {
+    accountSelectorLinkNetworkId = networkId;
+  }
 
   const [isResourceClaimed, setIsResourceClaimed] = useState(false);
   const [isResourceRedeemed, setIsResourceRedeemed] = useState(false);
@@ -873,10 +879,13 @@ function RewardCenterDetails({
         }}
         enabledNum={[0]}
       >
-        <AccountSelectorTriggerRewardCenter num={0} />
+        <AccountSelectorTriggerRewardCenter
+          num={0}
+          linkNetworkId={accountSelectorLinkNetworkId}
+        />
       </AccountSelectorProviderMirror>
     );
-  }, [selectorSceneUrl, showAccountSelector]);
+  }, [accountSelectorLinkNetworkId, selectorSceneUrl, showAccountSelector]);
 
   const renderHeaderLeft = useCallback(() => {
     if (showAccountSelector) {
