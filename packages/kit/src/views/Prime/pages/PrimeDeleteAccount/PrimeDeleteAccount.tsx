@@ -88,6 +88,18 @@ export default function PrimeDeleteAccount() {
           defaultLogger.prime.subscription.onekeyIdLogout({
             reason: 'PrimeDeleteAccount: handleDeleteAccount',
           });
+          // INTENTIONAL: do NOT pass `preserveLocalKeylessAuth` here.
+          // Confirmed account-deletion semantics:
+          // - Local Keyless wallet and its mnemonic data stay on the device
+          //   (this logout clears credentials only, never calls removeWallet).
+          // - ALL local OAuth credentials are cleared (keyless Supabase
+          //   session + legacy per-owner refresh tokens), so Verify PIN /
+          //   Reset PIN require a fresh Google/Apple OAuth afterwards.
+          // - Server contract: deleting the OneKey ID account must NOT
+          //   cascade-delete the keyless server backend share, which is what
+          //   keeps the wallet recoverable after re-OAuth.
+          // Do not "fix" this by preserving keyless auth — the credential
+          // wipe on account deletion is deliberate.
           await logoutWithPurchasesSdk();
         } catch (error) {
           console.error('logout error', error);
