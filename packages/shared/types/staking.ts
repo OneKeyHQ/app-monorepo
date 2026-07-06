@@ -2375,7 +2375,9 @@ export interface IBorrowAsset {
   walletBalance?: IBorrowBalance;
   available?: IBorrowBalance;
   borrowed?: IBorrowBalance;
-  supplied: IBorrowBalance;
+  // Optional: the repay-action asset-list omits `supplied` (only the
+  // withdraw/supply lists carry it), so callers must guard before deref.
+  supplied?: IBorrowBalance;
   apyDetail: IBorrowApy;
   platformBonusApy?: {
     title: IEarnText;
