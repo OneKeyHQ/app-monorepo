@@ -258,17 +258,25 @@ function getBookmarkCacheWrites() {
     .map(([, data]) => data);
 }
 
+function resetPlatformEnvMock() {
+  Object.assign(platformEnv, {
+    isDesktop: false,
+    isNative: true,
+    isNativeAndroid: false,
+    isNativeIOS: false,
+    isJest: true,
+  });
+}
+
 describe('useBrowserTabActions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (jotaiDefaultStore.get as jest.Mock).mockReturnValue({});
-    Object.assign(platformEnv, {
-      isDesktop: false,
-      isNative: true,
-      isNativeAndroid: false,
-      isNativeIOS: false,
-      isJest: true,
-    });
+    resetPlatformEnvMock();
+  });
+
+  afterEach(() => {
+    resetPlatformEnvMock();
   });
 
   it('persists active tab flags when switching to an existing tab', () => {
