@@ -356,20 +356,6 @@ export default function TrezorConnectionFlow() {
     void listingDevice();
   }, [promptWebUsbDeviceAccess, listingDevice]);
 
-  // Extension only: re-open the WebUSB picker to re-select a device.
-  const onReauthorizeWebUsb = useCallback(async () => {
-    setIsChecking(true);
-    try {
-      await promptWebUsbDeviceAccess(EHardwareVendor.trezor);
-    } catch {
-      // Picker dismissed without a selection.
-      return;
-    } finally {
-      setIsChecking(false);
-    }
-    void listingDevice();
-  }, [promptWebUsbDeviceAccess, listingDevice]);
-
   // --- Focus / unfocus ---
   useEffect(() => {
     if (isFocused) {
@@ -519,22 +505,6 @@ export default function TrezorConnectionFlow() {
                 </>
               ) : null}
             </HeightTransition>
-            {platformEnv.isExtension &&
-            connectStatus === EConnectionStatus.listing ? (
-              <YStack px="$5" pt="$3">
-                <Button
-                  testID="trezor-webusb-reauthorize"
-                  variant="secondary"
-                  onPress={onReauthorizeWebUsb}
-                  loading={isCheckingDeviceLoading}
-                  disabled={isCheckingDeviceLoading}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.device_grant_usb_access,
-                  })}
-                </Button>
-              </YStack>
-            ) : null}
           </ConnectionIndicator.Footer>
         ) : null}
       </ConnectionIndicator>
