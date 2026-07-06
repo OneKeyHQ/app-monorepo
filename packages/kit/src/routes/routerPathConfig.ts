@@ -82,9 +82,12 @@ const stakingPathConfig = [
 // Ext standalone windows cold-start from the URL hash (see
 // getStateFromPath.ext.ts), so every screen opened via ServiceDApp.openModal
 // must be listed here, or the window resolves to NotFound.
-const dAppConnectionPathConfig = Object.values(EDAppConnectionModal).map(
-  (name) => route({ name }),
-);
+// VerifyMessage is excluded: DAppConnectionRouter registers no screen for it,
+// and a parsed route pointing at an unregistered screen creates navigation
+// state the navigator cannot render.
+const dAppConnectionPathConfig = Object.values(EDAppConnectionModal)
+  .filter((name) => name !== EDAppConnectionModal.VerifyMessage)
+  .map((name) => route({ name }));
 
 const signatureConfirmPathConfig = [
   route({ name: EModalSignatureConfirmRoutes.TxConfirmFromDApp }),
