@@ -1188,6 +1188,7 @@ function TokenSelector() {
     const cachedSnapshot = readScopedTokenSelectorViewSnapshot(
       filteredTokenSelectorViewSWRKey,
     );
+    const hasRestoredSnapshot = Boolean(cachedSnapshot);
     if (cachedSnapshot) {
       applyScopedTokenSelectorSnapshot({
         snapshot: cachedSnapshot,
@@ -1209,17 +1210,28 @@ function TokenSelector() {
     }
 
     try {
-      const { responses } = await fetchFilteredTokenSelectorTokens({
-        accountId,
-        networkId,
-        indexedAccountId,
-        isAllNetworks: !!isSelectorAllNetworks,
-        mergeDeriveAddressData,
-        onlyBackendIndexedNetworks: showLpTokensOnly,
-        tokenSelectorFilterParams,
-      });
+      const { responses, expectedResponseCount } =
+        await fetchFilteredTokenSelectorTokens({
+          accountId,
+          networkId,
+          indexedAccountId,
+          isAllNetworks: !!isSelectorAllNetworks,
+          mergeDeriveAddressData,
+          onlyBackendIndexedNetworks: showLpTokensOnly,
+          tokenSelectorFilterParams,
+        });
 
       if (!isLatestRequest()) {
+        return;
+      }
+
+      const isIncompleteAllNetworksFanOut =
+        isSelectorAllNetworks && responses.length < expectedResponseCount;
+      if (isIncompleteAllNetworksFanOut && hasRestoredSnapshot) {
+        setScopedActiveTokenListState({
+          initialized: true,
+          isRefreshing: false,
+        });
         return;
       }
 
@@ -1243,10 +1255,12 @@ function TokenSelector() {
           isRefreshing: false,
         },
       });
-      writeScopedTokenSelectorViewSnapshot({
-        key: filteredTokenSelectorViewSWRKey,
-        snapshot,
-      });
+      if (!isIncompleteAllNetworksFanOut) {
+        writeScopedTokenSelectorViewSnapshot({
+          key: filteredTokenSelectorViewSWRKey,
+          snapshot,
+        });
+      }
     } catch (e) {
       if (isLatestRequest()) {
         setScopedActiveTokenListState({
