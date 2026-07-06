@@ -5,6 +5,18 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { BIOLOGY_AUTH_CANCEL_ERROR } from '@onekeyhq/shared/types/password';
 
+// Diagnostic sink for the lock-screen log-upload gate. Mirrors to console
+// UNCONDITIONALLY (the defaultLogger local transport only console-logs in dev,
+// and its background bridge may be unavailable on the lock screen when the
+// keychain is broken — exactly the case we are debugging) AND to defaultLogger
+// so it can also be exported when the bridge is up.
+function diagLog(msg: string) {
+  // eslint-disable-next-line no-console
+  console.log(msg);
+  const { webAuth } = defaultLogger.app;
+  webAuth.log(msg);
+}
+
 export const base64Encode = function (arraybuffer: ArrayBuffer): string {
   const uint8Array = new Uint8Array(arraybuffer);
   const base64Data = Base64.fromUint8Array(uint8Array);
@@ -102,7 +114,7 @@ export const verifiedWebAuth = async (
     // cancelError/undefined, so a lost/corrupted platform credential can be
     // told apart from a genuine user cancel (see AppStateLock log-upload gate).
     const rawErr = e as { name?: string; message?: string; code?: number };
-    defaultLogger.app.webAuth.log(
+    diagLog(
       `[KeychainLogUploadDiag] verifiedWebAuth raw error ${JSON.stringify({
         name: rawErr?.name,
         message: rawErr?.message,
@@ -116,14 +128,12 @@ export const verifiedWebAuth = async (
       e instanceof DOMException &&
       (e.name === 'NotAllowedError' || e.name === 'AbortError')
     ) {
-      defaultLogger.app.webAuth.log(
-        '[KeychainLogUploadDiag] verifiedWebAuth -> throw cancelError',
-      );
+      diagLog('[KeychainLogUploadDiag] verifiedWebAuth -> throw cancelError');
       const cancelError = new Error('');
       cancelError.name = BIOLOGY_AUTH_CANCEL_ERROR;
       throw cancelError;
     }
-    defaultLogger.app.webAuth.log(
+    diagLog(
       '[KeychainLogUploadDiag] verifiedWebAuth -> return undefined (non-cancel error)',
     );
     return undefined;
