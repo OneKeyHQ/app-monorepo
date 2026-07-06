@@ -448,7 +448,10 @@ export const useColumnsDesktop = (
             renderSkeleton: () => (
               <YStack gap="$1" alignItems="flex-start">
                 <Skeleton width={50} height={14} />
-                <Skeleton width={44} height={12} />
+                <XStack gap="$1">
+                  <Skeleton width={20} height={12} />
+                  <Skeleton width={20} height={12} />
+                </XStack>
               </YStack>
             ),
           },

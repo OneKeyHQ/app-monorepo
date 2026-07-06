@@ -448,7 +448,7 @@ function PerpsPositionSkeletonCard() {
           <Skeleton.BodyLg w={80} />
           <Skeleton.BodySm w={48} />
         </XStack>
-        <Skeleton w="$4" h="$4" />
+        <Skeleton.BodySm w={40} />
       </XStack>
       <XStack justifyContent="space-between">
         <Skeleton.BodyLg w={96} />
@@ -456,12 +456,16 @@ function PerpsPositionSkeletonCard() {
       </XStack>
       <XStack justifyContent="space-between">
         <Skeleton.BodyMd w={100} />
-        <Skeleton.BodyMd w={88} />
+        <XStack flex={1} justifyContent="center">
+          <Skeleton.BodyMd w={88} />
+        </XStack>
         <Skeleton.BodyMd w={104} />
       </XStack>
       <XStack justifyContent="space-between">
         <Skeleton.BodyMd w={80} />
-        <Skeleton.BodyMd w={88} />
+        <XStack flex={1} justifyContent="center">
+          <Skeleton.BodyMd w={88} />
+        </XStack>
         <Skeleton.BodyMd w={104} />
       </XStack>
     </YStack>
@@ -516,12 +520,7 @@ function PerpsLoadingState() {
           title={<Skeleton.BodyLg w={120} />}
           subTitle={<Skeleton.HeadingXl w={120} />}
           headerContainerProps={{ px: 0, pb: 0 }}
-          headerActions={
-            <XStack alignItems="center" gap="$2">
-              <Skeleton w={84} h={28} borderRadius="$full" />
-              <Skeleton w={64} h={28} borderRadius="$full" />
-            </XStack>
-          }
+          headerActions={<Skeleton w={84} h={28} borderRadius="$full" />}
           content={null}
           plainContentContainer
         />
