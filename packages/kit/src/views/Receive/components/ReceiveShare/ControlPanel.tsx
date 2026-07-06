@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Button, XStack } from '@onekeyhq/components';
+import { Button, XStack, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ReceiveTestIDs } from '../../testIDs';
@@ -19,13 +19,15 @@ export function ControlPanel({
   isMobile,
 }: IControlPanelProps) {
   const intl = useIntl();
+  const media = useMedia();
+  const buttonSize = media.gtMd ? 'medium' : 'large';
 
   return (
     <XStack gap="$2.5" mb={isMobile ? '$4' : undefined}>
       <Button
         testID={ReceiveTestIDs.ShareSaveButton}
         flex={1}
-        size="large"
+        size={buttonSize}
         variant="secondary"
         icon="DownloadOutline"
         disabled={isLoading}
@@ -36,7 +38,7 @@ export function ControlPanel({
       <Button
         testID={ReceiveTestIDs.ShareMoreButton}
         flex={1}
-        size="large"
+        size={buttonSize}
         variant="secondary"
         icon="DotHorOutline"
         disabled={isLoading}
