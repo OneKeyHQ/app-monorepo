@@ -4,7 +4,9 @@ import type { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
 
-const MarketDetailV2Modal = LazyLoadPage(() => import('../MarketDetailV2'));
+const MarketDetailV2Modal = LazyLoadPage(
+  () => import(/* webpackPrefetch: true */ '../MarketDetailV2'),
+);
 const MarketBannerDetailModal = LazyLoadPage(
   () => import('../MarketBannerDetail'),
 );

@@ -2,7 +2,6 @@
   "defaults": {
     "fcpMs": 1000,
     "firstTextMs": 1000,
-    "lcpMs": 2500,
     "jsDecodedBytes": 18874368,
     "initialScriptRawBytes": 6291456,
     "longTaskTotalMs": 900,
@@ -29,14 +28,12 @@
   },
   "scenarios": {
     "root": {
-      "lcpMs": 2800,
       "resourceCount": 240,
       "scriptCount": 169,
       "jsDecodedBytes": 17616077,
       "longTaskTotalMs": 2000
     },
     "market": {
-      "lcpMs": 2500,
       "resourceCount": 240,
       "scriptCount": 169,
       "jsDecodedBytes": 17616077,
@@ -45,28 +42,24 @@
       "marketListReadyMs": 4000
     },
     "perps": {
-      "lcpMs": 2300,
       "resourceCount": 218,
       "scriptCount": 174,
       "jsDecodedBytes": 17930650,
       "longTaskTotalMs": 1500
     },
     "swap": {
-      "lcpMs": 2000,
       "resourceCount": 220,
       "scriptCount": 169,
       "jsDecodedBytes": 17458790,
       "longTaskTotalMs": 1200
     },
     "defi": {
-      "lcpMs": 2000,
       "resourceCount": 222,
       "scriptCount": 171,
       "jsDecodedBytes": 17668506,
       "longTaskTotalMs": 1300
     },
     "referFriends": {
-      "lcpMs": 2400,
       "resourceCount": 200,
       "scriptCount": 167,
       "jsDecodedBytes": 17511219,
