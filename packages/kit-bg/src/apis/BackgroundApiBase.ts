@@ -22,6 +22,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { getBackgroundThreadSharedStore } from '@onekeyhq/shared/src/modules3rdParty/react-native-background-thread/sharedStore';
 import {
   LogLevel,
   NativeLogger,
@@ -173,14 +174,8 @@ function getAsyncStorageWriteRequestSummary(
   }
 }
 
-type IAsyncStorageForwarderSharedStore = {
-  set: (key: string, value: string | number | boolean) => void;
-  get: (key: string) => string | number | boolean | undefined;
-};
-
 function getAsyncStorageForwarderSharedStore() {
-  return (globalThis as { sharedStore?: IAsyncStorageForwarderSharedStore })
-    .sharedStore;
+  return getBackgroundThreadSharedStore();
 }
 
 @backgroundClass()
