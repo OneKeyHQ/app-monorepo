@@ -45,7 +45,8 @@ OneKey 保留这些可迁移机制：自动生成 policy、检查 `lavamoat/` di
 
 - `webpack/web/`：Web production webpack bundle。
 - `webpack/desktop-renderer/`：Electron renderer production webpack bundle。
-- `review/`：由 `yarn lavamoat:review` 生成的高风险权限 review 视图，入口是 `review/README.md`。
+- `README.review.md`：由 `yarn lavamoat:review` 生成的高风险权限 review 入口。
+- `review/`：由 `yarn lavamoat:review` 生成的高风险权限分类 JSON 视图。
 
 以下目标暂不在本轮接入范围，仅保留占位目录：`webpack/ext/mv3/`、`webpack/ext/mv2/`、`webpack/web-embed/`、`esbuild/desktop-main/`、`node/cli/`、`metro/mobile-main/`、`metro/mobile-bg/`、`build-system/`。
 
@@ -170,7 +171,7 @@ yarn lavamoat:policy:all
 
 `policy.json` 是自动生成产物，变更应由 `lavamoat:policy:*` 脚本产生，并经过 `lavamoat:normalize-policies` 归一化排序。`policy-override.json` 是人工维护的最小补丁，也必须保持同样的归一化格式。
 
-Review 时先看 `policy.json` diff，再看 `review/README.md`、`review/**/summary.json` 和高风险分类文件。`lavamoat/review/**` 是当前有效 policy 的快照拆分视图，用来降低阅读成本；判断“新增/变化”必须以 PR 中 `lavamoat/**/policy.json`、`policy-override.json` 和 `lavamoat/review/**` 的 git diff 为准。
+Review 时先看 `policy.json` diff，再看 `README.review.md`、`review/**/summary.json` 和高风险分类文件。`lavamoat/review/**` 是当前有效 policy 的快照拆分视图，用来降低阅读成本；判断“新增/变化”必须以 PR 中 `lavamoat/**/policy.json`、`policy-override.json` 和 `lavamoat/review/**` 的 git diff 为准。
 
 有效 policy 指 `policy.json` 与同目录 `policy-override.json` merge 后的运行时结果。如果 `policy-override.json` 里把某个扫描出的权限显式设置为 `false`，该权限不会出现在高风险分类允许项里，而会记录到 `denied-overrides.json`：
 
