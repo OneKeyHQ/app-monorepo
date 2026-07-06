@@ -1184,6 +1184,90 @@ describe('useAccountSelectorActions', () => {
     });
   });
 
+  it('keeps a wallet with indexed accounts when replacing a mocked wallet', async () => {
+    const hiddenWalletSelection = {
+      ...defaultSelectedAccount(),
+      walletId: 'hw-standard--hidden',
+      indexedAccountId: 'hw-standard--hidden-indexed-1',
+      networkId: 'evm--1',
+      deriveType: 'default' as const,
+      focusedWallet: 'hw-standard--hidden',
+    };
+    const mockedHiddenWallet = {
+      id: 'hw-standard--hidden',
+      name: 'Hidden wallet',
+      isMocked: true,
+    } as IWallet;
+    const emptyWallet = {
+      id: 'hw-empty',
+      name: 'Empty wallet',
+    } as IWallet;
+    const walletWithAccounts = {
+      id: 'hw-with-accounts',
+      name: 'Wallet with accounts',
+    } as IWallet;
+    const indexedAccount = {
+      id: 'hw-with-accounts-indexed-1',
+      walletId: walletWithAccounts.id,
+    } as IIndexedAccount;
+
+    mockGetAllHdHwQrWallets.mockResolvedValue({
+      wallets: [emptyWallet, walletWithAccounts],
+    });
+    mockIsWalletHasIndexedAccounts.mockImplementation(
+      async ({ walletId }) => walletId === walletWithAccounts.id,
+    );
+    mockGetIndexedAccountsOfWallet.mockImplementation(async ({ walletId }) => ({
+      accounts: walletId === walletWithAccounts.id ? [indexedAccount] : [],
+    }));
+    mockGetWalletSafe.mockImplementation(async ({ walletId }) => {
+      if (walletId === mockedHiddenWallet.id) {
+        return mockedHiddenWallet;
+      }
+      if (walletId === emptyWallet.id) {
+        return emptyWallet;
+      }
+      if (walletId === walletWithAccounts.id) {
+        return walletWithAccounts;
+      }
+      return undefined;
+    });
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: hiddenWalletSelection,
+    });
+    store.set(accountSelectorStorageInitDoneAtom(), true);
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+        wallet: mockedHiddenWallet,
+        network: {
+          id: 'evm--1',
+        } as ReturnType<typeof defaultActiveAccountInfo>['network'],
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: walletWithAccounts.id,
+      focusedWallet: walletWithAccounts.id,
+      indexedAccountId: indexedAccount.id,
+      othersWalletAccountId: undefined,
+    });
+  });
+
   it('selects an empty hardware wallet after a temp hidden wallet is removed', async () => {
     const hiddenWalletSelection = {
       ...defaultSelectedAccount(),

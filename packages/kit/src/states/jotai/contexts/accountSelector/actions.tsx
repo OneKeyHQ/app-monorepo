@@ -3271,6 +3271,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               await serviceAccount.clearAccountCache();
               const { wallets } = await serviceAccount.getAllHdHwQrWallets();
               let firstAvailableWallet: IDBWallet | undefined;
+              let foundWalletWithIndexedAccounts = false;
               for (const wallet0 of wallets) {
                 const isWalletUnavailable =
                   accountUtils.isWalletDeprecatedOrMocked(wallet0) ||
@@ -3287,12 +3288,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                     selectedWallet = wallet0;
                     selectedWalletId = selectedWallet?.id;
                     selectedAccountNew.walletId = selectedWalletId;
+                    foundWalletWithIndexedAccounts = true;
                     break;
                   }
                 }
               }
               if (
-                (!selectedWallet || !hasIndexedAccounts) &&
+                (!selectedWallet || !foundWalletWithIndexedAccounts) &&
                 firstAvailableWallet
               ) {
                 selectedWallet = firstAvailableWallet;
