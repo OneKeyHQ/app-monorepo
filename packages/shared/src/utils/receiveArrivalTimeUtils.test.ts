@@ -8,7 +8,7 @@ describe('resolveReceiveArrivalSeconds', () => {
   it('resolves by impl for family chains', () => {
     expect(resolveReceiveArrivalSeconds({ networkId: 'btc--0' })).toBe(600);
     expect(resolveReceiveArrivalSeconds({ networkId: 'sol--101' })).toBe(30);
-    expect(resolveReceiveArrivalSeconds({ networkId: 'neo--3' })).toBe(15);
+    expect(resolveReceiveArrivalSeconds({ networkId: 'neo--3' })).toBe(90);
     expect(resolveReceiveArrivalSeconds({ networkId: 'lightning--0' })).toBe(5);
     expect(
       resolveReceiveArrivalSeconds({ networkId: 'stellar--mainnet' }),
@@ -17,7 +17,8 @@ describe('resolveReceiveArrivalSeconds', () => {
 
   it('bundled byNetworkId beats bundled byImpl', () => {
     expect(resolveReceiveArrivalSeconds({ networkId: 'evm--1' })).toBe(300);
-    expect(resolveReceiveArrivalSeconds({ networkId: 'evm--137' })).toBe(180);
+    expect(resolveReceiveArrivalSeconds({ networkId: 'evm--137' })).toBe(300);
+    expect(resolveReceiveArrivalSeconds({ networkId: 'evm--61' })).toBe(1800);
     // non-overridden EVM chains use the family default
     expect(resolveReceiveArrivalSeconds({ networkId: 'evm--8453' })).toBe(60);
   });
@@ -149,6 +150,12 @@ describe('getReceiveArrivalTimeText', () => {
     expect(getReceiveArrivalTimeText({ networkId: 'btc--0' })).toBe('~10 min');
     expect(getReceiveArrivalTimeText({ networkId: 'evm--1' })).toBe('~5 min');
     expect(getReceiveArrivalTimeText({ networkId: 'sol--101' })).toBe('~30 s');
+    expect(getReceiveArrivalTimeText({ networkId: 'evm--10001' })).toBe(
+      '> 60 min',
+    );
+    expect(getReceiveArrivalTimeText({ networkId: 'fil--314' })).toBe(
+      '~30 min',
+    );
     expect(getReceiveArrivalTimeText({ networkId: 'lightning--0' })).toBe(
       '~5 s',
     );
