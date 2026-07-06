@@ -938,7 +938,8 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
   const openPerp = useOpenPerpAsset();
   const isLong = position.side === 'long';
   const isCardPressable = media.gtMd;
-  const sideColor = isLong ? '$green11' : '$red11';
+  const assetBadgeBgColor = isLong ? '$bgAccent' : '$bgCriticalStrong';
+  const assetBadgeTextColor = isLong ? '$textInverse' : '$textOnColor';
   const handleOpenPerp = useCallback(() => {
     openPerp(position.coin, 'perp', false);
   }, [openPerp, position.coin]);
@@ -985,7 +986,7 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
       <XStack justifyContent="space-between" flex={1} position="relative">
         <XStack flex={1} gap="$2" alignItems="center">
           <XStack
-            bg={sideColor}
+            bg={assetBadgeBgColor}
             borderRadius={2}
             w="$4"
             h="$4"
@@ -994,7 +995,7 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
           >
             <SizableText
               size="$bodySmMedium"
-              color="$textOnColor"
+              color={assetBadgeTextColor}
               $gtMd={{ size: '$bodyMdMedium' }}
             >
               {intl.formatMessage({
@@ -1100,7 +1101,7 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_liq_price}
-              value={position.liqPx ?? '--'}
+              value={position.liqPx || 'N/A'}
               formatter={position.liqPx ? 'price' : undefined}
               formatterOptions={position.liqPx ? { currency: '$' } : undefined}
               align="right"

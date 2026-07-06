@@ -161,7 +161,7 @@ export function showMarginModeDialog(
     floatingPanelProps: platformEnv.isNativeAndroid
       ? undefined
       : {
-          width: 480,
+          width: 400,
         },
     renderContent: (
       <PerpsProviderMirror>

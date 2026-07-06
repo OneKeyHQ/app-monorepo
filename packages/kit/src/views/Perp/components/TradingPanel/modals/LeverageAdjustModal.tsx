@@ -309,11 +309,6 @@ export const LeverageAdjustModal = memo(
         title: intl.formatMessage({
           id: ETranslations.perp_trading_adjust_leverage,
         }),
-        floatingPanelProps: platformEnv.isNativeAndroid
-          ? undefined
-          : {
-              width: 480,
-            },
         disableDrag: true,
         dismissOnOverlayPress: true,
         renderContent: (
