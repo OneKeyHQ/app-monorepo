@@ -254,6 +254,14 @@ function showReadyVersionBanner(version) {
   showUpdateBanner(() => activateReadyVersion(version));
 }
 
+function showActivatedVersionBanner(version) {
+  if (!version || version === getCurrentWebVersion()) {
+    return false;
+  }
+  showUpdateBanner(() => window.location.reload());
+  return true;
+}
+
 function requestServiceWorkerVersionCheck() {
   if (!navigator.serviceWorker.controller) {
     return;
@@ -271,11 +279,16 @@ function setupServiceWorkerVersionProtocol() {
       showReadyVersionBanner(payload.version);
     }
 
-    if (
-      type === SERVICE_WORKER_MESSAGE_TYPES.VERSION_STATE &&
-      payload.readyVersion
-    ) {
-      showReadyVersionBanner(payload.readyVersion);
+    if (type === SERVICE_WORKER_MESSAGE_TYPES.VERSION_STATE) {
+      if (
+        payload.activeVersion &&
+        showActivatedVersionBanner(payload.activeVersion)
+      ) {
+        return;
+      }
+      if (payload.readyVersion) {
+        showReadyVersionBanner(payload.readyVersion);
+      }
     }
 
     if (type === SERVICE_WORKER_MESSAGE_TYPES.VERSION_ACTIVATED) {
@@ -283,7 +296,9 @@ function setupServiceWorkerVersionProtocol() {
       if (pendingVersionActivation === version) {
         pendingVersionActivation = '';
         window.location.reload();
+        return;
       }
+      showActivatedVersionBanner(version);
     }
   });
 

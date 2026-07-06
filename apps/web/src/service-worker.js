@@ -347,24 +347,23 @@ async function getCachedHtmlResponse(version) {
   return cache.match(INDEX_HTML_URL);
 }
 
-async function isReadyVersionCacheValid(state) {
-  const { readyVersion, readyManifest } = state;
+async function isVersionCacheValid(version, manifest) {
   if (
-    !readyVersion ||
-    !readyManifest ||
-    readyManifest.version !== readyVersion ||
-    !isValidManifest(readyManifest)
+    !version ||
+    !manifest ||
+    manifest.version !== version ||
+    !isValidManifest(manifest)
   ) {
     return false;
   }
 
-  const htmlResponse = await getCachedHtmlResponse(readyVersion);
+  const htmlResponse = await getCachedHtmlResponse(version);
   if (!htmlResponse) {
     return false;
   }
 
-  const criticalCache = await caches.open(getCriticalCacheName(readyVersion));
-  for (const asset of readyManifest.critical) {
+  const criticalCache = await caches.open(getCriticalCacheName(version));
+  for (const asset of manifest.critical) {
     const response = await criticalCache.match(asset.url);
     if (!response) {
       return false;
@@ -372,6 +371,10 @@ async function isReadyVersionCacheValid(state) {
   }
 
   return true;
+}
+
+async function isReadyVersionCacheValid(state) {
+  return isVersionCacheValid(state.readyVersion, state.readyManifest);
 }
 
 async function clearReadyVersionState(
@@ -423,6 +426,68 @@ async function prefetchVersion(manifest) {
   }
 }
 
+async function switchActiveVersionState(state, manifest) {
+  const previousVersions = [
+    state.activeVersion,
+    ...(state.previousVersions || []),
+  ]
+    .filter((version) => version && version !== manifest.version)
+    .slice(0, PREVIOUS_VERSION_LIMIT);
+
+  const nextState = {
+    ...state,
+    activeVersion: manifest.version,
+    activeManifest: manifest,
+    readyVersion: '',
+    readyManifest: undefined,
+    previousVersions,
+    failedVersion: '',
+    retryAt: 0,
+    lastError: '',
+  };
+  await writeVersionState(nextState);
+  await cleanupVersionCaches(nextState);
+  await broadcastMessage(MESSAGE_TYPES.VERSION_ACTIVATED, {
+    version: nextState.activeVersion,
+  });
+  return nextState;
+}
+
+async function resetActiveVersionState(state, lastError) {
+  const nextState = {
+    ...state,
+    activeVersion: '',
+    activeManifest: undefined,
+    readyVersion: '',
+    readyManifest: undefined,
+    failedVersion: '',
+    retryAt: 0,
+    lastError,
+  };
+  await writeVersionState(nextState);
+  return nextState;
+}
+
+async function rollbackToManifestVersionState(state, manifest) {
+  let nextState = state;
+  if (nextState.readyVersion && nextState.readyVersion !== manifest.version) {
+    nextState = await clearReadyVersionState(nextState, 'version_rollback');
+  }
+
+  if (
+    await isVersionCacheValid(manifest.version, manifest).catch(() => false)
+  ) {
+    return switchActiveVersionState(nextState, manifest);
+  }
+
+  try {
+    await prefetchVersion(manifest);
+    return switchActiveVersionState(nextState, manifest);
+  } catch {
+    return resetActiveVersionState(nextState, 'version_rollback_reset');
+  }
+}
+
 function getNextRetryAt() {
   return Date.now() + 5 * 60 * 1000;
 }
@@ -462,11 +527,16 @@ async function checkForVersionUpdate({ client } = {}) {
         return state;
       }
 
+      if (isManifestOlderThan(manifest, state.activeManifest)) {
+        const nextState = await rollbackToManifestVersionState(state, manifest);
+        sendMessageToClient(client, MESSAGE_TYPES.VERSION_STATE, nextState);
+        return nextState;
+      }
+
       if (
-        isManifestOlderThan(manifest, state.activeManifest) ||
-        (state.readyVersion &&
-          manifest.version !== state.readyVersion &&
-          isManifestOlderThan(manifest, state.readyManifest))
+        state.readyVersion &&
+        manifest.version !== state.readyVersion &&
+        isManifestOlderThan(manifest, state.readyManifest)
       ) {
         if (state.readyVersion) {
           state = await clearReadyVersionState(state, 'version_downgrade');
@@ -561,7 +631,7 @@ async function promoteReadyVersionState(
     state.activeVersion,
     ...(state.previousVersions || []),
   ]
-    .filter(Boolean)
+    .filter((version) => version && version !== state.readyVersion)
     .slice(0, PREVIOUS_VERSION_LIMIT);
 
   const nextState = {
