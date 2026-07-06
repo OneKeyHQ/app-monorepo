@@ -3323,9 +3323,26 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
         if (shouldFixName) {
           if (profile.isThirdParty) {
-            // Third-party vendor: fix name if it contains OneKey device names
-            const vendorLabel = profile.defaultDeviceName || deviceVendor;
-            if (wallet.name && wallet.name.startsWith('OneKey')) {
+            // Third-party with a settable on-device label (Trezor): wallet name
+            // follows the device label, same as OneKey. Gate on device-settings
+            // support so vendors without a real label (Ledger) fall through.
+            const label = device?.featuresInfo?.label;
+            if (
+              profile.supportsDeviceSettings &&
+              device &&
+              label &&
+              label !== wallet.name
+            ) {
+              appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
+                walletId: wallet.id,
+                dbDeviceId: device.id,
+                label,
+                walletName: wallet.name,
+              });
+              wallet.name = label;
+            } else if (wallet.name && wallet.name.startsWith('OneKey')) {
+              // No settable label (Ledger): strip any leftover OneKey name.
+              const vendorLabel = profile.defaultDeviceName || deviceVendor;
               wallet.name = vendorLabel;
             }
           } else {
