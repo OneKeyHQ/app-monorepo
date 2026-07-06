@@ -3,7 +3,10 @@ import { Base64 } from 'js-base64';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { BIOLOGY_AUTH_CANCEL_ERROR } from '@onekeyhq/shared/types/password';
+import {
+  BIOLOGY_AUTH_CANCEL_ERROR,
+  WEB_AUTH_CREDENTIAL_UNAVAILABLE_ERROR,
+} from '@onekeyhq/shared/types/password';
 
 // Diagnostic sink for the lock-screen log-upload gate. Mirrors to console
 // UNCONDITIONALLY (the defaultLogger local transport only console-logs in dev,
@@ -70,6 +73,13 @@ export const verifiedWebAuth = async (
     // Windows Hello on THIS device) and reject the cross-device "use a passkey
     // on another device" (hybrid/caBLE) and roaming USB-key flows.
     platformAuthenticatorOnly?: boolean;
+    // Opt-in: report a NotAllowedError as WEB_AUTH_CREDENTIAL_UNAVAILABLE_ERROR
+    // instead of the generic user-cancel. WebAuthn cannot distinguish a genuine
+    // user-cancel from a lost/deleted platform credential (both are
+    // NotAllowedError), so only the enable flow — which can then ask the user
+    // whether to re-register — opts in. A deliberate AbortError is still a plain
+    // user-cancel. Default (false) preserves the lock-screen / unlock behavior.
+    distinguishCredentialUnavailable?: boolean;
   },
 ) => {
   if (!(await isSupportWebAuth())) {
@@ -125,6 +135,20 @@ export const verifiedWebAuth = async (
       })}`,
     );
     if (
+      options?.distinguishCredentialUnavailable &&
+      e instanceof DOMException &&
+      e.name === 'NotAllowedError'
+    ) {
+      // Ambiguous: a genuine user-cancel or a lost/deleted platform credential.
+      // Surfaced distinctly so the enable flow can ask before re-registering.
+      diagLog(
+        '[KeychainLogUploadDiag] verifiedWebAuth -> throw credentialUnavailableError',
+      );
+      const unavailableError = new Error('');
+      unavailableError.name = WEB_AUTH_CREDENTIAL_UNAVAILABLE_ERROR;
+      throw unavailableError;
+    }
+    if (
       e instanceof DOMException &&
       (e.name === 'NotAllowedError' || e.name === 'AbortError')
     ) {
@@ -147,14 +171,22 @@ export const registerWebAuth = async (credId?: string) => {
   if (!navigator?.credentials) {
     throw new OneKeyLocalError('navigator.credentials API is not available');
   }
-  try {
-    if (credId) {
-      const cred = await verifiedWebAuth(credId);
-      if (cred?.id) {
-        return cred.id;
-      }
-      return undefined;
+  if (credId) {
+    // Reuse-if-valid: verify the existing credential first. On success we
+    // return its id and NEVER create a new one (so repeated enable toggles do
+    // not pile up credentials). A NotAllowedError here is ambiguous (user
+    // cancel vs. lost credential) and is rethrown as
+    // WEB_AUTH_CREDENTIAL_UNAVAILABLE_ERROR so the caller can ask the user
+    // whether to register a fresh credential — we do not auto-create.
+    const cred = await verifiedWebAuth(credId, {
+      distinguishCredentialUnavailable: true,
+    });
+    if (cred?.id) {
+      return cred.id;
     }
+    return undefined;
+  }
+  try {
     const challenge = globalThis.crypto.getRandomValues(new Uint8Array(32));
     const createCredentialOptions: CredentialCreationOptions = {
       publicKey: {

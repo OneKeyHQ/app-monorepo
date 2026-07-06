@@ -11,7 +11,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import type { ISecureStorageSetOptions } from '@onekeyhq/shared/src/storage/secureStorage/types';
 import { ensureSensitiveTextEncoded } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
-import { BIOLOGY_AUTH_CANCEL_ERROR } from '@onekeyhq/shared/types/password';
+import {
+  BIOLOGY_AUTH_CANCEL_ERROR,
+  WEB_AUTH_CREDENTIAL_UNAVAILABLE_ERROR,
+} from '@onekeyhq/shared/types/password';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
 
@@ -128,26 +131,63 @@ class BiologyAuthUtils implements IBiologyAuth {
   savePasswordForPasskey = async (
     password: string,
     options?: {
+      // Auto-repair a broken PRF state (e.g. an unwrap/decrypt failure of a
+      // corrupted wrapped master key) by clearing the stale keys and
+      // re-registering. Does NOT cover the ambiguous "credential unavailable"
+      // case (see below) — that requires an explicit user decision because
+      // WebAuthn cannot tell a lost credential apart from a plain user-cancel.
       repairBrokenState?: boolean;
+      // Skip authenticating the stored credential entirely and register a
+      // fresh one. Only pass this after the user has explicitly confirmed
+      // re-enrollment (the stored platform credential is genuinely gone). This
+      // is what prevents piling up duplicate credentials on repeated toggles:
+      // we never auto-create — a new credential is created only on confirmed
+      // re-enroll or true first-time setup.
+      forceReEnroll?: boolean;
     },
   ): Promise<string | null> => {
+    const canResetForPasskeyReEnroll =
+      typeof Reflect.get(
+        appStorage.secureStorage,
+        'resetForPasskeyReEnroll',
+      ) === 'function';
+
+    // User confirmed re-enrollment: clear the stale PRF state up-front so the
+    // subsequent savePassword registers a brand-new credential in a single
+    // WebAuthn create prompt (no doomed attempt to auth the missing one first).
+    if (options?.forceReEnroll && canResetForPasskeyReEnroll) {
+      await appStorage.secureStorage.resetForPasskeyReEnroll?.();
+      await this.savePassword(password, {
+        allowDiscoverable: false,
+      });
+      return this.getCredentialId();
+    }
+
     try {
+      // savePassword -> getPrfKey tries the stored credential FIRST, so an
+      // existing, valid credential is always reused here (never recreated).
       await this.savePassword(password, {
         allowDiscoverable: false,
       });
     } catch (error) {
-      const canResetForPasskeyReEnroll =
-        typeof Reflect.get(
-          appStorage.secureStorage,
-          'resetForPasskeyReEnroll',
-        ) === 'function';
+      const errorName = (error as Error)?.name;
+      // Ambiguous case: authenticating the stored credential failed with
+      // NotAllowedError. This is either a genuine user-cancel or a lost/deleted
+      // platform credential — WebAuthn does not distinguish them. Never
+      // auto-re-enroll here (that could create a duplicate on a plain cancel);
+      // rethrow so the enable flow can ask the user whether to create a new one.
+      if (errorName === WEB_AUTH_CREDENTIAL_UNAVAILABLE_ERROR) {
+        throw error;
+      }
       if (
-        (error as Error)?.name === BIOLOGY_AUTH_CANCEL_ERROR ||
+        errorName === BIOLOGY_AUTH_CANCEL_ERROR ||
         !options?.repairBrokenState ||
         !canResetForPasskeyReEnroll
       ) {
         throw error;
       }
+      // A non-ambiguous broken state (e.g. corrupted wrapped master key).
+      // Safe to repair automatically.
       await appStorage.secureStorage.resetForPasskeyReEnroll?.();
       await this.savePassword(password, {
         allowDiscoverable: false,

@@ -27,6 +27,15 @@ export enum EPasswordMode {
 
 export const BIOLOGY_AUTH_CANCEL_ERROR = 'user_cancel';
 
+// Thrown when authenticating a specific, previously-stored WebAuthn/PRF
+// credential fails with NotAllowedError. WebAuthn reports both a genuine
+// user-cancel and a lost/deleted platform credential ("No passkeys available")
+// as NotAllowedError, so they are indistinguishable at the API level. This
+// dedicated name lets the enable flow's repair-and-re-enroll fire instead of
+// treating the failure as a plain user-cancel that dead-ends the feature.
+export const WEB_AUTH_CREDENTIAL_UNAVAILABLE_ERROR =
+  'web_auth_credential_unavailable';
+
 export const PASSCODE_LENGTH = 6;
 export const PASSCODE_PROTECTION_ATTEMPTS = 10;
 export const PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX = 5;
