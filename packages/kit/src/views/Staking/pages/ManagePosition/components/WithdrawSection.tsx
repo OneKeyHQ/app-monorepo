@@ -480,10 +480,18 @@ export const WithdrawSection = ({
     if (selectedAsset) {
       if (borrowAction === 'repay') {
         // For repay, use borrowed balance
-        return selectedAsset.borrowed?.title?.text ?? '0';
+        return (
+          selectedAsset.borrowed?.number ??
+          selectedAsset.borrowed?.title?.text ??
+          '0'
+        );
       }
       // For withdraw, use supplied balance
-      return selectedAsset.supplied?.title?.text ?? '0';
+      return (
+        selectedAsset.supplied?.number ??
+        selectedAsset.supplied?.title?.text ??
+        '0'
+      );
     }
     return protocolInfo?.activeBalance ?? '0';
   }, [selectedAsset, borrowAction, protocolInfo?.activeBalance]);
@@ -852,7 +860,8 @@ export const WithdrawSection = ({
       return undefined;
     }
     return resolveBorrowRepayAllBalance({
-      selectedDebtBalance: selectedAsset?.borrowed?.amount,
+      selectedDebtBalance:
+        selectedAsset?.borrowed?.number ?? selectedAsset?.borrowed?.amount,
       protocolDebtBalance: protocolInfo?.debtBalance,
       reserveAddress: effectiveReserveAddress,
       tokenAddress: token?.address,
@@ -865,6 +874,7 @@ export const WithdrawSection = ({
     effectiveTokenSymbol,
     freshBorrowReserves?.borrowed?.assets,
     protocolInfo?.debtBalance,
+    selectedAsset?.borrowed?.number,
     selectedAsset?.borrowed?.amount,
     token?.address,
   ]);
@@ -1043,7 +1053,8 @@ export const WithdrawSection = ({
           }
           debtBalance={
             protocolInfo?.debtBalance !== undefined
-              ? (selectedAsset?.borrowed?.title?.text ??
+              ? (selectedAsset?.borrowed?.number ??
+                selectedAsset?.borrowed?.title?.text ??
                 protocolInfo.debtBalance)
               : undefined
           }

@@ -51,6 +51,14 @@ describe('protocolLendingActionUtils', () => {
     expect(state.valueForMax).toBe('10.123456');
     expect(state.isFullClose).toBe(true);
   });
+
+  it('falls back to referenceBalance for full-close when repayAllTargetAmount is missing', () => {
+    const state = resolveProtocolLendingRepayAmountState({
+      amount: '10',
+      referenceBalance: '10',
+    });
+    expect(state.isFullClose).toBe(true);
+  });
 });
 
 describe('findSupportedBorrowMarket', () => {

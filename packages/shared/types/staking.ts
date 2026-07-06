@@ -490,8 +490,12 @@ export type IBorrowApy = {
 } & IEarnAvailableAssetAprInfo;
 
 export type IBorrowBalance = {
-  amount: string;
-  fiatValue: string;
+  // Raw business amount (server field: `number`). Optional until every
+  // environment ships it; title/description are display-only strings and
+  // must not feed calculations when `number` is present.
+  number?: string;
+  amount?: string;
+  fiatValue?: string;
   title: IEarnText;
   description: IEarnText;
 };
@@ -2371,10 +2375,7 @@ export interface IBorrowAsset {
   walletBalance?: IBorrowBalance;
   available?: IBorrowBalance;
   borrowed?: IBorrowBalance;
-  supplied: {
-    title: IEarnText;
-    description: IEarnText;
-  };
+  supplied: IBorrowBalance;
   apyDetail: IBorrowApy;
   platformBonusApy?: {
     title: IEarnText;
