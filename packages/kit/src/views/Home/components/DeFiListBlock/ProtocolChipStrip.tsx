@@ -629,7 +629,7 @@ function ProtocolChipStripBase({
       pointerEvents={interactive ? 'auto' : 'none'}
     >
       <YStack
-        ref={handleWheelForwardNodeRef as any}
+        ref={handleWheelForwardNodeRef}
         bg="$bgApp"
         position="relative"
         borderBottomWidth={StyleSheet.hairlineWidth}
