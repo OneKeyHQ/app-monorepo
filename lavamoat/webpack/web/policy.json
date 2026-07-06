@@ -1652,6 +1652,13 @@
         "rimraf>glob>inherits": true
       }
     },
+    "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/js>@bundlr-network/client>async-retry>retry": {
+      "globals": {
+        "clearTimeout": true,
+        "console.log": true,
+        "setTimeout": true
+      }
+    },
     "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/js>@bundlr-network/client>inquirer>rxjs": {
       "globals": {
         "clearInterval": true,
@@ -3720,33 +3727,18 @@
       },
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
-        "@onekeyhq/core>near-api-js>@near-js/accounts>ajv": true,
-        "@onekeyhq/core>near-api-js>@near-js/accounts>ajv-formats": true,
         "@onekeyhq/core>near-api-js>@near-js/crypto": true,
         "@onekeyhq/core>near-api-js>@near-js/providers": true,
         "@onekeyhq/core>near-api-js>@near-js/signers": true,
         "@onekeyhq/core>near-api-js>@near-js/transactions": true,
         "@onekeyhq/core>near-api-js>@near-js/types": true,
         "@onekeyhq/core>near-api-js>@near-js/utils": true,
+        "@onekeyhq/core>near-api-js>ajv": true,
+        "@onekeyhq/core>near-api-js>ajv-formats": true,
         "@onekeyhq/core>near-api-js>bn.js": true,
         "@onekeyhq/core>near-api-js>borsh": true,
         "@onekeyhq/core>near-api-js>depd": true,
         "@onekeyhq/core>near-api-js>near-abi": true
-      }
-    },
-    "@onekeyhq/core>near-api-js>@near-js/accounts>ajv": {
-      "globals": {
-        "console": true
-      },
-      "packages": {
-        "@onekeyhq/components>@react-navigation/native>fast-deep-equal": true,
-        "@onekeyhq/core>near-api-js>ajv>json-schema-traverse": true,
-        "@onekeyhq/core>near-api-js>ajv>uri-js": true
-      }
-    },
-    "@onekeyhq/core>near-api-js>@near-js/accounts>ajv-formats": {
-      "packages": {
-        "@onekeyhq/core>near-api-js>@near-js/accounts>ajv": true
       }
     },
     "@onekeyhq/core>near-api-js>@near-js/crypto": {
@@ -3857,6 +3849,21 @@
         "@onekeyhq/core>near-api-js>@near-js/transactions": true,
         "@onekeyhq/core>near-api-js>bn.js": true,
         "@onekeyhq/core>near-api-js>borsh": true
+      }
+    },
+    "@onekeyhq/core>near-api-js>ajv": {
+      "globals": {
+        "console": true
+      },
+      "packages": {
+        "@onekeyhq/components>@react-navigation/native>fast-deep-equal": true,
+        "@onekeyhq/core>near-api-js>ajv>json-schema-traverse": true,
+        "@onekeyhq/core>near-api-js>ajv>uri-js": true
+      }
+    },
+    "@onekeyhq/core>near-api-js>ajv-formats": {
+      "packages": {
+        "@onekeyhq/core>near-api-js>ajv": true
       }
     },
     "@onekeyhq/core>near-api-js>ajv>uri-js": {
@@ -41493,25 +41500,8 @@
     },
     "external:../../node_modules/p-retry/index.js": {
       "packages": {
-        "external:../../node_modules/is-network-error/index.js": true,
-        "external:../../node_modules/p-retry/node_modules/retry/index.js": true
-      }
-    },
-    "external:../../node_modules/p-retry/node_modules/retry/index.js": {
-      "packages": {
-        "external:../../node_modules/p-retry/node_modules/retry/lib/retry.js": true
-      }
-    },
-    "external:../../node_modules/p-retry/node_modules/retry/lib/retry_operation.js": {
-      "globals": {
-        "clearTimeout": true,
-        "console.log": true,
-        "setTimeout": true
-      }
-    },
-    "external:../../node_modules/p-retry/node_modules/retry/lib/retry.js": {
-      "packages": {
-        "external:../../node_modules/p-retry/node_modules/retry/lib/retry_operation.js": true
+        "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/js>@bundlr-network/client>async-retry>retry": true,
+        "external:../../node_modules/is-network-error/index.js": true
       }
     },
     "external:../../node_modules/p-timeout/index.js": {
