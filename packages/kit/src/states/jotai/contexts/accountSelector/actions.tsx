@@ -3264,18 +3264,32 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               await timerUtils.wait(600);
               await serviceAccount.clearAccountCache();
               const { wallets } = await serviceAccount.getAllHdHwQrWallets();
+              let firstAvailableWallet: IDBWallet | undefined;
               for (const wallet0 of wallets) {
-                if (
-                  !accountUtils.isWalletDeprecatedOrMocked(wallet0) &&
-                  (await serviceAccount.isWalletHasIndexedAccounts({
-                    walletId: wallet0.id,
-                  }))
-                ) {
-                  selectedWallet = wallet0;
-                  selectedWalletId = selectedWallet?.id;
-                  selectedAccountNew.walletId = selectedWalletId;
-                  break;
+                if (!accountUtils.isWalletDeprecatedOrMocked(wallet0)) {
+                  firstAvailableWallet = firstAvailableWallet || wallet0;
+                  if (
+                    await serviceAccount.isWalletHasIndexedAccounts({
+                      walletId: wallet0.id,
+                    })
+                  ) {
+                    selectedWallet = wallet0;
+                    selectedWalletId = selectedWallet?.id;
+                    selectedAccountNew.walletId = selectedWalletId;
+                    break;
+                  }
                 }
+              }
+              if (
+                (!selectedWallet || !hasIndexedAccounts) &&
+                firstAvailableWallet
+              ) {
+                selectedWallet = firstAvailableWallet;
+                selectedWalletId = selectedWallet.id;
+                selectedAccountNew.walletId = selectedWalletId;
+                selectedAccountNew.indexedAccountId = undefined;
+                selectedAccountNew.othersWalletAccountId = undefined;
+                selectedAccountNew.focusedWallet = selectedWalletId;
               }
               // maybe no hd hw wallet found, reset walletId and indexedAccountId
               if (

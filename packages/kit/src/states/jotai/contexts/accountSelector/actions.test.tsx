@@ -7,6 +7,7 @@ import { createStore } from 'jotai';
 
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useAccountSelectorActions } from './actions';
@@ -86,6 +87,13 @@ const mockIsDeriveTypeAvailableForNetwork: jest.MockedFunction<
 > = jest.fn();
 const mockShouldSyncHomeAndSwapSelectedAccount: jest.MockedFunction<
   () => Promise<boolean>
+> = jest.fn();
+const mockClearAccountCache: jest.MockedFunction<() => Promise<void>> =
+  jest.fn();
+const mockGetAllHdHwQrWallets: jest.MockedFunction<
+  () => Promise<{
+    wallets: IWallet[];
+  }>
 > = jest.fn();
 const mockIsWalletHasIndexedAccounts: jest.MockedFunction<
   ({ walletId }: { walletId: string }) => Promise<boolean>
@@ -183,6 +191,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceAccount: {
+      clearAccountCache: () => mockClearAccountCache(),
+      getAllHdHwQrWallets: () => mockGetAllHdHwQrWallets(),
       getIndexedAccountsOfWallet: ({ walletId }: { walletId: string }) =>
         mockGetIndexedAccountsOfWallet({ walletId }),
       getSingletonAccountsOfWallet: ({
@@ -290,6 +300,7 @@ function getRecentSelectionCache() {
 describe('useAccountSelectorActions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
     mockColdStartCacheStorageData.clear();
     mockBuildActiveAccountInfoFromSelectedAccount.mockResolvedValue({
       activeAccount: {
@@ -308,6 +319,8 @@ describe('useAccountSelectorActions', () => {
     mockIsDeriveTypeAvailableForNetwork.mockResolvedValue(true);
     mockShouldSyncHomeAndSwapSelectedAccount.mockResolvedValue(false);
     mockShouldSyncWithHomeSource.mockResolvedValue(false);
+    mockClearAccountCache.mockResolvedValue(undefined);
+    mockGetAllHdHwQrWallets.mockResolvedValue({ wallets: [] });
     mockIsWalletHasIndexedAccounts.mockResolvedValue(true);
     mockGetDBAccount.mockResolvedValue(undefined);
     mockGetIndexedAccountsOfWallet.mockResolvedValue({
@@ -318,6 +331,10 @@ describe('useAccountSelectorActions', () => {
     });
     mockGetSingletonAccountsOfWallet.mockResolvedValue({ accounts: [] });
     mockGetWalletSafe.mockResolvedValue({ id: 'hd-1' } as IWallet);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('marks active account init done when reload finishes before storage init', async () => {
@@ -1103,6 +1120,61 @@ describe('useAccountSelectorActions', () => {
       walletId: 'hd-1',
       indexedAccountId: 'hd-1--0',
       focusedWallet: 'hd-1',
+    });
+  });
+
+  it('selects an empty hardware wallet after a hidden wallet becomes unavailable', async () => {
+    const hiddenWalletSelection = {
+      ...defaultSelectedAccount(),
+      walletId: 'hw-standard--hidden',
+      indexedAccountId: 'hw-standard--hidden-indexed-1',
+      networkId: 'onekeyall',
+      deriveType: 'default' as const,
+      focusedWallet: 'hw-standard--hidden',
+    };
+    const standardWallet = {
+      id: 'hw-standard',
+      name: 'Standard wallet',
+    } as IWallet;
+
+    mockGetAllHdHwQrWallets.mockResolvedValue({
+      wallets: [standardWallet],
+    });
+    mockIsWalletHasIndexedAccounts.mockResolvedValue(false);
+    mockGetIndexedAccountsOfWallet.mockResolvedValue({ accounts: [] });
+    mockGetWalletSafe.mockResolvedValue(standardWallet);
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: hiddenWalletSelection,
+    });
+    store.set(accountSelectorStorageInitDoneAtom(), true);
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+        network: {
+          id: 'onekeyall',
+        } as ReturnType<typeof defaultActiveAccountInfo>['network'],
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: 'hw-standard',
+      focusedWallet: 'hw-standard',
+      indexedAccountId: undefined,
+      othersWalletAccountId: undefined,
     });
   });
 });
