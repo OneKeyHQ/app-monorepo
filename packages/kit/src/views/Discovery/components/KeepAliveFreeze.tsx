@@ -12,8 +12,7 @@ import type { StyleProp, ViewStyle } from 'react-native';
 // parent view; a `WKWebView` inside then reloads its URL when it is later
 // re-attached (unfreeze / tab switch / minimize→reopen). Confirmed via
 // lifecycle logs: with `<Freeze>` every reactivation fired `onLoadStart` with
-// NO mount/unmount — i.e. the native WebView reloaded purely from the detach.
-// See docs/discovery-browser-webpage-tabs-reload.md.
+// NO mount/unmount, so the native WebView reloaded purely from the detach.
 //
 // This component instead keeps the view mounted AND attached the whole time and
 // only hides it visually when `freeze` is true: `opacity: 0` +
