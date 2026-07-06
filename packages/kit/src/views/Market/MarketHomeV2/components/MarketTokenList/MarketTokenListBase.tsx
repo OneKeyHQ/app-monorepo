@@ -635,6 +635,7 @@ function MarketTokenListBase({
                 return;
               }
               void toMarketDetailPage({
+                ...item,
                 symbol: item.symbol,
                 tokenAddress: item.address,
                 networkId: item.networkId,
