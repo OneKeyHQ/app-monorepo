@@ -29,6 +29,12 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import {
+  LeverageBadge,
+} from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import { useNavigateToMarketTab } from '@onekeyhq/kit/src/views/Market/hooks';
+import { PriceChangeBadge } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/PriceChangeBadge';
+import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
+import {
   perpsPendingInfoPanelTabAtom,
   spotActiveAssetAtom,
   tradingModeAtom,
@@ -61,9 +67,15 @@ import {
   buildOverviewGridStyle,
 } from '../components/DeFiListBlock/DeFiOverviewLayout';
 import { resolveOverviewCols } from '../components/DeFiListBlock/overviewColsResolver';
+import {
+  HOME_PERPS_GUIDE_URL,
+  HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
+} from '../components/PopularTrading/constants';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { RichBlock } from '../components/RichBlock';
+import { SupportHub } from '../components/SupportHub/SupportHub';
 import { HomeTestIDs } from '../testIDs';
+import { Upgrade } from '../components/Upgrade/Upgrade';
 
 import { usePerpsHomePortfolio } from './usePerpsHomePortfolio';
 
@@ -583,6 +595,171 @@ function PerpsPositionsEmptyContent() {
   );
 }
 
+function PerpsEmptyRecommendSection() {
+  const intl = useIntl();
+  const media = useMedia();
+  const openPerp = useOpenPerpAsset();
+  const navigateToMarketTab = useNavigateToMarketTab();
+  const { tokens, isLoading } = useMarketPerpsTokenList({
+    selectedCategoryId: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
+  });
+
+  const displayTokens = useMemo(
+    () => tokens.slice(0, media.gtMd ? 8 : 5),
+    [media.gtMd, tokens],
+  );
+
+  if (!isLoading && displayTokens.length === 0) {
+    return null;
+  }
+
+  return (
+    <YStack mt="$6" gap="$3">
+      <XStack alignItems="center" justifyContent="space-between" gap="$3">
+        <SizableText size="$headingLg" $gtMd={{ size: '$headingLg' }}>
+          热门市场
+        </SizableText>
+        <Button
+          display="none"
+          $gtMd={{ display: 'flex' }}
+          size="small"
+          variant="tertiary"
+          onPress={() =>
+            navigateToMarketTab({
+              perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
+            })
+          }
+          cursor="pointer"
+          childrenAsText={false}
+        >
+          <XStack alignItems="center" gap="$1.5">
+            <SizableText size="$bodySmMedium">
+              {intl.formatMessage({ id: ETranslations.global_view_more })}
+            </SizableText>
+            <Icon name="ChevronRightSmallOutline" size="$4" />
+          </XStack>
+        </Button>
+      </XStack>
+      <YStack
+        $gtMd={{
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          mx: '$-6',
+        }}
+      >
+        {displayTokens.map((token) => (
+          <Stack key={token.name} $gtMd={{ width: '50%', px: '$6' }}>
+            <XStack
+              hoverStyle={{ bg: '$bgHover' }}
+              pressStyle={{ bg: '$bgActive' }}
+              onPress={() => openPerp(token.name, 'perp', false)}
+              cursor="pointer"
+              role="button"
+              borderRadius="$3"
+              mx="$-3"
+              px="$3"
+              py="$3"
+              alignItems="center"
+              alignSelf="stretch"
+              $gtMd={{ mx: '$-4', px: '$4' }}
+            >
+              <XStack flex={1} alignItems="center" gap="$3" minWidth={0}>
+                <Token
+                  size="md"
+                  borderRadius="$full"
+                  tokenImageUri={token.tokenImageUrl}
+                  fallbackIcon="CryptoCoinOutline"
+                />
+                <YStack flex={1} minWidth={0}>
+                  <XStack alignItems="center" gap="$1" minWidth={0} overflow="hidden">
+                    <SizableText
+                      size="$bodyLgMedium"
+                      numberOfLines={1}
+                      flexShrink={1}
+                      ellipsizeMode="tail"
+                      userSelect="none"
+                    >
+                      {token.displayName}
+                    </SizableText>
+                    <LeverageBadge leverage={token.maxLeverage} />
+                  </XStack>
+                  <XStack alignItems="center" gap="$1" minWidth={0}>
+                    {token.subtitle ? (
+                      <SizableText
+                        size="$bodyMd"
+                        color="$textSubdued"
+                        numberOfLines={1}
+                        flexShrink={1}
+                        ellipsizeMode="tail"
+                        userSelect="none"
+                      >
+                        {token.subtitle}
+                      </SizableText>
+                    ) : null}
+                    <NumberSizeableText
+                      size="$bodyMd"
+                      color="$textSubdued"
+                      numberOfLines={1}
+                      flexShrink={0}
+                      formatter="marketCap"
+                      formatterOptions={{ currency: '$' }}
+                      userSelect="none"
+                    >
+                      {token.volume24h ?? '0'}
+                    </NumberSizeableText>
+                  </XStack>
+                </YStack>
+              </XStack>
+
+              <XStack alignItems="center" gap="$2">
+                <NumberSizeableText
+                  userSelect="none"
+                  flexShrink={1}
+                  numberOfLines={1}
+                  size="$bodyLgMedium"
+                  formatter="price"
+                  formatterOptions={{ currency: '$' }}
+                >
+                  {token.markPrice ?? '0'}
+                </NumberSizeableText>
+                <PriceChangeBadge change={token.change24hPercent ?? 0} />
+              </XStack>
+            </XStack>
+          </Stack>
+        ))}
+        <XStack
+          px="$0"
+          pt="$2"
+          pb="$5"
+          width="100%"
+          display="flex"
+          $gtMd={{ display: 'none' }}
+        >
+          <Button
+            size="medium"
+            variant="secondary"
+            width="100%"
+            cursor="pointer"
+            onPress={() =>
+              navigateToMarketTab({
+                perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
+              })
+            }
+            childrenAsText={false}
+          >
+            <XStack alignItems="center" gap="$2">
+              <SizableText size="$bodySmMedium">
+                {intl.formatMessage({ id: ETranslations.global_view_more })}
+              </SizableText>
+              <Icon name="ChevronRightSmallOutline" size="$5" />
+            </XStack>
+          </Button>
+        </XStack>
+      </YStack>
+    </YStack>
+  );
+}
+
 function PerpsEmptyState({ canDeposit }: { canDeposit: boolean }) {
   const intl = useIntl();
 
@@ -624,7 +801,6 @@ function PerpsEmptyState({ canDeposit }: { canDeposit: boolean }) {
           plainContentContainer
         />
       </YStack>
-      <PerpsPositionsEmptyContent />
     </>
   );
 }
@@ -656,26 +832,26 @@ function PerpsDepositButton({
   }
 
   return (
-    <Badge
+    <Button
       testID={testID}
-      onPress={() => void handleDeposit()}
-      borderRadius="$full"
-      size="medium"
+      size="small"
       variant="primary"
-      alignItems="center"
-      justifyContent="center"
-      flexDirection="row"
-      gap="$2"
-      px="$3"
-      h={28}
       bg="$brand8"
+      minHeight={32}
+      color="$textOnColor"
       cursor="pointer"
+      hoverStyle={{ bg: '$brand9' }}
+      pressStyle={{ bg: '$brand10' }}
+      onPress={() => void handleDeposit()}
+      childrenAsText={false}
     >
-      <Icon name="AlignBottomOutline" size="$4" color="$iconOnColor" />
-      <SizableText size="$bodySmMedium" color="$textOnColor">
-        {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-      </SizableText>
-    </Badge>
+      <XStack alignItems="center" gap="$2">
+        <Icon name="AlignBottomOutline" size="$4" color="$iconOnColor" />
+        <SizableText size="$bodyMdMedium" color="$textOnColor">
+          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+        </SizableText>
+      </XStack>
+    </Button>
   );
 }
 
@@ -1220,17 +1396,27 @@ export function PerpsContainer() {
                   hyperEvmLogoUri={HYPER_EVM_LOGO_URI}
                 />
               </YStack>
-              <YStack gap="$2">
-                {view.positions.length > 0 ? (
-                  view.positions.map((position) => (
+              {view.positions.length > 0 ? (
+                <YStack gap="$2">
+                  {view.positions.map((position) => (
                     <PerpsPositionCard
                       key={`${position.coin}-${position.side}`}
                       position={position}
                     />
-                  ))
-                ) : (
-                  <PerpsPositionsEmptyContent />
-                )}
+                  ))}
+                </YStack>
+              ) : null}
+            </>
+          ) : null}
+          {viewState !== 'loading' ? (
+            <>
+              <PerpsEmptyRecommendSection />
+              <YStack gap="$6" mx="$-5" $gtMd={{ gap: '$8', mx: '$-pagePadding' }}>
+                <Upgrade />
+                <SupportHub
+                  helpCenterTitle="合约指南"
+                  helpCenterLink={HOME_PERPS_GUIDE_URL}
+                />
               </YStack>
             </>
           ) : null}
