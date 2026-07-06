@@ -14,9 +14,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { AccountSelectorCreateAddressButton } from '../../../components/AccountSelector/AccountSelectorCreateAddressButton';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { useAccountSelectorTrigger } from '../../../components/AccountSelector/hooks/useAccountSelectorTrigger';
+import { LazyAccountSelectorCreateAddressButton } from '../../../components/AccountSelector/LazyAccountSelectorCreateAddressButton';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
 
 function CreateAddressButton(props: IButtonProps) {
@@ -65,7 +65,7 @@ function BasicCreateAddressDialogContent({
   } = useActiveAccount({ num: 0 });
 
   return (
-    <AccountSelectorCreateAddressButton
+    <LazyAccountSelectorCreateAddressButton
       num={0}
       selectAfterCreate
       autoCreateAddress={autoCreateAddress}
