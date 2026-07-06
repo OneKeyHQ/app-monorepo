@@ -378,7 +378,7 @@ function DAppAccountListStandAloneItem({
   const { serviceDApp, serviceNetwork } = backgroundApiProxy;
   const { $sourceInfo } = useDappQuery();
 
-  // Transition: skeleton -> data loaded -> 1s delay -> hide skeleton -> card.
+  // Transition: skeleton -> data loaded -> 300ms delay -> hide skeleton -> card.
   // `isDataReady` flips when the account first arrives with a usable address;
   // `isCardVisible` flips 1s later and swaps the (until-then transparent) card
   // in for the skeleton. The card is always mounted-but-transparent while it
@@ -466,12 +466,12 @@ function DAppAccountListStandAloneItem({
   // (usePromiseResult has no initResult here).
   const isResolvingAccountSelector = result === undefined;
 
-  // Data loaded -> wait 1s -> reveal the card / drop the skeleton.
+  // Data loaded -> wait 300ms -> reveal the card / drop the skeleton.
   useEffect(() => {
     if (!isDataReady || isCardVisible) {
       return undefined;
     }
-    const timer = setTimeout(() => setIsCardVisible(true), 1000);
+    const timer = setTimeout(() => setIsCardVisible(true), 300);
     return () => clearTimeout(timer);
   }, [isDataReady, isCardVisible]);
 
