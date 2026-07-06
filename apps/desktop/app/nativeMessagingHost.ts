@@ -303,12 +303,20 @@ export async function runDesktopNativeMessagingHost() {
     while (inputBuffer.length >= 4) {
       const messageLength = inputBuffer.readUInt32LE(0);
       if (messageLength > MAX_NATIVE_MESSAGE_BYTES) {
-        // Exit only after the error frame is flushed (this stdin handler is
-        // synchronous, so chain the exit off the write instead of awaiting).
-        void writeNativeMessage({
-          success: false,
-          error: normalizeError(new DesktopNativeMessagingError('BAD_REQUEST')),
-        }).finally(() => app.exit(1));
+        // Exit only after BOTH the error frame AND any responses already queued
+        // ahead of this oversize header (e.g. a valid frame batched earlier in
+        // the same stdin chunk) have flushed, so app.exit() can't truncate them.
+        // This stdin handler is synchronous, so chain the exit off the writes
+        // instead of awaiting.
+        void Promise.allSettled([
+          processingQueue,
+          writeNativeMessage({
+            success: false,
+            error: normalizeError(
+              new DesktopNativeMessagingError('BAD_REQUEST'),
+            ),
+          }),
+        ]).finally(() => app.exit(1));
         return;
       }
       if (inputBuffer.length < messageLength + 4) {
@@ -320,8 +328,17 @@ export async function runDesktopNativeMessagingHost() {
 
       processingQueue = processingQueue.then(async () => {
         try {
-          const request = JSON.parse(body) as IDesktopNativeMessagingRequest;
-          await handleAndReply(request, context);
+          // Validate as unknown before trusting the request shape: JSON.parse
+          // accepts `null` / primitives / arrays, and reading `.method` off a
+          // non-object would surface as INTERNAL_ERROR instead of BAD_REQUEST.
+          const parsed: unknown = JSON.parse(body);
+          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            throw new DesktopNativeMessagingError('BAD_REQUEST');
+          }
+          await handleAndReply(
+            parsed as IDesktopNativeMessagingRequest,
+            context,
+          );
         } catch (error) {
           await writeNativeMessage({
             success: false,
