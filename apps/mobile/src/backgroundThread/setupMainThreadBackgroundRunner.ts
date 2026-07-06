@@ -240,6 +240,11 @@ function createTransportError(message: string) {
 function isAsyncStorageWriteForwardingEnabled() {
   // Hot path: app-modules calls this getter on every AsyncStorage write.
   // Keep it side-effect free and log-free.
+  // iOS-only: iOS AsyncStorage shares disk files across main/bg runtimes while
+  // each runtime owns a native manifest cache. Android does not use that shared
+  // manifest-file cache model, so forwarding Android writes would only add RPC
+  // and retry surface. Revisit this gate if Android gets the same split-runtime
+  // native storage-cache hazard.
   return Boolean(
     platformEnv.isNativeIOS &&
     platformEnv.isNativeMainThread &&
@@ -565,6 +570,7 @@ function installAsyncStorageWriteForwarder() {
   // legacy local-write semantics.
   asyncStorageForwarderLog('install-start', {
     isNativeIOS: Boolean(platformEnv.isNativeIOS),
+    isNativeAndroid: Boolean(platformEnv.isNativeAndroid),
     isNativeMainThread: Boolean(platformEnv.isNativeMainThread),
     isNativeBackgroundThread: Boolean(platformEnv.isNativeBackgroundThread),
     enableNativeBackgroundThread: Boolean(
