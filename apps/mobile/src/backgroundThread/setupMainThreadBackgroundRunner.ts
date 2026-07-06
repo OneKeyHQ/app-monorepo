@@ -123,7 +123,10 @@ const MAX_OBSERVER_RETRY_COUNT = 600;
 const READY_TIMEOUT_MS = 10_000;
 const ASYNC_STORAGE_FORWARDER_RETRY_MS = 100;
 const ASYNC_STORAGE_FORWARDER_REQUEST_TIMEOUT_MS = 15_000;
-const ASYNC_STORAGE_FORWARDER_RECOVERY_TIMEOUT_MS = 60_000;
+// Main AsyncStorage writes are serialized. Allow one same-boot retry after the
+// per-request timeout, but do not block later writes for the old 60s window.
+const ASYNC_STORAGE_FORWARDER_RECOVERY_TIMEOUT_MS =
+  ASYNC_STORAGE_FORWARDER_REQUEST_TIMEOUT_MS * 2;
 // Long enough to cover HW + passphrase batch derivation (dozens of BLE
 // round-trips, ~1.5 min in practice) plus headroom. A per-call timeout only
 // rejects that single call — it no longer tears down the transport.
@@ -198,6 +201,7 @@ let maxInFlightRemoteCalls = 0;
 let transportState: IBackgroundThreadTransportState = 'idle';
 let queuedFlushPromise: Promise<void> | undefined;
 let remoteBrokenReason: string | undefined;
+let currentBackgroundRuntimeBootId: string | undefined;
 const asyncStorageWriteRequestRuntimeId = `${Date.now().toString(
   36,
 )}-${Math.random().toString(36).slice(2)}`;
@@ -313,20 +317,74 @@ function createAsyncStorageForwarderRecoveryTimeoutError(
   );
 }
 
+function createAsyncStorageForwarderUnsafeReplayError({
+  summary,
+  requestBootId,
+  currentBootId,
+  lastError,
+}: {
+  summary: ReturnType<typeof getAsyncStorageWriteArgSummary>;
+  requestBootId: string;
+  currentBootId: string;
+  lastError: unknown;
+}) {
+  return createTransportError(
+    [
+      'AsyncStorage write forwarding cannot safely replay after background runtime restart',
+      `requestBootId=${requestBootId}`,
+      `currentBootId=${currentBootId}`,
+      `request=${stringifyAsyncStorageForwarderLogValue(summary)}`,
+      `lastError=${(lastError as Error)?.message || 'unknown'}`,
+    ].join(', '),
+  );
+}
+
+function assertAsyncStorageForwarderReplayStillSafe({
+  summary,
+  requestBootId,
+  lastError,
+}: {
+  summary: ReturnType<typeof getAsyncStorageWriteArgSummary>;
+  requestBootId: string | undefined;
+  lastError: unknown;
+}) {
+  const currentBootId = currentBackgroundRuntimeBootId;
+  if (!requestBootId || !currentBootId || requestBootId === currentBootId) {
+    return;
+  }
+
+  throw createAsyncStorageForwarderUnsafeReplayError({
+    summary,
+    requestBootId,
+    currentBootId,
+    lastError,
+  });
+}
+
 async function forwardAsyncStorageWriteToBackground(
   request: IBackgroundThreadServiceCallRequest,
   summary: ReturnType<typeof getAsyncStorageWriteArgSummary>,
 ) {
   const deadline = Date.now() + ASYNC_STORAGE_FORWARDER_RECOVERY_TIMEOUT_MS;
+  let requestBootId: string | undefined;
   let lastError: unknown;
   while (Date.now() < deadline) {
+    if (transportState !== 'ready') {
+      await waitForAsyncStorageForwarderTransportRecovery(summary, deadline);
+    }
     try {
+      requestBootId = currentBackgroundRuntimeBootId;
       await callServiceRequest(request, () =>
         Promise.reject(createAsyncStorageForwarderTransportRequiredError()),
       );
       return;
     } catch (error) {
       lastError = error;
+      assertAsyncStorageForwarderReplayStillSafe({
+        summary,
+        requestBootId,
+        lastError,
+      });
       if (
         !isNativeBackgroundThreadTransportEnabled() ||
         (transportState !== 'remote-broken' &&
@@ -336,6 +394,11 @@ async function forwardAsyncStorageWriteToBackground(
       }
       if (transportState === 'remote-broken') {
         await waitForAsyncStorageForwarderTransportRecovery(summary, deadline);
+        assertAsyncStorageForwarderReplayStillSafe({
+          summary,
+          requestBootId,
+          lastError,
+        });
       } else {
         ensureBackgroundRuntimeObserver();
         await waitAsyncStorageForwarderRetryTick();
@@ -392,6 +455,9 @@ function installAsyncStorageWriteForwarder() {
       await enqueueAsyncStorageWriteToBackground(
         {
           type: 'service-call',
+          // Native bg entry passes this unprefixed proxy method name into
+          // BackgroundApiProxyBase.callBackgroundMethod(), which applies the
+          // INTERNAL_ decorator prefix inside the bg runtime.
           method: 'writeAsyncStorage',
           params: [buildAsyncStorageWriteRequest(method, args)],
           sync: false,
@@ -405,8 +471,9 @@ function installAsyncStorageWriteForwarder() {
         // Main and bg share the same iOS AsyncStorage files on disk, but each
         // runtime owns a separate native module instance and manifest cache.
         // Never fall back to a main-runtime local write here: that can overwrite
-        // bg's fresher manifest. Instead, main writes are serialized and replayed
-        // through bg after a transient transport break.
+        // bg's fresher manifest. Instead, main writes are serialized and may
+        // retry only while the same bg runtime bootId is still active; after a
+        // bg restart, bg JS-heap request dedupe is gone and replay is unsafe.
         summary,
       );
     } catch (error) {
@@ -667,7 +734,18 @@ function handleRuntimeSignal() {
     return;
   }
 
+  const previousBootId = currentBackgroundRuntimeBootId;
+  currentBackgroundRuntimeBootId = runtimePayload.bootId;
+  if (previousBootId !== runtimePayload.bootId || transportState !== 'ready') {
+    setBackgroundThreadReadyPayload(runtimePayload);
+  }
+
   if (transportState === 'ready') {
+    if (previousBootId && previousBootId !== runtimePayload.bootId) {
+      transportLog(
+        `background runtime bootId changed while transport ready: ${previousBootId} -> ${runtimePayload.bootId}`,
+      );
+    }
     return;
   }
 
@@ -685,7 +763,6 @@ function handleRuntimeSignal() {
     `transport → ready at +${readyFromEntry}ms from JS entry (starting→ready: ${readyFromStarting}ms, observer retries: ${observerRetryCount})`,
   );
   clearReadyTimeoutTimer();
-  setBackgroundThreadReadyPayload(runtimePayload);
   dispatchQueuedCallsToRemote();
 }
 
