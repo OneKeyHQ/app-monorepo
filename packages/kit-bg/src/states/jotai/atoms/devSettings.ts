@@ -74,6 +74,9 @@ export interface IDevSettings {
   customApiEndpoints?: IApiEndpointConfig[];
   // show performance monitor
   showPerformanceMonitor?: boolean;
+  // show performance monitor, replacing legacy showPerformanceMonitor which
+  // was default-on in older dev builds.
+  showPerformanceMonitorV2?: boolean;
   // use local trading view URL for development
   useLocalTradingViewUrl?: boolean;
   showPerpsRenderStats?: boolean;
@@ -150,7 +153,8 @@ export const {
       enableBotWalletFeature: false,
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
-      showPerformanceMonitor: true,
+      showPerformanceMonitor: false,
+      showPerformanceMonitorV2: false,
       autoNavigation: {
         enabled: false,
         selectedTab: ETabRoutes.Home,
