@@ -56,8 +56,8 @@ export const PROGRESSIVE_PAINT_THROTTLE_MS = 350;
  * One entry in the all-network LWW-Map materialized view: a
  * `buildMergedAllNetworkSnapshot` round plus the active owner at production time
  * (for the per-paint owner guard) and an `origin` discriminator ('cache' floor
- * seed vs 'live' raw result). Derive-merge flags are resolved per round before
- * building a merged snapshot unless a round explicitly carries an override.
+ * seed, whose derive-merge hint is read from cached token metadata; vs 'live'
+ * raw result, whose derive-merge flag is resolved before building a snapshot).
  */
 export type IProgressiveRound = IAllNetworkSnapshotRound & {
   ownerAccountId?: string;
@@ -133,6 +133,14 @@ type IIngestOwnerToken = {
   ownerKey: string;
 };
 
+function getCacheSeedMergeDeriveAssets(item: ICacheSeedItem): boolean {
+  return (
+    item.tokenList.some((token) => Boolean(token.mergeAssets)) ||
+    item.smallBalanceTokenList.some((token) => Boolean(token.mergeAssets)) ||
+    item.riskyTokenList.some((token) => Boolean(token.mergeAssets))
+  );
+}
+
 export function useTokenListReactivePipeline(
   params: ITokenListReactivePipelineParams,
 ): ITokenListReactivePipeline {
@@ -182,35 +190,40 @@ export function useTokenListReactivePipeline(
 
   const resolveRoundsWithMergeFlag = useCallback(
     async (rounds: IProgressiveRound[]): Promise<IProgressiveRound[]> => {
-      const networkIdsNeedingLookup = Array.from(
+      const liveNetworkIds = Array.from(
         new Set(
           rounds
-            .filter((r) => r.mergeDeriveAssets === undefined)
+            .filter(
+              (r) => r.origin === 'live' && r.mergeDeriveAssets === undefined,
+            )
             .map((r) => r.networkId)
             .filter((id): id is string => Boolean(id)),
         ),
       );
-      const mergeFlagByNetworkId: Record<string, boolean> = {};
+      if (!liveNetworkIds.length) {
+        return rounds;
+      }
+      const liveMergeFlagByNetworkId: Record<string, boolean> = {};
       await Promise.all(
-        networkIdsNeedingLookup.map(async (networkId) => {
+        liveNetworkIds.map(async (networkId) => {
           try {
-            mergeFlagByNetworkId[networkId] = !!(
+            liveMergeFlagByNetworkId[networkId] = !!(
               await backgroundApiProxy.serviceNetwork.getVaultSettings({
                 networkId,
               })
             ).mergeDeriveAssetsEnabled;
           } catch (_e) {
-            mergeFlagByNetworkId[networkId] = false;
+            liveMergeFlagByNetworkId[networkId] = false;
           }
         }),
       );
       return rounds.map((r) =>
-        r.mergeDeriveAssets !== undefined
+        r.mergeDeriveAssets !== undefined || r.origin !== 'live'
           ? r
           : {
               ...r,
               mergeDeriveAssets: r.networkId
-                ? mergeFlagByNetworkId[r.networkId]
+                ? liveMergeFlagByNetworkId[r.networkId]
                 : false,
             },
       );
@@ -360,6 +373,7 @@ export function useTokenListReactivePipeline(
             ownerAccountId,
             ownerNetworkId,
             origin: 'cache',
+            mergeDeriveAssets: getCacheSeedMergeDeriveAssets(item),
           },
           generation,
         );

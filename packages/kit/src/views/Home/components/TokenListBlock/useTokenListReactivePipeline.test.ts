@@ -261,10 +261,7 @@ describe('useTokenListReactivePipeline', () => {
     );
   });
 
-  it('cache seed resolves merge-derive vault settings before painting', async () => {
-    mockGetVaultSettings.mockResolvedValueOnce({
-      mergeDeriveAssetsEnabled: true,
-    });
+  it('cache seed merges cached derive rows without vault-settings lookup', async () => {
     const { result } = render(true);
     const btcAccount = { accountId: 'btc-derive-86', networkId: 'btc--0' };
     act(() => {
@@ -326,6 +323,7 @@ describe('useTokenListReactivePipeline', () => {
     expect(arg.orderedTokens.map((t) => t.$key)).toEqual(['btc--0_native']);
     expect(arg.tokenListMap['btc--0_native']?.balance).toBe('3');
     expect(arg.tokenListMap['btc--0_native']?.fiatValue).toBe('30');
+    expect(mockGetVaultSettings).not.toHaveBeenCalled();
   });
 
   it('buildAuthoritativeSnapshot + commit → authoritative ingest', async () => {
