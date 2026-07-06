@@ -62,16 +62,6 @@
         "location.pathname": true
       }
     },
-    "@onekeyhq/kit>expo-camera>expo>expo-font": {
-      "globals": {
-        "document.createElement": true
-      }
-    },
-    "@onekeyhq/kit>expo-camera>expo>expo-font>fontfaceobserver": {
-      "globals": {
-        "document.createElement": true
-      }
-    },
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": {
       "globals": {
         "location.reload": true
@@ -296,18 +286,6 @@
     "external:../../node_modules/@revenuecat/purchases-js/dist/Purchases.es.js": {
       "globals": {
         "open": true
-      }
-    },
-    "external:../../node_modules/@sentry-internal/feedback/build/npm/esm/index.js": {
-      "globals": {
-        "document.createElement": true
-      }
-    },
-    "external:../../node_modules/@sentry-internal/replay/build/npm/esm/index.js": {
-      "globals": {
-        "location.href": true,
-        "location.origin": true,
-        "parent": true
       }
     },
     "external:../../node_modules/@shopify/react-native-skia/lib/module/skia/web/JsiSkSVGFactory.js": {

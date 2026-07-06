@@ -6,12 +6,7 @@
         "localStorage": true
       }
     },
-    "@onekeyhq/core>@alephium/web3": {
-      "globals": {
-        "FileReader": true
-      }
-    },
-    "@onekeyhq/core>@alephium/web3>cross-fetch": {
+    "@onekeyhq/core>@ckb-lumos/ckb-indexer>cross-fetch": {
       "globals": {
         "FileReader": true
       }
