@@ -160,11 +160,6 @@ function writeJson(file, value) {
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
 }
 
-function writeText(file, value) {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, `${value.trimEnd()}\n`);
-}
-
 function toPosixPath(file) {
   return file.split(path.sep).join('/');
 }
@@ -452,171 +447,6 @@ function analyzePolicy(policyFile) {
   return summary;
 }
 
-function categoryCell(summary, category) {
-  const count = summary.categoryCounts[category] || {
-    resources: 0,
-    entries: 0,
-  };
-  return `${count.resources}/${count.entries}`;
-}
-
-function getTargetLabel(id) {
-  return enabledTargets.find((target) => target.id === id)?.label || id;
-}
-
-function createReviewIndex(summaries) {
-  const categoryLabels = {
-    network: 'network',
-    'storage-privacy': 'storage/privacy',
-    'extension-desktop-bridge': 'extension/desktop bridge',
-    'hardware-device': 'hardware/device',
-    'crypto-random': 'crypto/random',
-    'code-execution': 'code execution',
-    'dom-injection-navigation': 'DOM/navigation',
-    'node-system': 'Node system',
-  };
-  const lines = [
-    '# LavaMoat Policy Review Index',
-    '',
-    '本文件由 `yarn lavamoat:review` 生成，用于 PR review 时快速定位高风险权限分类。不要手工编辑。',
-    '',
-    '本目录中的高风险分类文件基于 `policy.json` 与同目录 `policy-override.json` merge 后的有效 policy 生成；显式 deny 的 override 会从有效权限视图中移除，并单独写入 `denied-overrides.json`。',
-    '',
-    '## 当前范围',
-    '',
-    '当前启用目标：',
-    '',
-    ...enabledTargets.map((target) => `- \`${target.id}\`：${target.label}`),
-    '',
-    '当前暂缓目标，只允许保留空目录占位：',
-    '',
-    ...disabledTargetDirs.map((targetDir) => `- \`${targetDir}\``),
-    '',
-    '暂缓目标目录中的 `.gitkeep` 内容固定为 `placeholder`，避免 CI 生成的 policy diff patch 出现空白行警告。',
-    '',
-    '## Policy 摘要',
-    '',
-    '| 目标 | 说明 | Policy | 总资源 | 高风险资源 | 高风险条目 | 指向高风险资源的 package 边 |',
-    '| --- | --- | --- | ---: | ---: | ---: | ---: |',
-  ];
-
-  for (const summary of summaries) {
-    const policyRelativeToLavamoat = summary.sourcePolicy.replace(
-      /^lavamoat\//,
-      '',
-    );
-    const target = policyRelativeToLavamoat.replace(/\/policy\.json$/, '');
-    const policyLink = policyRelativeToLavamoat;
-    lines.push(
-      `| \`${target}\` | ${getTargetLabel(target)} | [policy](${policyLink}) | ${summary.totalResources} | ${summary.highRiskResources} | ${summary.highRiskEntries} | ${summary.packageEdgesToRiskyResources} |`,
-    );
-  }
-
-  lines.push(
-    '',
-    '## 高风险分类统计',
-    '',
-    `| 目标 | ${riskRules
-      .map((rule) => categoryLabels[rule.category] || rule.category)
-      .join(' | ')} |`,
-    `| --- | ${riskRules.map(() => '---:').join(' | ')} |`,
-  );
-
-  for (const summary of summaries) {
-    const policyRelativeToLavamoat = summary.sourcePolicy.replace(
-      /^lavamoat\//,
-      '',
-    );
-    const target = policyRelativeToLavamoat.replace(/\/policy\.json$/, '');
-    lines.push(
-      `| \`${target}\` | ${riskRules
-        .map((rule) => categoryCell(summary, rule.category))
-        .join(' | ')} |`,
-    );
-  }
-
-  lines.push(
-    '',
-    '## 高风险分类说明',
-    '',
-    '`resources/entries` 分别表示命中该分类的 LavaMoat resource 数量，以及这些 resources 中命中的 global/builtin/native 权限条目数量。',
-    '',
-    '`denied-overrides.json` 记录 `policy-override.json` 中显式设置为 `false` 的 global/builtin/package/native/env 条目。Review 时如果 raw `policy.json` 新增了高风险权限，但 override 显式 deny，需要同时确认 deny 的业务路径已经有测试覆盖，避免运行时才触发权限错误。',
-    '',
-    '| 分类 | 含义 |',
-    '| --- | --- |',
-  );
-
-  for (const rule of riskRules) {
-    lines.push(`| \`${rule.category}\` | ${rule.description} |`);
-  }
-
-  lines.push('', '## Review 文件', '');
-
-  for (const summary of summaries) {
-    const policyRelativeToLavamoat = summary.sourcePolicy.replace(
-      /^lavamoat\//,
-      '',
-    );
-    const target = policyRelativeToLavamoat.replace(/\/policy\.json$/, '');
-    const reviewDir = path.dirname(policyRelativeToLavamoat);
-    const link = (name) => toPosixPath(path.join('review', reviewDir, name));
-    const categoryLinks = riskRules
-      .map((rule) => `[${rule.category}](${link(`${rule.category}.json`)})`)
-      .join(' / ');
-
-    lines.push(
-      `- \`${target}\`: [summary](${link('summary.json')}) / [effective-policy-summary](${link('effective-policy-summary.json')}) / [denied-overrides](${link('denied-overrides.json')}) / [all-high-risk-entries](${link('all-high-risk-entries.json')}) / ${categoryLinks} / [package-edges-to-risky-resources](${link('package-edges-to-risky-resources.json')})`,
-    );
-  }
-
-  lines.push(
-    '',
-    '## PR 作者自查',
-    '',
-    '如果本 PR 修改了 `lavamoat/**/policy.json` 或 `lavamoat/review/**`，PR 作者需要先解释新增 package、新增强权限，以及不确定项，再请求 security reviewer 检查。',
-    '',
-    '重点优先看 `all-high-risk-entries.json` 和 `package-edges-to-risky-resources.json`：前者列出当前 policy 中命中的强权限，后者说明哪些 package 可以访问到带高风险能力的 resource。判断新增或变化时必须结合 PR 的 `git diff`，不要只看快照文件本身。',
-    '',
-    '可复制以下模板到 PR 评论中完成第一轮 review：',
-    '',
-    '```markdown',
-    '## LavaMoat Policy Review',
-    '',
-    '### 变更来源',
-    '',
-    '- [ ] 新增或升级依赖',
-    '- [ ] 业务代码 import 图变化',
-    '- [ ] webpack / 构建配置变化',
-    '- [ ] 重新生成 policy 后的稳定化变更',
-    '',
-    '### 新增 packages',
-    '',
-    '- package-a：预期引入，用于 ...',
-    '- package-b：由 package-a 间接引入，用于 ...',
-    '',
-    '### 新增强权限',
-    '',
-    '- `network.json`：',
-    '- `storage-privacy.json`：',
-    '- `extension-desktop-bridge.json`：',
-    '- `hardware-device.json`：',
-    '- `crypto-random.json`：',
-    '- `code-execution.json`：',
-    '- `dom-injection-navigation.json`：',
-    '- `node-system.json` / `native-modules.json`：',
-    '',
-    '### 风险判断',
-    '',
-    '- [ ] 新增权限和本 PR 业务目标一致',
-    '- [ ] 没有 UI-only / 纯工具类依赖异常获得高风险能力',
-    '- [ ] 不确定项已列出并需要 reviewer 判断：',
-    '```',
-  );
-
-  return lines.join('\n');
-}
-
 fs.rmSync(reviewRoot, { recursive: true, force: true });
 const policyFiles = getPolicyFiles();
 const summaries = policyFiles.map(analyzePolicy);
@@ -625,7 +455,6 @@ writeJson(path.join(reviewRoot, 'summary.json'), {
   policies: summaries,
   totalPolicies: summaries.length,
 });
-writeText(path.join(lavamoatRoot, 'README.review.md'), createReviewIndex(summaries));
 
 console.log(
   `Generated LavaMoat review files for ${summaries.length} policies.`,
