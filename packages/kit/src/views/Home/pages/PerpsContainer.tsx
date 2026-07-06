@@ -1013,11 +1013,8 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
             {displayCoin}
           </SizableText>
           <SizableText
-            bg="$bgSubdued"
-            borderRadius={2}
-            px="$1"
             color="$textSubdued"
-            fontSize={10}
+            size="$bodySm"
             $gtMd={{ size: '$bodySm' }}
           >
             {leverageTypeText} {position.leverageValue}x

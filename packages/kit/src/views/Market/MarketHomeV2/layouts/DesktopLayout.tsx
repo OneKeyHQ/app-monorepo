@@ -165,7 +165,8 @@ export function DesktopLayout({
         tabBarProps.onTabPress?.(name);
       };
       const currentFilterBarProps = filterBarPropsRef.current;
-      const currentActiveTabName = activeTabNameRef.current;
+      const currentActiveTabName =
+        tabBarProps.focusedTab?.value || activeTabNameRef.current;
       const currentSpotCategoryId =
         getSpotCategoryIdByTabName(currentActiveTabName);
       const currentSpotCategoryHasStockData = Boolean(
