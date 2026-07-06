@@ -297,7 +297,10 @@ class ServiceDApp extends ServiceBase {
     },
   );
 
-  private tryOpenExistingExtensionWindow() {
+  // Public so provider APIs that queue connect requests on their own
+  // semaphore (e.g. eth_requestAccounts) can surface the pending approval
+  // window before the queued call ever reaches openModal.
+  tryOpenExistingExtensionWindow() {
     if (platformEnv.isExtension && this.existingWindowId) {
       extUtils.focusExistWindow({ windowId: this.existingWindowId });
     }
