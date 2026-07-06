@@ -25,14 +25,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import {
   LeverageBadge,
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useNavigateToMarketTab } from '@onekeyhq/kit/src/views/Market/hooks';
-import { PriceChangeBadge } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/PriceChangeBadge';
 import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
+import { PriceChangeBadge } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/PriceChangeBadge';
+import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import {
   perpsPendingInfoPanelTabAtom,
   spotActiveAssetAtom,
@@ -73,8 +73,8 @@ import {
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { RichBlock } from '../components/RichBlock';
 import { SupportHub } from '../components/SupportHub/SupportHub';
-import { HomeTestIDs } from '../testIDs';
 import { Upgrade } from '../components/Upgrade/Upgrade';
+import { HomeTestIDs } from '../testIDs';
 
 import { usePerpsHomePortfolio } from './usePerpsHomePortfolio';
 
@@ -615,6 +615,7 @@ function PerpsEmptyRecommendSection() {
           $gtMd={{ display: 'flex' }}
           size="small"
           variant="tertiary"
+          testID={HomeTestIDs.popularViewMoreBtn}
           onPress={() =>
             navigateToMarketTab({
               perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
@@ -877,6 +878,7 @@ function PerpsEmptyRecommendSection() {
             variant="secondary"
             width="100%"
             cursor="pointer"
+            testID={HomeTestIDs.popularViewMoreBtn}
             onPress={() =>
               navigateToMarketTab({
                 perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
