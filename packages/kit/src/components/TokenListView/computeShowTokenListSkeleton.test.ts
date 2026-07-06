@@ -87,6 +87,19 @@ describe('computeShowTokenListSkeleton — other branches unchanged', () => {
     ).toBe(false);
   });
 
+  it('active-account owner switch skeletons even with cached rows', () => {
+    expect(
+      computeShowTokenListSkeleton({
+        ...baseHomeFirstLoad(),
+        showActiveAccountTokenList: true,
+        activeAccountTokenListInitialized: false,
+        activeAccountTokenListIsRefreshing: true,
+        ownerMismatch: true,
+        displayCount: 3,
+      }),
+    ).toBe(true);
+  });
+
   it('selector not yet initialized skeletons', () => {
     expect(
       computeShowTokenListSkeleton({
@@ -106,6 +119,18 @@ describe('computeShowTokenListSkeleton — other branches unchanged', () => {
         displayCount: 3,
       }),
     ).toBe(false);
+  });
+
+  it('selector owner switch skeletons even with cached rows', () => {
+    expect(
+      computeShowTokenListSkeleton({
+        ...baseHomeFirstLoad(),
+        isTokenSelector: true,
+        tokenSelectorInitialized: false,
+        ownerMismatch: true,
+        displayCount: 3,
+      }),
+    ).toBe(true);
   });
 
   it('initialized home that is merely refreshing does NOT skeleton (no flash over existing data)', () => {

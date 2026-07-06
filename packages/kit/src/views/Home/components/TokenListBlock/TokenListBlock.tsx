@@ -178,6 +178,23 @@ type IAggregateTokenListMapWithCommonToken = Record<
   }
 >;
 
+function pickTokenListFiatMap({
+  tokens,
+  tokenListMap,
+}: {
+  tokens: IAccountToken[];
+  tokenListMap: Record<string, ITokenFiat>;
+}) {
+  const map: Record<string, ITokenFiat> = {};
+  tokens.forEach((token) => {
+    const fiat = tokenListMap[token.$key];
+    if (fiat) {
+      map[token.$key] = fiat;
+    }
+  });
+  return map;
+}
+
 type IActiveAccountTokenListRequestContext = {
   accountId: string;
   indexedAccountId: string;
@@ -1938,17 +1955,26 @@ function TokenListBlock({
             tokens: {
               data: r.tokenList,
               keys: '',
-              map: r.tokenListMap,
+              map: pickTokenListFiatMap({
+                tokens: r.tokenList,
+                tokenListMap: r.tokenListMap,
+              }),
             },
             smallBalanceTokens: {
               data: r.smallBalanceTokenList,
               keys: '',
-              map: r.tokenListMap,
+              map: pickTokenListFiatMap({
+                tokens: r.smallBalanceTokenList,
+                tokenListMap: r.tokenListMap,
+              }),
             },
             riskTokens: {
               data: r.riskyTokenList,
               keys: '',
-              map: r.tokenListMap,
+              map: pickTokenListFiatMap({
+                tokens: r.riskyTokenList,
+                tokenListMap: r.tokenListMap,
+              }),
             },
           };
         });
@@ -1979,9 +2005,18 @@ function TokenListBlock({
         tokenList = localTokens.tokenList;
         smallBalanceTokenList = localTokens.smallBalanceTokenList;
         riskyTokenList = localTokens.riskyTokenList;
-        tokenListMap = localTokens.tokenListMap;
-        smallBalanceTokenListMap = localTokens.tokenListMap;
-        riskyTokenListMap = localTokens.tokenListMap;
+        tokenListMap = pickTokenListFiatMap({
+          tokens: tokenList,
+          tokenListMap: localTokens.tokenListMap,
+        });
+        smallBalanceTokenListMap = pickTokenListFiatMap({
+          tokens: smallBalanceTokenList,
+          tokenListMap: localTokens.tokenListMap,
+        });
+        riskyTokenListMap = pickTokenListFiatMap({
+          tokens: riskyTokenList,
+          tokenListMap: localTokens.tokenListMap,
+        });
         tokenListValue = localTokens.tokenListValue;
         tokenListWorth = {
           [accountUtils.buildAccountValueKey({

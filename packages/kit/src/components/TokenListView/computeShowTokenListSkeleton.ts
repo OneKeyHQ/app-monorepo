@@ -42,6 +42,12 @@ export interface IComputeShowTokenListSkeletonParams {
 export function computeShowTokenListSkeleton(
   p: IComputeShowTokenListSkeletonParams,
 ): boolean {
+  // Loaded rows belong to a previous owner. Owner switches must show the
+  // skeleton even when stale cached rows are still present.
+  if (p.ownerMismatch) {
+    return true;
+  }
+
   if (
     p.showActiveAccountTokenList &&
     !p.activeAccountTokenListInitialized &&
@@ -58,15 +64,6 @@ export function computeShowTokenListSkeleton(
     p.tokenSelectorSearchTokenListSearchKey !== p.tokenSelectorSearchKey &&
     p.filteredTokensLength === 0
   ) {
-    return true;
-  }
-
-  // PR-7: loaded atoms belong to a PREVIOUS owner — show skeleton until the
-  // fresh data lands. Without this `tokenListInitialized` is still true from the
-  // prior network so the final clause would not fire. (On home, cold-start
-  // instant paint is the cells slim fan-out and in-session switch is the BG
-  // per-owner VM pull; both paint cells before this gate matters.)
-  if (p.ownerMismatch && !p.showActiveAccountTokenList) {
     return true;
   }
 
