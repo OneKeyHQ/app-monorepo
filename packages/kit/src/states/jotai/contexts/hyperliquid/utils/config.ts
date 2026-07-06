@@ -79,6 +79,11 @@ export const TOAST_CONFIGS: Record<EActionType, IToastConfig> = {
     successTitle: t(ETranslations.perp_trading_adjust_margin_updated),
   },
 
+  [EActionType.SET_ACCOUNT_MODE]: {
+    loading: t(ETranslations.perp_account_mode_updating__msg),
+    successTitle: t(ETranslations.perp_account_mode_updated__msg),
+  },
+
   [EActionType.SET_POSITION_TPSL]: {
     loading: t(ETranslations.perp_toast_setting_tp_sl),
     successTitle: t(ETranslations.perp_toast_setting_tp_sl_sucess),

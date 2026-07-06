@@ -31,7 +31,7 @@ import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSe
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import {
   useSwapActions,
   useSwapNetworksAtom,
@@ -128,6 +128,37 @@ const getRawSwapToken = (item: ISwapToken | IFuseResult<ISwapToken>) =>
     : (item as ISwapToken);
 
 const EMPTY_SWAP_TOKEN_LIST: (ISwapToken | IFuseResult<ISwapToken>)[] = [];
+const TOKEN_SELECTOR_LOADING_ROW_COUNT = 5;
+
+function SwapTokenSelectListSkeletonItem() {
+  return (
+    <ListItem>
+      <Skeleton w="$10" h="$10" radius="round" />
+      <YStack>
+        <YStack py="$1">
+          <Skeleton h="$4" w="$32" />
+        </YStack>
+        <YStack py="$1">
+          <Skeleton h="$3" w="$24" />
+        </YStack>
+      </YStack>
+    </ListItem>
+  );
+}
+
+function SwapTokenSelectListSkeleton() {
+  return (
+    <>
+      {Array.from({ length: TOKEN_SELECTOR_LOADING_ROW_COUNT }).map(
+        (_, index) => (
+          <SwapTokenSelectListSkeletonItem
+            key={`swap-token-select-skeleton-${index}`}
+          />
+        ),
+      )}
+    </>
+  );
+}
 
 const SwapTokenSelectPage = ({
   autoSearch = false,
@@ -955,6 +986,23 @@ const SwapTokenSelectPage = ({
     !isSwapStockSelectTarget &&
     currentNetworkPopularTokens.length > 0 &&
     !requestedSearchKeyword;
+  const tokenListEmptyComponent = useMemo(() => {
+    if (tokenListLoading) {
+      return <SwapTokenSelectListSkeleton />;
+    }
+
+    return (
+      <Empty
+        illustration="TwoBlocks"
+        title={intl.formatMessage({
+          id: ETranslations.global_no_results,
+        })}
+        description={intl.formatMessage({
+          id: ETranslations.token_no_search_results_desc,
+        })}
+      />
+    );
+  }, [intl, tokenListLoading]);
   return (
     <Page lazyLoad={!platformEnv.isNativeIOS} safeAreaEnabled={false}>
       <Page.Header
@@ -1070,35 +1118,7 @@ const SwapTokenSelectPage = ({
               ) : null
             }
             ListFooterComponent={<Stack h={bottom || '$2'} />}
-            ListEmptyComponent={
-              tokenListLoading ? (
-                <>
-                  {Array.from({ length: 5 }).map((_, index) => (
-                    <ListItem key={String(index)}>
-                      <Skeleton w="$10" h="$10" radius="round" />
-                      <YStack>
-                        <YStack py="$1">
-                          <Skeleton h="$4" w="$32" />
-                        </YStack>
-                        <YStack py="$1">
-                          <Skeleton h="$3" w="$24" />
-                        </YStack>
-                      </YStack>
-                    </ListItem>
-                  ))}
-                </>
-              ) : (
-                <Empty
-                  illustration="TwoBlocks"
-                  title={intl.formatMessage({
-                    id: ETranslations.global_no_results,
-                  })}
-                  description={intl.formatMessage({
-                    id: ETranslations.token_no_search_results_desc,
-                  })}
-                />
-              )
-            }
+            ListEmptyComponent={tokenListEmptyComponent}
           />
         </YStack>
       </Page.Body>

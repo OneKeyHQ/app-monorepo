@@ -1,4 +1,4 @@
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { defaultColorScheme } from '@onekeyhq/shared/src/config/appConfig';
 
 import { useSystemColorScheme } from './useSystemColorScheme';

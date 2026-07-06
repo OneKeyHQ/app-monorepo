@@ -20,18 +20,18 @@ export function getTrezorSearchTransportType(
     forceTransportType === EHardwareTransportType.WEBUSB ||
     forceTransportType === EHardwareTransportType.Bridge
   ) {
-    return 'usb';
+    return undefined;
   }
 
   return undefined;
 }
 
 export function shouldRequestTrezorWebUsbPermissionBeforeListing({
-  isDesktop,
+  isDesktop: _isDesktop,
   isExtension,
 }: {
   isDesktop: boolean;
   isExtension: boolean;
 }) {
-  return isDesktop || isExtension;
+  return isExtension;
 }

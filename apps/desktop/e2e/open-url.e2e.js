@@ -539,9 +539,9 @@ async function runLocalSecretEnvelopeFlow(page) {
   );
 
   assert.equal(result.runtimePlatform, 'desktop');
-  assert.equal(result.verifyStringIsLse, true);
+  assert.equal(result.verifyStringIsLse, false);
   assert.equal(result.credentialStrength, 'secure-storage-bound');
-  assert.equal(result.verifyStringStrength, 'secure-storage-bound');
+  assert.equal(result.verifyStringStrength, 'unavailable');
   assert.equal(result.cryptoKeyDeletionBlocksUnwrap, true);
   assert.equal(result.secureStorageDeletionBlocksUnwrap, true);
   assertIncludesAll(
@@ -549,11 +549,7 @@ async function runLocalSecretEnvelopeFlow(page) {
     ['indexeddb-cryptokey', 'secure-storage'],
     'credential layers',
   );
-  assertIncludesAll(
-    result.verifyStringLayerKinds,
-    ['indexeddb-cryptokey', 'secure-storage'],
-    'verifyString layers',
-  );
+  assert.deepEqual(result.verifyStringLayerKinds, []);
 
   const restoreResult = await page.evaluate(
     async ({ devOnlyPassword }) => {

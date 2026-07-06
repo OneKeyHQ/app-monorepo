@@ -25,6 +25,7 @@ import {
   isHardwareErrorByCode,
   isHardwareInterruptErrorByCode,
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import {
@@ -1444,6 +1445,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
     autoHandleExitError?: boolean;
     showUIProgress?: boolean;
   }) {
+    errorToastUtils.showLocalSecretEnvelopeErrorDialogIfNeeded(error);
+
     if (this.progressInfo && showUIProgress) {
       appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
         totalCount: this.progressInfo.totalCount,

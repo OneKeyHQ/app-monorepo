@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 
 import {
   Spinner,
@@ -59,6 +59,16 @@ export function LazyLoadPage<
 }
 
 // prevent useEffect triggers when tab loaded on Native
-export const LazyLoadRootTabPage = (factory: () => Promise<{ default: any }>) =>
+export const LazyLoadRootTabPage = (
+  factory: () => Promise<{ default: any }>,
+  fallback?: ReactNode,
+) => {
   // prevent hooks run
-  LazyLoadPage(factory, platformEnv.isNative ? 1 : undefined);
+  const Page = LazyLoadPage(
+    factory,
+    platformEnv.isNative ? 1 : undefined,
+    undefined,
+    fallback,
+  );
+  return memo(Page);
+};

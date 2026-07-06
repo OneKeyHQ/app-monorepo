@@ -14,6 +14,7 @@ export enum EGalleryRoutes {
   ComponentButton = 'component-Button',
   ComponentChainSelector = 'component-ChainSelector',
   ComponentCheckbox = 'component-Checkbox',
+  ComponentColorPicker = 'component-ColorPicker',
   ComponentCurrency = 'component-Currency',
   ComponentCryptoGallery = 'component-CryptoGallery',
   ComponentCarousel = 'component-Carousel',
@@ -116,4 +117,5 @@ export enum EGalleryRoutes {
   ComponentOneKeyID = 'component-OneKeyID',
   ComponentStorage = 'component-Storage',
   ComponentTrezorMultiTransport = 'component-TrezorMultiTransport',
+  ComponentThirdPartyHardwareActions = 'component-ThirdPartyHardwareActions',
 }

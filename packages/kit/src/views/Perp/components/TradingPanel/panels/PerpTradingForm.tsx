@@ -239,7 +239,7 @@ function useDepositButtonIconProps() {
   return useMemo(
     () =>
       ({
-        color: getTradingSideTextColor('long'),
+        color: '$bgAccent',
       }) as const,
     [],
   );

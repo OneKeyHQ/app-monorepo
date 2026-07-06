@@ -7,6 +7,8 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { isSamePositiveAmount, resolveRepayAllAmountValue } from '../utils';
+
 import type { IManagePositionProps, IManagePositionState } from '../types';
 
 export function useManagePositionState(props: IManagePositionProps): {
@@ -94,19 +96,29 @@ export function useManagePositionState(props: IManagePositionProps): {
   // Action-specific "all" flags
   const isWithdrawAll = useMemo(() => {
     if (props.action !== 'withdraw') return false;
-    const amountBN = new BigNumber(amountValue);
-    const maxAmountBN = new BigNumber(maxAmountValue);
-    if (amountBN.isNaN() || maxAmountBN.isNaN()) return false;
-    return amountBN.gt(0) && amountBN.eq(maxAmountBN);
+    return isSamePositiveAmount({
+      amount: amountValue,
+      targetAmount: maxAmountValue,
+    });
   }, [props.action, amountValue, maxAmountValue]);
+
+  const repayAllAmountValue = useMemo(
+    () =>
+      resolveRepayAllAmountValue({
+        action: props.action,
+        maxAmountValue,
+        repayAllBalance: props.repayAllBalance,
+      }),
+    [props.action, maxAmountValue, props.repayAllBalance],
+  );
 
   const isRepayAll = useMemo(() => {
     if (props.action !== 'repay') return false;
-    const amountBN = new BigNumber(amountValue);
-    const maxAmountBN = new BigNumber(maxAmountValue);
-    if (amountBN.isNaN() || maxAmountBN.isNaN()) return false;
-    return amountBN.gt(0) && amountBN.eq(maxAmountBN);
-  }, [props.action, amountValue, maxAmountValue]);
+    return isSamePositiveAmount({
+      amount: amountValue,
+      targetAmount: repayAllAmountValue,
+    });
+  }, [props.action, amountValue, repayAllAmountValue]);
 
   const state: Omit<
     IManagePositionState,

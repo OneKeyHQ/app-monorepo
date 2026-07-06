@@ -354,7 +354,9 @@ async function clearMatchedDepositOrders(
   }
 
   const perpDepositOrder = await perpsDepositOrderAtom.get();
-  const pendingOrders = perpDepositOrder.orders.filter((order) => order.toTxId);
+  const pendingOrders = perpDepositOrder.orders.filter(
+    (order) => order.toTxId && !order.keepForHistoryConfirmation,
+  );
   if (pendingOrders.length === 0) {
     return;
   }
@@ -1654,10 +1656,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       {
         coin,
         spotUniverse,
+        force,
         requestId: existingRequestId,
       }: {
         coin: string;
         spotUniverse: ISpotUniverse | undefined;
+        force?: boolean;
         requestId?: number;
       },
     ) => {
@@ -1684,7 +1688,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
       const currentSpotAsset = await spotActiveAssetAtom.get();
-      if (currentSpotAsset?.coin === coin) {
+      if (!force && currentSpotAsset?.coin === coin) {
         const currentMode = await tradingModeAtom.get();
         if (currentMode === 'spot') {
           const next = await this._buildActiveTradeInstrument('spot');
@@ -1824,6 +1828,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         const result = await this.changeActiveSpotAsset.call(set, {
           coin: params.coin,
           spotUniverse,
+          force: params.force,
           requestId,
         });
         markPerpsColdStartPerf('action_switch_trade_instrument_end', {
@@ -3065,6 +3070,37 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
+  // Account params come from the React layer: perpsActiveAccountAtom reads null
+  // here under PerpsProviderMirror.
+  updateAccountAbstractionMode = contextAtomMethod(
+    async (
+      _,
+      _set,
+      params: {
+        userAccountId: string;
+        userAddress: string;
+        abstraction: 'unifiedAccount' | 'portfolioMargin';
+      },
+    ): Promise<void> => {
+      return withToast({
+        asyncFn: async () => {
+          await backgroundApiProxy.serviceHyperliquidExchange.setAbstractionWithUserWallet(
+            {
+              userAccountId: params.userAccountId,
+              userAddress: params.userAddress,
+              abstraction: params.abstraction,
+            },
+          );
+          await backgroundApiProxy.serviceHyperliquid.refreshUserAbstractionMode(
+            params.userAddress as HL.IHex,
+            params.abstraction,
+          );
+        },
+        actionType: EActionType.SET_ACCOUNT_MODE,
+      });
+    },
+  );
+
   ordersClose = contextAtomMethod(
     async (
       get,
@@ -3607,6 +3643,8 @@ export function useHyperliquidActions() {
   const submitOrder = actions.submitOrder.use();
   const updateLeverage = actions.updateLeverage.use();
   const updateIsolatedMargin = actions.updateIsolatedMargin.use();
+  const updateAccountAbstractionMode =
+    actions.updateAccountAbstractionMode.use();
   const ordersClose = actions.ordersClose.use();
   const amendChartOrder = actions.amendChartOrder.use();
   const cancelChartOrder = actions.cancelChartOrder.use();
@@ -3680,6 +3718,7 @@ export function useHyperliquidActions() {
     submitOrder,
     updateLeverage,
     updateIsolatedMargin,
+    updateAccountAbstractionMode,
     ordersClose,
     amendChartOrder,
     cancelChartOrder,

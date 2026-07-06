@@ -453,6 +453,7 @@ function handleBackgroundThreadResponse(
     requestId?: string;
     httpStatusCode?: number;
     constructorName?: string;
+    data?: unknown;
     payload?: unknown;
   };
   if (errorInfo?.name) {
@@ -486,6 +487,9 @@ function handleBackgroundThreadResponse(
   }
   if (typeof errorInfo?.constructorName === 'string') {
     error.constructorName = errorInfo.constructorName;
+  }
+  if (errorInfo?.data !== undefined) {
+    error.data = errorInfo.data;
   }
   if (errorInfo?.payload !== undefined) {
     error.payload = errorInfo.payload;

@@ -11,7 +11,6 @@ import {
   getDialogInstances,
   rootNavigationRef,
   useMedia,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
@@ -130,11 +129,9 @@ function useKYTIntroDialog() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { md } = useMedia();
-  const { bottom } = useSafeAreaInsets();
   const { isPrimeSubscriptionActive } = useOneKeyAuthMethods();
   const [{ onekeyUserId }] = usePrimePersistAtom();
   const [appUpdateInfo] = useAppUpdatePersistAtom();
-  const mobileFooterBottomPadding = Math.max(bottom, 20) + 20;
   // Authoritative "Home is the focused tab" signal, written by the tab listener.
   const isHomeTabFocusedRef = useRef(false);
   // Becomes true once the Home token list has finished its first load (or a
@@ -180,7 +177,8 @@ function useKYTIntroDialog() {
         ? {
             flexDirection: 'column-reverse',
             gap: '$2.5',
-            pb: mobileFooterBottomPadding,
+            // No bottom safe-area inset here: the Dialog frame already pads by
+            // the safe-area bottom, so the footer keeps only its default "$5".
           }
         : undefined,
       confirmButtonProps: md
@@ -232,7 +230,7 @@ function useKYTIntroDialog() {
         }
       },
     });
-  }, [intl, md, mobileFooterBottomPadding, navigation, onekeyUserId]);
+  }, [intl, md, navigation, onekeyUserId]);
 
   // "Ready" = Home is the foreground tab, Home has finished its first load, and
   // the app-update flow is settled — everything except transient overlays. Both

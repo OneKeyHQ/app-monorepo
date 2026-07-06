@@ -1,7 +1,6 @@
 import { createAnimations } from '@tamagui/animations-moti';
 import { createMedia } from '@tamagui/react-native-media-driver';
 import { shorthands } from '@tamagui/shorthands';
-import { themes } from '@tamagui/themes';
 import { createFont, createTokens } from '@tamagui/web';
 import { Easing } from 'react-native-reanimated';
 import { createTamagui } from 'tamagui';
@@ -52,6 +51,7 @@ import { webFontFamily } from './src/utils/webFontFamily';
 import type { Variable } from '@tamagui/web';
 
 const isTamaguiNative = process.env.TAMAGUI_TARGET === 'native';
+const isTamaguiStatic = process.env.IS_STATIC === 'is_static';
 
 const basicFontVariants = {
   size: {
@@ -320,8 +320,8 @@ const lightColors = {
   bgSuccess: success.success3,
   bgSuccessStrong: success.success9,
   bgSuccessSubdued: success.success2,
-  bgAccent: brand.brand9,
-  bgAccentHover: brand.brand10,
+  bgAccent: brand.brand10,
+  bgAccentHover: brand.brand9,
   bgAccentActive: brand.brand11,
   buttonSuccess: success.success9,
   buttonCritical: critical.critical9,
@@ -648,7 +648,6 @@ const config = createTamagui({
 
   themes: {
     light: {
-      ...themes.light,
       ...lightColors,
 
       // override default theme
@@ -665,7 +664,6 @@ const config = createTamagui({
       'colorHover': mergedTokens.color.textLight,
     },
     dark: {
-      ...themes.dark,
       ...darkColors,
 
       // override default theme
@@ -703,7 +701,9 @@ const config = createTamagui({
     hoverNone: { hover: 'none' },
     pointerCoarse: { pointer: 'coarse' },
   }),
-  disableSSR: true,
+  // Tamagui static extraction runs in Node with the native target. Avoid
+  // registering native media listeners while the config is only being parsed.
+  disableSSR: !isTamaguiStatic,
 });
 
 export type IAppConfig = typeof config;

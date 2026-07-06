@@ -20,10 +20,11 @@ import {
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import {
-  useAppIsLockedAtom,
+  getDevSettingsNetworkThrottleEnabled,
   useDevSettingsPersistAtom,
-  useOnboardingConnectWalletLoadingAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/onboarding';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import {
   EAppUpdateStatus,
   EUpdateFileType,
@@ -46,6 +47,7 @@ import {
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
+import nativeNetworkThrottle from '@onekeyhq/shared/src/modules/NetworkThrottle';
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
@@ -67,11 +69,13 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
+import { EDevSettingSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '../components/AccountSelector';
+import { AccountSelectorProviderMirror } from '../components/AccountSelector/AccountSelectorProvider';
 import {
   AppUpdateForeground,
   isAutoUpdateStrategy,
@@ -435,30 +439,46 @@ export const useFetchCurrencyList = () => {
 
 export const useFetchMarketBasicConfig = () => {
   useEffect(() => {
-    void backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
+    const fetchMarketBasicConfig = () => {
+      void backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
+    };
+    if (platformEnv.isWeb) {
+      const timer = setTimeout(fetchMarketBasicConfig, 6000);
+      return () => clearTimeout(timer);
+    }
+    fetchMarketBasicConfig();
+    return undefined;
   }, []);
 };
 
 export const useFetchPerpConfig = () => {
   useEffect(() => {
-    void pRetry(
-      async (attemptNumber) => {
-        try {
-          if (attemptNumber === 1) {
-            return await backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
+    const fetchPerpConfig = () => {
+      void pRetry(
+        async (attemptNumber) => {
+          try {
+            if (attemptNumber === 1) {
+              return await backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
+            }
+            return await backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
+          } catch (err) {
+            errorToastUtils.toastIfErrorDisable(err);
+            throw err;
           }
-          return await backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
-        } catch (err) {
-          errorToastUtils.toastIfErrorDisable(err);
-          throw err;
-        }
-      },
-      {
-        retries: PERPS_CONFIG_FETCH_MAX_RETRIES,
-        minTimeout: PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS,
-        maxTimeout: PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS,
-      },
-    ).catch(noop);
+        },
+        {
+          retries: PERPS_CONFIG_FETCH_MAX_RETRIES,
+          minTimeout: PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS,
+          maxTimeout: PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS,
+        },
+      ).catch(noop);
+    };
+    if (platformEnv.isWeb) {
+      const timer = setTimeout(fetchPerpConfig, 6000);
+      return () => clearTimeout(timer);
+    }
+    fetchPerpConfig();
+    return undefined;
   }, []);
 };
 
@@ -541,10 +561,17 @@ export const useIntercomInit = () => {
   const isInitializedRef = useRef(false);
 
   useEffect(() => {
-    if (!isInitializedRef.current) {
-      void initIntercom();
-      isInitializedRef.current = true;
-    }
+    const timer = setTimeout(
+      () => {
+        if (isInitializedRef.current) {
+          return;
+        }
+        void initIntercom();
+        isInitializedRef.current = true;
+      },
+      timerUtils.getTimeDurationMs({ seconds: 10 }),
+    );
+    return () => clearTimeout(timer);
   }, []);
 };
 
@@ -554,25 +581,33 @@ export const useLaunchEvents = (): void => {
   const hasLaunchEventsExecutedRef = useRef(false);
   useEffect(() => {
     if (isLocked || hasLaunchEventsExecutedRef.current) {
-      return;
+      return undefined;
     }
-    void backgroundApiProxy.serviceAppUpdate
-      .getUpdateStatus()
-      .then((updateStatus: EAppUpdateStatus) => {
-        if (updateStatus === EAppUpdateStatus.ready) {
-          return;
-        }
-        hasLaunchEventsExecutedRef.current = true;
-        setTimeout(async () => {
-          await backgroundApiProxy.serviceApp.updateLaunchTimes();
-          if (
-            platformEnv.isExtensionUiPopup ||
-            platformEnv.isExtensionUiSidePanel
-          ) {
-            await launchFloatingIconEvent(intl);
+    const runLaunchEvents = () => {
+      void backgroundApiProxy.serviceAppUpdate
+        .getUpdateStatus()
+        .then((updateStatus: EAppUpdateStatus) => {
+          if (updateStatus === EAppUpdateStatus.ready) {
+            return;
           }
-        }, 250);
-      });
+          hasLaunchEventsExecutedRef.current = true;
+          setTimeout(async () => {
+            await backgroundApiProxy.serviceApp.updateLaunchTimes();
+            if (
+              platformEnv.isExtensionUiPopup ||
+              platformEnv.isExtensionUiSidePanel
+            ) {
+              await launchFloatingIconEvent(intl);
+            }
+          }, 250);
+        });
+    };
+    if (platformEnv.isWeb) {
+      const timer = setTimeout(runLaunchEvents, 6000);
+      return () => clearTimeout(timer);
+    }
+    runLaunchEvents();
+    return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLocked]);
 };
@@ -772,6 +807,10 @@ export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
   const autoNavigation = devSettings.settings?.autoNavigation;
+  const networkThrottleEnabled = getDevSettingsNetworkThrottleEnabled(
+    devSettings,
+    !!platformEnv.isNative,
+  );
 
   const [, setOnboardingConnectWalletLoading] =
     useOnboardingConnectWalletLoadingAtom();
@@ -779,6 +818,26 @@ export function Bootstrap() {
   useEffect(() => {
     setOnboardingConnectWalletLoading(false);
   }, [setOnboardingConnectWalletLoading]);
+
+  useEffect(() => {
+    if (!platformEnv.isNative) {
+      return;
+    }
+    devSettingSyncStorage.set(
+      EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
+      !!devSettings.enabled,
+    );
+    devSettingSyncStorage.set(
+      EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
+      networkThrottleEnabled,
+    );
+    void nativeNetworkThrottle
+      .setNetworkThrottle({
+        enabled: networkThrottleEnabled,
+        profile: 'slow4g',
+      })
+      .catch(() => undefined);
+  }, [devSettings.enabled, networkThrottleEnabled]);
 
   useEffect(() => {
     if (

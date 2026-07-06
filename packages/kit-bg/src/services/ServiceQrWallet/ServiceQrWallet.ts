@@ -7,12 +7,6 @@ import type {
   IAirGapUrJson,
 } from '@onekeyhq/qr-wallet-sdk';
 import {
-  EAirGapURType,
-  airGapUrUtils,
-  getAirGapSdk,
-} from '@onekeyhq/qr-wallet-sdk';
-import { OneKeyRequestDeviceQR } from '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR';
-import {
   backgroundClass,
   backgroundMethod,
   toastIfError,
@@ -47,6 +41,34 @@ import type {
   IQRCodeHandlerParseResult,
 } from '../ServiceScanQRCode/utils/parseQRCode/type';
 
+type IQrWalletSdk = typeof import('@onekeyhq/qr-wallet-sdk');
+type IOneKeyRequestDeviceQRModule =
+  typeof import('@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR');
+
+let qrWalletSdkPromise: Promise<IQrWalletSdk> | undefined;
+let oneKeyRequestDeviceQRPromise:
+  | Promise<IOneKeyRequestDeviceQRModule>
+  | undefined;
+
+function loadQrWalletSdk() {
+  qrWalletSdkPromise ??= import('@onekeyhq/qr-wallet-sdk').catch((error) => {
+    qrWalletSdkPromise = undefined;
+    throw error;
+  });
+  return qrWalletSdkPromise;
+}
+
+function loadOneKeyRequestDeviceQR() {
+  oneKeyRequestDeviceQRPromise ??=
+    import('@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR').catch(
+      (error) => {
+        oneKeyRequestDeviceQRPromise = undefined;
+        throw error;
+      },
+    );
+  return oneKeyRequestDeviceQRPromise;
+}
+
 @backgroundClass()
 class ServiceQrWallet extends ServiceBase {
   async startTwoWayAirGapScanUr({
@@ -61,6 +83,7 @@ class ServiceQrWallet extends ServiceBase {
     raw?: string;
     responseUr?: AirGapUR;
   }> {
+    const { airGapUrUtils } = await loadQrWalletSdk();
     // **** 2. app scan device Qrcode
     const appScanDeviceResult = await new Promise<
       IQRCodeHandlerParseResult<IAnimationValue>
@@ -96,6 +119,7 @@ class ServiceQrWallet extends ServiceBase {
 
   @backgroundMethod()
   async startTwoWayAirGapScan(appUr: IAirGapUrJson): Promise<IAirGapUrJson> {
+    const { airGapUrUtils } = await loadQrWalletSdk();
     const deviceScanAppUr: AirGapUR = airGapUrUtils.jsonToUr({
       ur: appUr,
     });
@@ -275,6 +299,10 @@ class ServiceQrWallet extends ServiceBase {
       ),
     );
 
+    const [{ airGapUrUtils }, { OneKeyRequestDeviceQR }] = await Promise.all([
+      loadQrWalletSdk(),
+      loadOneKeyRequestDeviceQR(),
+    ]);
     const request = new OneKeyRequestDeviceQR({
       requestId: generateUUID(),
       xfp: byWallet.xfp || '',
@@ -316,6 +344,8 @@ class ServiceQrWallet extends ServiceBase {
     // scanResult: IQRCodeHandlerParseResult<IBaseValue>;
     urJson: IAirGapUrJson;
   }) {
+    const { EAirGapURType, airGapUrUtils, getAirGapSdk } =
+      await loadQrWalletSdk();
     const ur = airGapUrUtils.jsonToUr({ ur: urJson });
     const sdk = getAirGapSdk();
     let airGapMultiAccounts: IAirGapMultiAccounts | undefined;

@@ -97,13 +97,35 @@ export type IEventBusPayloadShowToast = {
   message?: string;
   icon?: string;
   duration?: number;
-  errorCode?: number;
+  errorCode?: number | string;
+  errorClassName?: string;
+  errorName?: string;
   httpStatusCode?: number;
   toastId?: string;
   i18nKey?: ETranslations;
   requestId?: string;
   diagnosticText?: string;
 };
+
+export type ILinuxUdevGuideReason =
+  | 'not-linux'
+  | 'snap'
+  | 'flatpak'
+  | 'missing-pkexec'
+  | 'cancelled'
+  | 'not-authorized'
+  | 'failed'
+  | 'webusb-access-denied'
+  | 'unknown';
+
+export type IEventBusPayloadShowLinuxUdevGuide = {
+  reason?: ILinuxUdevGuideReason;
+};
+
+export type IEventBusPayloadShowLocalSecretEnvelopeErrorDialog = {
+  technicalMessage: string;
+};
+
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: {
     num: number;
@@ -192,6 +214,7 @@ export interface IAppEventBusPayload {
     error: IOneKeyError;
   };
   [EAppEventBusNames.ShowToast]: IEventBusPayloadShowToast;
+  [EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog]: IEventBusPayloadShowLocalSecretEnvelopeErrorDialog;
   [EAppEventBusNames.ShowAirGapQrcode]: {
     title?: string;
     drawType: IQrcodeDrawType;
@@ -258,9 +281,16 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.LocalPendingTxConfirmed]: {
     accountId: string;
     indexedAccountId?: string;
+    accountAddress?: string;
+    deriveType?: string | IAccountDeriveTypes;
+    perpsAccountId?: string | null;
+    perpsIndexedAccountId?: string | null;
+    perpsAccountAddress?: string;
+    perpsDeriveType?: string | IAccountDeriveTypes;
     networkId: string;
     txid: string;
     status: EDecodedTxStatus;
+    isPerpsDepositTx?: boolean;
   };
   [EAppEventBusNames.DeFiPositionRefreshed]: {
     accountId: string;
@@ -368,6 +398,7 @@ export interface IAppEventBusPayload {
     tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
   };
   [EAppEventBusNames.ShowSystemDiskFullWarning]: undefined;
+  [EAppEventBusNames.ShowLinuxBundleUdevGuide]: IEventBusPayloadShowLinuxUdevGuide;
   [EAppEventBusNames.SwapTxHistoryStatusUpdate]: {
     status: ESwapTxHistoryStatus;
     crossChainStatus?: ESwapCrossChainStatus;

@@ -1,5 +1,6 @@
 import { useContext, useEffect, useMemo, useRef } from 'react';
 
+import { CommonActions } from '@react-navigation/native';
 import { noop } from 'lodash';
 
 import type { ITabNavigatorConfig } from '@onekeyhq/components';
@@ -8,13 +9,16 @@ import {
   Portal,
   Stack,
   TabStackNavigator,
+  rootNavigationRef,
   useIsSplitView,
   useMedia,
   useSplitMainView,
   useSplitSubView,
 } from '@onekeyhq/components';
+import { getDevicePerformanceTier } from '@onekeyhq/shared/src/performance/devicePerformanceTier';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
 import { Footer } from '../../components/Footer';
 import { useGlobalShortcuts } from '../../hooks/useGlobalShortcuts';
@@ -23,6 +27,7 @@ import { BottomMenu } from '../../provider/Container/PortalBodyContainer/BottomM
 import { WebPageTabBar } from '../../provider/Container/PortalBodyContainer/WebPageTabBar';
 import { TabFreezeOnBlurContext } from '../../provider/Container/TabFreezeOnBlurContainer';
 
+import { defaultPreloadEntry, tabPreloadConfig } from './preloadConfig';
 import { tabExtraConfig, useTabRouterConfig } from './router';
 
 // prevent pushModal from using unreleased Navigation instances during iOS modal animation by temporary exclusion,
@@ -83,6 +88,87 @@ export function TabNavigator() {
 
   useGlobalShortcuts();
   useCheckTabsChangedInDev(config);
+
+  // Progressively preload tabs during idle time, driven by device performance tier.
+  // Tabs are lazy-loaded on all platforms; this ensures key tabs are
+  // pre-rendered in the background before the user navigates to them.
+  // IMPORTANT: Must use `target` to send the PRELOAD action directly to the
+  // Tab Navigator. Without `target`, the action goes to the focused Stack first,
+  // and StackRouter's PRELOAD handler blindly creates preloadedRoutes for
+  // unknown route names, causing StackView to crash.
+  // Also do NOT pass params — mismatched params cause TabRouter to regenerate
+  // route keys via nanoid(), which unmounts/remounts screens.
+  useEffect(() => {
+    const tier = getDevicePerformanceTier();
+
+    const { queue: preloadQueue, intervalMs: PRELOAD_INTERVAL_MS } =
+      tabPreloadConfig[tier] ?? defaultPreloadEntry;
+
+    if (preloadQueue.length === 0) return;
+    let index = 0;
+    let timerId: ReturnType<typeof setTimeout> | undefined;
+    let idleHandle: ReturnType<typeof requestIdleCallback> | undefined;
+    let cancelled = false;
+
+    // Space steps out by PRELOAD_INTERVAL_MS, then run each preload inside
+    // requestIdleCallback (every step, not just the first).
+    // NOTE: this only yields to a genuinely idle main thread on web/desktop,
+    // where requestIdleCallback is the real Chromium API. On native it is the
+    // setTimeout(..., 1ms) shim (see shared/src/polyfills/requestIdleCallbackShim),
+    // which has no idle awareness; there each step is deferred and paced by the
+    // interval timer, not gated on actual main-thread idleness.
+    function scheduleNext() {
+      timerId = setTimeout(() => {
+        idleHandle = requestIdleCallback(preloadNext);
+      }, PRELOAD_INTERVAL_MS);
+    }
+
+    function preloadNext() {
+      if (cancelled || index >= preloadQueue.length) return;
+
+      const rootState = rootNavigationRef.current?.getRootState();
+      const mainRoute = rootState?.routes?.find(
+        (r) => r.name === ERootRoutes.Main,
+      );
+      const tabStateKey = mainRoute?.state?.key;
+
+      if (!tabStateKey) {
+        scheduleNext();
+        return;
+      }
+
+      try {
+        rootNavigationRef.current?.dispatch({
+          ...CommonActions.preload(preloadQueue[index]),
+          target: tabStateKey,
+        });
+      } catch {
+        // Tab might not exist in current config (e.g. perp disabled).
+      }
+      index += 1;
+      scheduleNext();
+    }
+
+    idleHandle = requestIdleCallback(preloadNext);
+
+    return () => {
+      cancelled = true;
+      if (idleHandle !== undefined) cancelIdleCallback(idleHandle);
+      if (timerId !== undefined) clearTimeout(timerId);
+    };
+  }, []);
+
+  // Calibrate performance tier after UI is visible (async, result used on next launch)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void (async () => {
+        const { calibrateDevicePerformanceTier } =
+          await import('@onekeyhq/shared/src/performance/devicePerformanceTier');
+        await calibrateDevicePerformanceTier();
+      })();
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <>

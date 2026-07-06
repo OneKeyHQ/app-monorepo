@@ -14,9 +14,9 @@ import {
   Page,
   TextArea,
   XStack,
-  useForm,
   useMedia,
 } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,

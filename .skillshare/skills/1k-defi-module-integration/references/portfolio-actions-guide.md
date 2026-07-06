@@ -43,7 +43,10 @@ Required metadata examples:
   them.
 - Uniswap V3/V4 `removeLiquidity` needs `tokenId` (`positionId`/`nftId` aliases
   are acceptable only if the backend payload explicitly uses them). Uniswap V4
-  also needs `currency0` and `currency1`.
+  currency metadata such as `currency0` and `currency1` should be preserved and
+  passed through when the backend payload provides it, but do not make those
+  fields a frontend visibility gate unless the current build-transaction
+  contract requires them.
 
 If a product or QA question asks why an action is not visible, first inspect the
 current position payload and the supported-protocols row. Most cases are backend
@@ -104,8 +107,10 @@ cache writes that can cross accounts or networks.
 
 Before marking a portfolio action ready:
 
-- Confirm the latest service branch contract for supported actions and
-  build-transaction DTOs.
+- Confirm the service contract from latest code before comparing or editing:
+  fetch/prune or pull the intended `server-service-earn` branch, record the
+  branch/ref and commit, and only then inspect supported actions,
+  build-transaction DTOs, dispatch, and protocol handlers.
 - Capture or inspect a real `/wallet/v1/portfolio/positions` payload for the
   affected protocol/account.
 - Reopen the action detail route from its real source surface and verify its

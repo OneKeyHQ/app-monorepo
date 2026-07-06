@@ -18,17 +18,16 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
+  ESwapLimitOrderStatus,
   IFetchLimitOrderRes,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import {
-  ESwapCancelLimitOrderSource,
-  ESwapLimitOrderStatus,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapCancelLimitOrderSource } from '@onekeyhq/shared/types/swap/types';
 
 import LimitOrderListItem from '../../components/LimitOrderListItem';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { SwapTestIDs } from '../../testIDs';
+import { isSwapLimitOpenOrder } from '../../utils/swapMarketHistory';
 
 import LimitOrderCancelDialog from './LimitOrderCancelDialog';
 
@@ -119,16 +118,10 @@ const LimitOrderList = ({
   const orderData = useMemo(() => {
     let filteredData = swapLimitOrders;
     if (type === 'open') {
-      filteredData = swapLimitOrders.filter(
-        (order) =>
-          order.status === ESwapLimitOrderStatus.OPEN ||
-          order.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
-      );
+      filteredData = swapLimitOrders.filter(isSwapLimitOpenOrder);
     } else {
       filteredData = swapLimitOrders.filter(
-        (order) =>
-          order.status !== ESwapLimitOrderStatus.OPEN &&
-          order.status !== ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
+        (order) => !isSwapLimitOpenOrder(order),
       );
     }
     if (filterToken) {

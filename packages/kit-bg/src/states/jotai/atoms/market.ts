@@ -7,6 +7,8 @@ export interface IMarketSelectedTabAtom {
   tab: IMarketSelectedTab;
   selectedSpotCategory?: string;
   spotCategoryToSelect?: string;
+  selectedPerpsCategory?: string;
+  perpsCategoryToSelect?: string;
 }
 
 export const { target: marketSelectedTabAtom, use: useMarketSelectedTabAtom } =

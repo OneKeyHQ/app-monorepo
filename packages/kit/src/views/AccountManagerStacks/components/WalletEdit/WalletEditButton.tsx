@@ -111,7 +111,14 @@ function WalletEditButtonView({
   const showRemoveWalletButton = useMemo(() => {
     // Keyless wallet can also be removed
     if (isKeyless) return true;
-    if (isThirdPartyVendorWallet) return false;
+    // Third-party standard wallets remove via "remove device"; keep the delete
+    // entry for their hidden wallets.
+    if (
+      isThirdPartyVendorWallet &&
+      !accountUtils.isHwHiddenWallet({ wallet })
+    ) {
+      return false;
+    }
     if (
       platformEnv.isWebDappMode &&
       !accountUtils.isHwHiddenWallet({ wallet }) &&

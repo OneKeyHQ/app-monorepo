@@ -1,4 +1,4 @@
-import type { ForwardedRef } from 'react';
+import type { ComponentProps, ForwardedRef } from 'react';
 import {
   cloneElement,
   createRef,
@@ -29,6 +29,7 @@ import {
   TMDialog,
 } from '@onekeyhq/components/src/shared/tamagui';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -37,7 +38,6 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { Toast } from '../../actions/Toast';
 import { Keyboard } from '../../content/Keyboard';
 import { SheetGrabber } from '../../content/SheetGrabber';
-import { Form } from '../../forms/Form';
 import {
   EPageType,
   EPortalContainerConstantName,
@@ -61,7 +61,6 @@ import {
 
 import { Content } from './Content';
 import { DialogContext } from './context';
-import { DialogForm } from './DialogForm';
 import { addDialogInstance, removeDialogInstance } from './dialogInstances';
 import { Footer, FooterAction } from './Footer';
 import {
@@ -80,6 +79,7 @@ import type {
   IDialogCancelProps,
   IDialogConfirmProps,
   IDialogContainerProps,
+  IDialogFormProps,
   IDialogHeaderProps,
   IDialogInstance,
   IDialogProps,
@@ -90,6 +90,30 @@ import type { UseFormReturn } from '../../hooks';
 import type { IYStackProps } from '../../primitives';
 import type { IColorTokens } from '../../types';
 import type { GestureResponderEvent } from 'react-native';
+
+type IDialogFormFieldProps = ComponentProps<
+  (typeof import('./DialogForm'))['DialogFormField']
+>;
+
+const LazyDialogFormComponent = LazyLoad<IDialogFormProps>(async () => {
+  const { DialogForm } = await import('./DialogForm');
+  return { default: DialogForm };
+});
+
+function LazyDialogForm(props: IDialogFormProps) {
+  return <LazyDialogFormComponent {...props} />;
+}
+
+const LazyDialogFormFieldComponent = LazyLoad<IDialogFormFieldProps>(
+  async () => {
+    const { DialogFormField } = await import('./DialogForm');
+    return { default: DialogFormField };
+  },
+);
+
+function LazyDialogFormField(props: IDialogFormFieldProps) {
+  return <LazyDialogFormFieldComponent {...props} />;
+}
 
 export * from './dialogInstances';
 export * from './hooks';
@@ -146,7 +170,15 @@ const useSafeKeyboardAnimationStyle = () => {
       keyboardHeightValue.value = 0;
     },
   });
-  return platformEnv.isNative ? animatedStyles : undefined;
+  // On web there is no reanimated keyboard tracking, but notched iOS
+  // Safari/PWA still reports a bottom inset via env(safe-area-inset-bottom).
+  // The frame must apply it as a static paddingBottom so bottom-sheet dialogs
+  // clear the home indicator there too — footers only carry their design
+  // padding now, and rely on the frame for the inset on every platform.
+  if (!platformEnv.isNative) {
+    return bottom ? { paddingBottom: bottom } : undefined;
+  }
+  return animatedStyles;
 };
 
 /**
@@ -342,7 +374,11 @@ function DialogFrame({
           testID={testID}
           borderTopLeftRadius="$6"
           borderTopRightRadius="$6"
-          bg="$bg"
+          // Match the sheet frame to the content surface so the bottom
+          // safe-area inset region (applied as paddingBottom on the wrapper,
+          // below the footer) doesn't reveal the default `$bg` as a seam when a
+          // dialog overrides its content background (e.g. Prime feature intro).
+          bg={(contentContainerProps as { bg?: IColorTokens })?.bg ?? '$bg'}
           borderCurve="continuous"
           disableHideBottomOverflow
           // Fix width issue for portrait iPad mini - ensure proper dialog width
@@ -780,8 +816,8 @@ export const Dialog = {
   HyperlinkTextDescription: DialogHyperlinkTextDescription,
   Icon: DialogIcon,
   Footer: FooterAction,
-  Form: DialogForm,
-  FormField: Form.Field,
+  Form: LazyDialogForm,
+  FormField: LazyDialogFormField,
   Loading: DialogLoadingView,
   show: dialogShow,
   confirm: dialogConfirm,

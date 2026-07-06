@@ -1,5 +1,5 @@
 import { isNativeTablet } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 
 // Returns true when the device can render the split-view layout AND the user
 // has not opted out. `enableSplitView` is default-on: undefined / true → on,

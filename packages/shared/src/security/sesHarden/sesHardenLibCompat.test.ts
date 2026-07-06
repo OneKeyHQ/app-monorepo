@@ -11,8 +11,8 @@
 //   1. Those libraries DO throw under the SES default 'moderate' — i.e.
 //      'severe' is load-bearing, not incidental.
 //   2. The shipped 'severe' config fixes them without any warm-up.
-//   3. The warm-up strategy (loading the offender BEFORE lockdown) is an
-//      independent defense-in-depth that works even under 'moderate'.
+//   3. The startup warm-up stays limited to dependencies that are already
+//      needed before lockdown.
 import { execFileSync } from 'node:child_process';
 
 import { getSesLockdownOptions } from '.';
@@ -147,32 +147,27 @@ try {
   expect(out).toBe('OK:bar');
 });
 
-// --- Defense in depth: warm-up fixes the offenders even under 'moderate' ----
-// The runtime warm-up (defaultWarmUpBeforeLockdown) loads these BEFORE lockdown
-// so they are safe regardless of the override-taming setting. Kept even though
-// 'severe' already covers them, so a future relax of overrideTaming can't
-// silently reintroduce the crash.
+// --- Startup warm-up stays narrow -------------------------------------------
+// The runtime warm-up (defaultWarmUpBeforeLockdown) loads only dependencies
+// that are already needed by the startup graph. Optional offenders are covered
+// by the shipped 'severe' mode instead of being pulled into Web cold start.
 
-test('decimal.js warmed up BEFORE lockdown works even under "moderate" (defense in depth)', () => {
-  // Loading decimal.js before lockdown lets `clone()` install a writable own
-  // `constructor` on Decimal.prototype while intrinsics are still mutable;
-  // afterwards `new Decimal()` resolves `constructor` on that own property and
-  // never reaches the frozen Object.prototype.constructor.
+test('decimal.js works without startup warm-up under the shipped "severe" mode', () => {
   const out = runUnderLockdown(
     `
-const Decimal = require('decimal.js'); // warm-up: clone() runs before the freeze
 require('ses');
 lockdown(opts);
 try {
+  const Decimal = require('decimal.js');
   const d1 = new Decimal(1.5);
-  const Decimal2 = require('decimal.js'); // cached module, same constructor
+  const Decimal2 = require('decimal.js');
   const d2 = new Decimal2(2.5);
   process.stdout.write('OK:' + d1.toString() + ',' + d2.toString());
 } catch (e) {
   process.stdout.write('ERR:' + e.message);
 }
 `,
-    MODERATE_OPTIONS,
+    SHIPPED_OPTIONS,
   );
   expect(out).toBe('OK:1.5,2.5');
 });
@@ -344,4 +339,54 @@ try {
 }
 `);
   expect(out).toBe('OK:compressed');
+});
+
+// --- inversify / Ledger Device Management Kit under lockdown ----------------
+// The Ledger DMK (@ledgerhq/device-management-kit + signer/connector kits) uses
+// `inversify`, whose `@inversifyjs/reflect-metadata-utils` chokepoint stored DI
+// metadata on the global `Reflect` intrinsic via `reflect-metadata`. lockdown()
+// freezes Reflect, so DMK init crashed with "Cannot define property decorate,
+// object is not extensible". Two consumer-side patches fix it WITHOUT touching
+// ses:
+//   1. patches/@inversifyjs+reflect-metadata-utils+*.patch — keep DI metadata in
+//      a module-local WeakMap instead of the global Reflect.
+//   2. patches/reflect-metadata+*.patch — its (now unused) global install is a
+//      best-effort no-op when Reflect is frozen, so the leftover side-effect
+//      `import 'reflect-metadata'` in inversify no longer throws.
+// This proves a real inversify container resolves an @inject dependency AFTER
+// lockdown, and that the global Reflect was never relied upon (stays frozen,
+// Reflect.getMetadata absent).
+
+test('inversify resolves an @inject dependency AFTER lockdown (Ledger DMK path) without touching Reflect', () => {
+  const out = runUnderLockdown(`
+require('ses');
+lockdown(opts);
+try {
+  const { Container, injectable, inject } = require('inversify');
+  class Engine { go() { return 'vroom'; } }
+  injectable()(Engine);
+  class Car {
+    constructor(engine) { this.engine = engine; }
+    drive() { return this.engine.go(); }
+  }
+  inject(Engine)(Car, undefined, 0);
+  injectable()(Car);
+  const container = new Container();
+  container.bind(Engine).toSelf();
+  container.bind(Car).toSelf();
+  const car = container.get(Car);
+  const ok =
+    car instanceof Car &&
+    car.engine instanceof Engine &&
+    car.drive() === 'vroom' &&
+    // DI metadata lives in a module-local WeakMap; the global Reflect is never
+    // mutated, so it stays frozen and never gains a getMetadata method.
+    Object.isFrozen(Reflect) === true &&
+    typeof Reflect.getMetadata === 'undefined';
+  process.stdout.write('OK:' + ok);
+} catch (e) {
+  process.stdout.write('ERR:' + e.message);
+}
+`);
+  expect(out).toBe('OK:true');
 });

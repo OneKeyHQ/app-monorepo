@@ -8,7 +8,6 @@ import type { IButtonProps } from '@onekeyhq/components';
 import { Button, SizableText, Toast, resetToRoute } from '@onekeyhq/components';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -34,7 +33,7 @@ import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawM
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
 import { shouldBlockPerpsTradingForMarketData } from '../../utils/perpsMarketDataFreshness';
-import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
+import { getTradingButtonStyleValues } from '../../utils/styleUtils';
 
 const sharedButtonProps = {
   size: 'medium',
@@ -83,7 +82,6 @@ export function PerpTradingButton({
   const marketDataFreshness = usePerpsMarketDataFreshness();
   const shouldBlockForMarketData =
     shouldBlockPerpsTradingForMarketData(marketDataFreshness);
-  const themeVariant = useThemeVariant();
   const isSpot = tradingMode === 'spot';
 
   const handleConnectWallet = useCallback(async () => {
@@ -179,36 +177,15 @@ export function PerpTradingButton({
 
   const isLong = useMemo(() => formData.side === 'long', [formData.side]);
   const buttonStyles = useMemo(() => {
-    const colors = PERP_TRADE_BUTTON_COLORS;
-    const getBgColor = () => {
-      if (isAccountLoading) return undefined;
-
-      return themeVariant === 'light'
-        ? colors.light[isLong ? 'long' : 'short']
-        : colors.dark[isLong ? 'long' : 'short'];
-    };
-
-    const getHoverBgColor = () => {
-      if (isAccountLoading) return undefined;
-      return themeVariant === 'light'
-        ? colors.light[isLong ? 'longHover' : 'shortHover']
-        : colors.dark[isLong ? 'longHover' : 'shortHover'];
-    };
-
-    const getPressBgColor = () => {
-      if (isAccountLoading) return undefined;
-      return themeVariant === 'light'
-        ? colors.light[isLong ? 'longPress' : 'shortPress']
-        : colors.dark[isLong ? 'longPress' : 'shortPress'];
-    };
+    const styles = getTradingButtonStyleValues(isLong ? 'long' : 'short');
 
     return {
-      bg: getBgColor(),
-      hoverBg: getHoverBgColor(),
-      pressBg: getPressBgColor(),
-      textColor: '$textOnColor',
+      bg: isAccountLoading ? undefined : styles.bg,
+      hoverBg: isAccountLoading ? undefined : styles.hoverBg,
+      pressBg: isAccountLoading ? undefined : styles.pressBg,
+      textColor: styles.textColor,
     };
-  }, [isAccountLoading, isLong, themeVariant]);
+  }, [isAccountLoading, isLong]);
 
   const createAddressButtonRender = useCallback(
     (props: IButtonProps) => (

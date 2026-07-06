@@ -209,7 +209,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     IMarketWatchListItemV2[]
   >([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState(
-    HOME_PERPS_HOT_CATEGORY_ID,
+    FAVORITES_CATEGORY_ID,
   );
 
   const initializedRef = useRef(false);
@@ -267,12 +267,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         return categories;
       }
 
-      const [firstCategory, ...restCategories] = categories;
-      if (firstCategory?.id === FAVORITES_CATEGORY_ID) {
-        return [firstCategory, homePerpsHotCategory, ...restCategories];
-      }
-
-      return [homePerpsHotCategory, ...categories];
+      return [...categories, homePerpsHotCategory];
     };
 
     if (apiHomeTabs.length > 0) {
@@ -930,7 +925,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   // Navigate to Market favorites tab
   const handleViewMore = useCallback(() => {
     if (selectedMarketCategoryId === HOME_PERPS_HOT_CATEGORY_ID) {
-      navigateToMarketTab({ tabToSelect: EMarketHomeTab.Perps });
+      navigateToMarketTab({
+        tabToSelect: EMarketHomeTab.Perps,
+        perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
+      });
       return;
     }
 

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,16 +9,19 @@ import {
   Dialog,
   Image,
   SizableText,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import { getTradingButtonStyleProps } from '../../../utils/styleUtils';
 import {
   PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
@@ -35,6 +38,7 @@ const ACCOUNT_MODE_OPTIONS: {
   learnMore?: boolean;
   modeIcon: 'single' | 'portfolio';
   recommended?: boolean;
+  requirement?: ETranslations;
   value: IPerpsAccountModeOption;
 }[] = [
   {
@@ -49,6 +53,7 @@ const ACCOUNT_MODE_OPTIONS: {
     label: ETranslations.perp_portfolio_margin__title,
     learnMore: true,
     modeIcon: 'portfolio',
+    requirement: ETranslations.perp_portfolio_margin_requirement__msg,
     value: EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN,
   },
 ];
@@ -56,23 +61,16 @@ const ACCOUNT_MODE_OPTIONS: {
 const PORTFOLIO_MARGIN_LEARN_MORE_URL =
   'https://hyperliquid.gitbook.io/hyperliquid-docs/support/faq/portfolio-margin#margin-sharing';
 
-const TOKEN_LOGO_URIS = {
-  BTC: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/bitcoin/info/logo.png',
-  BNB: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/smartchain/info/logo.png',
-  ETH: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png',
-  USDC: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
-} as const;
-
 function TokenLogo({
   token,
   size = 28,
 }: {
-  token: keyof typeof TOKEN_LOGO_URIS;
+  token: 'BTC' | 'BNB' | 'ETH' | 'USDC';
   size?: number;
 }) {
   return (
     <Image
-      source={{ uri: TOKEN_LOGO_URIS[token] }}
+      source={{ uri: getHyperliquidTokenImageUrl(token) }}
       width={size}
       height={size}
       borderWidth="$px"
@@ -136,6 +134,7 @@ function AccountModeOption({
   modeIcon,
   onPress,
   recommended,
+  requirement,
 }: {
   desc: ETranslations;
   isSelected: boolean;
@@ -144,11 +143,22 @@ function AccountModeOption({
   modeIcon: 'single' | 'portfolio';
   onPress: () => void;
   recommended?: boolean;
+  requirement?: ETranslations;
 }) {
   const intl = useIntl();
   const handleLearnMorePress = useCallback(() => {
     openUrlExternal(PORTFOLIO_MARGIN_LEARN_MORE_URL);
   }, []);
+  const learnMoreText = learnMore ? (
+    <SizableText
+      size="$bodySm"
+      color="$textInfo"
+      textDecorationLine="underline"
+      onPress={handleLearnMorePress}
+    >
+      {intl.formatMessage({ id: ETranslations.global_learn_more })}
+    </SizableText>
+  ) : null;
 
   return (
     <YStack
@@ -182,20 +192,15 @@ function AccountModeOption({
           </XStack>
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: desc })}
-            {learnMore ? (
-              <>
-                {' '}
-                <SizableText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  textDecorationLine="underline"
-                  onPress={handleLearnMorePress}
-                >
-                  {intl.formatMessage({ id: ETranslations.global_learn_more })}
-                </SizableText>
-              </>
-            ) : null}
           </SizableText>
+          {requirement ? (
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({ id: requirement })}
+              {learnMore ? <> {learnMoreText}</> : null}
+            </SizableText>
+          ) : (
+            learnMoreText
+          )}
         </YStack>
       </XStack>
     </YStack>
@@ -212,21 +217,54 @@ function AccountModeContent({
   onSelect?: (mode: IPerpsAccountModeOption) => void;
 }) {
   const intl = useIntl();
+  const actions = useHyperliquidActions();
+  const [perpsActiveAccount] = usePerpsActiveAccountAtom();
   const [selectedMode, setSelectedMode] =
     useState<IPerpsAccountModeOption>(initialMode);
+  const [loading, setLoading] = useState(false);
+  const confirmButtonStyleProps = getTradingButtonStyleProps('long');
+  const activeAccountAddressRef = useRef(perpsActiveAccount?.accountAddress);
+  activeAccountAddressRef.current = perpsActiveAccount?.accountAddress;
 
-  const handleConfirm = useCallback(() => {
-    onSelect?.(selectedMode);
-    void onClose?.();
-    Toast.success({
-      title: intl.formatMessage({
-        id: ETranslations.perp_account_mode_ui_updated__msg,
-      }),
-      message: intl.formatMessage({
-        id: ETranslations.perp_account_mode_logic_pending__msg,
-      }),
-    });
-  }, [intl, onClose, onSelect, selectedMode]);
+  const handleConfirm = useCallback(async () => {
+    const accountId = perpsActiveAccount?.accountId;
+    const accountAddress = perpsActiveAccount?.accountAddress;
+    if (!accountId || !accountAddress) return;
+    if (selectedMode === initialMode) {
+      void onClose?.();
+      return;
+    }
+    const abstraction =
+      selectedMode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN
+        ? 'portfolioMargin'
+        : 'unifiedAccount';
+    try {
+      setLoading(true);
+      await actions.current.updateAccountAbstractionMode({
+        userAccountId: accountId,
+        userAddress: accountAddress,
+        abstraction,
+      });
+      // Optimistic hint until the re-fetched live mode lands. Skip if the active
+      // account changed during signing, so the draft can't land on another account.
+      if (activeAccountAddressRef.current === accountAddress) {
+        onSelect?.(selectedMode);
+      }
+      void onClose?.();
+    } catch {
+      // withToast already showed the error; stay open so the user can retry.
+      // TODO(i18n): localize PM switch errors via perp-config hyperLiquidErrorLocales.
+      setLoading(false);
+    }
+  }, [
+    actions,
+    initialMode,
+    onClose,
+    onSelect,
+    perpsActiveAccount?.accountAddress,
+    perpsActiveAccount?.accountId,
+    selectedMode,
+  ]);
 
   return (
     <YStack gap="$4">
@@ -240,44 +278,26 @@ function AccountModeContent({
           modeIcon={option.modeIcon}
           onPress={() => setSelectedMode(option.value)}
           recommended={option.recommended}
+          requirement={option.requirement}
         />
       ))}
-      {selectedMode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN ? (
-        <XStack
-          p="$3"
-          borderRadius="$3"
-          bg="$bgStrong"
-          gap="$2"
-          alignItems="flex-start"
-        >
-          <XStack
-            w={14}
-            h={14}
-            borderRadius="$full"
-            bg="$iconDisabled"
-            alignItems="center"
-            justifyContent="center"
-            mt="$0.5"
-          >
-            <SizableText size="$bodySmMedium" color="$bg" lineHeight={14}>
-              i
-            </SizableText>
-          </XStack>
-          <SizableText size="$bodySm" color="$textSubdued" flex={1}>
-            {intl.formatMessage({
-              id: ETranslations.perp_portfolio_margin_requirement__msg,
-            })}
-          </SizableText>
-        </XStack>
-      ) : null}
       <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
         <Button
           testID="perp-account-mode-confirm-button"
           variant="primary"
           size={PERP_DIALOG_BUTTON_SIZE}
+          loading={loading}
+          disabled={loading}
           onPress={handleConfirm}
+          {...confirmButtonStyleProps}
+          childrenAsText={false}
         >
-          {intl.formatMessage({ id: ETranslations.global_confirm })}
+          <SizableText
+            size="$bodyMdMedium"
+            color={confirmButtonStyleProps.textColor}
+          >
+            {intl.formatMessage({ id: ETranslations.global_confirm })}
+          </SizableText>
         </Button>
       </TradingGuardWrapper>
     </YStack>

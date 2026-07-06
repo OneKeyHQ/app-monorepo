@@ -1,33 +1,44 @@
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
-import animation from './animation';
-import bitcoin from './bitcoin';
-import ethereum from './ethereum';
-import lightningNetwork from './lightningNetwork';
-import marketDetail from './marketDetail';
-import migrate from './migrate';
-import primeTransfer from './primeTransfer';
-import rewardCenter from './rewardCenter';
-import sendProtection from './sendProtection';
-import solana from './solana';
-import sui from './sui';
-import updatePreview from './updatePreview';
-import urlAccount from './urlAccount';
-import walletconnect from './walletconnect';
+import type { IBaseValue, IQRCodeHandler } from '../type';
 
-export const PARSE_HANDLERS = {
-  [EQRCodeHandlerNames.bitcoin]: bitcoin,
-  [EQRCodeHandlerNames.ethereum]: ethereum,
-  [EQRCodeHandlerNames.solana]: solana,
-  [EQRCodeHandlerNames.walletconnect]: walletconnect,
-  [EQRCodeHandlerNames.migrate]: migrate,
-  [EQRCodeHandlerNames.animation]: animation,
-  [EQRCodeHandlerNames.urlAccount]: urlAccount,
-  [EQRCodeHandlerNames.marketDetail]: marketDetail,
-  [EQRCodeHandlerNames.sendProtection]: sendProtection,
-  [EQRCodeHandlerNames.updatePreview]: updatePreview,
-  [EQRCodeHandlerNames.primeTransfer]: primeTransfer,
-  [EQRCodeHandlerNames.rewardCenter]: rewardCenter,
-  [EQRCodeHandlerNames.sui]: sui,
-  [EQRCodeHandlerNames.lightningNetwork]: lightningNetwork,
+type IQRCodeHandlerLoader = () => Promise<IQRCodeHandler<IBaseValue>>;
+
+async function loadHandler<T extends IBaseValue>(
+  loader: () => Promise<{ default: IQRCodeHandler<T> }>,
+): Promise<IQRCodeHandler<IBaseValue>> {
+  return (await loader()).default as IQRCodeHandler<IBaseValue>;
+}
+
+export const PARSE_HANDLER_LOADERS: Record<
+  EQRCodeHandlerNames,
+  IQRCodeHandlerLoader
+> = {
+  [EQRCodeHandlerNames.bitcoin]: () => loadHandler(() => import('./bitcoin')),
+  [EQRCodeHandlerNames.ethereum]: () => loadHandler(() => import('./ethereum')),
+  [EQRCodeHandlerNames.solana]: () => loadHandler(() => import('./solana')),
+  [EQRCodeHandlerNames.walletconnect]: () =>
+    loadHandler(() => import('./walletconnect')),
+  [EQRCodeHandlerNames.migrate]: () => loadHandler(() => import('./migrate')),
+  [EQRCodeHandlerNames.animation]: () =>
+    loadHandler(() => import('./animation')),
+  [EQRCodeHandlerNames.urlAccount]: () =>
+    loadHandler(() => import('./urlAccount')),
+  [EQRCodeHandlerNames.marketDetail]: () =>
+    loadHandler(() => import('./marketDetail')),
+  [EQRCodeHandlerNames.sendProtection]: () =>
+    loadHandler(() => import('./sendProtection')),
+  [EQRCodeHandlerNames.updatePreview]: () =>
+    loadHandler(() => import('./updatePreview')),
+  [EQRCodeHandlerNames.primeTransfer]: () =>
+    loadHandler(() => import('./primeTransfer')),
+  [EQRCodeHandlerNames.rewardCenter]: () =>
+    loadHandler(() => import('./rewardCenter')),
+  [EQRCodeHandlerNames.sui]: () => loadHandler(() => import('./sui')),
+  [EQRCodeHandlerNames.lightningNetwork]: () =>
+    loadHandler(() => import('./lightningNetwork')),
 };
+
+export function getParseHandler(handlerName: EQRCodeHandlerNames) {
+  return PARSE_HANDLER_LOADERS[handlerName]?.();
+}

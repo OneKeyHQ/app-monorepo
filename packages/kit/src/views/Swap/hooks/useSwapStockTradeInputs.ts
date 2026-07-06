@@ -6,6 +6,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
+  useSwapAlertsAtom,
   useSwapFromTokenAmountAtom,
   useSwapSelectTokenDetailFetchingAtom,
   useSwapSelectedFromTokenBalanceAtom,
@@ -23,13 +24,18 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type {
-  IFetchQuoteResult,
-  ISwapToken,
+import {
+  EProtocolOfExchange,
+  type IFetchQuoteResult,
+  type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 
+import {
+  isStockPayTokenReadyForTradeInput,
+  shouldRenderStockTradeInputSkeleton,
+} from './swapStockChannelUtils';
 import {
   STOCK_PRICE_SOURCE_CURRENCY,
   getStockTokenFiatValue,
@@ -170,6 +176,7 @@ function useStockInputTokenBalance({
       }
       const details =
         await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+          protocol: EProtocolOfExchange.STOCK,
           networkId: token.networkId,
           contractAddress: token.contractAddress,
           accountId: networkAccount.id,
@@ -421,6 +428,7 @@ export function useSwapStockAmountInputState({
   stockChannel: IUseSwapStockChannelReturn;
 }) {
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [, setSwapAlerts] = useSwapAlertsAtom();
   const [fromTokenBalance, setFromTokenBalance] =
     useSwapSelectedFromTokenBalanceAtom();
   const [swapTokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
@@ -429,34 +437,31 @@ export function useSwapStockAmountInputState({
   const {
     currentStockToken,
     payToken,
+    payTokenStatus,
     payTokens,
     selectablePayTokens,
     payTokenOptionsLoading,
     disableNativePayToken,
     marketStatusStatus,
     selectPayToken,
-    speedConfigReady,
     stockTokenStatus,
     tradeSide,
   } = stockChannel;
   const isBuySide = tradeSide === ESwapStockTradeSide.Buy;
   const inputToken = isBuySide ? payToken : currentStockToken;
+  const inputTokenVisible = Boolean(inputToken);
   const stockIdentityReady =
     stockTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
     marketStatusStatus === ESwapStockChannelAsyncStatus.Ready;
-  const payTokenReady =
-    !isBuySide ||
-    Boolean(
-      stockIdentityReady &&
-      speedConfigReady &&
-      payToken &&
-      selectablePayTokens.some((token) =>
-        equalTokenNoCaseSensitive({ token1: token, token2: payToken }),
-      ),
-    );
+  const payTokenReady = isStockPayTokenReadyForTradeInput({
+    payToken,
+    payTokenStatus,
+    selectablePayTokens,
+    stockIdentityReady,
+  });
   const inputTokenReady = isBuySide
     ? payTokenReady
-    : stockIdentityReady && Boolean(inputToken);
+    : stockIdentityReady && inputTokenVisible;
   const stockInputTokenBalance = useStockInputTokenBalance({
     enabled: inputTokenReady,
     token: inputToken,
@@ -508,13 +513,17 @@ export function useSwapStockAmountInputState({
   const onAmountChange = useCallback(
     (value: string) => {
       if (validateAmountInput(value, inputToken?.decimals)) {
+        setSwapAlerts({
+          quoteId: '',
+          states: [],
+        });
         setFromTokenAmount({
           value,
           isInput: true,
         });
       }
     },
-    [inputToken?.decimals, setFromTokenAmount],
+    [inputToken?.decimals, setFromTokenAmount, setSwapAlerts],
   );
   const setInputAmount = useCallback(
     (amount: BigNumber) => {
@@ -527,12 +536,16 @@ export function useSwapStockAmountInputState({
       if (!validateAmountInput(amountValue, inputToken.decimals)) {
         return;
       }
+      setSwapAlerts({
+        quoteId: '',
+        states: [],
+      });
       setFromTokenAmount({
         value: amountValue,
         isInput: true,
       });
     },
-    [inputToken, setFromTokenAmount],
+    [inputToken, setFromTokenAmount, setSwapAlerts],
   );
   const onBalanceMaxPress = useCallback(() => {
     setInputAmount(new BigNumber(displayBalance ?? '0'));
@@ -597,6 +610,10 @@ export function useSwapStockAmountInputState({
     payTokens,
     selectablePayTokens,
     selectPayToken,
-    shouldRenderSkeleton: !inputTokenReady,
+    shouldRenderSkeleton: shouldRenderStockTradeInputSkeleton({
+      inputTokenReady,
+      inputTokenVisible,
+      isBuySide,
+    }),
   };
 }

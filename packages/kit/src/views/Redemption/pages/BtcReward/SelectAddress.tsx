@@ -12,10 +12,13 @@ import {
   Stack,
   XStack,
   YStack,
+} from '@onekeyhq/components';
+import {
+  type IFormMode,
+  type IReValidateMode,
   useForm,
   useFormWatch,
-} from '@onekeyhq/components';
-import type { IFormMode, IReValidateMode } from '@onekeyhq/components';
+} from '@onekeyhq/components/src/hooks/useForm';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
@@ -27,7 +30,7 @@ import {
 import { AddressInputContext } from '@onekeyhq/kit/src/components/AddressInput/AddressInputContext';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
