@@ -41,10 +41,18 @@ self.addEventListener('activate', (event) => {
 });
 
 class ServiceWorkerVersionError extends Error {
-  constructor(message) {
-    super(message);
+  constructor(code) {
+    super('Service worker version update failed');
     this.name = 'ServiceWorkerVersionError';
+    this.code = code;
   }
+}
+
+function getVersionErrorCode(error) {
+  if (error instanceof ServiceWorkerVersionError) {
+    return error.code;
+  }
+  return 'update_failed';
 }
 
 function getInternalStateRequest() {
@@ -422,15 +430,16 @@ async function checkForVersionUpdate({ client } = {}) {
       return nextState;
     } catch (error) {
       const state = await readVersionState();
+      const errorCode = getVersionErrorCode(error);
       const nextState = {
         ...state,
         failedVersion: attemptedVersion || state.failedVersion,
         retryAt: getNextRetryAt(),
-        lastError: error?.message || String(error),
+        lastError: errorCode,
       };
       await writeVersionState(nextState);
       sendMessageToClient(client, MESSAGE_TYPES.UPDATE_FAILED, {
-        error: nextState.lastError,
+        errorCode: nextState.lastError,
       });
       return nextState;
     } finally {
@@ -488,7 +497,7 @@ async function activateReadyVersion(version, { client } = {}) {
   if (!(await isReadyVersionCacheValid(state))) {
     const nextState = await clearReadyVersionState(state);
     sendMessageToClient(client, MESSAGE_TYPES.UPDATE_FAILED, {
-      error: nextState.lastError,
+      errorCode: nextState.lastError,
     });
     await checkForVersionUpdate({ client });
     return nextState;

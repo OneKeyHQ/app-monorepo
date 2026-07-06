@@ -21,6 +21,8 @@ import '@onekeyhq/shared/src/security/sesHarden/installWeb';
 import { registerRootComponent } from 'expo';
 import React from 'react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { loadLocaleMessages } from '@onekeyhq/shared/src/locale/localeLoaders';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -43,6 +45,10 @@ const SERVICE_WORKER_MESSAGE_TYPES = {
 
 let pendingVersionActivation = '';
 let pendingServiceWorkerCodeReload = false;
+
+function formatLocaleMessage(id, defaultMessage, values) {
+  return appLocale.intl.formatMessage({ id, defaultMessage }, values);
+}
 
 class WebRootErrorBoundary extends React.PureComponent {
   state = { error: null };
@@ -70,7 +76,10 @@ class WebRootErrorBoundary extends React.PureComponent {
             padding: 24,
           },
         },
-        this.state.error?.message || 'unknown error by error boundary',
+        formatLocaleMessage(
+          ETranslations.global_unknown_error_retry_message,
+          'An unexpected error occurred. Please try again.',
+        ),
       );
     }
 
@@ -154,10 +163,16 @@ function showUpdateBanner(onRefresh) {
     });
 
     const text = document.createElement('span');
-    text.textContent = 'A new version is available';
+    text.textContent = formatLocaleMessage(
+      ETranslations.settings_app_update_available,
+      'App update available',
+    );
 
     const refreshBtn = document.createElement('button');
-    refreshBtn.textContent = 'Refresh';
+    refreshBtn.textContent = formatLocaleMessage(
+      ETranslations.global_refresh,
+      'Refresh',
+    );
     Object.assign(refreshBtn.style, {
       padding: '6px 16px',
       borderRadius: '8px',
