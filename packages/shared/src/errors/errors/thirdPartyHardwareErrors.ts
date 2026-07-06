@@ -510,6 +510,35 @@ export class ThirdPartyDeviceBusy extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.DeviceBusy;
 }
 
+/** Our own in-flight request (queue guard / firmware Failure_Busy), not another app. */
+export class ThirdPartyDeviceBusyInternal extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_third_party_device_busy_internal,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.DeviceBusyInternal;
+}
+
+export class ThirdPartyDeviceNotInitialized extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.trezor_device_not_initialized__desc,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.DeviceNotInitialized;
+}
+
 /** Multiple USB devices connected — only one allowed at a time */
 export class ThirdPartyDeviceOneDeviceOnly extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
