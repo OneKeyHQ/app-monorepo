@@ -521,6 +521,16 @@ function rejectQueuedCalls(reason: string) {
   });
 }
 
+function rejectPendingRemoteCalls(reason: string) {
+  const pendingRemoteCallsSnapshot = Array.from(pendingRemoteCalls.values());
+  pendingRemoteCalls.clear();
+  const error = createTransportError(reason);
+  pendingRemoteCallsSnapshot.forEach(({ reject, timer }) => {
+    clearTimeout(timer);
+    reject(error);
+  });
+}
+
 function getRemoteBrokenReason(reason?: string) {
   return (
     remoteBrokenReason || reason || 'Background runtime unavailable after ready'
@@ -539,14 +549,7 @@ function switchToRemoteBroken(reason: string) {
   transportState = 'remote-broken';
   clearReadyTimeoutTimer();
   rejectQueuedCalls(reason);
-
-  const pendingRemoteCallsSnapshot = Array.from(pendingRemoteCalls.values());
-  pendingRemoteCalls.clear();
-  const error = createTransportError(reason);
-  pendingRemoteCallsSnapshot.forEach(({ reject, timer }) => {
-    clearTimeout(timer);
-    reject(error);
-  });
+  rejectPendingRemoteCalls(reason);
   return true;
 }
 
@@ -735,16 +738,19 @@ function handleRuntimeSignal() {
   }
 
   const previousBootId = currentBackgroundRuntimeBootId;
+  const bootIdChanged = Boolean(
+    previousBootId && previousBootId !== runtimePayload.bootId,
+  );
   currentBackgroundRuntimeBootId = runtimePayload.bootId;
-  if (previousBootId !== runtimePayload.bootId || transportState !== 'ready') {
-    setBackgroundThreadReadyPayload(runtimePayload);
-  }
 
   if (transportState === 'ready') {
-    if (previousBootId && previousBootId !== runtimePayload.bootId) {
+    if (bootIdChanged) {
+      const reason = `Background runtime restarted while transport ready: ${previousBootId} -> ${runtimePayload.bootId}`;
       transportLog(
         `background runtime bootId changed while transport ready: ${previousBootId} -> ${runtimePayload.bootId}`,
       );
+      rejectQueuedCalls(reason);
+      rejectPendingRemoteCalls(reason);
     }
     return;
   }
@@ -763,6 +769,7 @@ function handleRuntimeSignal() {
     `transport → ready at +${readyFromEntry}ms from JS entry (starting→ready: ${readyFromStarting}ms, observer retries: ${observerRetryCount})`,
   );
   clearReadyTimeoutTimer();
+  setBackgroundThreadReadyPayload(runtimePayload);
   dispatchQueuedCallsToRemote();
 }
 
