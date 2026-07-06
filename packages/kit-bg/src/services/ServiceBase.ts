@@ -23,8 +23,6 @@ import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { getEndpointInfo } from '../endpoints';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
-import { readAuthTokenOrNull } from './ServicePrime/primeAuthSessionAccess';
-
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { AxiosInstance } from 'axios';
 
@@ -78,8 +76,19 @@ export default class ServiceBase {
           return config;
         }
 
-        const authToken =
-          await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
+        // The token is opportunistic: a transient session-storage or refresh
+        // failure must not reject the request interceptor (which would surface
+        // as an unhandled rejection and break every service request). Resolve
+        // to null and proceed without the header, letting downstream 401
+        // handling recover — matching getOneKeyIdAuthHeaders below.
+        // Import lazily so ServiceBase (the base of every service) does not
+        // eagerly pull the Supabase/secure/web storage stack — and its
+        // module-load IndexedDB init — into every service's load graph.
+        const { readAuthTokenOrNull } =
+          await import('./ServicePrime/primeAuthSessionAccess');
+        const authToken = await readAuthTokenOrNull(() =>
+          this.backgroundApi.simpleDb.prime.getActiveAuthToken(),
+        );
         if (authToken) {
           // TODO use cookie instead of simpleDb
           if (headers?.set) {
@@ -192,6 +201,10 @@ export default class ServiceBase {
   getOneKeyIdAuthHeaders = async (): Promise<Record<string, string>> => {
     // The token is opportunistic (e.g. for per-user KYT data), so proceed
     // without it rather than failing the whole request.
+    // Lazy import: keep the Supabase/storage stack out of ServiceBase's
+    // module-load graph (see the request interceptor above).
+    const { readAuthTokenOrNull } =
+      await import('./ServicePrime/primeAuthSessionAccess');
     const authToken = await readAuthTokenOrNull(() =>
       this.backgroundApi.simpleDb.prime.getActiveAuthToken(),
     );
