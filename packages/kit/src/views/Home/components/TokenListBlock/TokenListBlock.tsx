@@ -1211,12 +1211,13 @@ function TokenListBlock({
       accountId?: string;
       networkId?: string;
     }) => {
-      if (accountId && networkId) {
-        void backgroundApiProxy.serviceToken.updateCurrentAccount({
-          accountId,
-          networkId,
-        });
-      }
+      const updateCurrentAccountTask =
+        accountId && networkId
+          ? backgroundApiProxy.serviceToken.updateCurrentAccount({
+              accountId,
+              networkId,
+            })
+          : Promise.resolve();
 
       perfTokenListView.markStart('allNetworkRequestsStarted_getRawData');
 
@@ -1226,6 +1227,7 @@ function TokenListBlock({
         backgroundApiProxy.simpleDb.riskTokenManagement.getRawData(),
         backgroundApiProxy.simpleDb.localTokens.getRawData(),
         backgroundApiProxy.simpleDb.aggregateToken.getRawData(),
+        updateCurrentAccountTask,
       ]);
 
       perfTokenListView.markEnd('allNetworkRequestsStarted_getRawData');
