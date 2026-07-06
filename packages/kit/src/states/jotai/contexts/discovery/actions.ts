@@ -167,6 +167,16 @@ function isLocalhostUrlAllowedInDAppBrowser() {
   return result;
 }
 
+function normalizeWebNavigationUrlForComparison(
+  url: string,
+  allowLocalhostUrl: boolean,
+) {
+  if (!/^https?:\/\//i.test(url)) {
+    return url;
+  }
+  return uriUtils.validateUrl(url, { allowLocalhostUrl });
+}
+
 export const homeResettingFlags: Record<string, number> = {};
 
 // Tracks last navigation time per tab id for the 500ms redirect-loop
@@ -1302,7 +1312,17 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       if (!tab) {
         return;
       }
-      const isValidNewUrl = typeof url === 'string' && url !== tab.url;
+      const allowLocalhostUrl = isLocalhostUrlAllowedInDAppBrowser();
+      const comparableUrl =
+        typeof url === 'string'
+          ? normalizeWebNavigationUrlForComparison(url, allowLocalhostUrl)
+          : url;
+      const comparableTabUrl =
+        typeof tab.url === 'string'
+          ? normalizeWebNavigationUrlForComparison(tab.url, allowLocalhostUrl)
+          : tab.url;
+      const isValidNewUrl =
+        typeof url === 'string' && comparableUrl !== comparableTabUrl;
 
       if (url) {
         if (parseReferralLandingUrl(url)) {
@@ -1311,7 +1331,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         }
 
         const cache = get(phishingLruCacheAtom());
-        const allowLocalhostUrl = isLocalhostUrlAllowedInDAppBrowser();
         const { action } = uriUtils.parseDappRedirect(
           url,
           Array.from(cache.keys()),

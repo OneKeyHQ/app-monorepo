@@ -904,6 +904,54 @@ describe('useBrowserTabActions', () => {
     ).toBe(EValidateUrlEnum.NotSupportProtocol);
   });
 
+  it('does not reload when native WebView reports an equivalent root URL with a trailing slash', () => {
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserAction().current;
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: [
+            {
+              id: 'tab-1',
+              url: 'https://app.osmosis.zone',
+              title: 'Osmosis',
+              isActive: true,
+              timestamp: 1,
+            },
+          ],
+          displayHomePage: false,
+        }),
+      },
+    );
+
+    act(() => {
+      result.current.actions.onNavigation({
+        id: 'tab-1',
+        url: 'https://app.osmosis.zone/',
+        title: 'Osmosis',
+        loading: true,
+        canGoBack: false,
+        canGoForward: false,
+      });
+    });
+
+    expect(mockCrossWebviewLoadUrl).not.toHaveBeenCalled();
+    expect(result.current.tabs.find((tab) => tab.id === 'tab-1')).toEqual(
+      expect.objectContaining({
+        url: 'https://app.osmosis.zone',
+        displayUrl: 'https://app.osmosis.zone/',
+        loading: true,
+      }),
+    );
+  });
+
   it('treats OneKey referral landing URLs as app routes in the browser', async () => {
     const referralUrl = 'https://app.onekey.so/r/R7EKUT/app/perps';
     const { result } = renderHook(
