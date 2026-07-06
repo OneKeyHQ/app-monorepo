@@ -2336,7 +2336,8 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async getBorrowReserves(params: IBorrowReserveRequestParams) {
-    const { accountId, ...rest } = params;
+    const { accountId, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress = accountId
       ? await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2365,7 +2366,8 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     type?: string;
   }) {
-    const { accountId, type, ...rest } = params;
+    const { accountId, type, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2407,7 +2409,7 @@ class ServiceStaking extends ServiceBase {
         items: IBorrowApyHistoryItem[];
       };
     }>('/earn/v1/borrow/apy/history', {
-      params,
+      params: earnUtils.normalizeBorrowAddressParams(params),
     });
 
     return response.data.data;
@@ -2421,7 +2423,8 @@ class ServiceStaking extends ServiceBase {
     reserveAddress: string;
     accountId?: string;
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress = accountId
       ? await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2454,7 +2457,8 @@ class ServiceStaking extends ServiceBase {
     collateralReserveAddress?: string;
     slippageBps?: number;
   }) {
-    const { accountId, amount, ...rest } = params;
+    const { accountId, amount, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const amountNumber = BigNumber(amount || 0);
 
@@ -2486,7 +2490,8 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     amount: string;
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2514,7 +2519,8 @@ class ServiceStaking extends ServiceBase {
     amount: string;
     withdrawAll?: boolean;
   }) {
-    const { accountId, withdrawAll, ...rest } = params;
+    const { accountId, withdrawAll, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2542,7 +2548,8 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     amount: string;
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2570,7 +2577,8 @@ class ServiceStaking extends ServiceBase {
     amount: string;
     repayAll?: boolean;
   }) {
-    const { accountId, repayAll, ...rest } = params;
+    const { accountId, repayAll, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2601,7 +2609,8 @@ class ServiceStaking extends ServiceBase {
     repayAll?: boolean;
     slippageBps?: number;
   }) {
-    const { accountId, amount, ...rest } = params;
+    const { accountId, amount, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const amountNumber = BigNumber(amount || 0);
 
@@ -2635,7 +2644,8 @@ class ServiceStaking extends ServiceBase {
     slippageBps?: number;
     routeKey?: string;
   }) {
-    const { accountId, amount, ...rest } = params;
+    const { accountId, amount, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const amountNumber = BigNumber(amount || 0);
 
@@ -2665,7 +2675,8 @@ class ServiceStaking extends ServiceBase {
     collateralReserveAddress: string;
     accountId: string;
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2726,7 +2737,8 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     ids: string[];
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2753,7 +2765,8 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     type: 'supply' | 'withdraw' | 'borrow' | 'repay';
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2780,7 +2793,8 @@ class ServiceStaking extends ServiceBase {
     marketAddress: string;
     accountId: string;
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2812,7 +2826,8 @@ class ServiceStaking extends ServiceBase {
     repayAll?: boolean;
     collateralReserveAddress?: string;
   }) {
-    const { accountId, amount, repayAll, ...rest } = params;
+    const { accountId, amount, repayAll, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const amountNumber = BigNumber(amount || 0);
 
@@ -2848,7 +2863,8 @@ class ServiceStaking extends ServiceBase {
     action: 'supply' | 'withdraw' | 'borrow' | 'repay';
     amount: string;
   }) {
-    const { accountId, amount, ...rest } = params;
+    const { accountId, amount, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const amountNumber = BigNumber(amount || 0);
 
@@ -2880,7 +2896,8 @@ class ServiceStaking extends ServiceBase {
     marketAddress: string;
     accountId: string;
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2941,7 +2958,9 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     action: EBorrowActionsEnum;
   }) {
-    return this._getBorrowAssetsList(params);
+    return this._getBorrowAssetsList(
+      earnUtils.normalizeBorrowAddressParams(params),
+    );
   }
 
   @backgroundMethod()
@@ -2955,7 +2974,7 @@ class ServiceStaking extends ServiceBase {
     const response = await client.get<{
       data: IBorrowFaqList;
     }>('/earn/v1/borrow/faq/list', {
-      params,
+      params: earnUtils.normalizeBorrowAddressParams(params),
     });
     return response.data.data;
   }
@@ -2974,7 +2993,7 @@ class ServiceStaking extends ServiceBase {
         supplyCurve: [number, string][];
       };
     }>('/earn/v1/borrow/interest-rate/curve', {
-      params,
+      params: earnUtils.normalizeBorrowAddressParams(params),
     });
     return response.data.data;
   }
