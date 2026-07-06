@@ -163,16 +163,14 @@ export function PerpMobileLayout() {
         ? ETabName.Balances
         : ETabName.Positions,
     );
-    actions.current.setTradeRouteViewState({ infoPanelTab: pendingInfoPanelTab });
+    actions.current.setTradeRouteViewState({
+      infoPanelTab: pendingInfoPanelTab,
+    });
     void setPendingInfoPanelTab(undefined);
   }, [actions, pendingInfoPanelTab, setPendingInfoPanelTab]);
 
   useEffect(() => {
-    const handler = (
-      payload: {
-        tab: 'Positions' | 'Balances';
-      },
-    ) => {
+    const handler = (payload: { tab: 'Positions' | 'Balances' }) => {
       setActiveTab(
         payload.tab === 'Balances' ? ETabName.Balances : ETabName.Positions,
       );
