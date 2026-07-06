@@ -791,8 +791,7 @@ function checkBudgets(summary, budgets) {
         ? budget * (1 + RUNTIME_BUDGET_WARNING_RATIO)
         : budget;
       const withinBudget = Number.isFinite(actual) && actual <= budget;
-      const withinFailBudget =
-        Number.isFinite(actual) && actual <= failBudget;
+      const withinFailBudget = Number.isFinite(actual) && actual <= failBudget;
       let status = 'fail';
       if (withinBudget) {
         status = 'pass';

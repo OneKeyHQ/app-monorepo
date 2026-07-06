@@ -539,8 +539,8 @@ async function checkForVersionUpdate({ client } = {}) {
 
       const isOlderThanReadyManifest = Boolean(
         state.readyVersion &&
-          manifest.version !== state.readyVersion &&
-          isManifestOlderThan(manifest, state.readyManifest),
+        manifest.version !== state.readyVersion &&
+        isManifestOlderThan(manifest, state.readyManifest),
       );
       const shouldClearVersionDowngradeBackoff =
         state.failedVersion === manifest.version &&
