@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -378,22 +378,6 @@ function DAppAccountListStandAloneItem({
   const { serviceDApp, serviceNetwork } = backgroundApiProxy;
   const { $sourceInfo } = useDappQuery();
 
-  // Hold the skeleton over the account card until the account itself resolves,
-  // collapsing skeleton -> card-internal-loading -> content into a single
-  // skeleton -> content transition. Flips when the account first arrives with a
-  // usable address (see the timeout backstop below for the no-address case).
-  const [isAccountCardReady, setIsAccountCardReady] = useState(false);
-  const handleAccountChangedWithReady = useCallback<IHandleAccountChanged>(
-    (params, changedNum) => {
-      const account = params?.activeAccount?.account;
-      if (account?.address || account?.addressDetail?.isValid) {
-        setIsAccountCardReady(true);
-      }
-      handleAccountChanged?.(params, changedNum);
-    },
-    [handleAccountChanged],
-  );
-
   const { result } = usePromiseResult(async () => {
     if (!$sourceInfo?.origin || !$sourceInfo.scope) {
       return {
@@ -455,67 +439,35 @@ function DAppAccountListStandAloneItem({
     onConnectedAccountInfoChanged,
   ]);
 
-  const accountSelectorNum = result?.accountSelectorNum;
-  const networkIds = result?.networkIds;
-  const canRenderAccountCard =
-    typeof accountSelectorNum === 'number' && Array.isArray(networkIds);
-  // result is undefined only while the accountSelectorNum lookup is still in
-  // flight (usePromiseResult has no initResult here).
-  const isResolvingAccountSelector = result === undefined;
-
-  // Backstop so an origin whose account never reports a usable address (e.g.
-  // no-address chains) can't strand the skeleton once the real card mounted.
-  useEffect(() => {
-    if (!canRenderAccountCard || isAccountCardReady) {
-      return undefined;
-    }
-    const timer = setTimeout(() => setIsAccountCardReady(true), 3000);
-    return () => clearTimeout(timer);
-  }, [canRenderAccountCard, isAccountCardReady]);
-
   return (
     <YStack gap="$2" testID={DAppConnectionTestIDs.AccountListStandAlone}>
       <SizableText size="$headingMd" color="$text">
         {intl.formatMessage({ id: ETranslations.global_accounts })}
       </SizableText>
-      <Stack>
-        {typeof accountSelectorNum === 'number' && Array.isArray(networkIds) ? (
-          <AccountSelectorProviderMirror
-            config={{
-              sceneName: EAccountSelectorSceneName.discover,
-              sceneUrl: $sourceInfo?.origin,
-              // networks: scopeNetworks,
-            }}
-            enabledNum={[accountSelectorNum]}
-            availableNetworksMap={{
-              [accountSelectorNum]: { networkIds },
-            }}
-          >
-            <DAppAccountListItem
-              initFromHome={!result?.existConnectedAccount}
-              num={accountSelectorNum}
-              handleAccountChanged={handleAccountChangedWithReady}
-              readonly={readonly}
-              preselectKeylessProvider={preselectKeylessProvider}
-            />
-          </AccountSelectorProviderMirror>
-        ) : null}
-        {!isAccountCardReady &&
-        (isResolvingAccountSelector || canRenderAccountCard) ? (
-          // While the card mounts and loads, keep the skeleton absolutely
-          // positioned on top of it so the user never sees the card's own
-          // internal loading state; drop to normal flow when the card isn't
-          // mounted yet so it still reserves height.
-          <Stack
-            position={canRenderAccountCard ? 'absolute' : 'relative'}
-            {...(canRenderAccountCard
-              ? { top: 0, left: 0, right: 0, bottom: 0 }
-              : {})}
-          >
-            <DAppAccountListItemSkeleton />
-          </Stack>
-        ) : null}
-      </Stack>
+      {typeof result?.accountSelectorNum === 'number' &&
+      Array.isArray(result?.networkIds) ? (
+        <AccountSelectorProviderMirror
+          config={{
+            sceneName: EAccountSelectorSceneName.discover,
+            sceneUrl: $sourceInfo?.origin,
+            // networks: scopeNetworks,
+          }}
+          enabledNum={[result.accountSelectorNum]}
+          availableNetworksMap={{
+            [result.accountSelectorNum]: { networkIds: result.networkIds },
+          }}
+        >
+          <DAppAccountListItem
+            initFromHome={!result?.existConnectedAccount}
+            num={result?.accountSelectorNum}
+            handleAccountChanged={handleAccountChanged}
+            readonly={readonly}
+            preselectKeylessProvider={preselectKeylessProvider}
+          />
+        </AccountSelectorProviderMirror>
+      ) : (
+        <DAppAccountListItemSkeleton />
+      )}
     </YStack>
   );
 }
