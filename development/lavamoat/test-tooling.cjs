@@ -281,6 +281,7 @@ function copyLavamoatValidationFixture(targetRepo) {
     'development/lavamoat/validate-webpack-integration.cjs',
     'development/webpack/lavamoat.js',
     'package.json',
+    'lavamoat/review/README.review.md',
     'lavamoat/review/summary.json',
     'lavamoat/webpack/web/policy.json',
     'lavamoat/webpack/web/policy-override.json',
