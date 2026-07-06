@@ -1,5 +1,11 @@
 // cspell:ignore Actived
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -61,7 +67,11 @@ import type { RouteProp } from '@react-navigation/core';
 
 const networkIdsMap = getNetworkIdsMap();
 
-function RewardCenterDetails() {
+function RewardCenterDetails({
+  selectorSceneUrl,
+}: {
+  selectorSceneUrl: string;
+}) {
   const route =
     useRoute<
       RouteProp<
@@ -73,7 +83,6 @@ function RewardCenterDetails() {
   const {
     accountId,
     networkId,
-    walletId,
     onClose,
     showAccountSelector = true,
   } = route?.params ?? {};
@@ -88,7 +97,6 @@ function RewardCenterDetails() {
   });
 
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const { confirmAccountSelect } = useAccountSelectorActions().current;
 
   const navigation = useAppNavigation();
 
@@ -291,10 +299,10 @@ function RewardCenterDetails() {
             body: {
               method: 'get',
               url: '/api/account',
-              data: {},
-              params: {
+              data: {
                 fromAddress: account.address,
               },
+              params: {},
             },
             returnRawData: true,
           });
@@ -493,58 +501,6 @@ function RewardCenterDetails() {
       setIsRedeeming(false);
     }
   }, [account, claimSource, form, intl, network]);
-
-  useEffect(() => {
-    const initActiveAccount = async () => {
-      const [initAccount, initWallet] = await Promise.all([
-        accountId && networkId
-          ? backgroundApiProxy.serviceAccount.getAccount({
-              accountId,
-              networkId,
-            })
-          : undefined,
-        walletId
-          ? backgroundApiProxy.serviceAccount.getWallet({
-              walletId,
-            })
-          : undefined,
-      ]);
-
-      const isOthersAccount = accountUtils.isOthersAccount({
-        accountId,
-      });
-      if (isOthersAccount) {
-        let autoChangeToAccountMatchedNetworkId = networkId;
-        if (
-          networkId &&
-          networkUtils.isAllNetwork({
-            networkId,
-          })
-        ) {
-          autoChangeToAccountMatchedNetworkId = networkId;
-        }
-        await confirmAccountSelect({
-          num: 0,
-          indexedAccount: undefined,
-          othersWalletAccount: initAccount,
-          autoChangeToAccountMatchedNetworkId,
-        });
-      } else if (initWallet) {
-        const indexedAccount =
-          await backgroundApiProxy.serviceAccount.getIndexedAccountByAccount({
-            account: initAccount,
-          });
-        await confirmAccountSelect({
-          num: 0,
-          indexedAccount,
-          othersWalletAccount: undefined,
-          autoChangeToAccountMatchedNetworkId: undefined,
-        });
-      }
-    };
-
-    void initActiveAccount();
-  }, [accountId, confirmAccountSelect, networkId, walletId]);
 
   useEffect(
     () => () => void onClose?.({ isResourceClaimed, isResourceRedeemed }),
@@ -913,13 +869,14 @@ function RewardCenterDetails() {
       <AccountSelectorProviderMirror
         config={{
           sceneName: EAccountSelectorSceneName.rewardCenter,
+          sceneUrl: selectorSceneUrl,
         }}
         enabledNum={[0]}
       >
         <AccountSelectorTriggerRewardCenter num={0} />
       </AccountSelectorProviderMirror>
     );
-  }, [showAccountSelector]);
+  }, [selectorSceneUrl, showAccountSelector]);
 
   const renderHeaderLeft = useCallback(() => {
     if (showAccountSelector) {
@@ -974,15 +931,156 @@ function RewardCenterDetails() {
   );
 }
 
+function RewardCenterAccountSelectorSync({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const route =
+    useRoute<
+      RouteProp<
+        IModalRewardCenterParamList,
+        EModalRewardCenterRoutes.RewardCenter
+      >
+    >();
+
+  const {
+    accountId,
+    networkId,
+    walletId,
+    showAccountSelector = true,
+  } = route?.params ?? {};
+
+  const actions = useAccountSelectorActions();
+  const [isReady, setIsReady] = useState(!showAccountSelector);
+  const targetWalletId =
+    walletId ||
+    (accountId
+      ? accountUtils.getWalletIdFromAccountId({
+          accountId,
+        })
+      : undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const syncAccountSelector = async () => {
+      if (!showAccountSelector || !accountId || !networkId) {
+        setIsReady(true);
+        return;
+      }
+
+      setIsReady(false);
+      try {
+        const [initAccount, initWallet] = await Promise.all([
+          backgroundApiProxy.serviceAccount.getAccount({
+            accountId,
+            networkId,
+          }),
+          targetWalletId
+            ? backgroundApiProxy.serviceAccount.getWallet({
+                walletId: targetWalletId,
+              })
+            : undefined,
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        await actions.current.waitForAutoSelectUnlock();
+        if (cancelled) {
+          return;
+        }
+
+        if (
+          accountUtils.isOthersAccount({
+            accountId,
+          })
+        ) {
+          await actions.current.confirmAccountSelect({
+            num: 0,
+            indexedAccount: undefined,
+            othersWalletAccount: initAccount,
+            forceSelectToNetworkId: networkId,
+          });
+        } else if (initWallet) {
+          const indexedAccount =
+            await backgroundApiProxy.serviceAccount.getIndexedAccountByAccount({
+              account: initAccount,
+            });
+          if (cancelled) {
+            return;
+          }
+          await actions.current.confirmAccountSelect({
+            num: 0,
+            indexedAccount,
+            othersWalletAccount: undefined,
+            forceSelectToNetworkId: networkId,
+          });
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        if (targetWalletId) {
+          await actions.current.updateSelectedAccountFocusedWallet({
+            num: 0,
+            focusedWallet: targetWalletId,
+          });
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        const selectedAccount = actions.current.getSelectedAccount({
+          num: 0,
+        });
+        await actions.current.reloadActiveAccountInfo({
+          num: 0,
+          selectedAccount,
+        });
+      } catch (_error) {
+        // ignore account selector sync errors and let the page render fallback states
+      } finally {
+        if (!cancelled) {
+          setIsReady(true);
+        }
+      }
+    };
+
+    void syncAccountSelector();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, actions, networkId, showAccountSelector, targetWalletId]);
+
+  if (!isReady) {
+    return null;
+  }
+
+  return children;
+}
+
 function RewardCenter() {
+  const selectorSceneUrlRef = useRef<string | undefined>(undefined);
+  selectorSceneUrlRef.current ??= `reward-center-${Date.now()}-${Math.random()}`;
+  const selectorSceneUrl = selectorSceneUrlRef.current;
+
   return (
     <AccountSelectorProviderMirror
       config={{
         sceneName: EAccountSelectorSceneName.rewardCenter,
+        sceneUrl: selectorSceneUrl,
       }}
       enabledNum={[0]}
     >
-      <RewardCenterDetails />
+      <RewardCenterAccountSelectorSync>
+        <RewardCenterDetails selectorSceneUrl={selectorSceneUrl} />
+      </RewardCenterAccountSelectorSync>
     </AccountSelectorProviderMirror>
   );
 }
