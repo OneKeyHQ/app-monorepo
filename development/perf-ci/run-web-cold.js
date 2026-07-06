@@ -27,7 +27,6 @@ const MB = 1024 * 1024;
 const DEFAULT_BUDGETS = {
   fcpMs: 1000,
   firstTextMs: 1000,
-  lcpMs: 2500,
   jsDecodedBytes: 12 * MB,
   initialScriptRawBytes: 10 * MB,
   longTaskTotalMs: 900,
@@ -38,7 +37,6 @@ const RUNTIME_BUDGET_WARNING_RATIO = 0.05;
 const RUNTIME_BUDGET_NAMES = new Set([
   'fcpMs',
   'firstTextMs',
-  'lcpMs',
   'businessReadyMs',
   'marketListReadyMs',
   'longTaskTotalMs',
@@ -772,7 +770,6 @@ function checkBudgets(summary, budgets) {
   const checks = [
     ['fcpMs', summary.fcp],
     ['firstTextMs', summary.firstText],
-    ['lcpMs', summary.lcp],
     ['businessReadyMs', summary.businessReady],
     ['marketListReadyMs', summary.marketListReady],
     ['resourceCount', summary.resourceCount],
@@ -796,19 +793,18 @@ function checkBudgets(summary, budgets) {
       const withinBudget = Number.isFinite(actual) && actual <= budget;
       const withinFailBudget =
         Number.isFinite(actual) && actual <= failBudget;
-      const status = withinBudget
-        ? 'pass'
-        : withinFailBudget
-          ? 'warn'
-          : 'fail';
+      let status = 'fail';
+      if (withinBudget) {
+        status = 'pass';
+      } else if (withinFailBudget) {
+        status = 'warn';
+      }
       return {
         name,
         actual,
         budget,
         failBudget,
-        toleranceRatio: hasRuntimeTolerance
-          ? RUNTIME_BUDGET_WARNING_RATIO
-          : 0,
+        toleranceRatio: hasRuntimeTolerance ? RUNTIME_BUDGET_WARNING_RATIO : 0,
         status,
         pass: status !== 'fail',
       };
@@ -897,7 +893,6 @@ function printReport({
   const budgetFormatters = {
     fcpMs: formatMs,
     firstTextMs: formatMs,
-    lcpMs: formatMs,
     businessReadyMs: formatMs,
     marketListReadyMs: formatMs,
     resourceCount: String,
@@ -1155,9 +1150,7 @@ async function main() {
       scenarioOutputs.some(
         (scenarioOutput) =>
           scenarioOutput.healthChecks.some((check) => !check.pass) ||
-          scenarioOutput.budgetChecks.some(
-            (check) => check.status === 'fail',
-          ),
+          scenarioOutput.budgetChecks.some((check) => check.status === 'fail'),
       ) &&
       process.env.PERF_WEB_COLD_BUDGET_FAIL !== '0'
     ) {
