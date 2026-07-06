@@ -329,7 +329,9 @@ function setupServiceWorkerVersionProtocol(registration) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (pendingServiceWorkerCodeReload) {
       window.location.reload();
+      return;
     }
+    requestServiceWorkerVersionCheck();
   });
 
   const promptWaitingServiceWorker = () => {
@@ -386,6 +388,9 @@ if (
     registerServiceWorkerWithMigration()
       .then((registration) => {
         setupServiceWorkerVersionProtocol(registration);
+        navigator.serviceWorker.ready
+          .then(() => requestServiceWorkerVersionCheck())
+          .catch(() => {});
         setInterval(() => {
           registration.update().catch(() => {});
         }, SERVICE_WORKER_UPDATE_CHECK_INTERVAL_MS);

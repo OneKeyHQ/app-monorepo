@@ -5,8 +5,24 @@ import { precacheAndRoute } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
 import { CacheFirst } from 'workbox-strategies';
 
-const VERSION_MANIFEST_URL = '/sw-version-manifest.json';
-const INDEX_HTML_URL = '/index.html';
+const SERVICE_WORKER_FILE_NAME = 'service-worker.js';
+const serviceWorkerScriptUrl = new URL(self.location.href);
+const serviceWorkerBasePath = serviceWorkerScriptUrl.pathname.endsWith(
+  SERVICE_WORKER_FILE_NAME,
+)
+  ? serviceWorkerScriptUrl.pathname.slice(
+      0,
+      -SERVICE_WORKER_FILE_NAME.length,
+    ) || '/'
+  : '/';
+const VERSION_MANIFEST_URL = new URL(
+  'sw-version-manifest.json',
+  `${self.location.origin}${serviceWorkerBasePath}`,
+).pathname;
+const INDEX_HTML_URL = new URL(
+  'index.html',
+  `${self.location.origin}${serviceWorkerBasePath}`,
+).pathname;
 const INTERNAL_STATE_CACHE = 'onekey-web-version-state';
 const INTERNAL_STATE_URL = '/__onekey_web_version_state__';
 const HTML_CACHE_PREFIX = 'onekey-web-html:';
@@ -395,7 +411,10 @@ function getNextRetryAt() {
   return Date.now() + 5 * 60 * 1000;
 }
 
-async function checkForVersionUpdate({ client } = {}) {
+async function checkForVersionUpdate({
+  client,
+  promoteReadyVersion = false,
+} = {}) {
   if (versionCheckPromise) {
     return versionCheckPromise;
   }
@@ -457,6 +476,9 @@ async function checkForVersionUpdate({ client } = {}) {
             version: state.readyVersion,
             manifest: state.readyManifest,
           });
+          if (promoteReadyVersion) {
+            return promoteReadyVersionState(state);
+          }
           return state;
         }
         state = await clearReadyVersionState(state);
@@ -490,6 +512,9 @@ async function checkForVersionUpdate({ client } = {}) {
         version: manifest.version,
         manifest,
       });
+      if (promoteReadyVersion) {
+        return promoteReadyVersionState(nextState);
+      }
       return nextState;
     } catch (error) {
       const state = await readVersionState();
@@ -569,43 +594,6 @@ async function activateReadyVersion(version, { client } = {}) {
   return promoteReadyVersionState(state);
 }
 
-async function reconcileReadyVersionForNavigation(state) {
-  if (!state.readyVersion) {
-    return { state, shouldPromote: false, shouldClearReady: false };
-  }
-
-  let manifest;
-  try {
-    manifest = await fetchVersionManifest();
-  } catch {
-    return { state, shouldPromote: false, shouldClearReady: false };
-  }
-
-  if (manifest.version === state.activeVersion) {
-    return {
-      state: await clearReadyVersionState(state, 'version_rollback'),
-      shouldPromote: false,
-      shouldClearReady: false,
-    };
-  }
-
-  if (manifest.version !== state.readyVersion) {
-    const shouldDiscardReadyVersion =
-      isManifestOlderThan(manifest, state.activeManifest) ||
-      isManifestOlderThan(manifest, state.readyManifest);
-    return {
-      state: await clearReadyVersionState(
-        state,
-        shouldDiscardReadyVersion ? 'version_downgrade' : 'ready_replaced',
-      ),
-      shouldPromote: false,
-      shouldClearReady: false,
-    };
-  }
-
-  return { state, shouldPromote: true, shouldClearReady: true };
-}
-
 async function cleanupVersionCaches(state) {
   const keepVersions = new Set(
     [
@@ -633,41 +621,18 @@ async function cleanupVersionCaches(state) {
 }
 
 async function handleNavigation() {
-  let state = await readVersionState();
-
-  if (state.readyVersion) {
-    const reconciliation = await reconcileReadyVersionForNavigation(state);
-    state = reconciliation.state;
-    if (
-      reconciliation.shouldPromote &&
-      (await isReadyVersionCacheValid(state))
-    ) {
-      const readyVersion = state.readyVersion;
-      const readyResponse = await getCachedHtmlResponse(readyVersion);
-      try {
-        state = await promoteReadyVersionState(state);
-        const promotedResponse = await getCachedHtmlResponse(
-          state.activeVersion,
-        );
-        if (promotedResponse) {
-          return promotedResponse;
-        }
-      } catch {
-        if (readyResponse) {
-          return readyResponse;
-        }
-      }
-      if (readyResponse) {
-        return readyResponse;
-      }
-    } else if (reconciliation.shouldClearReady) {
-      state = await clearReadyVersionState(state);
-    }
-  }
+  const state = await readVersionState();
 
   const activeResponse = await getCachedHtmlResponse(state.activeVersion);
   if (activeResponse) {
     return activeResponse;
+  }
+
+  if (await isReadyVersionCacheValid(state).catch(() => false)) {
+    const readyResponse = await getCachedHtmlResponse(state.readyVersion);
+    if (readyResponse) {
+      return readyResponse;
+    }
   }
 
   return fetchNetworkHtml();
@@ -700,7 +665,20 @@ async function getCriticalAssetResponse(request) {
   return undefined;
 }
 
-async function handleScriptStyleRequest(request) {
+function scheduleStaticResourceCacheUpdate(event, cache, request, response) {
+  if (!cache) {
+    return;
+  }
+  const updatePromise = cache
+    .put(request, response.clone())
+    .then(() =>
+      trimCacheEntries(STATIC_RESOURCES_CACHE, STATIC_RESOURCES_MAX_ENTRIES),
+    )
+    .catch(() => {});
+  event?.waitUntil(updatePromise);
+}
+
+async function handleScriptStyleRequest(request, event) {
   let staticCache;
   try {
     staticCache = await caches.open(STATIC_RESOURCES_CACHE);
@@ -714,21 +692,23 @@ async function handleScriptStyleRequest(request) {
 
   const criticalResponse = await getCriticalAssetResponse(request);
   if (criticalResponse) {
-    await staticCache?.put(request, criticalResponse.clone()).catch(() => {});
-    await trimCacheEntries(
-      STATIC_RESOURCES_CACHE,
-      STATIC_RESOURCES_MAX_ENTRIES,
-    ).catch(() => {});
+    scheduleStaticResourceCacheUpdate(
+      event,
+      staticCache,
+      request,
+      criticalResponse,
+    );
     return criticalResponse;
   }
 
   const networkResponse = await fetch(request);
   if (networkResponse.ok && staticCache) {
-    await staticCache.put(request, networkResponse.clone()).catch(() => {});
-    await trimCacheEntries(
-      STATIC_RESOURCES_CACHE,
-      STATIC_RESOURCES_MAX_ENTRIES,
-    ).catch(() => {});
+    scheduleStaticResourceCacheUpdate(
+      event,
+      staticCache,
+      request,
+      networkResponse,
+    );
   }
   return networkResponse;
 }
@@ -741,7 +721,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(navigationResponsePromise);
     event.waitUntil(
       navigationResponsePromise
-        .then(() => checkForVersionUpdate())
+        .then(() => checkForVersionUpdate({ promoteReadyVersion: true }))
         .catch(() => undefined),
     );
   }
@@ -804,5 +784,5 @@ registerRoute(
 registerRoute(
   ({ request }) =>
     request.destination === 'script' || request.destination === 'style',
-  ({ request }) => handleScriptStyleRequest(request),
+  ({ request, event }) => handleScriptStyleRequest(request, event),
 );
