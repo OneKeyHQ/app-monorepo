@@ -33,6 +33,7 @@ const DEFERRED_SENTRY_INIT_DELAY_MS = 6000;
 const SERVICE_WORKER_UPDATE_CHECK_INTERVAL_MS = timerUtils.getTimeDurationMs({
   minute: 30,
 });
+const ROOT_SERVICE_WORKER_PATH = '/service-worker.js';
 const SERVICE_WORKER_MESSAGE_TYPES = {
   GET_VERSION_STATE: 'GET_VERSION_STATE',
   CHECK_VERSION: 'CHECK_VERSION',
@@ -263,6 +264,43 @@ function requestServiceWorkerVersionCheck() {
   postMessageToServiceWorker(SERVICE_WORKER_MESSAGE_TYPES.CHECK_VERSION);
 }
 
+function getLegacyServiceWorkerPath() {
+  const serviceWorkerBaseUrl = new URL(
+    process.env.PUBLIC_URL || '/',
+    window.location.href,
+  );
+  const serviceWorkerBasePath = serviceWorkerBaseUrl.pathname.endsWith('/')
+    ? serviceWorkerBaseUrl.pathname
+    : `${serviceWorkerBaseUrl.pathname}/`;
+  return `${serviceWorkerBasePath}service-worker.js`;
+}
+
+async function registerServiceWorkerWithMigration() {
+  const legacyServiceWorkerPath = getLegacyServiceWorkerPath();
+  let legacyRegistration;
+
+  if (legacyServiceWorkerPath !== ROOT_SERVICE_WORKER_PATH) {
+    legacyRegistration = await navigator.serviceWorker
+      .register(legacyServiceWorkerPath, {
+        scope: '/',
+        updateViaCache: 'none',
+      })
+      .catch(() => undefined);
+  }
+
+  try {
+    return await navigator.serviceWorker.register(ROOT_SERVICE_WORKER_PATH, {
+      scope: '/',
+      updateViaCache: 'none',
+    });
+  } catch (error) {
+    if (legacyRegistration) {
+      return legacyRegistration;
+    }
+    throw error;
+  }
+}
+
 function setupServiceWorkerVersionProtocol(registration) {
   navigator.serviceWorker.addEventListener('message', (event) => {
     const type = event.data?.type;
@@ -345,11 +383,7 @@ if (
   process.env.NODE_ENV === 'production'
 ) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/service-worker.js', {
-        scope: '/',
-        updateViaCache: 'none',
-      })
+    registerServiceWorkerWithMigration()
       .then((registration) => {
         setupServiceWorkerVersionProtocol(registration);
         setInterval(() => {
