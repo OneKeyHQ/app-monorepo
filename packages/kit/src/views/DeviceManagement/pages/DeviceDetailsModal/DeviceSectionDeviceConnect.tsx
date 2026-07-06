@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 import { Toast } from '@onekeyhq/components';
 import { showTrezorBleBindingDialog } from '@onekeyhq/kit/src/components/Hardware/TrezorBleBindingDialog';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import {
   useDeviceAtom,
   useDeviceDetailsActions,

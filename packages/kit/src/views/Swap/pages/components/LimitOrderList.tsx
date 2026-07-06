@@ -18,17 +18,17 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
+  ESwapLimitOrderStatus,
   IFetchLimitOrderRes,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import {
-  ESwapCancelLimitOrderSource,
-  ESwapLimitOrderStatus,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapCancelLimitOrderSource } from '@onekeyhq/shared/types/swap/types';
 
 import LimitOrderListItem from '../../components/LimitOrderListItem';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
+import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
 import { SwapTestIDs } from '../../testIDs';
+import { isSwapLimitOpenOrder } from '../../utils/swapMarketHistory';
 
 import LimitOrderCancelDialog from './LimitOrderCancelDialog';
 
@@ -57,7 +57,11 @@ const LimitOrderList = ({
     {},
   );
   const { cancelLimitOrder } = useSwapBuildTx();
-  const [{ swapLimitOrders }] = useInAppNotificationAtom();
+  const [
+    { swapLimitOrders, swapLimitOrdersAccountIdKey, swapLimitOrdersLoading },
+  ] = useInAppNotificationAtom();
+  const { shouldShowSwapLocalData, shouldShowSwapLimitOrders } =
+    useSwapLimitOrdersLocalDataVisibility(swapLimitOrdersAccountIdKey);
 
   const runCancel = useCallback(
     async (item: IFetchLimitOrderRes) => {
@@ -117,18 +121,15 @@ const LimitOrderList = ({
   );
 
   const orderData = useMemo(() => {
+    if (!shouldShowSwapLimitOrders) {
+      return [];
+    }
     let filteredData = swapLimitOrders;
     if (type === 'open') {
-      filteredData = swapLimitOrders.filter(
-        (order) =>
-          order.status === ESwapLimitOrderStatus.OPEN ||
-          order.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
-      );
+      filteredData = swapLimitOrders.filter(isSwapLimitOpenOrder);
     } else {
       filteredData = swapLimitOrders.filter(
-        (order) =>
-          order.status !== ESwapLimitOrderStatus.OPEN &&
-          order.status !== ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
+        (order) => !isSwapLimitOpenOrder(order),
       );
     }
     if (filterToken) {
@@ -155,7 +156,7 @@ const LimitOrderList = ({
         return bDate - aDate;
       }) ?? []
     );
-  }, [filterToken, swapLimitOrders, type]);
+  }, [filterToken, shouldShowSwapLimitOrders, swapLimitOrders, type]);
 
   const sectionData = useMemo(() => {
     const groupByDay = orderData.reduce<Record<string, IFetchLimitOrderRes[]>>(
@@ -196,7 +197,9 @@ const LimitOrderList = ({
     [gtMd],
   );
 
-  return !swapLimitOrders.length && isLoading ? (
+  return shouldShowSwapLocalData &&
+    (!shouldShowSwapLimitOrders || !swapLimitOrders.length) &&
+    (isLoading || swapLimitOrdersLoading) ? (
     loadingSkeleton
   ) : (
     <SectionList

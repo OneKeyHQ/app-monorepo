@@ -89,6 +89,25 @@ describe('isRetryableLazyError', () => {
     expect(isRetryableLazyError(err)).toBe(true);
   });
 
+  it('is retryable for web chunk load failures', () => {
+    expect(
+      isRetryableLazyError({
+        name: 'ChunkLoadError',
+        message: 'Loading chunk 123 failed.',
+      }),
+    ).toBe(true);
+    expect(
+      isRetryableLazyError({
+        message: 'Failed to fetch dynamically imported module',
+      }),
+    ).toBe(true);
+    expect(
+      isRetryableLazyError({
+        message: 'Importing a module script failed',
+      }),
+    ).toBe(true);
+  });
+
   it('is NOT retryable for SPLIT_BUNDLE_EVAL_ERROR code', () => {
     expect(isRetryableLazyError({ code: 'SPLIT_BUNDLE_EVAL_ERROR' })).toBe(
       false,

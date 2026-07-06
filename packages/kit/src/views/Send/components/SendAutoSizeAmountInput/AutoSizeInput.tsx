@@ -337,6 +337,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
         width="100%"
         alignItems="center"
         justifyContent="center"
+        overflow="hidden"
         style={
           desktopInlineRowOffsetPx && !hasSmallWidth
             ? { transform: [{ translateX: desktopInlineRowOffsetPx }] }

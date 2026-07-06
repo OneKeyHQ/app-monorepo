@@ -331,7 +331,7 @@ async function mnemonicToSeed(
   if (platformEnv.isNative) {
     return mnemonicToSeedByQuickCrypto(mnemonic, passphrase, perfTrace);
   }
-  const subtle = platformEnv.isJest ? undefined : getWebCryptoSubtle();
+  const subtle = getWebCryptoSubtle();
   if (subtle) {
     try {
       return await mnemonicToSeedByWebCrypto(

@@ -25,6 +25,20 @@ type IFetchFilteredTokenSelectorTokensParams = {
   tokenSelectorFilterParams: ITokenSelectorFilterParams;
 };
 
+export type IFetchFilteredTokenSelectorTokensResult = {
+  /** The SUCCESSFUL child responses (failures are dropped by continue-on-error). */
+  responses: IFetchAccountTokensResp[];
+  /**
+   * How many child requests the fan-out ATTEMPTED, BEFORE continue-on-error
+   * dropped any failures. For the all-networks fan-out this is the enabled
+   * network count; callers compare it against `responses.length` to detect a
+   * PARTIAL failure (a silently-dropped network) so they don't commit an
+   * incomplete list as an authoritative snapshot. Single-network and
+   * derive-merge paths attempt exactly one request per account.
+   */
+  expectedResponseCount: number;
+};
+
 export type IScopedActiveTokenList = {
   tokens: IAccountToken[];
   keys: string;
@@ -138,7 +152,7 @@ export async function fetchFilteredTokenSelectorTokens({
   mergeDeriveAddressData,
   onlyBackendIndexedNetworks,
   tokenSelectorFilterParams,
-}: IFetchFilteredTokenSelectorTokensParams) {
+}: IFetchFilteredTokenSelectorTokensParams): Promise<IFetchFilteredTokenSelectorTokensResult> {
   if (isAllNetworks) {
     const {
       accountId: allNetworksAccountId,
@@ -185,12 +199,15 @@ export async function fetchFilteredTokenSelectorTokens({
           }),
     );
 
-    return (
+    const responses = (
       await promiseAllSettledEnhanced(requestFactories, {
         continueOnError: true,
         concurrency: 10,
       })
     ).filter((item): item is IFetchAccountTokensResp => Boolean(item));
+    // `requestFactories.length` is the enabled-network count; a shorter
+    // `responses` array means a network was silently dropped (continue-on-error).
+    return { responses, expectedResponseCount: requestFactories.length };
   }
 
   if (mergeDeriveAddressData) {
@@ -218,12 +235,13 @@ export async function fetchFilteredTokenSelectorTokens({
           : Promise.resolve(undefined);
     });
 
-    return (
+    const responses = (
       await promiseAllSettledEnhanced(requestFactories, {
         continueOnError: true,
         concurrency: 10,
       })
     ).filter((item): item is IFetchAccountTokensResp => Boolean(item));
+    return { responses, expectedResponseCount: requestFactories.length };
   }
 
   const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
@@ -234,7 +252,7 @@ export async function fetchFilteredTokenSelectorTokens({
     saveToLocal: false,
     ...tokenSelectorFilterParams,
   });
-  return [r];
+  return { responses: [r], expectedResponseCount: 1 };
 }
 
 export function buildScopedActiveTokenListFromResponses({

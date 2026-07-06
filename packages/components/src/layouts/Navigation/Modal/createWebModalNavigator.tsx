@@ -12,7 +12,7 @@ import {
   useNavigationBuilder,
 } from '@react-navigation/core';
 import { StackView } from '@react-navigation/stack';
-import _ from 'lodash';
+import findLastIndex from 'lodash/findLastIndex';
 import { useWindowDimensions } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';
 
@@ -197,7 +197,7 @@ function WebModalNavigator({
   const currentRouteIndex = useMemo(
     () =>
       Math.max(
-        _.findLastIndex(
+        findLastIndex(
           rootNavigation?.getState?.()?.routes,
           (rootRoute) =>
             state.routes.findIndex(
@@ -486,7 +486,7 @@ function WebModalNavigator({
               onPress={platformEnv.isNative ? stopPropagation : undefined}
               onPressIn={platformEnv.isNative ? undefined : onPagePressIn}
               testID="APP-Modal-Screen"
-              className="app-region-no-drag"
+              className="app-region-no-drag onekey-modal-screen"
               bg="$bgApp"
               overflow="hidden"
               width="100%"

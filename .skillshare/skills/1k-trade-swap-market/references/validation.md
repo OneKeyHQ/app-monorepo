@@ -40,7 +40,9 @@ Validate on the surface that owns the regression:
 - Signature Confirm for frozen review data.
 - History/detail for pending, progress, final status, and price fallback.
 - Account history or notification entry when a channel can be opened outside the original submit flow.
-- Native mobile when host, modal, safe area, or bottom-sheet behavior is involved.
+- Native mobile when host behavior differs: Limit focus paths, K-line
+  dialog/page variants, modal, bottom-sheet drag, keyboard, safe area, or
+  native list virtualization.
 - Desktop/web/extension when popup, modal, or WebView behavior differs.
 
 ## New Channel Acceptance
@@ -83,7 +85,27 @@ Use these recipes based on failure type:
 - Stock/Market history bug: verify pending counts, list keys, protocol filters,
   and history detail routing separately for Market and Stock rows.
 - Market K-line bug: verify token detail payload, chart fetch, fallback data, and WebView events separately.
-- Handoff bug: start from Earn/Market/Buy, then confirm Swap owns state after quote starts.
+- Handoff bug: start from the real source entry, such as Wallet Home, Home
+  Token, Send, Earn, Market, or Buy. Capture handoff params first, then confirm
+  Swap owns selected tokens, quote, review, build/send, pending, and history
+  after quote starts.
 - Visible-entry merge bug: enter through route params, header tab, cold-start
   cache, and history/detail; verify visible tab normalization and internal
   execution/support/history semantics stay distinct.
+- Unsupported-network entry bug: start from the real source entry on an
+  unsupported single network, capture `importNetworkId` and imported tokens,
+  and verify the first frame resolves to empty/Select Token or a disabled state
+  without an endless skeleton. Also verify direct Swap still works for supported
+  networks.
+- No-wallet or disconnected-wallet bug: reload from a fresh state, record
+  account-info readiness, account-selector storage readiness, active-account
+  init, wallet-list readiness, and web dapp mode. Verify unsupported-account
+  warnings do not appear before those gates resolve, and verify any hidden
+  local history is hidden without being deleted.
+- Skeleton or layout jump bug: compare the skeleton and settled heights on the
+  affected surface plus the closest shared surfaces, especially Stock, Swap
+  Pro, mobile modal/bottom sheet, and extension/sidebar when a shared component
+  changed.
+- Gas sponsor or provider capability bug: compare quote payload, build payload,
+  estimate-fee/send params, global gas-account setting, and provider allowlist.
+  Do not validate from the final error toast alone.

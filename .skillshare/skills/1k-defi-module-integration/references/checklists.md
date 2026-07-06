@@ -4,6 +4,12 @@
 
 Run this before shipping or approving Earn/Borrow/Staking work:
 
+0. Source packet is current when the task came from Jira, Slack, review, or a
+   todo ledger: issue comments, Slack context, attachments, client branch, and
+   server supported-protocols/build-transaction/portfolio DTO branch when
+   relevant.
+0a. Closest valid repo pattern is named, including why its provider/network/
+    account/token/route/operation semantics do or do not apply.
 1. Provider identity survives route round trip: provider, network, symbol, vault/market/reserve, account, indexed account.
 2. Operation contract is named: stake, withdraw, claim, redeem, supply, borrow, repay, collateral, wrap, swap-assisted, or custom.
 3. Setup and business transactions are sequenced explicitly.
@@ -17,6 +23,59 @@ Run this before shipping or approving Earn/Borrow/Staking work:
 11. Native crash or freeze claims include the exact confirm/send path plus Android/iOS log, Sentry event, or JS/native crash boundary.
 12. Shared utility changes include existing-protocol regression reasoning.
 13. User-facing text follows the repository i18n workflow.
+14. Large hooks are split only by stable responsibility: route sync, data
+    loading, operation state machine, listener refresh, pending/history bridge,
+    or view-model composition.
+
+## Half-Year Recurrence Stops
+
+Use this stop list when a new Earn/DeFi/Borrow/Staking requirement mentions
+action buttons, claim/withdraw/repay, missing refresh, duplicate toast,
+mobile input, native Earn, AssetDetails, or cold-start entry:
+
+- Action visibility is contract-first. Check portfolio position payload,
+  supported-protocols, and build-transaction metadata before treating a missing
+  button as layout, i18n, or local visibility state.
+- Grouped portfolio rows must preserve source-position metadata such as
+  group id, pool address, token id, currency pair, queue id, proxy detail, and
+  category. If grouping drops metadata, fail closed instead of rendering a
+  button that cannot build a transaction.
+- Build responses can carry `orderId`, `tx`, `approvalTx`, and `permit`.
+  Normalize transport variants at the service boundary, keep UI typed, and
+  make approval/permit support explicit before entering signature confirm.
+- DeFi order tracking must guard duplicate submit: after broadcast, record the
+  transaction hash against the service `orderId`; after on-chain completion,
+  update final status and refresh the affected portfolio/detail scope.
+- Do not suppress operation errors only because a lower-level error has
+  `autoToast=false`. If the operation is user-actionable, preserve diagnostics
+  fields and show one visible operation-level error path.
+- Mobile DeFi amount input and dialogs need their own validation for decimal
+  precision, cursor position, keyboard, modal height, bottom-sheet drag, safe
+  area, and scrollability. Desktop/web behavior is not proof for native.
+- Successful submit/confirm triggers visible portfolio/detail refresh plus
+  delayed refresh for indexer lag. User cancel and failed tx do not get the
+  same refresh semantics unless product requires recovery refresh.
+- Native Earn is a Discovery-hosted flow. Validate fresh native open, repeated
+  entry, pop-to-home, and tab switching separately from desktop/web Earn tab.
+- AssetDetails and DeFi Portfolio action routes must carry account identity
+  through route params or payload. Home-only account context is not available
+  unless the target stack mounts the matching provider mirror.
+- Swap-assisted funding stops at prefill and return refresh. Once Swap quote
+  starts, quote/review/build/send/history validation belongs to
+  `1k-trade-swap-market`.
+
+## Entry And Platform Drill
+
+Run this when a requirement mentions Earn entry, Home Earn, native Earn,
+AssetDetails, DeFi Portfolio, or Swap-assisted funding:
+
+- Name the entry surface and the first DeFi owner after entry.
+- For native, prove whether the path is Discovery EarnHome sub-tab switching or
+  a pushed Earn route under Discovery; do not validate it only on desktop/web.
+- For DeFi Portfolio and AssetDetails routes, verify account and
+  indexed-account identity survive without Home-only provider context.
+- For Swap-assisted funding, validate DeFi source params and return refresh,
+  then hand quote/review/build/send/history validation to `1k-trade-swap-market`.
 
 ## ABI Readiness Drill
 

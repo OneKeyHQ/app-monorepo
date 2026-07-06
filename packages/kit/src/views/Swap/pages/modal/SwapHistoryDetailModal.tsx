@@ -30,6 +30,7 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
@@ -56,6 +57,7 @@ import {
   shouldShowSwapHistoryLongPendingWarning,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import { privateSendProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -80,6 +82,7 @@ import {
 } from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 import SwapTxHistoryViewInBrowser from '../../components/SwapHistoryTxViewInBrowser';
 import SwapRateInfoItem from '../../components/SwapRateInfoItem';
+import { useShouldShowSwapLocalData } from '../../hooks/useSwapLocalDataVisibility';
 import { getSwapTokenDisplayPrice } from '../../utils/swapDisplayFiatValue';
 import {
   getSwapCrossChainStatusTextProps,
@@ -940,19 +943,29 @@ const SwapHistoryDetailModal = () => {
   const [txHistoryListState, setTxHistoryListState] = useState(txHistoryList);
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
+  const shouldShowSwapLocalData = useShouldShowSwapLocalData();
   const { result: swapTxHistoryList } = usePromiseResult(
     async () => {
+      if (!shouldShowSwapLocalData) {
+        return [];
+      }
       const histories =
         await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
       return histories;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [swapHistoryPendingList],
+    [swapHistoryPendingList, shouldShowSwapLocalData],
   );
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const { formatDate } = useFormatDate();
   const longPendingWarningLoggedKeysRef = useRef(new Set<string>());
   useEffect(() => {
+    if (!shouldShowSwapLocalData) {
+      if (txHistoryListState?.length) {
+        setTxHistoryListState([]);
+      }
+      return;
+    }
     if (!swapTxHistoryList?.length) return;
     const routeTxHistory = txHistoryList?.find(
       (item) => item.swapInfo.orderId === txHistoryOrderId,
@@ -1002,13 +1015,21 @@ const SwapHistoryDetailModal = () => {
     ) {
       setTxHistoryListState(nextTxHistoryList);
     }
-  }, [swapTxHistoryList, txHistoryList, txHistoryListState, txHistoryOrderId]);
+  }, [
+    shouldShowSwapLocalData,
+    swapTxHistoryList,
+    txHistoryList,
+    txHistoryListState,
+    txHistoryOrderId,
+  ]);
   const txHistory = useMemo(
     () =>
-      txHistoryListState?.find(
-        (item) => item.swapInfo.orderId === txHistoryOrderId,
-      ),
-    [txHistoryListState, txHistoryOrderId],
+      shouldShowSwapLocalData
+        ? txHistoryListState?.find(
+            (item) => item.swapInfo.orderId === txHistoryOrderId,
+          )
+        : undefined,
+    [shouldShowSwapLocalData, txHistoryListState, txHistoryOrderId],
   );
   const [longPendingWarningNow, setLongPendingWarningNow] = useState(() =>
     Date.now(),
@@ -1816,16 +1837,17 @@ const SwapHistoryDetailModal = () => {
   }, [intl, navigation, txHistory?.txInfo]);
 
   const headerRight = useCallback(
-    () => (
-      <Button
-        variant="tertiary"
-        onPress={onDeleteOneHistory}
-        testID="swap-header-right-btn"
-      >
-        {intl.formatMessage({ id: ETranslations.global_clear })}
-      </Button>
-    ),
-    [intl, onDeleteOneHistory],
+    () =>
+      shouldShowSwapLocalData && txHistory ? (
+        <Button
+          variant="tertiary"
+          onPress={onDeleteOneHistory}
+          testID="swap-header-right-btn"
+        >
+          {intl.formatMessage({ id: ETranslations.global_clear })}
+        </Button>
+      ) : null,
+    [intl, onDeleteOneHistory, shouldShowSwapLocalData, txHistory],
   );
 
   return (
@@ -1861,4 +1883,15 @@ const SwapHistoryDetailModal = () => {
   );
 };
 
-export default SwapHistoryDetailModal;
+export default function SwapHistoryDetailModalWithProvider() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.swap,
+      }}
+      enabledNum={[0, 1]}
+    >
+      <SwapHistoryDetailModal />
+    </AccountSelectorProviderMirror>
+  );
+}

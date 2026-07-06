@@ -97,7 +97,9 @@ export type IEventBusPayloadShowToast = {
   message?: string;
   icon?: string;
   duration?: number;
-  errorCode?: number;
+  errorCode?: number | string;
+  errorClassName?: string;
+  errorName?: string;
   httpStatusCode?: number;
   toastId?: string;
   i18nKey?: ETranslations;
@@ -279,9 +281,16 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.LocalPendingTxConfirmed]: {
     accountId: string;
     indexedAccountId?: string;
+    accountAddress?: string;
+    deriveType?: string | IAccountDeriveTypes;
+    perpsAccountId?: string | null;
+    perpsIndexedAccountId?: string | null;
+    perpsAccountAddress?: string;
+    perpsDeriveType?: string | IAccountDeriveTypes;
     networkId: string;
     txid: string;
     status: EDecodedTxStatus;
+    isPerpsDepositTx?: boolean;
   };
   [EAppEventBusNames.DeFiPositionRefreshed]: {
     accountId: string;

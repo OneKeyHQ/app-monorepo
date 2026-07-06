@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
+import { isStockQuoteInputAmountMatched } from '@onekeyhq/kit/src/views/Swap/utils/swapStockTradeControl';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
@@ -83,6 +84,7 @@ export type ISwapQuoteEventErrorState = {
   message: string;
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
+  fromTokenAmount?: string;
   isStock?: boolean;
   isMarketOpen?: boolean;
   eventId?: string;
@@ -378,6 +380,8 @@ export const {
 } = contextAtomComputed((get) => {
   const list = get(swapQuoteCurrentEventListAtom());
   const fromTokenAmount = get(swapFromTokenAmountAtom());
+  const toTokenAmount = get(swapToTokenAmountAtom());
+  const swapTypeSwitch = get(swapTypeSwitchAtom());
   const selectionIntent = get(swapManualSelectQuoteProvidersAtom());
   const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
   const currentEventProviderKeys = get(swapQuoteCurrentEventProviderKeysAtom());
@@ -385,8 +389,18 @@ export const {
     sort: ESwapProviderSort.RECOMMENDED,
     fromTokenAmount: fromTokenAmount.value,
   });
+  const currentEventSortedQuotes =
+    swapTypeSwitch === ESwapTabSwitchType.STOCK
+      ? recommendedSortedList.filter((quote) =>
+          isStockQuoteInputAmountMatched({
+            quote,
+            fromAmount: fromTokenAmount.value,
+            toAmount: toTokenAmount.value,
+          }),
+        )
+      : recommendedSortedList;
   return selectSwapCurrentQuote({
-    currentEventSortedQuotes: recommendedSortedList,
+    currentEventSortedQuotes,
     selectionIntent: selectionIntent ?? undefined,
     quoteEventTotalCount,
     currentEventProviderKeys,

@@ -74,6 +74,7 @@ export const usePerpDepositOrder = ({
   const filterPerpDepositOrder = useMemo(() => {
     return perpDepositOrder.filter((item) => {
       return (
+        !item.keepForHistoryConfirmation &&
         ((!item.accountId && !accountId) || item.accountId === accountId) &&
         ((!item.indexedAccountId && !indexedAccountId) ||
           item.indexedAccountId === indexedAccountId)
@@ -109,8 +110,35 @@ const usePerpDeposit = (
 
   const [perpDepositQuoteLoading, setPerpDepositQuoteLoading] = useState(false);
   const [, setPerpDepositOrder] = usePerpsDepositOrderAtom();
+  const getPerpsDepositTargetScope = useCallback(async () => {
+    if (!indexedAccountId && !selectedAccountId) {
+      return {};
+    }
+    try {
+      const perpsDeriveType =
+        (await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: PERPS_NETWORK_ID,
+        })) ?? 'default';
+      const perpsAccount =
+        await backgroundApiProxy.serviceAccount.getNetworkAccount({
+          accountId: indexedAccountId ? undefined : selectedAccountId,
+          indexedAccountId,
+          deriveType: perpsDeriveType,
+          networkId: PERPS_NETWORK_ID,
+        });
+      return {
+        perpsAccountAddress:
+          perpsAccount?.addressDetail?.normalizedAddress ||
+          perpsAccount?.addressDetail?.address ||
+          perpsAccount?.address,
+        perpsDeriveType: perpsDeriveType,
+      };
+    } catch {
+      return {};
+    }
+  }, [indexedAccountId, selectedAccountId]);
   const handlePerpDepositTxSuccess = useCallback(
-    ({
+    async ({
       fromAmount,
       toAmount,
       fromToken,
@@ -142,6 +170,7 @@ const usePerpDeposit = (
         });
       }
       const time = Date.now();
+      const perpsScope = await getPerpsDepositTargetScope();
       setPerpDepositOrder((prev) => {
         return {
           orders: [
@@ -155,6 +184,7 @@ const usePerpDeposit = (
               time,
               accountId: selectedAccountId,
               indexedAccountId,
+              ...perpsScope,
             },
           ],
         };
@@ -166,7 +196,13 @@ const usePerpDeposit = (
         });
       }, 200);
     },
-    [indexedAccountId, intl, selectedAccountId, setPerpDepositOrder],
+    [
+      getPerpsDepositTargetScope,
+      indexedAccountId,
+      intl,
+      selectedAccountId,
+      setPerpDepositOrder,
+    ],
   );
   const isArbitrumUsdcToken = useMemo(() => {
     return equalTokenNoCaseSensitive({
@@ -1089,9 +1125,21 @@ const usePerpDeposit = (
         unsignedTxArr,
       );
       if (res) {
+        // Do NOT hard-code false: if the quote's from-token is actually Arb USDC
+        // (direct transfer, no swap order on the server), reporting
+        // isArbUSDCToken=false makes the status polling stuck in pending forever.
+        const isArbUSDCOrder =
+          isArbitrumUsdcToken ||
+          equalTokenNoCaseSensitive({
+            token1: perpDepositQuote.result.fromTokenInfo,
+            token2: {
+              networkId: PERPS_NETWORK_ID,
+              contractAddress: USDC_TOKEN_INFO.address,
+            },
+          });
         void handlePerpDepositTxSuccess({
           fromTxId: res.txid,
-          isArbUSDCOrder: false,
+          isArbUSDCOrder,
           fromToken: token,
           toAmount: perpDepositQuote.result.toAmount,
           fromAmount: amount,
@@ -1136,6 +1184,7 @@ const usePerpDeposit = (
     estimateNetworkFee,
     accountId,
     perpSendTxAction,
+    isArbitrumUsdcToken,
     handlePerpDepositTxSuccess,
     amount,
     result?.fromUserAddress,

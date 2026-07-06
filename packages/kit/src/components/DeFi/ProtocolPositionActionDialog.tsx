@@ -9,7 +9,6 @@ import {
   Dialog,
   SizableText,
   Stack,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -22,6 +21,7 @@ import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput
 import { SendAutoSizeAmountInput } from '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -449,6 +449,36 @@ function isUserRejectedErrorMessage({
   );
 }
 
+function showProtocolPositionActionErrorToast(error: unknown) {
+  errorToastUtils.toastIfError(error);
+  if (error && typeof error === 'object') {
+    // DeFi action submit owns the visible operation boundary. Some backend or
+    // tx-confirm errors intentionally set autoToast=false for generic callers,
+    // but this dialog must still show the failure and keep diagnostic actions.
+    (error as IOneKeyError).autoToast = true;
+  }
+  errorToastUtils.showToastOfError(error);
+}
+
+function normalizeProtocolPositionActionError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return new OneKeyLocalError(getErrorMessage(error));
+  }
+  const oneKeyError = error as IOneKeyError;
+  const normalizedError = new OneKeyLocalError({
+    message: getErrorMessage(error),
+    code: oneKeyError.code,
+    data: oneKeyError.data,
+    key: oneKeyError.key,
+    info: oneKeyError.info,
+    autoToast: oneKeyError.autoToast,
+    requestId: oneKeyError.requestId,
+    httpStatusCode: oneKeyError.httpStatusCode,
+  });
+  normalizedError.cause = error;
+  return normalizedError;
+}
+
 function getPositiveAmount(value?: string) {
   if (!value) return undefined;
   const amountBN = new BigNumber(value);
@@ -523,6 +553,36 @@ function buildDeFiActionTxConfirmInfo({
   intl: ReturnType<typeof useIntl>;
   hasRewards?: boolean;
 }): IDeFiActionTxConfirmInfo {
+  // LP removes redeem the position as one unit; any per-token amount here is
+  // a preview estimate, so show only the pool pair + percent and let the
+  // decoded tx details carry the real amounts.
+  if (action.action === EDeFiPositionAction.RemoveLiquidity) {
+    const underlyingAssets = selectedAsset.underlyingAssets ?? [];
+    const underlyingLogoUrls = underlyingAssets
+      .map((item) => item.meta?.logoUrl)
+      .filter((logoUrl): logoUrl is string => Boolean(logoUrl));
+    return {
+      actionLabel: getActionLabel({ action: action.action, intl, hasRewards }),
+      protocolId: action.protocolId,
+      assetSymbol: getSelectedAssetDisplaySymbol({
+        action: action.action,
+        selectedAsset,
+      }),
+      assetLogoUrl: selectedAsset.asset.meta?.logoUrl,
+      // Same threshold as the joined pair symbol (>1 underlying), so the
+      // icons always match the text; missing logos degrade to fewer icons.
+      assetLogoUrls:
+        underlyingAssets.length > 1 && underlyingLogoUrls.length > 0
+          ? underlyingLogoUrls
+          : undefined,
+      extraLabel: getActionExtraLabel({
+        action: action.action,
+        asset: selectedAsset,
+        percent,
+      }),
+    };
+  }
+
   const explicitAmount = amount !== undefined && amount.trim() !== '';
   let assetAmount: string;
   if (explicitAmount) {
@@ -630,7 +690,8 @@ async function addDeFiActionEarnOrders({
             stakingTags: [
               DEFI_PORTFOLIO_ACTION_STAKING_TAG,
               action.protocolId,
-              action.action,
+              // Tag what actually executed on the wire.
+              action.buildAction ?? action.action,
             ],
           });
         } catch (error) {
@@ -727,9 +788,14 @@ function useProtocolPositionActionSubmit({
         throw new OneKeyLocalError('DeFi action asset is missing');
       }
 
-      const isWithdraw = action.action === EDeFiPositionAction.Withdraw;
+      // The wire action for build-transaction; `action.action` keeps the
+      // displayed semantics (e.g. Stake DAO shows Remove but builds withdraw).
+      const buildActionType = action.buildAction ?? action.action;
+      const isWithdraw = buildActionType === EDeFiPositionAction.Withdraw;
       const isRemoveLiquidity =
-        action.action === EDeFiPositionAction.RemoveLiquidity;
+        buildActionType === EDeFiPositionAction.RemoveLiquidity;
+      const isLpWithdraw =
+        isWithdraw && action.action === EDeFiPositionAction.RemoveLiquidity;
       const percentageAction = isPercentageAction(action.action);
       const { amount: amountForApi, bps } = resolveActionTxAmount({
         percentageAction,
@@ -759,20 +825,24 @@ function useProtocolPositionActionSubmit({
             selectedAsset,
             percent,
           });
-          // RemoveLiquidity omits tokenAddress; Lido withdraw must send it empty
-          // (see isLidoWithdraw note); everything else uses the asset's token.
+          // RemoveLiquidity omits tokenAddress; Lido withdraw and LP-unit
+          // withdraws (Stake DAO) must send it EMPTY — the build API requires
+          // the field but resolves the tx from poolAddress, and an LP unit has
+          // no single token to name. Everything else uses the asset's token.
           let buildTokenAddress: string | undefined =
             selectedAsset.tokenAddress;
           if (isRemoveLiquidity) {
             buildTokenAddress = undefined;
-          } else if (isLidoWithdraw) {
+          } else if (isLidoWithdraw || isLpWithdraw) {
             buildTokenAddress = '';
           }
           let resp = await backgroundApiProxy.serviceDeFi.buildDeFiTransaction({
             accountId,
             networkId,
             protocolId: action.protocolId,
-            action: isLidoWithdraw ? EDeFiPositionAction.Permit : action.action,
+            action: isLidoWithdraw
+              ? EDeFiPositionAction.Permit
+              : buildActionType,
             tokenAddress: buildTokenAddress,
             amount: amountForApi,
             bps,
@@ -812,7 +882,7 @@ function useProtocolPositionActionSubmit({
               accountId,
               networkId,
               protocolId: action.protocolId,
-              action: action.action,
+              action: buildActionType,
               tokenAddress: buildTokenAddress,
               amount: amountForApi,
               bps,
@@ -914,15 +984,11 @@ function useProtocolPositionActionSubmit({
           isTxConfirmInitializing = false;
         }
         if (txConfirmInitError) {
-          errorToastUtils.toastIfErrorDisable(txConfirmInitError);
-          throw new OneKeyLocalError(getErrorMessage(txConfirmInitError));
+          throw normalizeProtocolPositionActionError(txConfirmInitError);
         }
       } catch (error) {
         if (!isUserRejectedErrorMessage({ error, intl })) {
-          errorToastUtils.toastIfErrorDisable(error);
-          Toast.error({
-            title: getErrorMessage(error),
-          });
+          showProtocolPositionActionErrorToast(error);
         }
         throw error;
       }
@@ -1204,6 +1270,7 @@ function ProtocolPositionActionAmountInput({
   availableLabel,
   maxLabel,
   insufficientLabel,
+  validator,
 }: {
   amount: string;
   onChangeAmount: (value: string) => void;
@@ -1218,6 +1285,7 @@ function ProtocolPositionActionAmountInput({
   availableLabel: string;
   maxLabel: string;
   insufficientLabel: string;
+  validator?: (value: string) => boolean;
 }) {
   return (
     <YStack gap="$5">
@@ -1227,6 +1295,7 @@ function ProtocolPositionActionAmountInput({
         maxFontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
         value={amount}
         onChange={onChangeAmount}
+        validator={validator}
         tokenSymbol={symbol}
         valueProps={{
           value: fiatValue,
@@ -1357,6 +1426,10 @@ function ProtocolPositionActionDialogContent({
     isManualAmountAction && !selectable && Boolean(manualAmountAsset);
   const availableAmount = manualAmountAsset?.amount ?? '0';
   const amountDecimals = manualAmountAsset?.asset.meta?.decimals;
+  const validateManualAmountInput = useCallback(
+    (next: string) => validateAmountInput(next, amountDecimals),
+    [amountDecimals],
+  );
   const amountBN = new BigNumber(amount || '0');
   const availableBN = new BigNumber(availableAmount || '0');
   const isAmountPositive = amountBN.isFinite() && amountBN.gt(0);
@@ -1430,7 +1503,7 @@ function ProtocolPositionActionDialogContent({
   const handleAmountChange = (next: string) => {
     // Project convention: reject keystrokes that exceed the token's decimals
     // (same gate as Send), rather than silently truncating.
-    if (!validateAmountInput(next, amountDecimals)) {
+    if (!validateManualAmountInput(next)) {
       return;
     }
     setAmount(next);
@@ -1507,8 +1580,8 @@ function ProtocolPositionActionDialogContent({
         },
       });
     } catch {
-      // submitProtocolPositionAction already surfaced the error via Toast;
-      // keep the dialog open so the user can retry instead of auto-closing.
+      // submitProtocolPositionAction already surfaced the error via global
+      // error toast; keep the dialog open so the user can retry.
       preventClose();
     }
   };
@@ -1562,6 +1635,7 @@ function ProtocolPositionActionDialogContent({
       <ProtocolPositionActionAmountInput
         amount={amount}
         onChangeAmount={handleAmountChange}
+        validator={validateManualAmountInput}
         onSelectPercent={handleSelectPercent}
         selectedPercent={selectedAmountPercent}
         symbol={manualAmountAsset?.symbol ?? ''}

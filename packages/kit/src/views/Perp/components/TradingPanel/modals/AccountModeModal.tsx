@@ -21,6 +21,7 @@ import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUti
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import { getTradingButtonStyleProps } from '../../../utils/styleUtils';
 import {
   PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
@@ -37,6 +38,7 @@ const ACCOUNT_MODE_OPTIONS: {
   learnMore?: boolean;
   modeIcon: 'single' | 'portfolio';
   recommended?: boolean;
+  requirement?: ETranslations;
   value: IPerpsAccountModeOption;
 }[] = [
   {
@@ -51,6 +53,7 @@ const ACCOUNT_MODE_OPTIONS: {
     label: ETranslations.perp_portfolio_margin__title,
     learnMore: true,
     modeIcon: 'portfolio',
+    requirement: ETranslations.perp_portfolio_margin_requirement__msg,
     value: EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN,
   },
 ];
@@ -131,6 +134,7 @@ function AccountModeOption({
   modeIcon,
   onPress,
   recommended,
+  requirement,
 }: {
   desc: ETranslations;
   isSelected: boolean;
@@ -139,11 +143,22 @@ function AccountModeOption({
   modeIcon: 'single' | 'portfolio';
   onPress: () => void;
   recommended?: boolean;
+  requirement?: ETranslations;
 }) {
   const intl = useIntl();
   const handleLearnMorePress = useCallback(() => {
     openUrlExternal(PORTFOLIO_MARGIN_LEARN_MORE_URL);
   }, []);
+  const learnMoreText = learnMore ? (
+    <SizableText
+      size="$bodySm"
+      color="$textInfo"
+      textDecorationLine="underline"
+      onPress={handleLearnMorePress}
+    >
+      {intl.formatMessage({ id: ETranslations.global_learn_more })}
+    </SizableText>
+  ) : null;
 
   return (
     <YStack
@@ -177,20 +192,15 @@ function AccountModeOption({
           </XStack>
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: desc })}
-            {learnMore ? (
-              <>
-                {' '}
-                <SizableText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  textDecorationLine="underline"
-                  onPress={handleLearnMorePress}
-                >
-                  {intl.formatMessage({ id: ETranslations.global_learn_more })}
-                </SizableText>
-              </>
-            ) : null}
           </SizableText>
+          {requirement ? (
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({ id: requirement })}
+              {learnMore ? <> {learnMoreText}</> : null}
+            </SizableText>
+          ) : (
+            learnMoreText
+          )}
         </YStack>
       </XStack>
     </YStack>
@@ -212,6 +222,7 @@ function AccountModeContent({
   const [selectedMode, setSelectedMode] =
     useState<IPerpsAccountModeOption>(initialMode);
   const [loading, setLoading] = useState(false);
+  const confirmButtonStyleProps = getTradingButtonStyleProps('long');
   const activeAccountAddressRef = useRef(perpsActiveAccount?.accountAddress);
   activeAccountAddressRef.current = perpsActiveAccount?.accountAddress;
 
@@ -267,36 +278,9 @@ function AccountModeContent({
           modeIcon={option.modeIcon}
           onPress={() => setSelectedMode(option.value)}
           recommended={option.recommended}
+          requirement={option.requirement}
         />
       ))}
-      {selectedMode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN ? (
-        <XStack
-          p="$3"
-          borderRadius="$3"
-          bg="$bgStrong"
-          gap="$2"
-          alignItems="flex-start"
-        >
-          <XStack
-            w={14}
-            h={14}
-            borderRadius="$full"
-            bg="$iconDisabled"
-            alignItems="center"
-            justifyContent="center"
-            mt="$0.5"
-          >
-            <SizableText size="$bodySmMedium" color="$bg" lineHeight={14}>
-              i
-            </SizableText>
-          </XStack>
-          <SizableText size="$bodySm" color="$textSubdued" flex={1}>
-            {intl.formatMessage({
-              id: ETranslations.perp_portfolio_margin_requirement__msg,
-            })}
-          </SizableText>
-        </XStack>
-      ) : null}
       <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
         <Button
           testID="perp-account-mode-confirm-button"
@@ -305,8 +289,15 @@ function AccountModeContent({
           loading={loading}
           disabled={loading}
           onPress={handleConfirm}
+          {...confirmButtonStyleProps}
+          childrenAsText={false}
         >
-          {intl.formatMessage({ id: ETranslations.global_confirm })}
+          <SizableText
+            size="$bodyMdMedium"
+            color={confirmButtonStyleProps.textColor}
+          >
+            {intl.formatMessage({ id: ETranslations.global_confirm })}
+          </SizableText>
         </Button>
       </TradingGuardWrapper>
     </YStack>

@@ -41,6 +41,8 @@ import {
   useSwapProTradeTypeAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapStockExecutionTokensAtom,
+  useSwapStockSelectedTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
@@ -68,7 +70,6 @@ import {
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
-  ESwapLimitOrderStatus,
   ESwapProTradeType,
   ESwapSlippageCustomStatus,
   ESwapSlippageSegmentKey,
@@ -76,10 +77,15 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { resolveStockKLineToken } from '../../hooks/swapStockChannelUtils';
+import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapRecipientAddressSettingsUpdate } from '../../utils/incognitoSettings';
-import { filterSwapMarketHistoryItems } from '../../utils/swapMarketHistory';
+import {
+  filterSwapMarketHistoryItems,
+  getSwapLimitOpenOrderCount,
+} from '../../utils/swapMarketHistory';
 import { SwapKLineContentWithProvider } from '../modal/SwapKLineContent';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -502,15 +508,23 @@ const StockKLineHeaderButton = ({
   const navigation = useAppNavigation();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [stockExecutionTokens] = useSwapStockExecutionTokensAtom();
+  const [stockSelectedToken] = useSwapStockSelectedTokenAtom();
   const stockToken = useMemo(() => {
-    if (fromToken?.isStock) {
-      return fromToken;
-    }
-    if (toToken?.isStock) {
-      return toToken;
-    }
-    return undefined;
-  }, [fromToken, toToken]);
+    return resolveStockKLineToken({
+      stockSelectedToken,
+      executionFromToken: stockExecutionTokens?.fromToken,
+      executionToToken: stockExecutionTokens?.toToken,
+      fromToken,
+      toToken,
+    });
+  }, [
+    fromToken,
+    stockExecutionTokens?.fromToken,
+    stockExecutionTokens?.toToken,
+    stockSelectedToken,
+    toToken,
+  ]);
   const isNative = stockToken?.isNative;
   const networkId = stockToken?.networkId ?? '';
   const tokenAddress = stockToken?.contractAddress ?? '';
@@ -614,6 +628,7 @@ type ISwapSettingsHeaderButtonProps = {
   iconSize?: number | `$${string}`;
   iconColor?: ColorTokens;
   compact?: boolean;
+  showCustomSlippageValue?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
 };
 
@@ -622,6 +637,7 @@ export function SwapSettingsHeaderButton({
   iconSize,
   iconColor,
   compact,
+  showCustomSlippageValue,
   marketPresetSettings,
 }: ISwapSettingsHeaderButtonProps) {
   const intl = useIntl();
@@ -638,10 +654,11 @@ export function SwapSettingsHeaderButton({
     (!marketPresetSettings ||
       (!marketPresetSettings.enabled && !marketPresetSettings.isLoading));
   const showHeaderSlippageValue =
-    !compact &&
-    ((swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
-      swapTypeSwitch !== ESwapTabSwitchType.STOCK) ||
-      showSwapProSlippageSetting);
+    showCustomSlippageValue ||
+    (!compact &&
+      ((swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+        swapTypeSwitch !== ESwapTabSwitchType.STOCK) ||
+        showSwapProSlippageSetting));
   const slippageTitle = useMemo(() => {
     if (!showHeaderSlippageValue) {
       return null;
@@ -667,6 +684,7 @@ export function SwapSettingsHeaderButton({
       title: intl.formatMessage({
         id: ETranslations.swap_page_settings,
       }),
+      disableDrag: true,
       renderContent: (
         <SwapProviderMirror storeName={swapStoreName}>
           <SwapSettingsDialogContent
@@ -739,8 +757,9 @@ const SwapHeaderRightActionContainer = ({
 }) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const [{ swapHistoryPendingList, swapLimitOrders }] =
-    useInAppNotificationAtom();
+  const [
+    { swapHistoryPendingList, swapLimitOrders, swapLimitOrdersAccountIdKey },
+  ] = useInAppNotificationAtom();
   const intl = useIntl();
   const { gtLg } = useMedia();
   const InTabDialog = useInTabDialog();
@@ -749,6 +768,8 @@ const SwapHeaderRightActionContainer = ({
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const { shouldShowSwapLocalData, shouldShowSwapLimitOrders } =
+    useSwapLimitOrdersLocalDataVisibility(swapLimitOrdersAccountIdKey);
   const swapStoreName =
     pageType === EPageType.modal
       ? EJotaiContextStoreNames.swapModal
@@ -777,17 +798,16 @@ const SwapHeaderRightActionContainer = ({
       ),
     [historyProtocolType, swapHistoryPendingList],
   );
-  const limitOpenStatusList = useMemo(
+  const limitOpenOrderCount = useMemo(
     () =>
-      swapLimitOrders.filter(
-        (i) =>
-          i.status === ESwapLimitOrderStatus.OPEN ||
-          i.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
-      ),
-    [swapLimitOrders],
+      shouldShowSwapLimitOrders
+        ? getSwapLimitOpenOrderCount(swapLimitOrders)
+        : 0,
+    [shouldShowSwapLimitOrders, swapLimitOrders],
   );
-  const historyBadgeCount =
-    swapPendingStatusList.length + limitOpenStatusList.length;
+  const historyBadgeCount = shouldShowSwapLocalData
+    ? swapPendingStatusList.length + limitOpenOrderCount
+    : 0;
   const focusSwapPro =
     platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   const resolvedIconSize = iconSize ?? (compact ? 24 : 20);
@@ -809,12 +829,8 @@ const SwapHeaderRightActionContainer = ({
     swapTypeSwitch === ESwapTabSwitchType.STOCK ||
     swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   const isKLineDisabled = !fromToken && !toToken;
-  // On native, the K-line in-page dialog (InTabDialog / InModalDialog) does not
-  // mount when triggered from the header capsule, so the Swap & Bridge button
-  // appeared unresponsive. Use the full SwapKLine modal on native instead — the
-  // same navigation.pushModal mechanism the Stocks / Pro buttons and desktop
-  // already use successfully. Keep the dialog only for the small extension popup.
-  const showKLineAsDialog = platformEnv.isExtension && !gtLg;
+  const showKLineAsDialog =
+    platformEnv.isNative || (platformEnv.isExtension && !gtLg);
   const kLineDialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   const onOpenSwapKLineModal = useCallback(() => {
     if (isKLineDisabled) {

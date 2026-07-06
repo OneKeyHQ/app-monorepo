@@ -21,6 +21,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -31,23 +32,25 @@ import type {
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EProtocolOfExchange,
   ESwapCleanHistorySource,
-  ESwapLimitOrderStatus,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
 import { useSwapMarketHistoryList } from '../../hooks/useSwapMarketHistoryList';
 import {
   SWAP_CLEAN_EXCLUDE_PROTOCOLS,
   SWAP_HISTORY_PENDING_STATUSES,
   filterSwapMarketHistoryItems,
   getSwapHistoryListTitleId,
+  getSwapLimitOpenOrderCount,
   getSwapMarketPendingHistoryList,
   isStockSwapHistoryItem,
 } from '../../utils/swapMarketHistory';
-import SwapHistoryClearButton from '../components/SwapHistoryClearButton';
+import { SwapHistoryClearButtonView } from '../components/SwapHistoryClearButton';
 import SwapMarketHistoryList from '../components/SwapMarketHistoryList';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -73,8 +76,17 @@ const SwapHistoryListModal = ({
       : EProtocolOfExchange.SWAP;
   const [historyType, setHistoryType] =
     useState<EProtocolOfExchange>(initialHistoryType);
-  const [{ swapHistoryPendingList, swapLimitOrders }] =
-    useInAppNotificationAtom();
+  const [
+    { swapHistoryPendingList, swapLimitOrders, swapLimitOrdersAccountIdKey },
+  ] = useInAppNotificationAtom();
+  const { shouldShowSwapLocalData, shouldShowSwapLimitOrders } =
+    useSwapLimitOrdersLocalDataVisibility(swapLimitOrdersAccountIdKey);
+  const shouldShowLimitHistoryType =
+    shouldShowSwapLocalData && !platformEnv.isNative;
+  const visibleHistoryType =
+    historyType === EProtocolOfExchange.LIMIT && !shouldShowLimitHistoryType
+      ? EProtocolOfExchange.SWAP
+      : historyType;
   useEffect(() => {
     void backgroundApiProxy.serviceSwap.refreshSwapHistoryPendingStatusOnce();
   }, []);
@@ -104,7 +116,7 @@ const SwapHistoryListModal = ({
   // Calculate cumulative savings from all completed successful orders
   const cumulativeSavings = useMemo(() => {
     if (
-      historyType !== EProtocolOfExchange.SWAP ||
+      visibleHistoryType !== EProtocolOfExchange.SWAP ||
       !swapMarketTxHistoryList.length
     ) {
       return '$0';
@@ -139,15 +151,15 @@ const SwapHistoryListModal = ({
       formatter: 'value',
       formatterOptions: { currency: '$' },
     });
-  }, [historyType, swapMarketTxHistoryList]);
+  }, [visibleHistoryType, swapMarketTxHistoryList]);
 
   const marketPendingHistoryItems = useMemo(
     () =>
       getSwapMarketPendingHistoryList(
-        swapHistoryPendingList,
+        shouldShowSwapLocalData ? swapHistoryPendingList : [],
         EProtocolOfExchange.SWAP,
       ),
-    [swapHistoryPendingList],
+    [shouldShowSwapLocalData, swapHistoryPendingList],
   );
   const swapMarketPendingHistoryCount = useMemo(
     () =>
@@ -161,12 +173,10 @@ const SwapHistoryListModal = ({
   );
   const limitPendingHistoryCount = useMemo(
     () =>
-      swapLimitOrders.filter(
-        (item) =>
-          item.status === ESwapLimitOrderStatus.OPEN ||
-          item.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
-      ).length,
-    [swapLimitOrders],
+      shouldShowSwapLimitOrders
+        ? getSwapLimitOpenOrderCount(swapLimitOrders)
+        : 0,
+    [shouldShowSwapLimitOrders, swapLimitOrders],
   );
 
   const showHistoryInfoDot =
@@ -184,8 +194,9 @@ const SwapHistoryListModal = ({
   );
 
   const historyTypeTitle = useMemo(
-    () => intl.formatMessage({ id: getSwapHistoryListTitleId(historyType) }),
-    [historyType, intl],
+    () =>
+      intl.formatMessage({ id: getSwapHistoryListTitleId(visibleHistoryType) }),
+    [visibleHistoryType, intl],
   );
 
   const renderHistoryTypeBadge = useCallback((count: number) => {
@@ -270,7 +281,7 @@ const SwapHistoryListModal = ({
         label: swapBridgeLabel,
         renderLabel: renderSwapHistoryTypeLabel,
         extra:
-          historyType === EProtocolOfExchange.SWAP ? (
+          visibleHistoryType === EProtocolOfExchange.SWAP ? (
             <Icon name="CheckLargeOutline" size="$4" color="$iconActive" />
           ) : undefined,
         onPress: handleSelectSwapHistoryType,
@@ -281,23 +292,22 @@ const SwapHistoryListModal = ({
         }),
         renderLabel: renderStockHistoryTypeLabel,
         extra:
-          historyType === EProtocolOfExchange.STOCK ? (
+          visibleHistoryType === EProtocolOfExchange.STOCK ? (
             <Icon name="CheckLargeOutline" size="$4" color="$iconActive" />
           ) : undefined,
         onPress: handleSelectStockHistoryType,
       },
       // Limit is not a history category on mobile (it lives in the Pro flow);
       // only offer the Limit tab in the dropdown on desktop/web.
-      ...(platformEnv.isNative
-        ? []
-        : [
+      ...(shouldShowLimitHistoryType
+        ? [
             {
               label: intl.formatMessage({
                 id: ETranslations.swap_page_limit_dialog_title,
               }),
               renderLabel: renderLimitHistoryTypeLabel,
               extra:
-                historyType === EProtocolOfExchange.LIMIT ? (
+                visibleHistoryType === EProtocolOfExchange.LIMIT ? (
                   <Icon
                     name="CheckLargeOutline"
                     size="$4"
@@ -306,18 +316,20 @@ const SwapHistoryListModal = ({
                 ) : undefined,
               onPress: handleSelectLimitHistoryType,
             },
-          ]),
+          ]
+        : []),
     ],
     [
       handleSelectLimitHistoryType,
       handleSelectStockHistoryType,
       handleSelectSwapHistoryType,
-      historyType,
       intl,
       renderLimitHistoryTypeLabel,
       renderStockHistoryTypeLabel,
       renderSwapHistoryTypeLabel,
+      shouldShowLimitHistoryType,
       swapBridgeLabel,
+      visibleHistoryType,
     ],
   );
 
@@ -580,20 +592,33 @@ const SwapHistoryListModal = ({
   );
 
   const stockDeleteButton = useCallback(
-    () => <SwapHistoryClearButton scope="stock" triggerVariant="text" />,
-    [],
+    () => (
+      <SwapHistoryClearButtonView
+        scope="stock"
+        swapTxHistoryList={swapTxHistoryList}
+      />
+    ),
+    [swapTxHistoryList],
   );
 
   // Limit has no clear; Stock clears its own dataset; everything else (Swap &
   // Bridge) uses the savings-aware clear button.
   const headerRightButton = useMemo(() => {
-    if (historyType === EProtocolOfExchange.LIMIT) {
+    if (!shouldShowSwapLocalData) {
       return undefined;
     }
-    return historyType === EProtocolOfExchange.STOCK
+    if (visibleHistoryType === EProtocolOfExchange.LIMIT) {
+      return undefined;
+    }
+    return visibleHistoryType === EProtocolOfExchange.STOCK
       ? stockDeleteButton
       : deleteButton;
-  }, [deleteButton, historyType, stockDeleteButton]);
+  }, [
+    deleteButton,
+    visibleHistoryType,
+    shouldShowSwapLocalData,
+    stockDeleteButton,
+  ]);
 
   const headerSelectType = useCallback(
     () => (
@@ -614,7 +639,7 @@ const SwapHistoryListModal = ({
     if (
       cumulativeSavings === '$0' ||
       gtMd ||
-      historyType !== EProtocolOfExchange.SWAP
+      visibleHistoryType !== EProtocolOfExchange.SWAP
     ) {
       return null;
     }
@@ -675,7 +700,13 @@ const SwapHistoryListModal = ({
         renderContent={savingsPopoverContent}
       />
     );
-  }, [cumulativeSavings, gtMd, historyType, intl, savingsPopoverContent]);
+  }, [
+    cumulativeSavings,
+    gtMd,
+    visibleHistoryType,
+    intl,
+    savingsPopoverContent,
+  ]);
 
   return (
     <Page>
@@ -685,10 +716,10 @@ const SwapHistoryListModal = ({
         headerTitleAlign={gtMd ? 'left' : 'center'}
         headerTitle={headerSelectType}
       />
-      {historyType !== EProtocolOfExchange.LIMIT ? (
+      {visibleHistoryType !== EProtocolOfExchange.LIMIT ? (
         <YStack flex={1}>
           {savingsBanner}
-          <SwapMarketHistoryList protocol={historyType} />
+          <SwapMarketHistoryList protocol={visibleHistoryType} />
         </YStack>
       ) : (
         <LimitOrderListModalWithAllProvider storeName={storeName} />
@@ -710,4 +741,15 @@ const SwapHistoryListModalWithProvider = () => {
   );
 };
 
-export default SwapHistoryListModalWithProvider;
+export default function SwapHistoryListModalWithAllProvider() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.swap,
+      }}
+      enabledNum={[0, 1]}
+    >
+      <SwapHistoryListModalWithProvider />
+    </AccountSelectorProviderMirror>
+  );
+}

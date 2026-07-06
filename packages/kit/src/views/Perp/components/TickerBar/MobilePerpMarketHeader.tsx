@@ -294,11 +294,11 @@ function MobilePerpMarketHeader() {
                 : 'ArrowTriangleBottomSolid'
             }
             size="$2"
-            color={change24hPercent >= 0 ? '$green11' : '$red11'}
+            color={change24hPercent >= 0 ? '$iconSuccess' : '$iconCritical'}
           />
           <NumberSizeableText
             fontSize={10}
-            color={change24hPercent >= 0 ? '$green11' : '$red11'}
+            color={change24hPercent >= 0 ? '$textSuccess' : '$textCritical'}
             formatter="priceChange"
             formatterOptions={{
               showPlusMinusSigns: true,

@@ -2159,7 +2159,7 @@ function TxFeeInfo(props: IProps) {
           >
             {sponsoredSummaryTitle}
           </DashText>
-          <SizableText size="$bodyMd" color="$text">
+          <SizableText size="$headingSm" color="$textInteractive">
             {sponsoredSummaryDescription}
           </SizableText>
         </Stack>

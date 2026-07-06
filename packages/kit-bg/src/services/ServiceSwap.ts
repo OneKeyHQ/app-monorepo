@@ -30,6 +30,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { prunePerpsDepositHistoryConfirmationMarkers } from '@onekeyhq/shared/src/utils/hyperliquidDepositUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
@@ -49,6 +50,7 @@ import {
   hasUnifiedCrossChainSwapProviderManagers,
   mergeDenyProviderStrings,
 } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
+import { capRecentTokenPairsPreservingOrder } from '@onekeyhq/shared/src/utils/swapRecentTokenPairsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -64,7 +66,6 @@ import type {
   ISwapServiceProvider,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
-  maxRecentTokenPairs,
   mevSwapNetworks,
   privateSendFallbackOrderIdPrefix,
   privateSendProvider,
@@ -790,6 +791,7 @@ export default class ServiceSwap extends ServiceBase {
     const accountIdKey =
       indexedAccountId ?? otherWalletTypeAccountId ?? 'noAccountId';
     let swapSupportAccounts: IAllNetworkAccountInfo[] = [];
+    let supportAccountsFetchFailed = false;
     if (indexedAccountId || otherWalletTypeAccountId) {
       try {
         const allNetAccountId = indexedAccountId
@@ -857,10 +859,11 @@ export default class ServiceSwap extends ServiceBase {
           );
         });
       } catch (e) {
+        supportAccountsFetchFailed = true;
         console.error(e);
       }
     }
-    return { accountIdKey, swapSupportAccounts };
+    return { accountIdKey, swapSupportAccounts, supportAccountsFetchFailed };
   }
 
   @backgroundMethod()
@@ -2564,31 +2567,13 @@ export default class ServiceSwap extends ServiceBase {
       networkLogoURI: toToken.networkLogoURI,
       isNative: toToken.isNative,
     };
-    let newRecentTokenPairs = [
+    const newRecentTokenPairs = capRecentTokenPairsPreservingOrder([
       {
         fromToken: fromTokenBaseInfo,
         toToken: toTokenBaseInfo,
       },
       ...recentTokenPairs,
-    ];
-
-    let singleChainTokenPairs = newRecentTokenPairs.filter(
-      (t) => t.fromToken.networkId === t.toToken.networkId,
-    );
-    let crossChainTokenPairs = newRecentTokenPairs.filter(
-      (t) => t.fromToken.networkId !== t.toToken.networkId,
-    );
-
-    if (singleChainTokenPairs.length > maxRecentTokenPairs) {
-      singleChainTokenPairs = singleChainTokenPairs.slice(
-        0,
-        maxRecentTokenPairs,
-      );
-    }
-    if (crossChainTokenPairs.length > maxRecentTokenPairs) {
-      crossChainTokenPairs = crossChainTokenPairs.slice(0, maxRecentTokenPairs);
-    }
-    newRecentTokenPairs = [...singleChainTokenPairs, ...crossChainTokenPairs];
+    ]);
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
       swapRecentTokenPairs: newRecentTokenPairs,
@@ -2754,11 +2739,27 @@ export default class ServiceSwap extends ServiceBase {
     const swapLimitSupportNetworks = swapSupportNetworks.filter(
       (item) => item.supportLimit,
     );
-    const { swapSupportAccounts } = await this.getSupportSwapAllAccounts({
-      indexedAccountId,
-      otherWalletTypeAccountId,
-      swapSupportNetworks: swapLimitSupportNetworks,
-    });
+    const { accountIdKey, swapSupportAccounts, supportAccountsFetchFailed } =
+      await this.getSupportSwapAllAccounts({
+        indexedAccountId,
+        otherWalletTypeAccountId,
+        swapSupportNetworks: swapLimitSupportNetworks,
+      });
+    if (supportAccountsFetchFailed) {
+      await inAppNotificationAtom.set((pre) => ({
+        ...pre,
+        swapLimitOrdersLoading: false,
+      }));
+      this.limitOrderStateInterval = setTimeout(() => {
+        void this.swapLimitOrdersFetchLoop(
+          indexedAccountId,
+          otherWalletTypeAccountId,
+          false,
+          true,
+        );
+      }, ESwapLimitOrderUpdateInterval);
+      return;
+    }
     if (swapSupportAccounts.length > 0) {
       const { swapLimitOrders } = await inAppNotificationAtom.get();
       if (
@@ -2779,12 +2780,12 @@ export default class ServiceSwap extends ServiceBase {
       );
       let res: IFetchLimitOrderRes[] = [];
       try {
-        if (
+        const shouldFetchLimitOrders =
           !swapLimitOrders.length ||
           isFetchNewOrder ||
           !sameAccount ||
-          openOrders.length
-        ) {
+          openOrders.length;
+        if (shouldFetchLimitOrders) {
           const accounts = swapSupportAccounts.map((account) => ({
             userAddress: account.apiAddress,
             networkId: account.networkId,
@@ -2812,12 +2813,14 @@ export default class ServiceSwap extends ServiceBase {
                 ...pre,
                 swapLimitOrders: [...newList],
                 swapLimitOrdersLoading: false,
+                swapLimitOrdersAccountIdKey: accountIdKey,
               };
             }
             return {
               ...pre,
               swapLimitOrdersLoading: false,
               swapLimitOrders: [...res],
+              swapLimitOrdersAccountIdKey: accountIdKey,
             };
           });
           if (res.find((item) => item.status === ESwapLimitOrderStatus.OPEN)) {
@@ -2830,6 +2833,12 @@ export default class ServiceSwap extends ServiceBase {
               );
             }, ESwapLimitOrderUpdateInterval);
           }
+        } else {
+          await inAppNotificationAtom.set((pre) => ({
+            ...pre,
+            swapLimitOrdersLoading: false,
+            swapLimitOrdersAccountIdKey: accountIdKey,
+          }));
         }
       } catch (_error) {
         this.limitOrderStateInterval = setTimeout(() => {
@@ -2846,6 +2855,13 @@ export default class ServiceSwap extends ServiceBase {
           swapLimitOrdersLoading: false,
         }));
       }
+    } else {
+      await inAppNotificationAtom.set((pre) => ({
+        ...pre,
+        swapLimitOrders: [],
+        swapLimitOrdersLoading: false,
+        swapLimitOrdersAccountIdKey: accountIdKey,
+      }));
     }
   }
 
@@ -3343,6 +3359,7 @@ export default class ServiceSwap extends ServiceBase {
         },
       });
       if (data?.data) {
+        const now = Date.now();
         const perpDepositOrder = await perpsDepositOrderAtom.get();
         const findTxidOrder = perpDepositOrder.orders.find(
           (item) => item.fromTxId === params.txId,
@@ -3352,9 +3369,14 @@ export default class ServiceSwap extends ServiceBase {
             (item) => item.fromTxId !== params.txId,
           );
           if (data?.data.state === ESwapTxHistoryStatus.SUCCESS) {
-            findTxidOrder.status = ESwapTxHistoryStatus.SUCCESS;
+            const successOrder = {
+              ...findTxidOrder,
+              status: ESwapTxHistoryStatus.SUCCESS,
+              time: now,
+              keepForHistoryConfirmation: true,
+            };
             if (!params.isArbUSDCToken) {
-              findTxidOrder.toTxId = data?.data.swapOrderHash?.toTxHash;
+              successOrder.toTxId = data?.data.swapOrderHash?.toTxHash;
             }
             void this.backgroundApi.serviceApp.showToast({
               method: 'success',
@@ -3373,7 +3395,10 @@ export default class ServiceSwap extends ServiceBase {
             });
             await perpsDepositOrderAtom.set((prev) => ({
               ...prev,
-              orders: [...filteredPerpDepositOrder],
+              orders: prunePerpsDepositHistoryConfirmationMarkers(
+                [...filteredPerpDepositOrder, successOrder],
+                now,
+              ),
             }));
           } else if (
             data?.data.state === ESwapTxHistoryStatus.FAILED ||
@@ -3399,7 +3424,10 @@ export default class ServiceSwap extends ServiceBase {
             });
             await perpsDepositOrderAtom.set((prev) => ({
               ...prev,
-              orders: [...filteredPerpDepositOrder],
+              orders: prunePerpsDepositHistoryConfirmationMarkers(
+                filteredPerpDepositOrder,
+                now,
+              ),
             }));
           }
         }
@@ -3420,7 +3448,18 @@ export default class ServiceSwap extends ServiceBase {
     }
     const { accountId, indexedAccountId } = params;
     const perpDepositOrder = await perpsDepositOrderAtom.get();
-    const filteredPerpDepositOrder = perpDepositOrder.orders.filter((item) => {
+    const now = Date.now();
+    const prunedPerpDepositOrders = prunePerpsDepositHistoryConfirmationMarkers(
+      perpDepositOrder.orders,
+      now,
+    );
+    if (prunedPerpDepositOrders.length !== perpDepositOrder.orders.length) {
+      await perpsDepositOrderAtom.set((prev) => ({
+        ...prev,
+        orders: prunePerpsDepositHistoryConfirmationMarkers(prev.orders, now),
+      }));
+    }
+    const filteredPerpDepositOrder = prunedPerpDepositOrders.filter((item) => {
       return (
         ((!item.accountId && !accountId) || item.accountId === accountId) &&
         ((!item.indexedAccountId && !indexedAccountId) ||
@@ -3438,10 +3477,23 @@ export default class ServiceSwap extends ServiceBase {
         });
       await Promise.all(
         filteredPerpDepositOrder.map((item) => {
+          // Self-heal legacy orders persisted with a wrong isArbUSDCOrder=false:
+          // if the order's from-token is Arb USDC, the tx is a direct deposit
+          // (no swap order on the server), so the status must be queried with
+          // isArbUSDCToken=true, otherwise it stays pending forever.
+          const isArbUSDCToken =
+            item.isArbUSDCOrder ||
+            equalTokenNoCaseSensitive({
+              token1: item.token,
+              token2: {
+                networkId: PERPS_NETWORK_ID,
+                contractAddress: USDC_TOKEN_INFO.address,
+              },
+            });
           return this.fetchPerpDepositOrderStatus({
             networkId: item.token.networkId,
             txId: item.fromTxId,
-            isArbUSDCToken: item.isArbUSDCOrder,
+            isArbUSDCToken,
             toPerpDepositTokenAddress: HYPERLIQUID_DEPOSIT_ADDRESS,
             receivingAddress: receivingAddressInfo.addressDetail.address,
           });

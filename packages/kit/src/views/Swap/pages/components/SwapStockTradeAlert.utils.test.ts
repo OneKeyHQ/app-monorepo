@@ -1,4 +1,28 @@
 import { getStockMarketClosedDescription } from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert/getStockMarketClosedDescription';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import { ESwapAlertLevel } from '@onekeyhq/shared/types/swap/types';
+
+import {
+  getStockErrorAlertLevel,
+  isCurrentStockQuoteEventError,
+} from './SwapStockTradeAlertUtils';
+
+const usdcToken: ISwapToken = {
+  networkId: 'evm--56',
+  contractAddress: '0xusdc',
+  symbol: 'USDC',
+  decimals: 6,
+  isNative: false,
+};
+
+const appleStockToken: ISwapToken = {
+  networkId: 'evm--56',
+  contractAddress: '0xaapl',
+  symbol: 'AAPL',
+  decimals: 18,
+  isNative: false,
+  isStock: true,
+};
 
 describe('SwapStockTradeAlert utils', () => {
   it('keeps only the reopen time from a closed-market description', () => {
@@ -23,5 +47,74 @@ describe('SwapStockTradeAlert utils', () => {
         "Ondo's tokenized securities support 24/5 trading.",
       ),
     ).toBeUndefined();
+  });
+
+  it('ignores stale Stock quote event errors for a previous amount', () => {
+    expect(
+      isCurrentStockQuoteEventError({
+        fromToken: usdcToken,
+        fromTokenAmount: '21',
+        quoteEventError: {
+          message: 'Min amount/request 10 USDC',
+          fromToken: usdcToken,
+          toToken: appleStockToken,
+          fromTokenAmount: '2',
+          isStock: true,
+        },
+        toToken: appleStockToken,
+      }),
+    ).toBe(false);
+  });
+
+  it('ignores stale Stock quote event errors after amount is cleared', () => {
+    expect(
+      isCurrentStockQuoteEventError({
+        fromToken: usdcToken,
+        fromTokenAmount: '0.0',
+        quoteEventError: {
+          message: 'Min amount/request 10 USDC',
+          fromToken: usdcToken,
+          toToken: appleStockToken,
+          fromTokenAmount: '1',
+          isStock: true,
+        },
+        toToken: appleStockToken,
+      }),
+    ).toBe(false);
+  });
+
+  it('matches current Stock quote event errors by numeric amount', () => {
+    expect(
+      isCurrentStockQuoteEventError({
+        fromToken: usdcToken,
+        fromTokenAmount: '2.0',
+        quoteEventError: {
+          message: 'Min amount/request 10 USDC',
+          fromToken: usdcToken,
+          toToken: appleStockToken,
+          fromTokenAmount: '2',
+          isStock: true,
+        },
+        toToken: appleStockToken,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps Stock min amount errors as warning alerts', () => {
+    expect(
+      getStockErrorAlertLevel({
+        message: 'Min amount/request 10 USDC',
+        notAvailableInRegionMessage: 'Not available in region',
+      }),
+    ).toBe(ESwapAlertLevel.WARNING);
+  });
+
+  it('keeps region errors as error alerts', () => {
+    expect(
+      getStockErrorAlertLevel({
+        message: 'Not available in region',
+        notAvailableInRegionMessage: 'Not available in region',
+      }),
+    ).toBe(ESwapAlertLevel.ERROR);
   });
 });

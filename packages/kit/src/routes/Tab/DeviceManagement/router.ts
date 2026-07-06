@@ -6,30 +6,21 @@ import { LazyLoadRootTabPage } from '../../../components/LazyLoadPage';
 
 const DeviceList = LazyLoadRootTabPage(
   () =>
-    import(
-      /* webpackPrefetch: true */ '../../../views/DeviceManagement/pages/DeviceManagementListModal'
-    ),
+    import('../../../views/DeviceManagement/pages/DeviceManagementListModal'),
 );
 
 const DeviceDetail = LazyLoadRootTabPage(
-  () =>
-    import(
-      /* webpackPrefetch: true */ '../../../views/DeviceManagement/pages/DeviceDetailsModal'
-    ),
+  () => import('../../../views/DeviceManagement/pages/DeviceDetailsModal'),
 );
 
 const HardwareTroubleshooting = LazyLoadRootTabPage(
   () =>
-    import(
-      /* webpackPrefetch: true */ '../../../views/DeviceManagement/pages/HardwareTroubleshootingModal'
-    ),
+    import('../../../views/DeviceManagement/pages/HardwareTroubleshootingModal'),
 );
 
 const BuyOneKeyHardwareWallet = LazyLoadRootTabPage(
   () =>
-    import(
-      /* webpackPrefetch: true */ '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/OneKeyHardwareWallet'
-    ),
+    import('@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/OneKeyHardwareWallet'),
 );
 
 export const deviceManagementRouters: ITabSubNavigatorConfig<any, any>[] = [

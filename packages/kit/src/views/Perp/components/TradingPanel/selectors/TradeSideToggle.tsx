@@ -4,13 +4,12 @@ import { memo, useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { SegmentControl, SizableText, XStack } from '@onekeyhq/components';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { PerpTestIDs } from '../../../testIDs';
 import {
   type ITradeSide,
-  PERP_TRADE_BUTTON_COLORS,
+  getTradingButtonStyleValues,
 } from '../../../utils/styleUtils';
 
 export type ISide = ITradeSide;
@@ -47,43 +46,32 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
     const intl = useIntl();
     const isLongActive = value === 'long';
     const isShortActive = value === 'short';
-    const themeVariant = useThemeVariant();
+    const longStyles = getTradingButtonStyleValues('long');
+    const shortStyles = getTradingButtonStyleValues('short');
     const getLongBgColor = () => {
       if (!isLongActive) return '$transparent';
-      return themeVariant === 'light'
-        ? PERP_TRADE_BUTTON_COLORS.light.long
-        : PERP_TRADE_BUTTON_COLORS.dark.long;
+      return longStyles.bg;
     };
 
     const getShortBgColor = () => {
       if (!isShortActive) return '$transparent';
-      return themeVariant === 'light'
-        ? PERP_TRADE_BUTTON_COLORS.light.short
-        : PERP_TRADE_BUTTON_COLORS.dark.short;
+      return shortStyles.bg;
     };
     const getLongHoverBgColor = () => {
       if (!isLongActive) return undefined;
-      return themeVariant === 'light'
-        ? PERP_TRADE_BUTTON_COLORS.light.longHover
-        : PERP_TRADE_BUTTON_COLORS.dark.longHover;
+      return longStyles.hoverBg;
     };
     const getLongPressBgColor = () => {
       if (!isLongActive) return undefined;
-      return themeVariant === 'light'
-        ? PERP_TRADE_BUTTON_COLORS.light.longPress
-        : PERP_TRADE_BUTTON_COLORS.dark.longPress;
+      return longStyles.pressBg;
     };
     const getShortHoverBgColor = () => {
       if (!isShortActive) return undefined;
-      return themeVariant === 'light'
-        ? PERP_TRADE_BUTTON_COLORS.light.shortHover
-        : PERP_TRADE_BUTTON_COLORS.dark.shortHover;
+      return shortStyles.hoverBg;
     };
     const getShortPressBgColor = () => {
       if (!isShortActive) return undefined;
-      return themeVariant === 'light'
-        ? PERP_TRADE_BUTTON_COLORS.light.shortPress
-        : PERP_TRADE_BUTTON_COLORS.dark.shortPress;
+      return shortStyles.pressBg;
     };
     const longHoverBgColor = getLongHoverBgColor();
     const longPressBgColor = getLongPressBgColor();
@@ -118,7 +106,7 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
           >
             <SizableText
               size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
-              color={isLongActive ? '$textOnColor' : '$textDisabled'}
+              color={isLongActive ? longStyles.textColor : '$textDisabled'}
             >
               {longLabel}
             </SizableText>
