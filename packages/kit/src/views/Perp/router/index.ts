@@ -12,6 +12,7 @@ import {
   LazyLoadPage,
   LazyLoadRootTabPage,
 } from '../../../components/LazyLoadPage';
+import { RootTabLoadingFallback } from '../../../routes/Tab/RootTabLoadingFallback';
 import {
   getLoadedPerpsMobileTokenSelectorPage,
   loadPerpsMobileTokenSelectorPage,
@@ -21,7 +22,10 @@ const PerpTradersHistoryList = LazyLoadPage(
   () => import('../components/OrderInfoPanel/PerpTradersHistoryListModal'),
 );
 
-const PagePerp = LazyLoadRootTabPage(() => import('../pages/Perp'));
+const PagePerp = LazyLoadRootTabPage(
+  () => import('../pages/Perp'),
+  createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Perp }),
+);
 const MobilePerpMarketPage = LazyLoadPage(
   () => import('../pages/MobilePerpMarket'),
 );

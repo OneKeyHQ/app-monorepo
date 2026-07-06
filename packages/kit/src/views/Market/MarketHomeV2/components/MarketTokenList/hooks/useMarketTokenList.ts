@@ -3,9 +3,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useNetworkLoadingAnalytics } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/hooks/useNetworkLoadingAnalytics';
+import {
+  discardMarketHomeTokenListSeedForInit,
+  getMarketHomeTokenListSeedForInit,
+} from '@onekeyhq/kit/src/views/Market/utils/marketHomeTokenListSeed';
 import { markMarketReactPerf } from '@onekeyhq/kit/src/views/Market/utils/marketReactPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { TIME_RANGE_TO_API_MAP } from '../../../types';
@@ -28,6 +36,55 @@ interface IUseMarketTokenListParams {
   type?: string;
   timeRange?: IMarketTimeRangeValue;
   pollingInterval?: number;
+}
+
+const MARKET_TOKEN_LIST_COLD_CACHE_FALLBACK_MAX_AGE_MS =
+  timerUtils.getTimeDurationMs({ minute: 5 });
+
+type IMarketTokenListCacheEntry = {
+  data: IMarketTokenListResponseWithSource;
+  updatedAt: number;
+};
+
+function isUsableMarketTokenListCacheData(
+  data: IMarketTokenListResponseWithSource | undefined,
+) {
+  return Boolean(
+    data &&
+    Array.isArray(data.list) &&
+    !data.__fromSeed &&
+    !data.__fromColdCacheFallback,
+  );
+}
+
+function isFreshMarketTokenListCacheEntry(
+  entry: IMarketTokenListCacheEntry | undefined,
+): entry is IMarketTokenListCacheEntry {
+  return (
+    entry !== undefined &&
+    Date.now() - entry.updatedAt <=
+      MARKET_TOKEN_LIST_COLD_CACHE_FALLBACK_MAX_AGE_MS
+  );
+}
+
+function getTrustedMarketTokenListCacheEntry(swrKey: string | undefined) {
+  if (!swrKey) {
+    return undefined;
+  }
+
+  const entry =
+    swrCacheUtils.getWithTimestamp<IMarketTokenListResponseWithSource>(swrKey);
+  const shouldRemoveEntry =
+    entry !== undefined &&
+    (!isUsableMarketTokenListCacheData(entry.data) ||
+      !isFreshMarketTokenListCacheEntry(entry));
+
+  if (shouldRemoveEntry) {
+    swrCacheUtils.remove(swrKey);
+    return undefined;
+  }
+
+  return entry;
 }
 
 const MARKET_TOKEN_PRIMITIVE_REUSE_FIELDS = [
@@ -185,7 +242,94 @@ export function useMarketTokenList({
   );
   const currentQueryKeyRef = useRef(currentQueryKey);
   currentQueryKeyRef.current = currentQueryKey;
-  const forceRemoteOnceRef = useRef(false);
+  const bypassWebSeedOnceRef = useRef(false);
+  const forcedRemoteProvisionalQueryKeysRef = useRef<Set<string>>(new Set());
+  const marketTokenListSwrKey = useMemo(() => {
+    if (!platformEnv.isWeb || !hasNetworkId) {
+      return undefined;
+    }
+    return swrKeys.marketHomeTokenList({
+      networkId: apiNetworkId,
+      sortBy,
+      sortType,
+      pageSize,
+      minLiquidity,
+      type,
+      timeFrame,
+    });
+  }, [
+    apiNetworkId,
+    hasNetworkId,
+    minLiquidity,
+    pageSize,
+    sortBy,
+    sortType,
+    timeFrame,
+    type,
+  ]);
+  const cachedMarketTokenListEntry = useMemo(() => {
+    // `usePromiseResult` synchronously replays any value under swrKey during
+    // render. Market owns the token-list freshness policy, so stale or
+    // provisional entries must be removed before that hook sees the key.
+    return getTrustedMarketTokenListCacheEntry(marketTokenListSwrKey);
+  }, [marketTokenListSwrKey]);
+  const shouldUseMarketHomeTokenListSeedForCurrentQuery =
+    platformEnv.isWeb &&
+    hasNetworkId &&
+    apiNetworkId === '' &&
+    sortBy === 'v24hUSD' &&
+    sortType === 'desc' &&
+    pageSize === 20 &&
+    minLiquidity === 5000 &&
+    type === 'trending' &&
+    timeFrame === '2';
+  const marketTokenListSeedInitResult = useMemo(() => {
+    // The HTML bootstrap seed is only a first-page fallback for a brand-new
+    // web load. A valid local SWR cache is usually fresher, so seed is used
+    // only when there is no trusted cache for the current default query.
+    if (!shouldUseMarketHomeTokenListSeedForCurrentQuery) {
+      return undefined;
+    }
+    if (cachedMarketTokenListEntry) {
+      // If cache wins the first frame, drop the one-shot HTML seed so it
+      // cannot be reused later after that cache ages out.
+      discardMarketHomeTokenListSeedForInit();
+      return undefined;
+    }
+
+    return getMarketHomeTokenListSeedForInit();
+  }, [
+    cachedMarketTokenListEntry,
+    shouldUseMarketHomeTokenListSeedForCurrentQuery,
+  ]);
+  const trustedMarketTokenListFallbackRef = useRef(cachedMarketTokenListEntry);
+  const trustedMarketTokenListSwrKeyRef = useRef(marketTokenListSwrKey);
+  const hasTrustedMarketTokenListCacheRef = useRef(
+    Boolean(cachedMarketTokenListEntry),
+  );
+  hasTrustedMarketTokenListCacheRef.current = Boolean(
+    cachedMarketTokenListEntry,
+  );
+  if (trustedMarketTokenListSwrKeyRef.current !== marketTokenListSwrKey) {
+    trustedMarketTokenListSwrKeyRef.current = marketTokenListSwrKey;
+    trustedMarketTokenListFallbackRef.current = cachedMarketTokenListEntry;
+  }
+  const [remoteFirstPageLoadedQueryKey, setRemoteFirstPageLoadedQueryKey] =
+    useState<string>();
+  const remoteFirstPageLoadedQueryKeyRef = useRef(
+    remoteFirstPageLoadedQueryKey,
+  );
+  remoteFirstPageLoadedQueryKeyRef.current = remoteFirstPageLoadedQueryKey;
+  const pendingRemoteFirstPageLoadedQueryKeyRef = useRef<string | undefined>(
+    undefined,
+  );
+  const latestAuthoritativeFirstPageResultRef = useRef<
+    | {
+        queryKey: string;
+        result: IMarketTokenListResponseWithSource;
+      }
+    | undefined
+  >(undefined);
 
   const {
     result: apiResult,
@@ -197,30 +341,79 @@ export function useMarketTokenList({
         return undefined;
       }
       const requestQueryKey = currentQueryKeyRef.current;
-      const forceRemote = forceRemoteOnceRef.current;
-      forceRemoteOnceRef.current = false;
-      const response = await fetchMarketTokenListForPlatform(
-        {
-          networkId: apiNetworkId,
-          sortBy,
-          sortType,
-          page: 1,
-          limit: pageSize,
-          minLiquidity,
-          type,
-          timeFrame,
-        },
-        { forceRemote },
-      );
-      const responseWithSource = response as IMarketTokenListResponseWithSource;
+      const shouldAllowColdCacheFallback =
+        remoteFirstPageLoadedQueryKeyRef.current !== requestQueryKey;
+      pendingRemoteFirstPageLoadedQueryKeyRef.current = undefined;
+      const shouldBypassWebSeed =
+        platformEnv.isWeb &&
+        (bypassWebSeedOnceRef.current ||
+          hasTrustedMarketTokenListCacheRef.current);
+      bypassWebSeedOnceRef.current = false;
+      let response: IMarketTokenListResponseWithSource;
+      try {
+        response = await fetchMarketTokenListForPlatform(
+          {
+            networkId: apiNetworkId,
+            sortBy,
+            sortType,
+            page: 1,
+            limit: pageSize,
+            minLiquidity,
+            type,
+            timeFrame,
+          },
+          shouldBypassWebSeed ? { forceRemote: true } : undefined,
+        );
+      } catch (error) {
+        const latestAuthoritativeResult =
+          latestAuthoritativeFirstPageResultRef.current;
+        if (
+          latestAuthoritativeResult?.queryKey === requestQueryKey &&
+          remoteFirstPageLoadedQueryKeyRef.current === requestQueryKey &&
+          currentQueryKeyRef.current === requestQueryKey
+        ) {
+          return latestAuthoritativeResult.result;
+        }
+
+        const cachedEntry = trustedMarketTokenListFallbackRef.current;
+        if (
+          shouldAllowColdCacheFallback &&
+          isFreshMarketTokenListCacheEntry(cachedEntry) &&
+          currentQueryKeyRef.current === requestQueryKey
+        ) {
+          return {
+            ...cachedEntry.data,
+            __fromColdCacheFallback: true,
+          };
+        }
+        throw error;
+      }
+      const responseWithSource = response;
       if (currentQueryKeyRef.current !== requestQueryKey) {
         return undefined;
       }
-      return {
+      const nextResult = {
         list: response.list,
         total: response.total,
         __fromSeed: responseWithSource.__fromSeed,
+        __fromColdCacheFallback: responseWithSource.__fromColdCacheFallback,
       };
+      if (
+        !responseWithSource.__fromSeed &&
+        !responseWithSource.__fromColdCacheFallback &&
+        Array.isArray(responseWithSource.list)
+      ) {
+        pendingRemoteFirstPageLoadedQueryKeyRef.current = requestQueryKey;
+        trustedMarketTokenListFallbackRef.current = {
+          data: nextResult,
+          updatedAt: Date.now(),
+        };
+        latestAuthoritativeFirstPageResultRef.current = {
+          queryKey: requestQueryKey,
+          result: nextResult,
+        };
+      }
+      return nextResult;
     },
     [
       hasNetworkId,
@@ -238,27 +431,97 @@ export function useMarketTokenList({
       pollingInterval,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
+      initResult: marketTokenListSeedInitResult,
+      swrKey: marketTokenListSwrKey,
+      swrShouldPersist: (result) =>
+        Boolean(
+          result &&
+          Array.isArray(result.list) &&
+          !result.__fromSeed &&
+          !result.__fromColdCacheFallback,
+        ),
     },
   );
 
   const effectiveIsLoading = hasNetworkId ? isLoading : false;
   const isSeedResult = Boolean(apiResult?.__fromSeed);
+  const isColdCacheFallbackResult = Boolean(apiResult?.__fromColdCacheFallback);
+  const isAwaitingRemoteFirstPageResult =
+    hasNetworkId && remoteFirstPageLoadedQueryKey !== currentQueryKey;
+  // A normal SWR hit is still a cached page 1. Keep pagination locked until a
+  // remote page 1 lands, otherwise page 2 can be appended before page 1 gets
+  // revalidated and then replaced.
+  const isProvisionalFirstPageResult =
+    isSeedResult ||
+    isColdCacheFallbackResult ||
+    isAwaitingRemoteFirstPageResult;
+  const isProvisionalFirstPageResultRef = useRef(isProvisionalFirstPageResult);
+  isProvisionalFirstPageResultRef.current = isProvisionalFirstPageResult;
+  const shouldForceRemoteForProvisionalFirstPageResult =
+    isSeedResult || isColdCacheFallbackResult;
+  let provisionalFirstPageSource: 'seed' | 'cold-cache' | undefined;
+  if (isSeedResult) {
+    provisionalFirstPageSource = 'seed';
+  } else if (isColdCacheFallbackResult) {
+    provisionalFirstPageSource = 'cold-cache';
+  }
 
   useEffect(() => {
-    if (!platformEnv.isWeb || !isSeedResult || !hasNetworkId) {
+    if (
+      !platformEnv.isWeb ||
+      !shouldForceRemoteForProvisionalFirstPageResult ||
+      !hasNetworkId ||
+      !provisionalFirstPageSource
+    ) {
       return undefined;
     }
 
     const requestQueryKey = currentQueryKeyRef.current;
+    const forcedRemoteKey = `${provisionalFirstPageSource}:${requestQueryKey}`;
+    if (forcedRemoteProvisionalQueryKeysRef.current.has(forcedRemoteKey)) {
+      return undefined;
+    }
+    forcedRemoteProvisionalQueryKeysRef.current.add(forcedRemoteKey);
+
     const timer = setTimeout(() => {
       if (currentQueryKeyRef.current !== requestQueryKey) {
         return;
       }
-      forceRemoteOnceRef.current = true;
-      void fetchMarketTokenList();
+      bypassWebSeedOnceRef.current = true;
+      void fetchMarketTokenList().catch(() => undefined);
     }, 0);
     return () => clearTimeout(timer);
-  }, [fetchMarketTokenList, hasNetworkId, isSeedResult]);
+  }, [
+    fetchMarketTokenList,
+    hasNetworkId,
+    provisionalFirstPageSource,
+    shouldForceRemoteForProvisionalFirstPageResult,
+  ]);
+
+  useEffect(() => {
+    if (
+      !apiResult ||
+      apiResult.__fromSeed ||
+      apiResult.__fromColdCacheFallback
+    ) {
+      return;
+    }
+
+    const pendingQueryKey = pendingRemoteFirstPageLoadedQueryKeyRef.current;
+    if (!pendingQueryKey) {
+      return;
+    }
+    if (pendingQueryKey !== currentQueryKey) {
+      pendingRemoteFirstPageLoadedQueryKeyRef.current = undefined;
+      return;
+    }
+
+    // Unlock pagination only after the remote page 1 result is the rendered
+    // apiResult, not merely after the request promise resolves.
+    pendingRemoteFirstPageLoadedQueryKeyRef.current = undefined;
+    remoteFirstPageLoadedQueryKeyRef.current = pendingQueryKey;
+    setRemoteFirstPageLoadedQueryKey(pendingQueryKey);
+  }, [apiResult, currentQueryKey]);
 
   useEffect(() => {
     if (!hasNetworkId || !apiResult || !apiResult.list) {
@@ -296,6 +559,8 @@ export function useMarketTokenList({
     setTransformedData((prev) =>
       reuseStableMarketTokenRows({ prev, next: transformed }),
     );
+    setCurrentPage(1);
+    setHasReachedEnd(false);
 
     // Track network loading analytics
     trackNetworkLoading(networkId, apiResult.list.length);
@@ -343,15 +608,16 @@ export function useMarketTokenList({
 
   const refresh = useCallback(() => {
     // Don't clear data immediately - let new data load first
-    if (platformEnv.isWeb && isSeedResult) {
-      forceRemoteOnceRef.current = true;
+    if (platformEnv.isWeb && isProvisionalFirstPageResult) {
+      bypassWebSeedOnceRef.current = true;
     }
-    void fetchMarketTokenList();
-  }, [fetchMarketTokenList, isSeedResult]);
+    void fetchMarketTokenList().catch(() => undefined);
+  }, [fetchMarketTokenList, isProvisionalFirstPageResult]);
 
   const loadMore = useCallback(async () => {
     // Check if we can load more pages
     if (
+      isProvisionalFirstPageResult ||
       isLoadingMore ||
       loadedPageCount >= maxPages ||
       loadedPageCount >= totalPages ||
@@ -381,7 +647,10 @@ export function useMarketTokenList({
         timeFrame,
       });
 
-      if (currentQueryKeyRef.current !== requestQueryKey) {
+      if (
+        currentQueryKeyRef.current !== requestQueryKey ||
+        isProvisionalFirstPageResultRef.current
+      ) {
         return;
       }
 
@@ -415,6 +684,7 @@ export function useMarketTokenList({
       setIsLoadingMore(false);
     }
   }, [
+    isProvisionalFirstPageResult,
     isLoadingMore,
     loadedPageCount,
     totalCount,
@@ -449,6 +719,7 @@ export function useMarketTokenList({
     isLoading: effectiveIsLoading,
     isLoadingMore,
     isNetworkSwitching,
+    isProvisionalFirstPageResult,
     initialSortBy,
     initialSortType,
     totalPages,

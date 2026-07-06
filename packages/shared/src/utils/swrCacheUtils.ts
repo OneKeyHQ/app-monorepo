@@ -173,6 +173,7 @@ const NS = {
   perpsOrderBookTickOptions: 'perpsOrderBookTicks',
   perpsL2BookSnapshot: 'perpsL2Book',
   historyTxDetail: 'historyTxDetail',
+  marketHomeTokenList: 'marketHomeTokenList',
   swapStockTokenDetail: 'swapStockTokenDetail',
   swapStockSpeedConfig: 'swapStockSpeedConfig',
   swapStockPayTokenDetails: 'swapStockPayTokenDetails',
@@ -380,6 +381,34 @@ export const swrKeys = {
     txid: string;
   }) =>
     [NS.historyTxDetail, 'v1', networkId, accountAddress ?? '', txid].join(':'),
+  marketHomeTokenList: ({
+    networkId,
+    sortBy,
+    sortType,
+    pageSize,
+    minLiquidity,
+    type,
+    timeFrame,
+  }: {
+    networkId: string;
+    sortBy?: string;
+    sortType?: string;
+    pageSize?: number;
+    minLiquidity?: number;
+    type?: string;
+    timeFrame?: string;
+  }) =>
+    [
+      NS.marketHomeTokenList,
+      'v1',
+      networkId,
+      sortBy ?? '',
+      sortType ?? '',
+      pageSize ?? '',
+      minLiquidity ?? '',
+      type ?? '',
+      timeFrame ?? '',
+    ].join(':'),
   swapStockTokenDetail: ({ tokenScope }: { tokenScope: string }) =>
     [NS.swapStockTokenDetail, 'v1', tokenScope].join(':'),
   swapStockSpeedConfig: ({ networkId }: { networkId: string }) =>

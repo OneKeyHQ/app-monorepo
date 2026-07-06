@@ -2887,9 +2887,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       );
 
       if (!accountAddress) {
-        throw new OneKeyLocalError(
-          'Check perps account status ERROR: Account address is required',
-        );
+        return;
       }
 
       // Run exchange client setup and activation check in parallel —

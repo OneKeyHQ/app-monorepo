@@ -103,6 +103,10 @@ import {
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import {
+  useShouldShowSwapLocalData,
+  useSwapLimitOrdersLocalDataVisibility,
+} from '../../hooks/useSwapLocalDataVisibility';
 import { useSwapProSupportNetworksTokenList } from '../../hooks/useSwapPro';
 import {
   ESwapStockChannelStage,
@@ -1983,6 +1987,7 @@ function StockMarketContextPanel({
 
 function useSwapStockRecentTokenPairs() {
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
+  const shouldShowSwapLocalData = useShouldShowSwapLocalData();
   const stockPendingKey = useMemo(
     () =>
       getSwapMarketPendingHistoryKey(
@@ -1992,11 +1997,14 @@ function useSwapStockRecentTokenPairs() {
     [swapHistoryPendingList],
   );
   const { result: swapTxHistoryList } = usePromiseResult(async () => {
+    if (!shouldShowSwapLocalData) {
+      return [];
+    }
     const histories =
       await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
     return histories;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stockPendingKey]);
+  }, [stockPendingKey, shouldShowSwapLocalData]);
 
   return useMemo(
     () =>
@@ -2029,19 +2037,33 @@ function SwapStockDesktopContent({
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
-  const [{ swapHistoryPendingList, swapLimitOrders }] =
-    useInAppNotificationAtom();
+  const [
+    { swapHistoryPendingList, swapLimitOrders, swapLimitOrdersAccountIdKey },
+  ] = useInAppNotificationAtom();
   const stockChannel = useSwapStockTradeContext();
   const stockRecentTokenPairs = useSwapStockRecentTokenPairs();
+  const { shouldShowSwapLocalData, shouldShowSwapLimitOrders } =
+    useSwapLimitOrdersLocalDataVisibility(swapLimitOrdersAccountIdKey);
   const historyBadgeCount = useMemo(() => {
+    if (!shouldShowSwapLocalData) {
+      return 0;
+    }
     const stockPendingHistoryCount = getSwapMarketPendingHistoryList(
       swapHistoryPendingList,
       EProtocolOfExchange.SWAP,
     ).filter(isStockSwapHistoryItem).length;
     return (
-      stockPendingHistoryCount + getSwapLimitOpenOrderCount(swapLimitOrders)
+      stockPendingHistoryCount +
+      (shouldShowSwapLimitOrders
+        ? getSwapLimitOpenOrderCount(swapLimitOrders)
+        : 0)
     );
-  }, [swapHistoryPendingList, swapLimitOrders]);
+  }, [
+    shouldShowSwapLimitOrders,
+    shouldShowSwapLocalData,
+    swapHistoryPendingList,
+    swapLimitOrders,
+  ]);
 
   const handleTradeSideChange = useCallback(
     (nextTradeSide: ESwapStockTradeSide) => {

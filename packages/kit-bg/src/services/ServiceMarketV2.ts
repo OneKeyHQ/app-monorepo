@@ -67,6 +67,10 @@ type INormalizedMarketTokenListRequestParams = IMarketTokenListRequestParams & {
   limit: number;
 };
 
+type IFetchMarketTokenListOptions = {
+  forceRemote?: boolean;
+};
+
 @backgroundClass()
 class ServiceMarketV2 extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -268,30 +272,35 @@ class ServiceMarketV2 extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchMarketTokenList({
-    networkId,
-    sortBy,
-    sortType,
-    page = 1,
-    limit = 20,
-    minLiquidity,
-    maxLiquidity,
-    type,
-    timeFrame,
-  }: IMarketTokenListRequestParams) {
-    return this.memoizedFetchMarketTokenList(
-      this._normalizeMarketTokenListParams({
-        networkId,
-        sortBy,
-        sortType,
-        page,
-        limit,
-        minLiquidity,
-        maxLiquidity,
-        type,
-        timeFrame,
-      }),
-    );
+  async fetchMarketTokenList(
+    {
+      networkId,
+      sortBy,
+      sortType,
+      page = 1,
+      limit = 20,
+      minLiquidity,
+      maxLiquidity,
+      type,
+      timeFrame,
+    }: IMarketTokenListRequestParams,
+    options?: IFetchMarketTokenListOptions,
+  ) {
+    const normalizedParams = this._normalizeMarketTokenListParams({
+      networkId,
+      sortBy,
+      sortType,
+      page,
+      limit,
+      minLiquidity,
+      maxLiquidity,
+      type,
+      timeFrame,
+    });
+    if (options?.forceRemote) {
+      return this._fetchMarketTokenListFromApi(normalizedParams);
+    }
+    return this.memoizedFetchMarketTokenList(normalizedParams);
   }
 
   @backgroundMethod()
