@@ -69,9 +69,12 @@ function useDappApproveAction({
 }) {
   const isExtStandaloneWindow = platformEnv.isExtensionUiStandaloneWindow;
   const [rejectError, setRejectError] = useState<Error | null>(null);
-  // Idempotency guards: the standalone window keeps the modal on screen (no
-  // pop) until window.close() lands, so the buttons stay clickable for the
-  // last frame(s) — the first resolve/reject wins and the rest are no-ops.
+  // Idempotency guards — STANDALONE-WINDOW ONLY. Everywhere else the modal
+  // pops on decision so its buttons physically disappear and can't be double
+  // clicked; those flows must keep their original behavior untouched. In the
+  // standalone window the modal stays on screen (no pop) until window.close()
+  // lands, so the buttons remain clickable for the last frame(s) and need a
+  // guard: the first resolve/reject wins and the rest are no-ops.
   // isHandledRef: resolve/reject already sent to bg — final, blocks everything.
   // isResolvingRef: resolve is awaiting getResolveData — blocks user clicks,
   // but NOT the forced reject fired when the window is closing (otherwise a
@@ -91,9 +94,11 @@ function useDappApproveAction({
       isForce,
     }: { close?: () => void; error?: Error; isForce?: boolean } = {}) => {
       if (!id) return;
-      if (isHandledRef.current) return;
-      if (isResolvingRef.current && !isForce) return;
-      isHandledRef.current = true;
+      if (isExtStandaloneWindow) {
+        if (isHandledRef.current) return;
+        if (isResolvingRef.current && !isForce) return;
+        isHandledRef.current = true;
+      }
       // eslint-disable-next-line no-param-reassign
       const newError =
         error || rejectError || web3Errors.provider.userRejectedRequest();
@@ -120,17 +125,26 @@ function useDappApproveAction({
   const resolve = useCallback(
     async ({ close, result }: { close?: () => void; result?: any } = {}) => {
       if (!id) return;
-      if (isHandledRef.current || isResolvingRef.current) return;
-      isResolvingRef.current = true;
+      if (
+        isExtStandaloneWindow &&
+        (isHandledRef.current || isResolvingRef.current)
+      ) {
+        return;
+      }
+      if (isExtStandaloneWindow) {
+        isResolvingRef.current = true;
+      }
       try {
         setRejectError(null);
         const data = result ?? (await getResolveData?.());
-        if (isHandledRef.current) {
+        if (isExtStandaloneWindow && isHandledRef.current) {
           // A forced reject (window closing) settled the request while the
           // resolve payload was being built — drop this resolve.
           return;
         }
-        isHandledRef.current = true;
+        if (isExtStandaloneWindow) {
+          isHandledRef.current = true;
+        }
         void backgroundApiProxy.servicePromise.resolveCallback({
           id,
           data,
@@ -152,9 +166,11 @@ function useDappApproveAction({
         setRejectError(error as Error);
         throw error;
       } finally {
-        // On failure this re-arms retry (and the closeOnError auto-reject
-        // below); after success isHandledRef keeps blocking further calls.
-        isResolvingRef.current = false;
+        if (isExtStandaloneWindow) {
+          // On failure this re-arms retry (and the closeOnError auto-reject
+          // below); after success isHandledRef keeps blocking further calls.
+          isResolvingRef.current = false;
+        }
       }
     },
     [getResolveData, id, isExtStandaloneWindow, closeWindowAfterResolved],
