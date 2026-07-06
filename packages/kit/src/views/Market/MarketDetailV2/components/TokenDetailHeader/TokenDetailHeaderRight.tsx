@@ -7,7 +7,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
-import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
+import {
+  BaseMarketTokenPrice,
+  MarketTokenPrice,
+} from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -43,6 +46,7 @@ interface ITokenDetailHeaderRightProps {
   networkId?: string;
   isNative?: boolean;
   showStats: boolean;
+  isPreviewTokenDetail?: boolean;
   isStockToken?: boolean;
 }
 
@@ -51,6 +55,7 @@ export function TokenDetailHeaderRight({
   networkId,
   isNative,
   showStats,
+  isPreviewTokenDetail,
   isStockToken,
 }: ITokenDetailHeaderRightProps) {
   const intl = useIntl();
@@ -255,13 +260,22 @@ export function TokenDetailHeaderRight({
       <XStack ai="center" gap="$1.5">
         <XStack ai="center" jc="center" gap="$3">
           <YStack ai="flex-end">
-            <MarketTokenPrice
-              size="$bodyLgMedium"
-              price={currentPrice}
-              tokenName={name}
-              tokenSymbol={symbol}
-              lastUpdated={tokenDetail?.lastUpdated?.toString()}
-            />
+            {isPreviewTokenDetail ? (
+              <BaseMarketTokenPrice
+                size="$bodyLgMedium"
+                price={currentPrice}
+                tokenName={name}
+                tokenSymbol={symbol}
+              />
+            ) : (
+              <MarketTokenPrice
+                size="$bodyLgMedium"
+                price={currentPrice}
+                tokenName={name}
+                tokenSymbol={symbol}
+                lastUpdated={tokenDetail?.lastUpdated?.toString()}
+              />
+            )}
             {priceConverted ? (
               <NumberSizeableText
                 size="$bodySm"

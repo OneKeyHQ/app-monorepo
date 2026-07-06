@@ -101,6 +101,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const handleItemPress = useCallback(
     (item: IMarketToken) => {
       void toDetailPage({
+        ...item,
         tokenAddress: item.address,
         networkId: item.networkId,
         symbol: item.symbol,
