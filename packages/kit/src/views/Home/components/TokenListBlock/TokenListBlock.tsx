@@ -1211,6 +1211,14 @@ function TokenListBlock({
       accountId?: string;
       networkId?: string;
     }) => {
+      const updateCurrentAccountTask =
+        accountId && networkId
+          ? backgroundApiProxy.serviceToken.updateCurrentAccount({
+              accountId,
+              networkId,
+            })
+          : Promise.resolve();
+
       perfTokenListView.markStart('allNetworkRequestsStarted_getRawData');
 
       // eslint-disable-next-line prefer-const
@@ -1219,6 +1227,7 @@ function TokenListBlock({
         backgroundApiProxy.simpleDb.riskTokenManagement.getRawData(),
         backgroundApiProxy.simpleDb.localTokens.getRawData(),
         backgroundApiProxy.simpleDb.aggregateToken.getRawData(),
+        updateCurrentAccountTask,
       ]);
 
       perfTokenListView.markEnd('allNetworkRequestsStarted_getRawData');
