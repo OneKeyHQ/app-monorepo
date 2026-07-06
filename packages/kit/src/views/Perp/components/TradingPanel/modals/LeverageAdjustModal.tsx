@@ -217,7 +217,7 @@ const LeverageContent = memo(
               </SizableText>
             </XStack>
           </YStack>
-          <YStack gap="$3" pb="$4">
+          <YStack gap="$3">
             <XStack
               gap="$1"
               alignItems="center"
@@ -309,6 +309,11 @@ export const LeverageAdjustModal = memo(
         title: intl.formatMessage({
           id: ETranslations.perp_trading_adjust_leverage,
         }),
+        floatingPanelProps: platformEnv.isNativeAndroid
+          ? undefined
+          : {
+              width: 480,
+            },
         disableDrag: true,
         dismissOnOverlayPress: true,
         renderContent: (
