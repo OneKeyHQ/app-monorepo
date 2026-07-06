@@ -233,17 +233,18 @@ export function buildMergedAllNetworkSnapshot({
   };
 
   const flattenAggregateTokenMap = flattenAggregateTokensMap(aggregateTokenMap);
+  const displayTokenFiatMap = {
+    ...mergeTokenListMap,
+    ...flattenAggregateTokenMap,
+  };
 
   let mergedTokens = sortTokensByFiatValue({
     tokens: [...tokenList.tokens, ...smallBalanceTokenList.smallBalanceTokens],
-    map: {
-      ...mergeTokenListMap,
-      ...flattenAggregateTokenMap,
-    },
+    map: displayTokenFiatMap,
   });
 
   const index = mergedTokens.findIndex((token) =>
-    isUnavailableOrZeroFiatValue(mergeTokenListMap[token.$key]?.fiatValue),
+    isUnavailableOrZeroFiatValue(displayTokenFiatMap[token.$key]?.fiatValue),
   );
 
   if (index > -1) {
@@ -265,7 +266,7 @@ export function buildMergedAllNetworkSnapshot({
 
   smallBalanceTokensFiatValue = sumFiatValuesFromTokens(
     smallBalanceTokenList.smallBalanceTokens,
-    mergeTokenListMap,
+    displayTokenFiatMap,
   );
 
   riskyTokenList.riskyTokens = sortTokensByFiatValue({

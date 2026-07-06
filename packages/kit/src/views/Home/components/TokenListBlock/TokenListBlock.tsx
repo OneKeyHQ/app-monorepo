@@ -1211,6 +1211,13 @@ function TokenListBlock({
       accountId?: string;
       networkId?: string;
     }) => {
+      if (accountId && networkId) {
+        await backgroundApiProxy.serviceToken.updateCurrentAccount({
+          accountId,
+          networkId,
+        });
+      }
+
       perfTokenListView.markStart('allNetworkRequestsStarted_getRawData');
 
       // eslint-disable-next-line prefer-const
