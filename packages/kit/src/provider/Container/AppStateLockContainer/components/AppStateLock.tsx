@@ -115,35 +115,44 @@ const AppStateLock = ({
           const cred = await verifiedWebAuth(webAuthCredentialId, {
             platformAuthenticatorOnly: true,
           });
+          // Diagnostics only — no credential ids logged (not sensitive-safe).
           diagLog(
             `[KeychainLogUploadDiag] verifiedWebAuth resolved ${JSON.stringify({
               hasCred: !!cred,
-              credId: (cred as { id?: string } | undefined)?.id,
-              expected: webAuthCredentialId,
               match:
                 (cred as { id?: string } | undefined)?.id ===
                 webAuthCredentialId,
             })}`,
           );
+          // A returned-but-non-matching credential (e.g. a non-platform
+          // authenticator / USB key) is a real authenticator mismatch, not a
+          // lost keychain — keep blocking that.
           if (cred?.id !== webAuthCredentialId) {
             diagLog(
-              '[KeychainLogUploadDiag] mismatch/undefined -> return, dialog BLOCKED',
+              '[KeychainLogUploadDiag] mismatch -> return, dialog BLOCKED',
             );
             return;
           }
         } catch (e) {
-          // user cancelled or verification failed
+          // Verification could not complete: the platform credential is gone or
+          // broken, WebAuthn is unavailable, or the user cancelled — WebAuthn
+          // reports all of these as NotAllowedError and cannot tell them apart.
+          // Open the dialog anyway. Blocking here would dead-end a user whose
+          // keychain is broken (the exact situation this hidden entry exists
+          // for) with no way to upload diagnostics. Trade-off: a bystander who
+          // cancels the prompt can also reach the dialog, but the state logs
+          // carry no sensitive data and the entry needs 12 consecutive taps.
+          // (OK-56874 follow-up)
           const caught = e as { name?: string; message?: string };
           diagLog(
-            `[KeychainLogUploadDiag] handler caught error -> return, dialog BLOCKED ${JSON.stringify(
+            `[KeychainLogUploadDiag] handler caught error -> ALLOWED (open dialog) ${JSON.stringify(
               {
                 name: caught?.name,
                 message: caught?.message,
-                str: String(e),
               },
             )}`,
           );
-          return;
+          // fall through — open the dialog
         }
       }
     } else if (await biologyAuth.isSupportBiologyAuth()) {
