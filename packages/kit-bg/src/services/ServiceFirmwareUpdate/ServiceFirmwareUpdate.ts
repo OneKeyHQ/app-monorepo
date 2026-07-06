@@ -1656,18 +1656,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
     };
     const needOnboarding =
       fromFirmwareType && toFirmwareType && fromFirmwareType !== toFirmwareType;
-    const hardwareTransportType =
-      await this.backgroundApi.serviceSetting.getHardwareTransportType();
-
-    defaultLogger.update.firmware.firmwareUpdateResult({
-      deviceType: params.releaseResult.deviceType,
-      transportType: hardwareTransportType,
-      updateFlow: 'v2',
-      firmwareVersions: parseFirmwareVersions(params.releaseResult),
-      fromFirmwareType,
-      toFirmwareType,
-      status: 'success',
-    });
 
     await firmwareUpdateStepInfoAtom.set({
       step: EFirmwareUpdateSteps.updateDone,
@@ -1675,6 +1663,26 @@ class ServiceFirmwareUpdate extends ServiceBase {
         needOnboarding,
       },
     });
+
+    try {
+      const hardwareTransportType =
+        await this.backgroundApi.serviceSetting.getHardwareTransportType();
+
+      defaultLogger.update.firmware.firmwareUpdateResult({
+        deviceType: params.releaseResult.deviceType,
+        transportType: hardwareTransportType,
+        updateFlow: 'v2',
+        firmwareVersions: parseFirmwareVersions(params.releaseResult),
+        fromFirmwareType,
+        toFirmwareType,
+        status: 'success',
+      });
+    } catch (loggingError) {
+      serviceHardwareUtils.hardwareLog(
+        'completeUpdateWorkflow logging ERROR',
+        loggingError,
+      );
+    }
   }
 
   async failUpdateWorkflow({
@@ -1686,120 +1694,141 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }) {
     const err = toPlainErrorObject(error as any);
     const updateFirmwareInfo = params.releaseResult.updateInfos?.firmware;
-    const hardwareTransportType =
-      await this.backgroundApi.serviceSetting.getHardwareTransportType();
 
     serviceHardwareUtils.hardwareLog('startUpdateWorkflow ERROR', error);
-    defaultLogger.update.firmware.firmwareUpdateResult({
-      deviceType: params.releaseResult.deviceType,
-      transportType: hardwareTransportType,
-      updateFlow: 'v2',
-      firmwareVersions: parseFirmwareVersions(params.releaseResult),
-      fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
-      toFirmwareType: updateFirmwareInfo?.toFirmwareType,
-      status: 'failed',
-      errorCode: err?.code,
-      errorMessage: err?.message,
-    });
-
     await firmwareUpdateStepInfoAtom.set({
       step: EFirmwareUpdateSteps.error,
       payload: {
         error: err,
       },
     });
+
+    try {
+      const hardwareTransportType =
+        await this.backgroundApi.serviceSetting.getHardwareTransportType();
+
+      defaultLogger.update.firmware.firmwareUpdateResult({
+        deviceType: params.releaseResult.deviceType,
+        transportType: hardwareTransportType,
+        updateFlow: 'v2',
+        firmwareVersions: parseFirmwareVersions(params.releaseResult),
+        fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
+        toFirmwareType: updateFirmwareInfo?.toFirmwareType,
+        status: 'failed',
+        errorCode: err?.code,
+        errorMessage: err?.message,
+      });
+    } catch (loggingError) {
+      serviceHardwareUtils.hardwareLog(
+        'failUpdateWorkflow logging ERROR',
+        loggingError,
+      );
+    }
   }
 
   async runUpdateWorkflowV2(params: IUpdateFirmwareWorkflowParams) {
-    await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      async () => {
-        appEventBus.emit(EAppEventBusNames.BeginFirmwareUpdate, undefined);
-        // await other hardware task stop processing
-        await timerUtils.wait(3000);
+    try {
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+        async () => {
+          let shouldClearForceTransportType = false;
 
-        // Lock transport type during firmware update to prevent auto-switching
-        const currentTransportType =
-          await this.backgroundApi.serviceSetting.getHardwareTransportType();
-        await this.backgroundApi.serviceHardware.setForceTransportType({
-          forceTransportType: currentTransportType,
-        });
-        serviceHardwareUtils.hardwareLog(
-          'startUpdateWorkflowV2: locked transport type',
-          currentTransportType,
-        );
+          try {
+            appEventBus.emit(EAppEventBusNames.BeginFirmwareUpdate, undefined);
+            // await other hardware task stop processing
+            await timerUtils.wait(3000);
 
-        try {
-          // pre checking
-          await this.validateMnemonicBackuped(params);
-          await this.validateUSBConnection(params);
-          // must before validateMinVersionAllowed, go to https://help.onekey.so/
-          await this.validateShouldUpdateFullResource(params);
-          // go to https://firmware.onekey.so/
-          await this.validateMinVersionAllowed(params);
-          await this.validateDeviceBattery(params);
-          await this.validateShouldUpdateBridge(params);
-
-          // ** clear all retry tasks
-          await this.updateTasksClear('startUpdateWorkflow');
-
-          await this.cancelUpdateWorkflowIfExit();
-
-          const deviceType = params?.releaseResult?.deviceType;
-          if (deviceType !== EDeviceType.Pro) {
-            throw new OneKeyLocalError(
-              'Do not support update firmware for this device',
+            // Lock transport type during firmware update to prevent auto-switching
+            const currentTransportType =
+              await this.backgroundApi.serviceSetting.getHardwareTransportType();
+            await this.backgroundApi.serviceHardware.setForceTransportType({
+              forceTransportType: currentTransportType,
+            });
+            shouldClearForceTransportType = true;
+            serviceHardwareUtils.hardwareLog(
+              'startUpdateWorkflowV2: locked transport type',
+              currentTransportType,
             );
-          }
 
-          const updateResult =
-            await this.startUpdateFirmwareTaskForNewBootVersion(params);
-          console.log(
-            'startUpdateFirmwareTaskForNewBootVersion result: ===> ',
-            updateResult,
-          );
+            // pre checking
+            await this.validateMnemonicBackuped(params);
+            await this.validateUSBConnection(params);
+            // must before validateMinVersionAllowed, go to https://help.onekey.so/
+            await this.validateShouldUpdateFullResource(params);
+            // go to https://firmware.onekey.so/
+            await this.validateMinVersionAllowed(params);
+            await this.validateDeviceBattery(params);
+            await this.validateShouldUpdateBridge(params);
 
-          serviceHardwareUtils.hardwareLog('startUpdateWorkflow DONE', params);
+            // ** clear all retry tasks
+            await this.updateTasksClear('startUpdateWorkflow');
 
-          await firmwareUpdateRetryAtom.set(undefined);
-          if (params.releaseResult.originalConnectId) {
-            await this.waitDeviceRestart({
-              actionType: 'done',
-              releaseResult: params.releaseResult,
-            });
-            await this.detectMap.deleteUpdateInfo({
-              connectId: params.releaseResult.originalConnectId,
-            });
-            await this.backgroundApi.serviceHardware.updateDeviceVersionAfterFirmwareUpdate(
+            await this.cancelUpdateWorkflowIfExit();
+
+            const deviceType = params?.releaseResult?.deviceType;
+            if (deviceType !== EDeviceType.Pro) {
+              throw new OneKeyLocalError(
+                'Do not support update firmware for this device',
+              );
+            }
+
+            const updateResult =
+              await this.startUpdateFirmwareTaskForNewBootVersion(params);
+            console.log(
+              'startUpdateFirmwareTaskForNewBootVersion result: ===> ',
+              updateResult,
+            );
+
+            serviceHardwareUtils.hardwareLog(
+              'startUpdateWorkflow DONE',
               params,
             );
-            await this.clearOnceUpdateDevSettings();
-            appEventBus.emit(EAppEventBusNames.FinishFirmwareUpdate, undefined);
+
+            await firmwareUpdateRetryAtom.set(undefined);
+            if (params.releaseResult.originalConnectId) {
+              await this.waitDeviceRestart({
+                actionType: 'done',
+                releaseResult: params.releaseResult,
+              });
+              await this.detectMap.deleteUpdateInfo({
+                connectId: params.releaseResult.originalConnectId,
+              });
+              await this.backgroundApi.serviceHardware.updateDeviceVersionAfterFirmwareUpdate(
+                params,
+              );
+              await this.clearOnceUpdateDevSettings();
+              appEventBus.emit(
+                EAppEventBusNames.FinishFirmwareUpdate,
+                undefined,
+              );
+            }
+            // wait verify
+            await timerUtils.wait(2000);
+          } finally {
+            if (shouldClearForceTransportType) {
+              // Always clear transport type lock when firmware update completes
+              await this.backgroundApi.serviceHardware.clearForceTransportType();
+              serviceHardwareUtils.hardwareLog(
+                'startUpdateWorkflowV2: cleared transport type lock',
+              );
+            }
           }
-          // wait verify
-          await timerUtils.wait(2000);
-        } finally {
-          // Always clear transport type lock when firmware update completes
-          await this.backgroundApi.serviceHardware.clearForceTransportType();
-          serviceHardwareUtils.hardwareLog(
-            'startUpdateWorkflowV2: cleared transport type lock',
-          );
-          // Reset workflow running state at service level to prevent lock-screen bypass
-          await firmwareUpdateWorkflowRunningAtom.set(false);
-        }
-      },
-      {
-        deviceParams: {
-          dbDevice: {} as any,
         },
-        skipDeviceCancel: true,
-        hideCheckingDeviceLoading: true,
-        debugMethodName: 'startUpdateWorkflowV2',
-      },
-    );
+        {
+          deviceParams: {
+            dbDevice: {} as any,
+          },
+          skipDeviceCancel: true,
+          hideCheckingDeviceLoading: true,
+          debugMethodName: 'startUpdateWorkflowV2',
+        },
+      );
+    } finally {
+      // Reset workflow running state at service level to prevent lock-screen bypass
+      await firmwareUpdateWorkflowRunningAtom.set(false);
+    }
   }
 
   @backgroundMethod()
-  @toastIfError()
   async startUpdateWorkflowV2(params: IUpdateFirmwareWorkflowParams) {
     await firmwareUpdateWorkflowRunningAtom.set(true);
 
