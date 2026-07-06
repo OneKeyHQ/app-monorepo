@@ -331,6 +331,32 @@ function DAppAccountListItem({
   );
 }
 
+// Fixed-height placeholder shown while DAppAccountListStandAloneItem resolves
+// its accountSelectorNum (async bg RPC). Renders the same YGroup shell as the
+// real account card so the "Accounts" block keeps its height on the first
+// frame — otherwise the card pops in later and shoves the "Requested
+// permissions" section below it, which reads as a flicker. Mirrors the shell
+// used by DAppAccountListStandAloneItemReadonly.
+function DAppAccountListItemSkeleton() {
+  return (
+    <YGroup
+      bg="$bg"
+      borderRadius="$3"
+      borderColor="$borderSubdued"
+      borderWidth={StyleSheet.hairlineWidth}
+      separator={<Divider />}
+      disabled
+    >
+      <YGroup.Item>
+        <NetworkSelectorTriggerDappConnectionCmp isLoading triggerDisabled />
+      </YGroup.Item>
+      <YGroup.Item>
+        <AccountSelectorTriggerDappConnectionCmp isLoading triggerDisabled />
+      </YGroup.Item>
+    </YGroup>
+  );
+}
+
 export type IConnectedAccountInfoChangedParams = {
   num: number;
   existConnectedAccount: boolean;
@@ -439,7 +465,9 @@ function DAppAccountListStandAloneItem({
             preselectKeylessProvider={preselectKeylessProvider}
           />
         </AccountSelectorProviderMirror>
-      ) : null}
+      ) : (
+        <DAppAccountListItemSkeleton />
+      )}
     </YStack>
   );
 }
