@@ -1,6 +1,7 @@
 // import type only here to avoid cycle-deps error
 
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAsyncStorageWriteRequest } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
 
 import type { LocalDbBase } from '../dbs/local/LocalDbBase';
 import type { SimpleDb } from '../dbs/simple/base/SimpleDb';
@@ -132,6 +133,7 @@ export interface IBackgroundApiBridge {
     payload: IAppEventBusPayload[T],
     originNodeId?: string,
   ): Promise<boolean>;
+  writeAsyncStorage(request: IAsyncStorageWriteRequest): Promise<void>;
 
   // **** webview bridge
   bridge: JsBridgeBase | null;
