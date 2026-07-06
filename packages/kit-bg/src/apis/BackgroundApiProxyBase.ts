@@ -13,6 +13,7 @@ import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEvent
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IAsyncStorageWriteRequest } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
 import {
   ensurePromiseObject,
   ensureSerializable,
@@ -355,6 +356,10 @@ export class BackgroundApiProxyBase
     originNodeId?: string,
   ): Promise<boolean> {
     return this.callBackground('emitEvent', type, payload, originNodeId);
+  }
+
+  async writeAsyncStorage(request: IAsyncStorageWriteRequest): Promise<void> {
+    return this.callBackground('writeAsyncStorage', request);
   }
 
   bridge = {} as JsBridgeBase;
