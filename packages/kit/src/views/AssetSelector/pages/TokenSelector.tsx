@@ -102,6 +102,8 @@ type ITokenSelectorScopedViewSnapshot = {
   tokenListMap: Record<string, ITokenFiat>;
 };
 
+const TOKEN_SELECTOR_VIEW_CACHE_MAX_TOKEN_ROWS = 300;
+
 type ITokenSelectorHeaderRightProps = {
   showDeFiTokenSwitch?: boolean;
   loading?: boolean;
@@ -219,6 +221,101 @@ function hasNormalTokenSelectorSnapshotData(
   );
 }
 
+function getNormalTokenSelectorSnapshotRowCount(
+  snapshot: ITokenSelectorNormalViewSnapshot,
+) {
+  return (
+    snapshot.tokenList.tokens.length +
+    snapshot.tokenList.smallBalanceTokens.length
+  );
+}
+
+function getScopedTokenSelectorSnapshotRowCount(
+  snapshot: ITokenSelectorScopedViewSnapshot,
+) {
+  return snapshot.tokenList.tokens.length;
+}
+
+function isTokenSelectorViewCacheSizeSafe(rowCount: number) {
+  return rowCount <= TOKEN_SELECTOR_VIEW_CACHE_MAX_TOKEN_ROWS;
+}
+
+function readNormalTokenSelectorViewSnapshot(key: string | undefined) {
+  const snapshot =
+    readTokenSelectorViewSnapshot<ITokenSelectorNormalViewSnapshot>(key);
+  if (
+    snapshot &&
+    !isTokenSelectorViewCacheSizeSafe(
+      getNormalTokenSelectorSnapshotRowCount(snapshot),
+    )
+  ) {
+    if (key) {
+      swrCacheUtils.remove(key);
+    }
+    return undefined;
+  }
+  return snapshot;
+}
+
+function readScopedTokenSelectorViewSnapshot(key: string | undefined) {
+  const snapshot =
+    readTokenSelectorViewSnapshot<ITokenSelectorScopedViewSnapshot>(key);
+  if (
+    snapshot &&
+    !isTokenSelectorViewCacheSizeSafe(
+      getScopedTokenSelectorSnapshotRowCount(snapshot),
+    )
+  ) {
+    if (key) {
+      swrCacheUtils.remove(key);
+    }
+    return undefined;
+  }
+  return snapshot;
+}
+
+function writeNormalTokenSelectorViewSnapshot({
+  key,
+  snapshot,
+}: {
+  key: string | undefined;
+  snapshot: ITokenSelectorNormalViewSnapshot;
+}) {
+  if (!key) {
+    return;
+  }
+  if (
+    !isTokenSelectorViewCacheSizeSafe(
+      getNormalTokenSelectorSnapshotRowCount(snapshot),
+    )
+  ) {
+    swrCacheUtils.remove(key);
+    return;
+  }
+  writeTokenSelectorViewSnapshot({ key, snapshot });
+}
+
+function writeScopedTokenSelectorViewSnapshot({
+  key,
+  snapshot,
+}: {
+  key: string | undefined;
+  snapshot: ITokenSelectorScopedViewSnapshot;
+}) {
+  if (!key) {
+    return;
+  }
+  if (
+    !isTokenSelectorViewCacheSizeSafe(
+      getScopedTokenSelectorSnapshotRowCount(snapshot),
+    )
+  ) {
+    swrCacheUtils.remove(key);
+    return;
+  }
+  writeTokenSelectorViewSnapshot({ key, snapshot });
+}
+
 function buildNormalTokenSelectorViewSnapshot({
   tokenList,
   tokenListMap,
@@ -272,7 +369,6 @@ function TokenSelector() {
     activeNetworkId,
     forceShowActiveAccountTokenList,
     aggregateTokenSelectorScreen,
-    tokens: routeTokens,
     allAggregateTokenMap,
     hideZeroBalanceTokens,
     keepDefaultZeroBalanceTokens,
@@ -442,32 +538,28 @@ function TokenSelector() {
     () =>
       buildNormalTokenSelectorViewSnapshot({
         tokenList: {
-          tokens: routeTokens?.data ?? [],
+          tokens: [],
           smallBalanceTokens: [],
         },
-        tokenListMap: routeTokens?.map ?? {},
-        aggregateTokenListMap: allAggregateTokenMap ?? {},
+        tokenListMap: {},
+        aggregateTokenListMap: {},
         aggregateTokenFiatMap: {},
       }),
-    [allAggregateTokenMap, routeTokens],
+    [],
   );
 
   const initialNormalTokenSelectorSnapshot = useMemo(
     () =>
-      readTokenSelectorViewSnapshot<ITokenSelectorNormalViewSnapshot>(
-        normalTokenSelectorViewSWRKey,
-      ) ?? routeTokenSelectorCache,
+      readNormalTokenSelectorViewSnapshot(normalTokenSelectorViewSWRKey) ??
+      routeTokenSelectorCache,
     [normalTokenSelectorViewSWRKey, routeTokenSelectorCache],
   );
 
   const initialScopedTokenSelectorSnapshot = useMemo(
     () =>
-      readTokenSelectorViewSnapshot<ITokenSelectorScopedViewSnapshot>(
+      readScopedTokenSelectorViewSnapshot(
         activeAccountTokenSelectorViewSWRKey,
-      ) ??
-      readTokenSelectorViewSnapshot<ITokenSelectorScopedViewSnapshot>(
-        filteredTokenSelectorViewSWRKey,
-      ),
+      ) ?? readScopedTokenSelectorViewSnapshot(filteredTokenSelectorViewSWRKey),
     [activeAccountTokenSelectorViewSWRKey, filteredTokenSelectorViewSWRKey],
   );
 
@@ -989,9 +1081,8 @@ function TokenSelector() {
 
   const restoreCachedNormalTokenSelectorSnapshot = useCallback(() => {
     const cachedSnapshot =
-      readTokenSelectorViewSnapshot<ITokenSelectorNormalViewSnapshot>(
-        normalTokenSelectorViewSWRKey,
-      ) ?? routeTokenSelectorCache;
+      readNormalTokenSelectorViewSnapshot(normalTokenSelectorViewSWRKey) ??
+      routeTokenSelectorCache;
     if (!hasNormalTokenSelectorSnapshotData(cachedSnapshot)) {
       return false;
     }
@@ -1016,10 +1107,7 @@ function TokenSelector() {
   useEffect(() => {
     const scopedKey =
       activeAccountTokenSelectorViewSWRKey ?? filteredTokenSelectorViewSWRKey;
-    const snapshot =
-      readTokenSelectorViewSnapshot<ITokenSelectorScopedViewSnapshot>(
-        scopedKey,
-      );
+    const snapshot = readScopedTokenSelectorViewSnapshot(scopedKey);
     if (!snapshot) {
       return;
     }
@@ -1097,10 +1185,9 @@ function TokenSelector() {
       return;
     }
 
-    const cachedSnapshot =
-      readTokenSelectorViewSnapshot<ITokenSelectorScopedViewSnapshot>(
-        filteredTokenSelectorViewSWRKey,
-      );
+    const cachedSnapshot = readScopedTokenSelectorViewSnapshot(
+      filteredTokenSelectorViewSWRKey,
+    );
     if (cachedSnapshot) {
       applyScopedTokenSelectorSnapshot({
         snapshot: cachedSnapshot,
@@ -1156,7 +1243,7 @@ function TokenSelector() {
           isRefreshing: false,
         },
       });
-      writeTokenSelectorViewSnapshot({
+      writeScopedTokenSelectorViewSnapshot({
         key: filteredTokenSelectorViewSWRKey,
         snapshot,
       });
@@ -1215,10 +1302,9 @@ function TokenSelector() {
         return;
       }
 
-      const cachedSnapshot =
-        readTokenSelectorViewSnapshot<ITokenSelectorScopedViewSnapshot>(
-          activeAccountTokenSelectorViewSWRKey,
-        );
+      const cachedSnapshot = readScopedTokenSelectorViewSnapshot(
+        activeAccountTokenSelectorViewSWRKey,
+      );
       if (cachedSnapshot) {
         applyScopedTokenSelectorSnapshot({
           snapshot: cachedSnapshot,
@@ -1295,7 +1381,7 @@ function TokenSelector() {
             initialized: true,
           },
         });
-        writeTokenSelectorViewSnapshot({
+        writeScopedTokenSelectorViewSnapshot({
           key: activeAccountTokenSelectorViewSWRKey,
           snapshot,
         });
@@ -1419,7 +1505,7 @@ function TokenSelector() {
           aggregateTokenFiatMap: snapshot.map,
         });
         applyNormalTokenSelectorSnapshot(floorSnapshot);
-        writeTokenSelectorViewSnapshot({
+        writeNormalTokenSelectorViewSnapshot({
           key: normalTokenSelectorViewSWRKey,
           snapshot: floorSnapshot,
         });
@@ -1566,7 +1652,7 @@ function TokenSelector() {
       });
       applyNormalTokenSelectorSnapshot(snapshot);
       if (!isIncompleteAllNetworksFanOut) {
-        writeTokenSelectorViewSnapshot({
+        writeNormalTokenSelectorViewSnapshot({
           key: normalTokenSelectorViewSWRKey,
           snapshot,
         });

@@ -469,7 +469,7 @@ function listCrashReports() {
       const stat = fs.statSync(file);
       return { path: file, mtimeMs: stat.mtimeMs, size: stat.size };
     })
-    .sort((a, b) => b.mtimeMs - a.mtimeMs);
+    .toSorted((a, b) => b.mtimeMs - a.mtimeMs);
 }
 
 function parseCrashReport(file) {
@@ -510,10 +510,23 @@ function parseCrashReport(file) {
   };
 }
 
+function formatErrorForLog(e) {
+  if (e instanceof Error) {
+    return { name: e.name };
+  }
+  return { name: typeof e };
+}
+
 function copyNativeLogTail(label) {
   try {
     const appData = getAppDataDir();
-    const log = path.join(appData, 'Library', 'Caches', 'logs', 'app-latest.log');
+    const log = path.join(
+      appData,
+      'Library',
+      'Caches',
+      'logs',
+      'app-latest.log',
+    );
     if (!fs.existsSync(log)) return undefined;
     const out = path.join(crashDir, `${label}-app-latest-tail.log`);
     const result = runCommand('tail', ['-2000', log], {
@@ -523,7 +536,10 @@ function copyNativeLogTail(label) {
     fs.writeFileSync(out, result.stdout);
     return out;
   } catch (e) {
-    writeEvent({ phase: 'native-log-tail-failed', error: String(e) });
+    writeEvent({
+      phase: 'native-log-tail-failed',
+      error: formatErrorForLog(e),
+    });
     return undefined;
   }
 }
@@ -615,7 +631,9 @@ function writeSummary(status) {
     if (crashDetected.crashScreenshot) {
       lines.push(`- Screen at detection: ${crashDetected.crashScreenshot}`);
     }
-    lines.push(`- Exception: ${JSON.stringify(crashDetected.parsed.exception)}`);
+    lines.push(
+      `- Exception: ${JSON.stringify(crashDetected.parsed.exception)}`,
+    );
     lines.push(
       `- Faulting thread: ${crashDetected.parsed.faultingThread} ${crashDetected.parsed.threadName ?? ''}`,
     );
@@ -652,9 +670,11 @@ try {
   writeEvent({ phase: 'run:done', status: 'passed-no-crash-detected' });
   console.log(`[home-token-stress] done: ${summaryPath}`);
 } catch (e) {
-  writeEvent({ phase: 'run:error', error: String(e) });
-  writeSummary(crashDetected ? 'failed-crash-detected' : 'failed-command-error');
-  console.error(`[home-token-stress] failed: ${String(e)}`);
+  writeEvent({ phase: 'run:error', error: formatErrorForLog(e) });
+  writeSummary(
+    crashDetected ? 'failed-crash-detected' : 'failed-command-error',
+  );
+  console.error(`[home-token-stress] failed: ${formatErrorForLog(e).name}`);
   console.error(`[home-token-stress] summary: ${summaryPath}`);
   process.exit(1);
 }
