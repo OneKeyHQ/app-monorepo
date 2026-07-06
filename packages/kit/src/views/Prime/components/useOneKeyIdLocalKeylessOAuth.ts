@@ -34,7 +34,11 @@ export function useOneKeyIdLocalKeylessOAuth({
   forceAccountMismatchToast?: boolean;
 }) {
   const intl = useIntl();
-  const { signInWithSocialLogin, keylessSupabaseSignOut } = useOneKeyAuth();
+  const {
+    signInWithSocialLogin,
+    keylessSupabaseSignOut,
+    persistKeylessOAuthSession,
+  } = useOneKeyAuth();
   const localKeylessPrepareStatus = localKeylessLoginPrepareResult?.status;
   const localKeylessProvider = localKeylessLoginPrepareResult?.provider;
   const isLocalKeylessOAuthMode = isOneKeyIdLocalKeylessOAuthMode(
@@ -124,22 +128,22 @@ export function useOneKeyIdLocalKeylessOAuth({
       }
 
       if (!accessToken) {
-        const result = await signInWithSocialLogin(provider, {
-          persistSession: true,
-        });
+        // Sign in WITHOUT persisting the OAuth session: there is a single
+        // shared keyless session slot, and persisting before validation
+        // would let a wrong-account session overwrite the still-valid one
+        // (see the persistKeylessOAuthSession contract in useSupabaseAuth).
+        const result = await signInWithSocialLogin(provider);
         accessToken = result?.session?.accessToken || '';
+        const refreshToken = result?.session?.refreshToken || '';
         if (!accessToken) {
           throw new OneKeyLocalError(missingTokenMessage);
         }
         didUseOAuthSignIn = true;
-        try {
-          await assertTokenMatchesLocalKeylessWallet({ accessToken });
-        } catch (error) {
-          if (isLocalKeylessOAuthMode) {
-            await clearOAuthSignInTempSession();
-          }
-          throw error;
-        }
+        // Throws on mismatch. Nothing has been persisted yet, so the
+        // previously persisted keyless session stays intact and no cleanup
+        // is needed here.
+        await assertTokenMatchesLocalKeylessWallet({ accessToken });
+        await persistKeylessOAuthSession({ accessToken, refreshToken });
       }
 
       return {
@@ -149,9 +153,9 @@ export function useOneKeyIdLocalKeylessOAuth({
     },
     [
       assertTokenMatchesLocalKeylessWallet,
-      clearOAuthSignInTempSession,
       isLocalKeylessOAuthMode,
       localKeylessProvider,
+      persistKeylessOAuthSession,
       signInWithSocialLogin,
     ],
   );

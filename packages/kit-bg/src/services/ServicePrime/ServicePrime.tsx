@@ -532,7 +532,12 @@ class ServicePrime extends ServiceBase {
       // Invalidation site (OAuth login): same as apiLogin — drop any
       // pre-login cached user info before the session changes.
       this.clearPrimeUserInfoCache();
-      await this.backgroundApi.simpleDb.prime.clearAuthTokens();
+      // Clear only the deprecated cached token (same rule as apiLogin): the
+      // authSessionSource must survive a transient POST failure, because a
+      // wiped KeylessOAuth source is never re-inferred (see
+      // getEffectiveAuthSessionSource) and would permanently orphan a
+      // still-valid keyless session. The source is committed after success.
+      await this.backgroundApi.simpleDb.prime.clearCachedAuthToken();
       const client = await this.getPrimeClient();
       const result = await client.post<
         IApiClientResponse<IOneKeyIdOAuthLoginResponse>
@@ -955,7 +960,18 @@ class ServicePrime extends ServiceBase {
       },
     );
     if (instanceId) {
-      await this.apiLogin({ accessToken });
+      // Re-login through the endpoint matching the active auth session
+      // source: a KeylessOAuth session token belongs to the keyless Supabase
+      // realm and must go to /prime/v1/account/oauth/login — posting it to
+      // the legacy /prime/v1/user/login could be rejected as an invalid
+      // legacy token and cascade into a full logout.
+      const authSessionSource =
+        await this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource();
+      if (authSessionSource === EPrimeAuthSessionSource.KeylessOAuth) {
+        await this.apiOAuthLogin({ accessToken });
+      } else {
+        await this.apiLogin({ accessToken });
+      }
       // Refresh from profile + legacy user info for accurate
       // isPrimeDeviceLimitExceeded, as the login endpoint may return stale
       // device limit data after removal.
@@ -1129,8 +1145,14 @@ class ServicePrime extends ServiceBase {
         onekeyAccount?.normalizedEmail ??
         serverUserInfo?.emails?.[0] ??
         undefined;
+      // Keep the previous displayEmail when neither response carries one
+      // (e.g. the profile GET failed while /user/info succeeded, or the
+      // endpoint omits the optional field) — mirrors the onekeyAccount
+      // preservation below so a partial refresh cannot blank the UI email.
       const displayEmail =
-        onekeyAccount?.displayEmail ?? serverUserInfo?.displayEmail;
+        onekeyAccount?.displayEmail ??
+        serverUserInfo?.displayEmail ??
+        v.displayEmail;
       const shouldKeepExistingOneKeyAccount =
         !onekeyAccount && v.onekeyAccount?.onekeyUserId === serverUserId;
       return {

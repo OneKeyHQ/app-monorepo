@@ -33,10 +33,7 @@ import {
   KeylessDataCorruptedError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
-import {
-  EOneKeyErrorClassNames,
-  type IOneKeyError,
-} from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type {
   IKeylessBackendShare,
@@ -58,6 +55,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { isRetryableSupabaseAuthError } from '@onekeyhq/shared/src/utils/supabaseAuthErrorUtils';
+import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 import { getKeylessSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -1351,46 +1349,10 @@ class ServiceKeylessWallet extends ServiceBase {
     if (isRetryableSupabaseAuthError(error)) {
       return true;
     }
-    if (
-      errorUtils.isErrorByClassName({
-        error,
-        className: EOneKeyErrorClassNames.AxiosNetworkError,
-      })
-    ) {
-      return true;
-    }
-    const httpStatusCode = (error as IOneKeyError | undefined)?.httpStatusCode;
-    if (typeof httpStatusCode === 'number') {
-      // Allowlist of HTTP statuses that represent transient infrastructure
-      // failures (vs. real policy/auth rejections). Anything else — e.g. 401
-      // / 403 / 404 / 422 — is a real failure that should consume the
-      // throttle so we don't hammer the server on every wake.
-      if (
-        (httpStatusCode >= 500 && httpStatusCode < 600) ||
-        httpStatusCode === 408 ||
-        httpStatusCode === 429
-      ) {
-        return true;
-      }
-    }
-    // Axios timeout / DNS / connection errors that the interceptor does not
-    // rewrap (e.g. ECONNABORTED, ETIMEDOUT, ENOTFOUND) bubble up as raw
-    // AxiosError. Match by `.code` so we don't depend on locale-sensitive
-    // `.message` strings.
-    const errorCode = (error as { code?: string | number } | undefined)?.code;
-    if (typeof errorCode === 'string') {
-      if (
-        errorCode === 'ECONNABORTED' ||
-        errorCode === 'ETIMEDOUT' ||
-        errorCode === 'ECONNRESET' ||
-        errorCode === 'ECONNREFUSED' ||
-        errorCode === 'ENOTFOUND' ||
-        errorCode === 'ERR_NETWORK'
-      ) {
-        return true;
-      }
-    }
-    return false;
+    // Shared classifier for axios / HTTP-status / connection errors — the
+    // main runtime uses the same one (useKeylessWallet), so both runtimes
+    // classify a bridged error identically.
+    return isTransientNetworkLikeError(error);
   }
 
   private async restoreKeylessBackendShareV2MigrationRecord(params: {
@@ -2934,7 +2896,23 @@ class ServiceKeylessWallet extends ServiceBase {
         refresh_token: refreshToken,
       }),
     });
+    // Transient HTTP failures (auth server down / timeout / rate limited)
+    // keep the blob so a later attempt can retry the exchange.
+    if (
+      response.status >= 500 ||
+      response.status === 408 ||
+      response.status === 429
+    ) {
+      return null;
+    }
     if (!response.ok) {
+      // Any other 4xx (400 invalid_grant / 401 / 403) means the refresh
+      // token was definitively rejected (revoked / expired / already rotated
+      // elsewhere). The blob is dead and would fail on every retry — drop it
+      // so prepareOneKeyIdLoginWithLocalKeyless stops steering to
+      // ContinueWithKeyless (passcode prompt + doomed exchange) and routes
+      // to a fresh OAuth login instead. Mirrors the passive migration path.
+      await this.removeLegacyKeylessOAuthTokens({ ownerId });
       return null;
     }
 
@@ -2956,6 +2934,17 @@ class ServiceKeylessWallet extends ServiceBase {
     if (mismatchReason) {
       return null;
     }
+
+    // Supabase rotates refresh tokens on use — the exchange above consumed
+    // the stored token, so persist the rotated one back (only after it has
+    // been validated against the local wallet, mirroring the passive
+    // migration path). If setSession below throws, the blob then still holds
+    // a usable token for the next attempt instead of a consumed one.
+    await this.saveLegacyKeylessOAuthRefreshToken({
+      ownerId,
+      refreshToken: nextRefreshToken,
+      password,
+    });
 
     const setSessionResult =
       await getKeylessSupabaseClient().client.auth.setSession({
