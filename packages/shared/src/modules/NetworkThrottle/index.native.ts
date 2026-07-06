@@ -12,7 +12,15 @@ export type {
   INativeNetworkThrottleConfig,
   INativeNetworkThrottleProfile,
 } from './types';
-export { NATIVE_SLOW_4G_LATENCY_MS } from './types';
+export {
+  NATIVE_SLOW_4G_DOWNLOAD_BPS,
+  NATIVE_SLOW_4G_LATENCY_MS,
+  NATIVE_SLOW_4G_UPLOAD_BPS,
+  NETWORK_THROTTLE_102_KIB_BPS,
+  NETWORK_THROTTLE_SLOW_4G_DOWNLOAD_BPS,
+  NETWORK_THROTTLE_SLOW_4G_LATENCY_MS,
+  NETWORK_THROTTLE_SLOW_4G_UPLOAD_BPS,
+} from './types';
 export {
   getNetworkThrottleRuntimeConfig,
   setNetworkThrottleRuntimeConfig,

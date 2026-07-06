@@ -68,7 +68,10 @@ import {
   isSpanning,
 } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
-import { NATIVE_SLOW_4G_LATENCY_MS } from '@onekeyhq/shared/src/modules/NetworkThrottle';
+import {
+  NATIVE_SLOW_4G_LATENCY_MS,
+  NETWORK_THROTTLE_102_KIB_BPS,
+} from '@onekeyhq/shared/src/modules/NetworkThrottle';
 import {
   requestPermissionsAsync,
   setBadgeCountAsync,
@@ -124,6 +127,10 @@ import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
 import { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
 import { TestAccountsDevSetting } from './TestAccountsDevSetting';
+
+const NETWORK_THROTTLE_RATE_LABEL = `${
+  NETWORK_THROTTLE_102_KIB_BPS / 1024
+} KiB/s`;
 
 const LazyNavigationDiagnosticsSection = LazyLoad(async () => {
   const { NavigationDiagnosticsSection } =
@@ -1126,7 +1133,7 @@ const BaseDevSettingsSection = () => {
                           title="Desktop Slow 4G Network Throttle"
                           subtitle={
                             networkThrottleEnabled
-                              ? 'Slow 4G latency enabled: 562.5ms'
+                              ? `Slow 4G enabled: ${NETWORK_THROTTLE_RATE_LABEL}, ${NATIVE_SLOW_4G_LATENCY_MS}ms latency`
                               : 'Disabled'
                           }
                           drillIn={false}
@@ -1146,7 +1153,7 @@ const BaseDevSettingsSection = () => {
                           title="Native Slow 4G Network Throttle"
                           subtitle={
                             networkThrottleEnabled
-                              ? `Slow 4G latency enabled: ${NATIVE_SLOW_4G_LATENCY_MS}ms`
+                              ? `Slow 4G enabled: ${NETWORK_THROTTLE_RATE_LABEL}, ${NATIVE_SLOW_4G_LATENCY_MS}ms latency`
                               : 'Disabled'
                           }
                           drillIn={false}

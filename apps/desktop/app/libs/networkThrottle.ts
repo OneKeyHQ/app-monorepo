@@ -2,6 +2,11 @@ import { type Session, type WebContents, session, webContents } from 'electron';
 import logger from 'electron-log/main';
 
 import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
+import {
+  NETWORK_THROTTLE_SLOW_4G_DOWNLOAD_BPS,
+  NETWORK_THROTTLE_SLOW_4G_LATENCY_MS,
+  NETWORK_THROTTLE_SLOW_4G_UPLOAD_BPS,
+} from '@onekeyhq/shared/src/modules/NetworkThrottle';
 import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
 import { syncStorage } from '@onekeyhq/shared/src/storage/instance/syncStorageInstance';
 import {
@@ -61,9 +66,9 @@ const DESKTOP_NETWORK_THROTTLE_PROFILES: Record<
 > = {
   slow4g: {
     offline: false,
-    latency: 562.5,
-    downloadThroughput: 180_000,
-    uploadThroughput: 84_375,
+    latency: NETWORK_THROTTLE_SLOW_4G_LATENCY_MS,
+    downloadThroughput: NETWORK_THROTTLE_SLOW_4G_DOWNLOAD_BPS,
+    uploadThroughput: NETWORK_THROTTLE_SLOW_4G_UPLOAD_BPS,
   },
 };
 

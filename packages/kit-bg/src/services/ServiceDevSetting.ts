@@ -7,7 +7,9 @@ import {
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import nativeNetworkThrottle, {
+  NATIVE_SLOW_4G_DOWNLOAD_BPS,
   NATIVE_SLOW_4G_LATENCY_MS,
+  NATIVE_SLOW_4G_UPLOAD_BPS,
   setNetworkThrottleRuntimeConfig,
 } from '@onekeyhq/shared/src/modules/NetworkThrottle';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
@@ -89,12 +91,16 @@ class ServiceDevSetting extends ServiceBase {
           enabled: Boolean(config.enabled),
           profile: 'slow4g',
           latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
+          downloadBps: NATIVE_SLOW_4G_DOWNLOAD_BPS,
+          uploadBps: NATIVE_SLOW_4G_UPLOAD_BPS,
         });
       } else {
         setNetworkThrottleRuntimeConfig({
           enabled: false,
           profile: 'slow4g',
           latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
+          downloadBps: NATIVE_SLOW_4G_DOWNLOAD_BPS,
+          uploadBps: NATIVE_SLOW_4G_UPLOAD_BPS,
         });
       }
     }
@@ -129,6 +135,8 @@ class ServiceDevSetting extends ServiceBase {
         enabled: actualEnabled,
         profile: 'slow4g',
         latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
+        downloadBps: NATIVE_SLOW_4G_DOWNLOAD_BPS,
+        uploadBps: NATIVE_SLOW_4G_UPLOAD_BPS,
       });
       if (actualEnabled !== devSettings.settings?.networkThrottleEnabled) {
         await devSettingsPersistAtom.set((prev) => ({

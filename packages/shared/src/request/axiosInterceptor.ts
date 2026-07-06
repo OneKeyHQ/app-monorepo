@@ -17,7 +17,9 @@ import { appLocale } from '../locale/appLocale';
 import { defaultLogger } from '../logger/logger';
 import { isEnableLogNetwork } from '../logger/scopes/app/scenes/networkFilter';
 import nativeNetworkThrottle, {
+  NATIVE_SLOW_4G_DOWNLOAD_BPS,
   NATIVE_SLOW_4G_LATENCY_MS,
+  NATIVE_SLOW_4G_UPLOAD_BPS,
   getNetworkThrottleRuntimeConfig,
 } from '../modules/NetworkThrottle';
 import platformEnv from '../platformEnv';
@@ -99,6 +101,8 @@ function normalizeDesktopNetworkThrottleTimingConfig(config: {
     enabled: Boolean(config.enabled),
     profile: 'slow4g',
     latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
+    downloadBps: NATIVE_SLOW_4G_DOWNLOAD_BPS,
+    uploadBps: NATIVE_SLOW_4G_UPLOAD_BPS,
   };
 }
 
@@ -118,6 +122,8 @@ async function syncNativeNetworkThrottleFromDevSettings(): Promise<boolean> {
     enabled,
     profile: 'slow4g',
     latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
+    downloadBps: NATIVE_SLOW_4G_DOWNLOAD_BPS,
+    uploadBps: NATIVE_SLOW_4G_UPLOAD_BPS,
   });
   lastSyncedNativeNetworkThrottleEnabled = enabled;
   return isStableStorageState;
@@ -264,6 +270,8 @@ function logNetworkThrottleRequestTiming({
     throttleEnabled: throttleConfig.enabled,
     throttleProfile: throttleConfig.profile,
     latencyMs: throttleConfig.latencyMs,
+    downloadBps: throttleConfig.downloadBps,
+    uploadBps: throttleConfig.uploadBps,
     platform: platformEnv.appPlatform,
     runtime: platformEnv.runtimeRole,
     nativeRuntimeKind: platformEnv.nativeRuntimeKind,

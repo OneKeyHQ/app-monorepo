@@ -47,7 +47,10 @@ import {
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
-import nativeNetworkThrottle from '@onekeyhq/shared/src/modules/NetworkThrottle';
+import nativeNetworkThrottle, {
+  NATIVE_SLOW_4G_DOWNLOAD_BPS,
+  NATIVE_SLOW_4G_UPLOAD_BPS,
+} from '@onekeyhq/shared/src/modules/NetworkThrottle';
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
@@ -835,6 +838,8 @@ export function Bootstrap() {
       .setNetworkThrottle({
         enabled: networkThrottleEnabled,
         profile: 'slow4g',
+        downloadBps: NATIVE_SLOW_4G_DOWNLOAD_BPS,
+        uploadBps: NATIVE_SLOW_4G_UPLOAD_BPS,
       })
       .catch(() => undefined);
   }, [devSettings.enabled, networkThrottleEnabled]);
