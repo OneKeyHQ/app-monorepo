@@ -383,7 +383,7 @@ axios.interceptors.response.use(
         autoToast = false;
       }
 
-      throw new OneKeyServerApiError({
+      const serverApiError = new OneKeyServerApiError({
         autoToast,
         disableFallbackMessage: true,
         message:
@@ -398,6 +398,12 @@ axios.interceptors.response.use(
         },
         requestId: config.headers[requestIdKey] as string,
       });
+      // Preserve the request config (like AxiosError.config) so later
+      // response interceptors can identify the failed request, e.g. the
+      // prime invalid-token handler compares the request's auth token
+      // against the currently active one before clearing the session.
+      serverApiError.config = config;
+      throw serverApiError;
     }
     if (isEnableLogNetwork(config.url)) {
       defaultLogger.app.network.end({
