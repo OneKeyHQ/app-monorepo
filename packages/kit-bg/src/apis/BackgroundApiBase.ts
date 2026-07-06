@@ -28,7 +28,15 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import performance from '@onekeyhq/shared/src/performance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IAsyncStorageWriteRequest } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
+import type {
+  IAsyncStorageWriteForwarderRequestStatus,
+  IAsyncStorageWriteRequest,
+} from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
+import {
+  buildAsyncStorageWriteForwarderStatusKey,
+  parseAsyncStorageWriteForwarderRequestStatus,
+  serializeAsyncStorageWriteForwarderRequestStatus,
+} from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
 import {
   ensurePromiseObject,
   ensureSerializable,
@@ -165,6 +173,16 @@ function getAsyncStorageWriteRequestSummary(
   }
 }
 
+type IAsyncStorageForwarderSharedStore = {
+  set: (key: string, value: string | number | boolean) => void;
+  get: (key: string) => string | number | boolean | undefined;
+};
+
+function getAsyncStorageForwarderSharedStore() {
+  return (globalThis as { sharedStore?: IAsyncStorageForwarderSharedStore })
+    .sharedStore;
+}
+
 @backgroundClass()
 class BackgroundApiBase implements IBackgroundApiBridge {
   private static readonly PENDING_BRIDGE_MESSAGE_TTL_MS = 10_000;
@@ -228,6 +246,23 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       });
     this.asyncStorageWriteRequestsInFlight.set(requestId, promise);
     await promise;
+  }
+
+  private getAsyncStorageWriteForwarderStatus(requestId: string) {
+    return parseAsyncStorageWriteForwarderRequestStatus(
+      getAsyncStorageForwarderSharedStore()?.get(
+        buildAsyncStorageWriteForwarderStatusKey(requestId),
+      ),
+    );
+  }
+
+  private setAsyncStorageWriteForwarderStatus(
+    status: IAsyncStorageWriteForwarderRequestStatus,
+  ) {
+    getAsyncStorageForwarderSharedStore()?.set(
+      buildAsyncStorageWriteForwarderStatusKey(status.requestId),
+      serializeAsyncStorageWriteForwarderRequestStatus(status),
+    );
   }
 
   private getNativeBackgroundThreadBridgeRelay() {
@@ -435,7 +470,27 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const startedAt = Date.now();
     const summary = getAsyncStorageWriteRequestSummary(request);
     try {
+      if (
+        this.getAsyncStorageWriteForwarderStatus(request.requestId)?.status ===
+        'committed'
+      ) {
+        return;
+      }
       await this.runAsyncStorageWriteOnce(request.requestId, async () => {
+        const pendingStatus = this.getAsyncStorageWriteForwarderStatus(
+          request.requestId,
+        );
+        if (pendingStatus?.status === 'committed') {
+          return;
+        }
+        if (pendingStatus) {
+          this.setAsyncStorageWriteForwarderStatus({
+            ...pendingStatus,
+            status: 'executing',
+            ts: Date.now(),
+          });
+        }
+
         const { default: appStorage } =
           await import('@onekeyhq/shared/src/storage/appStorage');
 
@@ -458,6 +513,14 @@ class BackgroundApiBase implements IBackgroundApiBridge {
               `Unsupported AsyncStorage write request: ${String(unsupportedRequest)}`,
             );
           }
+        }
+
+        if (pendingStatus) {
+          this.setAsyncStorageWriteForwarderStatus({
+            ...pendingStatus,
+            status: 'committed',
+            ts: Date.now(),
+          });
         }
       });
     } catch (error) {

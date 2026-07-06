@@ -15,16 +15,28 @@ function getBackgroundThreadStateGlobal() {
   return globalThis as IBackgroundThreadStateGlobal;
 }
 
-export function setBackgroundThreadReadyPayload(
+function saveBackgroundThreadReadyPayload(
   payload: IBackgroundThreadReadyPayload,
 ) {
   currentPayload = payload;
   getBackgroundThreadStateGlobal().__onekeyBackgroundThreadReadyPayload =
     payload;
+}
+
+export function setBackgroundThreadReadyPayload(
+  payload: IBackgroundThreadReadyPayload,
+) {
+  saveBackgroundThreadReadyPayload(payload);
 
   listeners.forEach((listener) => {
     listener(payload);
   });
+}
+
+export function updateBackgroundThreadReadyPayload(
+  payload: IBackgroundThreadReadyPayload,
+) {
+  saveBackgroundThreadReadyPayload(payload);
 }
 
 export function getBackgroundThreadReadyPayload() {

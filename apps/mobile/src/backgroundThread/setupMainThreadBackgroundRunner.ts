@@ -19,9 +19,13 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type IAsyncStorageWriteArgs,
+  type IAsyncStorageWriteForwarderRequestStatus,
   type IAsyncStorageWriteMethod,
   type IAsyncStorageWriteRequest,
+  buildAsyncStorageWriteForwarderStatusKey,
   getAsyncStorageWriteForwarderGlobal,
+  parseAsyncStorageWriteForwarderRequestStatus,
+  serializeAsyncStorageWriteForwarderRequestStatus,
 } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
 import { registerImageEmbedBridge } from '@onekeyhq/shared/src/utils/imageUtils.embedBridge';
 
@@ -51,7 +55,10 @@ import {
   BACKGROUND_THREAD_READY_KEY,
   parseBackgroundThreadRuntimePayload,
 } from './runtimeReady';
-import { setBackgroundThreadReadyPayload } from './runtimeState';
+import {
+  setBackgroundThreadReadyPayload,
+  updateBackgroundThreadReadyPayload,
+} from './runtimeState';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 
@@ -321,11 +328,13 @@ function createAsyncStorageForwarderUnsafeReplayError({
   summary,
   requestBootId,
   currentBootId,
+  status,
   lastError,
 }: {
   summary: ReturnType<typeof getAsyncStorageWriteArgSummary>;
   requestBootId: string;
   currentBootId: string;
+  status: IAsyncStorageWriteForwarderRequestStatus | undefined;
   lastError: unknown;
 }) {
   return createTransportError(
@@ -333,38 +342,131 @@ function createAsyncStorageForwarderUnsafeReplayError({
       'AsyncStorage write forwarding cannot safely replay after background runtime restart',
       `requestBootId=${requestBootId}`,
       `currentBootId=${currentBootId}`,
+      `status=${
+        status ? stringifyAsyncStorageForwarderLogValue(status) : 'missing'
+      }`,
       `request=${stringifyAsyncStorageForwarderLogValue(summary)}`,
       `lastError=${(lastError as Error)?.message || 'unknown'}`,
     ].join(', '),
   );
 }
 
-function assertAsyncStorageForwarderReplayStillSafe({
+function getAsyncStorageWriteRequestFromServiceRequest(
+  request: IBackgroundThreadServiceCallRequest,
+) {
+  const writeRequest = request.params[0] as
+    | IAsyncStorageWriteRequest
+    | undefined;
+  return typeof writeRequest?.requestId === 'string' ? writeRequest : undefined;
+}
+
+function getAsyncStorageWriteForwarderStatus(requestId: string) {
+  const status = parseAsyncStorageWriteForwarderRequestStatus(
+    getSharedStore()?.get(buildAsyncStorageWriteForwarderStatusKey(requestId)),
+  );
+  return status?.requestId === requestId ? status : undefined;
+}
+
+function setAsyncStorageWriteForwarderStatus(
+  status: IAsyncStorageWriteForwarderRequestStatus,
+) {
+  getSharedStore()?.set(
+    buildAsyncStorageWriteForwarderStatusKey(status.requestId),
+    serializeAsyncStorageWriteForwarderRequestStatus(status),
+  );
+}
+
+function deleteAsyncStorageWriteForwarderStatus(requestId: string) {
+  getSharedStore()?.delete(buildAsyncStorageWriteForwarderStatusKey(requestId));
+}
+
+function buildAsyncStorageWriteForwarderStatus({
+  requestId,
+  status,
+  bootId,
+}: {
+  requestId: string;
+  status: IAsyncStorageWriteForwarderRequestStatus['status'];
+  bootId: string | undefined;
+}): IAsyncStorageWriteForwarderRequestStatus {
+  return {
+    requestId,
+    status,
+    ...(bootId ? { bootId } : {}),
+    ts: Date.now(),
+  };
+}
+
+function resolveAsyncStorageForwarderCrossBootReplay({
+  requestId,
   summary,
   requestBootId,
   lastError,
 }: {
+  requestId: string;
   summary: ReturnType<typeof getAsyncStorageWriteArgSummary>;
   requestBootId: string | undefined;
   lastError: unknown;
-}) {
+}): 'committed' | 'send' {
   const currentBootId = currentBackgroundRuntimeBootId;
   if (!requestBootId || !currentBootId || requestBootId === currentBootId) {
-    return;
+    return 'send';
+  }
+
+  const status = getAsyncStorageWriteForwarderStatus(requestId);
+  if (status?.status === 'committed') {
+    return 'committed';
+  }
+  if (status?.status === 'pending') {
+    return 'send';
   }
 
   throw createAsyncStorageForwarderUnsafeReplayError({
     summary,
     requestBootId,
     currentBootId,
+    status,
     lastError,
   });
+}
+
+function prepareAsyncStorageForwarderStatusForSend({
+  requestId,
+  bootId,
+}: {
+  requestId: string;
+  bootId: string | undefined;
+}): 'committed' | 'send' {
+  const status = getAsyncStorageWriteForwarderStatus(requestId);
+  if (status?.status === 'committed') {
+    return 'committed';
+  }
+  if (
+    (status?.status === 'pending' || status?.status === 'executing') &&
+    status.bootId === bootId
+  ) {
+    return 'send';
+  }
+
+  setAsyncStorageWriteForwarderStatus(
+    buildAsyncStorageWriteForwarderStatus({
+      requestId,
+      status: 'pending',
+      bootId,
+    }),
+  );
+  return 'send';
 }
 
 async function forwardAsyncStorageWriteToBackground(
   request: IBackgroundThreadServiceCallRequest,
   summary: ReturnType<typeof getAsyncStorageWriteArgSummary>,
 ) {
+  const writeRequest = getAsyncStorageWriteRequestFromServiceRequest(request);
+  if (!writeRequest) {
+    throw createTransportError('AsyncStorage write request payload is missing');
+  }
+
   const deadline = Date.now() + ASYNC_STORAGE_FORWARDER_RECOVERY_TIMEOUT_MS;
   let requestBootId: string | undefined;
   let lastError: unknown;
@@ -372,6 +474,24 @@ async function forwardAsyncStorageWriteToBackground(
     if (transportState !== 'ready') {
       await waitForAsyncStorageForwarderTransportRecovery(summary, deadline);
     }
+    const replayAction = resolveAsyncStorageForwarderCrossBootReplay({
+      requestId: writeRequest.requestId,
+      summary,
+      requestBootId,
+      lastError,
+    });
+    if (replayAction === 'committed') {
+      return;
+    }
+    if (
+      prepareAsyncStorageForwarderStatusForSend({
+        requestId: writeRequest.requestId,
+        bootId: currentBackgroundRuntimeBootId,
+      }) === 'committed'
+    ) {
+      return;
+    }
+
     try {
       requestBootId = currentBackgroundRuntimeBootId;
       await callServiceRequest(request, () =>
@@ -380,25 +500,38 @@ async function forwardAsyncStorageWriteToBackground(
       return;
     } catch (error) {
       lastError = error;
-      assertAsyncStorageForwarderReplayStillSafe({
+      const retryAction = resolveAsyncStorageForwarderCrossBootReplay({
+        requestId: writeRequest.requestId,
         summary,
         requestBootId,
         lastError,
       });
+      if (retryAction === 'committed') {
+        return;
+      }
       if (
+        requestBootId &&
+        currentBackgroundRuntimeBootId &&
+        requestBootId !== currentBackgroundRuntimeBootId
+      ) {
+        await waitAsyncStorageForwarderRetryTick();
+      } else if (
         !isNativeBackgroundThreadTransportEnabled() ||
         (transportState !== 'remote-broken' &&
           !isAsyncStorageForwarderRequestTimeout(error))
       ) {
         throw error;
-      }
-      if (transportState === 'remote-broken') {
+      } else if (transportState === 'remote-broken') {
         await waitForAsyncStorageForwarderTransportRecovery(summary, deadline);
-        assertAsyncStorageForwarderReplayStillSafe({
+        const recoveryAction = resolveAsyncStorageForwarderCrossBootReplay({
+          requestId: writeRequest.requestId,
           summary,
           requestBootId,
           lastError,
         });
+        if (recoveryAction === 'committed') {
+          return;
+        }
       } else {
         ensureBackgroundRuntimeObserver();
         await waitAsyncStorageForwarderRetryTick();
@@ -451,6 +584,7 @@ function installAsyncStorageWriteForwarder() {
   ) => {
     const startedAt = Date.now();
     const summary = getAsyncStorageWriteArgSummary(method, args);
+    const writeRequest = buildAsyncStorageWriteRequest(method, args);
     try {
       await enqueueAsyncStorageWriteToBackground(
         {
@@ -459,7 +593,7 @@ function installAsyncStorageWriteForwarder() {
           // BackgroundApiProxyBase.callBackgroundMethod(), which applies the
           // INTERNAL_ decorator prefix inside the bg runtime.
           method: 'writeAsyncStorage',
-          params: [buildAsyncStorageWriteRequest(method, args)],
+          params: [writeRequest],
           sync: false,
         },
         // Reads stay on the local main runtime. The app-modules AsyncStorage
@@ -486,6 +620,8 @@ function installAsyncStorageWriteForwarder() {
         errorMessage: (error as Error)?.message || 'unknown',
       });
       throw error;
+    } finally {
+      deleteAsyncStorageWriteForwarderStatus(writeRequest.requestId);
     }
   };
 
@@ -749,6 +885,7 @@ function handleRuntimeSignal() {
       transportLog(
         `background runtime bootId changed while transport ready: ${previousBootId} -> ${runtimePayload.bootId}`,
       );
+      updateBackgroundThreadReadyPayload(runtimePayload);
       rejectQueuedCalls(reason);
       rejectPendingRemoteCalls(reason);
     }
