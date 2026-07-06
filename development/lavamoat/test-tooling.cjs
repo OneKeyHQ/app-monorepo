@@ -281,8 +281,6 @@ function copyLavamoatValidationFixture(targetRepo) {
     'development/lavamoat/validate-webpack-integration.cjs',
     'development/webpack/lavamoat.js',
     'package.json',
-    'lavamoat/README.md',
-    'lavamoat/README.review.md',
     'lavamoat/review/summary.json',
     'lavamoat/webpack/web/policy.json',
     'lavamoat/webpack/web/policy-override.json',
@@ -350,22 +348,6 @@ function testPolicyArtifactValidation(tempRoot) {
     runScript(validatePolicyArtifactsScript, repo),
     1,
     'validate-policy-artifacts rejects policy-debug.json',
-  );
-
-  const missingReadmeTargetRepo = path.join(
-    tempRoot,
-    'artifacts-missing-readme-target',
-  );
-  fs.mkdirSync(missingReadmeTargetRepo);
-  copyLavamoatValidationFixture(missingReadmeTargetRepo);
-  writeFile(
-    path.join(missingReadmeTargetRepo, 'lavamoat/README.md'),
-    '# OneKey LavaMoat 接入说明\n\n缺少目标列表。\n',
-  );
-  expectStatus(
-    runScript(validatePolicyArtifactsScript, missingReadmeTargetRepo),
-    1,
-    'validate-policy-artifacts rejects README target drift',
   );
 
   const missingScriptRepo = path.join(

@@ -268,14 +268,9 @@ function validateDisabledTargetDirs() {
 
 function validateReviewSummary() {
   const summaryFile = path.join(lavamoatRoot, 'review/summary.json');
-  const reviewIndexFile = path.join(lavamoatRoot, 'README.review.md');
   assert(
     fs.existsSync(summaryFile),
     'Missing review summary: review/summary.json',
-  );
-  assert(
-    fs.existsSync(reviewIndexFile),
-    'Missing review index: README.review.md',
   );
 
   const summary = readJson(summaryFile);
@@ -335,28 +330,6 @@ function validateReviewFiles() {
       )}\nactual: ${summaryCategories.join(', ')}`,
     );
   }
-}
-
-function validateReadmeTargetCoverage() {
-  const readmeFile = path.join(lavamoatRoot, 'README.md');
-  assert(
-    fs.existsSync(readmeFile),
-    'Missing LavaMoat README: lavamoat/README.md',
-  );
-
-  const readme = fs.readFileSync(readmeFile, 'utf8');
-  const missingTargets = [
-    ...enabledTargets.map((target) => target.id),
-    ...disabledTargetDirs,
-    ...disabledWorkspacePackageJsons,
-  ].filter((target) => !readme.includes(target));
-
-  assert(
-    missingTargets.length === 0,
-    `lavamoat/README.md is missing target documentation for:\n${missingTargets.join(
-      '\n',
-    )}`,
-  );
 }
 
 function validateRootScripts() {
@@ -767,7 +740,6 @@ validateExpectedPolicies();
 validateDisabledTargetDirs();
 validateReviewSummary();
 validateReviewFiles();
-validateReadmeTargetCoverage();
 validateRootScripts();
 validateWorkflowCoverage();
 validateToolFiles();
