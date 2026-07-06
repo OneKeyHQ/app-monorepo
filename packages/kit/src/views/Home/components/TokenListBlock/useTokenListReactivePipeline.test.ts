@@ -374,7 +374,7 @@ describe('useTokenListReactivePipeline', () => {
           1,
         );
       });
-      // authoritative commit lands first (bumps the epoch + clears the view)
+      // authoritative commit lands first (bumps the epoch)
       await act(async () => {
         const snap = await result.current.buildAuthoritativeSnapshot();
         result.current.commitAuthoritativeIngest(snap);
@@ -385,6 +385,89 @@ describe('useTokenListReactivePipeline', () => {
         await jest.advanceTimersByTimeAsync(400);
       });
       expect(mockIngestRound).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('keeps the previous authoritative rounds as the next warm-refresh floor', async () => {
+    jest.useFakeTimers();
+    try {
+      const { result } = render(true);
+      act(() => {
+        result.current.setEnabledKeys([
+          OWNER,
+          { accountId: OWNER.accountId, networkId: 'evm--56' },
+        ]);
+      });
+      await act(async () => {
+        await result.current.seedAndFlushCache({
+          data: [
+            makeCacheItem({
+              tokenList: [
+                {
+                  $key: 'old-a1',
+                  name: 'Old A1',
+                  symbol: 'OA1',
+                  decimals: 18,
+                  address: '0xolda1',
+                  isNative: false,
+                },
+              ] as ICacheSeedItem['tokenList'],
+              tokenListMap: {
+                'old-a1': {
+                  balance: '1',
+                  balanceParsed: '1',
+                  fiatValue: '10',
+                  price: 1,
+                },
+              },
+            }),
+            makeCacheItem({
+              networkId: 'evm--56',
+              tokenList: [
+                {
+                  $key: 'b1',
+                  name: 'B1',
+                  symbol: 'B1',
+                  decimals: 18,
+                  address: '0xb1',
+                  isNative: false,
+                },
+              ] as ICacheSeedItem['tokenList'],
+              tokenListMap: {
+                b1: {
+                  balance: '1',
+                  balanceParsed: '1',
+                  fiatValue: '5',
+                  price: 1,
+                },
+              },
+            }),
+          ],
+          accountId: OWNER.accountId,
+          networkId: OWNER.networkId,
+          generation: 1,
+        });
+        const snap = await result.current.buildAuthoritativeSnapshot();
+        result.current.commitAuthoritativeIngest(snap);
+      });
+      mockIngestRound.mockClear();
+
+      act(() => {
+        result.current.ingestLiveRound(makeLiveRound(), 2);
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(PROGRESSIVE_PAINT_THROTTLE_MS + 1);
+      });
+
+      expect(mockIngestRound).toHaveBeenCalledTimes(1);
+      const arg = mockIngestRound.mock.calls[0][0] as {
+        source: string;
+        orderedTokens: { $key: string }[];
+      };
+      expect(arg.source).toBe('progPaint');
+      expect(arg.orderedTokens.map((t) => t.$key)).toEqual(['live-a1', 'b1']);
     } finally {
       jest.useRealTimers();
     }
