@@ -108,10 +108,19 @@ const modalStyleGtMd = {
   willChange: 'opacity, transform',
 };
 
-const modalStyleMd = {
-  transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
-  willChange: 'transform',
-};
+// The ext standalone window is itself a freshly-opened popup hosting a single
+// dapp-approval modal — replaying the slide-up enter transition inside it
+// doubles the perceived motion, so the modal renders in place instead.
+const disableModalAnimation = platformEnv.isExtensionUiStandaloneWindow;
+
+const modalStyleMd = disableModalAnimation
+  ? {
+      willChange: 'transform',
+    }
+  : {
+      transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
+      willChange: 'transform',
+    };
 
 const routeStyleFirst = {
   transform: [{ translateX: 0 }],
@@ -321,7 +330,7 @@ function WebModalNavigator({
       if (media.gtMd) {
         el.style.opacity = '0';
         el.style.transform = disableEnterScaleAnimation ? '' : 'scale(0.95)';
-      } else {
+      } else if (!disableModalAnimation) {
         el.style.transform = `translateY(${screenHeight}px)`;
       }
     }
