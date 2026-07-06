@@ -184,19 +184,13 @@ function OneKeyIdLogoutDialogContent({
             await backgroundApiProxy.servicePassword.promptPasswordVerify({
               reason: EReasonForNeedPassword.Security,
             });
-            const ownerId =
-              keylessWallet.keylessDetailsInfo?.keylessOwnerId || '';
-            if (ownerId) {
-              await backgroundApiProxy.serviceKeylessWallet.cleanupKeylessWalletStorage(
-                { ownerId },
-              );
-            }
-            await actions.current.removeWallet({
-              walletId: keylessWallet.id,
-              isRemoveToMocked,
-            });
           }
 
+          // The OneKey ID logout must run before the keyless wallet removal:
+          // removeWallet triggers cleanupKeylessWalletStorage, which clears
+          // the active auth token apiLogout needs to revoke the server-side
+          // session. Destructive keyless storage cleanup stays inside
+          // removeWallet so it only happens after the DB removal succeeds.
           if (shouldLogoutOneKeyId) {
             await onBeforeLogout?.();
             if (reason) {
@@ -209,6 +203,13 @@ function OneKeyIdLogoutDialogContent({
                 preserveLocalKeylessAuthOnOneKeyIdLogout,
             });
             await onSuccess?.();
+          }
+
+          if (keylessWallet) {
+            await actions.current.removeWallet({
+              walletId: keylessWallet.id,
+              isRemoveToMocked,
+            });
           }
 
           if (isFromKeylessWallet) {
