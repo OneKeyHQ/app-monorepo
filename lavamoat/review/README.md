@@ -28,8 +28,8 @@
 
 | 目标 | 说明 | Policy | 总资源 | 高风险资源 | 高风险条目 | 指向高风险资源的 package 边 |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| `webpack/web` | Web production webpack bundle，apps/web 生产构建 | [policy](../webpack/web/policy.json) | 4530 | 241 | 440 | 841 |
-| `webpack/desktop-renderer` | Electron renderer production webpack bundle，Desktop 渲染进程生产构建 | [policy](../webpack/desktop-renderer/policy.json) | 4492 | 243 | 469 | 854 |
+| `webpack/web` | Web production webpack bundle，apps/web 生产构建 | [policy](../webpack/web/policy.json) | 4528 | 241 | 440 | 841 |
+| `webpack/desktop-renderer` | Electron renderer production webpack bundle，Desktop 渲染进程生产构建 | [policy](../webpack/desktop-renderer/policy.json) | 4490 | 243 | 469 | 854 |
 
 ## 高风险分类统计
 
