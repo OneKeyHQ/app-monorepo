@@ -47,6 +47,29 @@ type IWebContentProps = IWebTab &
     customReceiveHandler?: IJsBridgeReceiveHandler;
   };
 
+const PAUSE_HIDDEN_WEBVIEW_SIDE_EFFECTS_SCRIPT = `
+;(function() {
+  try {
+    var activeElement = document.activeElement;
+    if (activeElement && typeof activeElement.blur === 'function') {
+      activeElement.blur();
+    }
+  } catch (e) {}
+
+  try {
+    var mediaElements = document.querySelectorAll('video, audio');
+    mediaElements.forEach(function(element) {
+      try {
+        if (element && typeof element.pause === 'function' && !element.paused) {
+          element.pause();
+        }
+      } catch (e) {}
+    });
+  } catch (e) {}
+})();
+true;
+`;
+
 function WebContent({
   id,
   url,
@@ -71,6 +94,7 @@ function WebContent({
     useBrowserAction().current;
   const { setWebTabData, closeWebTab, setCurrentWebTab } =
     useBrowserTabActions().current;
+  const previousIsCurrentRef = useRef(isCurrent);
 
   const changeNavigationInfo = (siteInfo: WebViewNavigation) => {
     setBackEnabled(siteInfo.canGoBack);
@@ -176,6 +200,22 @@ function WebContent({
       return false;
     }, [canGoBack, id, isCurrent]),
   );
+
+  const pauseHiddenWebViewSideEffects = useCallback(() => {
+    const webview = webviewRefs[id]?.innerRef as ReactNativeWebview | undefined;
+    try {
+      webview?.injectJavaScript?.(PAUSE_HIDDEN_WEBVIEW_SIDE_EFFECTS_SCRIPT);
+    } catch {
+      // best-effort: a hidden tab can be evicted or closed while this runs
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (previousIsCurrentRef.current && !isCurrent) {
+      pauseHiddenWebViewSideEffects();
+    }
+    previousIsCurrentRef.current = isCurrent;
+  }, [isCurrent, pauseHiddenWebViewSideEffects]);
 
   // Release the WebView ref when this content unmounts. This fires both on tab
   // close and on keep-alive LRU eviction, so a stale ref never points at a
