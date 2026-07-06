@@ -33,12 +33,6 @@ export function setBackgroundThreadReadyPayload(
   });
 }
 
-export function updateBackgroundThreadReadyPayload(
-  payload: IBackgroundThreadReadyPayload,
-) {
-  saveBackgroundThreadReadyPayload(payload);
-}
-
 export function getBackgroundThreadReadyPayload() {
   return (
     currentPayload ??

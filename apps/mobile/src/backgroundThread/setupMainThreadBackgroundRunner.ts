@@ -55,10 +55,7 @@ import {
   BACKGROUND_THREAD_READY_KEY,
   parseBackgroundThreadRuntimePayload,
 } from './runtimeReady';
-import {
-  setBackgroundThreadReadyPayload,
-  updateBackgroundThreadReadyPayload,
-} from './runtimeState';
+import { setBackgroundThreadReadyPayload } from './runtimeState';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 
@@ -891,7 +888,7 @@ function handleRuntimeSignal() {
       transportLog(
         `background runtime bootId changed while transport ready: ${previousBootId} -> ${runtimePayload.bootId}`,
       );
-      updateBackgroundThreadReadyPayload(runtimePayload);
+      setBackgroundThreadReadyPayload(runtimePayload);
       // The new bg runtime has already signaled ready, so keep the transport
       // ready for new calls. Old in-flight calls belonged to the previous bg
       // JS heap and cannot receive a reliable response anymore. Do not replay
