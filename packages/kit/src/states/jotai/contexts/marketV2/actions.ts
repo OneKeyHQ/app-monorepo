@@ -257,6 +257,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           typeof responseData?.data?.token?.name === 'undefined' ||
           responseData.data.token.name === ''
         ) {
+          set(tokenDetailAtom(), undefined);
+          set(tokenDetailPreviewAtom(), undefined);
+          set(tokenDetailWebsocketAtom(), undefined);
+          set(perpsInfoAtom(), undefined);
           return;
         }
         set(tokenDetailAtom(), responseData.data.token);
@@ -339,6 +343,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           responseData.data.token.name === ''
         ) {
           console.warn('Token detail is not available');
+          set(tokenDetailAtom(), undefined);
+          set(tokenDetailPreviewAtom(), undefined);
+          set(tokenDetailWebsocketAtom(), undefined);
+          set(perpsInfoAtom(), undefined);
           return;
         }
 

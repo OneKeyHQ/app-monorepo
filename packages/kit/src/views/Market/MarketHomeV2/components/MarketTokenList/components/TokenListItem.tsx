@@ -3,6 +3,7 @@ import { memo, useCallback } from 'react';
 
 import { NumberSizeableText, XStack, useThemeName } from '@onekeyhq/components';
 import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
+import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketTestIDs } from '../../../testIDs';
@@ -66,16 +67,20 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
   const priceChange =
     item.priceChangeRaw === '-' ? item.priceChangeRaw : item.change24h;
 
-  const prewarmTokenImages = useCallback(() => {
+  const prewarmTokenDetail = useCallback(() => {
+    preloadMarketDetailV2Page({
+      includeBodyModules: true,
+      includeHeavyModules: true,
+    });
     prewarmMarketTokenImages(item);
   }, [item]);
 
   const handlePressIn = useCallback(
     (event: GestureResponderEvent) => {
-      prewarmTokenImages();
+      prewarmTokenDetail();
       onPressIn?.(event);
     },
-    [onPressIn, prewarmTokenImages],
+    [onPressIn, prewarmTokenDetail],
   );
 
   return (
@@ -85,7 +90,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
       onPress={onPress}
       onLongPress={onLongPress}
       onPressIn={handlePressIn}
-      onHoverIn={prewarmTokenImages}
+      onHoverIn={prewarmTokenDetail}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
       onPressOut={onPressOut}

@@ -8,7 +8,8 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
-import { prewarmMarketTokenDetailPreviewImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
+import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
+import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { buildMarketTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -50,12 +51,6 @@ interface IUseToDetailPageOptions {
 
 const EXTENSION_POPUP_CLOSE_DELAY_MS = 100;
 
-function preloadMarketDetailV2Page() {
-  void import(/* webpackPrefetch: true */ '../../../../MarketDetailV2').catch(
-    () => undefined,
-  );
-}
-
 export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
@@ -87,7 +82,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         isNative: item.isNative,
       });
 
-      prewarmMarketTokenDetailPreviewImages(tokenDetailPreview);
+      prewarmMarketTokenImages(tokenDetailPreview);
       tokenDetailActions.current.prepareTokenDetailPreview(tokenDetailPreview);
     },
     [tokenDetailActions],
@@ -95,6 +90,10 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
   const toMarketDetailPage = useCallback(
     async (item: IMarketToken) => {
+      preloadMarketDetailV2Page({
+        includeBodyModules: true,
+        includeHeavyModules: true,
+      });
       const shortCode = networkUtils.getNetworkShortCode({
         networkId: item.networkId,
       });

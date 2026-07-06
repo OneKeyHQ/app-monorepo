@@ -1,12 +1,11 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
+import { MarketDetailV2 as MarketDetailV2Modal } from '../MarketDetailV2';
 
-const MarketDetailV2Modal = LazyLoadPage(
-  () => import(/* webpackPrefetch: true */ '../MarketDetailV2'),
-);
+import { EModalMarketRoutes, type IModalMarketParamList } from './types';
+
 const MarketBannerDetailModal = LazyLoadPage(
   () => import('../MarketBannerDetail'),
 );
@@ -15,30 +14,8 @@ const MobileTokenSelectorModal = LazyLoadPage(
     import('../MarketDetailV2/components/TokenSelector/MobileTokenSelector'),
 );
 
-export enum EModalMarketRoutes {
-  MarketDetailV2 = 'MarketDetailV2',
-  MarketBannerDetail = 'MarketBannerDetail',
-  MobileTokenSelector = 'MobileTokenSelector',
-}
-
-export type IModalMarketParamList = {
-  [EModalMarketRoutes.MarketDetailV2]: {
-    tokenAddress: string;
-    network: string;
-    isNative?: boolean;
-    showFavoriteButton?: boolean;
-  };
-  [EModalMarketRoutes.MarketBannerDetail]: {
-    tokenListId: string;
-    title: string;
-    type?: EMarketBannerType;
-  };
-  [EModalMarketRoutes.MobileTokenSelector]:
-    | {
-        showFavoriteButton?: boolean;
-      }
-    | undefined;
-};
+export { EModalMarketRoutes };
+export type { IModalMarketParamList };
 
 export const ModalMarketStack: IModalFlowNavigatorConfig<
   EModalMarketRoutes,
