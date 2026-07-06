@@ -11,6 +11,37 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
+// Paint an opaque DOM-level cover over the whole window the moment a
+// decision is made. Page.Footer auto-pops the page after onCancel/onConfirm
+// (FooterCancelButton calls pop() when the handler takes no arguments), and
+// that pop would flash the Home tab during the frames between the decision
+// and window.close() landing. A plain DOM node wins over any React re-render
+// with zero timing assumptions.
+function coverExtStandaloneWindowUntilClose() {
+  const isTransparent = (color: string) =>
+    !color || color === 'transparent' || color === 'rgba(0, 0, 0, 0)';
+  let backgroundColor = '';
+  const candidates = [
+    document.querySelector('.onekey-modal-screen'),
+    document.body,
+    document.documentElement,
+  ];
+  for (const el of candidates) {
+    if (el) {
+      const color = getComputedStyle(el).backgroundColor;
+      if (!isTransparent(color)) {
+        backgroundColor = color;
+        break;
+      }
+    }
+  }
+  const cover = document.createElement('div');
+  cover.style.cssText = `position:fixed;inset:0;z-index:2147483647;background-color:${
+    backgroundColor || '#ffffff'
+  };`;
+  document.body.appendChild(cover);
+}
+
 const useSendRejectId = platformEnv.isExtensionUiSidePanel
   ? (id: number | string) => {
       useEffect(() => {
@@ -71,10 +102,11 @@ function useDappApproveAction({
         error: toPlainErrorObject(newError),
       });
       if (isExtStandaloneWindow) {
-        // timeout wait reject done. Skip close() (modal pop): the whole
-        // window is about to be destroyed, and popping the modal first
-        // paints the Home tab underneath for a frame before window.close()
-        // lands.
+        // The whole window is about to be destroyed: cover it right away
+        // (Page.Footer still auto-pops the page after this handler returns),
+        // skip close() (modal pop), and let window.close() land on the next
+        // task so the reject message reaches bg first.
+        coverExtStandaloneWindowUntilClose();
         setTimeout(() => {
           window.close();
         }, 0);
@@ -104,9 +136,11 @@ function useDappApproveAction({
           data,
         });
         if (isExtStandaloneWindow && closeWindowAfterResolved) {
-          // Skip close() (modal pop): the whole window is about to be
-          // destroyed, and popping the modal first paints the Home tab
-          // underneath for a frame before window.close() lands.
+          // The whole window is about to be destroyed: cover it right away
+          // (Page.Footer still auto-pops the page after this handler
+          // returns), skip close() (modal pop), and let window.close() land
+          // on the next task so the resolve message reaches bg first.
+          coverExtStandaloneWindowUntilClose();
           setTimeout(() => {
             window.close();
           }, 0);
