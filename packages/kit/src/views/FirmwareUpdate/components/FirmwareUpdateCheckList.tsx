@@ -10,6 +10,7 @@ import {
   useFirmwareUpdateWorkflowRunningAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -151,15 +152,21 @@ export function FirmwareUpdateCheckList({
                       result,
                     });
                     setWorkflowIsRunning(true);
-                    await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflowV2(
-                      {
-                        backuped: true,
-                        usbConnected: true,
-                        releaseResult: result,
-                      },
+                    const { backgroundTaskStarted } =
+                      await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflowV2(
+                        {
+                          backuped: true,
+                          usbConnected: true,
+                          releaseResult: result,
+                        },
+                      );
+                    if (backgroundTaskStarted) {
+                      shouldResetWorkflowRunningInUi = false;
+                      return;
+                    }
+                    throw new OneKeyLocalError(
+                      'Firmware update background task failed to start',
                     );
-                    shouldResetWorkflowRunningInUi = false;
-                    return;
                   }
                   navigation.push(EModalFirmwareUpdateRoutes.Install, {
                     result,

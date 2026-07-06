@@ -26,6 +26,7 @@ import {
   convertDeviceResponse,
   isHardwareErrorByCode,
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -109,6 +110,10 @@ export type IUpdateFirmwareWorkflowParams = {
   backuped: boolean;
   usbConnected: boolean;
   releaseResult: ICheckAllFirmwareReleaseResult;
+};
+
+export type IStartUpdateWorkflowV2Result = {
+  backgroundTaskStarted: true;
 };
 
 export type IUpdateFirmwareTaskFn = ({
@@ -1704,6 +1709,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
     });
 
     try {
+      errorToastUtils.toastIfError(error);
+      errorToastUtils.showToastOfError(error);
+    } catch (toastError) {
+      serviceHardwareUtils.hardwareLog(
+        'failUpdateWorkflow toast ERROR',
+        toastError,
+      );
+    }
+
+    try {
       const hardwareTransportType =
         await this.backgroundApi.serviceSetting.getHardwareTransportType();
 
@@ -1829,7 +1844,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async startUpdateWorkflowV2(params: IUpdateFirmwareWorkflowParams) {
+  async startUpdateWorkflowV2(
+    params: IUpdateFirmwareWorkflowParams,
+  ): Promise<IStartUpdateWorkflowV2Result> {
     await firmwareUpdateWorkflowRunningAtom.set(true);
 
     void (async () => {
@@ -1850,6 +1867,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
         error,
       );
     });
+
+    return { backgroundTaskStarted: true };
   }
 
   async startUpdateBootloaderTask(params: IUpdateFirmwareWorkflowParams) {
