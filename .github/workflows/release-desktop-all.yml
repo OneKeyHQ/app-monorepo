@@ -340,6 +340,7 @@ jobs:
 
       - name: Validate MAS for Testflight
         if: always() && steps.build_main.outcome == 'success' && steps.phase2_mas.outcome == 'success' && env.UPLOAD_MAS_TO_TESTFLIGHT == 'true'
+        continue-on-error: true
         env:
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}

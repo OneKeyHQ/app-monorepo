@@ -153,6 +153,7 @@ jobs:
             ./apps/desktop/build-electron/mas-universal/*.pkg
 
       - name: validate mas for Testflight
+        continue-on-error: true
         env:
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}

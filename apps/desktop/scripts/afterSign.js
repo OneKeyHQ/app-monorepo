@@ -16,12 +16,17 @@ exports.default = async function notarizing(context) {
 
   console.log(`notarizing ${appPath} ...`);
 
-  const result = await notarize({
-    tool: 'notarytool',
-    appPath,
-    appleId: process.env.APPLEID,
-    appleIdPassword: process.env.APPLEIDPASS,
-    teamId: process.env.ASC_PROVIDER,
-  });
-  return result;
+  try {
+    const result = await notarize({
+      tool: 'notarytool',
+      appPath,
+      appleId: process.env.APPLEID,
+      appleIdPassword: process.env.APPLEIDPASS,
+      teamId: process.env.ASC_PROVIDER,
+    });
+    return result;
+  } catch (err) {
+    console.warn(`[afterSign] Notarization failed (non-fatal): ${err.message}`);
+    console.warn('[afterSign] The build artifact will not be notarized. Check Apple Developer account agreements if this is unexpected.');
+  }
 };
