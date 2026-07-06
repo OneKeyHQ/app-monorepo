@@ -12,7 +12,7 @@
  * which calls these methods from thin wrappers. Specifically:
  *   - P0-b: `buildAuthoritativeSnapshot()` RETURNS the built snapshot so the
  *     component can compute `updateAccountWorth(snapshot.accountsWorth…)` before
- *     `commitAuthoritativeIngest(snapshot)` does the ingest + clear + epoch bump.
+ *     `commitAuthoritativeIngest(snapshot)` does the ingest + epoch bump.
  *   - P0-a: the cache path keeps `updateTokenListState` in the component AFTER
  *     `await seedAndFlushCache(...)` and inside its `hasAnyCache` guard.
  *   - P0-h: every returned callback is memoised with the SAME dep footprint the
@@ -22,7 +22,7 @@
  *   - P1-f: the flush captures the owner once and re-checks a live owner
  *     generation + ownerKey after awaits before writing to the BG VM.
  *   - P1-g: `reset()` clears WITHOUT bumping epoch; `commitAuthoritativeIngest`
- *     clears AND bumps epoch.
+ *     bumps epoch and keeps the latest rounds as the next refresh's SWR floor.
  *
  * The single-network `run()` ingest stays in the component: it touches none of
  * these refs (a direct `ingestRound` reading `cellsIngestInputsRef`), so moving
@@ -123,7 +123,7 @@ export interface ITokenListReactivePipeline {
   ingestLiveRound: (result: ILiveRound, generation: number) => void;
   /** materialize ∩ enabledKeys → resolve merge flags → build the merged snapshot. */
   buildAuthoritativeSnapshot: () => Promise<IMergedAllNetworkSnapshot>;
-  /** ingest the authoritative snapshot + clear timer + bump epoch + clear view. */
+  /** Ingest the authoritative snapshot + clear timer + bump epoch. */
   commitAuthoritativeIngest: (snapshot: IMergedAllNetworkSnapshot) => void;
 }
 
@@ -455,7 +455,6 @@ export function useTokenListReactivePipeline(
         progressiveFlushTimerRef.current = null;
       }
       progressivePaintEpochRef.current += 1;
-      progressiveViewRef.current.clear();
     },
     [enabled, ingestMergedSnapshot],
   );
