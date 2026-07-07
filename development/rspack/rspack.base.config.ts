@@ -289,8 +289,30 @@ const buildBasePlugins: (
         '../../packages/kit/src/views/Developer/router.empty.ts',
       ),
     ),
+  !isDev &&
+    platform === 'web' &&
+    new rspack.CssExtractRspackPlugin({
+      filename: '[name].[contenthash:10].css',
+      chunkFilename: 'static/css/[name].[contenthash:10].chunk.css',
+    }),
   isDev && new BuildDoneNotifyPlugin(),
 ];
+
+function buildCssLoaders(platform: string) {
+  return [
+    !isDev && platform === 'web'
+      ? rspack.CssExtractRspackPlugin.loader
+      : 'style-loader',
+    {
+      loader: 'css-loader',
+      options: {
+        importLoaders: 1,
+        sourceMap: true,
+        modules: { mode: 'global' },
+      },
+    },
+  ];
+}
 
 const buildBaseExperiments: (
   basePath: string,
@@ -696,17 +718,7 @@ export function createBaseConfig({
         },
         {
           test: /\.(css)$/,
-          use: [
-            'style-loader',
-            {
-              loader: 'css-loader',
-              options: {
-                importLoaders: 1,
-                sourceMap: true,
-                modules: { mode: 'global' },
-              },
-            },
-          ],
+          use: buildCssLoaders(platform),
           sideEffects: true,
         },
         {

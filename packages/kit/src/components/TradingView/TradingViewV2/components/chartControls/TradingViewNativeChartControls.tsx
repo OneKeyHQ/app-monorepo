@@ -74,6 +74,7 @@ interface ITradingViewNativeChartControlsProps {
   onPriceScaleModeChange: (mode: ITradingViewPriceScaleMode) => void;
   onPriceMarketCapModeChange: (mode: ITradingViewPriceMarketCapMode) => void;
   onCalendarPanelSubmit?: (payload: ICalendarPanelSubmitPayload) => void;
+  onOpenChartSettings?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
   onFullscreenChange?: (isFullscreen: boolean) => void;
@@ -102,6 +103,7 @@ export const TradingViewNativeChartControls = memo(
     onPriceScaleModeChange,
     onPriceMarketCapModeChange,
     onCalendarPanelSubmit,
+    onOpenChartSettings,
     onUndo,
     onRedo,
     onFullscreenChange,
@@ -227,6 +229,15 @@ export const TradingViewNativeChartControls = memo(
       onFullscreenChange?.(!isFullscreen);
     }, [isFullscreen, onFullscreenChange]);
 
+    const handleSettingsPress = useCallback(() => {
+      if (isDesktopLayout && onOpenChartSettings) {
+        onOpenChartSettings();
+        return;
+      }
+
+      showChartSettingsDialog();
+    }, [isDesktopLayout, onOpenChartSettings, showChartSettingsDialog]);
+
     const chartTypeControl = useMemo(() => {
       if (showChartTypeSelect) {
         return (
@@ -334,7 +345,7 @@ export const TradingViewNativeChartControls = memo(
         icon="SliderHorOutline"
         iconSize="$5"
         title={chartSettingsTitle}
-        onPress={showChartSettingsDialog}
+        onPress={handleSettingsPress}
         {...HEADER_ICON_BUTTON_STYLE_PROPS}
       />
     ) : null;
@@ -344,7 +355,11 @@ export const TradingViewNativeChartControls = memo(
         testID="trading-view-native-fullscreen-toggle"
         size="small"
         variant="tertiary"
-        icon={isFullscreen ? 'MinimizeOutline' : 'ExpandOutline'}
+        icon={
+          isFullscreen
+            ? 'TradingViewExitFullscreenCustom'
+            : 'TradingViewFullscreenCustom'
+        }
         iconSize="$5"
         title={intl.formatMessage({
           id: isFullscreen
@@ -373,7 +388,7 @@ export const TradingViewNativeChartControls = memo(
             testID="trading-view-native-redo"
             size="small"
             variant="tertiary"
-            icon="RedoOutline"
+            icon="UndoFlipHorOutline"
             iconSize="$5"
             title={intl.formatMessage({ id: ETranslations.menu_redo })}
             onPress={onRedo}
