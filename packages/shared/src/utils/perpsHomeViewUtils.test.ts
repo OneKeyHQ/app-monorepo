@@ -126,6 +126,24 @@ describe('mapSnapshotToPerpsHomeView', () => {
     expect(weird?.valueUsd).toBeUndefined();
     expect(weird?.pnlUsd).toBeUndefined();
   });
+  it('keeps zero-cost spot holdings pnl visible on home', () => {
+    const v = mapSnapshotToPerpsHomeView({
+      ...snap,
+      spotBalances: [
+        {
+          coin: 'POINTS',
+          token: 99,
+          total: '10',
+          hold: '0',
+          entryNtl: '0',
+          priceUsd: '2',
+          valueUsd: '20',
+        },
+      ],
+    });
+
+    expect(v.holdings[0]?.pnlUsd).toBe(20);
+  });
   it('empty snapshot → empty view', () => {
     const v = mapSnapshotToPerpsHomeView({
       ...snap,

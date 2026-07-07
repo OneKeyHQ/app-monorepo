@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { calculateSpotHoldingPnl as calculateSpotHoldingPnlAmount } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
 import {
   formatSpotPairDisplayName,
   getSpotTokenDisplayName,
@@ -13,14 +14,14 @@ import {
 import type { IColumnConfig } from './List/CommonTableListView';
 import type { IntlShape } from 'react-intl';
 
+export { isSpotHoldingStableCoin } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
+
 const spotHoldingPnlCurrencyFormatter: INumberFormatProps = {
   formatter: 'value',
   formatterOptions: {
     currency: '$',
   },
 };
-
-const SPOT_HOLDING_STABLE_COINS = new Set(['USDC', 'USDT', 'USDB', 'USDH']);
 
 export type IPerpFillDirectionType =
   | 'openLong'
@@ -168,9 +169,6 @@ export const getFillDirectionDisplayInfo = ({
   return { text, color };
 };
 
-export const isSpotHoldingStableCoin = (coin: string) =>
-  SPOT_HOLDING_STABLE_COINS.has(coin.toUpperCase());
-
 export const calculateSpotHoldingPnl = ({
   total,
   entryNtl,
@@ -185,24 +183,21 @@ export const calculateSpotHoldingPnl = ({
   pnl?: string;
   pnlPercent?: number;
 } => {
-  const totalBN = new BigNumber(total);
   const entryNtlBN = new BigNumber(entryNtl || '0');
-  const midPriceBN = new BigNumber(midPrice || '0');
+  const pnl = calculateSpotHoldingPnlAmount({
+    total,
+    entryNtl,
+    priceUsd: midPrice,
+    isStable,
+  });
 
-  if (
-    isStable ||
-    !midPrice ||
-    entryNtlBN.isZero() ||
-    !totalBN.isFinite() ||
-    !entryNtlBN.isFinite() ||
-    !midPriceBN.isFinite()
-  ) {
+  if (!pnl || entryNtlBN.isZero() || !entryNtlBN.isFinite()) {
     return {};
   }
 
-  const pnlBN = totalBN.multipliedBy(midPriceBN).minus(entryNtlBN);
+  const pnlBN = new BigNumber(pnl);
   return {
-    pnl: pnlBN.toFixed(),
+    pnl,
     pnlPercent: pnlBN.dividedBy(entryNtlBN).multipliedBy(100).toNumber(),
   };
 };

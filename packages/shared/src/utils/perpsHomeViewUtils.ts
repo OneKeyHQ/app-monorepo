@@ -4,7 +4,12 @@ import { getSpotTokenDisplayName } from './perpsUtils';
 
 import type { IHyperliquidPortfolioSnapshot } from '../../types/hyperliquid/portfolio';
 
-const SPOT_HOLDING_STABLE_COINS = new Set(['USDC', 'USDT', 'USDB', 'USDH']);
+export const SPOT_HOLDING_STABLE_COINS = new Set([
+  'USDC',
+  'USDT',
+  'USDB',
+  'USDH',
+]);
 
 export interface IPerpsHomeHolding {
   symbol: string;
@@ -37,11 +42,11 @@ export interface IPerpsHomeView {
   isDegraded: boolean;
 }
 
-function isSpotHoldingStableCoin(coin: string) {
+export function isSpotHoldingStableCoin(coin: string) {
   return SPOT_HOLDING_STABLE_COINS.has(coin.toUpperCase());
 }
 
-function calculateSpotHoldingPnlUsd({
+export function calculateSpotHoldingPnl({
   total,
   entryNtl,
   priceUsd,
@@ -51,7 +56,7 @@ function calculateSpotHoldingPnlUsd({
   entryNtl?: string;
   priceUsd?: string;
   isStable: boolean;
-}): number | undefined {
+}): string | undefined {
   const totalBN = new BigNumber(total);
   const entryNtlBN = new BigNumber(entryNtl || '0');
   const priceUsdBN = new BigNumber(priceUsd || '0');
@@ -59,7 +64,6 @@ function calculateSpotHoldingPnlUsd({
   if (
     isStable ||
     !priceUsd ||
-    entryNtlBN.isZero() ||
     !totalBN.isFinite() ||
     !entryNtlBN.isFinite() ||
     !priceUsdBN.isFinite()
@@ -67,7 +71,7 @@ function calculateSpotHoldingPnlUsd({
     return undefined;
   }
 
-  return Number(totalBN.multipliedBy(priceUsdBN).minus(entryNtlBN).toFixed());
+  return totalBN.multipliedBy(priceUsdBN).minus(entryNtlBN).toFixed();
 }
 
 export function mapSnapshotToPerpsHomeView(
@@ -109,7 +113,7 @@ export function mapSnapshotToPerpsHomeView(
     .map((b) => {
       const priced = b.valueUsd !== undefined && b.priceUsd !== undefined;
       const valueUsd = priced ? Number(b.valueUsd) : undefined;
-      const pnlUsd = calculateSpotHoldingPnlUsd({
+      const pnlUsd = calculateSpotHoldingPnl({
         total: b.total,
         entryNtl: b.entryNtl,
         priceUsd: b.priceUsd,
@@ -121,7 +125,7 @@ export function mapSnapshotToPerpsHomeView(
         spotUniverseName: b.spotUniverseName,
         balance: b.total,
         valueUsd,
-        pnlUsd,
+        pnlUsd: pnlUsd !== undefined ? Number(pnlUsd) : undefined,
       };
     });
 
