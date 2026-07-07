@@ -344,7 +344,11 @@ export const TradingViewNativeChartControls = memo(
         testID="trading-view-native-fullscreen-toggle"
         size="small"
         variant="tertiary"
-        icon={isFullscreen ? 'MinimizeOutline' : 'ExpandOutline'}
+        icon={
+          isFullscreen
+            ? 'TradingViewExitFullscreenCustom'
+            : 'TradingViewFullscreenCustom'
+        }
         iconSize="$5"
         title={intl.formatMessage({
           id: isFullscreen
@@ -373,7 +377,7 @@ export const TradingViewNativeChartControls = memo(
             testID="trading-view-native-redo"
             size="small"
             variant="tertiary"
-            icon="RedoOutline"
+            icon="UndoFlipHorOutline"
             iconSize="$5"
             title={intl.formatMessage({ id: ETranslations.menu_redo })}
             onPress={onRedo}
