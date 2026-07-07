@@ -92,7 +92,7 @@ function useDappApproveAction({
   }, [id]);
   useSendRejectId(id);
   const reject = useCallback(
-    ({
+    async ({
       close,
       error,
       isForce,
@@ -101,25 +101,33 @@ function useDappApproveAction({
       if (isExtStandaloneWindow) {
         if (isHandledRef.current) return;
         if (isResolvingRef.current && !isForce) return;
-        isHandledRef.current = true;
       }
       // eslint-disable-next-line no-param-reassign
       const newError =
         error || rejectError || web3Errors.provider.userRejectedRequest();
-      void backgroundApiProxy.servicePromise.rejectCallback({
-        id,
-        error: toPlainErrorObject(newError),
-      });
       if (isExtStandaloneWindow) {
-        // The whole window is about to be destroyed: cover it right away
-        // (Page.Footer still auto-pops the page after this handler returns),
-        // skip close() (modal pop), and let window.close() land on the next
-        // task so the reject message reaches bg first.
+        // Await the ack so the reject actually reaches bg (settling
+        // ServiceDApp's semaphore) BEFORE the window is destroyed. Marking
+        // isHandledRef early + fire-and-forget + setTimeout(0) close could
+        // destroy the window before the bridge delivered the reject, while the
+        // beforeunload backstop was short-circuited by isHandledRef — leaving
+        // the semaphore stuck until timeout. isHandledRef is set only AFTER the
+        // ack, so an in-flight close still lets the beforeunload reject fire as
+        // a backstop. (review)
+        await backgroundApiProxy.servicePromise.rejectCallback({
+          id,
+          error: toPlainErrorObject(newError),
+        });
+        isHandledRef.current = true;
+        // Page.Footer still auto-pops after this returns; cover + destroy the
+        // window (skipping the modal pop that would flash Home).
         coverExtStandaloneWindowUntilClose();
-        setTimeout(() => {
-          window.close();
-        }, 0);
+        window.close();
       } else {
+        void backgroundApiProxy.servicePromise.rejectCallback({
+          id,
+          error: toPlainErrorObject(newError),
+        });
         close?.();
       }
     },
@@ -146,23 +154,27 @@ function useDappApproveAction({
           // resolve payload was being built — drop this resolve.
           return;
         }
-        if (isExtStandaloneWindow) {
-          isHandledRef.current = true;
-        }
-        void backgroundApiProxy.servicePromise.resolveCallback({
-          id,
-          data,
-        });
         if (isExtStandaloneWindow && closeWindowAfterResolved) {
-          // The whole window is about to be destroyed: cover it right away
-          // (Page.Footer still auto-pops the page after this handler
-          // returns), skip close() (modal pop), and let window.close() land
-          // on the next task so the resolve message reaches bg first.
+          // Await the ack so the resolve reaches bg (settling the semaphore)
+          // before the window is destroyed; set isHandledRef only after, so
+          // the beforeunload reject stays a backstop until then. (review)
+          await backgroundApiProxy.servicePromise.resolveCallback({
+            id,
+            data,
+          });
+          isHandledRef.current = true;
+          // Page.Footer still auto-pops after this returns; cover + destroy the
+          // window (skipping the modal pop that would flash Home).
           coverExtStandaloneWindowUntilClose();
-          setTimeout(() => {
-            window.close();
-          }, 0);
+          window.close();
         } else {
+          if (isExtStandaloneWindow) {
+            isHandledRef.current = true;
+          }
+          void backgroundApiProxy.servicePromise.resolveCallback({
+            id,
+            data,
+          });
           close?.();
         }
       } catch (error) {
@@ -182,7 +194,7 @@ function useDappApproveAction({
 
   useEffect(() => {
     if (rejectError && closeOnError) {
-      reject();
+      void reject();
     }
   }, [closeOnError, reject, rejectError]);
 
@@ -199,9 +211,13 @@ function useDappApproveAction({
     // the stale and the new handler fire, double-calling reject (the stale one
     // possibly with an already-invalid id).
     // isForce: the window is going away — this reject must reach bg even while
-    // a resolve is mid-flight, or the request semaphore jams.
+    // a resolve is mid-flight, or the request semaphore jams. beforeunload is
+    // synchronous so the browser won't await reject's ack; the rejectCallback
+    // message is still dispatched on a best-effort basis before teardown.
     // TODO do not reject with hardware interaction when before-unload
-    const handleBeforeUnload = () => reject({ isForce: true });
+    const handleBeforeUnload = () => {
+      void reject({ isForce: true });
+    };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
