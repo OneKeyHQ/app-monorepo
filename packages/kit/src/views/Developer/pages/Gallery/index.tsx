@@ -283,10 +283,6 @@ const WebviewGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebView'),
 );
-const WebViewFreezeGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebViewFreeze'),
-);
 const WebViewOverlayGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebViewOverlay'),
@@ -678,10 +674,6 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentWebview,
     component: WebviewGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentWebViewFreeze,
-    component: WebViewFreezeGallery,
   },
   {
     name: EGalleryRoutes.ComponentWebViewOverlay,
