@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { Component } from 'react';
+import { Component, useEffect, useLayoutEffect } from 'react';
 import type { ReactNode } from 'react';
 
 import LazyLoad, { MAX_LAZY_RETRIES, isRetryableLazyError } from '.';
@@ -209,6 +209,91 @@ describe('LazyLoad self-heal', () => {
 
     expect(screen.queryByTestId('loaded')).not.toBeNull();
     expect(screen.queryByTestId('fallback')).toBeNull();
+    expect(factory).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not remount the loaded component when props change after cold load', async () => {
+    const mountCounts = { mounted: 0, unmounted: 0 };
+    function LoadedComponent({ label }: { label: string }) {
+      useEffect(() => {
+        mountCounts.mounted += 1;
+        return () => {
+          mountCounts.unmounted += 1;
+        };
+      }, []);
+
+      return <div data-testid="loaded">{label}</div>;
+    }
+    const factory = jest.fn(() =>
+      Promise.resolve({
+        default: LoadedComponent,
+      }),
+    );
+    const Lazy = LazyLoad<{ label: string }>(
+      factory,
+      undefined,
+      <div data-testid="fallback">loading</div>,
+    );
+
+    const { rerender } = render(<Lazy label="first" />);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('loaded')?.textContent).toBe('first');
+    });
+
+    rerender(<Lazy label="second" />);
+
+    expect(screen.queryByTestId('loaded')?.textContent).toBe('second');
+    expect(mountCounts).toEqual({ mounted: 1, unmounted: 0 });
+  });
+
+  it('keeps the local retry boundary active after preload resolves', async () => {
+    const err = Object.assign(new Error('timed out'), {
+      code: 'SPLIT_BUNDLE_TIMEOUT',
+    });
+    const didThrow = { value: false };
+    function RetryAfterPreloadComponent() {
+      useLayoutEffect(() => {
+        if (!didThrow.value) {
+          didThrow.value = true;
+          throw err;
+        }
+      }, []);
+      return <div data-testid="loaded">loaded</div>;
+    }
+    const factory = jest.fn(() =>
+      Promise.resolve({
+        default: RetryAfterPreloadComponent,
+      }),
+    );
+    const Lazy = LazyLoad<Record<string, never>>(
+      factory,
+      undefined,
+      <div data-testid="fallback">loading</div>,
+    );
+    const onParentCatch = jest.fn();
+
+    await Lazy.preload();
+    render(
+      <CatchBoundary onCatch={onParentCatch}>
+        <Lazy />
+      </CatchBoundary>,
+    );
+
+    await waitFor(() => {
+      expect(mockWrite).toHaveBeenCalledWith(
+        'WARNING',
+        expect.stringContaining('[LazyLoad] retryable segment error'),
+      );
+    });
+    expect(screen.queryByTestId('fallback')).not.toBeNull();
+    await waitFor(
+      () => {
+        expect(screen.queryByTestId('loaded')).not.toBeNull();
+      },
+      { timeout: 4000 },
+    );
+    expect(onParentCatch).not.toHaveBeenCalled();
     expect(factory).toHaveBeenCalledTimes(1);
   });
 

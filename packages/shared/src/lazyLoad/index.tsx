@@ -1,4 +1,12 @@
-import { Component, Suspense, lazy, memo, useMemo, useState } from 'react';
+import {
+  Component,
+  Suspense,
+  lazy,
+  memo,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { ComponentType, ErrorInfo, ReactNode } from 'react';
 
 import {
@@ -210,6 +218,10 @@ function LazyLoad<T = Record<string, unknown>>(
   };
   function LazyLoadContainer(props: T) {
     const [retryKey, setRetryKey] = useState(0);
+    // Cold-start instances must stay on the lazy element after it resolves;
+    // switching them to the direct component on later prop updates remounts the
+    // loaded subtree.
+    const renderLoadedModuleDirectlyRef = useRef(Boolean(loadedModule));
     const LazyLoadComponent = useMemo(
       () => lazy(load),
       // regenerate a fresh lazy() object each retry — React caches the rejected
@@ -217,10 +229,9 @@ function LazyLoad<T = Record<string, unknown>>(
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [retryKey],
     );
-    if (loadedModule) {
-      const LoadedComponent = loadedModule.default;
-      return <LoadedComponent {...(props as any)} />;
-    }
+    const LoadedComponent = renderLoadedModuleDirectlyRef.current
+      ? loadedModule?.default
+      : undefined;
     return (
       <LazyRetryBoundary
         maxRetries={MAX_LAZY_RETRIES}
@@ -232,7 +243,11 @@ function LazyLoad<T = Record<string, unknown>>(
               directly (TS can't prove `T` is a valid props object for the
               lazily-typed component); the cast is unavoidable and safe because
               `props` is exactly what the caller typed `LazyLoad<T>` with. */}
-          <LazyLoadComponent {...(props as any)} />
+          {LoadedComponent ? (
+            <LoadedComponent {...(props as any)} />
+          ) : (
+            <LazyLoadComponent {...(props as any)} />
+          )}
         </Suspense>
       </LazyRetryBoundary>
     );
