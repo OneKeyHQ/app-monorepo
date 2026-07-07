@@ -118,7 +118,7 @@ describe('mapSnapshotToPerpsHomeView', () => {
     const ueth = v.holdings.find((h) => h.symbol === 'UETH');
     expect(ueth?.displaySymbol).toBe('ETH');
     expect(ueth?.spotUniverseName).toBe('UETH/USDC');
-    expect(ueth?.pnlUsd).toBeCloseTo(-0.1300017);
+    expect(ueth?.pnlUsd).toBeCloseTo(-0.130_001_7);
     const usdc = v.holdings.find((h) => h.symbol === 'USDC');
     expect(usdc?.displaySymbol).toBe('USDC');
     expect(usdc?.pnlUsd).toBeUndefined();
