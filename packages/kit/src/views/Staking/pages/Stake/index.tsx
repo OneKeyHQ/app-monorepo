@@ -392,6 +392,7 @@ function BasicStakePage() {
       unsignedMessage,
       message,
       effectiveApy,
+      validatorPubkey,
       stakeType: confirmStakeType,
       onStepChange,
     }: IApproveConfirmFnParams) => {
@@ -406,6 +407,7 @@ function BasicStakePage() {
         unsignedMessage,
         message,
         effectiveApy,
+        validatorPublicKey: validatorPubkey,
         stakeType: effectiveStakeType,
         postWrapStakeToken:
           effectiveStakeType === 'wrap' ? nativeWrappedStakeToken : undefined,
