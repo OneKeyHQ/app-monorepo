@@ -115,13 +115,32 @@ export const useWebAuthActions = (options?: {
                   // Ask before registering a fresh one.
                   const shouldReEnroll = await confirmReEnrollPasskey();
                   if (shouldReEnroll) {
-                    webAuthCredentialId =
-                      (await biologyAuthUtils.savePasswordForPasskey(
-                        cachedPassword,
-                        {
-                          forceReEnroll: true,
-                        },
-                      )) ?? undefined;
+                    try {
+                      webAuthCredentialId =
+                        (await biologyAuthUtils.savePasswordForPasskey(
+                          cachedPassword,
+                          {
+                            forceReEnroll: true,
+                          },
+                        )) ?? undefined;
+                    } catch (reEnrollError) {
+                      // forceReEnroll rolled secure storage back to the old
+                      // credential on failure. WebAuthSwitchContainer clears the
+                      // atom's webAuthCredentialId before entering enable, so
+                      // refill it from the restored storage — otherwise
+                      // PasswordVerifyContainer / the lock screen would treat
+                      // biometric as disabled while storage still holds a usable
+                      // credential. (review)
+                      const restoredCredId =
+                        await biologyAuthUtils.getCredentialId();
+                      if (restoredCredId) {
+                        setPasswordPersist((v) => ({
+                          ...v,
+                          webAuthCredentialId: restoredCredId,
+                        }));
+                      }
+                      throw reEnrollError;
+                    }
                   } else {
                     return undefined;
                   }
