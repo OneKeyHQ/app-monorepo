@@ -60,6 +60,7 @@ interface ITradingViewNativeChartControlsProps {
   intervalConfig: ITradingViewIntervalConfigData | null;
   nativeChartControlsConfig: ITradingViewNativeChartControlsConfigData | null;
   nativeIndicatorState: ITradingViewNativeIndicatorState;
+  isControlsReady?: boolean;
   chartTypeControlMode?: ITradingViewNativeChartTypeControlMode;
   indicatorControlMode?: ITradingViewNativeIndicatorControlMode;
   intervalControlMode?: ITradingViewNativeIntervalControlMode;
@@ -84,11 +85,14 @@ function ToolbarSeparator() {
   return <Stack h="$6" w="$px" bg="$borderSubdued" flexShrink={0} />;
 }
 
+const DESKTOP_CONTROLS_HEIGHT = 38;
+
 export const TradingViewNativeChartControls = memo(
   ({
     intervalConfig,
     nativeChartControlsConfig,
     nativeIndicatorState,
+    isControlsReady = true,
     chartTypeControlMode = 'toggle',
     indicatorControlMode = 'dialog',
     intervalControlMode = 'dialog',
@@ -398,6 +402,7 @@ export const TradingViewNativeChartControls = memo(
       ) : null;
 
     if (
+      isControlsReady &&
       !hasVisibleControls &&
       !hasCalendarControl &&
       !hasFullscreenControl &&
@@ -422,8 +427,20 @@ export const TradingViewNativeChartControls = memo(
 
     if (isDesktopLayout) {
       return (
-        <Stack bg="$bgApp" px="$4" py="$1" zIndex={3}>
-          <XStack alignItems="center" width="100%" gap="$2">
+        <Stack
+          bg="$bgApp"
+          px="$4"
+          py="$1"
+          h={DESKTOP_CONTROLS_HEIGHT}
+          zIndex={3}
+        >
+          <XStack
+            alignItems="center"
+            width="100%"
+            gap="$2"
+            opacity={isControlsReady ? 1 : 0}
+            pointerEvents={isControlsReady ? 'auto' : 'none'}
+          >
             <ScrollView
               horizontal
               flex={1}
@@ -475,6 +492,8 @@ export const TradingViewNativeChartControls = memo(
           justifyContent="space-between"
           width="100%"
           gap="$2"
+          opacity={isControlsReady ? 1 : 0}
+          pointerEvents={isControlsReady ? 'auto' : 'none'}
         >
           <XStack flex={1} minWidth={0} alignItems="center">
             {intervalSelector}
