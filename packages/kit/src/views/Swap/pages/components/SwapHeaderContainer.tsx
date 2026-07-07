@@ -36,6 +36,10 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import {
+  getSwapAnalyticsCategoryFromSwapType,
+  getSwapAnalyticsEnterFrom,
+} from '../../utils/swapStockAnalytics';
 import { getVisibleSwapTabSwitchType } from '../../utils/swapTypeUtils';
 
 import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
@@ -191,9 +195,9 @@ const SwapHeaderContainer = ({
       if (swapTypeSwitch === newType) return;
 
       defaultLogger.swap.tradeCategorySwitch.tradeCategorySwitch({
-        fromCategory: swapTypeSwitch,
-        toCategory: newType,
-        enterFrom,
+        fromCategory: getSwapAnalyticsCategoryFromSwapType(swapTypeSwitch),
+        toCategory: getSwapAnalyticsCategoryFromSwapType(newType),
+        enterFrom: getSwapAnalyticsEnterFrom(enterFrom),
       });
 
       if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
