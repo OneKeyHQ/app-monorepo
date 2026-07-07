@@ -213,6 +213,13 @@ function RewardCenterDetails({
     accountSelectorLinkNetworkId = network?.id;
   } else if (networkUtils.isTronNetworkByNetworkId(networkId)) {
     accountSelectorLinkNetworkId = networkId;
+  } else if (showAccountSelector) {
+    // Reward Center is TRON-only. When neither the resolved reward network nor
+    // the route network is TRON — e.g. an imported/external (non-indexed)
+    // account entered from another chain, where rewardState.network never
+    // resolves to TRON — fall back to TRON mainnet so the selector still opens
+    // the TRON-scoped account list instead of an unbound one.
+    accountSelectorLinkNetworkId = networkIdsMap.trx;
   }
 
   const [isResourceClaimed, setIsResourceClaimed] = useState(false);
