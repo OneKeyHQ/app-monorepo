@@ -108,7 +108,10 @@ const SubtitleText = memo(
       }
       const el = textRef.current;
       if (el && typeof el.scrollWidth === 'number') {
-        setIsTruncated(el.scrollWidth > el.clientWidth + 1);
+        const nextIsTruncated = el.scrollWidth > el.clientWidth + 1;
+        setIsTruncated((prev) =>
+          prev === nextIsTruncated ? prev : nextIsTruncated,
+        );
       }
     }, []);
 
@@ -134,16 +137,17 @@ const SubtitleText = memo(
       </Stack>
     );
 
-    // Only show a hover tooltip on desktop when the name is actually cut off.
-    if (platformEnv.isNative || !isTruncated) {
+    if (platformEnv.isNative) {
       return textElement;
     }
 
     return (
       <LazyTooltip
+        disabled={!isTruncated}
         placement="top"
         renderContent={subtitle}
         renderTrigger={textElement}
+        triggerAsChild
       />
     );
   },
