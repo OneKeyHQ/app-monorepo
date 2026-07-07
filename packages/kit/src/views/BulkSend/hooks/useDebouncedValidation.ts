@@ -9,6 +9,18 @@ export function useDebouncedValidation<T extends string>(
   validateFn: (value: T) => Promise<string | boolean>,
   delay = 300,
 ): IDebouncedValidation<T> {
+  // Keep the latest validateFn in a ref so identity churn (e.g. `network` /
+  // `vaultSettings` resolving asynchronously while the user is entering
+  // addresses) never cancels an in-flight validation. Previously, a changed
+  // validateFn force-resolved the pending validation to `false`, which left the
+  // field invalid with an empty error message: react-hook-form renders no error
+  // text for a boolean-`false` result, so the Next button stayed disabled and
+  // invalid addresses produced no visible error. When the debounce fires we
+  // always run the current validator, so the value is re-checked with the
+  // freshest network/token context and resolves with the real result.
+  const validateFnRef = useRef(validateFn);
+  validateFnRef.current = validateFn;
+
   const currentValueRef = useRef<T>('' as T);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingResolveRef = useRef<((value: string | boolean) => void) | null>(
@@ -28,11 +40,6 @@ export function useDebouncedValidation<T extends string>(
       pendingResolveRef.current = null;
     }
   }, []);
-
-  useEffect(() => {
-    validationVersionRef.current += 1;
-    cancel(false);
-  }, [cancel, validateFn, delay]);
 
   // Clean up pending validation on unmount.
   useEffect(
@@ -58,7 +65,7 @@ export function useDebouncedValidation<T extends string>(
         debounceTimerRef.current = setTimeout(async () => {
           debounceTimerRef.current = null;
           try {
-            const result = await validateFn(value);
+            const result = await validateFnRef.current(value);
             if (
               validationVersionRef.current === validationVersion &&
               currentValueRef.current === value &&
@@ -82,7 +89,7 @@ export function useDebouncedValidation<T extends string>(
           }
         }, delay);
       }),
-    [cancel, validateFn, delay],
+    [cancel, delay],
   );
 
   return useMemo(() => ({ validate, cancel }), [validate, cancel]);
