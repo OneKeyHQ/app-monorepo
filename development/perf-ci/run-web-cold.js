@@ -224,6 +224,40 @@ function normalizeResourceUrl(url) {
   }
 }
 
+function dedupeResourceEntries(entries) {
+  const map = new Map();
+  for (const entry of entries) {
+    const key = normalizeResourceUrl(entry.name);
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, { ...entry });
+      continue;
+    }
+    existing.decodedBodySize = Math.max(
+      existing.decodedBodySize || 0,
+      entry.decodedBodySize || 0,
+    );
+    existing.encodedBodySize = Math.max(
+      existing.encodedBodySize || 0,
+      entry.encodedBodySize || 0,
+    );
+    existing.transferSize = Math.max(
+      existing.transferSize || 0,
+      entry.transferSize || 0,
+    );
+    existing.duration = Math.max(existing.duration || 0, entry.duration || 0);
+    existing.startTime = Math.min(
+      Number.isFinite(existing.startTime) ? existing.startTime : Infinity,
+      Number.isFinite(entry.startTime) ? entry.startTime : Infinity,
+    );
+    existing.responseEnd = Math.max(
+      existing.responseEnd || 0,
+      entry.responseEnd || 0,
+    );
+  }
+  return [...map.values()];
+}
+
 function parseInitialScriptFiles(buildDir) {
   const indexHtmlPath = path.join(buildDir, 'index.html');
   const html = fs.readFileSync(indexHtmlPath, 'utf8');
@@ -615,13 +649,15 @@ async function runOne({
       fs.writeFileSync(cpuProfilePath, JSON.stringify(profile));
     }
 
-    const resources = metrics.resources || [];
+    const rawResources = metrics.resources || [];
+    const resources = dedupeResourceEntries(rawResources);
     const scripts = resources.filter(
       (entry) =>
         entry.initiatorType === 'script' || /\.m?js($|\?)/.test(entry.name),
     );
-    const uniqueScriptUrls = new Set(
-      scripts.map((entry) => normalizeResourceUrl(entry.name)),
+    const rawScripts = rawResources.filter(
+      (entry) =>
+        entry.initiatorType === 'script' || /\.m?js($|\?)/.test(entry.name),
     );
     const observerMetrics = metrics.observerMetrics || {};
     const longTasks = observerMetrics.longTasks || [];
@@ -662,9 +698,10 @@ async function runOne({
             (businessReady?.ready ? 1 : 0)
           : 0,
       resourceCount: resources.length,
-      scriptCount: uniqueScriptUrls.size,
-      uniqueScriptCount: uniqueScriptUrls.size,
-      scriptEntryCount: scripts.length,
+      rawResourceCount: rawResources.length,
+      scriptCount: scripts.length,
+      uniqueScriptCount: scripts.length,
+      rawScriptEntryCount: rawScripts.length,
       totalTransferBytes:
         sum(resources.map((entry) => entry.transferSize)) +
         (metrics.navigation?.transferSize || 0),
@@ -705,7 +742,23 @@ async function runOne({
         transferSize: entry.transferSize,
         duration: entry.duration,
       })),
+      rawScripts: rawScripts.map((entry) => ({
+        url: entry.name,
+        startTime: entry.startTime,
+        decodedBodySize: entry.decodedBodySize,
+        transferSize: entry.transferSize,
+        duration: entry.duration,
+      })),
       resources: resources.map((entry) => ({
+        url: entry.name,
+        initiatorType: entry.initiatorType,
+        startTime: entry.startTime,
+        duration: entry.duration,
+        responseEnd: entry.responseEnd,
+        decodedBodySize: entry.decodedBodySize,
+        transferSize: entry.transferSize,
+      })),
+      rawResources: rawResources.map((entry) => ({
         url: entry.name,
         initiatorType: entry.initiatorType,
         startTime: entry.startTime,
@@ -742,9 +795,10 @@ function aggregateRuns(runs, initialScripts) {
     ),
     marketListReadyCount: median(runs.map((run) => run.marketListReadyCount)),
     resourceCount: median(runs.map((run) => run.resourceCount)),
+    rawResourceCount: median(runs.map((run) => run.rawResourceCount)),
     scriptCount: median(runs.map((run) => run.scriptCount)),
     uniqueScriptCount: median(runs.map((run) => run.uniqueScriptCount)),
-    scriptEntryCount: median(runs.map((run) => run.scriptEntryCount)),
+    rawScriptEntryCount: median(runs.map((run) => run.rawScriptEntryCount)),
     totalTransferBytes: median(runs.map((run) => run.totalTransferBytes)),
     totalDecodedBytes: median(runs.map((run) => run.totalDecodedBytes)),
     jsTransferBytes: median(runs.map((run) => run.jsTransferBytes)),
@@ -884,11 +938,16 @@ function printReport({
   }
   // eslint-disable-next-line no-console
   console.log(
-    `resources/unique scripts: ${summary.resourceCount} / ${summary.uniqueScriptCount}`,
+    `resources/scripts (deduped): ${summary.resourceCount} / ${summary.scriptCount}`,
   );
-  if (summary.scriptEntryCount !== summary.uniqueScriptCount) {
+  if (
+    summary.rawResourceCount !== summary.resourceCount ||
+    summary.rawScriptEntryCount !== summary.scriptCount
+  ) {
     // eslint-disable-next-line no-console
-    console.log(`raw script entries: ${summary.scriptEntryCount}`);
+    console.log(
+      `raw resource/script entries: ${summary.rawResourceCount} / ${summary.rawScriptEntryCount}`,
+    );
   }
   // eslint-disable-next-line no-console
   console.log(
@@ -1155,12 +1214,20 @@ async function main() {
     const legacyTopLevelFieldsNote =
       'Use scenarios[] as the source of truth. Top-level url/budgets/budgetChecks/healthChecks/summary/runs are legacy-compatible fields for the first scenario only.';
     const metricDefinitions = {
+      resourceCount:
+        'Count of distinct normalized resource URLs loaded during the cold-start sample. Duplicates from preload + fetch, repeated injection, or cache re-use are collapsed to one entry.',
+      rawResourceCount:
+        'Raw PerformanceResourceTiming entries before URL de-duplication.',
       scriptCount:
-        'Budgeted count of distinct normalized JavaScript resource URLs loaded during the cold-start sample.',
+        'Budgeted count of distinct normalized JavaScript resource URLs loaded during the cold-start sample. Duplicates are collapsed.',
       uniqueScriptCount:
         'Alias of scriptCount for readability in reports and AI hints.',
-      scriptEntryCount:
+      rawScriptEntryCount:
         'Raw PerformanceResourceTiming script/resource entries before URL de-duplication; duplicates can come from preload + script, repeated injection, or cache re-use.',
+      jsDecodedBytes:
+        'Sum of decodedBodySize for distinct normalized JavaScript URLs. When the same URL appears multiple times, the largest decodedBodySize is kept.',
+      jsTransferBytes:
+        'Sum of transferSize for distinct normalized JavaScript URLs. When the same URL appears multiple times, the largest transferSize is kept.',
     };
     const output = {
       createdAt: new Date().toISOString(),
@@ -1221,8 +1288,10 @@ async function main() {
         ],
         notes: [
           legacyTopLevelFieldsNote,
+          metricDefinitions.resourceCount,
           metricDefinitions.scriptCount,
-          metricDefinitions.scriptEntryCount,
+          metricDefinitions.jsDecodedBytes,
+          metricDefinitions.rawScriptEntryCount,
           'Read scenarios[].failedOrWarnBudgetChecks and scenarios[].failedHealthChecks before choosing a fix.',
         ],
         log,

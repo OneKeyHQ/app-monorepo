@@ -185,7 +185,7 @@ function representativeRun(runs) {
 
 function duplicateScriptsForRun(run) {
   const counts = {};
-  for (const script of run?.scripts || []) {
+  for (const script of run?.rawScripts || run?.scripts || []) {
     const key = normalizeScriptUrl(script.url);
     counts[key] = (counts[key] || 0) + 1;
   }
@@ -253,7 +253,8 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
       ),
       representativeRunIndex: run?.runIndex || null,
       scriptCount: run?.scriptCount || null,
-      scriptEntryCount: run?.scriptEntryCount || null,
+      rawResourceCount: run?.rawResourceCount || null,
+      rawScriptEntryCount: run?.rawScriptEntryCount || null,
       uniqueScriptCount: uniqueScripts.length,
       duplicateScripts: duplicateScriptsForRun(run).slice(0, 30),
       topScriptsByDecodedSize: (run?.topScripts || [])
@@ -284,10 +285,14 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
     reportNotes: [
       report.legacyTopLevelFieldsNote ||
         'Use scenarios[] as the source of truth. Top-level summary/budgetChecks/runs are legacy-compatible fields for the first scenario only.',
+      report.metricDefinitions?.resourceCount ||
+        'resourceCount is the count of distinct normalized resource URLs loaded during the cold-start sample; duplicates are collapsed.',
       report.metricDefinitions?.scriptCount ||
         'scriptCount is the budgeted count of distinct normalized JavaScript resource URLs loaded during the cold-start sample.',
-      report.metricDefinitions?.scriptEntryCount ||
-        'scriptEntryCount is the raw PerformanceResourceTiming script/resource entry count before URL de-duplication.',
+      report.metricDefinitions?.jsDecodedBytes ||
+        'jsDecodedBytes is the sum of decodedBodySize for distinct normalized JavaScript URLs.',
+      report.metricDefinitions?.rawScriptEntryCount ||
+        'rawScriptEntryCount is the raw PerformanceResourceTiming script/resource entry count before URL de-duplication.',
       'Warnings are still budget regressions. Do not silence failures by changing thresholds or workflow env values.',
       'If failedHealthChecks is non-empty, fix page rendering/readiness first because budget samples may be invalid.',
     ],
@@ -300,7 +305,7 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
       'Fix the OneKey web cold/startup budget without relaxing thresholds.',
       'Use scenarios[] as the source of truth; top-level summary/budgetChecks/runs are legacy-compatible first-scenario fields.',
       'Start from failedOrWarnBudgetChecks, then inspect duplicateScripts, scenarioOnlyScriptCandidates, and smallScriptCandidates.',
-      'scriptCount is unique normalized script URLs; use scriptEntryCount and duplicateScripts only to inspect repeated preload/script/cache entries.',
+      'scriptCount/resourceCount/jsDecodedBytes are de-duplicated by normalized URL; use rawResourceCount, rawScriptEntryCount, and duplicateScripts to inspect repeated preload/script/cache entries.',
       'Do not assume only the home page can fail: any change entering the global shell, shared modules, first-screen synchronous imports, or lazy loads auto-mounted within the cold-start window can affect this budget.',
       'For scriptCount/resourceCount failures, prefer merging related lazy import() boundaries or delaying non-first-screen providers.',
       'Do not edit development/perf-ci/thresholds or workflow budget env values to silence a regression.',
@@ -607,8 +612,8 @@ function renderAiHintsMarkdown(hints) {
       }
       const scriptMetrics = [
         `budget scripts(unique): ${scenario.scriptCount ?? 'n/a'}`,
-        `raw script entries: ${scenario.scriptEntryCount ?? 'n/a'}`,
-        `unique scripts: ${scenario.uniqueScriptCount ?? 'n/a'}`,
+        `raw resource entries: ${scenario.rawResourceCount ?? 'n/a'}`,
+        `raw script entries: ${scenario.rawScriptEntryCount ?? 'n/a'}`,
       ];
       lines.push(`- ${scriptMetrics.join(', ')}`);
       if (scenario.duplicateScripts?.length) {
