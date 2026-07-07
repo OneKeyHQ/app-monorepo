@@ -294,6 +294,8 @@ class ProviderApiEthereum extends ProviderApiBase {
       origin: request.origin,
     });
 
+    this.tryFocusPendingApprovalWindow(request);
+
     return this.semaphore.runExclusive(async () => {
       const accounts = await this.eth_accounts(request);
 
