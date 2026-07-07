@@ -146,6 +146,136 @@ function buildPackageCandidateMap(candidateSet) {
   return map;
 }
 
+function readJsonFile(filePath) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function normalizePackageTarget(packagePath, target) {
+  if (
+    !target ||
+    typeof target !== 'string' ||
+    target.startsWith('/') ||
+    /^[a-z][a-z+.-]*:/i.test(target)
+  ) {
+    return null;
+  }
+  const relativeTarget = target.startsWith('.') ? target : `./${target}`;
+  return toPosixPath(path.posix.join(packagePath, relativeTarget));
+}
+
+function collectExportTargets(value, targets = []) {
+  if (!value) return targets;
+  if (typeof value === 'string') {
+    targets.push(value);
+    return targets;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectExportTargets(item, targets);
+    return targets;
+  }
+  if (typeof value !== 'object') return targets;
+
+  const preferredKeys = [
+    'browser',
+    'react-native',
+    'import',
+    'module',
+    'default',
+    'require',
+  ];
+  const keys = [
+    ...preferredKeys.filter((key) =>
+      Object.prototype.hasOwnProperty.call(value, key),
+    ),
+    ...Object.keys(value)
+      .filter((key) => !preferredKeys.includes(key))
+      .sort(),
+  ];
+  for (const key of keys) {
+    collectExportTargets(value[key], targets);
+  }
+  return targets;
+}
+
+function getExportsValueForSubpath(exportsValue, subpath) {
+  if (!exportsValue) return null;
+  if (!subpath) {
+    if (typeof exportsValue === 'string' || Array.isArray(exportsValue)) {
+      return exportsValue;
+    }
+    if (typeof exportsValue === 'object') {
+      if (Object.prototype.hasOwnProperty.call(exportsValue, '.')) {
+        return exportsValue['.'];
+      }
+      const keys = Object.keys(exportsValue);
+      if (keys.every((key) => !key.startsWith('.'))) return exportsValue;
+    }
+    return null;
+  }
+
+  if (typeof exportsValue !== 'object' || Array.isArray(exportsValue)) {
+    return null;
+  }
+
+  const exportKey = `./${subpath}`;
+  if (Object.prototype.hasOwnProperty.call(exportsValue, exportKey)) {
+    return exportsValue[exportKey];
+  }
+
+  for (const [key, value] of Object.entries(exportsValue)) {
+    if (!key.includes('*')) continue;
+    const [prefix, suffix] = key.split('*');
+    if (exportKey.startsWith(prefix) && exportKey.endsWith(suffix)) {
+      const wildcard = exportKey.slice(
+        prefix.length,
+        exportKey.length - suffix.length,
+      );
+      return collectExportTargets(value)
+        .filter((target) => target.includes('*'))
+        .map((target) => target.replace('*', wildcard));
+    }
+  }
+  return null;
+}
+
+function getPackageEntryCandidates({ repoRoot, packagePath, subpath = '' }) {
+  const packageJsonPath = path.join(repoRoot, packagePath, 'package.json');
+  const packageJson = readJsonFile(packageJsonPath);
+  const candidates = [];
+
+  if (subpath) {
+    candidates.push(path.posix.join(packagePath, subpath));
+  }
+
+  if (packageJson?.exports) {
+    for (const target of collectExportTargets(
+      getExportsValueForSubpath(packageJson.exports, subpath),
+    )) {
+      const normalized = normalizePackageTarget(packagePath, target);
+      if (normalized) candidates.push(normalized);
+    }
+  }
+
+  if (!subpath && packageJson) {
+    for (const field of ['browser', 'module', 'main']) {
+      if (typeof packageJson[field] === 'string') {
+        const normalized = normalizePackageTarget(
+          packagePath,
+          packageJson[field],
+        );
+        if (normalized) candidates.push(normalized);
+      }
+    }
+  }
+
+  candidates.push(packagePath);
+  return [...new Set(candidates)];
+}
+
 function tryResolveCandidate(basePath, candidateSet, extensions) {
   const normalized = toPosixPath(path.posix.normalize(basePath));
   const attempts = [normalized];
@@ -158,17 +288,42 @@ function tryResolveCandidate(basePath, candidateSet, extensions) {
   return attempts.find((item) => candidateSet.has(item)) || null;
 }
 
-function workspaceSpecifierToPath(specifier) {
+function workspaceSpecifierToPackage(specifier) {
   for (const [packageName, packagePath] of WORKSPACE_PACKAGES) {
-    if (specifier === packageName) return packagePath;
+    if (specifier === packageName) return { packageName, packagePath };
     if (specifier.startsWith(`${packageName}/`)) {
-      return path.posix.join(packagePath, specifier.slice(packageName.length));
+      return {
+        packageName,
+        packagePath,
+        subpath: specifier.slice(packageName.length + 1),
+      };
     }
   }
   return null;
 }
 
+function nodeModuleSpecifierToPackage(specifier) {
+  const packageName = packageNameFromSpecifier(specifier);
+  if (!packageName) return null;
+  const subpath =
+    specifier === packageName ? '' : specifier.slice(packageName.length + 1);
+  return {
+    packageName,
+    packagePath: path.posix.join('node_modules', packageName),
+    subpath,
+  };
+}
+
+function resolveCandidatePaths({ paths, candidateSet, extensions }) {
+  for (const item of paths) {
+    const resolved = tryResolveCandidate(item, candidateSet, extensions);
+    if (resolved) return resolved;
+  }
+  return null;
+}
+
 function resolveSpecifier({
+  repoRoot,
   from,
   specifier,
   candidateSet,
@@ -185,9 +340,23 @@ function resolveSpecifier({
     );
   }
 
-  const workspacePath = workspaceSpecifierToPath(specifier);
-  if (workspacePath) {
-    return tryResolveCandidate(workspacePath, candidateSet, extensions);
+  const workspacePackage = workspaceSpecifierToPackage(specifier);
+  if (workspacePackage) {
+    return resolveCandidatePaths({
+      paths: getPackageEntryCandidates({ repoRoot, ...workspacePackage }),
+      candidateSet,
+      extensions,
+    });
+  }
+
+  const nodeModulePackage = nodeModuleSpecifierToPackage(specifier);
+  if (nodeModulePackage) {
+    const resolved = resolveCandidatePaths({
+      paths: getPackageEntryCandidates({ repoRoot, ...nodeModulePackage }),
+      candidateSet,
+      extensions,
+    });
+    if (resolved) return resolved;
   }
 
   const packageName = packageNameFromSpecifier(specifier);
@@ -203,7 +372,7 @@ function buildStaticImportGraph({ repoRoot, modules, extensions }) {
 
   for (const source of candidateSet) {
     const filePath = path.join(repoRoot, source);
-    if (!fs.existsSync(filePath) || source.includes('node_modules/')) {
+    if (!fs.existsSync(filePath)) {
       graph.set(source, []);
     } else {
       let sourceText = '';
@@ -217,6 +386,7 @@ function buildStaticImportGraph({ repoRoot, modules, extensions }) {
       if (sourceText) {
         for (const item of parseImports(sourceText)) {
           const resolved = resolveSpecifier({
+            repoRoot,
             from: source,
             specifier: item.specifier,
             candidateSet,

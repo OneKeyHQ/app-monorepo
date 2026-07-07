@@ -81,4 +81,132 @@ describe('createStaticImportChainReport', () => {
       },
     ]);
   });
+
+  it('resolves workspace package entries through package.json main', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'import-chain-'));
+    const root = 'apps/web/src/root.ts';
+    const kitEntry = 'packages/kit/src/index.tsx';
+    const kitTarget = 'packages/kit/src/KitProvider.tsx';
+
+    writeFile(repoRoot, root, "import { KitProvider } from '@onekeyhq/kit';");
+    writeFile(
+      repoRoot,
+      'packages/kit/package.json',
+      JSON.stringify({ main: 'src/index.tsx' }),
+    );
+    writeFile(
+      repoRoot,
+      kitEntry,
+      "export { KitProvider } from './KitProvider';",
+    );
+    writeFile(repoRoot, kitTarget, 'export const KitProvider = null;');
+
+    const report = createStaticImportChainReport({
+      repoRoot,
+      modules: [root, kitEntry, kitTarget],
+      roots: [root],
+      targets: [kitTarget],
+    });
+
+    expect(report.chains).toEqual([
+      {
+        target: kitTarget,
+        status: 'found',
+        chain: [
+          {
+            from: root,
+            to: kitEntry,
+            specifier: '@onekeyhq/kit',
+            edgeType: 'sync',
+          },
+          {
+            from: kitEntry,
+            to: kitTarget,
+            specifier: './KitProvider',
+            edgeType: 'sync',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('resolves node_modules package exports and follows internal sync edges', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'import-chain-'));
+    const root = 'apps/web/src/root.ts';
+    const packageEntry = 'node_modules/pkg/esm/index.js';
+    const packageInternal = 'node_modules/pkg/esm/internal.js';
+    const packageSubpath = 'node_modules/pkg/jsx-runtime.js';
+
+    writeFile(
+      repoRoot,
+      root,
+      [
+        "import { runtime } from 'pkg';",
+        "import { jsx } from 'pkg/jsx-runtime';",
+        'export const root = [runtime, jsx];',
+      ].join('\n'),
+    );
+    writeFile(
+      repoRoot,
+      'node_modules/pkg/package.json',
+      JSON.stringify({
+        exports: {
+          '.': {
+            import: './esm/index.js',
+            require: './cjs/index.js',
+          },
+          './jsx-runtime': './jsx-runtime.js',
+        },
+        main: './cjs/index.js',
+        module: './esm/index.js',
+      }),
+    );
+    writeFile(
+      repoRoot,
+      packageEntry,
+      "export { runtime } from './internal.js';",
+    );
+    writeFile(repoRoot, packageInternal, 'export const runtime = 1;');
+    writeFile(repoRoot, packageSubpath, 'export const jsx = 1;');
+
+    const report = createStaticImportChainReport({
+      repoRoot,
+      modules: [root, packageEntry, packageInternal, packageSubpath],
+      roots: [root],
+      targets: [packageInternal, packageSubpath],
+    });
+
+    expect(report.chains).toEqual([
+      {
+        target: packageInternal,
+        status: 'found',
+        chain: [
+          {
+            from: root,
+            to: packageEntry,
+            specifier: 'pkg',
+            edgeType: 'sync',
+          },
+          {
+            from: packageEntry,
+            to: packageInternal,
+            specifier: './internal.js',
+            edgeType: 'sync',
+          },
+        ],
+      },
+      {
+        target: packageSubpath,
+        status: 'found',
+        chain: [
+          {
+            from: root,
+            to: packageSubpath,
+            specifier: 'pkg/jsx-runtime',
+            edgeType: 'sync',
+          },
+        ],
+      },
+    ]);
+  });
 });
