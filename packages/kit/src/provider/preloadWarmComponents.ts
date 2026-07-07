@@ -1,18 +1,25 @@
-import {
-  Dialog,
-  preloadLazyPopover,
-  preloadLazyTooltip,
-} from '@onekeyhq/components';
+import { Dialog } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { deferHeavyWorkUntilUIIdle } from '../utils/deferHeavyWork';
 
 // Keep this list limited to common UI chunks that are likely needed soon after boot.
 const warmComponentPreloadTasks: Array<() => Promise<unknown>> = [
   () => Dialog.preloadForm(),
-  preloadLazyTooltip,
-  preloadLazyPopover,
 ];
+
+if (platformEnv.isWeb) {
+  warmComponentPreloadTasks.push(
+    async () => {
+      const { preloadLazyTooltip } =
+        await import('@onekeyhq/components/src/actions/LazyTooltip');
+      await preloadLazyTooltip();
+    },
+    async () => {
+      const { preloadLazyPopover } =
+        await import('@onekeyhq/components/src/actions/LazyPopover');
+      await preloadLazyPopover();
+    },
+  );
+}
 
 async function runWarmComponentPreloadTask(task: () => Promise<unknown>) {
   try {
@@ -20,6 +27,18 @@ async function runWarmComponentPreloadTask(task: () => Promise<unknown>) {
   } catch {
     // Warmup is best-effort and must not affect boot.
   }
+}
+
+function nextFrame() {
+  return new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+}
+
+async function deferWarmComponentPreload() {
+  await nextFrame();
+  await nextFrame();
+  await nextFrame();
 }
 
 export function preloadWarmComponents() {
@@ -63,10 +82,10 @@ export function preloadWarmComponents() {
     });
   }
 
-  void deferHeavyWorkUntilUIIdle({
-    minFrames: 2,
-    includeInteractions: false,
-  }).then(scheduleIdlePreload, scheduleIdlePreload);
+  void deferWarmComponentPreload().then(
+    scheduleIdlePreload,
+    scheduleIdlePreload,
+  );
 
   return () => {
     cancelled = true;
