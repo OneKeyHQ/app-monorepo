@@ -8,7 +8,10 @@ import { createStore } from 'jotai';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import {
+  EAccountSelectorAutoSelectTriggerBy,
+  EAccountSelectorSceneName,
+} from '@onekeyhq/shared/types';
 
 import { useAccountSelectorActions } from './actions';
 import {
@@ -1412,6 +1415,84 @@ describe('useAccountSelectorActions', () => {
 
     const selectedAccountInState = store.get(selectedAccountsAtom())[0];
     expect(selectedAccountInState).toMatchObject({
+      walletId: undefined,
+      focusedWallet: undefined,
+      indexedAccountId: undefined,
+      othersWalletAccountId: undefined,
+      networkId: 'onekeyall',
+    });
+
+    expect(mockSaveSelectedAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccount: expect.objectContaining({
+          walletId: undefined,
+          focusedWallet: undefined,
+          indexedAccountId: undefined,
+          othersWalletAccountId: undefined,
+          networkId: 'onekeyall',
+        }),
+      }),
+    );
+  });
+
+  it('clears an empty standard wallet selection after the standard wallet is removed', async () => {
+    const standardWalletSelection = {
+      ...defaultSelectedAccount(),
+      walletId: 'hw-standard',
+      indexedAccountId: undefined,
+      othersWalletAccountId: undefined,
+      networkId: 'onekeyall',
+      deriveType: 'default' as const,
+      focusedWallet: 'hw-standard',
+    };
+    const staleActiveStandardWallet = {
+      id: 'hw-standard',
+      name: 'Standard wallet',
+    } as IWallet;
+    const mockedStandardWallet = {
+      id: 'hw-standard',
+      name: 'Standard wallet',
+      isMocked: true,
+    } as IWallet;
+
+    mockGetAllHdHwQrWallets.mockResolvedValue({
+      wallets: [mockedStandardWallet],
+    });
+    mockIsWalletHasIndexedAccounts.mockResolvedValue(false);
+    mockGetIndexedAccountsOfWallet.mockResolvedValue({ accounts: [] });
+    mockGetWalletSafe.mockResolvedValue(mockedStandardWallet);
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: standardWalletSelection,
+    });
+    store.set(accountSelectorStorageInitDoneAtom(), true);
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+        wallet: staleActiveStandardWallet,
+        network: {
+          id: 'onekeyall',
+        } as ReturnType<typeof defaultActiveAccountInfo>['network'],
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+        triggerBy: EAccountSelectorAutoSelectTriggerBy.removeWallet,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
       walletId: undefined,
       focusedWallet: undefined,
       indexedAccountId: undefined,

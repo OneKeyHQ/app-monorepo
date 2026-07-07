@@ -2877,17 +2877,21 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         return;
       }
 
-      const previousSelectedAccountHasIdentity = Boolean(
-        previousSelectedAccount?.walletId &&
-        (previousSelectedAccount.indexedAccountId ||
-          previousSelectedAccount.othersWalletAccountId),
+      const previousSelectedAccountHasWalletSelection = Boolean(
+        previousSelectedAccount?.walletId ||
+        previousSelectedAccount?.focusedWallet ||
+        previousSelectedAccount?.indexedAccountId ||
+        previousSelectedAccount?.othersWalletAccountId,
       );
       const selectedAccountHasIdentity = Boolean(
         selectedAccount.walletId &&
         (selectedAccount.indexedAccountId ||
           selectedAccount.othersWalletAccountId),
       );
-      if (!previousSelectedAccountHasIdentity || selectedAccountHasIdentity) {
+      if (
+        !previousSelectedAccountHasWalletSelection ||
+        selectedAccountHasIdentity
+      ) {
         return;
       }
 
@@ -3508,6 +3512,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             });
             if (
               !finalWallet ||
+              accountUtils.isWalletDeprecatedOrMocked(finalWallet) ||
               (await serviceAccount.isTempWalletRemoved({
                 wallet: finalWallet,
               }))
