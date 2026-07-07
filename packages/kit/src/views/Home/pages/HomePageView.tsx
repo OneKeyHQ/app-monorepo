@@ -928,6 +928,7 @@ export function HomePageView({
     account,
   });
   const walletListCount = walletListResult?.wallets.length;
+  const walletListWalletIds = walletListResult?.wallets.map((item) => item.id);
   const walletListResolvedNoWallet = isWalletListResolvedNoWallet({
     wallets: walletListResult?.wallets,
   });
@@ -940,13 +941,15 @@ export function HomePageView({
       ),
     [homePageContent],
   );
+  const activeWalletId = wallet?.id;
   const showNoWalletContent = shouldShowNoWalletContent({
     hasNoUsableWallet,
     accountSelectorStorageInitDone,
     accountSelectorActiveAccountInitDone,
     walletListResolvedNoWallet,
+    activeWalletId,
+    walletListWalletIds,
   });
-  const activeWalletId = wallet?.id;
   const activeIndexedAccountId = indexedAccount?.id;
   const activeNetworkId = network?.id;
   const hasAccount = Boolean(account);

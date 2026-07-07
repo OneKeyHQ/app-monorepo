@@ -21,16 +21,26 @@ export function shouldShowNoWalletContent({
   accountSelectorStorageInitDone,
   accountSelectorActiveAccountInitDone,
   walletListResolvedNoWallet,
+  activeWalletId,
+  walletListWalletIds,
 }: {
   hasNoUsableWallet: boolean;
   accountSelectorStorageInitDone: boolean;
   accountSelectorActiveAccountInitDone: boolean;
   walletListResolvedNoWallet: boolean;
+  activeWalletId?: string;
+  walletListWalletIds?: string[];
 }) {
+  const walletListResolvedCurrentUnusableWalletOnly =
+    !!activeWalletId &&
+    !!walletListWalletIds &&
+    walletListWalletIds.length === 1 &&
+    walletListWalletIds[0] === activeWalletId;
+
   return (
     hasNoUsableWallet &&
     accountSelectorStorageInitDone &&
     accountSelectorActiveAccountInitDone &&
-    walletListResolvedNoWallet
+    (walletListResolvedNoWallet || walletListResolvedCurrentUnusableWalletOnly)
   );
 }

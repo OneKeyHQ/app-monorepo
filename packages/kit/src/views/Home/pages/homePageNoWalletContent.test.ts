@@ -48,6 +48,32 @@ describe('shouldShowNoWalletContent', () => {
     ).toBe(true);
   });
 
+  it('allows the no-wallet empty state when the active wallet is already unusable but the wallet list cache is stale', () => {
+    expect(
+      shouldShowNoWalletContent({
+        hasNoUsableWallet: true,
+        accountSelectorStorageInitDone: true,
+        accountSelectorActiveAccountInitDone: true,
+        walletListResolvedNoWallet: false,
+        activeWalletId: 'hw-removed',
+        walletListWalletIds: ['hw-removed'],
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps blocking the no-wallet empty state when another wallet remains in the list', () => {
+    expect(
+      shouldShowNoWalletContent({
+        hasNoUsableWallet: true,
+        accountSelectorStorageInitDone: true,
+        accountSelectorActiveAccountInitDone: true,
+        walletListResolvedNoWallet: false,
+        activeWalletId: 'hw-removed',
+        walletListWalletIds: ['hw-removed', 'hw-usable'],
+      }),
+    ).toBe(false);
+  });
+
   it('does not block cached usable wallet content while storage init is still running', () => {
     expect(
       shouldShowNoWalletContent({
