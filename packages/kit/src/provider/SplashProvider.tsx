@@ -116,6 +116,37 @@ function hasBalanceCacheInSnapshot(): boolean {
   return typeof balance === 'string' && balance.length > 0;
 }
 
+// The ext standalone window cold-starts on a dapp-approval modal route; hold
+// the splash until the (lazy-loaded) modal navigator has mounted so the Home
+// tab never flashes through underneath while the modal chunk is fetched.
+const useCanDismissSplashForExtStandaloneWindow = () => {
+  const [canDismissSplash, setCanDismissSplash] = useState(false);
+
+  useEffect(() => {
+    // The navigator's mount effect runs before this provider's effect, so a
+    // global flag covers the already-mounted case (same pattern as
+    // __onekeyBalanceDisplayed below).
+    if ((globalThis as any).$$onekeyExtModalNavigatorMounted) {
+      setCanDismissSplash(true);
+      return;
+    }
+    const dismiss = () => setCanDismissSplash(true);
+    appEventBus.on(EAppEventBusNames.ModalNavigatorMounted, dismiss);
+    const timer = setTimeout(dismiss, SPLASH_SAFETY_TIMEOUT);
+    return () => {
+      appEventBus.off(EAppEventBusNames.ModalNavigatorMounted, dismiss);
+      clearTimeout(timer);
+    };
+  }, []);
+
+  return canDismissSplash;
+};
+
+const useCanDismissSplashForOtherPlatforms =
+  platformEnv.isExtensionUiStandaloneWindow
+    ? useCanDismissSplashForExtStandaloneWindow
+    : () => true;
+
 /**
  * Splash dismiss strategy — three paths:
  *
@@ -267,7 +298,7 @@ export const useCanDismissSplash =
 
         return canDismissSplash;
       }
-    : () => true;
+    : useCanDismissSplashForOtherPlatforms;
 
 export function SplashProvider({ children }: PropsWithChildren<unknown>) {
   const canDismissSplash = useCanDismissSplash();
