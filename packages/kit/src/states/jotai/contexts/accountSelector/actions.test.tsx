@@ -36,6 +36,13 @@ type IBuildActiveAccountInfoResult = {
 type IFixDeriveTypesForInitAccountSelectorMapParams = {
   selectedAccountsMapInDB: ISelectedAccountsMap | undefined;
 };
+type ISaveSelectedAccountParams = {
+  selectedAccount: ISelectedAccount;
+  sceneName: EAccountSelectorSceneName;
+  sceneUrl?: string;
+  num: number;
+  selectedAccountUpdatedAt?: number;
+};
 type IIndexedAccount = NonNullable<
   ReturnType<typeof defaultActiveAccountInfo>['indexedAccount']
 >;
@@ -70,8 +77,9 @@ const mockFixDeriveTypesForInitAccountSelectorMap: jest.MockedFunction<
 const mockGetSelectedAccount: jest.MockedFunction<
   () => Promise<ISelectedAccount | undefined>
 > = jest.fn();
-const mockSaveSelectedAccount: jest.MockedFunction<() => Promise<void>> =
-  jest.fn();
+const mockSaveSelectedAccount: jest.MockedFunction<
+  (params: ISaveSelectedAccountParams) => Promise<void>
+> = jest.fn();
 const mockSaveGlobalDeriveType: jest.MockedFunction<() => Promise<void>> =
   jest.fn();
 const mockShouldSyncWithHomeSource: jest.MockedFunction<
@@ -235,7 +243,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       accountSelector: {
         getSelectedAccount: () => mockGetSelectedAccount(),
         getSelectedAccountsMap: () => mockGetSelectedAccountsMap(),
-        saveSelectedAccount: () => mockSaveSelectedAccount(),
+        saveSelectedAccount: (params: ISaveSelectedAccountParams) =>
+          mockSaveSelectedAccount(params),
       },
       dappConnection: {
         getAccountSelectorMap: jest.fn(async () => undefined),
@@ -1334,5 +1343,94 @@ describe('useAccountSelectorActions', () => {
       indexedAccountId: undefined,
       othersWalletAccountId: undefined,
     });
+  });
+
+  it('persists a cleared selection after a temp hidden wallet is removed without a usable fallback', async () => {
+    const hiddenWalletSelection = {
+      ...defaultSelectedAccount(),
+      walletId: 'hw-standard--hidden',
+      indexedAccountId: 'hw-standard--hidden-indexed-1',
+      networkId: 'onekeyall',
+      deriveType: 'default' as const,
+      focusedWallet: 'hw-standard--hidden',
+    };
+    const hiddenWallet = {
+      id: 'hw-standard--hidden',
+      name: 'Hidden wallet',
+      isTemp: true,
+    } as IWallet;
+    const mockedStandardWallet = {
+      id: 'hw-standard',
+      name: 'Standard wallet',
+      isMocked: true,
+    } as IWallet;
+
+    mockGetAllHdHwQrWallets.mockResolvedValue({
+      wallets: [mockedStandardWallet],
+    });
+    mockGetWalletSafe.mockImplementation(async ({ walletId }) => {
+      if (walletId === hiddenWallet.id) {
+        return hiddenWallet;
+      }
+      if (walletId === mockedStandardWallet.id) {
+        return mockedStandardWallet;
+      }
+      return undefined;
+    });
+    mockIsTempWalletRemoved.mockImplementation(
+      async ({ wallet }) => wallet.id === hiddenWallet.id,
+    );
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: hiddenWalletSelection,
+    });
+    store.set(accountSelectorStorageInitDoneAtom(), true);
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+        network: {
+          id: 'onekeyall',
+        } as ReturnType<typeof defaultActiveAccountInfo>['network'],
+        account: {
+          id: 'mocked-all-network-account',
+        } as ReturnType<typeof defaultActiveAccountInfo>['account'],
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+
+    const selectedAccountInState = store.get(selectedAccountsAtom())[0];
+    expect(selectedAccountInState).toMatchObject({
+      walletId: undefined,
+      focusedWallet: undefined,
+      indexedAccountId: undefined,
+      othersWalletAccountId: undefined,
+      networkId: 'onekeyall',
+    });
+
+    expect(mockSaveSelectedAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccount: expect.objectContaining({
+          walletId: undefined,
+          focusedWallet: undefined,
+          indexedAccountId: undefined,
+          othersWalletAccountId: undefined,
+          networkId: 'onekeyall',
+        }),
+      }),
+    );
   });
 });

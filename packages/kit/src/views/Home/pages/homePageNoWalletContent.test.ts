@@ -1,4 +1,7 @@
-import { shouldShowNoWalletContent } from './homePageNoWalletContent';
+import {
+  isWalletListResolvedNoWallet,
+  shouldShowNoWalletContent,
+} from './homePageNoWalletContent';
 
 describe('shouldShowNoWalletContent', () => {
   it('blocks the no-wallet empty state before account selector storage init completes', () => {
@@ -52,6 +55,44 @@ describe('shouldShowNoWalletContent', () => {
         accountSelectorStorageInitDone: false,
         accountSelectorActiveAccountInitDone: false,
         walletListResolvedNoWallet: false,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('isWalletListResolvedNoWallet', () => {
+  it('waits for the wallet list to resolve', () => {
+    expect(isWalletListResolvedNoWallet({ wallets: undefined })).toBe(false);
+  });
+
+  it('treats an empty wallet list as no wallet', () => {
+    expect(isWalletListResolvedNoWallet({ wallets: [] })).toBe(true);
+  });
+
+  it('treats mocked and deprecated wallet records as no usable wallet', () => {
+    expect(
+      isWalletListResolvedNoWallet({
+        wallets: [
+          {
+            isMocked: true,
+          },
+          {
+            deprecated: true,
+          },
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps the wallet list non-empty when a real wallet remains', () => {
+    expect(
+      isWalletListResolvedNoWallet({
+        wallets: [
+          {
+            isMocked: true,
+          },
+          {},
+        ],
       }),
     ).toBe(false);
   });

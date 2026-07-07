@@ -2848,6 +2848,85 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
+  saveClearedSelectedAccountToStorage = contextAtomMethod(
+    async (
+      get,
+      set,
+      payload: {
+        previousSelectedAccount: IAccountSelectorSelectedAccount | undefined;
+        selectedAccount: IAccountSelectorSelectedAccount;
+        sceneName: EAccountSelectorSceneName | undefined;
+        sceneUrl?: string;
+        num: number;
+      },
+    ) => {
+      const {
+        previousSelectedAccount,
+        selectedAccount,
+        sceneName,
+        sceneUrl,
+        num,
+      } = payload;
+      if (
+        !sceneName ||
+        !accountSelectorUtils.isSceneCanPersist({ sceneName })
+      ) {
+        return;
+      }
+      if (!get(accountSelectorStorageReadyAtom())) {
+        return;
+      }
+
+      const previousSelectedAccountHasIdentity = Boolean(
+        previousSelectedAccount?.walletId &&
+        (previousSelectedAccount.indexedAccountId ||
+          previousSelectedAccount.othersWalletAccountId),
+      );
+      const selectedAccountHasIdentity = Boolean(
+        selectedAccount.walletId &&
+        (selectedAccount.indexedAccountId ||
+          selectedAccount.othersWalletAccountId),
+      );
+      if (!previousSelectedAccountHasIdentity || selectedAccountHasIdentity) {
+        return;
+      }
+
+      const currentSelectedAccount = this.getSelectedAccount.call(set, {
+        num,
+      });
+      if (
+        !isEqual(
+          omitBy(currentSelectedAccount, isUndefined),
+          omitBy(selectedAccount, isUndefined),
+        )
+      ) {
+        return;
+      }
+
+      const { simpleDb } = backgroundApiProxy;
+      const currentSaved = await simpleDb.accountSelector.getSelectedAccount({
+        sceneName,
+        sceneUrl,
+        num,
+      });
+      if (
+        isEqual(
+          omitBy(currentSaved, isUndefined),
+          omitBy(selectedAccount, isUndefined),
+        )
+      ) {
+        return;
+      }
+
+      await simpleDb.accountSelector.saveSelectedAccount({
+        sceneName,
+        sceneUrl,
+        num,
+        selectedAccount,
+      });
+    },
+  );
+
   getSelectedAccount = contextAtomMethod(
     (
       get,
@@ -3468,6 +3547,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 }
               : undefined,
             builder: () => selectedAccountNew,
+          });
+          await this.saveClearedSelectedAccountToStorage.call(set, {
+            previousSelectedAccount: selectedAccount,
+            selectedAccount: selectedAccountNew,
+            sceneName,
+            sceneUrl,
+            num,
           });
 
           if (

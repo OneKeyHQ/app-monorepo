@@ -73,7 +73,10 @@ import { HomeTestIDs } from '../testIDs';
 import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { homePageContentMaxWidthSx } from './homePageContentMaxWidth';
-import { shouldShowNoWalletContent } from './homePageNoWalletContent';
+import {
+  isWalletListResolvedNoWallet,
+  shouldShowNoWalletContent,
+} from './homePageNoWalletContent';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
@@ -925,7 +928,9 @@ export function HomePageView({
     account,
   });
   const walletListCount = walletListResult?.wallets.length;
-  const walletListResolvedNoWallet = walletListCount === 0;
+  const walletListResolvedNoWallet = isWalletListResolvedNoWallet({
+    wallets: walletListResult?.wallets,
+  });
   const walletPageContent = useMemo(
     () =>
       platformEnv.isNative ? (
