@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 
 import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function usePerpTabConfig() {
   const [{ perpConfigCommon, perpConfigLoaded }] =
@@ -15,9 +14,6 @@ export function usePerpTabConfig() {
 
   return useMemo(() => {
     if (disablePerp) {
-      return { perpDisabled: true as const };
-    }
-    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
       return { perpDisabled: true as const };
     }
     if (usePerpWeb) {
