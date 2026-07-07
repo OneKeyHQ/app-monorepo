@@ -1,5 +1,4 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
-import { MarketDetailV2 as MarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ETabDiscoveryRoutes,
@@ -26,6 +25,10 @@ const EarnProtocolDetails = LazyLoadRootTabPage(
 );
 
 // Market pages for native platforms (Market is embedded in Discovery on mobile)
+const MarketDetailV2 = LazyLoadPage(
+  () =>
+    import(/* webpackPrefetch: true */ '../../../views/Market/MarketDetailV2'),
+);
 const MarketBannerDetail = LazyLoadPage(
   () => import('../../../views/Market/MarketBannerDetail'),
 );
@@ -54,7 +57,7 @@ export const discoveryRouters: ITabSubNavigatorConfig<any, any>[] = [
     ? [
         {
           name: ETabMarketRoutes.MarketDetailV2,
-          component: MarketDetailV2Page,
+          component: MarketDetailV2,
           headerShown: false,
         },
         {

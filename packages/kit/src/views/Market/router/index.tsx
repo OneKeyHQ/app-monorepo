@@ -2,10 +2,12 @@ import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
-import { MarketDetailV2 as MarketDetailV2Modal } from '../MarketDetailV2';
 
 import { EModalMarketRoutes, type IModalMarketParamList } from './types';
 
+const MarketDetailV2Modal = LazyLoadPage(
+  () => import(/* webpackPrefetch: true */ '../MarketDetailV2'),
+);
 const MarketBannerDetailModal = LazyLoadPage(
   () => import('../MarketBannerDetail'),
 );
