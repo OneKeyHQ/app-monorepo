@@ -1,4 +1,10 @@
-import { useState } from 'react';
+import {
+  createRef,
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useState,
+} from 'react';
 
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
@@ -30,6 +36,49 @@ import { NetworkAvatar } from '../NetworkAvatar';
 import { MAX_LENGTH_ACCOUNT_NAME } from './renameConsts';
 
 import type { IntlShape } from 'react-intl';
+
+export type IRenameDialogContentRef = {
+  getValue: () => string;
+  showError: (message: string | undefined) => void;
+};
+
+type INameHistoryInfo = {
+  entityId: string;
+  entityType: EChangeHistoryEntityType;
+  contentType: EChangeHistoryContentType.Name;
+};
+
+const RENAME_DIALOG_ESTIMATED_CONTENT_HEIGHT = 92;
+
+function useDeferredRenameInputEnhancements(deferEnhancements?: boolean) {
+  const [shouldRenderEnhancements, setShouldRenderEnhancements] =
+    useState(!deferEnhancements);
+
+  useEffect(() => {
+    if (!deferEnhancements) {
+      setShouldRenderEnhancements(true);
+      return;
+    }
+
+    if (typeof requestAnimationFrame === 'function') {
+      const frameId = requestAnimationFrame(() => {
+        setShouldRenderEnhancements(true);
+      });
+      return () => {
+        cancelAnimationFrame(frameId);
+      };
+    }
+
+    const timer = setTimeout(() => {
+      setShouldRenderEnhancements(true);
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [deferEnhancements]);
+
+  return shouldRenderEnhancements;
+}
 
 function V4AccountNameSelector({
   onChange,
@@ -98,6 +147,28 @@ function V4AccountNameSelector({
   );
 }
 
+function V4AccountNameSelectorContainer({
+  onChange,
+  indexedAccount,
+}: {
+  onChange?: (val: string) => void;
+  indexedAccount: IDBIndexedAccount;
+}) {
+  const { result: shouldShowV4AccountNameSelector } =
+    usePromiseResult(async () => {
+      return backgroundApiProxy.serviceV4Migration.canRenameFromV4AccountName({
+        indexedAccount,
+      });
+    }, [indexedAccount]);
+
+  return shouldShowV4AccountNameSelector ? (
+    <V4AccountNameSelector
+      indexedAccount={indexedAccount}
+      onChange={onChange}
+    />
+  ) : null;
+}
+
 export function RenameInputWithNameSelector({
   value,
   onChange,
@@ -107,6 +178,7 @@ export function RenameInputWithNameSelector({
   disabledMaxLengthLabel = false,
   nameHistoryInfo,
   inputTestID,
+  deferEnhancements,
 }: {
   maxLength?: number;
   value?: string;
@@ -114,25 +186,13 @@ export function RenameInputWithNameSelector({
   description?: string;
   indexedAccount?: IDBIndexedAccount;
   disabledMaxLengthLabel: boolean;
-  nameHistoryInfo?: {
-    entityId: string;
-    entityType: EChangeHistoryEntityType;
-    contentType: EChangeHistoryContentType.Name;
-  };
+  nameHistoryInfo?: INameHistoryInfo;
   inputTestID?: string;
+  deferEnhancements?: boolean;
 }) {
   const intl = useIntl();
-  const { result: shouldShowV4AccountNameSelector } =
-    usePromiseResult(async () => {
-      if (indexedAccount) {
-        return backgroundApiProxy.serviceV4Migration.canRenameFromV4AccountName(
-          {
-            indexedAccount,
-          },
-        );
-      }
-      return false;
-    }, [indexedAccount]);
+  const shouldRenderEnhancements =
+    useDeferredRenameInputEnhancements(deferEnhancements);
 
   return (
     <>
@@ -147,7 +207,7 @@ export function RenameInputWithNameSelector({
           onChangeText={onChange}
           flex={1}
           addOns={
-            nameHistoryInfo?.entityId
+            shouldRenderEnhancements && nameHistoryInfo?.entityId
               ? [
                   buildChangeHistoryInputAddon({
                     changeHistoryInfo: nameHistoryInfo,
@@ -157,8 +217,8 @@ export function RenameInputWithNameSelector({
               : undefined
           }
         />
-        {shouldShowV4AccountNameSelector && indexedAccount ? (
-          <V4AccountNameSelector
+        {shouldRenderEnhancements && indexedAccount ? (
+          <V4AccountNameSelectorContainer
             indexedAccount={indexedAccount}
             onChange={onChange}
           />
@@ -181,6 +241,68 @@ export function RenameInputWithNameSelector({
   );
 }
 
+export const RenameDialogContent = forwardRef<
+  IRenameDialogContentRef,
+  {
+    initialValue: string;
+    maxLength?: number;
+    description?: string;
+    indexedAccount?: IDBIndexedAccount;
+    disabledMaxLengthLabel: boolean;
+    nameHistoryInfo?: INameHistoryInfo;
+    inputTestID?: string;
+  }
+>(function RenameDialogContent(
+  {
+    initialValue,
+    maxLength,
+    description,
+    indexedAccount,
+    disabledMaxLengthLabel,
+    nameHistoryInfo,
+    inputTestID,
+  },
+  ref,
+) {
+  const [value, setValue] = useState(initialValue);
+  const [errorMessage, setErrorMessage] = useState<string | undefined>();
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getValue: () => value,
+      showError: setErrorMessage,
+    }),
+    [value],
+  );
+
+  return (
+    <>
+      <RenameInputWithNameSelector
+        value={value}
+        onChange={(nextValue) => {
+          setValue(nextValue);
+          if (nextValue.trim()) {
+            setErrorMessage(undefined);
+          }
+        }}
+        maxLength={maxLength}
+        description={description}
+        indexedAccount={indexedAccount}
+        disabledMaxLengthLabel={disabledMaxLengthLabel}
+        nameHistoryInfo={nameHistoryInfo}
+        inputTestID={inputTestID}
+        deferEnhancements
+      />
+      {errorMessage ? (
+        <Form.FieldDescription color="$textCritical">
+          {errorMessage}
+        </Form.FieldDescription>
+      ) : null}
+    </>
+  );
+});
+
 export const showRenameDialog = (
   name: string,
   {
@@ -198,52 +320,38 @@ export const showRenameDialog = (
     maxLength?: number;
     onSubmit: (name: string) => Promise<void>;
     disabledMaxLengthLabel?: boolean;
-    nameHistoryInfo?: {
-      entityId: string;
-      entityType: EChangeHistoryEntityType;
-      contentType: EChangeHistoryContentType.Name;
-    };
+    nameHistoryInfo?: INameHistoryInfo;
     inputTestID?: string;
     confirmTestID?: string;
     intl: IntlShape;
   },
-) =>
-  Dialog.show({
+) => {
+  const contentRef = createRef<IRenameDialogContentRef>();
+  const emptyNameMessage = intl.formatMessage({
+    id: ETranslations.form_rename_error_empty,
+  });
+
+  return Dialog.show({
     title: intl.formatMessage({ id: ETranslations.global_rename }),
     renderContent: (
-      <Dialog.Form formProps={{ values: { name } }}>
-        <Dialog.FormField
-          name="name"
-          rules={{
-            required: {
-              value: true,
-              message: intl.formatMessage({
-                id: ETranslations.form_rename_error_empty,
-              }),
-            },
-            validate: (value: string) => {
-              if (!value?.trim()) {
-                return intl.formatMessage({
-                  id: ETranslations.form_rename_error_empty,
-                });
-              }
-              return true;
-            },
-          }}
-        >
-          <RenameInputWithNameSelector
-            maxLength={maxLength}
-            indexedAccount={indexedAccount}
-            disabledMaxLengthLabel={disabledMaxLengthLabel}
-            nameHistoryInfo={nameHistoryInfo}
-            inputTestID={inputTestID}
-          />
-        </Dialog.FormField>
-      </Dialog.Form>
+      <RenameDialogContent
+        ref={contentRef}
+        initialValue={name}
+        maxLength={maxLength}
+        indexedAccount={indexedAccount}
+        disabledMaxLengthLabel={disabledMaxLengthLabel}
+        nameHistoryInfo={nameHistoryInfo}
+        inputTestID={inputTestID}
+      />
     ),
-    onConfirm: async ({ getForm, close }) => {
-      const form = getForm();
-      await onSubmit(form?.getValues().name);
+    onConfirm: async ({ close, preventClose }) => {
+      const nextName = contentRef.current?.getValue() ?? '';
+      if (!nextName.trim()) {
+        preventClose();
+        contentRef.current?.showError(emptyNameMessage);
+        return;
+      }
+      await onSubmit(nextName);
       // fix toast dropped frames
       await close();
       Toast.success({
@@ -253,6 +361,9 @@ export const showRenameDialog = (
       });
     },
     ...dialogProps,
+    estimatedContentHeight:
+      dialogProps.estimatedContentHeight ??
+      RENAME_DIALOG_ESTIMATED_CONTENT_HEIGHT,
     ...(confirmTestID
       ? {
           confirmButtonProps: {
@@ -262,3 +373,4 @@ export const showRenameDialog = (
         }
       : {}),
   });
+};

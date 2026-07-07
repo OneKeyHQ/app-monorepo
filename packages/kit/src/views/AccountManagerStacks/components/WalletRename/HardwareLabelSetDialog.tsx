@@ -4,7 +4,14 @@ import emojiRegex from 'emoji-regex';
 import { useIntl } from 'react-intl';
 
 import type { IDialogShowProps } from '@onekeyhq/components';
-import { Dialog, Keyboard, Toast } from '@onekeyhq/components';
+import {
+  Dialog,
+  Form,
+  Keyboard,
+  SizableText,
+  Stack,
+  Toast,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { RenameInputWithNameSelector } from '@onekeyhq/kit/src/components/RenameDialog';
 import { MAX_LENGTH_HW_LABEL_NAME } from '@onekeyhq/kit/src/components/RenameDialog/renameConsts';
@@ -17,6 +24,47 @@ import {
 
 import type { IntlShape } from 'react-intl';
 
+const HARDWARE_LABEL_DIALOG_ESTIMATED_CONTENT_HEIGHT = 148;
+
+function getDeviceLabelErrorMessage({
+  value,
+  intl,
+  asciiOnly,
+  maxLength,
+}: {
+  value: string;
+  intl: IntlShape;
+  asciiOnly?: boolean;
+  maxLength: number;
+}) {
+  if (!value.length) {
+    return intl.formatMessage({
+      id: ETranslations.form_rename_error_empty,
+    });
+  }
+
+  if (Buffer.from(value, 'utf-8').length > maxLength) {
+    return intl.formatMessage({
+      id: ETranslations.global_hardware_name_input_max,
+    });
+  }
+
+  const regexRule = emojiRegex();
+  if (regexRule.test(value)) {
+    return intl.formatMessage({
+      id: ETranslations.global_hardware_label_input_error,
+    });
+  }
+
+  if (asciiOnly && /[^\x20-\x7E]/.test(value)) {
+    return intl.formatMessage({
+      id: ETranslations.global_hardware_label_input_error,
+    });
+  }
+
+  return undefined;
+}
+
 function DeviceLabelDialogContent(props: {
   wallet: IDBWallet | undefined;
   deviceLabel: string;
@@ -24,87 +72,68 @@ function DeviceLabelDialogContent(props: {
   onSubmit: (name: string) => Promise<void>;
 }) {
   const intl = useIntl();
-  const [isLoading, setIsLoading] = useState(false);
   const { wallet, deviceLabel, asciiOnly, onSubmit } = props;
+  const [isLoading, setIsLoading] = useState(false);
+  const [name, setName] = useState(deviceLabel || '');
+  const [errorMessage, setErrorMessage] = useState<string | undefined>();
 
   const maxLength = MAX_LENGTH_HW_LABEL_NAME;
   return (
     <>
-      <Dialog.Form formProps={{ values: { name: deviceLabel || '' } }}>
-        <Dialog.FormField
-          name="name"
-          label={intl.formatMessage({
+      <Stack>
+        <SizableText size="$bodyMdMedium" mb="$1.5">
+          {intl.formatMessage({
             id: ETranslations.global_hardware_label_title,
           })}
-          rules={{
-            maxLength: {
-              value: maxLength,
-              message: 'Label is too long',
-              // message: intl.formatMessage({
-              //   id: 'Label is too long',
-              // }),
-            },
-            validate: (value: string) => {
-              if (!value.length) return true;
-
-              if (Buffer.from(value, 'utf-8').length > maxLength) {
-                return intl.formatMessage({
-                  id: ETranslations.global_hardware_name_input_max,
-                });
-              }
-
-              const regexRule = emojiRegex();
-              if (regexRule.test(value)) {
-                return intl.formatMessage({
-                  id: ETranslations.global_hardware_label_input_error,
-                });
-              }
-
-              // Some devices (e.g. Trezor) can only store printable ASCII
-              // labels, so reject anything outside ASCII 32-126 (CJK, control
-              // chars, etc.) before writing it to the device.
-              if (asciiOnly && /[^\x20-\x7E]/.test(value)) {
-                return intl.formatMessage({
-                  id: ETranslations.global_hardware_label_input_error,
-                });
-              }
-            },
-            required: {
-              value: true,
-              message: intl.formatMessage({
-                id: ETranslations.form_rename_error_empty,
-              }),
-            },
+        </SizableText>
+        <RenameInputWithNameSelector
+          value={name}
+          onChange={(nextValue) => {
+            setName(nextValue);
+            if (errorMessage) {
+              setErrorMessage(undefined);
+            }
           }}
-        >
-          <RenameInputWithNameSelector
-            disabledMaxLengthLabel
-            maxLength={maxLength}
-            description={intl.formatMessage({
-              id: ETranslations.global_hardware_label_desc,
-            })}
-            nameHistoryInfo={{
-              entityId: wallet?.id || '',
-              entityType: EChangeHistoryEntityType.Wallet,
-              contentType: EChangeHistoryContentType.Name,
-            }}
-          />
-        </Dialog.FormField>
-      </Dialog.Form>
+          disabledMaxLengthLabel
+          maxLength={maxLength}
+          description={intl.formatMessage({
+            id: ETranslations.global_hardware_label_desc,
+          })}
+          nameHistoryInfo={{
+            entityId: wallet?.id || '',
+            entityType: EChangeHistoryEntityType.Wallet,
+            contentType: EChangeHistoryContentType.Name,
+          }}
+          deferEnhancements
+        />
+        {errorMessage ? (
+          <Form.FieldDescription color="$textCritical">
+            {errorMessage}
+          </Form.FieldDescription>
+        ) : null}
+      </Stack>
       <Dialog.Footer
         confirmButtonProps={{
           loading: isLoading,
         }}
         onCancel={Keyboard.dismiss}
-        onConfirm={async ({ getForm, close }) => {
+        onConfirm={async ({ close, preventClose }) => {
+          const nextErrorMessage = getDeviceLabelErrorMessage({
+            value: name,
+            intl,
+            asciiOnly,
+            maxLength,
+          });
+          if (nextErrorMessage) {
+            preventClose();
+            setErrorMessage(nextErrorMessage);
+            return;
+          }
+
           await Keyboard.dismissWithDelay(350);
           try {
             setIsLoading(true);
-            const form = getForm();
-            if (!form) {
-              return;
-            }
-            await onSubmit(form?.getValues().name);
+            await onSubmit(name);
             // fix toast dropped frames
             await close();
             Toast.success({
@@ -159,6 +188,9 @@ export const showLabelSetDialog = async (
       ),
       showFooter: false,
       ...dialogProps,
+      estimatedContentHeight:
+        dialogProps.estimatedContentHeight ??
+        HARDWARE_LABEL_DIALOG_ESTIMATED_CONTENT_HEIGHT,
     });
 
     return dialog;
