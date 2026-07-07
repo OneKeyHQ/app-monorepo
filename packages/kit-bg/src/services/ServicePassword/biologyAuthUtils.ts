@@ -153,11 +153,24 @@ class BiologyAuthUtils implements IBiologyAuth {
     // User confirmed re-enrollment: clear the stale PRF state up-front so the
     // subsequent savePassword registers a brand-new credential in a single
     // WebAuthn create prompt (no doomed attempt to auth the missing one first).
+    // Snapshot the old state first so a failed re-enroll (the new-passkey
+    // create prompt is cancelled/fails) rolls back instead of wiping a
+    // still-recoverable biometric-unlock state — the reset is only committed
+    // once the new credential + master key have actually landed.
     if (options?.forceReEnroll && canResetForPasskeyReEnroll) {
+      const snapshot =
+        await appStorage.secureStorage.snapshotForPasskeyReEnroll?.();
       await appStorage.secureStorage.resetForPasskeyReEnroll?.();
-      await this.savePassword(password, {
-        allowDiscoverable: false,
-      });
+      try {
+        await this.savePassword(password, {
+          allowDiscoverable: false,
+        });
+      } catch (error) {
+        if (snapshot) {
+          await appStorage.secureStorage.restoreForPasskeyReEnroll?.(snapshot);
+        }
+        throw error;
+      }
       return this.getCredentialId();
     }
 

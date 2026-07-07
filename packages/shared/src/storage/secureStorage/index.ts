@@ -117,6 +117,39 @@ async function resetForPasskeyReEnroll(): Promise<void> {
   }
 }
 
+// Read every key resetForPasskeyReEnroll would delete, so a failed re-enroll
+// can restore them. Only keys that currently exist are captured.
+async function snapshotForPasskeyReEnroll(): Promise<
+  Array<readonly [string, string]>
+> {
+  const encryptedKeys = await getEncryptedSecureKeys();
+  const keys = [
+    ...new Set([
+      ...encryptedKeys,
+      PRF_CREDENTIAL_ID_KEY,
+      PRF_SALT_KEY,
+      WRAPPED_MASTER_KEY_KEY,
+      PRF_CREDENTIAL_TRANSPORTS_KEY,
+    ]),
+  ];
+  const entries = await Promise.all(
+    keys.map(
+      async (key) => [key, await webStorage.getItem(key, undefined)] as const,
+    ),
+  );
+  return entries.filter(
+    (entry): entry is readonly [string, string] => entry[1] !== null,
+  );
+}
+
+async function restoreForPasskeyReEnroll(
+  snapshot: Array<readonly [string, string]>,
+): Promise<void> {
+  await Promise.all(
+    snapshot.map(([key, value]) => webStorage.setItem(key, value, undefined)),
+  );
+}
+
 // Authenticate and get PRF key
 // Returns { prfKey, isNewCredential } to indicate if a new credential was created
 async function getPrfKey(options?: {
@@ -335,6 +368,18 @@ const storage: ISecureStorage = {
 
   async resetForPasskeyReEnroll(): Promise<void> {
     await resetForPasskeyReEnroll();
+  },
+
+  async snapshotForPasskeyReEnroll(): Promise<
+    Array<readonly [string, string]>
+  > {
+    return snapshotForPasskeyReEnroll();
+  },
+
+  async restoreForPasskeyReEnroll(
+    snapshot: Array<readonly [string, string]>,
+  ): Promise<void> {
+    await restoreForPasskeyReEnroll(snapshot);
   },
 
   async supportSecureStorageWithoutInteraction(): Promise<boolean> {

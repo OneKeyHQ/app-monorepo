@@ -106,24 +106,23 @@ function useDappApproveAction({
       const newError =
         error || rejectError || web3Errors.provider.userRejectedRequest();
       if (isExtStandaloneWindow) {
-        // Await the ack inside an IIFE — reject stays a sync void so its many
-        // fire-and-forget callers don't trip no-floating-promises — so the
-        // reject reaches bg (settling ServiceDApp's semaphore) BEFORE the
-        // window is destroyed. Marking isHandledRef early + fire-and-forget +
-        // setTimeout(0) close could destroy the window before the bridge
-        // delivered the reject, while the beforeunload backstop was
-        // short-circuited by isHandledRef — leaving the semaphore stuck until
-        // timeout. isHandledRef is set only AFTER the ack, so an in-flight
-        // close still lets the beforeunload reject fire as a backstop. (review)
+        // Cover SYNCHRONOUSLY, before this (sync) handler returns: onCancel is
+        // 0-arg, so FooterCancelButton auto-pops the page the moment reject()
+        // returns — the cover must already be in the DOM or the pop flashes the
+        // Home tab underneath for a frame. reject stays a sync void (its many
+        // fire-and-forget callers must not trip no-floating-promises); the ack
+        // await + window.close() run in a detached IIFE afterwards. Awaiting the
+        // ack means the reject reaches bg (settling ServiceDApp's semaphore)
+        // before the window is destroyed; isHandledRef is set only AFTER the
+        // ack, so an in-flight close still lets the beforeunload reject fire as
+        // a backstop instead of dead-locking the semaphore. (review)
+        coverExtStandaloneWindowUntilClose();
         void (async () => {
           await backgroundApiProxy.servicePromise.rejectCallback({
             id,
             error: toPlainErrorObject(newError),
           });
           isHandledRef.current = true;
-          // Page.Footer still auto-pops after this returns; cover + destroy the
-          // window (skipping the modal pop that would flash Home).
-          coverExtStandaloneWindowUntilClose();
           window.close();
         })();
       } else {
@@ -158,17 +157,17 @@ function useDappApproveAction({
           return;
         }
         if (isExtStandaloneWindow && closeWindowAfterResolved) {
-          // Await the ack so the resolve reaches bg (settling the semaphore)
-          // before the window is destroyed; set isHandledRef only after, so
-          // the beforeunload reject stays a backstop until then. (review)
+          // Cover before awaiting the ack so the window is already hidden if
+          // the page pops underneath. Then await the ack (settling the
+          // semaphore) before destroying the window; isHandledRef is set only
+          // after so the beforeunload reject stays a backstop until then.
+          // (review)
+          coverExtStandaloneWindowUntilClose();
           await backgroundApiProxy.servicePromise.resolveCallback({
             id,
             data,
           });
           isHandledRef.current = true;
-          // Page.Footer still auto-pops after this returns; cover + destroy the
-          // window (skipping the modal pop that would flash Home).
-          coverExtStandaloneWindowUntilClose();
           window.close();
         } else {
           if (isExtStandaloneWindow) {
