@@ -688,6 +688,18 @@ function FinalizeWalletSetupPage({
               isSoftwareWalletOnlyUser,
               vendor: deviceData.vendor,
             });
+            // Same device re-onboarded with a new device_id (e.g. after a
+            // reset): mark the stale same-connectId wallet deprecated so only
+            // the current device lights up. Mirrors the OneKey path in
+            // useDeviceConnect. Trezor connectId (serial) survives reset;
+            // deviceId is the discriminator. Covers both USB and BLE (both
+            // land on this FinalizeWalletSetup path).
+            if (deviceData.vendor === EHardwareVendor.trezor) {
+              await actions.current.updateHwWalletsDeprecatedStatus({
+                connectId: thirdPartyDevice.connectId ?? '',
+                deviceId: thirdPartyDevice.deviceId ?? '',
+              });
+            }
           } catch (createError) {
             await trackHardwareWalletConnection({
               status: 'failure',
