@@ -1,5 +1,3 @@
-// cspell:ignore lockdown Lockdown jsbi Reown unpermitted
-
 import { OneKeyLocalError } from '../../errors';
 
 import { getConfiguredSesHardenLevel } from './config';

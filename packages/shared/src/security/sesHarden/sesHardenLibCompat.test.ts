@@ -1,4 +1,3 @@
-// cspell:ignore alephium appkit lockdown jsbi JSBI reown unpermitted
 // Verifies how specific third-party libraries behave under a real SES
 // `lockdown()`. `lockdown()` irreversibly freezes the realm's intrinsics, so
 // every scenario runs in its own child node process.
