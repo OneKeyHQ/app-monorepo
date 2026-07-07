@@ -43,6 +43,10 @@ function loadTooltip() {
   return loadTooltipPromise;
 }
 
+export function preloadLazyTooltip() {
+  return loadTooltip();
+}
+
 function LazyTooltipFrame(props: ITooltipProps & ITriggerFallbackProps) {
   const [TooltipComponent, setTooltipComponent] = useState<
     ILazyTooltipComponent | undefined

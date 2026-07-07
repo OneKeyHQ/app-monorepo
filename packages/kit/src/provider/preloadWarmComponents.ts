@@ -1,4 +1,8 @@
-import { Dialog } from '@onekeyhq/components';
+import {
+  Dialog,
+  preloadLazyPopover,
+  preloadLazyTooltip,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { deferHeavyWorkUntilUIIdle } from '../utils/deferHeavyWork';
@@ -6,11 +10,16 @@ import { deferHeavyWorkUntilUIIdle } from '../utils/deferHeavyWork';
 // Keep this list limited to common UI chunks that are likely needed soon after boot.
 const warmComponentPreloadTasks: Array<() => Promise<unknown>> = [
   () => Dialog.preloadForm(),
+  preloadLazyTooltip,
+  preloadLazyPopover,
 ];
 
-async function runWarmComponentPreloads() {
-  const tasks = warmComponentPreloadTasks.map(async (task) => task());
-  await Promise.allSettled(tasks);
+async function runWarmComponentPreloadTask(task: () => Promise<unknown>) {
+  try {
+    await task();
+  } catch {
+    // Warmup is best-effort and must not affect boot.
+  }
 }
 
 export function preloadWarmComponents() {
@@ -24,9 +33,13 @@ export function preloadWarmComponents() {
 
   let cancelled = false;
   let idleHandle: ReturnType<typeof requestIdleCallback> | undefined;
+  let taskIndex = 0;
 
   function scheduleIdlePreload() {
     if (cancelled) {
+      return;
+    }
+    if (taskIndex >= warmComponentPreloadTasks.length) {
       return;
     }
     idleHandle = requestIdleCallback(runPreloads);
@@ -36,11 +49,18 @@ export function preloadWarmComponents() {
     if (cancelled) {
       return;
     }
+    if (taskIndex >= warmComponentPreloadTasks.length) {
+      return;
+    }
     if (deadline.timeRemaining() <= 0) {
       scheduleIdlePreload();
       return;
     }
-    void runWarmComponentPreloads();
+    const task = warmComponentPreloadTasks[taskIndex];
+    taskIndex += 1;
+    void runWarmComponentPreloadTask(task).then(() => {
+      scheduleIdlePreload();
+    });
   }
 
   void deferHeavyWorkUntilUIIdle({

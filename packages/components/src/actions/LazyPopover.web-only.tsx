@@ -32,6 +32,10 @@ function loadPopover() {
   return loadPopoverPromise;
 }
 
+export function preloadLazyPopover() {
+  return loadPopover();
+}
+
 function LazyPopoverFrame(props: IPopoverProps) {
   const { renderTrigger, open, onOpenChange, trackID } = props;
   const [PopoverComponent, setPopoverComponent] = useState<
