@@ -1,5 +1,6 @@
 import {
   findSupportedBorrowMarket,
+  resolveProtocolLendingDefiFillableAmountState,
   resolveProtocolLendingRepayAmountState,
 } from './protocolLendingActionUtils';
 
@@ -52,12 +53,65 @@ describe('protocolLendingActionUtils', () => {
     expect(state.isFullClose).toBe(true);
   });
 
-  it('falls back to referenceBalance for full-close when repayAllTargetAmount is missing', () => {
+  it('does not treat a wallet-capped max as full-close when repayAllTargetAmount is missing', () => {
+    // Without a real debt target we cannot prove a full repay — referenceBalance
+    // may itself be a wallet-capped max — so isFullClose must stay false so a
+    // partial repay is never sent to the borrow build path as repayAll.
     const state = resolveProtocolLendingRepayAmountState({
       amount: '10',
       referenceBalance: '10',
     });
-    expect(state.isFullClose).toBe(true);
+    expect(state.isFullClose).toBe(false);
+  });
+
+  it('does not report repayAll when only a wallet-capped maxRepayBalance is known (no real debt)', () => {
+    // Fixed-mode repay with no debtBalance: referenceBalance falls back to the
+    // wallet-capped maxRepayBalance and repayAllTargetAmount is absent. A Max
+    // fill equals maxRepayBalance but is a partial repay, not a full close.
+    const state = resolveProtocolLendingRepayAmountState({
+      amount: '2',
+      referenceBalance: '2',
+      maxRepayBalance: '2',
+      repayWalletBalance: '2',
+    });
+
+    expect(state.valueForMax).toBe('2');
+    expect(state.isFullClose).toBe(false);
+  });
+
+  it('keeps defi repay max unavailable before wallet balance resolves', () => {
+    const state = resolveProtocolLendingDefiFillableAmountState({
+      isRepay: true,
+      availableAmount: '10',
+    });
+
+    expect(state.isRepayWalletBalanceReady).toBe(false);
+    expect(state.fillableMax).toBe('0');
+    expect(state.isFillableMaxFullClose).toBe(false);
+  });
+
+  it('caps defi repay max to wallet balance and treats wallet-capped max as partial', () => {
+    const state = resolveProtocolLendingDefiFillableAmountState({
+      isRepay: true,
+      availableAmount: '10',
+      repayWalletBalance: '2',
+    });
+
+    expect(state.isRepayWalletBalanceReady).toBe(true);
+    expect(state.fillableMax).toBe('2');
+    expect(state.isFillableMaxFullClose).toBe(false);
+  });
+
+  it('treats defi repay max as full close only when wallet covers the debt', () => {
+    const state = resolveProtocolLendingDefiFillableAmountState({
+      isRepay: true,
+      availableAmount: '10',
+      repayWalletBalance: '12',
+    });
+
+    expect(state.isRepayWalletBalanceReady).toBe(true);
+    expect(state.fillableMax).toBe('10');
+    expect(state.isFillableMaxFullClose).toBe(true);
   });
 });
 

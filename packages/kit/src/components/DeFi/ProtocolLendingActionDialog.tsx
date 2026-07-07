@@ -52,7 +52,10 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { resolveProtocolLendingRepayAmountState } from './protocolLendingActionUtils';
+import {
+  resolveProtocolLendingDefiFillableAmountState,
+  resolveProtocolLendingRepayAmountState,
+} from './protocolLendingActionUtils';
 import {
   type IProtocolPositionActionSuccessParams,
   ProtocolPositionActionAmountInput,
@@ -465,11 +468,22 @@ function ProtocolLendingActionDefiContent({
     ? amountBN.multipliedBy(selectedAsset?.asset.price ?? 0).toFixed()
     : '0';
 
+  const {
+    fillableMaxBN,
+    fillableMax,
+    isRepayWalletBalanceReady,
+    isFillableMaxFullClose,
+  } = resolveProtocolLendingDefiFillableAmountState({
+    isRepay,
+    availableAmount,
+    repayWalletBalance,
+  });
+
   const selectedAmountPercent = resolveSelectedAmountPercent({
     isMaxAmount,
     isAmountPositive,
     amountBN,
-    maxBN: availableBN,
+    maxBN: fillableMaxBN,
   });
 
   // The withdraw prefill is an untouched Max default; first focus clears it so
@@ -506,19 +520,21 @@ function ProtocolLendingActionDefiContent({
   };
 
   const handleMaxAmount = () => {
+    if (!isRepayWalletBalanceReady) return;
     hasUserSetMaxRef.current = true;
-    setAmount(clampAmountDecimals(availableAmount, amountDecimals));
-    setIsMaxAmount(true);
+    setAmount(clampAmountDecimals(fillableMax, amountDecimals));
+    setIsMaxAmount(isFillableMaxFullClose);
   };
 
   const handleSelectPercent = (percent: number) => {
     // Max routes through handleMaxAmount so a full close still submits bps=10000
-    // (no dust); 25/50/75 fill an exact token amount.
+    // (no dust); 25/50/75 fill an exact token amount of the fillable max.
+    if (!isRepayWalletBalanceReady) return;
     if (percent >= 100) {
       handleMaxAmount();
       return;
     }
-    const next = availableBN.multipliedBy(percent).div(100);
+    const next = fillableMaxBN.multipliedBy(percent).div(100);
     setAmount(clampAmountDecimals(next.toFixed(), amountDecimals));
     setIsMaxAmount(false);
   };
@@ -601,7 +617,8 @@ function ProtocolLendingActionDefiContent({
     [assets, currencySymbol],
   );
   const selectedItem = selectorItems[selectedIndex];
-  const isConfirmDisabled = !selectedAsset || !isAmountValid;
+  const isConfirmDisabled =
+    !selectedAsset || !isAmountValid || !isRepayWalletBalanceReady;
 
   return (
     <YStack gap="$5">

@@ -54,6 +54,42 @@ function resolveRepayValueForMax({
   return referenceBalance;
 }
 
+export function resolveProtocolLendingDefiFillableAmountState({
+  isRepay,
+  availableAmount,
+  repayWalletBalance,
+}: {
+  isRepay: boolean;
+  availableAmount: string;
+  repayWalletBalance?: string;
+}) {
+  const availableBN = new BigNumber(availableAmount || '0');
+  const repayWalletBalanceBN =
+    isRepay && repayWalletBalance !== undefined
+      ? toNonNegativeAmountBN(repayWalletBalance)
+      : undefined;
+  const isRepayWalletBalanceReady = !isRepay || Boolean(repayWalletBalanceBN);
+  const fillableMaxBN =
+    isRepay && repayWalletBalanceBN
+      ? BigNumber.min(availableBN, repayWalletBalanceBN)
+      : new BigNumber(isRepay ? '0' : availableAmount || '0');
+  const fillableMax = fillableMaxBN.isFinite()
+    ? fillableMaxBN.toFixed()
+    : availableAmount;
+  const isFillableMaxFullClose =
+    !isRepay ||
+    (isRepayWalletBalanceReady &&
+      availableBN.isFinite() &&
+      fillableMaxBN.gte(availableBN));
+
+  return {
+    fillableMaxBN,
+    fillableMax,
+    isRepayWalletBalanceReady,
+    isFillableMaxFullClose,
+  };
+}
+
 export function resolveProtocolLendingRepayAmountState({
   amount,
   referenceBalance,
@@ -91,10 +127,13 @@ export function resolveProtocolLendingRepayAmountState({
   return {
     valueForMax,
     isAmountInsufficient,
-    isFullClose: isSamePositiveAmount({
-      amount,
-      targetAmount: repayAllTargetAmount ?? referenceBalance,
-    }),
+    // Full close only when a REAL debt target is known and the amount hits it.
+    // Without repayAllTargetAmount we can't prove a full repay (referenceBalance
+    // may be a wallet-capped max), so degrade to partial — never let a
+    // wallet-capped max be reported as repayAll into the borrow build path.
+    isFullClose: repayAllTargetAmount
+      ? isSamePositiveAmount({ amount, targetAmount: repayAllTargetAmount })
+      : false,
   };
 }
 
