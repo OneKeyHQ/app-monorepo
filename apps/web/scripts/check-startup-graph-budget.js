@@ -34,6 +34,9 @@ const {
   printAiTriageInstructions,
   writeAiHints,
 } = require(path.join(repoRoot, 'development/perf-ci/lib/budgetAiHints'));
+const { createStaticImportChainReport } = require(
+  path.join(repoRoot, 'development/perf-ci/lib/importChain'),
+);
 
 const DEFAULT_BUDGETS = {
   moduleCount: 3500,
@@ -362,6 +365,25 @@ function main() {
     failures.push('No startup modules found. Check source map generation.');
   }
 
+  const topModules = moduleRows
+    .toSorted((a, b) => b.bytes - a.bytes)
+    .slice(0, 80);
+  const topPackages = Object.entries(packageBytes)
+    .map(([name, bytes]) => ({ name, bytes }))
+    .toSorted((a, b) => b.bytes - a.bytes)
+    .slice(0, 80);
+  const importChainTargets = [
+    ...forbiddenModulesFound.map((row) => row.source),
+    ...topModules.slice(0, 20).map((row) => row.source),
+  ];
+  const importChains = createStaticImportChainReport({
+    repoRoot,
+    modules: moduleRows.map((row) => row.source),
+    roots: ['apps/web/index.js', 'apps/web/App.tsx'],
+    targets: importChainTargets,
+    platform: 'web',
+  });
+
   const report = {
     createdAt: new Date().toISOString(),
     buildDir,
@@ -372,11 +394,9 @@ function main() {
     summary,
     budgetChecks,
     forbiddenModulesFound,
-    topModules: moduleRows.toSorted((a, b) => b.bytes - a.bytes).slice(0, 80),
-    topPackages: Object.entries(packageBytes)
-      .map(([name, bytes]) => ({ name, bytes }))
-      .toSorted((a, b) => b.bytes - a.bytes)
-      .slice(0, 80),
+    topModules,
+    topPackages,
+    importChains,
     initialScripts: initialScripts.toSorted((a, b) => b.bytes - a.bytes),
     pass: failures.length === 0,
     failures,

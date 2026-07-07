@@ -301,6 +301,7 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
       'Preserve mount delays, side effects, routing behavior, and visible UI behavior.',
       'Validate with the focused PERF_WEB_COLD_SCENARIOS command plus yarn tsc:staged and yarn lint:staged.',
     ],
+    importChains: report.startupGraphBudget?.importChains,
     scenarios,
   };
 }
@@ -365,6 +366,7 @@ function createWebStartupAiHints({
     ],
     topModules: report.topModules,
     topPackages: report.topPackages,
+    importChains: report.importChains,
     forbiddenModulesFound: report.forbiddenModulesFound,
     missingSourceMaps: report.missingSourceMaps,
     initialScriptHints,
@@ -444,6 +446,7 @@ function createNativeStartupAiHints({
       'Validate the affected ENTRY with ENABLE_NATIVE_BACKGROUND_THREAD=true and the same STARTUP_* budget env vars from CI.',
     ],
     forbiddenModulesFound: report.forbiddenModulesFound,
+    importChains: allocationReport?.importChains,
     startupPackageCounts: countBy(startupModules, getPackageName).slice(0, 30),
     startupPrefixCounts: countBy(startupModules, modulePrefix).slice(0, 50),
     startupModulesSample: startupModules.slice(0, 200),
@@ -488,6 +491,25 @@ function countRowsText(rows, limit) {
   return limitRows(rows || [], limit)
     .map((item) => `${item.count} ${item.name}`)
     .join(', ');
+}
+
+function markdownImportChains(importChains, limit = 12) {
+  const chains = importChains?.chains || [];
+  if (!chains.length) return '';
+  const lines = [
+    `- graph nodes: ${importChains.graphNodeCount ?? 'n/a'}, edges: ${importChains.graphEdgeCount ?? 'n/a'}, roots: ${(importChains.roots || []).join(', ') || 'n/a'}`,
+  ];
+  for (const chain of limitRows(chains, limit)) {
+    lines.push(
+      `- ${chain.status} ${chain.target} (${chain.chain?.length || 0} edges)`,
+    );
+    for (const edge of limitRows(chain.chain || [], 8)) {
+      lines.push(
+        `  - ${edge.from} -> ${edge.to} (${edge.edgeType || 'unknown'}, ${edge.specifier || 'unknown'})`,
+      );
+    }
+  }
+  return lines.join('\n');
 }
 
 function printAiTriageInstructions({
@@ -650,6 +672,10 @@ function renderAiHintsMarkdown(hints) {
         }
       }
     }
+  }
+  if (hints.importChains?.chains?.length) {
+    lines.push('', '## Import Chains');
+    lines.push(markdownImportChains(hints.importChains));
   }
   if (hints.startupPackageCounts?.length) {
     lines.push('', '## Startup Package Counts');
