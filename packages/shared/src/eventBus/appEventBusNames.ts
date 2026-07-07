@@ -149,6 +149,7 @@ export enum EAppEventBusNames {
   StartAutoDownloadUpdate = 'StartAutoDownloadUpdate',
   PendingInstallTaskProcessFinished = 'PendingInstallTaskProcessFinished',
   HomePageReady = 'HomePageReady',
+  ModalNavigatorMounted = 'ModalNavigatorMounted',
   ShowNotificationViewDialog = 'ShowNotificationViewDialog',
   ShowNotificationPageNavigation = 'ShowNotificationPageNavigation',
   ShowNotificationInDappPage = 'ShowNotificationInDappPage',

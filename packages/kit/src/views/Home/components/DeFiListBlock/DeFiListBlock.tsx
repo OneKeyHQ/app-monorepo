@@ -253,7 +253,8 @@ function DeFiListBlock({
   const { updateAccountDeFiOverview, updateOverviewDeFiDataState } =
     useAccountOverviewActions().current;
 
-  const { isFocused, isHeaderRefreshing } = useTabIsRefreshingFocused();
+  const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
+    useTabIsRefreshingFocused();
 
   const [overview] = useAccountDeFiOverviewAtom();
   const [{ isRefreshing, initialized, loadedOwnerKey }] =
@@ -272,7 +273,12 @@ function DeFiListBlock({
   const protocolMapRef = useRef(protocolMap);
   protocolsRef.current = protocols;
   protocolMapRef.current = protocolMap;
-  const pendingRefreshRef = useRef(false);
+  const pendingRefreshRef = useRef<
+    | {
+        payload: IAppEventBusPayload[EAppEventBusNames.AccountDataUpdate];
+      }
+    | undefined
+  >(undefined);
   const singleNetworkLocalCacheRef = useRef<{
     cacheKey?: string;
     hasCache: boolean;
@@ -312,7 +318,45 @@ function DeFiListBlock({
     [account?.id, network?.id],
   );
 
-  const isForceRefreshRef = useRef(false);
+  const pendingManualForceRefreshIntentRef = useRef<
+    | {
+        ownerKey: string;
+      }
+    | undefined
+  >(undefined);
+  const allNetworkManualForceRefreshRef = useRef(false);
+  const prepareManualDeFiForceRefresh = useCallback(
+    (payload?: IAppEventBusPayload[EAppEventBusNames.AccountDataUpdate]) => {
+      if (!payload?.isManualRefresh || refreshCacheOnly || !currentOwnerKey) {
+        return;
+      }
+
+      pendingManualForceRefreshIntentRef.current = {
+        ownerKey: currentOwnerKey,
+      };
+    },
+    [currentOwnerKey, refreshCacheOnly],
+  );
+  const consumePendingManualForceRefreshIntent = useCallback(async () => {
+    const intent = pendingManualForceRefreshIntentRef.current;
+    if (!intent) {
+      return false;
+    }
+
+    pendingManualForceRefreshIntentRef.current = undefined;
+    if (!currentOwnerKey || intent.ownerKey !== currentOwnerKey) {
+      return false;
+    }
+
+    try {
+      const { allowed } =
+        await backgroundApiProxy.serviceDeFi.consumeManualDeFiForceRefreshQuota();
+      return allowed;
+    } catch (error) {
+      console.error(error);
+      return false;
+    }
+  }, [currentOwnerKey]);
 
   const computedIsDeFiEnabled = useIsDeFiEnabled(
     network?.id,
@@ -418,6 +462,7 @@ function DeFiListBlock({
           isRefreshing: false,
           loadedOwnerKey: currentOwnerKey,
         });
+        setIsHeaderRefreshing(false);
         return;
       }
 
@@ -443,6 +488,8 @@ function DeFiListBlock({
         const shouldForceInitialRefresh =
           singleNetworkLocalCacheRef.current.cacheKey !== cacheKey ||
           !singleNetworkLocalCacheRef.current.hasCache;
+        const shouldForceManualRefresh =
+          await consumePendingManualForceRefreshIntent();
         const resp =
           await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
             accountId: account.id,
@@ -454,7 +501,7 @@ function DeFiListBlock({
             targetCurrencyInfo,
             saveToLocal: true,
             isForceRefresh:
-              isForceRefreshRef.current || shouldForceInitialRefresh,
+              shouldForceManualRefresh || shouldForceInitialRefresh,
           });
         if (singleNetworkLocalCacheRef.current.cacheKey === cacheKey) {
           singleNetworkLocalCacheRef.current.hasCache = true;
@@ -485,7 +532,7 @@ function DeFiListBlock({
       } catch (e) {
         console.error(e);
       } finally {
-        isForceRefreshRef.current = false;
+        setIsHeaderRefreshing(false);
         updateDeFiListState(
           deFiListLoadingReducer({
             type: 'settled',
@@ -512,6 +559,8 @@ function DeFiListBlock({
       currentOwnerKey,
       sourceCurrencyInfo,
       targetCurrencyInfo,
+      setIsHeaderRefreshing,
+      consumePendingManualForceRefreshIntent,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
@@ -581,7 +630,8 @@ function DeFiListBlock({
         excludeLowValueProtocols: true,
         sourceCurrencyInfo,
         targetCurrencyInfo,
-        isForceRefresh: isForceRefreshRef.current || shouldForceInitialRefresh,
+        isForceRefresh:
+          allNetworkManualForceRefreshRef.current || shouldForceInitialRefresh,
       });
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
@@ -692,6 +742,9 @@ function DeFiListBlock({
         return;
       }
 
+      allNetworkManualForceRefreshRef.current =
+        await consumePendingManualForceRefreshIntent();
+
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
         type: EHomeTab.DEFI,
@@ -712,6 +765,7 @@ function DeFiListBlock({
       account?.id,
       network?.id,
       refreshCacheOnly,
+      consumePendingManualForceRefreshIntent,
       updateDeFiListState,
       updateOverviewDeFiDataState,
     ],
@@ -826,7 +880,8 @@ function DeFiListBlock({
       accountId?: string;
       networkId?: string;
     }) => {
-      isForceRefreshRef.current = false;
+      allNetworkManualForceRefreshRef.current = false;
+      setIsHeaderRefreshing(false);
 
       if (refreshCacheOnly) {
         return;
@@ -851,7 +906,12 @@ function DeFiListBlock({
         }),
       );
     },
-    [refreshCacheOnly, updateAllNetworkData, updateDeFiListState],
+    [
+      refreshCacheOnly,
+      setIsHeaderRefreshing,
+      updateAllNetworkData,
+      updateDeFiListState,
+    ],
   );
 
   const handleAllNetworkCacheChecked = useCallback(
@@ -1194,7 +1254,14 @@ function DeFiListBlock({
   }, [refreshCacheOnly, refreshSingleNetworkDeFiOverviewByTarget]);
 
   useEffect(() => {
-    const refresh = () => {
+    if (refreshCacheOnly) {
+      return;
+    }
+
+    const refresh = (
+      payload?: IAppEventBusPayload[EAppEventBusNames.AccountDataUpdate],
+    ) => {
+      prepareManualDeFiForceRefresh(payload);
       if (network?.isAllNetworks) {
         void handleRefreshAllNetworkData();
       } else {
@@ -1202,18 +1269,23 @@ function DeFiListBlock({
       }
     };
 
-    const onRefresh = () => {
+    const onRefresh = (
+      payload?: IAppEventBusPayload[EAppEventBusNames.AccountDataUpdate],
+    ) => {
       if (isFocused) {
-        pendingRefreshRef.current = false;
-        refresh();
+        pendingRefreshRef.current = undefined;
+        void refresh(payload);
       } else {
-        pendingRefreshRef.current = true;
+        pendingRefreshRef.current = {
+          payload: payload?.isManualRefresh ? undefined : payload,
+        };
       }
     };
 
     if (isFocused && pendingRefreshRef.current) {
-      pendingRefreshRef.current = false;
-      refresh();
+      const { payload } = pendingRefreshRef.current;
+      pendingRefreshRef.current = undefined;
+      void refresh(payload);
     }
 
     appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, onRefresh);
@@ -1224,7 +1296,14 @@ function DeFiListBlock({
       appEventBus.off(EAppEventBusNames.GlobalDeriveTypeUpdate, onRefresh);
       appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, onRefresh);
     };
-  }, [isFocused, network?.isAllNetworks, handleRefreshAllNetworkData, run]);
+  }, [
+    isFocused,
+    network?.isAllNetworks,
+    handleRefreshAllNetworkData,
+    prepareManualDeFiForceRefresh,
+    refreshCacheOnly,
+    run,
+  ]);
 
   useEffect(() => {
     const onDeFiPositionRefreshed = (
@@ -1423,8 +1502,7 @@ function DeFiListBlock({
   ]);
 
   useEffect(() => {
-    if (isHeaderRefreshing) {
-      isForceRefreshRef.current = true;
+    if (isHeaderRefreshing && !refreshCacheOnly) {
       if (network?.isAllNetworks) {
         handleRefreshAllNetworkData();
       } else {
@@ -1433,6 +1511,7 @@ function DeFiListBlock({
     }
   }, [
     isHeaderRefreshing,
+    refreshCacheOnly,
     run,
     handleRefreshAllNetworkData,
     network?.isAllNetworks,
