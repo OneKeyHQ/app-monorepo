@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,6 +10,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
+import type { ITooltipRef } from '@onekeyhq/components/src/actions/Tooltip';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
@@ -98,7 +99,19 @@ const SubtitleText = memo(
     // the localized name never diverges between lists.
     const size = gtMd ? '$bodyXs' : '$bodySm';
     const textRef = useRef<HTMLElement | null>(null);
+    const tooltipRef = useRef<ITooltipRef>({
+      closeTooltip: () => Promise.resolve(),
+      openTooltip: () => Promise.resolve(),
+    });
+    const wasTruncatedRef = useRef(false);
     const [isTruncated, setIsTruncated] = useState(false);
+
+    useEffect(() => {
+      if (wasTruncatedRef.current && !isTruncated) {
+        void tooltipRef.current.closeTooltip();
+      }
+      wasTruncatedRef.current = isTruncated;
+    }, [isTruncated]);
 
     // On web the name is clipped via CSS ellipsis, so detect truncation by
     // comparing the full content width against the clamped layout width.
@@ -143,6 +156,7 @@ const SubtitleText = memo(
 
     return (
       <LazyTooltip
+        ref={tooltipRef}
         disabled={!isTruncated}
         placement="top"
         renderContent={subtitle}
