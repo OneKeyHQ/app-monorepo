@@ -148,6 +148,16 @@ async function restoreForPasskeyReEnroll(
   await Promise.all(
     snapshot.map(([key, value]) => webStorage.setItem(key, value, undefined)),
   );
+  // A failed re-enroll may have already cached a NEW master key in bg. Without
+  // clearing it, getMasterKey() would hit that stale cache instead of
+  // unwrapping the restored wrapped key, so getSecureItem() would decrypt with
+  // the wrong key and biometric unlock would still fail. Clear it so the first
+  // read after rollback goes through the restored storage state. (review)
+  try {
+    await appGlobals.$backgroundApiProxy.servicePassword.clearCachedPrfMasterKey();
+  } catch {
+    // background not ready
+  }
 }
 
 // Authenticate and get PRF key

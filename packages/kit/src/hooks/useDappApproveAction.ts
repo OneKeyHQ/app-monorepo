@@ -86,9 +86,18 @@ function useDappApproveAction({
   // ServiceDApp's request semaphore).
   const isHandledRef = useRef(false);
   const isResolvingRef = useRef(false);
+  // Set synchronously at the force-reject (window-closing) entry, BEFORE its
+  // rejectCallback ack. isHandledRef is only set after that ack (so the
+  // beforeunload backstop isn't short-circuited), which would otherwise leave a
+  // window where a concurrent resolve whose getResolveData finished first still
+  // sends resolveCallback — turning a window-close cancel into a real approval.
+  // This flag closes that window: resolve bails on it before AND after its
+  // await. (review)
+  const isForceRejectedRef = useRef(false);
   useEffect(() => {
     isHandledRef.current = false;
     isResolvingRef.current = false;
+    isForceRejectedRef.current = false;
   }, [id]);
   useSendRejectId(id);
   const reject = useCallback(
@@ -101,6 +110,12 @@ function useDappApproveAction({
       if (isExtStandaloneWindow) {
         if (isHandledRef.current) return;
         if (isResolvingRef.current && !isForce) return;
+        if (isForce) {
+          // Mark synchronously (before any await) so a concurrent resolve —
+          // whose getResolveData may resolve before this reject's ack — sees it
+          // and never sends resolveCallback. (review)
+          isForceRejectedRef.current = true;
+        }
       }
       // eslint-disable-next-line no-param-reassign
       const newError =
@@ -141,7 +156,9 @@ function useDappApproveAction({
       if (!id) return;
       if (
         isExtStandaloneWindow &&
-        (isHandledRef.current || isResolvingRef.current)
+        (isHandledRef.current ||
+          isResolvingRef.current ||
+          isForceRejectedRef.current)
       ) {
         return;
       }
@@ -151,9 +168,13 @@ function useDappApproveAction({
       try {
         setRejectError(null);
         const data = result ?? (await getResolveData?.());
-        if (isExtStandaloneWindow && isHandledRef.current) {
-          // A forced reject (window closing) settled the request while the
-          // resolve payload was being built — drop this resolve.
+        if (
+          isExtStandaloneWindow &&
+          (isHandledRef.current || isForceRejectedRef.current)
+        ) {
+          // A forced reject (window closing) settled or is settling the request
+          // while the resolve payload was being built — drop this resolve and
+          // never send resolveCallback. (review)
           return;
         }
         if (isExtStandaloneWindow && closeWindowAfterResolved) {
