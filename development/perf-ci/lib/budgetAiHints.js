@@ -221,9 +221,7 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
     const scripts = diagnosticScriptsForRun(run);
     scenarioScriptSets.set(
       scenario.name,
-      new Set(
-        scripts.map((script) => normalizeScriptUrl(script.url)),
-      ),
+      new Set(scripts.map((script) => normalizeScriptUrl(script.url))),
     );
   }
 

@@ -32,9 +32,10 @@ describe('createStaticImportChainReport', () => {
     writeFile(
       repoRoot,
       middle,
-      ["import { target } from './target';", 'export const middle = target;'].join(
-        '\n',
-      ),
+      [
+        "import { target } from './target';",
+        'export const middle = target;',
+      ].join('\n'),
     );
     writeFile(
       repoRoot,
