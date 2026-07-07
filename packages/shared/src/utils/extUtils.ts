@@ -304,9 +304,21 @@ function focusExistWindow({
 }: {
   windowId: number | undefined | null;
 }) {
-  if (windowId) {
-    void chrome.windows.update(windowId, { focused: true });
+  if (!windowId) {
+    return;
   }
+  chrome.windows.get(windowId, (win) => {
+    // Reading lastError keeps Chrome from logging "Unchecked
+    // runtime.lastError" when the window was already closed by the user.
+    if (chrome.runtime.lastError || !win) {
+      return;
+    }
+    void chrome.windows.update(windowId, {
+      focused: true,
+      // focused:true alone does not restore a minimized window
+      state: win.state === 'minimized' ? 'normal' : undefined,
+    });
+  });
 }
 
 async function openPermissionSettings() {
