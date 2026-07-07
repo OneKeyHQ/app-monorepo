@@ -134,25 +134,24 @@ const AppStateLock = ({
             return;
           }
         } catch (e) {
-          // Verification could not complete: the platform credential is gone or
-          // broken, WebAuthn is unavailable, or the user cancelled — WebAuthn
-          // reports all of these as NotAllowedError and cannot tell them apart.
-          // Open the dialog anyway. Blocking here would dead-end a user whose
-          // keychain is broken (the exact situation this hidden entry exists
-          // for) with no way to upload diagnostics. Trade-off: a bystander who
-          // cancels the prompt can also reach the dialog, but the state logs
-          // carry no sensitive data and the entry needs 12 consecutive taps.
-          // (OK-56874 follow-up)
+          // Enabled PassKey but the biometric check did not pass — the user
+          // cancelled, or the platform credential is gone (WebAuthn reports
+          // both as NotAllowedError and cannot tell them apart). Block: once
+          // the user has PassKey enabled, opening this hidden log-upload entry
+          // REQUIRES a passing biometric check, so a bystander or any
+          // unverified session cannot exfiltrate diagnostics. A user who
+          // genuinely lost their passkey can still export logs from in-app
+          // Settings after unlocking with their password. (OK-56874)
           const caught = e as { name?: string; message?: string };
           diagLog(
-            `[KeychainLogUploadDiag] handler caught error -> ALLOWED (open dialog) ${JSON.stringify(
+            `[KeychainLogUploadDiag] handler caught error -> return, dialog BLOCKED ${JSON.stringify(
               {
                 name: caught?.name,
                 message: caught?.message,
               },
             )}`,
           );
-          // fall through — open the dialog
+          return;
         }
       }
     } else if (await biologyAuth.isSupportBiologyAuth()) {
