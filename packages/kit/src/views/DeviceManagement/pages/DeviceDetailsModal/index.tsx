@@ -148,6 +148,8 @@ function DeviceDetailsModalV2Cmp({
         <Page.Container>
           <XStack bg="$bgApp" gap="$8" alignItems="flex-start">
             <YStack gap="$8" flex={1}>
+              {/* DeviceBasicInfo self-manages its skeleton; sections gate on
+                  their own hasLoadedDevice. */}
               <DeviceBasicInfo
                 showFirmwareVersion={Boolean(
                   vendorProfile?.supportsFirmwareVersionDisplay,

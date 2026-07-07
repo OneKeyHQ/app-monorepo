@@ -13,6 +13,7 @@ import {
   currentWalletIdAtom,
   deviceMetaStateAtom,
   deviceMetaStaticAtom,
+  refreshSettledAtom,
   walletWithDeviceStateAtom,
 } from './atoms';
 
@@ -113,6 +114,7 @@ async function buildDeviceMetaState(
     autoShutDownDelayMs,
     language,
     hapticFeedback,
+    isReady: true,
   };
 }
 
@@ -137,17 +139,22 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
     const walletId = incomingWalletId ?? get(currentWalletIdAtom());
     if (!walletId) return;
 
-    const r =
-      await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
-        filterHiddenWallet: true,
-      });
+    try {
+      const r =
+        await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+          filterHiddenWallet: true,
+        });
 
-    const data = r?.[walletId];
-    set(currentWalletIdAtom(), walletId);
-    set(walletWithDeviceStateAtom(), data);
-    await this.updateDeviceMetaStatic.call(set);
-    await this.updateDeviceMetaState.call(set);
-    return data;
+      const data = r?.[walletId];
+      set(currentWalletIdAtom(), walletId);
+      set(walletWithDeviceStateAtom(), data);
+      await this.updateDeviceMetaStatic.call(set);
+      await this.updateDeviceMetaState.call(set);
+      return data;
+    } finally {
+      // First load has settled (data or failure) — the header can stop waiting.
+      set(refreshSettledAtom(), true);
+    }
   });
 
   getCurrentWalletId = contextAtomMethod(async (get) => {

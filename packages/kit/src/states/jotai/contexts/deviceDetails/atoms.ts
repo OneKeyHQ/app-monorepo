@@ -27,6 +27,11 @@ export const {
   use: useWalletWithDeviceStateAtom,
 } = contextAtom<IHwQrWalletWithDevice | undefined>(undefined);
 
+// True once the first refresh settles; distinguishes "still loading" from
+// "loaded, no device" for the header skeleton gate.
+export const { atom: refreshSettledAtom, use: useRefreshSettledAtom } =
+  contextAtom<boolean>(false);
+
 export const { atom: walletWithDeviceAtom, use: useWalletWithDeviceAtom } =
   contextAtomComputed((get) => {
     return get(walletWithDeviceStateAtom());
@@ -67,6 +72,8 @@ export type IDeviceMetaState = {
   autoShutDownDelayMs: number | undefined;
   language: string | undefined;
   hapticFeedback: boolean;
+  /** false = still the loading placeholder; true = real device data resolved */
+  isReady: boolean;
 };
 
 const emptyMetaState: IDeviceMetaState = {
@@ -77,6 +84,7 @@ const emptyMetaState: IDeviceMetaState = {
   autoShutDownDelayMs: undefined,
   language: undefined,
   hapticFeedback: false,
+  isReady: false,
 };
 
 export const { atom: deviceMetaStateAtom, use: useDeviceMetaStateAtom } =
