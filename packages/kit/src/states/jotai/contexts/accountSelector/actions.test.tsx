@@ -903,6 +903,59 @@ describe('useAccountSelectorActions', () => {
     });
   });
 
+  it('clears a restored mocked hardware wallet selection during storage init', async () => {
+    const staleSelection = {
+      ...defaultSelectedAccount(),
+      walletId: 'hw-standard',
+      indexedAccountId: 'hw-standard--0',
+      networkId: 'onekeyall',
+      deriveType: 'default' as const,
+      focusedWallet: 'hw-standard',
+    };
+    const mockedStandardWallet = {
+      id: 'hw-standard',
+      name: 'Standard wallet',
+      isMocked: true,
+    } as IWallet;
+
+    mockGetSelectedAccountsMap.mockResolvedValue({
+      0: staleSelection,
+    });
+    mockGetWalletSafe.mockResolvedValue(mockedStandardWallet);
+
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.initFromStorage({
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: undefined,
+      focusedWallet: undefined,
+      indexedAccountId: undefined,
+      othersWalletAccountId: undefined,
+      networkId: 'onekeyall',
+    });
+    expect(mockSaveSelectedAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccount: expect.objectContaining({
+          walletId: undefined,
+          focusedWallet: undefined,
+          indexedAccountId: undefined,
+          othersWalletAccountId: undefined,
+          networkId: 'onekeyall',
+        }),
+      }),
+    );
+  });
+
   it('preserves concurrent fields while resolving an others wallet network switch', async () => {
     const currentEvmAccount = {
       id: 'imported--evm-account',

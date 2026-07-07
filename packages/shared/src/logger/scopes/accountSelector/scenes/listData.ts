@@ -130,6 +130,19 @@ export class AccountSelectorListDataScene extends BaseScene {
   }
 
   @LogToLocal()
+  public clearUnavailableWalletSelection(params: {
+    num: number;
+    selectedAccount: IAccountSelectorSelectedAccount | undefined;
+    clearedSelectedAccount: IAccountSelectorSelectedAccount;
+    walletId: string | undefined;
+    isMissingWallet: boolean;
+    isDeprecatedOrMocked: boolean;
+    isTempWalletRemoved: boolean;
+  }) {
+    return params;
+  }
+
+  @LogToLocal()
   public initFromStorageSelectedAccountsMapResult(params: {
     selectedAccountsMap: IAccountSelectorSelectedAccountsMap | undefined;
   }) {
