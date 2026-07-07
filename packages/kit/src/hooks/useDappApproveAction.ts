@@ -35,9 +35,13 @@ function coverExtStandaloneWindowUntilClose() {
       }
     }
   }
+  // Fallback only when every candidate resolved transparent: pick by color
+  // scheme so a dark-themed window is not covered with a white flash.
+  const prefersDark =
+    globalThis.matchMedia?.('(prefers-color-scheme: dark)')?.matches ?? false;
   const cover = document.createElement('div');
   cover.style.cssText = `position:fixed;inset:0;z-index:2147483647;background-color:${
-    backgroundColor || '#ffffff'
+    backgroundColor || (prefersDark ? '#0b0b0b' : '#ffffff')
   };`;
   document.body.appendChild(cover);
 }
