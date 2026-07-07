@@ -192,6 +192,26 @@ describe('LazyLoad self-heal', () => {
     return { factory, calls };
   }
 
+  it('renders synchronously after preload resolves before first render', async () => {
+    const factory = jest.fn(() =>
+      Promise.resolve({
+        default: () => <div data-testid="loaded">loaded</div>,
+      }),
+    );
+    const Lazy = LazyLoad<Record<string, never>>(
+      factory,
+      undefined,
+      <div data-testid="fallback">loading</div>,
+    );
+
+    await Lazy.preload();
+    render(<Lazy />);
+
+    expect(screen.queryByTestId('loaded')).not.toBeNull();
+    expect(screen.queryByTestId('fallback')).toBeNull();
+    expect(factory).toHaveBeenCalledTimes(1);
+  });
+
   it('retries a transient timeout, calls factory twice, eventually renders', async () => {
     const err = { code: 'SPLIT_BUNDLE_TIMEOUT', message: 'timed out' };
     const { factory, calls } = makeFactory(err, 1);

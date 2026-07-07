@@ -10,11 +10,9 @@ import { PasswordKeyboard } from '../components/PasswordKeyboard';
 function PasswordKeyboardDescription({
   description,
   shouldConfirmPassword,
-  onConfirm,
 }: {
   description?: string;
   shouldConfirmPassword?: string;
-  onConfirm: (password: string) => void;
 }) {
   const intl = useIntl();
   const [password, setPassword] = useState('');
@@ -22,29 +20,26 @@ function PasswordKeyboardDescription({
     shouldConfirmPassword &&
     password.length === shouldConfirmPassword.length &&
     shouldConfirmPassword !== password;
-  const confirmDisabled =
-    password.length < 6 ||
-    (Boolean(shouldConfirmPassword) && shouldConfirmPassword !== password);
-
   return (
-    <>
+    <Dialog.Form
+      formProps={{
+        defaultValues: {},
+      }}
+    >
       <SizableText size="$bodyLg" color={showError ? '$textCritical' : '$text'}>
         {showError
           ? intl.formatMessage({ id: ETranslations.hardware_pins_do_not_match })
           : description}
       </SizableText>
-      <PasswordKeyboard value={password} onChange={setPassword} />
-      <Dialog.Footer
-        showCancelButton={false}
-        confirmButtonProps={{
-          disabled: confirmDisabled,
-        }}
-        onConfirm={async ({ close }) => {
-          onConfirm(password);
-          await close();
-        }}
-      />
-    </>
+      <Dialog.FormField name="password">
+        <PasswordKeyboard
+          onChange={(value) => {
+            setPassword(value);
+            return value;
+          }}
+        />
+      </Dialog.FormField>
+    </Dialog.Form>
   );
 }
 
@@ -84,9 +79,23 @@ export default function usePIN() {
             <PasswordKeyboardDescription
               shouldConfirmPassword={shouldConfirmPassword}
               description={config.description}
-              onConfirm={resolve}
             />
           ),
+          confirmButtonProps: {
+            disabledOn: (dialogInstance) => {
+              const value = dialogInstance.getForm()?.getValues()
+                .password as string;
+              const disable = !(value?.length >= 6);
+              if (!disable && shouldConfirmPassword) {
+                return shouldConfirmPassword !== value;
+              }
+              return disable;
+            },
+          },
+          onConfirm: (dialogInstance) => {
+            const pin = dialogInstance.getForm()?.getValues().password;
+            resolve(pin);
+          },
         });
       });
     },

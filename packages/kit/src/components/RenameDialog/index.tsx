@@ -1,10 +1,4 @@
-import {
-  createRef,
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useState,
-} from 'react';
+import { useEffect, useState } from 'react';
 
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
@@ -37,18 +31,11 @@ import { MAX_LENGTH_ACCOUNT_NAME } from './renameConsts';
 
 import type { IntlShape } from 'react-intl';
 
-export type IRenameDialogContentRef = {
-  getValue: () => string;
-  showError: (message: string | undefined) => void;
-};
-
 type INameHistoryInfo = {
   entityId: string;
   entityType: EChangeHistoryEntityType;
   contentType: EChangeHistoryContentType.Name;
 };
-
-const RENAME_DIALOG_ESTIMATED_CONTENT_HEIGHT = 92;
 
 function useDeferredRenameInputEnhancements(deferEnhancements?: boolean) {
   const [shouldRenderEnhancements, setShouldRenderEnhancements] =
@@ -241,68 +228,6 @@ export function RenameInputWithNameSelector({
   );
 }
 
-export const RenameDialogContent = forwardRef<
-  IRenameDialogContentRef,
-  {
-    initialValue: string;
-    maxLength?: number;
-    description?: string;
-    indexedAccount?: IDBIndexedAccount;
-    disabledMaxLengthLabel: boolean;
-    nameHistoryInfo?: INameHistoryInfo;
-    inputTestID?: string;
-  }
->(function RenameDialogContent(
-  {
-    initialValue,
-    maxLength,
-    description,
-    indexedAccount,
-    disabledMaxLengthLabel,
-    nameHistoryInfo,
-    inputTestID,
-  },
-  ref,
-) {
-  const [value, setValue] = useState(initialValue);
-  const [errorMessage, setErrorMessage] = useState<string | undefined>();
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      getValue: () => value,
-      showError: setErrorMessage,
-    }),
-    [value],
-  );
-
-  return (
-    <>
-      <RenameInputWithNameSelector
-        value={value}
-        onChange={(nextValue) => {
-          setValue(nextValue);
-          if (nextValue.trim()) {
-            setErrorMessage(undefined);
-          }
-        }}
-        maxLength={maxLength}
-        description={description}
-        indexedAccount={indexedAccount}
-        disabledMaxLengthLabel={disabledMaxLengthLabel}
-        nameHistoryInfo={nameHistoryInfo}
-        inputTestID={inputTestID}
-        deferEnhancements
-      />
-      {errorMessage ? (
-        <Form.FieldDescription color="$textCritical">
-          {errorMessage}
-        </Form.FieldDescription>
-      ) : null}
-    </>
-  );
-});
-
 export const showRenameDialog = (
   name: string,
   {
@@ -325,33 +250,44 @@ export const showRenameDialog = (
     confirmTestID?: string;
     intl: IntlShape;
   },
-) => {
-  const contentRef = createRef<IRenameDialogContentRef>();
-  const emptyNameMessage = intl.formatMessage({
-    id: ETranslations.form_rename_error_empty,
-  });
-
-  return Dialog.show({
+) =>
+  Dialog.show({
     title: intl.formatMessage({ id: ETranslations.global_rename }),
     renderContent: (
-      <RenameDialogContent
-        ref={contentRef}
-        initialValue={name}
-        maxLength={maxLength}
-        indexedAccount={indexedAccount}
-        disabledMaxLengthLabel={disabledMaxLengthLabel}
-        nameHistoryInfo={nameHistoryInfo}
-        inputTestID={inputTestID}
-      />
+      <Dialog.Form formProps={{ values: { name } }}>
+        <Dialog.FormField
+          name="name"
+          rules={{
+            required: {
+              value: true,
+              message: intl.formatMessage({
+                id: ETranslations.form_rename_error_empty,
+              }),
+            },
+            validate: (value: string) => {
+              if (!value?.trim()) {
+                return intl.formatMessage({
+                  id: ETranslations.form_rename_error_empty,
+                });
+              }
+              return true;
+            },
+          }}
+        >
+          <RenameInputWithNameSelector
+            maxLength={maxLength}
+            indexedAccount={indexedAccount}
+            disabledMaxLengthLabel={disabledMaxLengthLabel}
+            nameHistoryInfo={nameHistoryInfo}
+            inputTestID={inputTestID}
+            deferEnhancements
+          />
+        </Dialog.FormField>
+      </Dialog.Form>
     ),
-    onConfirm: async ({ close, preventClose }) => {
-      const nextName = contentRef.current?.getValue() ?? '';
-      if (!nextName.trim()) {
-        preventClose();
-        contentRef.current?.showError(emptyNameMessage);
-        return;
-      }
-      await onSubmit(nextName);
+    onConfirm: async ({ getForm, close }) => {
+      const form = getForm();
+      await onSubmit(form?.getValues().name);
       // fix toast dropped frames
       await close();
       Toast.success({
@@ -361,9 +297,6 @@ export const showRenameDialog = (
       });
     },
     ...dialogProps,
-    estimatedContentHeight:
-      dialogProps.estimatedContentHeight ??
-      RENAME_DIALOG_ESTIMATED_CONTENT_HEIGHT,
     ...(confirmTestID
       ? {
           confirmButtonProps: {
@@ -373,4 +306,3 @@ export const showRenameDialog = (
         }
       : {}),
   });
-};

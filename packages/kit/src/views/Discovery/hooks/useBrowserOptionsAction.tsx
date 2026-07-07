@@ -1,11 +1,4 @@
-import {
-  createRef,
-  forwardRef,
-  useCallback,
-  useImperativeHandle,
-  useMemo,
-  useState,
-} from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Share } from 'react-native';
@@ -16,42 +9,6 @@ import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-type IRenameTabDialogContentRef = {
-  getValue: () => string;
-};
-
-const RENAME_TAB_DIALOG_ESTIMATED_CONTENT_HEIGHT = 44;
-
-const RenameTabDialogContent = forwardRef<
-  IRenameTabDialogContentRef,
-  {
-    initialValue: string;
-    placeholder?: string;
-  }
->(function RenameTabDialogContent({ initialValue, placeholder }, ref) {
-  const [value, setValue] = useState(initialValue);
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      getValue: () => value,
-    }),
-    [value],
-  );
-
-  return (
-    <Input
-      testID="discovery-handle-rename-tab-input"
-      autoFocus
-      flex={1}
-      placeholder={placeholder}
-      clearButtonMode="always"
-      value={value}
-      onChangeText={setValue}
-    />
-  );
-});
 
 function useBrowserOptionsAction() {
   const handleShareUrl = useCallback((url: string) => {
@@ -77,27 +34,37 @@ function useBrowserOptionsAction() {
   const handleRenameTab = useCallback(
     (item: IWebTab) =>
       new Promise((resolve) => {
-        const contentRef = createRef<IRenameTabDialogContentRef>();
-        const initialName =
-          (item?.customTitle?.length ?? 0) > 0
-            ? (item?.customTitle ?? '')
-            : (item?.title ?? '');
         Dialog.confirm({
           title: intl.formatMessage({
             id: ETranslations.explore_rename,
           }),
           renderContent: (
-            <RenameTabDialogContent
-              ref={contentRef}
-              initialValue={initialName}
-              placeholder={item.title ?? ''}
-            />
+            <Dialog.Form
+              formProps={{
+                defaultValues: {
+                  name:
+                    (item?.customTitle?.length ?? 0) > 0
+                      ? item?.customTitle
+                      : item?.title,
+                },
+              }}
+            >
+              <Dialog.FormField name="name">
+                <Input
+                  testID="discovery-handle-rename-tab-input"
+                  autoFocus
+                  flex={1}
+                  placeholder={item.title}
+                  clearButtonMode="always"
+                />
+              </Dialog.FormField>
+            </Dialog.Form>
           ),
-          estimatedContentHeight: RENAME_TAB_DIALOG_ESTIMATED_CONTENT_HEIGHT,
-          onConfirm: () => {
+          onConfirm: (dialogInstance) => {
+            const form = dialogInstance.getForm()?.getValues();
             setWebTabData({
               ...item,
-              customTitle: contentRef.current?.getValue(),
+              customTitle: form?.name,
             });
             setTabs();
             Toast.success({

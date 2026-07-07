@@ -41,9 +41,18 @@ function LazyFormFieldDescription(props: IFormFieldDescriptionProps) {
   return <LazyFormFieldDescriptionComponent {...props} />;
 }
 
+function preloadForm() {
+  return Promise.all([
+    LazyFormComponent.preload(),
+    LazyFormFieldComponent.preload(),
+    LazyFormFieldDescriptionComponent.preload(),
+  ]);
+}
+
 export const Form = Object.assign(LazyForm, {
   Field: LazyFormField,
   FieldDescription: LazyFormFieldDescription,
-}) as IFormComponent;
+  preload: preloadForm,
+}) as IFormComponent & { preload: typeof preloadForm };
 
 export type { IFieldErrorProps, IFieldProps, IFormProps } from './FormBase';

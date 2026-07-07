@@ -181,24 +181,46 @@ function LazyLoad<T = Record<string, unknown>>(
 ) {
   const wrappedFactory =
     delayMs && delayMs > 0 ? () => delayImport(factory, delayMs) : factory;
+  let loadedModule: { default: ComponentType<T> } | undefined;
+  let loadingPromise:
+    | Promise<{
+        default: ComponentType<T>;
+      }>
+    | undefined;
+  const load = () => {
+    if (loadedModule) {
+      return Promise.resolve(loadedModule);
+    }
+    if (!loadingPromise) {
+      loadingPromise = wrappedFactory()
+        .then((module) => {
+          loadedModule = module;
+          return module;
+        })
+        .catch((err: Error) => {
+          loadingPromise = undefined;
+          NativeLogger.write(
+            LogLevel.Error,
+            `[LazyLoad] FAILED: ${err?.message || err}\n${err?.stack?.slice(0, 300) || ''}`,
+          );
+          throw err;
+        });
+    }
+    return loadingPromise;
+  };
   function LazyLoadContainer(props: T) {
     const [retryKey, setRetryKey] = useState(0);
     const LazyLoadComponent = useMemo(
-      () =>
-        lazy(() =>
-          wrappedFactory().catch((err: Error) => {
-            NativeLogger.write(
-              LogLevel.Error,
-              `[LazyLoad] FAILED: ${err?.message || err}\n${err?.stack?.slice(0, 300) || ''}`,
-            );
-            throw err;
-          }),
-        ),
+      () => lazy(load),
       // regenerate a fresh lazy() object each retry — React caches the rejected
       // payload on the lazy object, so only a NEW object re-invokes the factory.
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [retryKey],
     );
+    if (loadedModule) {
+      const LoadedComponent = loadedModule.default;
+      return <LoadedComponent {...(props as any)} />;
+    }
     return (
       <LazyRetryBoundary
         maxRetries={MAX_LAZY_RETRIES}
@@ -215,7 +237,9 @@ function LazyLoad<T = Record<string, unknown>>(
       </LazyRetryBoundary>
     );
   }
-  return memo(LazyLoadContainer);
+  return Object.assign(memo(LazyLoadContainer), {
+    preload: load,
+  });
 }
 
 export default LazyLoad;

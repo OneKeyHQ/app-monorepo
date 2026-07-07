@@ -95,8 +95,14 @@ type IDialogFormFieldProps = ComponentProps<
   (typeof import('./DialogForm'))['DialogFormField']
 >;
 
+const loadDialogFormModule = async () => {
+  const dialogFormModule = await import('./DialogForm');
+  await dialogFormModule.preloadDialogForm();
+  return dialogFormModule;
+};
+
 const LazyDialogFormComponent = LazyLoad<IDialogFormProps>(async () => {
-  const { DialogForm } = await import('./DialogForm');
+  const { DialogForm } = await loadDialogFormModule();
   return { default: DialogForm };
 });
 
@@ -106,7 +112,7 @@ function LazyDialogForm(props: IDialogFormProps) {
 
 const LazyDialogFormFieldComponent = LazyLoad<IDialogFormFieldProps>(
   async () => {
-    const { DialogFormField } = await import('./DialogForm');
+    const { DialogFormField } = await loadDialogFormModule();
     return { default: DialogFormField };
   },
 );
@@ -114,6 +120,29 @@ const LazyDialogFormFieldComponent = LazyLoad<IDialogFormFieldProps>(
 function LazyDialogFormField(props: IDialogFormFieldProps) {
   return <LazyDialogFormFieldComponent {...props} />;
 }
+
+function preloadDialogFormComponents() {
+  return Promise.all([
+    LazyDialogFormComponent.preload(),
+    LazyDialogFormFieldComponent.preload(),
+  ]);
+}
+
+function scheduleDialogFormPreload() {
+  if (!platformEnv.isRuntimeBrowser || platformEnv.isNative) {
+    return;
+  }
+  const preload = () => {
+    void preloadDialogFormComponents();
+  };
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(preload);
+    return;
+  }
+  setTimeout(preload, 0);
+}
+
+scheduleDialogFormPreload();
 
 export * from './dialogInstances';
 export * from './hooks';

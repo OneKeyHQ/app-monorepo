@@ -1,4 +1,4 @@
-import { createRef, useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,10 +14,7 @@ import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/So
 import { SortableListView } from '@onekeyhq/components/src/layouts/SortableListView';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import {
-  type IRenameDialogContentRef,
-  RenameDialogContent,
-} from '@onekeyhq/kit/src/components/RenameDialog';
+import { RenameInputWithNameSelector } from '@onekeyhq/kit/src/components/RenameDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBrowserBookmarkAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
@@ -37,8 +34,6 @@ import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserBookmark } from '../../types';
-
-const RENAME_BOOKMARK_DIALOG_ESTIMATED_CONTENT_HEIGHT = 92;
 
 function BookmarkListModal() {
   const navigation = useAppNavigation();
@@ -85,35 +80,52 @@ function BookmarkListModal() {
 
   const onRename = useCallback(
     (item: IBrowserBookmark) => {
-      const contentRef = createRef<IRenameDialogContentRef>();
-      const emptyNameMessage = intl.formatMessage({
-        id: ETranslations.explore_bookmark_at_least,
-      });
       Dialog.confirm({
         title: intl.formatMessage({
           id: ETranslations.explore_rename,
         }),
         renderContent: (
-          <RenameDialogContent
-            ref={contentRef}
-            initialValue={item.title}
-            disabledMaxLengthLabel
-            nameHistoryInfo={{
-              entityId: item.url,
-              entityType: EChangeHistoryEntityType.BrowserBookmark,
-              contentType: EChangeHistoryContentType.Name,
+          <Dialog.Form
+            formProps={{
+              defaultValues: { name: item.title },
             }}
-          />
+          >
+            <Dialog.FormField
+              name="name"
+              rules={{
+                required: {
+                  value: true,
+                  message: intl.formatMessage({
+                    id: ETranslations.explore_bookmark_at_least,
+                  }),
+                },
+                validate: (value: string) => {
+                  if (!value?.trim()) {
+                    return intl.formatMessage({
+                      id: ETranslations.explore_bookmark_at_least,
+                    });
+                  }
+                  return true;
+                },
+              }}
+            >
+              <RenameInputWithNameSelector
+                disabledMaxLengthLabel
+                nameHistoryInfo={{
+                  entityId: item.url,
+                  entityType: EChangeHistoryEntityType.BrowserBookmark,
+                  contentType: EChangeHistoryContentType.Name,
+                }}
+                deferEnhancements
+              />
+            </Dialog.FormField>
+          </Dialog.Form>
         ),
-        estimatedContentHeight: RENAME_BOOKMARK_DIALOG_ESTIMATED_CONTENT_HEIGHT,
-        onConfirm: ({ preventClose }) => {
-          const nextName = contentRef.current?.getValue() ?? '';
-          if (!nextName.trim()) {
-            preventClose();
-            contentRef.current?.showError(emptyNameMessage);
-            return;
+        onConfirm: (dialogInstance) => {
+          const form = dialogInstance.getForm()?.getValues();
+          if (form?.name) {
+            void modifyBrowserBookmark({ ...item, title: form.name });
           }
-          void modifyBrowserBookmark({ ...item, title: nextName });
           Toast.success({
             title: intl.formatMessage({
               id: ETranslations.explore_bookmark_renamed,
