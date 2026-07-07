@@ -9,6 +9,7 @@ import {
   usePreventRemove,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -35,6 +36,7 @@ export function useModalExitPrevent({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const isFocused = useRouteIsFocused();
   const [isNavExitConfirmed, setIsNavExitConfirmed] = useState(false);
   const confirmedRemoveActionRef = useRef<INavigationRemoveAction | undefined>(
     undefined,
@@ -96,7 +98,7 @@ export function useModalExitPrevent({
     [message, navigation, title, intl, onConfirm],
   );
   usePreventRemove(
-    shouldPreventRemove && !isNavExitConfirmed,
+    shouldPreventRemove && !isNavExitConfirmed && isFocused,
     navPreventRemoveCallback,
   );
 }
