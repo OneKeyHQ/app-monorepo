@@ -1,11 +1,10 @@
 import BigNumber from 'bignumber.js';
 
 import {
-  SPOT_HOLDING_STABLE_COINS,
-  calculateSpotHoldingPnl,
-  isSpotHoldingStableCoin,
-} from './perpsSpotHoldingPnlUtils';
-import { getSpotTokenDisplayName } from './perpsUtils';
+  calculateHyperliquidSpotHoldingPnl,
+  getSpotTokenDisplayName,
+  isHyperliquidSpotStableCoin,
+} from './perpsUtils';
 
 import type { IHyperliquidPortfolioSnapshot } from '../../types/hyperliquid/portfolio';
 
@@ -39,12 +38,6 @@ export interface IPerpsHomeView {
   positions: IPerpsHomePosition[];
   isDegraded: boolean;
 }
-
-export {
-  SPOT_HOLDING_STABLE_COINS,
-  calculateSpotHoldingPnl,
-  isSpotHoldingStableCoin,
-};
 
 export function mapSnapshotToPerpsHomeView(
   snapshot: IHyperliquidPortfolioSnapshot,
@@ -85,11 +78,11 @@ export function mapSnapshotToPerpsHomeView(
     .map((b) => {
       const priced = b.valueUsd !== undefined && b.priceUsd !== undefined;
       const valueUsd = priced ? Number(b.valueUsd) : undefined;
-      const pnlUsd = calculateSpotHoldingPnl({
+      const pnlUsd = calculateHyperliquidSpotHoldingPnl({
         total: b.total,
         entryNtl: b.entryNtl,
         priceUsd: b.priceUsd,
-        isStable: isSpotHoldingStableCoin(b.coin),
+        isStable: isHyperliquidSpotStableCoin(b.coin),
       });
       return {
         symbol: b.coin,

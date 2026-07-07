@@ -3,18 +3,17 @@ import BigNumber from 'bignumber.js';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import { calculateSpotHoldingPnl as calculateSpotHoldingPnlAmount } from '@onekeyhq/shared/src/utils/perpsSpotHoldingPnlUtils';
 import {
+  calculateHyperliquidSpotHoldingPnl,
   formatSpotPairDisplayName,
   getSpotTokenDisplayName,
+  isHyperliquidSpotStableCoin,
   isSpotInstrument,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import type { IColumnConfig } from './List/CommonTableListView';
 import type { IntlShape } from 'react-intl';
-
-export { isSpotHoldingStableCoin } from '@onekeyhq/shared/src/utils/perpsSpotHoldingPnlUtils';
 
 const spotHoldingPnlCurrencyFormatter: INumberFormatProps = {
   formatter: 'value',
@@ -169,6 +168,8 @@ export const getFillDirectionDisplayInfo = ({
   return { text, color };
 };
 
+export const isSpotHoldingStableCoin = isHyperliquidSpotStableCoin;
+
 export const calculateSpotHoldingPnl = ({
   total,
   entryNtl,
@@ -184,7 +185,7 @@ export const calculateSpotHoldingPnl = ({
   pnlPercent?: number;
 } => {
   const entryNtlBN = new BigNumber(entryNtl || '0');
-  const pnl = calculateSpotHoldingPnlAmount({
+  const pnl = calculateHyperliquidSpotHoldingPnl({
     total,
     entryNtl,
     priceUsd: midPrice,

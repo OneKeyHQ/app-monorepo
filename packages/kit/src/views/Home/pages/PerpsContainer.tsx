@@ -1115,7 +1115,18 @@ function PerpsMobileHoldingsSummary({
   canDeposit: boolean;
 }) {
   const intl = useIntl();
+  const media = useMedia();
   const openPerp = useOpenPerpAsset();
+  const tooltipText = media.gtMd
+    ? undefined
+    : intl.formatMessage({
+        id: ETranslations.marketdex_un_pnl,
+      });
+  const tooltipTitle = media.gtMd
+    ? undefined
+    : intl.formatMessage({
+        id: ETranslations.marketdex_unrealized_pnl,
+      });
 
   return (
     <YStack display="flex" $gtMd={{ display: 'none' }} gap="$3" py="$2">
@@ -1167,12 +1178,8 @@ function PerpsMobileHoldingsSummary({
               size="$bodyXs"
               color="$textSubdued"
               dashThickness={0.5}
-              tooltip={intl.formatMessage({
-                id: ETranslations.marketdex_un_pnl,
-              })}
-              tooltipTitle={intl.formatMessage({
-                id: ETranslations.marketdex_unrealized_pnl,
-              })}
+              tooltip={tooltipText}
+              tooltipTitle={tooltipTitle}
             >
               {intl.formatMessage({
                 id: ETranslations.perp_position_pnl_mobile,

@@ -144,6 +144,25 @@ describe('mapSnapshotToPerpsHomeView', () => {
 
     expect(v.holdings[0]?.pnlUsd).toBe(20);
   });
+  it('suppresses pnl for stablecoin aliases', () => {
+    const v = mapSnapshotToPerpsHomeView({
+      ...snap,
+      spotBalances: [
+        {
+          coin: 'USDT0',
+          token: 99,
+          total: '10',
+          hold: '0',
+          entryNtl: '9.9',
+          priceUsd: '1',
+          valueUsd: '10',
+        },
+      ],
+    });
+
+    expect(v.holdings[0]?.displaySymbol).toBe('USDT');
+    expect(v.holdings[0]?.pnlUsd).toBeUndefined();
+  });
   it('empty snapshot → empty view', () => {
     const v = mapSnapshotToPerpsHomeView({
       ...snap,
