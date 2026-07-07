@@ -40,6 +40,10 @@ const MODULE_BUDGET = parseInt(process.env.STARTUP_MODULE_BUDGET || '5000', 10);
 const SIZE_BUDGET_BYTES =
   parseFloat(process.env.STARTUP_SIZE_BUDGET_MB || '38') * 1024 * 1024;
 
+function formatMb(bytes) {
+  return `${Number((bytes / 1024 / 1024).toFixed(2))} MB`;
+}
+
 // npm packages that must NEVER appear in the main startup graph.
 // Phase 1 optimization moved these to lazy / dynamic imports.
 // If any creep back, a sync import was accidentally added somewhere.
@@ -85,9 +89,7 @@ async function main() {
   console.log(`Entry:          ${entryName}`);
   console.log(`Native BG:      ${enableNativeBg}`);
   console.log(`Module budget:  ${MODULE_BUDGET}`);
-  console.log(
-    `Size budget:    ${(SIZE_BUDGET_BYTES / 1024 / 1024).toFixed(0)} MB\n`,
-  );
+  console.log(`Size budget:    ${formatMb(SIZE_BUDGET_BYTES)}\n`);
 
   const allocationReportPath = path.resolve(
     distDir,
@@ -178,7 +180,7 @@ async function main() {
   console.log(`Graph built in ${elapsed}s`);
   console.log(`Total modules: ${totalModules} (budget: ${MODULE_BUDGET})`);
   console.log(
-    `Code size:     ${(totalSize / 1024 / 1024).toFixed(2)} MB (budget: ${(SIZE_BUDGET_BYTES / 1024 / 1024).toFixed(0)} MB)`,
+    `Code size:     ${formatMb(totalSize)} (budget: ${formatMb(SIZE_BUDGET_BYTES)})`,
   );
   console.log('\nCategories:');
   const sortedCats = Object.entries(categories).toSorted((a, b) => b[1] - a[1]);
@@ -212,7 +214,7 @@ async function main() {
 
   if (totalSize > SIZE_BUDGET_BYTES) {
     failures.push(
-      `Code size ${(totalSize / 1024 / 1024).toFixed(2)} MB exceeds budget ${(SIZE_BUDGET_BYTES / 1024 / 1024).toFixed(0)} MB`,
+      `Code size ${formatMb(totalSize)} exceeds budget ${formatMb(SIZE_BUDGET_BYTES)}`,
     );
   }
 

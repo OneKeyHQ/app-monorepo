@@ -29,13 +29,13 @@
   "scenarios": {
     "root": {
       "resourceCount": 240,
-      "scriptCount": 169,
+      "scriptCount": 175,
       "jsDecodedBytes": 17616077,
       "longTaskTotalMs": 2000
     },
     "market": {
       "resourceCount": 240,
-      "scriptCount": 169,
+      "scriptCount": 175,
       "jsDecodedBytes": 17616077,
       "longTaskTotalMs": 1900,
       "businessReadyMs": 4000,
