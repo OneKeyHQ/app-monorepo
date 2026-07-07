@@ -6,8 +6,10 @@ import { Freeze } from 'react-freeze';
 import {
   BackHandler,
   type LayoutChangeEvent,
+  type StyleProp,
   StyleSheet,
   View,
+  type ViewStyle,
 } from 'react-native';
 import Animated, { useSharedValue } from 'react-native-reanimated';
 
@@ -102,6 +104,17 @@ function getExploreTabName(tab: ETranslations): IExploreTabName {
   return 'browser';
 }
 
+const styles = StyleSheet.create({
+  webPageLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 3,
+  },
+  webPageRootLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 3,
+  },
+});
+
 const useAndroidHardwareBack = platformEnv.isNativeAndroid
   ? ({
       displayHomePage,
@@ -186,25 +199,6 @@ const popToDiscoveryHomePage = (depth = 0) => {
     }
   }
 };
-
-// The phone root WebView layer stays outside OuterTabPagerView so its
-// react-freeze boundary never owns the native WebView tree.
-const styles = StyleSheet.create({
-  webPageLayer: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 3,
-  },
-  webPageRootLayer: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 3,
-  },
-  webPageVisible: {
-    opacity: 1,
-  },
-  webPageHidden: {
-    opacity: 0,
-  },
-});
 
 function MobileBrowser() {
   const isTabletMainView = useSplitMainView();
@@ -516,9 +510,12 @@ function MobileBrowser() {
 
   const displayBottomBar = !showDiscoveryPage;
   const shouldShowRootWebPageLayer = useOuterPager && isBrowserWebPageVisible;
-  const rootWebPageLayerStyle = [
+  const rootWebPageLayerStyle: StyleProp<ViewStyle> = [
     styles.webPageRootLayer,
-    { bottom: BROWSER_BOTTOM_BAR_HEIGHT + bottom },
+    {
+      bottom: BROWSER_BOTTOM_BAR_HEIGHT + bottom,
+      display: shouldShowRootWebPageLayer ? 'flex' : 'none',
+    },
   ];
 
   return (
@@ -612,12 +609,7 @@ function MobileBrowser() {
               importantForAccessibility={
                 shouldShowRootWebPageLayer ? 'auto' : 'no-hide-descendants'
               }
-              style={[
-                rootWebPageLayerStyle,
-                shouldShowRootWebPageLayer
-                  ? styles.webPageVisible
-                  : styles.webPageHidden,
-              ]}
+              style={rootWebPageLayerStyle}
             >
               {content}
             </View>
@@ -668,9 +660,7 @@ function MobileBrowser() {
                     }
                     style={[
                       styles.webPageLayer,
-                      showDiscoveryPage
-                        ? styles.webPageHidden
-                        : styles.webPageVisible,
+                      { display: showDiscoveryPage ? 'none' : 'flex' },
                     ]}
                   >
                     {content}

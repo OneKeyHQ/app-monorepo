@@ -20,14 +20,6 @@ const styles = StyleSheet.create({
   webPageLayer: {
     ...StyleSheet.absoluteFillObject,
   },
-  webPageVisible: {
-    opacity: 1,
-    zIndex: 1,
-  },
-  webPageHidden: {
-    opacity: 0,
-    zIndex: 0,
-  },
 });
 
 function MobileBrowserContent({
@@ -118,10 +110,7 @@ function MobileBrowserContent({
         pointerEvents={isActive ? 'auto' : 'none'}
         accessibilityElementsHidden={!isActive}
         importantForAccessibility={isActive ? 'auto' : 'no-hide-descendants'}
-        style={[
-          styles.webPageLayer,
-          isActive ? styles.webPageVisible : styles.webPageHidden,
-        ]}
+        style={[styles.webPageLayer, { display: isActive ? 'flex' : 'none' }]}
       >
         <ViewShot ref={initCaptureViewRef} style={{ flex: 1 }}>
           <Stack
