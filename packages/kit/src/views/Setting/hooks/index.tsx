@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -29,6 +29,39 @@ export const inAppStateLockStyle: {
     zIndex: RESET_OVERLAY_Z_INDEX,
   },
 };
+
+function ResetAppDialogContent({
+  onConfirm,
+}: {
+  onConfirm: () => Promise<void>;
+}) {
+  const [text, setText] = useState('');
+
+  return (
+    <>
+      <Input
+        autoFocus
+        flex={1}
+        testID={SettingTestIDs.eraseDataInput}
+        placeholder="RESET"
+        value={text}
+        onChangeText={setText}
+      />
+      <Dialog.Footer
+        tone="destructive"
+        confirmButtonProps={{
+          disabled: text.trim().toUpperCase() !== 'RESET',
+          testID: SettingTestIDs.eraseDataConfirm,
+        }}
+        onConfirm={async ({ close }) => {
+          await onConfirm();
+          await close();
+        }}
+      />
+    </>
+  );
+}
+
 export function useResetApp(
   params: {
     inAppStateLock?: boolean;
@@ -90,38 +123,15 @@ export function useResetApp(
         : undefined,
       description: intl.formatMessage({ id: ETranslations.reset_app_desc }),
       renderContent: (
-        <Dialog.Form
-          formProps={{
-            defaultValues: { text: '' },
+        <ResetAppDialogContent
+          onConfirm={async () => {
+            defaultLogger.setting.page.resetApp({
+              reason: 'ManualResetFromSettings',
+            });
+            await doReset();
           }}
-        >
-          <Dialog.FormField name="text">
-            <Input
-              autoFocus
-              flex={1}
-              testID={SettingTestIDs.eraseDataInput}
-              placeholder="RESET"
-            />
-          </Dialog.FormField>
-        </Dialog.Form>
+        />
       ),
-      confirmButtonProps: {
-        disabledOn: ({ getForm }) => {
-          const { getValues } = getForm() || {};
-          if (getValues) {
-            const { text } = getValues() as { text: string };
-            return text.trim().toUpperCase() !== 'RESET';
-          }
-          return true;
-        },
-        testID: SettingTestIDs.eraseDataConfirm,
-      },
-      onConfirm: async () => {
-        defaultLogger.setting.page.resetApp({
-          reason: 'ManualResetFromSettings',
-        });
-        await doReset();
-      },
     });
   }, [doReset, inAppStateLock, intl, silentReset]);
 }

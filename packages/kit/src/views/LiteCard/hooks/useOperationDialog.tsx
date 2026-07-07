@@ -1,9 +1,43 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Checkbox, Dialog, Input } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+function ResetWarningDialogContent({
+  onConfirm,
+  onConfirmText,
+}: {
+  onConfirm: () => void;
+  onConfirmText: string;
+}) {
+  const [resetText, setResetText] = useState('');
+
+  return (
+    <>
+      <Input
+        autoFocus
+        flex={1}
+        placeholder="RESET"
+        testID="lite-card-show-reset-warning-dialog-input"
+        value={resetText}
+        onChangeText={setResetText}
+      />
+      <Dialog.Footer
+        onConfirmText={onConfirmText}
+        confirmButtonProps={{
+          variant: 'destructive',
+          disabled: !/^RESET$/i.test(resetText),
+        }}
+        onConfirm={async ({ close }) => {
+          onConfirm();
+          await close();
+        }}
+      />
+    </>
+  );
+}
 
 export default function useOperationDialog() {
   const intl = useIntl();
@@ -61,30 +95,13 @@ export default function useOperationDialog() {
             id: ETranslations.hardware_reset_onekey_lite_desc,
           }),
           renderContent: (
-            <Dialog.Form
-              formProps={{
-                defaultValues: {},
-              }}
-            >
-              <Dialog.FormField name="reset">
-                <Input
-                  autoFocus
-                  flex={1}
-                  placeholder="RESET"
-                  testID="lite-card-show-reset-warning-dialog-input"
-                />
-              </Dialog.FormField>
-            </Dialog.Form>
+            <ResetWarningDialogContent
+              onConfirm={resolve}
+              onConfirmText={intl.formatMessage({
+                id: ETranslations.global_reset,
+              })}
+            />
           ),
-          onConfirmText: intl.formatMessage({ id: ETranslations.global_reset }),
-          confirmButtonProps: {
-            variant: 'destructive',
-            disabledOn: (params) => {
-              const value = params.getForm()?.getValues().reset;
-              return !/^RESET$/i.test(value);
-            },
-          },
-          onConfirm: () => resolve(),
         });
       }),
     [intl],

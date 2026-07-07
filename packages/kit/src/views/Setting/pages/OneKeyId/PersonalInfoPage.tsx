@@ -1,10 +1,19 @@
-import { memo, useCallback, useMemo } from 'react';
+import {
+  createRef,
+  forwardRef,
+  memo,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from 'react';
 
 import {
   Dialog,
   Input,
   Page,
   ScrollView,
+  SizableText,
   Toast,
   YStack,
 } from '@onekeyhq/components';
@@ -14,6 +23,51 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 
 import { TabSettingsListItem, TabSettingsSection } from '../Tab/ListItem';
 import { useIsTabNavigator } from '../Tab/useIsTabNavigator';
+
+type IEditNameDialogContentRef = {
+  getName: () => string;
+  showError: (message: string) => void;
+};
+
+const EDIT_NAME_DIALOG_ESTIMATED_CONTENT_HEIGHT = 76;
+
+const EditNameDialogContent = forwardRef<
+  IEditNameDialogContentRef,
+  { initialValue: string }
+>(function EditNameDialogContent({ initialValue }, ref) {
+  const [name, setName] = useState(initialValue);
+  const [errorMessage, setErrorMessage] = useState<string | undefined>();
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getName: () => name,
+      showError: setErrorMessage,
+    }),
+    [name],
+  );
+
+  return (
+    <>
+      <Input
+        autoFocus
+        flex={1}
+        placeholder="Enter your name"
+        testID="setting-handle-edit-name-input"
+        value={name}
+        onChangeText={(value) => {
+          setName(value);
+          setErrorMessage(undefined);
+        }}
+      />
+      {errorMessage ? (
+        <SizableText size="$bodyMd" pt="$1.5" color="$textCritical">
+          {errorMessage}
+        </SizableText>
+      ) : null}
+    </>
+  );
+});
 
 function PersonalInfoPageView() {
   const { user } = useOneKeyAuth();
@@ -38,47 +92,26 @@ function PersonalInfoPageView() {
   );
 
   const handleEditName = useCallback(() => {
+    const contentRef = createRef<IEditNameDialogContentRef>();
+
     Dialog.confirm({
       title: 'Edit Name',
       renderContent: (
-        <Dialog.Form
-          formProps={{
-            defaultValues: { name: displayName },
-          }}
-        >
-          <Dialog.FormField
-            name="name"
-            rules={{
-              required: {
-                value: true,
-                message: 'Name is required',
-              },
-              validate: (value: string) => {
-                if (!value?.trim()) {
-                  return 'Name is required';
-                }
-                return true;
-              },
-            }}
-          >
-            <Input
-              autoFocus
-              flex={1}
-              placeholder="Enter your name"
-              testID="setting-handle-edit-name-input"
-            />
-          </Dialog.FormField>
-        </Dialog.Form>
+        <EditNameDialogContent ref={contentRef} initialValue={displayName} />
       ),
-      onConfirm: async ({ getForm, close }) => {
-        const form = getForm();
-        const newName = form?.getValues().name;
-        if (newName) {
-          // TODO: Call API to update user name
-          console.log('Update name to:', newName);
-          await close();
-          Toast.success({ title: 'Name updated' });
+      estimatedContentHeight: EDIT_NAME_DIALOG_ESTIMATED_CONTENT_HEIGHT,
+      onConfirm: async ({ close, preventClose }) => {
+        const newName = contentRef.current?.getName().trim() ?? '';
+        if (!newName) {
+          preventClose();
+          contentRef.current?.showError('Name is required');
+          return;
         }
+
+        // TODO: Call API to update user name
+        console.log('Update name to:', newName);
+        await close();
+        Toast.success({ title: 'Name updated' });
       },
     });
   }, [displayName]);

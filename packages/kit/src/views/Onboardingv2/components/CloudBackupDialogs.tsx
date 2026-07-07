@@ -1,11 +1,12 @@
-import { useFormContext } from 'react-hook-form';
+import { createRef, forwardRef, useImperativeHandle, useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
   Button,
   Dialog,
-  Form,
   Input,
+  SizableText,
   Stack,
   Toast,
 } from '@onekeyhq/components';
@@ -17,6 +18,53 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 
 import type { IAppNavigation } from '../../../hooks/useAppNavigation';
 import type { IntlShape } from 'react-intl';
+
+type ICloudBackupPasswordDialogContentRef = {
+  getPassword: () => string;
+  validate: () => boolean;
+};
+
+const CLOUD_BACKUP_PASSWORD_DIALOG_ESTIMATED_CONTENT_HEIGHT = 96;
+const CLOUD_BACKUP_PASSWORD_CONFIRM_DIALOG_ESTIMATED_CONTENT_HEIGHT = 178;
+
+function getRequiredPasswordMessage(intl: IntlShape) {
+  return intl.formatMessage({
+    id: ETranslations.address_book_add_address_name_required,
+  });
+}
+
+function getPasswordErrorMessage(intl: IntlShape, value: string) {
+  if (!value.trim()) {
+    return getRequiredPasswordMessage(intl);
+  }
+  if (value.length < 6) {
+    return intl.formatMessage(
+      {
+        id: ETranslations.prime_error_passcode_too_short,
+      },
+      {
+        length: 6,
+      },
+    );
+  }
+  return undefined;
+}
+
+function getConfirmPasswordErrorMessage(
+  intl: IntlShape,
+  password: string,
+  confirmPassword: string,
+) {
+  if (!confirmPassword.trim()) {
+    return getRequiredPasswordMessage(intl);
+  }
+  if (confirmPassword !== password) {
+    return intl.formatMessage({
+      id: ETranslations.auth_error_password_not_match,
+    });
+  }
+  return undefined;
+}
 
 function DialogInput({
   value,
@@ -47,103 +95,11 @@ function DialogInput({
         />
       </Stack>
       {description ? (
-        <Form.FieldDescription>{description}</Form.FieldDescription>
+        <SizableText size="$bodyMd" pt="$1.5" color="$textCritical">
+          {description}
+        </SizableText>
       ) : null}
     </>
-  );
-}
-
-function PasswordField() {
-  const intl = useIntl();
-
-  return (
-    <Dialog.FormField
-      label={intl.formatMessage({
-        id: ETranslations.prime_password,
-      })}
-      name="password"
-      rules={{
-        required: {
-          value: true,
-          message: intl.formatMessage({
-            id: ETranslations.address_book_add_address_name_required,
-          }),
-        },
-        validate: (value: string) => {
-          if (!value?.trim()) {
-            return intl.formatMessage({
-              id: ETranslations.address_book_add_address_name_required,
-            });
-          }
-          // Validate minimum 6 digits
-          if (value.length < 6) {
-            return intl.formatMessage(
-              {
-                id: ETranslations.prime_error_passcode_too_short,
-              },
-              {
-                length: 6,
-              },
-            );
-          }
-          return true;
-        },
-      }}
-    >
-      <DialogInput
-        placeholder={intl.formatMessage(
-          {
-            id: ETranslations.global_at_least_variable_characters,
-          },
-          {
-            variable: 6,
-          },
-        )}
-        autoFocus
-      />
-    </Dialog.FormField>
-  );
-}
-
-function ConfirmPasswordField() {
-  const { getValues } = useFormContext();
-  const intl = useIntl();
-
-  return (
-    <Dialog.FormField
-      name="confirm"
-      label={intl.formatMessage({
-        id: ETranslations.prime_confirm_password,
-      })}
-      rules={{
-        required: {
-          value: true,
-          message: intl.formatMessage({
-            id: ETranslations.address_book_add_address_name_required,
-          }),
-        },
-        validate: (value: string) => {
-          if (!value?.trim()) {
-            return intl.formatMessage({
-              id: ETranslations.address_book_add_address_name_required,
-            });
-          }
-          if (value !== getValues().password) {
-            return intl.formatMessage({
-              id: ETranslations.auth_error_password_not_match,
-            });
-          }
-          return true;
-        },
-      }}
-    >
-      <DialogInput
-        placeholder={intl.formatMessage({
-          id: ETranslations.auth_confirm_password_form_placeholder,
-        })}
-        autoFocus={false}
-      />
-    </Dialog.FormField>
   );
 }
 
@@ -170,25 +126,98 @@ function ForgotPasswordButton({
   );
 }
 
-function CloudBackupPasswordDialogContent({
-  showConfirmPasswordField,
-  showForgotPasswordButton,
-  onPressForgotPassword,
-}: {
-  showConfirmPasswordField: boolean | undefined;
-  showForgotPasswordButton: boolean | undefined;
-  onPressForgotPassword?: () => void;
-}) {
+const CloudBackupPasswordDialogContent = forwardRef<
+  ICloudBackupPasswordDialogContentRef,
+  {
+    showConfirmPasswordField: boolean | undefined;
+    showForgotPasswordButton: boolean | undefined;
+    onPressForgotPassword?: () => void;
+  }
+>(function CloudBackupPasswordDialogContent(
+  { showConfirmPasswordField, showForgotPasswordButton, onPressForgotPassword },
+  ref,
+) {
+  const intl = useIntl();
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | undefined>();
+  const [confirmPasswordError, setConfirmPasswordError] = useState<
+    string | undefined
+  >();
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getPassword: () => password,
+      validate: () => {
+        const nextPasswordError = getPasswordErrorMessage(intl, password);
+        const nextConfirmPasswordError = showConfirmPasswordField
+          ? getConfirmPasswordErrorMessage(intl, password, confirmPassword)
+          : undefined;
+
+        setPasswordError(nextPasswordError);
+        setConfirmPasswordError(nextConfirmPasswordError);
+
+        return !nextPasswordError && !nextConfirmPasswordError;
+      },
+    }),
+    [confirmPassword, intl, password, showConfirmPasswordField],
+  );
+
   return (
-    <Dialog.Form formProps={{ values: { password: '', confirm: '' } }}>
-      <PasswordField />
-      {showConfirmPasswordField ? <ConfirmPasswordField /> : null}
+    <>
+      <SizableText size="$bodyMdMedium" mb="$1.5">
+        {intl.formatMessage({
+          id: ETranslations.prime_password,
+        })}
+      </SizableText>
+      <DialogInput
+        value={password}
+        onChange={(value) => {
+          setPassword(value);
+          setPasswordError(undefined);
+          if (confirmPasswordError) {
+            setConfirmPasswordError(undefined);
+          }
+        }}
+        description={passwordError}
+        placeholder={intl.formatMessage(
+          {
+            id: ETranslations.global_at_least_variable_characters,
+          },
+          {
+            variable: 6,
+          },
+        )}
+        autoFocus
+      />
+      {showConfirmPasswordField ? (
+        <>
+          <SizableText size="$bodyMdMedium" mt="$3" mb="$1.5">
+            {intl.formatMessage({
+              id: ETranslations.prime_confirm_password,
+            })}
+          </SizableText>
+          <DialogInput
+            value={confirmPassword}
+            onChange={(value) => {
+              setConfirmPassword(value);
+              setConfirmPasswordError(undefined);
+            }}
+            description={confirmPasswordError}
+            placeholder={intl.formatMessage({
+              id: ETranslations.auth_confirm_password_form_placeholder,
+            })}
+            autoFocus={false}
+          />
+        </>
+      ) : null}
       {showForgotPasswordButton ? (
         <ForgotPasswordButton onPressForgotPassword={onPressForgotPassword} />
       ) : null}
-    </Dialog.Form>
+    </>
   );
-}
+});
 
 export const showCloudBackupPasswordDialog = ({
   onSubmit,
@@ -208,6 +237,7 @@ export const showCloudBackupPasswordDialog = ({
   onPressForgotPassword?: () => void;
   intl: IntlShape;
 }) => {
+  const contentRef = createRef<ICloudBackupPasswordDialogContentRef>();
   const title = showConfirmPasswordField
     ? intl.formatMessage({
         id: ETranslations.set_new_backup_password,
@@ -239,18 +269,28 @@ export const showCloudBackupPasswordDialog = ({
     description,
     renderContent: (
       <CloudBackupPasswordDialogContent
+        ref={contentRef}
         showConfirmPasswordField={showConfirmPasswordField}
         showForgotPasswordButton={showForgotPasswordButton}
         onPressForgotPassword={onPressForgotPassword}
       />
     ),
-    onConfirm: async ({ getForm, close }) => {
-      const form = getForm();
-      await onSubmit(form?.getValues().password);
+    onConfirm: async ({ close, preventClose }) => {
+      if (!contentRef.current?.validate()) {
+        preventClose();
+        return;
+      }
+
+      await onSubmit(contentRef.current.getPassword());
       // fix toast dropped frames
       await close();
     },
     ...dialogProps,
+    estimatedContentHeight:
+      dialogProps.estimatedContentHeight ??
+      (showConfirmPasswordField
+        ? CLOUD_BACKUP_PASSWORD_CONFIRM_DIALOG_ESTIMATED_CONTENT_HEIGHT
+        : CLOUD_BACKUP_PASSWORD_DIALOG_ESTIMATED_CONTENT_HEIGHT),
   });
 };
 

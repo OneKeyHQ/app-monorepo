@@ -1,4 +1,12 @@
-import { memo, useCallback, useMemo } from 'react';
+import {
+  createRef,
+  forwardRef,
+  memo,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from 'react';
 
 import {
   Dialog,
@@ -6,6 +14,7 @@ import {
   Input,
   Page,
   ScrollView,
+  SizableText,
   Toast,
   XStack,
   YStack,
@@ -16,6 +25,52 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 
 import { TabSettingsListItem, TabSettingsSection } from '../Tab/ListItem';
 import { useIsTabNavigator } from '../Tab/useIsTabNavigator';
+
+type IEditEmailDialogContentRef = {
+  getEmail: () => string;
+  showError: (message: string) => void;
+};
+
+const EDIT_EMAIL_DIALOG_ESTIMATED_CONTENT_HEIGHT = 76;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const EditEmailDialogContent = forwardRef<
+  IEditEmailDialogContentRef,
+  { initialValue: string }
+>(function EditEmailDialogContent({ initialValue }, ref) {
+  const [email, setEmail] = useState(initialValue);
+  const [errorMessage, setErrorMessage] = useState<string | undefined>();
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getEmail: () => email,
+      showError: setErrorMessage,
+    }),
+    [email],
+  );
+
+  return (
+    <>
+      <Input
+        autoFocus
+        flex={1}
+        placeholder="Enter your email"
+        testID="setting-handle-edit-email-input"
+        value={email}
+        onChangeText={(value) => {
+          setEmail(value);
+          setErrorMessage(undefined);
+        }}
+      />
+      {errorMessage ? (
+        <SizableText size="$bodyMd" pt="$1.5" color="$textCritical">
+          {errorMessage}
+        </SizableText>
+      ) : null}
+    </>
+  );
+});
 
 function SignInSecurityPageView() {
   const { user } = useOneKeyAuth();
@@ -40,45 +95,31 @@ function SignInSecurityPageView() {
   );
 
   const handleEditEmail = useCallback(() => {
+    const contentRef = createRef<IEditEmailDialogContentRef>();
+
     Dialog.confirm({
       title: 'Edit Email',
       renderContent: (
-        <Dialog.Form
-          formProps={{
-            defaultValues: { email },
-          }}
-        >
-          <Dialog.FormField
-            name="email"
-            rules={{
-              required: {
-                value: true,
-                message: 'Email is required',
-              },
-              pattern: {
-                value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                message: 'Invalid email format',
-              },
-            }}
-          >
-            <Input
-              autoFocus
-              flex={1}
-              placeholder="Enter your email"
-              testID="setting-handle-edit-email-input"
-            />
-          </Dialog.FormField>
-        </Dialog.Form>
+        <EditEmailDialogContent ref={contentRef} initialValue={email} />
       ),
-      onConfirm: async ({ getForm, close }) => {
-        const form = getForm();
-        const newEmail = form?.getValues().email;
-        if (newEmail) {
-          // TODO: Call API to update user email
-          console.log('Update email to:', newEmail);
-          await close();
-          Toast.success({ title: 'Email updated' });
+      estimatedContentHeight: EDIT_EMAIL_DIALOG_ESTIMATED_CONTENT_HEIGHT,
+      onConfirm: async ({ close, preventClose }) => {
+        const newEmail = contentRef.current?.getEmail().trim() ?? '';
+        if (!newEmail) {
+          preventClose();
+          contentRef.current?.showError('Email is required');
+          return;
         }
+        if (!EMAIL_PATTERN.test(newEmail)) {
+          preventClose();
+          contentRef.current?.showError('Invalid email format');
+          return;
+        }
+
+        // TODO: Call API to update user email
+        console.log('Update email to:', newEmail);
+        await close();
+        Toast.success({ title: 'Email updated' });
       },
     });
   }, [email]);
