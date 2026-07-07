@@ -50,6 +50,7 @@ import {
   hasUnifiedCrossChainSwapProviderManagers,
   mergeDenyProviderStrings,
 } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
+import { capRecentTokenPairsPreservingOrder } from '@onekeyhq/shared/src/utils/swapRecentTokenPairsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -65,7 +66,6 @@ import type {
   ISwapServiceProvider,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
-  maxRecentTokenPairs,
   mevSwapNetworks,
   privateSendFallbackOrderIdPrefix,
   privateSendProvider,
@@ -791,6 +791,7 @@ export default class ServiceSwap extends ServiceBase {
     const accountIdKey =
       indexedAccountId ?? otherWalletTypeAccountId ?? 'noAccountId';
     let swapSupportAccounts: IAllNetworkAccountInfo[] = [];
+    let supportAccountsFetchFailed = false;
     if (indexedAccountId || otherWalletTypeAccountId) {
       try {
         const allNetAccountId = indexedAccountId
@@ -858,10 +859,11 @@ export default class ServiceSwap extends ServiceBase {
           );
         });
       } catch (e) {
+        supportAccountsFetchFailed = true;
         console.error(e);
       }
     }
-    return { accountIdKey, swapSupportAccounts };
+    return { accountIdKey, swapSupportAccounts, supportAccountsFetchFailed };
   }
 
   @backgroundMethod()
@@ -1348,11 +1350,11 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async checkSupportSwap({ networkId }: { networkId: string }) {
-    return this.checkSupportSwapMemo({ networkId });
+    return this.checkSupportSwapMemo(networkId);
   }
 
   checkSupportSwapMemo = memoizee(
-    async ({ networkId }: { networkId: string }) => {
+    async (networkId: string) => {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const resp = await client.get<{
         data: ISwapCheckSupportResponse[];
@@ -1463,13 +1465,7 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async fetchSwapNativeTokenConfig({ networkId }: { networkId: string }) {
     try {
-      const client = await this.getClient(EServiceEndpointEnum.Swap);
-      const resp = await client.get<{
-        data: ISwapNativeTokenConfig;
-      }>(`/swap/v1/native-token-config`, {
-        params: { networkId },
-      });
-      return resp.data.data;
+      return await this.fetchSwapNativeTokenConfigMemo(networkId);
     } catch (e) {
       console.error(e);
       return {
@@ -1478,6 +1474,24 @@ export default class ServiceSwap extends ServiceBase {
       };
     }
   }
+
+  fetchSwapNativeTokenConfigMemo = memoizee(
+    async (networkId: string) => {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const resp = await client.get<{
+        data: ISwapNativeTokenConfig;
+      }>(`/swap/v1/native-token-config`, {
+        params: { networkId },
+      });
+      return resp.data.data;
+    },
+    {
+      max: 50,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+      promise: true,
+      primitive: true,
+    },
+  );
 
   // swap approving transaction
   @backgroundMethod()
@@ -2565,31 +2579,13 @@ export default class ServiceSwap extends ServiceBase {
       networkLogoURI: toToken.networkLogoURI,
       isNative: toToken.isNative,
     };
-    let newRecentTokenPairs = [
+    const newRecentTokenPairs = capRecentTokenPairsPreservingOrder([
       {
         fromToken: fromTokenBaseInfo,
         toToken: toTokenBaseInfo,
       },
       ...recentTokenPairs,
-    ];
-
-    let singleChainTokenPairs = newRecentTokenPairs.filter(
-      (t) => t.fromToken.networkId === t.toToken.networkId,
-    );
-    let crossChainTokenPairs = newRecentTokenPairs.filter(
-      (t) => t.fromToken.networkId !== t.toToken.networkId,
-    );
-
-    if (singleChainTokenPairs.length > maxRecentTokenPairs) {
-      singleChainTokenPairs = singleChainTokenPairs.slice(
-        0,
-        maxRecentTokenPairs,
-      );
-    }
-    if (crossChainTokenPairs.length > maxRecentTokenPairs) {
-      crossChainTokenPairs = crossChainTokenPairs.slice(0, maxRecentTokenPairs);
-    }
-    newRecentTokenPairs = [...singleChainTokenPairs, ...crossChainTokenPairs];
+    ]);
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
       swapRecentTokenPairs: newRecentTokenPairs,
@@ -2755,11 +2751,27 @@ export default class ServiceSwap extends ServiceBase {
     const swapLimitSupportNetworks = swapSupportNetworks.filter(
       (item) => item.supportLimit,
     );
-    const { swapSupportAccounts } = await this.getSupportSwapAllAccounts({
-      indexedAccountId,
-      otherWalletTypeAccountId,
-      swapSupportNetworks: swapLimitSupportNetworks,
-    });
+    const { accountIdKey, swapSupportAccounts, supportAccountsFetchFailed } =
+      await this.getSupportSwapAllAccounts({
+        indexedAccountId,
+        otherWalletTypeAccountId,
+        swapSupportNetworks: swapLimitSupportNetworks,
+      });
+    if (supportAccountsFetchFailed) {
+      await inAppNotificationAtom.set((pre) => ({
+        ...pre,
+        swapLimitOrdersLoading: false,
+      }));
+      this.limitOrderStateInterval = setTimeout(() => {
+        void this.swapLimitOrdersFetchLoop(
+          indexedAccountId,
+          otherWalletTypeAccountId,
+          false,
+          true,
+        );
+      }, ESwapLimitOrderUpdateInterval);
+      return;
+    }
     if (swapSupportAccounts.length > 0) {
       const { swapLimitOrders } = await inAppNotificationAtom.get();
       if (
@@ -2780,12 +2792,12 @@ export default class ServiceSwap extends ServiceBase {
       );
       let res: IFetchLimitOrderRes[] = [];
       try {
-        if (
+        const shouldFetchLimitOrders =
           !swapLimitOrders.length ||
           isFetchNewOrder ||
           !sameAccount ||
-          openOrders.length
-        ) {
+          openOrders.length;
+        if (shouldFetchLimitOrders) {
           const accounts = swapSupportAccounts.map((account) => ({
             userAddress: account.apiAddress,
             networkId: account.networkId,
@@ -2813,12 +2825,14 @@ export default class ServiceSwap extends ServiceBase {
                 ...pre,
                 swapLimitOrders: [...newList],
                 swapLimitOrdersLoading: false,
+                swapLimitOrdersAccountIdKey: accountIdKey,
               };
             }
             return {
               ...pre,
               swapLimitOrdersLoading: false,
               swapLimitOrders: [...res],
+              swapLimitOrdersAccountIdKey: accountIdKey,
             };
           });
           if (res.find((item) => item.status === ESwapLimitOrderStatus.OPEN)) {
@@ -2831,6 +2845,12 @@ export default class ServiceSwap extends ServiceBase {
               );
             }, ESwapLimitOrderUpdateInterval);
           }
+        } else {
+          await inAppNotificationAtom.set((pre) => ({
+            ...pre,
+            swapLimitOrdersLoading: false,
+            swapLimitOrdersAccountIdKey: accountIdKey,
+          }));
         }
       } catch (_error) {
         this.limitOrderStateInterval = setTimeout(() => {
@@ -2847,6 +2867,13 @@ export default class ServiceSwap extends ServiceBase {
           swapLimitOrdersLoading: false,
         }));
       }
+    } else {
+      await inAppNotificationAtom.set((pre) => ({
+        ...pre,
+        swapLimitOrders: [],
+        swapLimitOrdersLoading: false,
+        swapLimitOrdersAccountIdKey: accountIdKey,
+      }));
     }
   }
 

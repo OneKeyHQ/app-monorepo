@@ -35,7 +35,7 @@ import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { OnboardingTestIDs } from '../testIDs';
 import { getForceTransportType, sortDevicesData } from '../utils';
 
-import { ConnectionIndicator } from './ConnectYourDevice';
+import { ConnectionIndicator } from './ConnectionIndicator';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 import type { ReactVideoSource } from 'react-native-video';

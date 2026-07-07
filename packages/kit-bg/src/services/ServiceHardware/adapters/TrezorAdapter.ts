@@ -82,6 +82,36 @@ type ITrezorHardwareWalletExtensions = {
   ) => Promise<Response<Record<string, unknown>>>;
 };
 
+function summarizeTrezorSearchDevice(
+  device: DeviceInfo,
+): Record<string, unknown> {
+  const extra = device as DeviceInfo & {
+    name?: unknown;
+    raw?: { transport?: unknown };
+  };
+  return {
+    connectId: device.connectId,
+    deviceId: device.deviceId,
+    name: extra.name,
+    model: device.model,
+    connectionType: device.connectionType,
+    rawTransport:
+      typeof extra.raw?.transport === 'string'
+        ? extra.raw.transport
+        : undefined,
+  };
+}
+
+function stringifyTrezorSearchDebugValue(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    return JSON.stringify({
+      stringifyError: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 /**
  * Trezor third-party hardware adapter.
  *
@@ -132,12 +162,20 @@ export class TrezorAdapter
   // instead of popping the THP pairing dialog. Set by beginBindingProbe().
   private _bindingProbeConnectId?: string;
 
+  // Set when the probe suppressed a pairing request — "not this device".
+  private _bindingProbeCancelled = false;
+
   beginBindingProbe(connectId: string): void {
     this._bindingProbeConnectId = connectId;
+    this._bindingProbeCancelled = false;
   }
 
   endBindingProbe(): void {
     this._bindingProbeConnectId = undefined;
+  }
+
+  wasBindingProbeCancelled(): boolean {
+    return this._bindingProbeCancelled;
   }
 
   constructor(hw: IHardwareWallet, disposeSdkEvents?: () => void) {
@@ -223,6 +261,7 @@ export class TrezorAdapter
         (!payload.connectId ||
           payload.connectId === this._bindingProbeConnectId)
       ) {
+        this._bindingProbeCancelled = true;
         void this.hw.cancel(this._bindingProbeConnectId);
         return;
       }
@@ -652,7 +691,7 @@ export class TrezorAdapter
       }
     } catch (error) {
       this._traceThp('persist.miss.devices.error', {
-        message: (error as Error)?.message ?? String(error),
+        message: error instanceof Error ? error.message : String(error),
       });
     }
   }
@@ -754,7 +793,7 @@ export class TrezorAdapter
     } catch (error) {
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Trezor] persist credentials failed: ${
-          (error as Error)?.message ?? String(error)
+          error instanceof Error ? error.message : String(error)
         }`,
       );
     }
@@ -893,7 +932,7 @@ export class TrezorAdapter
     } catch (error) {
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Trezor] connectDevice threw: ${
-          (error as Error)?.message ?? String(error)
+          error instanceof Error ? error.message : String(error)
         }`,
       );
       throw error;
@@ -987,35 +1026,5 @@ export class TrezorAdapter
     this._disposeSdkEvents?.();
     this._disposeSdkEvents = undefined;
     void this.hw.dispose();
-  }
-}
-
-function summarizeTrezorSearchDevice(
-  device: DeviceInfo,
-): Record<string, unknown> {
-  const extra = device as DeviceInfo & {
-    name?: unknown;
-    raw?: { transport?: unknown };
-  };
-  return {
-    connectId: device.connectId,
-    deviceId: device.deviceId,
-    name: extra.name,
-    model: device.model,
-    connectionType: device.connectionType,
-    rawTransport:
-      typeof extra.raw?.transport === 'string'
-        ? extra.raw.transport
-        : undefined,
-  };
-}
-
-function stringifyTrezorSearchDebugValue(value: unknown): string {
-  try {
-    return JSON.stringify(value);
-  } catch (error) {
-    return JSON.stringify({
-      stringifyError: error instanceof Error ? error.message : String(error),
-    });
   }
 }

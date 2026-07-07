@@ -988,6 +988,27 @@ const BaseDevSettingsSection = () => {
                           });
                         }}
                       />
+                      {platformEnv.isNative ? (
+                        <SearchFilterItem keywords="ble bluetooth peripheral serviceUUIDs 蓝牙 已连接设备 dump">
+                          <SectionPressItem
+                            icon="CodeOutline"
+                            title="Dump connected BLE peripherals"
+                            subtitle="打印已连接设备的 serviceUUIDs(需 0.1.6 + 重新编译)"
+                            onPress={async () => {
+                              const { default: bleManager } =
+                                await import('@onekeyhq/shared/src/hardware/bleManager');
+                              const peripherals =
+                                await bleManager.getConnectedPeripheralsDebug();
+                              Dialog.debugMessage({
+                                debugMessage: {
+                                  count: peripherals.length,
+                                  peripherals,
+                                },
+                              });
+                            }}
+                          />
+                        </SearchFilterItem>
+                      ) : null}
                       <SearchFilterItem keywords="RegistrationID 推送注册">
                         <RegistrationID />
                       </SearchFilterItem>
@@ -1485,11 +1506,11 @@ const BaseDevSettingsSection = () => {
                             isUncontrolled
                             size={ESwitchSize.small}
                             defaultChecked={
-                              !!devSettings.settings?.showPerformanceMonitor
+                              !!devSettings.settings?.showPerformanceMonitorV2
                             }
                             onChange={(v) => {
                               void backgroundApiProxy.serviceDevSetting.updateDevSetting(
-                                'showPerformanceMonitor',
+                                'showPerformanceMonitorV2',
                                 v,
                               );
                               setTimeout(() => {

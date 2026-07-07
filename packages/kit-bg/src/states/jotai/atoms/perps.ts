@@ -894,6 +894,8 @@ export interface IPerpsDepositToken {
 export interface IPerpsDepositTokensAtom {
   tokens: Record<string, IPerpsDepositToken[]>;
   currentPerpsDepositSelectedToken?: IPerpsDepositToken;
+  depositTokenListOwnerKey?: string;
+  depositTokenListRevision?: number;
 }
 export const {
   target: perpsDepositTokensAtom,
@@ -1107,6 +1109,14 @@ export const { target: perpsLayoutStateAtom, use: usePerpsLayoutStateAtom } =
     persist: true,
     initialValue: DEFAULT_PERPS_LAYOUT_STATE,
   });
+
+export const {
+  target: perpsPendingInfoPanelTabAtom,
+  use: usePerpsPendingInfoPanelTabAtom,
+} = globalAtom<'Positions' | 'Balances' | undefined>({
+  name: EAtomNames.perpsPendingInfoPanelTabAtom,
+  initialValue: undefined,
+});
 
 // #region Footer Ticker
 export type IPerpsFooterTickerMode = 'popular' | 'favorites' | 'none';

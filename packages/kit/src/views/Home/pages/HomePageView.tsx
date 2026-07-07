@@ -319,6 +319,12 @@ export function HomePageView({
   );
   const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
 
+  const isPerpsEnabled = useMemo(() => {
+    if (perpDisabled) return false;
+    if (network?.isAllNetworks) return true;
+    return networkUtils.isEvmNetwork({ networkId: network?.id });
+  }, [network?.id, network?.isAllNetworks, perpDisabled]);
+
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
       return true;
@@ -474,7 +480,7 @@ export function HomePageView({
         testID: HomeTestIDs.tabPortfolio,
         component: <PortfolioContainerWithProvider />,
       },
-      !perpDisabled
+      isPerpsEnabled
         ? {
             id: EHomeWalletTab.Perps,
             name: intl.formatMessage({
@@ -525,7 +531,7 @@ export function HomePageView({
         ),
       },
     ].filter(Boolean);
-  }, [intl, isDeFiEnabled, isNFTEnabled, perpDisabled]);
+  }, [intl, isDeFiEnabled, isNFTEnabled, isPerpsEnabled]);
 
   const pagerTabConfigs = useMemo(
     () =>
@@ -850,6 +856,7 @@ export function HomePageView({
           <Tabs.Tab key={tab.name} name={tab.name}>
             <FreezeInactiveHomeTab tabName={tab.name}>
               {platformEnv.isNative ||
+              tab.id === EHomeWalletTab.Perps ||
               activeTabId === tab.id ||
               mountedHomeTabIds.has(tab.id) ? (
                 tab.component

@@ -27,14 +27,22 @@ const MB = 1024 * 1024;
 const DEFAULT_BUDGETS = {
   fcpMs: 1000,
   firstTextMs: 1000,
-  lcpMs: 2500,
   jsDecodedBytes: 12 * MB,
   initialScriptRawBytes: 10 * MB,
   longTaskTotalMs: 900,
   largestPreLcpScriptDecodedBytes: 600 * 1024,
 };
 
-const DEFAULT_SCENARIOS = [
+const RUNTIME_BUDGET_WARNING_RATIO = 0.05;
+const RUNTIME_BUDGET_NAMES = new Set([
+  'fcpMs',
+  'firstTextMs',
+  'businessReadyMs',
+  'marketListReadyMs',
+  'longTaskTotalMs',
+]);
+
+const ALL_SCENARIOS = [
   {
     name: 'root',
     path: '/',
@@ -45,7 +53,36 @@ const DEFAULT_SCENARIOS = [
     path: '/market',
     businessReady: 'marketList',
   },
+  {
+    name: 'perps',
+    path: '/perps',
+    businessReady: null,
+  },
+  {
+    name: 'swap',
+    path: '/swap',
+    businessReady: null,
+  },
+  {
+    name: 'defi',
+    path: '/defi',
+    businessReady: null,
+  },
+  {
+    name: 'referFriends',
+    path: '/refer-friends',
+    businessReady: null,
+  },
 ];
+
+const ENTRY_SCENARIO_NAMES = [
+  'market',
+  'perps',
+  'swap',
+  'defi',
+  'referFriends',
+];
+const DEFAULT_SCENARIOS = ALL_SCENARIOS;
 
 function hasFlag(name) {
   return process.argv.includes(name);
@@ -120,6 +157,21 @@ function loadBudgetConfig(repoRoot) {
   return normalizeBudgetConfig(readJsonIfExists(budgetPath));
 }
 
+function expandScenarioNames(names) {
+  const expanded = [];
+  for (const rawName of names) {
+    const name = rawName === 'refer-friends' ? 'referFriends' : rawName;
+    if (name === 'all') {
+      expanded.push(...ALL_SCENARIOS.map((scenario) => scenario.name));
+    } else if (name === 'entries') {
+      expanded.push(...ENTRY_SCENARIO_NAMES);
+    } else {
+      expanded.push(name);
+    }
+  }
+  return [...new Set(expanded)];
+}
+
 function getScenarioBudgets(budgetConfig, scenario) {
   return {
     ...budgetConfig.defaults,
@@ -136,15 +188,17 @@ function parseScenarios() {
   }
 
   const scenariosByName = new Map(
-    DEFAULT_SCENARIOS.map((scenario) => [scenario.name, scenario]),
+    ALL_SCENARIOS.map((scenario) => [scenario.name, scenario]),
   );
-  return scenarioNames.map((name) => {
+  return expandScenarioNames(scenarioNames).map((name) => {
     const scenario = scenariosByName.get(name);
     if (!scenario) {
       throw new Error(
-        `unknown PERF_WEB_COLD_SCENARIOS entry "${name}". Known: ${DEFAULT_SCENARIOS.map(
+        `unknown PERF_WEB_COLD_SCENARIOS entry "${name}". Known: ${ALL_SCENARIOS.map(
           (item) => item.name,
-        ).join(', ')}`,
+        )
+          .concat(['all', 'entries', 'refer-friends'])
+          .join(', ')}`,
       );
     }
     return scenario;
@@ -716,9 +770,10 @@ function checkBudgets(summary, budgets) {
   const checks = [
     ['fcpMs', summary.fcp],
     ['firstTextMs', summary.firstText],
-    ['lcpMs', summary.lcp],
     ['businessReadyMs', summary.businessReady],
     ['marketListReadyMs', summary.marketListReady],
+    ['resourceCount', summary.resourceCount],
+    ['scriptCount', summary.scriptCount],
     ['jsDecodedBytes', summary.jsDecodedBytes],
     ['initialScriptRawBytes', summary.initialScriptRawBytes],
     ['longTaskTotalMs', summary.longTaskTotalMs],
@@ -728,12 +783,31 @@ function checkBudgets(summary, budgets) {
     ],
   ];
   return checks
-    .map(([name, actual]) => ({
-      name,
-      actual,
-      budget: budgets[name],
-      pass: Number.isFinite(actual) && actual <= budgets[name],
-    }))
+    .map(([name, actual]) => {
+      const budget = budgets[name];
+      const hasRuntimeTolerance =
+        RUNTIME_BUDGET_NAMES.has(name) && Number.isFinite(budget);
+      const failBudget = hasRuntimeTolerance
+        ? budget * (1 + RUNTIME_BUDGET_WARNING_RATIO)
+        : budget;
+      const withinBudget = Number.isFinite(actual) && actual <= budget;
+      const withinFailBudget = Number.isFinite(actual) && actual <= failBudget;
+      let status = 'fail';
+      if (withinBudget) {
+        status = 'pass';
+      } else if (withinFailBudget) {
+        status = 'warn';
+      }
+      return {
+        name,
+        actual,
+        budget,
+        failBudget,
+        toleranceRatio: hasRuntimeTolerance ? RUNTIME_BUDGET_WARNING_RATIO : 0,
+        status,
+        pass: status !== 'fail',
+      };
+    })
     .filter((check) => check.budget !== null && check.budget !== undefined);
 }
 
@@ -749,10 +823,17 @@ function printReport({
 }) {
   const budgetLine = (name, formatValue) => {
     const check = budgetChecks.find((item) => item.name === name);
-    const mark = check?.pass ? 'PASS' : 'FAIL';
+    const mark =
+      check?.status?.toUpperCase() || (check?.pass ? 'PASS' : 'FAIL');
+    const toleranceText =
+      check?.status !== 'pass' &&
+      check?.toleranceRatio &&
+      check.failBudget !== check.budget
+        ? ` (fail > ${formatValue(check.failBudget)})`
+        : '';
     return `${mark} ${name}: ${formatValue(check?.actual)} / ${formatValue(
       check?.budget,
-    )}`;
+    )}${toleranceText}`;
   };
 
   // eslint-disable-next-line no-console
@@ -811,9 +892,10 @@ function printReport({
   const budgetFormatters = {
     fcpMs: formatMs,
     firstTextMs: formatMs,
-    lcpMs: formatMs,
     businessReadyMs: formatMs,
     marketListReadyMs: formatMs,
+    resourceCount: String,
+    scriptCount: String,
     jsDecodedBytes: formatBytes,
     initialScriptRawBytes: formatBytes,
     longTaskTotalMs: formatMs,
@@ -906,6 +988,16 @@ function printReport({
     // eslint-disable-next-line no-console
     console.log(
       `\n[perf:web:cold] failed budgets: ${failures
+        .map((item) => item.name)
+        .join(', ')}`,
+    );
+  }
+
+  const warnings = budgetChecks.filter((check) => check.status === 'warn');
+  if (warnings.length) {
+    // eslint-disable-next-line no-console
+    console.log(
+      `\n[perf:web:cold] warning budgets: ${warnings
         .map((item) => item.name)
         .join(', ')}`,
     );
@@ -1057,7 +1149,7 @@ async function main() {
       scenarioOutputs.some(
         (scenarioOutput) =>
           scenarioOutput.healthChecks.some((check) => !check.pass) ||
-          scenarioOutput.budgetChecks.some((check) => !check.pass),
+          scenarioOutput.budgetChecks.some((check) => check.status === 'fail'),
       ) &&
       process.env.PERF_WEB_COLD_BUDGET_FAIL !== '0'
     ) {

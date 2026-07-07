@@ -39,7 +39,7 @@ import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
 import { buildMarketFullUrlV2 } from '../../../marketUtils';
 import { EModalMarketRoutes } from '../../../router';
 import { useMarketDetailBackNavigation } from '../../hooks/useMarketDetailBackNavigation';
-import { useTokenDetail } from '../../hooks/useTokenDetail';
+import { useMarketDetailHeaderDisplayData } from '../../hooks/useMarketDetailDisplayData';
 import { ShareButton } from '../TokenDetailHeader/ShareButton';
 
 import { TabPageHeaderContainer } from './TabPageHeaderContainer';
@@ -52,7 +52,8 @@ export function MarketDetailHeader({
   const media = useMedia();
   const { handleBackPress } = useMarketDetailBackNavigation();
   const navigation = useAppNavigation();
-  const { tokenDetail, networkId, isNative } = useTokenDetail();
+  const { tokenDetail, networkId, isNative } =
+    useMarketDetailHeaderDisplayData();
   const { copyText } = useClipboard();
   const isOverlayPage = useIsOverlayPage();
 
