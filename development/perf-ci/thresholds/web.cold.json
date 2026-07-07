@@ -56,7 +56,7 @@
     },
     "defi": {
       "resourceCount": 222,
-      "scriptCount": 171,
+      "scriptCount": 173,
       "jsDecodedBytes": 17668506,
       "longTaskTotalMs": 1300
     },
