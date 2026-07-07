@@ -2,7 +2,13 @@ import { useMedia } from '@onekeyhq/components';
 
 import { AccountSelectorTriggerBase } from './AccountSelectorTriggerBase';
 
-export function AccountSelectorTriggerRewardCenter({ num }: { num: number }) {
+export function AccountSelectorTriggerRewardCenter({
+  num,
+  linkNetworkId,
+}: {
+  num: number;
+  linkNetworkId?: string;
+}) {
   const media = useMedia();
 
   return (
@@ -10,7 +16,7 @@ export function AccountSelectorTriggerRewardCenter({ num }: { num: number }) {
       horizontalLayout
       autoWidthForHome
       num={num}
-      linkNetwork={false}
+      linkNetworkId={linkNetworkId}
       showWalletName={media.gtMd}
     />
   );

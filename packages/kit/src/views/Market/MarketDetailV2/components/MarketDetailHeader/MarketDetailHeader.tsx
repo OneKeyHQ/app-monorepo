@@ -37,7 +37,7 @@ import {
 } from '../../../components/MarketStarV2';
 import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
 import { buildMarketFullUrlV2 } from '../../../marketUtils';
-import { EModalMarketRoutes } from '../../../router';
+import { EModalMarketRoutes } from '../../../router/types';
 import { useMarketDetailBackNavigation } from '../../hooks/useMarketDetailBackNavigation';
 import { useMarketDetailHeaderDisplayData } from '../../hooks/useMarketDetailDisplayData';
 import { ShareButton } from '../TokenDetailHeader/ShareButton';
