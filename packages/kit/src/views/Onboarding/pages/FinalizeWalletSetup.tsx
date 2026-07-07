@@ -13,6 +13,7 @@ import {
   Page,
   Spinner,
   Stack,
+  resetOnboardingModal,
   usePreventRemove,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
@@ -32,7 +33,6 @@ import type {
   EOnboardingPages,
   IOnboardingParamList,
 } from '@onekeyhq/shared/src/routes';
-import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -183,10 +183,8 @@ function FinalizeWalletSetupPage({
   const closePage = useCallback(() => {
     closePageCalled.current = true;
     void backgroundApiProxy.serviceHardware.clearForceTransportType();
-    navigation.navigate(ERootRoutes.Main, undefined, {
-      pop: true,
-    });
-  }, [navigation]);
+    resetOnboardingModal();
+  }, []);
 
   useEffect(() => {
     const fn = (
