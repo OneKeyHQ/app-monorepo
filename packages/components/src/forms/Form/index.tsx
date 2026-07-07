@@ -55,20 +55,9 @@ const LazyFormComponent = createLazyModuleComponent<
   IFormBaseModule
 >(loadFormComponentModule, ({ Form }) => Form as ComponentType<IFormProps>);
 
-const preloadLazyFormComponent = LazyFormComponent.preload;
-
-function preloadForm() {
-  return preloadLazyComponents([
-    { preload: preloadLazyFormComponent },
-    LazyFormFieldComponent,
-    LazyFormFieldDescriptionComponent,
-  ]);
-}
-
 export const Form = Object.assign(LazyFormComponent, {
   Field: LazyFormFieldComponent,
   FieldDescription: LazyFormFieldDescriptionComponent,
-  preload: preloadForm,
-}) as IFormComponent & { preload: typeof preloadForm };
+}) as IFormComponent & { preload: typeof LazyFormComponent.preload };
 
 export type { IFieldErrorProps, IFieldProps, IFormProps } from './FormBase';
