@@ -18,6 +18,7 @@ import {
   XStack,
   YStack,
   useFocusedTab,
+  useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
@@ -197,6 +198,7 @@ export function HomePageView({
   const tabContainerWidth = useTabContainerWidth();
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { md: isSmallScreen } = useMedia();
   const {
     activeAccount: {
       account,
@@ -655,6 +657,8 @@ export function HomePageView({
 
   const renderTabBar = useCallback(
     (tabBarProps: any) => {
+      // Design: plain-text tabs on small screens only; pill elsewhere.
+      const tabBarVariant = isSmallScreen ? 'text' : 'pill';
       const handleTabPress = (name: string) => {
         const nextTab = tabConfigs.find((tab) => tab.name === name);
         if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
@@ -675,7 +679,7 @@ export function HomePageView({
             tabNames={tabBarTabNames}
             indexDecimal={perpTabShowWeb ? undefined : tabBarProps.indexDecimal}
             onTabPress={handleTabPress}
-            variant="pill"
+            variant={tabBarVariant}
             renderItem={handleRenderItem}
             renderToolbar={renderToolbar}
           />
@@ -702,7 +706,7 @@ export function HomePageView({
                 perpTabShowWeb ? undefined : tabBarProps.indexDecimal
               }
               onTabPress={handleTabPress}
-              variant="pill"
+              variant={tabBarVariant}
               renderItem={handleRenderItem}
               renderToolbar={renderToolbar}
               containerStyle={{ position: 'relative' as any }}
@@ -728,6 +732,7 @@ export function HomePageView({
       renderToolbar,
       switchToPerpsWebTab,
       perpTabShowWeb,
+      isSmallScreen,
       tabConfigs,
       tabBarTabNames,
     ],

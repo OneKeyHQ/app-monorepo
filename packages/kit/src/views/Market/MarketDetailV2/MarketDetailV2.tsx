@@ -25,8 +25,8 @@ import { MarketTestIDs } from '../testIDs';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
 import { BtcMetadataProvider, useAutoRefreshTokenDetail } from './hooks';
-import { DesktopLayout } from './layouts/DesktopLayout';
-import { MobileLayout } from './layouts/MobileLayout';
+import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
+import { preloadMarketDetailV2BodyModules } from './utils/marketDetailPagePreload';
 
 function normalizeRouteBooleanParam(
   value: boolean | string | undefined,
@@ -81,6 +81,7 @@ function MarketDetail({
   });
 
   const media = useMedia();
+  const isDesktopLayout = media.gtLg && !platformEnv.isNative;
   // iOS 26+ root-tab headers are translucent (Liquid Glass) so the page
   // body extends under the bar — without an explicit top inset the
   // chart / 图表 / 概述 tabs sit clipped behind the navbar position.
@@ -92,6 +93,13 @@ function MarketDetail({
   const headerHeight = useHeaderHeight();
   const bodyPaddingTop =
     platformEnv.isNativeIOS26Plus && !isModalPage ? headerHeight : 0;
+
+  useEffect(() => {
+    preloadMarketDetailV2BodyModules({
+      layout: isDesktopLayout ? 'desktop' : 'mobile',
+      includeHeavyModules: true,
+    });
+  }, [isDesktopLayout]);
 
   return (
     <BtcMetadataProvider>
@@ -106,15 +114,13 @@ function MarketDetail({
           pt={isChartFullscreen ? 0 : bodyPaddingTop}
           testID={MarketTestIDs.detailPage}
         >
-          {media.gtLg && !platformEnv.isNative ? (
-            <DesktopLayout
-              isChartFullscreen={isChartFullscreen}
-              onChartFullscreenChange={onChartFullscreenChange}
-              showFavoriteButton={showFavoriteButton}
-            />
-          ) : (
-            <MobileLayout disableTrade={disableTrade} />
-          )}
+          <MarketDetailResponsiveLayout
+            isDesktopLayout={isDesktopLayout}
+            isChartFullscreen={isChartFullscreen}
+            onChartFullscreenChange={onChartFullscreenChange}
+            showFavoriteButton={showFavoriteButton}
+            disableTrade={disableTrade}
+          />
         </Page.Body>
       </Page>
     </BtcMetadataProvider>

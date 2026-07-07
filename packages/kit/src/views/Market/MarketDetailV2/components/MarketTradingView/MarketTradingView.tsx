@@ -73,7 +73,7 @@ function isChartPriceUpdateForCurrentToken({
     : !updateTokenAddress;
 }
 
-interface IMarketTradingViewProps {
+export interface IMarketTradingViewProps {
   tokenAddress: string;
   networkId: string;
   tokenSymbol?: string;
