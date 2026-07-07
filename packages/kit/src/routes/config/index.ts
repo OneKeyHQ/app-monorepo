@@ -66,6 +66,72 @@ const MODAL_PATH = `/${ERootRoutes.Modal}`;
 const FULL_SCREEN_MODAL_PATH = `/${ERootRoutes.iOSFullScreen}`;
 const FULL_SCREEN_PUSH_PATH = `/${ERootRoutes.FullScreenPush}`;
 
+function findAllowListRule({
+  allowList,
+  allowListKeys,
+  path,
+}: {
+  allowList: ReturnType<typeof buildAllowList>;
+  allowListKeys: string[];
+  path: string;
+}) {
+  const pathWithoutQuery = (path.split('?')[0] || '')
+    .replace(FULL_SCREEN_MODAL_PATH, MODAL_PATH)
+    .replace(FULL_SCREEN_PUSH_PATH, MODAL_PATH);
+
+  let rule = allowList[pathWithoutQuery];
+
+  if (!rule) {
+    const key = allowListKeys.find((k) => new RegExp(k).test(path));
+    if (key) {
+      rule = allowList[key];
+    }
+  }
+
+  return {
+    rule,
+    pathWithoutQuery,
+  };
+}
+
+function getVisibleMainPathFromState({
+  state,
+  options,
+  allowList,
+  allowListKeys,
+}: {
+  state: Parameters<typeof getPathFromStateDefault>[0];
+  options: Parameters<typeof getPathFromStateDefault>[1];
+  allowList: ReturnType<typeof buildAllowList>;
+  allowListKeys: string[];
+}) {
+  const mainRoute = state?.routes?.find(
+    (route) => route.name === ERootRoutes.Main,
+  );
+  if (!mainRoute) {
+    return undefined;
+  }
+
+  const mainOnlyState = {
+    ...state,
+    index: 0,
+    routes: [mainRoute],
+  } as Parameters<typeof getPathFromStateDefault>[0];
+
+  const mainPath = getPathFromStateDefault(mainOnlyState, options);
+  const { rule, pathWithoutQuery } = findAllowListRule({
+    allowList,
+    allowListKeys,
+    path: mainPath,
+  });
+
+  if (!rule?.showUrl) {
+    return undefined;
+  }
+
+  return rule.showParams ? mainPath : pathWithoutQuery;
+}
+
 const onGetStateFromPath = (path: string, options?: any) => {
   captureAndReportLoggerUtmParamsFromUrl(path);
   if (platformEnv.isWeb) {
@@ -143,16 +209,11 @@ const useBuildLinking = (): LinkingOptions<any> => {
           .replace(FULL_SCREEN_MODAL_PATH, MODAL_PATH)
           .replace(FULL_SCREEN_PUSH_PATH, MODAL_PATH);
 
-        let rule = allowList[defaultPathWithoutQuery];
-
-        if (!rule) {
-          const key = allowListKeys.find((k) =>
-            new RegExp(k).test(defaultPath),
-          );
-          if (key) {
-            rule = allowList[key];
-          }
-        }
+        const { rule } = findAllowListRule({
+          allowList,
+          allowListKeys,
+          path: defaultPath,
+        });
 
         if (process.env.NODE_ENV !== 'production') {
           const mainRoute = state?.routes?.[state?.index ?? 0];
@@ -172,9 +233,17 @@ const useBuildLinking = (): LinkingOptions<any> => {
         }
 
         if (!rule?.showUrl) {
-          // WebDappMode: fallback to /market instead of / to avoid URL bounce
+          // WebDappMode: keep the visible tab URL when an internal modal route
+          // is intentionally hidden from public URLs.
           if (platformEnv.isWebDappMode) {
-            return '/market';
+            return (
+              getVisibleMainPathFromState({
+                state,
+                options,
+                allowList,
+                allowListKeys,
+              }) ?? '/market'
+            );
           }
           return ROOT_PATH;
         }
