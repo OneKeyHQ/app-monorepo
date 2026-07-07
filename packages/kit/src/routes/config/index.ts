@@ -163,13 +163,16 @@ function getVisibleWebDappPath({
   options,
   allowList,
   allowListKeys,
+  lastVisiblePath,
 }: {
   state: Parameters<typeof getPathFromStateDefault>[0];
   options: Parameters<typeof getPathFromStateDefault>[1];
   allowList: ReturnType<typeof buildAllowList>;
   allowListKeys: string[];
+  lastVisiblePath?: string;
 }) {
   return (
+    lastVisiblePath ??
     getVisiblePathFromBrowserLocation({
       allowList,
       allowListKeys,
@@ -278,6 +281,7 @@ const useBuildLinking = (): LinkingOptions<any> => {
       perpTabShowWeb,
     );
     const allowListKeys = Object.keys(allowList);
+    let lastVisibleWebDappPath: string | undefined;
     return {
       enabled: true,
 
@@ -327,24 +331,30 @@ const useBuildLinking = (): LinkingOptions<any> => {
             allowListKeys,
           })
         ) {
-          return getVisibleWebDappPath({
+          const visibleWebDappPath = getVisibleWebDappPath({
             state,
             options,
             allowList,
             allowListKeys,
+            lastVisiblePath: lastVisibleWebDappPath,
           });
+          lastVisibleWebDappPath = visibleWebDappPath;
+          return visibleWebDappPath;
         }
 
         if (!rule?.showUrl) {
           // WebDappMode: keep the visible tab URL when an internal modal route
           // is intentionally hidden from public URLs.
           if (platformEnv.isWebDappMode) {
-            return getVisibleWebDappPath({
+            const visibleWebDappPath = getVisibleWebDappPath({
               state,
               options,
               allowList,
               allowListKeys,
+              lastVisiblePath: lastVisibleWebDappPath,
             });
+            lastVisibleWebDappPath = visibleWebDappPath;
+            return visibleWebDappPath;
           }
           return ROOT_PATH;
         }
@@ -352,6 +362,9 @@ const useBuildLinking = (): LinkingOptions<any> => {
         const newPath = rule?.showParams
           ? defaultPath
           : defaultPathWithoutQuery;
+        if (platformEnv.isWebDappMode) {
+          lastVisibleWebDappPath = newPath;
+        }
         // keep manifest url with html file
         if (platformEnv.isExtension) {
           /*
