@@ -390,6 +390,7 @@ function BasicStakePage() {
       approveType,
       permitSignature,
       unsignedMessage,
+      message,
       effectiveApy,
       stakeType: confirmStakeType,
       onStepChange,
@@ -403,6 +404,7 @@ function BasicStakePage() {
         approveType,
         permitSignature,
         unsignedMessage,
+        message,
         effectiveApy,
         stakeType: effectiveStakeType,
         postWrapStakeToken:
