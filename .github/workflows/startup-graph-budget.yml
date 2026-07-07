@@ -109,6 +109,9 @@ jobs:
           path: |
             apps/mobile/dist/allocation-report-*.json
             apps/mobile/out-dir-analysis/budget-check-report.json
+            apps/mobile/out-dir-analysis/budget-check-report-*.json
+            apps/mobile/out-dir-analysis/budget-check-ai-hints-*.json
+            apps/mobile/out-dir-analysis/budget-check-ai-hints-*.md
           retention-days: 30
 
   web-startup-graph-budget:
@@ -195,5 +198,9 @@ jobs:
           name: web-startup-cold-budget-reports
           path: |
             apps/web/out-dir-analysis/web-startup-graph-budget-report.json
+            apps/web/out-dir-analysis/web-startup-graph-budget-report-ai-hints.json
+            apps/web/out-dir-analysis/web-startup-graph-budget-report-ai-hints.md
             apps/web/out-dir-analysis/web-cold-budget-report.json
+            apps/web/out-dir-analysis/web-cold-budget-report-ai-hints.json
+            apps/web/out-dir-analysis/web-cold-budget-report-ai-hints.md
           retention-days: 30

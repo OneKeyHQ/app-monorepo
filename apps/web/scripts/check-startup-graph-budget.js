@@ -27,6 +27,11 @@ const reportPath =
 const budgetPath =
   process.env.WEB_STARTUP_BUDGET_PATH ||
   path.join(repoRoot, 'development', 'perf-ci', 'thresholds', 'web.cold.json');
+const {
+  createWebStartupAiHints,
+  defaultSiblingPath,
+  writeAiHints,
+} = require(path.join(repoRoot, 'development/perf-ci/lib/budgetAiHints'));
 
 const DEFAULT_BUDGETS = {
   moduleCount: 3500,
@@ -374,9 +379,27 @@ function main() {
     pass: failures.length === 0,
     failures,
   };
+  const aiHints = createWebStartupAiHints({
+    report,
+    moduleRows,
+    initialScripts,
+    buildDir,
+    repoRoot,
+  });
+  const aiHintsJsonPath =
+    process.env.WEB_STARTUP_AI_HINTS_JSON_PATH ||
+    defaultSiblingPath(reportPath, '-ai-hints.json');
+  const aiHintsMarkdownPath =
+    process.env.WEB_STARTUP_AI_HINTS_MD_PATH ||
+    defaultSiblingPath(reportPath, '-ai-hints.md');
 
   fs.mkdirSync(path.dirname(reportPath), { recursive: true });
   fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+  writeAiHints({
+    hints: aiHints,
+    jsonPath: aiHintsJsonPath,
+    markdownPath: aiHintsMarkdownPath,
+  });
 
   console.log('=== Web Startup Graph Budget Check ===\n');
   console.log(`Build dir:              ${buildDir}`);
@@ -430,6 +453,8 @@ function main() {
   }
 
   console.log(`\nReport: ${reportPath}`);
+  console.log(`AI hints JSON: ${aiHintsJsonPath}`);
+  console.log(`AI hints Markdown: ${aiHintsMarkdownPath}`);
 
   if (failures.length > 0 && process.env.WEB_STARTUP_BUDGET_FAIL !== '0') {
     console.log('\n=== WEB STARTUP GRAPH BUDGET CHECK FAILED ===');

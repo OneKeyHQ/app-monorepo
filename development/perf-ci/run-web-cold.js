@@ -16,6 +16,11 @@ const { chromium } = require('playwright-core');
 
 const { findChromiumExecutable } = require('./lib/chromium');
 const {
+  createWebColdAiHints,
+  defaultSiblingPath,
+  writeAiHints,
+} = require('./lib/budgetAiHints');
+const {
   execCmd,
   formatExecResultError,
   withRepoNodeBin,
@@ -1142,8 +1147,29 @@ async function main() {
       initialScripts,
       runs: firstScenario?.runs,
     };
+    const aiHints = createWebColdAiHints({
+      report: {
+        ...output,
+        reportPath: outputPath,
+      },
+      buildDir,
+      repoRoot,
+    });
+    const aiHintsJsonPath =
+      process.env.PERF_WEB_COLD_AI_HINTS_JSON_OUT ||
+      defaultSiblingPath(outputPath, '-ai-hints.json');
+    const aiHintsMarkdownPath =
+      process.env.PERF_WEB_COLD_AI_HINTS_MD_OUT ||
+      defaultSiblingPath(outputPath, '-ai-hints.md');
     fs.writeFileSync(outputPath, `${JSON.stringify(output, null, 2)}\n`);
+    writeAiHints({
+      hints: aiHints,
+      jsonPath: aiHintsJsonPath,
+      markdownPath: aiHintsMarkdownPath,
+    });
     log(`wrote ${outputPath}`);
+    log(`wrote ${aiHintsJsonPath}`);
+    log(`wrote ${aiHintsMarkdownPath}`);
 
     if (
       scenarioOutputs.some(
