@@ -30,14 +30,14 @@
   "scenarios": {
     "root": {
       "resourceCount": 240,
-      "scriptCount": 175,
-      "jsDecodedBytes": 17616077,
+      "scriptCount": 178,
+      "jsDecodedBytes": 17663061,
       "longTaskTotalMs": 2000
     },
     "market": {
       "resourceCount": 240,
-      "scriptCount": 175,
-      "jsDecodedBytes": 17616077,
+      "scriptCount": 179,
+      "jsDecodedBytes": 17722198,
       "longTaskTotalMs": 1900,
       "businessReadyMs": 4000,
       "marketListReadyMs": 4000
@@ -50,19 +50,19 @@
     },
     "swap": {
       "resourceCount": 220,
-      "scriptCount": 169,
+      "scriptCount": 171,
       "jsDecodedBytes": 17458790,
       "longTaskTotalMs": 1200
     },
     "defi": {
       "resourceCount": 222,
-      "scriptCount": 173,
+      "scriptCount": 176,
       "jsDecodedBytes": 17668506,
       "longTaskTotalMs": 1300
     },
     "referFriends": {
       "resourceCount": 200,
-      "scriptCount": 169,
+      "scriptCount": 172,
       "jsDecodedBytes": 17511219,
       "longTaskTotalMs": 850
     }
