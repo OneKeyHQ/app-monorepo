@@ -14,12 +14,12 @@ const path = require('path');
 
 const { chromium } = require('playwright-core');
 
-const { findChromiumExecutable } = require('./lib/chromium');
 const {
   createWebColdAiHints,
   defaultSiblingPath,
   writeAiHints,
 } = require('./lib/budgetAiHints');
+const { findChromiumExecutable } = require('./lib/chromium');
 const {
   execCmd,
   formatExecResultError,
@@ -212,6 +212,14 @@ function parseScenarios() {
 
 function scenarioUrl(baseUrl, scenario) {
   return new URL(scenario.path, baseUrl).toString();
+}
+
+function normalizeResourceUrl(url) {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return String(url || '').split('?')[0];
+  }
 }
 
 function parseInitialScriptFiles(buildDir) {
@@ -610,6 +618,9 @@ async function runOne({
       (entry) =>
         entry.initiatorType === 'script' || /\.m?js($|\?)/.test(entry.name),
     );
+    const uniqueScriptUrls = new Set(
+      scripts.map((entry) => normalizeResourceUrl(entry.name)),
+    );
     const observerMetrics = metrics.observerMetrics || {};
     const longTasks = observerMetrics.longTasks || [];
     const lcp = Number(observerMetrics.largestContentfulPaint);
@@ -649,7 +660,8 @@ async function runOne({
             (businessReady?.ready ? 1 : 0)
           : 0,
       resourceCount: resources.length,
-      scriptCount: scripts.length,
+      scriptCount: uniqueScriptUrls.size,
+      scriptEntryCount: scripts.length,
       totalTransferBytes:
         sum(resources.map((entry) => entry.transferSize)) +
         (metrics.navigation?.transferSize || 0),
@@ -728,6 +740,7 @@ function aggregateRuns(runs, initialScripts) {
     marketListReadyCount: median(runs.map((run) => run.marketListReadyCount)),
     resourceCount: median(runs.map((run) => run.resourceCount)),
     scriptCount: median(runs.map((run) => run.scriptCount)),
+    scriptEntryCount: median(runs.map((run) => run.scriptEntryCount)),
     totalTransferBytes: median(runs.map((run) => run.totalTransferBytes)),
     totalDecodedBytes: median(runs.map((run) => run.totalDecodedBytes)),
     jsTransferBytes: median(runs.map((run) => run.jsTransferBytes)),
@@ -869,6 +882,10 @@ function printReport({
   console.log(
     `resources/scripts: ${summary.resourceCount} / ${summary.scriptCount}`,
   );
+  if (summary.scriptEntryCount !== summary.scriptCount) {
+    // eslint-disable-next-line no-console
+    console.log(`script entries: ${summary.scriptEntryCount}`);
+  }
   // eslint-disable-next-line no-console
   console.log(
     `JS decoded/transfer: ${formatBytes(summary.jsDecodedBytes)} / ${formatBytes(summary.jsTransferBytes)}`,

@@ -27,11 +27,9 @@ const reportPath =
 const budgetPath =
   process.env.WEB_STARTUP_BUDGET_PATH ||
   path.join(repoRoot, 'development', 'perf-ci', 'thresholds', 'web.cold.json');
-const {
-  createWebStartupAiHints,
-  defaultSiblingPath,
-  writeAiHints,
-} = require(path.join(repoRoot, 'development/perf-ci/lib/budgetAiHints'));
+const { createWebStartupAiHints, defaultSiblingPath, writeAiHints } = require(
+  path.join(repoRoot, 'development/perf-ci/lib/budgetAiHints'),
+);
 
 const DEFAULT_BUDGETS = {
   moduleCount: 3500,

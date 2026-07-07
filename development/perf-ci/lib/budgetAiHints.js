@@ -61,10 +61,7 @@ function getGitContext(repoRoot) {
       ? safeExec(repoRoot, `git merge-base HEAD origin/${baseRef}`)
       : '');
   if (diffBase) {
-    changedFiles = safeExec(
-      repoRoot,
-      `git diff --name-only ${diffBase}...HEAD`,
-    )
+    changedFiles = safeExec(repoRoot, `git diff --name-only ${diffBase}...HEAD`)
       .split('\n')
       .filter(Boolean)
       .slice(0, 200);
@@ -110,8 +107,9 @@ function countBy(rows, getKey) {
   const counts = {};
   for (const row of rows) {
     const key = getKey(row);
-    if (!key) continue;
-    counts[key] = (counts[key] || 0) + 1;
+    if (key) {
+      counts[key] = (counts[key] || 0) + 1;
+    }
   }
   return Object.entries(counts)
     .map(([name, count]) => ({ name, count }))
@@ -216,25 +214,32 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
     const run = representativeRun(scenario.runs || []);
     scenarioScriptSets.set(
       scenario.name,
-      new Set((run?.scripts || []).map((script) => normalizeScriptUrl(script.url))),
+      new Set(
+        (run?.scripts || []).map((script) => normalizeScriptUrl(script.url)),
+      ),
     );
   }
 
   const scenarios = (report.scenarios || []).map((scenario) => {
     const run = representativeRun(scenario.runs || []);
     const scripts = run?.scripts || [];
-    const uniqueScripts = [...new Set(scripts.map((script) => normalizeScriptUrl(script.url)))];
+    const uniqueScripts = [
+      ...new Set(scripts.map((script) => normalizeScriptUrl(script.url))),
+    ];
     const otherScripts = new Set();
     for (const [name, scriptSet] of scenarioScriptSets.entries()) {
-      if (name === scenario.name) continue;
-      for (const script of scriptSet) otherScripts.add(script);
+      if (name !== scenario.name) {
+        for (const script of scriptSet) otherScripts.add(script);
+      }
     }
     const scenarioOnlyScripts = scripts.filter(
       (script) => !otherScripts.has(normalizeScriptUrl(script.url)),
     );
     const smallScripts = scripts
       .map((script) => summarizeWebScript({ buildDir, script, maxSources: 20 }))
-      .filter((script) => Number.isFinite(script.bytes) && script.bytes <= 10 * 1024)
+      .filter(
+        (script) => Number.isFinite(script.bytes) && script.bytes <= 10 * 1024,
+      )
       .toSorted((a, b) => (a.bytes || 0) - (b.bytes || 0));
     return {
       name: scenario.name,
@@ -246,14 +251,19 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
       ),
       representativeRunIndex: run?.runIndex || null,
       scriptCount: run?.scriptCount || null,
+      scriptEntryCount: run?.scriptEntryCount || null,
       uniqueScriptCount: uniqueScripts.length,
       duplicateScripts: duplicateScriptsForRun(run).slice(0, 30),
       topScriptsByDecodedSize: (run?.topScripts || [])
         .slice(0, 12)
-        .map((script) => summarizeWebScript({ buildDir, script, maxSources: 12 })),
+        .map((script) =>
+          summarizeWebScript({ buildDir, script, maxSources: 12 }),
+        ),
       smallScriptCandidates: smallScripts.slice(0, 30),
       scenarioOnlyScriptCandidates: scenarioOnlyScripts
-        .map((script) => summarizeWebScript({ buildDir, script, maxSources: 20 }))
+        .map((script) =>
+          summarizeWebScript({ buildDir, script, maxSources: 20 }),
+        )
         .toSorted((a, b) => (a.bytes || 0) - (b.bytes || 0))
         .slice(0, 30),
     };
@@ -265,11 +275,11 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
     git: getGitContext(repoRoot),
     reportPath: report.reportPath || null,
     buildDir,
-    command:
-      "PERF_WEB_COLD_SCENARIOS='<failed scenarios>' yarn perf:web:cold",
+    command: "PERF_WEB_COLD_SCENARIOS='<failed scenarios>' yarn perf:web:cold",
     aiFixPrompt: [
       'Fix the OneKey web cold/startup budget without relaxing thresholds.',
       'Start from failedOrWarnBudgetChecks, then inspect duplicateScripts, scenarioOnlyScriptCandidates, and smallScriptCandidates.',
+      'Do not assume only the home page can fail: any change entering the global shell, shared modules, first-screen synchronous imports, or lazy loads auto-mounted within the cold-start window can affect this budget.',
       'For scriptCount/resourceCount failures, prefer merging related lazy import() boundaries or delaying non-first-screen providers.',
       'Preserve mount delays, side effects, routing behavior, and visible UI behavior.',
       'Validate with the focused PERF_WEB_COLD_SCENARIOS command plus yarn tsc:staged and yarn lint:staged.',
@@ -319,6 +329,7 @@ function createWebStartupAiHints({
     aiFixPrompt: [
       'Fix the OneKey web startup graph budget without relaxing thresholds.',
       'Inspect failedBudgetChecks, then topModules, topPackages, and initialScriptHints.',
+      'Do not assume only the home page can fail: any change entering the global shell, shared modules, first-screen synchronous imports, or lazy loads auto-mounted within the cold-start window can affect this budget.',
       'If initialScriptCount or startup module count grows, move non-first-screen imports behind lazy import() boundaries.',
       'If allScriptRawBytes grows, inspect newly created chunks and avoid one-file lazy chunks when related modules can share one lazy entry.',
       'Validate with yarn perf:web:cold or apps/web/scripts/check-startup-graph-budget.js against the production build.',
@@ -386,6 +397,7 @@ function createNativeStartupAiHints({
     aiFixPrompt: [
       'Fix the OneKey native startup graph budget without relaxing thresholds.',
       'Label runtime impact explicitly: main UI JS runtime, background JS runtime, or both.',
+      'Do not reason from the changed screen name alone: startup graph regressions come from dependency chains that enter global shell code, shared modules, entrypoint synchronous imports, or auto-mounted startup/lazy providers.',
       'Use startupPackageCounts, startupPrefixCounts, and forbiddenModulesFound to find the dependency chain that entered startup.',
       'Move non-startup work behind lazy segments or runtime-specific imports while preserving main/background isolation.',
       'Validate the affected ENTRY with ENABLE_NATIVE_BACKGROUND_THREAD=true and the same STARTUP_* budget env vars from CI.',
@@ -394,10 +406,10 @@ function createNativeStartupAiHints({
     startupPackageCounts: countBy(startupModules, getPackageName).slice(0, 30),
     startupPrefixCounts: countBy(startupModules, modulePrefix).slice(0, 50),
     startupModulesSample: startupModules.slice(0, 200),
-    commonStartupPrefixCounts: countBy(commonStartupModules, modulePrefix).slice(
-      0,
-      30,
-    ),
+    commonStartupPrefixCounts: countBy(
+      commonStartupModules,
+      modulePrefix,
+    ).slice(0, 30),
     topSegmentsBySize: segmentRows
       .toSorted((a, b) => (b.size || 0) - (a.size || 0))
       .slice(0, 30),

@@ -22,10 +22,9 @@ const mobileDirPath = path.resolve(__dirname, '..');
 const repoRoot = path.resolve(mobileDirPath, '../..');
 const outDir = path.resolve(mobileDirPath, 'out-dir-analysis');
 const distDir = path.resolve(mobileDirPath, 'dist');
-const {
-  createNativeStartupAiHints,
-  writeAiHints,
-} = require(path.join(repoRoot, 'development/perf-ci/lib/budgetAiHints'));
+const { createNativeStartupAiHints, writeAiHints } = require(
+  path.join(repoRoot, 'development/perf-ci/lib/budgetAiHints'),
+);
 
 process.env.ONEKEY_PLATFORM = process.env.ONEKEY_PLATFORM || 'app';
 if (process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true') {
