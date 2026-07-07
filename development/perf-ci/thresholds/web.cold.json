@@ -44,7 +44,7 @@
     },
     "perps": {
       "resourceCount": 218,
-      "scriptCount": 174,
+      "scriptCount": 176,
       "jsDecodedBytes": 17930650,
       "longTaskTotalMs": 1500
     },
@@ -62,7 +62,7 @@
     },
     "referFriends": {
       "resourceCount": 200,
-      "scriptCount": 167,
+      "scriptCount": 169,
       "jsDecodedBytes": 17511219,
       "longTaskTotalMs": 850
     }
