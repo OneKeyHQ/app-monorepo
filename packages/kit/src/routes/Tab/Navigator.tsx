@@ -1,23 +1,27 @@
 import { useContext, useEffect, useMemo, useRef } from 'react';
 
-import { CommonActions } from '@react-navigation/native';
+import { CommonActions, useNavigationState } from '@react-navigation/native';
 import { noop } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import type { ITabNavigatorConfig } from '@onekeyhq/components';
 import {
+  Button,
   EPortalContainerConstantName,
   Portal,
   Stack,
   TabStackNavigator,
   rootNavigationRef,
+  switchTab,
   useIsSplitView,
   useMedia,
   useSplitMainView,
   useSplitSubView,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getDevicePerformanceTier } from '@onekeyhq/shared/src/performance/devicePerformanceTier';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
 import { Footer } from '../../components/Footer';
@@ -75,6 +79,55 @@ const useCheckTabsChangedInDev = platformEnv.isDev
       }, [config]);
     }
   : () => {};
+
+// Extension popup/side panel navigate through in-page entries (home tabs,
+// wallet actions) instead of a bottom tab bar.
+const isExtPopupOrSidePanel =
+  platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel;
+
+// The Developer tab is entered from the More menu on ext popup/side panel (see
+// MoreActionButton), but with the bottom tab bar hidden its own "back to Home"
+// button is buried at the bottom of a long scroll. Show a floating return
+// button while on the Developer tab so it's always escapable. It renders ONLY
+// on the Developer tab, where nothing else occupies the bottom edge (the
+// dApp-connection bar lives on Home), so there is no overlap. box-none lets the
+// full-width container pass touches through to the content behind it.
+function FloatingDevModeBackButton() {
+  const intl = useIntl();
+  const isOnDevTab = useNavigationState((state) => {
+    const mainRoute = state?.routes?.find((r) => r.name === ERootRoutes.Main);
+    const tabState = mainRoute?.state as
+      | { routes?: { name: string }[]; index?: number }
+      | undefined;
+    return (
+      tabState?.routes?.[tabState?.index ?? 0]?.name === ETabRoutes.Developer
+    );
+  });
+  if (!isOnDevTab) {
+    return null;
+  }
+  return (
+    <Stack
+      position="absolute"
+      bottom="$4"
+      left="$0"
+      right="$0"
+      ai="center"
+      zIndex={1000}
+      pointerEvents="box-none"
+    >
+      <Button
+        size="small"
+        variant="primary"
+        icon="Wallet4Outline"
+        onPress={() => switchTab(ETabRoutes.Home)}
+        testID="floating-dev-mode-back-button"
+      >
+        {intl.formatMessage({ id: ETranslations.global_wallet })}
+      </Button>
+    </Stack>
+  );
+}
 
 export function TabNavigator() {
   const { freezeOnBlur } = useContext(TabFreezeOnBlurContext);
@@ -175,10 +228,15 @@ export function TabNavigator() {
       <TabStackNavigator<ETabRoutes>
         config={config}
         extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
-        showTabBar={!(isTabletDetailView && isLandscape)}
+        showTabBar={
+          !(isTabletDetailView && isLandscape) && !isExtPopupOrSidePanel
+        }
         bottomMenu={<BottomMenu />}
         webPageTabBar={<WebPageTabBar />}
       />
+      {platformEnv.isDev && isExtPopupOrSidePanel ? (
+        <FloatingDevModeBackButton />
+      ) : null}
       {platformEnv.isWebDappMode && gtMd ? <Footer /> : null}
       <InPageTabContainer />
       {!isFocused ? (

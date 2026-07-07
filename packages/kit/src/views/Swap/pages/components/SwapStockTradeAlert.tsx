@@ -33,6 +33,7 @@ import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
 import SwapAlertContainer from './SwapAlertContainer';
 import {
   getStockErrorAlertLevel,
+  getStockTradeAlertType,
   isCurrentStockQuoteEventError,
   isSameAlertMessage,
 } from './SwapStockTradeAlertUtils';
@@ -195,7 +196,7 @@ function BasicSwapStockTradeAlert({
   const stockAlertForLog = useMemo(() => {
     if (isStockMarketClosed) {
       return {
-        alertType: 'marketClosed',
+        alertType: getStockTradeAlertType({ isMarketClosed: true }),
         alertLevel: ESwapAlertLevel.WARNING,
       };
     }
@@ -203,20 +204,26 @@ function BasicSwapStockTradeAlert({
       stockChannel.channelStage === ESwapStockChannelStage.MarketUnavailable
     ) {
       return {
-        alertType: 'marketUnavailable',
+        alertType: getStockTradeAlertType({
+          message: stockChannel.stockMarketStatus?.reason ?? undefined,
+          notAvailableInRegionMessage,
+        }),
         alertLevel: ESwapAlertLevel.WARNING,
+        message: stockChannel.stockMarketStatus?.reason ?? undefined,
       };
     }
     if (stockChannel.channelStage === ESwapStockChannelStage.MissingPayToken) {
       return {
-        alertType: 'missingPayToken',
+        alertType: getStockTradeAlertType({ notAvailableInRegionMessage }),
         alertLevel: ESwapAlertLevel.WARNING,
       };
     }
     if (stockPrimaryAlert) {
       return {
-        alertType:
-          stockPrimaryAlert === stockQuoteAlert ? 'quoteAlert' : 'stockEvent',
+        alertType: getStockTradeAlertType({
+          message: stockPrimaryAlert.message,
+          notAvailableInRegionMessage,
+        }),
         alertLevel: stockPrimaryAlert.alertLevel,
         message: stockPrimaryAlert.message,
       };
@@ -224,9 +231,10 @@ function BasicSwapStockTradeAlert({
     return undefined;
   }, [
     isStockMarketClosed,
+    notAvailableInRegionMessage,
     stockChannel.channelStage,
+    stockChannel.stockMarketStatus?.reason,
     stockPrimaryAlert,
-    stockQuoteAlert,
   ]);
 
   useEffect(() => {

@@ -46,7 +46,10 @@ import {
   resolveStakeTokenAddress,
 } from '../../../utils/utils';
 
-import type { IManagePositionProtocolSwitchConfig } from './ManagePositionContent';
+import type {
+  IManagePositionFooterAction,
+  IManagePositionProtocolSwitchConfig,
+} from './ManagePositionContent';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 
 export const StakeSection = ({
@@ -57,6 +60,7 @@ export const StakeSection = ({
   isDisabled,
   onSuccess,
   beforeFooter,
+  footerActionOverride,
   showApyDetail,
   suppressPlatformBonus,
   isInModalContext,
@@ -82,6 +86,7 @@ export const StakeSection = ({
   isDisabled?: boolean;
   onSuccess?: () => void;
   beforeFooter?: ReactElement | null;
+  footerActionOverride?: IManagePositionFooterAction;
   showApyDetail?: boolean;
   suppressPlatformBonus?: boolean;
   isInModalContext?: boolean;
@@ -756,6 +761,7 @@ export const StakeSection = ({
         }}
         isInModalContext={isInModalContext}
         beforeFooter={beforeFooter}
+        footerActionOverride={footerActionOverride}
         protocolSwitchConfig={protocolSwitchConfig}
       />
     );
@@ -836,6 +842,7 @@ export const StakeSection = ({
               : undefined
           }
           beforeFooter={beforeFooter}
+          footerActionOverride={footerActionOverride}
           showApyDetail={showApyDetail}
           suppressPlatformBonus={suppressPlatformBonus}
           isInModalContext={isInModalContext}

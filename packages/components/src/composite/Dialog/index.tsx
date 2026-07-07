@@ -29,7 +29,10 @@ import {
   TMDialog,
 } from '@onekeyhq/components/src/shared/tamagui';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
-import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import {
+  createLazyModuleComponent,
+  preloadLazyComponents,
+} from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -91,28 +94,48 @@ import type { IYStackProps } from '../../primitives';
 import type { IColorTokens } from '../../types';
 import type { GestureResponderEvent } from 'react-native';
 
+type IDialogFormModule = typeof import('./DialogForm');
 type IDialogFormFieldProps = ComponentProps<
   (typeof import('./DialogForm'))['DialogFormField']
 >;
 
-const LazyDialogFormComponent = LazyLoad<IDialogFormProps>(async () => {
-  const { DialogForm } = await import('./DialogForm');
-  return { default: DialogForm };
-});
-
-function LazyDialogForm(props: IDialogFormProps) {
-  return <LazyDialogFormComponent {...props} />;
+let loadDialogFormModulePromise: Promise<IDialogFormModule> | undefined;
+function loadDialogFormModule() {
+  if (!loadDialogFormModulePromise) {
+    loadDialogFormModulePromise = import('./DialogForm')
+      .then(async (dialogFormModule) => {
+        await dialogFormModule.preloadDialogForm();
+        return dialogFormModule;
+      })
+      .catch((error: unknown) => {
+        loadDialogFormModulePromise = undefined;
+        throw error;
+      });
+  }
+  return loadDialogFormModulePromise;
 }
 
-const LazyDialogFormFieldComponent = LazyLoad<IDialogFormFieldProps>(
-  async () => {
-    const { DialogFormField } = await import('./DialogForm');
-    return { default: DialogFormField };
-  },
-);
+const LazyDialogFormFieldComponent = createLazyModuleComponent<
+  IDialogFormFieldProps,
+  IDialogFormModule
+>(loadDialogFormModule, ({ DialogFormField }) => DialogFormField);
 
-function LazyDialogFormField(props: IDialogFormFieldProps) {
-  return <LazyDialogFormFieldComponent {...props} />;
+async function loadDialogFormComponentModule() {
+  const dialogFormModule = await loadDialogFormModule();
+  await LazyDialogFormFieldComponent.preload();
+  return dialogFormModule;
+}
+
+const LazyDialogFormComponent = createLazyModuleComponent<
+  IDialogFormProps,
+  IDialogFormModule
+>(loadDialogFormComponentModule, ({ DialogForm }) => DialogForm);
+
+export function preloadDialogFormComponents() {
+  return preloadLazyComponents([
+    LazyDialogFormComponent,
+    LazyDialogFormFieldComponent,
+  ]);
 }
 
 export * from './dialogInstances';
@@ -816,8 +839,9 @@ export const Dialog = {
   HyperlinkTextDescription: DialogHyperlinkTextDescription,
   Icon: DialogIcon,
   Footer: FooterAction,
-  Form: LazyDialogForm,
-  FormField: LazyDialogFormField,
+  Form: LazyDialogFormComponent,
+  FormField: LazyDialogFormFieldComponent,
+  preloadForm: preloadDialogFormComponents,
   Loading: DialogLoadingView,
   show: dialogShow,
   confirm: dialogConfirm,
