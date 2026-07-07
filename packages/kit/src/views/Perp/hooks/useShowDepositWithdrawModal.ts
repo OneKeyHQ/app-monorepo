@@ -4,7 +4,11 @@ import { useIntl } from 'react-intl';
 
 import { useInTabDialog, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  perpsActiveAccountAtom,
+  usePerpsActiveAccountAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -24,10 +28,18 @@ export function useShowDepositWithdrawModal() {
       }),
     [activeAccount.accountId],
   );
+  const getLatestDepositDisabled = useCallback(() => {
+    const latestActiveAccount = jotaiDefaultStore.get(
+      perpsActiveAccountAtom.atom(),
+    );
+    return accountUtils.isWatchingAccount({
+      accountId: latestActiveAccount.accountId ?? '',
+    });
+  }, []);
 
   const showModal = useCallback(
     async (actionType: IPerpsDepositWithdrawActionType = 'deposit') => {
-      if (actionType === 'deposit' && isDepositDisabled) {
+      if (actionType === 'deposit' && getLatestDepositDisabled()) {
         return;
       }
       if (gtMd) {
@@ -48,7 +60,7 @@ export function useShowDepositWithdrawModal() {
         });
       }
     },
-    [gtMd, isDepositDisabled, dialogInTab, intl, navigation],
+    [gtMd, getLatestDepositDisabled, dialogInTab, intl, navigation],
   );
 
   return { showDepositWithdrawModal: showModal, isDepositDisabled };

@@ -1639,6 +1639,7 @@ function DepositWithdrawContent({
     if (isMobile) {
       perpModalNavigation.push(EModalPerpRoutes.MobileDepositSelectToken, {
         depositTokensWithPrice,
+        hasLoadedDepositTokenBalances,
         symbol: PERPS_CURRENCY_SYMBOL,
       });
       return;
@@ -1648,6 +1649,7 @@ function DepositWithdrawContent({
     balanceLoading,
     checkAccountSupport,
     depositTokensWithPrice,
+    hasLoadedDepositTokenBalances,
     isMobile,
     perpModalNavigation,
   ]);

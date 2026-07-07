@@ -31,16 +31,26 @@ function DepositSelectTokenModal() {
   }, [navigation]);
 
   const [{ tokens }] = usePerpsDepositTokensAtom();
+  const hasRouteDepositTokens = Array.isArray(
+    route.params.depositTokensWithPrice,
+  );
   const routeDepositTokens = useMemo(
     () => (route.params.depositTokensWithPrice ?? []) as IPerpsDepositToken[],
     [route.params.depositTokensWithPrice],
   );
+  const atomDepositTokens = useMemo(
+    () => Object.values(tokens).flat(),
+    [tokens],
+  );
   const depositTokensWithPrice = useMemo(() => {
-    if (routeDepositTokens.length > 0) {
+    if (hasRouteDepositTokens) {
       return routeDepositTokens;
     }
-    return Object.values(tokens).flat();
-  }, [routeDepositTokens, tokens]);
+    return atomDepositTokens;
+  }, [atomDepositTokens, hasRouteDepositTokens, routeDepositTokens]);
+  const hasLoadedDepositTokenBalances =
+    route.params.hasLoadedDepositTokenBalances ??
+    (hasRouteDepositTokens ? true : atomDepositTokens.length > 0);
 
   return (
     <Page>
@@ -53,7 +63,7 @@ function DepositSelectTokenModal() {
             symbol={route.params.symbol}
             depositTokensWithPrice={depositTokensWithPrice}
             onClose={handleClose}
-            hasLoaded={depositTokensWithPrice.length > 0}
+            hasLoaded={hasLoadedDepositTokenBalances}
           />
         </YStack>
       </Page.Body>
