@@ -116,58 +116,6 @@ const ciFailureConfigs = {
     ],
     runtimeNotes: [RUNTIME_NOTES.ciOnly],
   },
-  'bundlediff-web': {
-    label: 'bundle-diff-failure',
-    titlePrefix: 'Web bundle diff failed',
-    summary: 'The web bundle diff workflow failed or reported a bundle size regression.',
-    artifactName: 'ci-ai-bundlediff-web-*',
-    promptIntro:
-      'Fix the OneKey web bundle diff failure by comparing head/base stats and reducing unintended startup or bundle growth.',
-    diagnostics: [
-      'Download ci-ai-bundlediff-web-* diagnostics, head-stats, and base-stats artifacts.',
-      'Inspect stats-web-*.log first if stats generation failed; otherwise compare head-stats/stats.json and base-stats/stats.json.',
-      'Identify added modules, duplicated packages, new initial chunks, and large vendor movement before changing code.',
-      'If the regression overlaps startup/cold paths, prefer lazy boundaries that preserve first-screen behavior and avoid one-file chunk fragmentation.',
-    ],
-    commands: [
-      'yarn install --immutable',
-      'yarn stats:web',
-      '# Compare ./apps/web/web-build/stats.json against the base branch stats.json artifact.',
-      'yarn lint:staged',
-      'yarn tsc:staged',
-    ],
-    constraints: [
-      'Do not hide bundle growth by weakening compare thresholds or removing stats output.',
-      'Preserve route behavior, lazy import side effects, and visible UI behavior.',
-    ],
-    runtimeNotes: [RUNTIME_NOTES.ciOnly],
-  },
-  'bundlediff-ios': {
-    label: 'bundle-diff-failure',
-    titlePrefix: 'iOS bundle diff failed',
-    summary: 'The iOS bundle diff workflow failed or reported a bundle size regression.',
-    artifactName: 'ci-ai-bundlediff-ios-*',
-    promptIntro:
-      'Fix the OneKey iOS bundle diff failure by comparing head/base Metro stats and reducing unintended native bundle growth.',
-    diagnostics: [
-      'Download ci-ai-bundlediff-ios-* diagnostics, head-stats, and base-stats artifacts.',
-      'Inspect stats-ios-*.log first if stats generation failed; otherwise compare head-stats/stats.json and base-stats/stats.json.',
-      'Identify modules newly entering the main UI JS runtime, background JS runtime, common code, or shared vendor chunks.',
-      'For storage/startup/native-module regressions, distinguish shared native resources from per-runtime JS heap copies.',
-    ],
-    commands: [
-      'yarn install --immutable',
-      'yarn stats:ios',
-      '# Compare ./apps/app/stats.json against the base branch stats.json artifact.',
-      'yarn lint:staged',
-      'yarn tsc:staged',
-    ],
-    constraints: [
-      'Do not hide bundle growth by weakening compare thresholds or removing stats output.',
-      'Move non-startup work behind the right lazy/runtime boundary while preserving main/background isolation.',
-    ],
-    runtimeNotes: [RUNTIME_NOTES.native],
-  },
   'bundle-architecture': {
     label: 'bundle-architecture',
     titlePrefix: 'Bundle architecture check failed',
@@ -380,7 +328,11 @@ function printPrompt(configName) {
 if (require.main === module) {
   const [command, configName] = process.argv.slice(2);
   if (command !== 'prompt' || !configName) {
-    console.error('Usage: node .github/scripts/ciFailureIssue.js prompt <eslint|bundle-architecture|react-native-unittest>');
+    console.error(
+      `Usage: node .github/scripts/ciFailureIssue.js prompt <${Object.keys(
+        ciFailureConfigs,
+      ).join('|')}>`,
+    );
     process.exit(1);
   }
 
