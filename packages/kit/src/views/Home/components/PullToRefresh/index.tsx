@@ -9,7 +9,10 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const onHomePageRefresh = () => {
-  appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+  appEventBus.emit(EAppEventBusNames.AccountDataUpdate, {
+    isManualRefresh: true,
+    refreshSource: 'pull-to-refresh',
+  });
 };
 
 export interface IPullToRefreshProps {

@@ -520,7 +520,10 @@ function HomeOverviewContainer() {
   const handleRefreshWorth = useCallback(() => {
     if (isRefreshingWorth) return;
     setIsRefreshingWorth(true);
-    appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+    appEventBus.emit(EAppEventBusNames.AccountDataUpdate, {
+      isManualRefresh: true,
+      refreshSource: 'home-header',
+    });
     defaultLogger.account.wallet.walletManualRefresh();
   }, [isRefreshingWorth]);
 
