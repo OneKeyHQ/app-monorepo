@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import {
   ETabReferFriendsRoutes,
   ETabRoutes,
@@ -24,6 +25,10 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import {
+  navigateToOneKeyAppLinkTarget,
+  parseOneKeyAppLinkTarget,
+} from '../../../utils/oneKeyAppLinkNavigation';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
@@ -109,6 +114,32 @@ async function handleReferralLandingAppDeepLink({
     code,
     page: page ?? '',
     fromDeepLink: true,
+  });
+  return true;
+}
+
+async function processOneKeyAppLink(params: IProcessDeepLinkParams, times = 0) {
+  const target = parseOneKeyAppLinkTarget(params.url);
+  if (!target) {
+    return false;
+  }
+
+  if (times > 10) {
+    return true;
+  }
+
+  const navigation = appGlobals.$rootAppNavigation;
+  if (!navigation) {
+    setTimeout(() => {
+      void processOneKeyAppLink(params, times + 1);
+    }, 1500);
+    return true;
+  }
+
+  await navigateToOneKeyAppLinkTarget({
+    target,
+    navigation,
+    perpSource: EPerpPageEnterSource.DirectUrl,
   });
   return true;
 }
@@ -341,6 +372,9 @@ const processDeepLinkUrl = memoizee(
         });
       }
       if (await handleReferralLandingAppDeepLink({ url, parsedUrl })) {
+        return;
+      }
+      if (await processOneKeyAppLink({ url, parsedUrl })) {
         return;
       }
       await processDeepLinkUrlAccount({ url, parsedUrl });

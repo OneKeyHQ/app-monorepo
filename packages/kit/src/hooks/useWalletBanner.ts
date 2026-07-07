@@ -15,6 +15,10 @@ import { ENotificationPushMessageMode } from '@onekeyhq/shared/types/notificatio
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
+import {
+  navigateToOneKeyAppLinkTarget,
+  parseOneKeyAppLinkTarget,
+} from '../utils/oneKeyAppLinkNavigation';
 import { EarnNavigation } from '../views/Earn/earnUtils';
 import useParseQRCodeLazy from '../views/ScanQrCode/hooks/useParseQRCodeLazy';
 
@@ -91,6 +95,16 @@ function useWalletBanner({
       }
 
       if (item.href) {
+        const target = parseOneKeyAppLinkTarget(item.href);
+        if (target) {
+          await navigateToOneKeyAppLinkTarget({
+            target,
+            navigation,
+            perpSource: EPerpPageEnterSource.WalletBanner,
+          });
+          return;
+        }
+
         await parseQRCode.parse(item.href, {
           handlers: [
             EQRCodeHandlerNames.marketDetail,
