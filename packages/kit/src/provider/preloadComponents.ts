@@ -2,12 +2,12 @@ import { Dialog } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // Keep this list limited to common UI chunks that are likely needed soon after boot.
-const warmComponentPreloadTasks: Array<() => Promise<unknown>> = [
+const componentPreloadTasks: Array<() => Promise<unknown>> = [
   () => Dialog.preloadForm(),
 ];
 
 if (platformEnv.isWeb) {
-  warmComponentPreloadTasks.push(
+  componentPreloadTasks.push(
     async () => {
       const { preloadLazyTooltip } =
         await import('@onekeyhq/components/src/actions/LazyTooltip');
@@ -21,11 +21,11 @@ if (platformEnv.isWeb) {
   );
 }
 
-async function runWarmComponentPreloadTask(task: () => Promise<unknown>) {
+async function runComponentPreloadTask(task: () => Promise<unknown>) {
   try {
     await task();
   } catch {
-    // Warmup is best-effort and must not affect boot.
+    // Preload is best-effort and must not affect boot.
   }
 }
 
@@ -35,13 +35,13 @@ function nextFrame() {
   });
 }
 
-async function deferWarmComponentPreload() {
+async function deferComponentPreload() {
   await nextFrame();
   await nextFrame();
   await nextFrame();
 }
 
-export function preloadWarmComponents() {
+export function preloadComponentsOnIdle() {
   if (!(platformEnv.isWeb || platformEnv.isDesktop)) {
     return undefined;
   }
@@ -58,7 +58,7 @@ export function preloadWarmComponents() {
     if (cancelled) {
       return;
     }
-    if (taskIndex >= warmComponentPreloadTasks.length) {
+    if (taskIndex >= componentPreloadTasks.length) {
       return;
     }
     idleHandle = requestIdleCallback(runPreloads);
@@ -68,24 +68,21 @@ export function preloadWarmComponents() {
     if (cancelled) {
       return;
     }
-    if (taskIndex >= warmComponentPreloadTasks.length) {
+    if (taskIndex >= componentPreloadTasks.length) {
       return;
     }
     if (deadline.timeRemaining() <= 0) {
       scheduleIdlePreload();
       return;
     }
-    const task = warmComponentPreloadTasks[taskIndex];
+    const task = componentPreloadTasks[taskIndex];
     taskIndex += 1;
-    void runWarmComponentPreloadTask(task).then(() => {
+    void runComponentPreloadTask(task).then(() => {
       scheduleIdlePreload();
     });
   }
 
-  void deferWarmComponentPreload().then(
-    scheduleIdlePreload,
-    scheduleIdlePreload,
-  );
+  void deferComponentPreload().then(scheduleIdlePreload, scheduleIdlePreload);
 
   return () => {
     cancelled = true;
