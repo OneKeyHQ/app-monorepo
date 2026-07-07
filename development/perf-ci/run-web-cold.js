@@ -229,31 +229,31 @@ function dedupeResourceEntries(entries) {
   for (const entry of entries) {
     const key = normalizeResourceUrl(entry.name);
     const existing = map.get(key);
-    if (!existing) {
+    if (existing) {
+      existing.decodedBodySize = Math.max(
+        existing.decodedBodySize || 0,
+        entry.decodedBodySize || 0,
+      );
+      existing.encodedBodySize = Math.max(
+        existing.encodedBodySize || 0,
+        entry.encodedBodySize || 0,
+      );
+      existing.transferSize = Math.max(
+        existing.transferSize || 0,
+        entry.transferSize || 0,
+      );
+      existing.duration = Math.max(existing.duration || 0, entry.duration || 0);
+      existing.startTime = Math.min(
+        Number.isFinite(existing.startTime) ? existing.startTime : Infinity,
+        Number.isFinite(entry.startTime) ? entry.startTime : Infinity,
+      );
+      existing.responseEnd = Math.max(
+        existing.responseEnd || 0,
+        entry.responseEnd || 0,
+      );
+    } else {
       map.set(key, { ...entry });
-      continue;
     }
-    existing.decodedBodySize = Math.max(
-      existing.decodedBodySize || 0,
-      entry.decodedBodySize || 0,
-    );
-    existing.encodedBodySize = Math.max(
-      existing.encodedBodySize || 0,
-      entry.encodedBodySize || 0,
-    );
-    existing.transferSize = Math.max(
-      existing.transferSize || 0,
-      entry.transferSize || 0,
-    );
-    existing.duration = Math.max(existing.duration || 0, entry.duration || 0);
-    existing.startTime = Math.min(
-      Number.isFinite(existing.startTime) ? existing.startTime : Infinity,
-      Number.isFinite(entry.startTime) ? entry.startTime : Infinity,
-    );
-    existing.responseEnd = Math.max(
-      existing.responseEnd || 0,
-      entry.responseEnd || 0,
-    );
   }
   return [...map.values()];
 }
