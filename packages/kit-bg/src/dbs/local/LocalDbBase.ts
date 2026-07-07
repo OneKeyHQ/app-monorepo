@@ -430,12 +430,11 @@ export function buildThirdPartyFeaturesInfoFromDevice({
   return thirdPartyDeviceUtils.buildPersistedFeatures({
     features: featureRecord,
     vendor,
-    label:
-      featureRecord.label ||
-      device.name ||
-      vendorModelName ||
-      vendorModel ||
-      profile.defaultDeviceName,
+    label: buildThirdPartyDeviceDisplayName({
+      device,
+      features: featureRecord,
+      profile,
+    }),
     model: featureRecord.model || vendorModelName || vendorModel,
     internalModel: featureRecord.internal_model || vendorModel,
     firmwareVersion,
@@ -504,6 +503,37 @@ export function getThirdPartyDeviceModelName({
     featureRecord.provider_product;
 
   return vendorModelName;
+}
+
+// Single source of truth for a third-party device's display name. Both the
+// wallet name and the persisted device-record label go through here, so they
+// can never disagree (which is what caused the sync oscillation). When the
+// device has no on-device label, derive the name from the hardware model
+// (features.model) — NEVER from device.name / the USB productName, which the
+// platform WebUSB layer fills inconsistently (e.g. "Trezor Safe 5" on the
+// extension vs empty on desktop) and would give the same label-less device a
+// different wallet name per platform.
+export function buildThirdPartyDeviceDisplayName({
+  device,
+  features,
+  profile,
+}: {
+  device: IDBCreateHwWalletParams['device'];
+  features: IOneKeyDeviceFeatures;
+  profile: ReturnType<typeof getVendorProfile>;
+}): string {
+  const label = isString(features.label) ? features.label : undefined;
+  if (label) {
+    return label;
+  }
+  const model = getThirdPartyDeviceModelName({ device, features });
+  const vendorName = profile.defaultDeviceName;
+  if (model) {
+    return model.toLowerCase().includes(vendorName.toLowerCase())
+      ? model
+      : `${vendorName} ${model}`;
+  }
+  return `${vendorName} Device`;
 }
 
 export function getThirdPartyDeviceAvatarImage({
@@ -5772,18 +5802,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       device,
       features,
     });
-    const deviceLabel = isString(features.label) ? features.label : undefined;
+    const finalDeviceName = buildThirdPartyDeviceDisplayName({
+      device,
+      features,
+      profile,
+    });
     return {
       deviceType: EDeviceType.Unknown,
       firmwareType: thirdPartyDeviceUtils.getFirmwareType({ features }),
       avatar: {
         img: getThirdPartyDeviceAvatarImage({ profile, modelName }),
       },
-      deviceName:
-        deviceLabel ||
-        modelName ||
-        device.name ||
-        `${profile.defaultDeviceName} Device`,
+      deviceName: finalDeviceName,
       featuresInfo: buildThirdPartyFeaturesInfoFromDevice({
         device,
         features,
