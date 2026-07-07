@@ -79,7 +79,7 @@ const ciFailureConfigs = {
     commands: [
       'yarn install --immutable',
       'FAILED_SHARD=1',
-      'yarn test --coverage --shard="${FAILED_SHARD}/3" --coverageDirectory="coverage/shard-${FAILED_SHARD}" --coverageReporters=text --coverageReporters=lcov --coverageReporters=json-summary --coverageReporters=json --coverageThreshold={}',
+      `yarn test --coverage --shard="\${FAILED_SHARD}/3" --coverageDirectory="coverage/shard-\${FAILED_SHARD}" --coverageReporters=text --coverageReporters=lcov --coverageReporters=json-summary --coverageReporters=json --coverageThreshold={}`,
       'yarn lint:staged',
       'yarn tsc:staged',
     ],
@@ -92,7 +92,8 @@ const ciFailureConfigs = {
   'security-checks': {
     label: 'security-check-failure',
     titlePrefix: 'Security checks failed',
-    summary: 'The security checks workflow found a supply-chain policy failure.',
+    summary:
+      'The security checks workflow found a supply-chain policy failure.',
     artifactName: 'ci-ai-security-checks-diagnostics',
     promptIntro:
       'Fix the OneKey supply-chain security check without bypassing the minimum release age policy.',
@@ -104,8 +105,8 @@ const ciFailureConfigs = {
     ],
     commands: [
       'yarn install --immutable',
-      'BASE_REF="${GITHUB_BASE_REF:-x}"',
-      'npx tsx development/scripts/minimum-release-age/run.ts diff "origin/${BASE_REF}"',
+      `BASE_REF="\${GITHUB_BASE_REF:-x}"`,
+      `npx tsx development/scripts/minimum-release-age/run.ts diff "origin/\${BASE_REF}"`,
       'yarn lint:staged',
       'yarn tsc:staged',
     ],
@@ -185,7 +186,9 @@ function getEnvRunUrl(env) {
   const serverUrl = env.GITHUB_SERVER_URL || 'https://github.com';
   const repository = env.GITHUB_REPOSITORY || '';
   const runId = env.GITHUB_RUN_ID || '';
-  return repository && runId ? `${serverUrl}/${repository}/actions/runs/${runId}` : '';
+  return repository && runId
+    ? `${serverUrl}/${repository}/actions/runs/${runId}`
+    : '';
 }
 
 function metadataFromContext(context) {
@@ -227,14 +230,18 @@ function renderRunMetadata(config, metadata) {
   if (metadata.workflow) lines.push(`- Workflow: \`${metadata.workflow}\``);
   if (metadata.runNumber || metadata.runUrl) {
     const runLabel = metadata.runNumber ? `#${metadata.runNumber}` : 'run';
-    const runText = metadata.runUrl ? `[${runLabel}](${metadata.runUrl})` : runLabel;
+    const runText = metadata.runUrl
+      ? `[${runLabel}](${metadata.runUrl})`
+      : runLabel;
     lines.push(`- Run: ${runText}`);
   }
   if (metadata.ref) lines.push(`- Ref: \`${metadata.ref}\``);
   if (metadata.sha) lines.push(`- SHA: \`${compactSha(metadata.sha)}\``);
   if (metadata.eventName) lines.push(`- Event: \`${metadata.eventName}\``);
   if (config.artifactName || metadata.artifactName) {
-    lines.push(`- Diagnostic artifact: \`${metadata.artifactName || config.artifactName}\``);
+    lines.push(
+      `- Diagnostic artifact: \`${metadata.artifactName || config.artifactName}\``,
+    );
   }
   return lines.length ? lines.join('\n') : '- Run metadata unavailable.';
 }
@@ -320,9 +327,13 @@ function printPrompt(configName) {
   const config = ciFailureConfigs[configName];
   if (!config) {
     const names = Object.keys(ciFailureConfigs).join(', ');
-    throw new Error(`Unknown CI failure config "${configName}". Expected one of: ${names}`);
+    console.error(
+      `Unknown CI failure config "${configName}". Expected one of: ${names}`,
+    );
+    return false;
   }
   process.stdout.write(`${renderAiTriagePrompt(config, metadataFromEnv())}\n`);
+  return true;
 }
 
 if (require.main === module) {
@@ -336,10 +347,7 @@ if (require.main === module) {
     process.exit(1);
   }
 
-  try {
-    printPrompt(configName);
-  } catch (error) {
-    console.error(error.message);
+  if (!printPrompt(configName)) {
     process.exit(1);
   }
 }
