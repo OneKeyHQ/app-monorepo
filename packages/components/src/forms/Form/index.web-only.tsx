@@ -1,6 +1,9 @@
 import type { ComponentProps, ComponentType } from 'react';
 
-import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import {
+  createLazyModuleComponent,
+  preloadLazyComponents,
+} from '@onekeyhq/shared/src/lazyLoad';
 
 type IFormComponent = typeof import('./FormBase').Form;
 type IFormProps = ComponentProps<IFormComponent>;
@@ -8,50 +11,43 @@ type IFormFieldProps = ComponentProps<IFormComponent['Field']>;
 type IFormFieldDescriptionProps = ComponentProps<
   IFormComponent['FieldDescription']
 >;
+type IFormBaseModule = typeof import('./FormBase');
 
-const LazyFormComponent = LazyLoad<IFormProps>(async () => {
-  const { Form } = await import('./FormBase');
-  return { default: Form as ComponentType<IFormProps> };
-});
+const loadFormBaseModule = () => import('./FormBase');
 
-function LazyForm(props: IFormProps) {
-  return <LazyFormComponent {...props} />;
-}
+const LazyFormComponent = createLazyModuleComponent<
+  IFormProps,
+  IFormBaseModule
+>(loadFormBaseModule, ({ Form }) => Form as ComponentType<IFormProps>);
 
-const LazyFormFieldComponent = LazyLoad<IFormFieldProps>(async () => {
-  const { Form } = await import('./FormBase');
-  return { default: Form.Field as ComponentType<IFormFieldProps> };
-});
-
-function LazyFormField(props: IFormFieldProps) {
-  return <LazyFormFieldComponent {...props} />;
-}
-
-const LazyFormFieldDescriptionComponent = LazyLoad<IFormFieldDescriptionProps>(
-  async () => {
-    const { Form } = await import('./FormBase');
-    return {
-      default:
-        Form.FieldDescription as ComponentType<IFormFieldDescriptionProps>,
-    };
-  },
+const LazyFormFieldComponent = createLazyModuleComponent<
+  IFormFieldProps,
+  IFormBaseModule
+>(
+  loadFormBaseModule,
+  ({ Form }) => Form.Field as ComponentType<IFormFieldProps>,
 );
 
-function LazyFormFieldDescription(props: IFormFieldDescriptionProps) {
-  return <LazyFormFieldDescriptionComponent {...props} />;
-}
+const LazyFormFieldDescriptionComponent = createLazyModuleComponent<
+  IFormFieldDescriptionProps,
+  IFormBaseModule
+>(
+  loadFormBaseModule,
+  ({ Form }) =>
+    Form.FieldDescription as ComponentType<IFormFieldDescriptionProps>,
+);
 
 function preloadForm() {
-  return Promise.all([
-    LazyFormComponent.preload(),
-    LazyFormFieldComponent.preload(),
-    LazyFormFieldDescriptionComponent.preload(),
+  return preloadLazyComponents([
+    LazyFormComponent,
+    LazyFormFieldComponent,
+    LazyFormFieldDescriptionComponent,
   ]);
 }
 
-export const Form = Object.assign(LazyForm, {
-  Field: LazyFormField,
-  FieldDescription: LazyFormFieldDescription,
+export const Form = Object.assign(LazyFormComponent, {
+  Field: LazyFormFieldComponent,
+  FieldDescription: LazyFormFieldDescriptionComponent,
   preload: preloadForm,
 }) as IFormComponent & { preload: typeof preloadForm };
 

@@ -242,4 +242,20 @@ function LazyLoad<T = Record<string, unknown>>(
   });
 }
 
+export function createLazyModuleComponent<TProps, TModule>(
+  loadModule: () => Promise<TModule>,
+  getComponent: (module: TModule) => ComponentType<TProps>,
+) {
+  return LazyLoad<TProps>(async () => {
+    const module = await loadModule();
+    return { default: getComponent(module) };
+  });
+}
+
+export function preloadLazyComponents(
+  components: Array<{ preload: () => Promise<unknown> }>,
+) {
+  return Promise.all(components.map((component) => component.preload()));
+}
+
 export default LazyLoad;
