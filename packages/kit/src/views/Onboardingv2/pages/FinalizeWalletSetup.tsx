@@ -19,6 +19,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  resetOnboardingModal,
   useMedia,
   useTheme,
 } from '@onekeyhq/components';
@@ -47,7 +48,6 @@ import { buildWalletCreatedAtISOString } from '@onekeyhq/shared/src/referralCode
 import type { ICheckWalletBindStatusResponse } from '@onekeyhq/shared/src/referralCode/type';
 import {
   type EOnboardingPagesV2,
-  ERootRoutes,
   type IOnboardingParamListV2,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -294,10 +294,8 @@ function FinalizeWalletSetupPage({
   const closePage = useCallback(() => {
     closePageCalled.current = true;
     void backgroundApiProxy.serviceHardware.clearForceTransportType();
-    navigation.navigate(ERootRoutes.Main, undefined, {
-      pop: true,
-    });
-  }, [navigation]);
+    resetOnboardingModal();
+  }, []);
 
   const {
     setPendingKeylessAutoConnectWalletId,
