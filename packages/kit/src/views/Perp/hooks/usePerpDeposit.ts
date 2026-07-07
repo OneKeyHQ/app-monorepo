@@ -61,6 +61,7 @@ import type { ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { shouldRefreshPerpsDepositQuote } from '../utils/depositWithdrawModalState';
 
 export const usePerpDepositOrder = ({
   accountId,
@@ -1214,20 +1215,16 @@ const usePerpDeposit = (
   }, [perpDepositQuote?.result?.allowanceResult, intl, shouldSignEveryTime]);
 
   const checkRefreshQuote = useMemo(() => {
-    if (
-      selectedAction === 'deposit' &&
-      checkFromTokenFiatValue &&
-      !perpDepositQuoteLoading &&
-      !isArbitrumUsdcToken
-    ) {
-      const quoteAmount = perpDepositQuote?.result?.toAmount;
-      const quoteAmountBN = new BigNumber(quoteAmount || '0');
-      if (quoteAmountBN.isNaN() || quoteAmountBN.lte(0)) {
-        return true;
-      }
-    }
-    return false;
+    return shouldRefreshPerpsDepositQuote({
+      selectedAction,
+      isArbitrumUsdcToken,
+      canQuoteDepositAmount: !!checkFromTokenFiatValue,
+      isQuoteLoading: perpDepositQuoteLoading,
+      tokenAmount: amount,
+      quoteToAmount: perpDepositQuote?.result?.toAmount,
+    });
   }, [
+    amount,
     perpDepositQuoteLoading,
     selectedAction,
     checkFromTokenFiatValue,

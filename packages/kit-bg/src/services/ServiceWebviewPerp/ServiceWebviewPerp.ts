@@ -282,6 +282,7 @@ export interface IPerpServerConfigResponse {
 export interface IFetchPerpsDepositTokensFromWalletTokenListParams {
   accountId: string;
   indexedAccountId?: string;
+  forceRefresh?: boolean;
 }
 
 export interface IFetchPerpsDepositTokensFromWalletTokenListResult {
@@ -610,6 +611,7 @@ class ServiceWebviewPerp extends ServiceBase {
   async fetchPerpsDepositTokensFromWalletTokenList({
     accountId,
     indexedAccountId,
+    forceRefresh,
   }: IFetchPerpsDepositTokensFromWalletTokenListParams): Promise<IFetchPerpsDepositTokensFromWalletTokenListResult> {
     const { accountId: allNetworksAccountId, indexedAccountId: ownerIndexId } =
       await this.normalizePerpsDepositAllNetworksOwner({
@@ -632,6 +634,19 @@ class ServiceWebviewPerp extends ServiceBase {
     };
     await this.setPerpsDepositTokenListActiveOwner(ownerKey);
 
+    const cacheKey = this.buildPerpsDepositTokenListCacheKey(cacheParams);
+    if (forceRefresh) {
+      this.perpsDepositTokenListCache.delete(cacheKey);
+      const data = await this.fetchPerpsDepositTokenListDataCached(cacheParams);
+      const { selectedToken, isStale } =
+        await this.updatePerpsDepositTokenListAtom(data);
+      return {
+        ...data,
+        selectedToken,
+        isStale,
+      };
+    }
+
     const memoryCache =
       this.getPerpsDepositTokenListDataMemoryCache(cacheParams);
     if (memoryCache) {
@@ -645,7 +660,6 @@ class ServiceWebviewPerp extends ServiceBase {
       };
     }
 
-    const cacheKey = this.buildPerpsDepositTokenListCacheKey(cacheParams);
     const coldCache =
       await this.backgroundApi.simpleDb.perp.getPerpsDepositTokenListCache({
         cacheKey,
