@@ -1,5 +1,4 @@
 import { Dialog } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const IDLE_PRELOAD_TIMEOUT_MS = 3000;
 const SHIM_IDLE_PRELOAD_DELAY_MS = 3000;
@@ -7,22 +6,17 @@ const SHIM_IDLE_PRELOAD_DELAY_MS = 3000;
 // Keep this list limited to common UI chunks that are likely needed soon after boot.
 const componentPreloadTasks: Array<() => Promise<unknown>> = [
   () => Dialog.preloadForm(),
+  async () => {
+    const { preloadLazyTooltip } =
+      await import('@onekeyhq/components/src/actions/LazyTooltip');
+    await preloadLazyTooltip();
+  },
+  async () => {
+    const { preloadLazyPopover } =
+      await import('@onekeyhq/components/src/actions/LazyPopover');
+    await preloadLazyPopover();
+  },
 ];
-
-if (platformEnv.isWeb) {
-  componentPreloadTasks.push(
-    async () => {
-      const { preloadLazyTooltip } =
-        await import('@onekeyhq/components/src/actions/LazyTooltip');
-      await preloadLazyTooltip();
-    },
-    async () => {
-      const { preloadLazyPopover } =
-        await import('@onekeyhq/components/src/actions/LazyPopover');
-      await preloadLazyPopover();
-    },
-  );
-}
 
 async function runComponentPreloadTask(task: () => Promise<unknown>) {
   try {
@@ -55,10 +49,6 @@ function isRequestIdleCallbackShim() {
 }
 
 export function preloadComponentsOnIdle() {
-  if (!(platformEnv.isWeb || platformEnv.isDesktop)) {
-    return undefined;
-  }
-
   if (typeof requestIdleCallback !== 'function') {
     return undefined;
   }
