@@ -106,6 +106,39 @@ test('warms up override-mistake libraries before calling lockdown', () => {
   expect(calls).toEqual(['warmUp', 'lockdown']);
 });
 
+test('default warm-up seeds Lit Symbol.metadata before calling lockdown', () => {
+  const symbolConstructor = Symbol as unknown as {
+    metadata?: symbol;
+  };
+  const originalDescriptor = Object.getOwnPropertyDescriptor(
+    Symbol,
+    'metadata',
+  );
+  let metadataDuringLockdown: symbol | undefined;
+
+  try {
+    if (originalDescriptor?.configurable !== false) {
+      Reflect.deleteProperty(Symbol, 'metadata');
+    }
+
+    maybeLockdownOneKeyRuntime({
+      runtime: 'web',
+      level: 'L2',
+      lockdown: jest.fn(() => {
+        metadataDuringLockdown = symbolConstructor.metadata;
+      }),
+    });
+
+    expect(typeof metadataDuringLockdown).toBe('symbol');
+  } finally {
+    if (originalDescriptor) {
+      Object.defineProperty(Symbol, 'metadata', originalDescriptor);
+    } else {
+      Reflect.deleteProperty(Symbol, 'metadata');
+    }
+  }
+});
+
 test('does not warm up when lockdown is skipped (L0)', () => {
   const warmUp = jest.fn();
 

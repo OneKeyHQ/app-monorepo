@@ -969,7 +969,7 @@ function useProtocolPositionActionSubmit({
                 networkId,
                 data,
               });
-              if (finalStatus === EOnChainHistoryTxStatus.Failed) {
+              if (finalStatus !== EOnChainHistoryTxStatus.Success) {
                 return;
               }
               await onSuccess?.({ accountId, networkId, data });
