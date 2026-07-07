@@ -52,6 +52,11 @@ type IDeFiBuildTransactionApiResp = {
   permit?: IDeFiPermitData | string;
 };
 
+type IManualDeFiForceRefreshConfig = {
+  dailyLimit: number;
+  minIntervalMs: number;
+};
+
 function parseDeFiJsonField<T extends object>({
   fieldName,
   value,
@@ -116,6 +121,10 @@ class ServiceDeFi extends ServiceBase {
   }
 
   _fetchAccountDeFiPositionsControllers: AbortController[] = [];
+
+  private readonly _manualDeFiForceRefreshDefaultDailyLimit = 50;
+
+  private readonly _manualDeFiForceRefreshDefaultMinIntervalMs = 15_000;
 
   // Offsets (ms) from a local tx being confirmed at which we force-refresh
   // the DeFi portfolio for that chain. Covers indexer lag after the tx lands.
@@ -187,6 +196,34 @@ class ServiceDeFi extends ServiceBase {
       controller.abort();
     });
     this._fetchAccountDeFiPositionsControllers = [];
+  }
+
+  private _buildManualDeFiForceRefreshDayKey(now: number) {
+    const date = new Date(now);
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  @backgroundMethod()
+  public async getManualDeFiForceRefreshConfig(): Promise<IManualDeFiForceRefreshConfig> {
+    return {
+      dailyLimit: this._manualDeFiForceRefreshDefaultDailyLimit,
+      minIntervalMs: this._manualDeFiForceRefreshDefaultMinIntervalMs,
+    };
+  }
+
+  @backgroundMethod()
+  public async consumeManualDeFiForceRefreshQuota() {
+    const config = await this.getManualDeFiForceRefreshConfig();
+    const now = Date.now();
+    return this.backgroundApi.simpleDb.deFi.consumeManualForceRefreshQuota({
+      dayKey: this._buildManualDeFiForceRefreshDayKey(now),
+      now,
+      dailyLimit: config.dailyLimit,
+      minIntervalMs: config.minIntervalMs,
+    });
   }
 
   @backgroundMethod()
@@ -458,6 +495,11 @@ class ServiceDeFi extends ServiceBase {
 
     const key = this._buildDeFiForceRefreshKey(accountId, networkId);
     this._scheduleDeFiForceRefresh(key, {
+      accountId,
+      indexedAccountId,
+      networkId,
+    });
+    return this._runDeFiForceRefresh({
       accountId,
       indexedAccountId,
       networkId,
