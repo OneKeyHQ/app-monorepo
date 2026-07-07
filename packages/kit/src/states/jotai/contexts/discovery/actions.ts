@@ -167,6 +167,42 @@ function isLocalhostUrlAllowedInDAppBrowser() {
   return result;
 }
 
+function normalizeWebNavigationUrlForComparison(
+  url: string,
+  allowLocalhostUrl: boolean,
+) {
+  // Web and desktop start navigation from different timing paths and do not
+  // need this slash-only suppression. Keep the comparison normalization limited
+  // to native WebView (iOS/Android), where the reported normalized URL can race
+  // the tab URL and otherwise trigger a reload loop.
+  if (!platformEnv.isNative) {
+    return url;
+  }
+
+  if (!/^https?:\/\//i.test(url)) {
+    return url;
+  }
+  return uriUtils.validateUrl(url, { allowLocalhostUrl });
+}
+
+function isNoopWebNavigationAfterLoadValidation({
+  url,
+  tabUrl,
+  allowLocalhostUrl,
+}: {
+  url: string;
+  tabUrl?: string;
+  allowLocalhostUrl: boolean;
+}) {
+  if (platformEnv.isNative || !tabUrl || !/^https?:\/\//i.test(url)) {
+    return false;
+  }
+  // Non-native keeps raw URL comparison, but avoid a same-URL reload when
+  // `gotoSite` would canonicalize the reported URL back to the current tab URL.
+  const validatedUrl = uriUtils.validateUrl(url, { allowLocalhostUrl });
+  return Boolean(validatedUrl && validatedUrl === tabUrl);
+}
+
 export const homeResettingFlags: Record<string, number> = {};
 
 // Tracks last navigation time per tab id for the 500ms redirect-loop
@@ -1302,7 +1338,23 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       if (!tab) {
         return;
       }
-      const isValidNewUrl = typeof url === 'string' && url !== tab.url;
+      const allowLocalhostUrl = isLocalhostUrlAllowedInDAppBrowser();
+      const comparableUrl =
+        typeof url === 'string'
+          ? normalizeWebNavigationUrlForComparison(url, allowLocalhostUrl)
+          : url;
+      const comparableTabUrl =
+        typeof tab.url === 'string'
+          ? normalizeWebNavigationUrlForComparison(tab.url, allowLocalhostUrl)
+          : tab.url;
+      const isValidNewUrl =
+        typeof url === 'string' &&
+        comparableUrl !== comparableTabUrl &&
+        !isNoopWebNavigationAfterLoadValidation({
+          url,
+          tabUrl: tab.url,
+          allowLocalhostUrl,
+        });
 
       if (url) {
         if (parseReferralLandingUrl(url)) {
@@ -1311,7 +1363,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         }
 
         const cache = get(phishingLruCacheAtom());
-        const allowLocalhostUrl = isLocalhostUrlAllowedInDAppBrowser();
         const { action } = uriUtils.parseDappRedirect(
           url,
           Array.from(cache.keys()),

@@ -258,17 +258,25 @@ function getBookmarkCacheWrites() {
     .map(([, data]) => data);
 }
 
+function resetPlatformEnvMock() {
+  Object.assign(platformEnv, {
+    isDesktop: false,
+    isNative: true,
+    isNativeAndroid: false,
+    isNativeIOS: false,
+    isJest: true,
+  });
+}
+
 describe('useBrowserTabActions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (jotaiDefaultStore.get as jest.Mock).mockReturnValue({});
-    Object.assign(platformEnv, {
-      isDesktop: false,
-      isNative: true,
-      isNativeAndroid: false,
-      isNativeIOS: false,
-      isJest: true,
-    });
+    resetPlatformEnvMock();
+  });
+
+  afterEach(() => {
+    resetPlatformEnvMock();
   });
 
   it('persists active tab flags when switching to an existing tab', () => {
@@ -902,6 +910,110 @@ describe('useBrowserTabActions', () => {
         isTopFrame: true,
       }),
     ).toBe(EValidateUrlEnum.NotSupportProtocol);
+  });
+
+  it('does not reload when native WebView reports an equivalent root URL with a trailing slash', () => {
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserAction().current;
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: [
+            {
+              id: 'tab-1',
+              url: 'https://app.osmosis.zone',
+              title: 'Osmosis',
+              isActive: true,
+              timestamp: 1,
+            },
+          ],
+          displayHomePage: false,
+        }),
+      },
+    );
+
+    act(() => {
+      result.current.actions.onNavigation({
+        id: 'tab-1',
+        url: 'https://app.osmosis.zone/',
+        title: 'Osmosis',
+        loading: true,
+        canGoBack: false,
+        canGoForward: false,
+      });
+    });
+
+    expect(mockCrossWebviewLoadUrl).not.toHaveBeenCalled();
+    expect(result.current.tabs.find((tab) => tab.id === 'tab-1')).toEqual(
+      expect.objectContaining({
+        url: 'https://app.osmosis.zone',
+        displayUrl: 'https://app.osmosis.zone/',
+        loading: true,
+      }),
+    );
+  });
+
+  it('does not reload desktop navigation when load validation keeps the current URL', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserAction().current;
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: [
+            {
+              id: 'tab-1',
+              url: 'https://app.osmosis.zone',
+              title: 'Osmosis',
+              isActive: true,
+              timestamp: 1,
+            },
+          ],
+          displayHomePage: false,
+        }),
+      },
+    );
+
+    await act(async () => {
+      result.current.actions.onNavigation({
+        id: 'tab-1',
+        url: 'https://app.osmosis.zone/',
+        title: 'Osmosis',
+        loading: true,
+        canGoBack: false,
+        canGoForward: false,
+      });
+      await Promise.resolve();
+    });
+
+    expect(mockCrossWebviewLoadUrl).not.toHaveBeenCalled();
+    expect(result.current.tabs.find((tab) => tab.id === 'tab-1')).toEqual(
+      expect.objectContaining({
+        url: 'https://app.osmosis.zone',
+        displayUrl: 'https://app.osmosis.zone/',
+        loading: true,
+      }),
+    );
   });
 
   it('treats OneKey referral landing URLs as app routes in the browser', async () => {
