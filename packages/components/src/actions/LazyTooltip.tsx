@@ -4,8 +4,11 @@ import {
   isValidElement,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from 'react';
+
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { Stack } from '../primitives';
 
@@ -46,6 +49,13 @@ function loadTooltip() {
   return loadTooltipPromise;
 }
 
+function logTooltipLoadError(error: unknown) {
+  const err = error as { message?: string; stack?: string };
+  defaultLogger.app.error.log(
+    `[LazyTooltip] FAILED: ${err?.message || String(error)}\n${err?.stack?.slice(0, 300) || ''}`,
+  );
+}
+
 export function preloadLazyTooltip() {
   return loadTooltip();
 }
@@ -54,14 +64,25 @@ function LazyTooltipFrame(props: ITooltipProps & ITriggerFallbackProps) {
   const [TooltipComponent, setTooltipComponent] = useState<
     ILazyTooltipComponent | undefined
   >(() => loadedTooltip);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const ensureLoaded = useCallback(() => {
     void loadTooltip()
       .then((Component) => {
+        if (!isMountedRef.current) {
+          return;
+        }
         setTooltipComponent(() => Component);
       })
-      .catch((error: Error) => {
-        console.error('Failed to load Tooltip:', error);
+      .catch((error: unknown) => {
+        logTooltipLoadError(error);
       });
   }, []);
 

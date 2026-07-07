@@ -1,28 +1,53 @@
 import { Dialog } from '@onekeyhq/components';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  getCurrentVisibilityState,
+  onVisibilityStateChange,
+} from '@onekeyhq/shared/src/utils/appVisibility';
 
 const IDLE_PRELOAD_TIMEOUT_MS = 3000;
 const SHIM_IDLE_PRELOAD_DELAY_MS = 3000;
 
 // Keep this list limited to common UI chunks that are likely needed soon after boot.
-const componentPreloadTasks: Array<() => Promise<unknown>> = [
-  () => Dialog.preloadForm(),
-  async () => {
-    const { preloadLazyTooltip } =
-      await import('@onekeyhq/components/src/actions/LazyTooltip');
-    await preloadLazyTooltip();
+const componentPreloadTasks: Array<{
+  name: string;
+  preload: () => Promise<unknown>;
+}> = [
+  { name: 'DialogForm', preload: () => Dialog.preloadForm() },
+  {
+    name: 'LazyTooltip',
+    preload: async () => {
+      const { preloadLazyTooltip } =
+        await import('@onekeyhq/components/src/actions/LazyTooltip');
+      await preloadLazyTooltip();
+    },
   },
-  async () => {
-    const { preloadLazyPopover } =
-      await import('@onekeyhq/components/src/actions/LazyPopover');
-    await preloadLazyPopover();
+  {
+    name: 'LazyPopover',
+    preload: async () => {
+      const { preloadLazyPopover } =
+        await import('@onekeyhq/components/src/actions/LazyPopover');
+      await preloadLazyPopover();
+    },
   },
 ];
 
-async function runComponentPreloadTask(task: () => Promise<unknown>) {
+function formatPreloadError(error: unknown) {
+  const err = error as { code?: string; message?: string; stack?: string };
+  return `${err?.code ? `${err.code}: ` : ''}${err?.message || String(error)}${
+    err?.stack ? `\n${err.stack.slice(0, 300)}` : ''
+  }`;
+}
+
+async function runComponentPreloadTask(
+  task: (typeof componentPreloadTasks)[number],
+) {
   try {
-    await task();
-  } catch {
-    // Preload is best-effort and must not affect boot.
+    await task.preload();
+  } catch (error) {
+    defaultLogger.app.error.log(
+      `[PreloadComponents] ${task.name} failed: ${formatPreloadError(error)}`,
+    );
   }
 }
 
@@ -56,8 +81,42 @@ export function preloadComponentsOnIdle() {
   let cancelled = false;
   let idleHandle: ReturnType<typeof requestIdleCallback> | undefined;
   let timerHandle: ReturnType<typeof setTimeout> | undefined;
+  let unsubscribeVisibilityChange: (() => void) | undefined;
   let taskIndex = 0;
   const shouldDelayForIdleShim = isRequestIdleCallbackShim();
+
+  function clearVisibilityChangeSubscription() {
+    unsubscribeVisibilityChange?.();
+    unsubscribeVisibilityChange = undefined;
+  }
+
+  function waitForVisible() {
+    if (unsubscribeVisibilityChange) {
+      return;
+    }
+    unsubscribeVisibilityChange = onVisibilityStateChange((visible) => {
+      if (visible) {
+        clearVisibilityChangeSubscription();
+        scheduleIdlePreload();
+      }
+    });
+  }
+
+  function scheduleRequestIdleCallback() {
+    if (cancelled) {
+      return;
+    }
+    if (taskIndex >= componentPreloadTasks.length) {
+      return;
+    }
+    if (!getCurrentVisibilityState()) {
+      waitForVisible();
+      return;
+    }
+    idleHandle = requestIdleCallback(runPreloads, {
+      timeout: IDLE_PRELOAD_TIMEOUT_MS,
+    });
+  }
 
   function scheduleIdlePreload() {
     if (cancelled) {
@@ -66,18 +125,18 @@ export function preloadComponentsOnIdle() {
     if (taskIndex >= componentPreloadTasks.length) {
       return;
     }
+    if (!getCurrentVisibilityState()) {
+      waitForVisible();
+      return;
+    }
     if (shouldDelayForIdleShim) {
       timerHandle = setTimeout(() => {
         timerHandle = undefined;
-        if (!cancelled) {
-          idleHandle = requestIdleCallback(runPreloads);
-        }
+        scheduleRequestIdleCallback();
       }, SHIM_IDLE_PRELOAD_DELAY_MS);
       return;
     }
-    idleHandle = requestIdleCallback(runPreloads, {
-      timeout: IDLE_PRELOAD_TIMEOUT_MS,
-    });
+    scheduleRequestIdleCallback();
   }
 
   function runPreloads(deadline: IdleDeadline) {
@@ -86,6 +145,10 @@ export function preloadComponentsOnIdle() {
       return;
     }
     if (taskIndex >= componentPreloadTasks.length) {
+      return;
+    }
+    if (!getCurrentVisibilityState()) {
+      scheduleIdlePreload();
       return;
     }
     if (deadline.timeRemaining() <= 0 && !deadline.didTimeout) {
@@ -109,5 +172,6 @@ export function preloadComponentsOnIdle() {
     if (timerHandle !== undefined) {
       clearTimeout(timerHandle);
     }
+    clearVisibilityChangeSubscription();
   };
 }

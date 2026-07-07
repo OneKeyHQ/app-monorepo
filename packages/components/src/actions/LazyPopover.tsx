@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { SizableText, YStack } from '../primitives';
 
 import { IconButton } from './IconButton';
+import { runPopoverOpenSideEffects } from './Popover/popoverSideEffects';
 import { Trigger } from './Trigger';
 
 import type { IIconButtonProps } from './IconButton';
@@ -32,6 +35,13 @@ function loadPopover() {
   return loadPopoverPromise;
 }
 
+function logPopoverLoadError(error: unknown) {
+  const err = error as { message?: string; stack?: string };
+  defaultLogger.app.error.log(
+    `[LazyPopover] FAILED: ${err?.message || String(error)}\n${err?.stack?.slice(0, 300) || ''}`,
+  );
+}
+
 export function preloadLazyPopover() {
   return loadPopover();
 }
@@ -42,8 +52,16 @@ function LazyPopoverFrame(props: IPopoverProps) {
     ILazyPopoverComponent | undefined
   >(() => loadedPopover);
   const [localOpen, setLocalOpen] = useState(false);
+  const isMountedRef = useRef(true);
   const isControlled = typeof open !== 'undefined';
   const actualOpen = isControlled ? open : localOpen;
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
@@ -59,16 +77,22 @@ function LazyPopoverFrame(props: IPopoverProps) {
     (nextOpen?: boolean) => {
       void loadPopover()
         .then((Component) => {
+          if (!isMountedRef.current) {
+            return;
+          }
           setPopoverComponent(() => Component);
           if (nextOpen !== undefined) {
             handleOpenChange(nextOpen);
+            if (nextOpen) {
+              runPopoverOpenSideEffects(trackID);
+            }
           }
         })
-        .catch((error: Error) => {
-          console.error('Failed to load Popover:', error);
+        .catch((error: unknown) => {
+          logPopoverLoadError(error);
         });
     },
-    [handleOpenChange],
+    [handleOpenChange, trackID],
   );
 
   useEffect(() => {
