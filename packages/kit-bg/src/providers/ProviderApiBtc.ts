@@ -159,6 +159,7 @@ class ProviderApiBtc extends ProviderApiBase {
   // Provider API
   @providerApiMethod()
   public async requestAccounts(request: IJsBridgeMessagePayload) {
+    this.tryFocusPendingApprovalWindow(request);
     return this.semaphore.runExclusive(async () => {
       defaultLogger.discovery.dapp.dappRequest({ request });
       await this.checkIfEnableConnect();

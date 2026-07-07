@@ -2416,12 +2416,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       currency?: string,
     ) => {
       const protocol = get(swapTypeSwitchAtom());
+      const shouldFetchOnlyAccountTokens = !isStockProtocol(protocol);
       const result = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
         networkId: accountNetworkId,
         accountNetworkId,
         accountAddress,
         accountId,
-        onlyAccountTokens: true,
+        onlyAccountTokens: shouldFetchOnlyAccountTokens,
         isAllNetworkFetchAccountTokens: true,
         protocol,
         lpToken,
