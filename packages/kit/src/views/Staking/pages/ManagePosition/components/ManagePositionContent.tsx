@@ -469,7 +469,7 @@ export function ManagePositionContent({
 
   // Pendle special rendering: use ManagePageV2 for future shared layouts.
   if (earnUtils.isPendleProvider({ providerName: provider })) {
-    if (warningElement) {
+    if (shouldShowWarning && warningElement) {
       return <YStack px="$5">{warningElement}</YStack>;
     }
 
@@ -490,6 +490,7 @@ export function ManagePositionContent({
         withdrawDisabled={withdrawDisabled}
         stakeBeforeFooter={stakeBeforeFooter}
         withdrawBeforeFooter={withdrawBeforeFooter}
+        footerActionOverride={noConnectedWalletFooterAction}
         historyAction={historyAction}
         onHistory={onHistory}
         indicatorAccountId={earnAccount?.accountId}

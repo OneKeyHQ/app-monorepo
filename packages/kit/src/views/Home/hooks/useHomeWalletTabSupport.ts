@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -13,13 +13,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import {
   HOME_WALLET_TAB_SUPPORT_INIT,
   type IHomeWalletTabSupportNetwork,
-  type IHomeWalletTabSupportState,
+  type IScopedHomeWalletTabSupportState,
   buildHomeWalletTabSupport,
+  resolveHomeWalletTabSupport,
 } from './homeWalletTabSupportUtils';
-
-type IHomeWalletTabSupportResult = IHomeWalletTabSupportState & {
-  scopeKey: string;
-};
 
 export function useHomeWalletTabSupport({
   network,
@@ -77,7 +74,7 @@ export function useHomeWalletTabSupport({
     [enabledNetworksChangedNonce, isAllNetworks, networkId, perpDisabled],
   );
 
-  const { result } = usePromiseResult<IHomeWalletTabSupportResult>(
+  const { result } = usePromiseResult<IScopedHomeWalletTabSupportState>(
     async () => {
       if (!currentNetwork) {
         return {
@@ -133,8 +130,20 @@ export function useHomeWalletTabSupport({
     },
   );
 
-  const tabSupport =
-    result?.scopeKey === scopeKey ? result : HOME_WALLET_TAB_SUPPORT_INIT;
+  const lastReadyResultRef = useRef<
+    IScopedHomeWalletTabSupportState | undefined
+  >(undefined);
+  useEffect(() => {
+    if (result?.scopeKey === scopeKey && result.isReady) {
+      lastReadyResultRef.current = result;
+    }
+  }, [result, scopeKey]);
+
+  const tabSupport = resolveHomeWalletTabSupport({
+    result,
+    scopeKey,
+    lastReadyResult: lastReadyResultRef.current,
+  });
 
   return {
     ...tabSupport,

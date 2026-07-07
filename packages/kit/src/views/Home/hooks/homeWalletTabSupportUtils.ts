@@ -14,6 +14,10 @@ export type IHomeWalletTabSupportState = {
   isPerpsSupported: boolean;
 };
 
+export type IScopedHomeWalletTabSupportState = IHomeWalletTabSupportState & {
+  scopeKey: string;
+};
+
 export type IAllNetworksState = {
   enabledNetworks: Record<string, boolean>;
   disabledNetworks: Record<string, boolean>;
@@ -24,6 +28,22 @@ export const HOME_WALLET_TAB_SUPPORT_INIT: IHomeWalletTabSupportState = {
   isDeFiSupported: false,
   isPerpsSupported: false,
 };
+
+export function resolveHomeWalletTabSupport({
+  result,
+  scopeKey,
+  lastReadyResult,
+}: {
+  result: IScopedHomeWalletTabSupportState | undefined;
+  scopeKey: string;
+  lastReadyResult: IScopedHomeWalletTabSupportState | undefined;
+}): IHomeWalletTabSupportState {
+  if (result?.scopeKey === scopeKey) {
+    return result;
+  }
+
+  return lastReadyResult ?? HOME_WALLET_TAB_SUPPORT_INIT;
+}
 
 export function hasDeFiSupportedEnabledNetwork({
   allNetworks,

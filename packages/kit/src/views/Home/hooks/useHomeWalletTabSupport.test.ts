@@ -1,6 +1,8 @@
 import {
+  HOME_WALLET_TAB_SUPPORT_INIT,
   buildHomeWalletTabSupport,
   hasDeFiSupportedEnabledNetwork,
+  resolveHomeWalletTabSupport,
 } from './homeWalletTabSupportUtils';
 
 const allNetworksState = {
@@ -123,6 +125,61 @@ describe('Home wallet tab support', () => {
     ).toEqual({
       isReady: true,
       isDeFiSupported: true,
+      isPerpsSupported: false,
+    });
+  });
+
+  it('falls back to init before the first support result is ready', () => {
+    expect(
+      resolveHomeWalletTabSupport({
+        result: undefined,
+        scopeKey: 'evm--1:single:perp-enabled:0',
+        lastReadyResult: undefined,
+      }),
+    ).toEqual(HOME_WALLET_TAB_SUPPORT_INIT);
+  });
+
+  it('keeps the last ready support while a new scope is refreshing', () => {
+    expect(
+      resolveHomeWalletTabSupport({
+        result: undefined,
+        scopeKey: 'onekeyall--0:all:perp-enabled:1',
+        lastReadyResult: {
+          scopeKey: 'onekeyall--0:all:perp-enabled:0',
+          isReady: true,
+          isDeFiSupported: true,
+          isPerpsSupported: true,
+        },
+      }),
+    ).toEqual({
+      scopeKey: 'onekeyall--0:all:perp-enabled:0',
+      isReady: true,
+      isDeFiSupported: true,
+      isPerpsSupported: true,
+    });
+  });
+
+  it('uses the current scoped support once the refresh resolves', () => {
+    expect(
+      resolveHomeWalletTabSupport({
+        result: {
+          scopeKey: 'btc--0:single:perp-enabled:0',
+          isReady: true,
+          isDeFiSupported: false,
+          isPerpsSupported: false,
+        },
+        scopeKey: 'btc--0:single:perp-enabled:0',
+        lastReadyResult: {
+          scopeKey: 'evm--1:single:perp-enabled:0',
+          isReady: true,
+          isDeFiSupported: true,
+          isPerpsSupported: true,
+        },
+      }),
+    ).toEqual({
+      scopeKey: 'btc--0:single:perp-enabled:0',
+      isReady: true,
+      isDeFiSupported: false,
       isPerpsSupported: false,
     });
   });
