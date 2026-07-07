@@ -38,11 +38,24 @@ jobs:
       - name: Write iOS bundle diff AI prompt
         run: |
           mkdir -p ci-ai
+          write_fallback_prompt() {
+            cat > ci-ai/bundlediff-ios-ai-prompt.md <<'EOF'
+          ## AI Triage Prompt
+
+          Fix the OneKey iOS bundle diff failure by inspecting the Metro stats generation log and, when available, comparing head/base stats.
+
+          ### Start Here
+          - Inspect `stats-ios-head.log` first because this job failed before compare diagnostics could run.
+          - If `head-stats` and `base-stats` artifacts exist, compare `head-stats/stats.json` and `base-stats/stats.json`.
+          - Identify modules newly entering the main UI JS runtime, background JS runtime, common code, or shared vendor chunks.
+          - Do not hide bundle growth by weakening compare thresholds or removing stats output.
+          EOF
+          }
           if [ -f .github/scripts/ciFailureIssue.js ]; then
             node .github/scripts/ciFailureIssue.js prompt bundlediff-ios > ci-ai/bundlediff-ios-ai-prompt.md || \
-              echo "AI prompt generation failed; inspect the failed step log and stats-ios-head.log." > ci-ai/bundlediff-ios-ai-prompt.md
+              write_fallback_prompt
           else
-            echo "AI prompt helper is not present on this checked-out ref; use the compare job diagnostics artifact." > ci-ai/bundlediff-ios-ai-prompt.md
+            write_fallback_prompt
           fi
 
       - name: Get yarn cache directory path
@@ -118,11 +131,24 @@ jobs:
       - name: Write iOS bundle diff AI prompt
         run: |
           mkdir -p ci-ai
+          write_fallback_prompt() {
+            cat > ci-ai/bundlediff-ios-ai-prompt.md <<'EOF'
+          ## AI Triage Prompt
+
+          Fix the OneKey iOS bundle diff failure by inspecting the Metro stats generation log and, when available, comparing head/base stats.
+
+          ### Start Here
+          - Inspect `stats-ios-base.log` first because this job failed before compare diagnostics could run.
+          - If `head-stats` and `base-stats` artifacts exist, compare `head-stats/stats.json` and `base-stats/stats.json`.
+          - Identify modules newly entering the main UI JS runtime, background JS runtime, common code, or shared vendor chunks.
+          - Do not hide bundle growth by weakening compare thresholds or removing stats output.
+          EOF
+          }
           if [ -f .github/scripts/ciFailureIssue.js ]; then
             node .github/scripts/ciFailureIssue.js prompt bundlediff-ios > ci-ai/bundlediff-ios-ai-prompt.md || \
-              echo "AI prompt generation failed; inspect the failed step log and stats-ios-base.log." > ci-ai/bundlediff-ios-ai-prompt.md
+              write_fallback_prompt
           else
-            echo "AI prompt helper is not present on this checked-out ref; use the compare job diagnostics artifact." > ci-ai/bundlediff-ios-ai-prompt.md
+            write_fallback_prompt
           fi
 
       - name: Get yarn cache directory path
