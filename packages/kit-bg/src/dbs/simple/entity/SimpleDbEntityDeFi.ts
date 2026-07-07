@@ -5,6 +5,11 @@ import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface IDeFiDBStruct {
   enabledNetworksMap?: Record<string, boolean>; // <networkId, enabled>
+  manualForceRefreshQuota?: {
+    dayKey: string;
+    count: number;
+    lastForcedAt: number;
+  };
   overview?: Record<
     string,
     Record<
@@ -49,6 +54,105 @@ export class SimpleDbEntityDeFi extends SimpleDbEntityBase<IDeFiDBStruct> {
   async getEnabledNetworksMap(): Promise<Record<string, boolean>> {
     const rawData = await this.getRawData();
     return rawData?.enabledNetworksMap ?? {};
+  }
+
+  @backgroundMethod()
+  async consumeManualForceRefreshQuota({
+    dayKey,
+    now,
+    dailyLimit,
+    minIntervalMs,
+  }: {
+    dayKey: string;
+    now: number;
+    dailyLimit: number;
+    minIntervalMs: number;
+  }): Promise<{
+    allowed: boolean;
+    reason?: 'daily-limit' | 'interval';
+    count: number;
+    lastForcedAt: number;
+    dailyLimit: number;
+    minIntervalMs: number;
+  }> {
+    let result: {
+      allowed: boolean;
+      reason?: 'daily-limit' | 'interval';
+      count: number;
+      lastForcedAt: number;
+      dailyLimit: number;
+      minIntervalMs: number;
+    } = {
+      allowed: false,
+      count: 0,
+      lastForcedAt: 0,
+      dailyLimit,
+      minIntervalMs,
+    };
+
+    await this.setRawData((rawData) => {
+      const current = rawData?.manualForceRefreshQuota;
+      const normalized =
+        current?.dayKey === dayKey
+          ? current
+          : {
+              dayKey,
+              count: 0,
+              lastForcedAt: 0,
+            };
+
+      if (
+        normalized.lastForcedAt > 0 &&
+        now - normalized.lastForcedAt < minIntervalMs
+      ) {
+        result = {
+          allowed: false,
+          reason: 'interval',
+          count: normalized.count,
+          lastForcedAt: normalized.lastForcedAt,
+          dailyLimit,
+          minIntervalMs,
+        };
+        return {
+          ...rawData,
+          manualForceRefreshQuota: normalized,
+        };
+      }
+
+      if (normalized.count >= dailyLimit) {
+        result = {
+          allowed: false,
+          reason: 'daily-limit',
+          count: normalized.count,
+          lastForcedAt: normalized.lastForcedAt,
+          dailyLimit,
+          minIntervalMs,
+        };
+        return {
+          ...rawData,
+          manualForceRefreshQuota: normalized,
+        };
+      }
+
+      const nextQuota = {
+        dayKey,
+        count: normalized.count + 1,
+        lastForcedAt: now,
+      };
+      result = {
+        allowed: true,
+        count: nextQuota.count,
+        lastForcedAt: nextQuota.lastForcedAt,
+        dailyLimit,
+        minIntervalMs,
+      };
+      return {
+        ...rawData,
+        manualForceRefreshQuota: nextQuota,
+      };
+    });
+
+    return result;
   }
 
   @backgroundMethod()
