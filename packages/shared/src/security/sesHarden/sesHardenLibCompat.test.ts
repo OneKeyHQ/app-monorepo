@@ -203,6 +203,9 @@ try {
 test('@reown/appkit-ui throws when lazy-loaded AFTER lockdown without Symbol.metadata warm-up', () => {
   const out = runUnderLockdown(`
 (async () => {
+  // Keep this test focused on SES metadata. If package export conditions pick
+  // Lit's browser build, importing Lit also needs the web-component base class.
+  globalThis.HTMLElement ??= class HTMLElement {};
   require('ses');
   lockdown(opts);
   try {
@@ -221,6 +224,9 @@ test('@reown/appkit-ui throws when lazy-loaded AFTER lockdown without Symbol.met
 test('@reown/appkit-ui works AFTER lockdown when Symbol.metadata is warmed up', () => {
   const out = runUnderLockdown(`
 (async () => {
+  // Keep this test focused on SES metadata. If package export conditions pick
+  // Lit's browser build, importing Lit also needs the web-component base class.
+  globalThis.HTMLElement ??= class HTMLElement {};
   require('ses');
   Symbol.metadata ??= Symbol('metadata');
   lockdown(opts);
@@ -239,6 +245,9 @@ test('@reown/appkit-ui works AFTER lockdown when Symbol.metadata is warmed up', 
 test('@lit/reactive-element throws when lazy-loaded AFTER lockdown without Symbol.metadata warm-up', () => {
   const out = runUnderLockdown(`
 (async () => {
+  // Keep this test focused on SES metadata. If package export conditions pick
+  // Lit's browser build, importing Lit also needs the web-component base class.
+  globalThis.HTMLElement ??= class HTMLElement {};
   require('ses');
   lockdown(opts);
   try {
@@ -257,6 +266,9 @@ test('@lit/reactive-element throws when lazy-loaded AFTER lockdown without Symbo
 test('@lit/reactive-element works AFTER lockdown when Symbol.metadata is warmed up', () => {
   const out = runUnderLockdown(`
 (async () => {
+  // Keep this test focused on SES metadata. If package export conditions pick
+  // Lit's browser build, importing Lit also needs the web-component base class.
+  globalThis.HTMLElement ??= class HTMLElement {};
   require('ses');
   Symbol.metadata ??= Symbol('metadata');
   lockdown(opts);
