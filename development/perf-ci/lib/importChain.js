@@ -65,33 +65,62 @@ function packageNameFromNodeModule(source) {
   return packageNameFromSpecifier(source.slice(index + marker.length));
 }
 
+function isTypeOnlyClause(clause) {
+  const value = String(clause || '').trim();
+  if (value.startsWith('type ')) return true;
+  if (!value.startsWith('{') || !value.endsWith('}')) return false;
+
+  const specifiers = value
+    .slice(1, -1)
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return (
+    specifiers.length > 0 &&
+    specifiers.every((specifier) => specifier.startsWith('type '))
+  );
+}
+
 function parseImports(sourceText) {
   const imports = [];
-  const patterns = [
-    {
-      type: 'sync',
-      regex: /\bimport\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]/g,
-    },
-    {
-      type: 'sync',
-      regex: /\bexport\s+(?:type\s+)?[^'"]*?\s+from\s+['"]([^'"]+)['"]/g,
-    },
-    {
-      type: 'sync',
-      regex: /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
-    },
-    {
-      type: 'dynamic',
-      regex: /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
-    },
-  ];
 
-  for (const pattern of patterns) {
-    let match = pattern.regex.exec(sourceText);
-    while (match) {
-      imports.push({ specifier: match[1], edgeType: pattern.type });
-      match = pattern.regex.exec(sourceText);
+  const importFromRegex = /\bimport\s+([^'";]*?)\s+from\s+['"]([^'"]+)['"]/g;
+  let match = importFromRegex.exec(sourceText);
+  while (match) {
+    if (!isTypeOnlyClause(match[1])) {
+      imports.push({ specifier: match[2], edgeType: 'sync' });
     }
+    match = importFromRegex.exec(sourceText);
+  }
+
+  const sideEffectImportRegex = /\bimport\s+['"]([^'"]+)['"]/g;
+  match = sideEffectImportRegex.exec(sourceText);
+  while (match) {
+    imports.push({ specifier: match[1], edgeType: 'sync' });
+    match = sideEffectImportRegex.exec(sourceText);
+  }
+
+  const exportFromRegex = /\bexport\s+([^'";]*?)\s+from\s+['"]([^'"]+)['"]/g;
+  match = exportFromRegex.exec(sourceText);
+  while (match) {
+    if (!isTypeOnlyClause(match[1])) {
+      imports.push({ specifier: match[2], edgeType: 'sync' });
+    }
+    match = exportFromRegex.exec(sourceText);
+  }
+
+  const requireRegex = /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+  match = requireRegex.exec(sourceText);
+  while (match) {
+    imports.push({ specifier: match[1], edgeType: 'sync' });
+    match = requireRegex.exec(sourceText);
+  }
+
+  const dynamicImportRegex = /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+  match = dynamicImportRegex.exec(sourceText);
+  while (match) {
+    imports.push({ specifier: match[1], edgeType: 'dynamic' });
+    match = dynamicImportRegex.exec(sourceText);
   }
   return imports;
 }
@@ -233,7 +262,7 @@ function findShortestChain({ graph, roots, target, maxDepth = 24 }) {
     }
     if (item.depth < maxDepth) {
       for (const edge of graph.get(item.node) || []) {
-        if (!visited.has(edge.to)) {
+        if (edge.edgeType === 'sync' && !visited.has(edge.to)) {
           visited.add(edge.to);
           parent.set(edge.to, { from: item.node, ...edge });
           queue.push({ node: edge.to, depth: item.depth + 1 });

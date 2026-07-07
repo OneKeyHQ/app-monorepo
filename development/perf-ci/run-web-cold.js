@@ -218,9 +218,10 @@ function scenarioUrl(baseUrl, scenario) {
 
 function normalizeResourceUrl(url) {
   try {
-    return new URL(url).pathname;
+    const parsed = new URL(url);
+    return `${parsed.origin}${parsed.pathname}`;
   } catch {
-    return String(url || '').split('?')[0];
+    return String(url || '').split(/[?#]/)[0];
   }
 }
 
