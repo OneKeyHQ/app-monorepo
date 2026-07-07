@@ -4,6 +4,8 @@ import { getSpotTokenDisplayName } from './perpsUtils';
 
 import type { IHyperliquidPortfolioSnapshot } from '../../types/hyperliquid/portfolio';
 
+const SPOT_HOLDING_STABLE_COINS = new Set(['USDC', 'USDT', 'USDB', 'USDH']);
+
 export interface IPerpsHomeHolding {
   symbol: string;
   displaySymbol: string;
@@ -33,6 +35,39 @@ export interface IPerpsHomeView {
   holdings: IPerpsHomeHolding[];
   positions: IPerpsHomePosition[];
   isDegraded: boolean;
+}
+
+function isSpotHoldingStableCoin(coin: string) {
+  return SPOT_HOLDING_STABLE_COINS.has(coin.toUpperCase());
+}
+
+function calculateSpotHoldingPnlUsd({
+  total,
+  entryNtl,
+  priceUsd,
+  isStable,
+}: {
+  total: string;
+  entryNtl?: string;
+  priceUsd?: string;
+  isStable: boolean;
+}): number | undefined {
+  const totalBN = new BigNumber(total);
+  const entryNtlBN = new BigNumber(entryNtl || '0');
+  const priceUsdBN = new BigNumber(priceUsd || '0');
+
+  if (
+    isStable ||
+    !priceUsd ||
+    entryNtlBN.isZero() ||
+    !totalBN.isFinite() ||
+    !entryNtlBN.isFinite() ||
+    !priceUsdBN.isFinite()
+  ) {
+    return undefined;
+  }
+
+  return Number(totalBN.multipliedBy(priceUsdBN).minus(entryNtlBN).toFixed());
 }
 
 export function mapSnapshotToPerpsHomeView(
@@ -74,12 +109,12 @@ export function mapSnapshotToPerpsHomeView(
     .map((b) => {
       const priced = b.valueUsd !== undefined && b.priceUsd !== undefined;
       const valueUsd = priced ? Number(b.valueUsd) : undefined;
-      const pnlUsd =
-        priced && b.entryNtl !== undefined
-          ? Number(
-              new BigNumber(b.valueUsd as string).minus(b.entryNtl).toFixed(),
-            )
-          : undefined;
+      const pnlUsd = calculateSpotHoldingPnlUsd({
+        total: b.total,
+        entryNtl: b.entryNtl,
+        priceUsd: b.priceUsd,
+        isStable: isSpotHoldingStableCoin(b.coin),
+      });
       return {
         symbol: b.coin,
         displaySymbol: getSpotTokenDisplayName(b.coin),

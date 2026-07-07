@@ -102,7 +102,7 @@ describe('mapSnapshotToPerpsHomeView', () => {
     expect(btc?.sizeCoin).toBe('0.1');
     expect(btc?.liqPx).toBeNull();
   });
-  it('maps holdings with spot pnl = value - entryNtl, undefined when price missing', () => {
+  it('maps holdings with perps spot pnl rules and suppresses stablecoin pnl', () => {
     const v = mapSnapshotToPerpsHomeView(snap);
     expect(v.holdings.map((h) => h.symbol)).toEqual([
       'USDC',
@@ -114,13 +114,14 @@ describe('mapSnapshotToPerpsHomeView', () => {
     expect(hype?.displaySymbol).toBe('HYPE');
     expect(hype?.spotUniverseName).toBe('HYPE/USDC');
     expect(hype?.valueUsd).toBeCloseTo(28.16);
-    expect(hype?.pnlUsd).toBeCloseTo(1.16); // 28.16 - 27.0
+    expect(hype?.pnlUsd).toBeCloseTo(1.1604); // 1.24 * 22.71 - 27.0
     const ueth = v.holdings.find((h) => h.symbol === 'UETH');
     expect(ueth?.displaySymbol).toBe('ETH');
     expect(ueth?.spotUniverseName).toBe('UETH/USDC');
+    expect(ueth?.pnlUsd).toBeCloseTo(-0.1300017);
     const usdc = v.holdings.find((h) => h.symbol === 'USDC');
     expect(usdc?.displaySymbol).toBe('USDC');
-    expect(usdc?.pnlUsd).toBeCloseTo(0);
+    expect(usdc?.pnlUsd).toBeUndefined();
     const weird = v.holdings.find((h) => h.symbol === 'WEIRD');
     expect(weird?.valueUsd).toBeUndefined();
     expect(weird?.pnlUsd).toBeUndefined();

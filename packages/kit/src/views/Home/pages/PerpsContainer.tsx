@@ -31,7 +31,7 @@ import {
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useNavigateToMarketTab } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
-import { PriceChangeBadge } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/PriceChangeBadge';
+import { TokenIdentityItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/TokenIdentityItem';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import {
   perpsPendingInfoPanelTabAtom,
@@ -59,8 +59,10 @@ import {
   getHyperliquidTokenImageUrl,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { convertFiat } from '../../../utils/fiatConvert';
+import { EMarketHomeTab } from '../../Market/MarketHomeV2/types';
 import {
   OVERVIEW_TILE_SHADOW,
   buildOverviewGridStyle,
@@ -618,6 +620,7 @@ function PerpsEmptyRecommendSection() {
           testID={HomeTestIDs.popularViewMoreBtn}
           onPress={() =>
             navigateToMarketTab({
+              tabToSelect: EMarketHomeTab.Perps,
               perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
             })
           }
@@ -782,88 +785,57 @@ function PerpsEmptyRecommendSection() {
       </YStack>
       <YStack display="flex" $gtMd={{ display: 'none' }}>
         {displayTokens.map((token) => (
-          <Stack key={token.name}>
-            <XStack
-              hoverStyle={{ bg: '$bgHover' }}
-              pressStyle={{ bg: '$bgActive' }}
-              onPress={() => openPerp(token.name, 'perp', false)}
-              cursor="pointer"
-              role="button"
-              borderRadius="$3"
-              mx="$-3"
-              px="$3"
-              py="$3"
-              alignItems="center"
-              alignSelf="stretch"
-            >
-              <XStack flex={1} alignItems="center" gap="$3" minWidth={0}>
-                <Token
-                  size="md"
-                  borderRadius="$full"
-                  tokenImageUri={token.tokenImageUrl}
-                  fallbackIcon="CryptoCoinOutline"
-                />
-                <YStack flex={1} minWidth={0}>
-                  <XStack
-                    alignItems="center"
-                    gap="$1"
-                    minWidth={0}
-                    overflow="hidden"
-                  >
-                    <SizableText
-                      size="$bodyLgMedium"
-                      numberOfLines={1}
-                      flexShrink={1}
-                      ellipsizeMode="tail"
-                      userSelect="none"
-                    >
-                      {token.displayName}
-                    </SizableText>
-                    <LeverageBadge leverage={token.maxLeverage} />
-                  </XStack>
-                  <XStack alignItems="center" gap="$1" minWidth={0}>
-                    {token.subtitle ? (
-                      <SizableText
-                        size="$bodyMd"
-                        color="$textSubdued"
-                        numberOfLines={1}
-                        flexShrink={1}
-                        ellipsizeMode="tail"
-                        userSelect="none"
-                      >
-                        {token.subtitle}
-                      </SizableText>
-                    ) : null}
-                    <NumberSizeableText
-                      size="$bodyMd"
-                      color="$textSubdued"
-                      numberOfLines={1}
-                      flexShrink={0}
-                      formatter="marketCap"
-                      formatterOptions={{ currency: '$' }}
-                      userSelect="none"
-                    >
-                      {token.volume24h ?? '0'}
-                    </NumberSizeableText>
-                  </XStack>
-                </YStack>
-              </XStack>
-
-              <XStack alignItems="center" gap="$2">
-                <NumberSizeableText
-                  userSelect="none"
-                  flexShrink={1}
-                  numberOfLines={1}
-                  size="$bodyLgMedium"
-                  formatter="price"
-                  formatterOptions={{ currency: '$' }}
-                >
-                  {token.markPrice ?? '0'}
-                </NumberSizeableText>
-                <PriceChangeBadge change={token.change24hPercent ?? 0} />
-              </XStack>
-            </XStack>
-          </Stack>
+          <XStack
+            key={token.name}
+            hoverStyle={{ bg: '$bgHover' }}
+            pressStyle={{ bg: '$bgActive' }}
+            onPress={() => openPerp(token.name, 'perp', false)}
+            cursor="pointer"
+            role="button"
+            borderRadius="$3"
+            mx="$-3"
+            px="$3"
+            py="$3"
+            alignItems="center"
+            alignSelf="stretch"
+          >
+            <Stack flex={1} minWidth={0}>
+              <TokenIdentityItem
+                symbol={token.displayName}
+                address=""
+                tokenLogoURI={token.tokenImageUrl}
+                showVolume
+                volume={token.volume24h}
+                maxLeverage={token.maxLeverage}
+                perpsSubtitle={token.subtitle}
+              />
+            </Stack>
+            <YStack alignItems="flex-end" ml="$3">
+              <NumberSizeableText
+                size="$bodyLgMedium"
+                formatter="price"
+                formatterOptions={{ currency: '$' }}
+              >
+                {token.markPrice ?? '-'}
+              </NumberSizeableText>
+              <NumberSizeableText
+                size="$bodyMd"
+                formatter="priceChange"
+                color={
+                  getTokenPriceChangeStyle({
+                    priceChange: token.change24hPercent ?? 0,
+                  }).changeColor
+                }
+                formatterOptions={{
+                  showPlusMinusSigns: getTokenPriceChangeStyle({
+                    priceChange: token.change24hPercent ?? 0,
+                  }).showPlusMinusSigns,
+                }}
+              >
+                {token.change24hPercent ?? '-'}
+              </NumberSizeableText>
+            </YStack>
+          </XStack>
         ))}
         <XStack
           px="$0"
@@ -881,16 +853,17 @@ function PerpsEmptyRecommendSection() {
             testID={HomeTestIDs.popularViewMoreBtn}
             onPress={() =>
               navigateToMarketTab({
+                tabToSelect: EMarketHomeTab.Perps,
                 perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
               })
             }
             childrenAsText={false}
           >
             <XStack alignItems="center" gap="$2">
-              <SizableText size="$bodySmMedium">
+              <SizableText size="$bodyMdMedium">
                 {intl.formatMessage({ id: ETranslations.global_view_more })}
               </SizableText>
-              <Icon name="ChevronRightSmallOutline" size="$5" />
+              <Icon name="ChevronRightSmallOutline" size="$5.5" />
             </XStack>
           </Button>
         </XStack>
