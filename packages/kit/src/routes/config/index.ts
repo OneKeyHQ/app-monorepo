@@ -65,6 +65,11 @@ const ROOT_PATH = platformEnv.isExtension ? extHtmlFileUrl : '/';
 const MODAL_PATH = `/${ERootRoutes.Modal}`;
 const FULL_SCREEN_MODAL_PATH = `/${ERootRoutes.iOSFullScreen}`;
 const FULL_SCREEN_PUSH_PATH = `/${ERootRoutes.FullScreenPush}`;
+const WEB_DAPP_HIDDEN_URL_ROOT_ROUTES = new Set<string>([
+  ERootRoutes.Modal,
+  ERootRoutes.iOSFullScreen,
+  ERootRoutes.FullScreenPush,
+]);
 
 function findAllowListRule({
   allowList,
@@ -130,6 +135,87 @@ function getVisibleMainPathFromState({
   }
 
   return rule.showParams ? mainPath : pathWithoutQuery;
+}
+
+function getVisiblePathFromBrowserLocation({
+  allowList,
+  allowListKeys,
+}: {
+  allowList: ReturnType<typeof buildAllowList>;
+  allowListKeys: string[];
+}) {
+  const locationPath = `${globalThis.location.pathname}${globalThis.location.search}`;
+  const { rule, pathWithoutQuery } = findAllowListRule({
+    allowList,
+    allowListKeys,
+    path: locationPath,
+  });
+
+  if (!rule?.showUrl) {
+    return undefined;
+  }
+
+  return rule.showParams ? locationPath : pathWithoutQuery;
+}
+
+function getVisibleWebDappPath({
+  state,
+  options,
+  allowList,
+  allowListKeys,
+}: {
+  state: Parameters<typeof getPathFromStateDefault>[0];
+  options: Parameters<typeof getPathFromStateDefault>[1];
+  allowList: ReturnType<typeof buildAllowList>;
+  allowListKeys: string[];
+}) {
+  return (
+    getVisiblePathFromBrowserLocation({
+      allowList,
+      allowListKeys,
+    }) ??
+    getVisibleMainPathFromState({
+      state,
+      options,
+      allowList,
+      allowListKeys,
+    }) ??
+    '/market'
+  );
+}
+
+function shouldUseVisibleMainPathForOverlay({
+  state,
+  options,
+  allowList,
+  allowListKeys,
+}: {
+  state: Parameters<typeof getPathFromStateDefault>[0];
+  options: Parameters<typeof getPathFromStateDefault>[1];
+  allowList: ReturnType<typeof buildAllowList>;
+  allowListKeys: string[];
+}) {
+  const activeRootRoute = state?.routes?.[state?.index ?? 0];
+  if (
+    !activeRootRoute ||
+    !WEB_DAPP_HIDDEN_URL_ROOT_ROUTES.has(activeRootRoute.name)
+  ) {
+    return false;
+  }
+
+  const overlayOnlyState = {
+    ...state,
+    index: 0,
+    routes: [activeRootRoute],
+  } as Parameters<typeof getPathFromStateDefault>[0];
+  const overlayPath = getPathFromStateDefault(overlayOnlyState, options);
+  const { rule } = findAllowListRule({
+    allowList,
+    allowListKeys,
+    path: overlayPath,
+  });
+
+  return !rule?.showUrl;
 }
 
 const onGetStateFromPath = (path: string, options?: any) => {
@@ -232,18 +318,33 @@ const useBuildLinking = (): LinkingOptions<any> => {
           );
         }
 
+        if (
+          platformEnv.isWebDappMode &&
+          shouldUseVisibleMainPathForOverlay({
+            state,
+            options,
+            allowList,
+            allowListKeys,
+          })
+        ) {
+          return getVisibleWebDappPath({
+            state,
+            options,
+            allowList,
+            allowListKeys,
+          });
+        }
+
         if (!rule?.showUrl) {
           // WebDappMode: keep the visible tab URL when an internal modal route
           // is intentionally hidden from public URLs.
           if (platformEnv.isWebDappMode) {
-            return (
-              getVisibleMainPathFromState({
-                state,
-                options,
-                allowList,
-                allowListKeys,
-              }) ?? '/market'
-            );
+            return getVisibleWebDappPath({
+              state,
+              options,
+              allowList,
+              allowListKeys,
+            });
           }
           return ROOT_PATH;
         }
