@@ -553,18 +553,19 @@ const ProtocolPositionActionButton = memo(
     // Aave debt positions (the sole borrow-dialog entry); the service call is
     // promise-memoized so per-row instances share one request. initResult []
     // + error-keeps-last-result = fail-closed while loading or on error.
-    const { result: borrowMarkets } = usePromiseResult(
-      async () => {
-        if (!hasAaveDebt) {
-          return [];
-        }
-        return backgroundApiProxy.serviceStaking.getBorrowMarkets();
-      },
-      [hasAaveDebt],
-      // Repo precedent for typed empty initResult: ProtocolLendingActionDialog
-      // :692 (`assets: [] as IBorrowAsset[]`). Never let it infer never[].
-      { initResult: [] as IBorrowMarketItem[] },
-    );
+    const { result: borrowMarkets, isLoading: borrowMarketsLoading } =
+      usePromiseResult(
+        async () => {
+          if (!hasAaveDebt) {
+            return [];
+          }
+          return backgroundApiProxy.serviceStaking.getBorrowMarkets();
+        },
+        [hasAaveDebt],
+        // Repo precedent for typed empty initResult: ProtocolLendingActionDialog
+        // :692 (`assets: [] as IBorrowAsset[]`). Never let it infer never[].
+        { initResult: [] as IBorrowMarketItem[], watchLoading: true },
+      );
     // Removing an LP that holds rewards also claims them — drives the
     // "Remove" vs "Remove & Claim rewards" label.
     const hasRewards = useMemo(
@@ -678,6 +679,19 @@ const ProtocolPositionActionButton = memo(
         }
         return true;
       });
+    }
+    // While the borrow whitelist is still loading for an Aave debt position the
+    // manage params haven't resolved, so preferManageForAave is false and the
+    // generic Withdraw/Repay would (mis)route to the non-borrow dialog (no
+    // health factor / liquidation preview). Hold those two back until markets
+    // settle; the correct button (borrow or generic) then renders in place.
+    // Claim/Remove are unaffected.
+    if (hasAaveDebt && borrowMarketsLoading) {
+      renderedActions = renderedActions.filter(
+        (action) =>
+          action.action !== EDeFiPositionAction.Withdraw &&
+          action.action !== EDeFiPositionAction.Repay,
+      );
     }
     const handleActionPress = useCallback(
       async (action: IResolvedDeFiPositionAction) => {
