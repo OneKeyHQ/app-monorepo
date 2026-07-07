@@ -200,6 +200,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const enableNativeChartControls = Boolean(enableNativeChartControlsProp);
   const enableNativeIntervalSelector =
     enableNativeIntervalSelectorProp || enableNativeChartControls;
+  const isNativeChartControlsReady =
+    !enableNativeChartControls || Boolean(nativeChartControlsConfig);
 
   const { handleNavigation } = useNavigationHandler();
   const handleCurrentKLineResolutionChange = useCallback(
@@ -705,6 +707,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           intervalConfig={intervalConfig}
           nativeChartControlsConfig={nativeChartControlsConfig}
           nativeIndicatorState={nativeIndicatorState}
+          isControlsReady={isNativeChartControlsReady}
           chartTypeControlMode={nativeChartTypeControlMode}
           indicatorControlMode={nativeIndicatorControlMode}
           intervalControlMode={nativeIntervalControlMode}
