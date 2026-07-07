@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
@@ -30,42 +30,6 @@ import { NetworkAvatar } from '../NetworkAvatar';
 import { MAX_LENGTH_ACCOUNT_NAME } from './renameConsts';
 
 import type { IntlShape } from 'react-intl';
-
-type INameHistoryInfo = {
-  entityId: string;
-  entityType: EChangeHistoryEntityType;
-  contentType: EChangeHistoryContentType.Name;
-};
-
-function useDeferredRenameInputEnhancements(deferEnhancements?: boolean) {
-  const [shouldRenderEnhancements, setShouldRenderEnhancements] =
-    useState(!deferEnhancements);
-
-  useEffect(() => {
-    if (!deferEnhancements) {
-      setShouldRenderEnhancements(true);
-      return;
-    }
-
-    if (typeof requestAnimationFrame === 'function') {
-      const frameId = requestAnimationFrame(() => {
-        setShouldRenderEnhancements(true);
-      });
-      return () => {
-        cancelAnimationFrame(frameId);
-      };
-    }
-
-    const timer = setTimeout(() => {
-      setShouldRenderEnhancements(true);
-    }, 0);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [deferEnhancements]);
-
-  return shouldRenderEnhancements;
-}
 
 function V4AccountNameSelector({
   onChange,
@@ -134,28 +98,6 @@ function V4AccountNameSelector({
   );
 }
 
-function V4AccountNameSelectorContainer({
-  onChange,
-  indexedAccount,
-}: {
-  onChange?: (val: string) => void;
-  indexedAccount: IDBIndexedAccount;
-}) {
-  const { result: shouldShowV4AccountNameSelector } =
-    usePromiseResult(async () => {
-      return backgroundApiProxy.serviceV4Migration.canRenameFromV4AccountName({
-        indexedAccount,
-      });
-    }, [indexedAccount]);
-
-  return shouldShowV4AccountNameSelector ? (
-    <V4AccountNameSelector
-      indexedAccount={indexedAccount}
-      onChange={onChange}
-    />
-  ) : null;
-}
-
 export function RenameInputWithNameSelector({
   value,
   onChange,
@@ -165,7 +107,6 @@ export function RenameInputWithNameSelector({
   disabledMaxLengthLabel = false,
   nameHistoryInfo,
   inputTestID,
-  deferEnhancements,
 }: {
   maxLength?: number;
   value?: string;
@@ -173,13 +114,25 @@ export function RenameInputWithNameSelector({
   description?: string;
   indexedAccount?: IDBIndexedAccount;
   disabledMaxLengthLabel: boolean;
-  nameHistoryInfo?: INameHistoryInfo;
+  nameHistoryInfo?: {
+    entityId: string;
+    entityType: EChangeHistoryEntityType;
+    contentType: EChangeHistoryContentType.Name;
+  };
   inputTestID?: string;
-  deferEnhancements?: boolean;
 }) {
   const intl = useIntl();
-  const shouldRenderEnhancements =
-    useDeferredRenameInputEnhancements(deferEnhancements);
+  const { result: shouldShowV4AccountNameSelector } =
+    usePromiseResult(async () => {
+      if (indexedAccount) {
+        return backgroundApiProxy.serviceV4Migration.canRenameFromV4AccountName(
+          {
+            indexedAccount,
+          },
+        );
+      }
+      return false;
+    }, [indexedAccount]);
 
   return (
     <>
@@ -194,7 +147,7 @@ export function RenameInputWithNameSelector({
           onChangeText={onChange}
           flex={1}
           addOns={
-            shouldRenderEnhancements && nameHistoryInfo?.entityId
+            nameHistoryInfo?.entityId
               ? [
                   buildChangeHistoryInputAddon({
                     changeHistoryInfo: nameHistoryInfo,
@@ -204,8 +157,8 @@ export function RenameInputWithNameSelector({
               : undefined
           }
         />
-        {shouldRenderEnhancements && indexedAccount ? (
-          <V4AccountNameSelectorContainer
+        {shouldShowV4AccountNameSelector && indexedAccount ? (
+          <V4AccountNameSelector
             indexedAccount={indexedAccount}
             onChange={onChange}
           />
@@ -245,7 +198,11 @@ export const showRenameDialog = (
     maxLength?: number;
     onSubmit: (name: string) => Promise<void>;
     disabledMaxLengthLabel?: boolean;
-    nameHistoryInfo?: INameHistoryInfo;
+    nameHistoryInfo?: {
+      entityId: string;
+      entityType: EChangeHistoryEntityType;
+      contentType: EChangeHistoryContentType.Name;
+    };
     inputTestID?: string;
     confirmTestID?: string;
     intl: IntlShape;
@@ -280,7 +237,6 @@ export const showRenameDialog = (
             disabledMaxLengthLabel={disabledMaxLengthLabel}
             nameHistoryInfo={nameHistoryInfo}
             inputTestID={inputTestID}
-            deferEnhancements
           />
         </Dialog.FormField>
       </Dialog.Form>

@@ -88,7 +88,6 @@ function DeviceLabelDialogContent(props: {
               entityType: EChangeHistoryEntityType.Wallet,
               contentType: EChangeHistoryContentType.Name,
             }}
-            deferEnhancements
           />
         </Dialog.FormField>
       </Dialog.Form>

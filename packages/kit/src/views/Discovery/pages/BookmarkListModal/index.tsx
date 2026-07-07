@@ -116,7 +116,6 @@ function BookmarkListModal() {
                   entityType: EChangeHistoryEntityType.BrowserBookmark,
                   contentType: EChangeHistoryContentType.Name,
                 }}
-                deferEnhancements
               />
             </Dialog.FormField>
           </Dialog.Form>
