@@ -3,7 +3,7 @@ import BigNumber from 'bignumber.js';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import { calculateSpotHoldingPnl as calculateSpotHoldingPnlAmount } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
+import { calculateSpotHoldingPnl as calculateSpotHoldingPnlAmount } from '@onekeyhq/shared/src/utils/perpsSpotHoldingPnlUtils';
 import {
   formatSpotPairDisplayName,
   getSpotTokenDisplayName,
@@ -14,7 +14,7 @@ import {
 import type { IColumnConfig } from './List/CommonTableListView';
 import type { IntlShape } from 'react-intl';
 
-export { isSpotHoldingStableCoin } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
+export { isSpotHoldingStableCoin } from '@onekeyhq/shared/src/utils/perpsSpotHoldingPnlUtils';
 
 const spotHoldingPnlCurrencyFormatter: INumberFormatProps = {
   formatter: 'value',

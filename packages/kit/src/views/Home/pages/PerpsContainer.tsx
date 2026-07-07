@@ -61,7 +61,6 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { convertFiat } from '../../../utils/fiatConvert';
-import { EMarketHomeTab } from '../../Market/MarketHomeV2/types';
 import {
   OVERVIEW_TILE_SHADOW,
   buildOverviewGridStyle,
@@ -619,7 +618,7 @@ function PerpsEmptyRecommendSection() {
           testID={HomeTestIDs.popularViewMoreBtn}
           onPress={() =>
             navigateToMarketTab({
-              tabToSelect: EMarketHomeTab.Perps,
+              tabToSelect: 'perps',
               perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
             })
           }
@@ -874,7 +873,7 @@ function PerpsEmptyRecommendSection() {
             testID={HomeTestIDs.popularViewMoreBtn}
             onPress={() =>
               navigateToMarketTab({
-                tabToSelect: EMarketHomeTab.Perps,
+                tabToSelect: 'perps',
                 perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
               })
             }

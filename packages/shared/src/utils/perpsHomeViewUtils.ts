@@ -1,15 +1,13 @@
 import BigNumber from 'bignumber.js';
 
+import {
+  SPOT_HOLDING_STABLE_COINS,
+  calculateSpotHoldingPnl,
+  isSpotHoldingStableCoin,
+} from './perpsSpotHoldingPnlUtils';
 import { getSpotTokenDisplayName } from './perpsUtils';
 
 import type { IHyperliquidPortfolioSnapshot } from '../../types/hyperliquid/portfolio';
-
-export const SPOT_HOLDING_STABLE_COINS = new Set([
-  'USDC',
-  'USDT',
-  'USDB',
-  'USDH',
-]);
 
 export interface IPerpsHomeHolding {
   symbol: string;
@@ -42,37 +40,11 @@ export interface IPerpsHomeView {
   isDegraded: boolean;
 }
 
-export function isSpotHoldingStableCoin(coin: string) {
-  return SPOT_HOLDING_STABLE_COINS.has(coin.toUpperCase());
-}
-
-export function calculateSpotHoldingPnl({
-  total,
-  entryNtl,
-  priceUsd,
-  isStable,
-}: {
-  total: string;
-  entryNtl?: string;
-  priceUsd?: string;
-  isStable: boolean;
-}): string | undefined {
-  const totalBN = new BigNumber(total);
-  const entryNtlBN = new BigNumber(entryNtl || '0');
-  const priceUsdBN = new BigNumber(priceUsd || '0');
-
-  if (
-    isStable ||
-    !priceUsd ||
-    !totalBN.isFinite() ||
-    !entryNtlBN.isFinite() ||
-    !priceUsdBN.isFinite()
-  ) {
-    return undefined;
-  }
-
-  return totalBN.multipliedBy(priceUsdBN).minus(entryNtlBN).toFixed();
-}
+export {
+  SPOT_HOLDING_STABLE_COINS,
+  calculateSpotHoldingPnl,
+  isSpotHoldingStableCoin,
+};
 
 export function mapSnapshotToPerpsHomeView(
   snapshot: IHyperliquidPortfolioSnapshot,
