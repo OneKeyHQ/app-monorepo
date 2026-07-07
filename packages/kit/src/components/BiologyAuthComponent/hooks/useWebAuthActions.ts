@@ -12,10 +12,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { registerWebAuth, verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
-import {
-  BIOLOGY_AUTH_CANCEL_ERROR,
-  WEB_AUTH_CREDENTIAL_UNAVAILABLE_ERROR,
-} from '@onekeyhq/shared/types/password';
+import { BIOLOGY_AUTH_CANCEL_ERROR } from '@onekeyhq/shared/types/password';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -102,8 +99,9 @@ export const useWebAuthActions = (options?: {
                 // savePasswordForPasskey reuses an existing, verifiable
                 // credential and never auto-creates one. If the stored
                 // credential can no longer be authenticated it throws
-                // WEB_AUTH_CREDENTIAL_UNAVAILABLE_ERROR (ambiguous: lost
-                // credential vs. user-cancel) so we can confirm re-enrollment.
+                // BIOLOGY_AUTH_CANCEL_ERROR (ambiguous: lost credential vs.
+                // user-cancel — WebAuthn cannot tell them apart) so we can
+                // confirm re-enrollment.
                 webAuthCredentialId =
                   (await biologyAuthUtils.savePasswordForPasskey(
                     cachedPassword,
@@ -112,9 +110,7 @@ export const useWebAuthActions = (options?: {
                     },
                   )) ?? undefined;
               } catch (e) {
-                if (
-                  (e as Error)?.name === WEB_AUTH_CREDENTIAL_UNAVAILABLE_ERROR
-                ) {
+                if ((e as Error)?.name === BIOLOGY_AUTH_CANCEL_ERROR) {
                   // The stored passkey is gone (or the prompt was cancelled).
                   // Ask before registering a fresh one.
                   const shouldReEnroll = await confirmReEnrollPasskey();
@@ -147,11 +143,14 @@ export const useWebAuthActions = (options?: {
             // Old WebAuthn path (non-PRF). registerWebAuth reuses an existing,
             // verifiable credId and returns it; it never auto-creates when a
             // credId is supplied. A lost/cancelled credential surfaces as
-            // WEB_AUTH_CREDENTIAL_UNAVAILABLE_ERROR so we can confirm before
-            // creating a new one.
+            // BIOLOGY_AUTH_CANCEL_ERROR (WebAuthn cannot tell a lost credential
+            // apart from a plain user-cancel) so we confirm before creating a
+            // new one.
             webAuthCredentialId = await registerWebAuth(credId);
           } catch (e) {
-            if ((e as Error)?.name === WEB_AUTH_CREDENTIAL_UNAVAILABLE_ERROR) {
+            if ((e as Error)?.name === BIOLOGY_AUTH_CANCEL_ERROR) {
+              // The stored credential is gone (or the prompt was cancelled).
+              // Ask before registering a fresh one — never auto-create.
               const shouldReEnroll = await confirmReEnrollPasskey();
               if (shouldReEnroll) {
                 // Create a brand-new credential (no credId → create path).
@@ -159,9 +158,6 @@ export const useWebAuthActions = (options?: {
               } else {
                 return undefined;
               }
-            } else if ((e as Error)?.name === BIOLOGY_AUTH_CANCEL_ERROR) {
-              // Genuine, deliberate cancel — fail gracefully, do not create.
-              return undefined;
             } else {
               throw e;
             }

@@ -11,10 +11,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import type { ISecureStorageSetOptions } from '@onekeyhq/shared/src/storage/secureStorage/types';
 import { ensureSensitiveTextEncoded } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
-import {
-  BIOLOGY_AUTH_CANCEL_ERROR,
-  WEB_AUTH_CREDENTIAL_UNAVAILABLE_ERROR,
-} from '@onekeyhq/shared/types/password';
+import { BIOLOGY_AUTH_CANCEL_ERROR } from '@onekeyhq/shared/types/password';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
 
@@ -131,11 +128,12 @@ class BiologyAuthUtils implements IBiologyAuth {
   savePasswordForPasskey = async (
     password: string,
     options?: {
-      // Auto-repair a broken PRF state (e.g. an unwrap/decrypt failure of a
-      // corrupted wrapped master key) by clearing the stale keys and
-      // re-registering. Does NOT cover the ambiguous "credential unavailable"
-      // case (see below) — that requires an explicit user decision because
-      // WebAuthn cannot tell a lost credential apart from a plain user-cancel.
+      // Auto-repair a non-ambiguous broken PRF state (e.g. an unwrap/decrypt
+      // failure of a corrupted wrapped master key, which is NOT a
+      // NotAllowedError) by clearing the stale keys and re-registering. A
+      // NotAllowedError (cancel OR lost credential — WebAuthn cannot tell them
+      // apart) is left as a plain cancelError that propagates up, so the enable
+      // flow can ask the user before re-enrolling.
       repairBrokenState?: boolean;
       // Skip authenticating the stored credential entirely and register a
       // fresh one. Only pass this after the user has explicitly confirmed
@@ -170,24 +168,17 @@ class BiologyAuthUtils implements IBiologyAuth {
         allowDiscoverable: false,
       });
     } catch (error) {
-      const errorName = (error as Error)?.name;
-      // Ambiguous case: authenticating the stored credential failed with
-      // NotAllowedError. This is either a genuine user-cancel or a lost/deleted
-      // platform credential — WebAuthn does not distinguish them. Never
-      // auto-re-enroll here (that could create a duplicate on a plain cancel);
-      // rethrow so the enable flow can ask the user whether to create a new one.
-      if (errorName === WEB_AUTH_CREDENTIAL_UNAVAILABLE_ERROR) {
-        throw error;
-      }
+      // A cancel (or lost credential, indistinguishable at the WebAuthn layer)
+      // propagates as-is so the enable flow can decide whether to re-enroll.
+      // Only a non-ambiguous broken state (e.g. corrupted wrapped master key)
+      // is repaired automatically here.
       if (
-        errorName === BIOLOGY_AUTH_CANCEL_ERROR ||
+        (error as Error)?.name === BIOLOGY_AUTH_CANCEL_ERROR ||
         !options?.repairBrokenState ||
         !canResetForPasskeyReEnroll
       ) {
         throw error;
       }
-      // A non-ambiguous broken state (e.g. corrupted wrapped master key).
-      // Safe to repair automatically.
       await appStorage.secureStorage.resetForPasskeyReEnroll?.();
       await this.savePassword(password, {
         allowDiscoverable: false,

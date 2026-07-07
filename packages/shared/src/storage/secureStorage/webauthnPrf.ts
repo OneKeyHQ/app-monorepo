@@ -2,10 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Buffer } from 'buffer';
 
-import {
-  BIOLOGY_AUTH_CANCEL_ERROR,
-  WEB_AUTH_CREDENTIAL_UNAVAILABLE_ERROR,
-} from '../../../types/password';
+import { BIOLOGY_AUTH_CANCEL_ERROR } from '../../../types/password';
 import platformEnv from '../../platformEnv';
 
 // Storage keys
@@ -46,26 +43,6 @@ function throwIfUserCancelled(error: unknown): void {
     const cancelError = new Error('');
     cancelError.name = BIOLOGY_AUTH_CANCEL_ERROR;
     throw cancelError;
-  }
-}
-
-// Used when authenticating (navigator.credentials.get) a specific stored
-// credential. A NotAllowedError here is ambiguous — it can mean a genuine
-// user-cancel OR that the stored platform credential no longer exists (deleted
-// from the keychain, OS reinstall, iCloud sync loss). We surface it as a
-// dedicated "credential unavailable" error so an ENABLE flow can repair and
-// re-enroll a fresh credential instead of dead-ending. AbortError (an
-// unambiguous, deliberate abort) is still reported as a plain user-cancel.
-function throwIfStoredCredentialUnavailable(error: unknown): void {
-  if (error instanceof DOMException && error.name === 'AbortError') {
-    const cancelError = new Error('');
-    cancelError.name = BIOLOGY_AUTH_CANCEL_ERROR;
-    throw cancelError;
-  }
-  if (error instanceof DOMException && error.name === 'NotAllowedError') {
-    const unavailableError = new Error('');
-    unavailableError.name = WEB_AUTH_CREDENTIAL_UNAVAILABLE_ERROR;
-    throw unavailableError;
   }
 }
 
@@ -401,16 +378,7 @@ export async function authenticateWithPrf(options: {
       credentialId: assertion.id,
     };
   } catch (error) {
-    // When a specific stored credential was requested, a NotAllowedError is
-    // ambiguous (cancel vs. lost credential) — surface it distinctly so an
-    // enable flow can repair. In discoverable mode (no credentialId) there is
-    // no stored credential to have gone missing, so a NotAllowedError is a
-    // plain user-cancel.
-    if (credentialId) {
-      throwIfStoredCredentialUnavailable(error);
-    } else {
-      throwIfUserCancelled(error);
-    }
+    throwIfUserCancelled(error);
     console.error('Failed to authenticate with PRF:', error);
     return undefined;
   }
