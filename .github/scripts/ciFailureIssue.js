@@ -78,7 +78,8 @@ const ciFailureConfigs = {
     ],
     commands: [
       'yarn install --immutable',
-      'yarn test --coverage --shard=<failed-shard>/3 --coverageDirectory=coverage/shard-<failed-shard> --coverageReporters=text --coverageReporters=lcov --coverageReporters=json-summary --coverageReporters=json --coverageThreshold={}',
+      'FAILED_SHARD=1',
+      'yarn test --coverage --shard="${FAILED_SHARD}/3" --coverageDirectory="coverage/shard-${FAILED_SHARD}" --coverageReporters=text --coverageReporters=lcov --coverageReporters=json-summary --coverageReporters=json --coverageThreshold={}',
       'yarn lint:staged',
       'yarn tsc:staged',
     ],
@@ -103,7 +104,8 @@ const ciFailureConfigs = {
     ],
     commands: [
       'yarn install --immutable',
-      'npx tsx development/scripts/minimum-release-age/run.ts diff origin/<base-ref>',
+      'BASE_REF="${GITHUB_BASE_REF:-x}"',
+      'npx tsx development/scripts/minimum-release-age/run.ts diff "origin/${BASE_REF}"',
       'yarn lint:staged',
       'yarn tsc:staged',
     ],
@@ -130,7 +132,7 @@ const ciFailureConfigs = {
     commands: [
       'yarn install --immutable',
       'yarn stats:web',
-      'Compare ./apps/web/web-build/stats.json against the base branch stats.json',
+      '# Compare ./apps/web/web-build/stats.json against the base branch stats.json artifact.',
       'yarn lint:staged',
       'yarn tsc:staged',
     ],
@@ -156,7 +158,7 @@ const ciFailureConfigs = {
     commands: [
       'yarn install --immutable',
       'yarn stats:ios',
-      'Compare ./apps/app/stats.json against the base branch stats.json',
+      '# Compare ./apps/app/stats.json against the base branch stats.json artifact.',
       'yarn lint:staged',
       'yarn tsc:staged',
     ],
@@ -331,7 +333,8 @@ function renderStillFailingComment(config, metadata) {
   return [
     `Still failing: [Run #${metadata.runNumber}](${metadata.runUrl}) on \`${compactSha(metadata.sha)}\`.`,
     '',
-    renderAiTriagePrompt(config, metadata),
+    `Diagnostic artifact: \`${config.artifactName}\``,
+    'Use the issue body for the full AI triage prompt and guardrails.',
   ].join('\n');
 }
 

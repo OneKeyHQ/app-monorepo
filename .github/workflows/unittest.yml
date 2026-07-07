@@ -56,7 +56,8 @@ jobs:
       - name: Write unit test AI prompt
         run: |
           mkdir -p ci-ai
-          node .github/scripts/ciFailureIssue.js prompt unittest > ci-ai/unittest-ai-prompt.md
+          node .github/scripts/ciFailureIssue.js prompt unittest > ci-ai/unittest-ai-prompt.md || \
+            echo "AI prompt generation failed; inspect the failed step log and jest shard log." > ci-ai/unittest-ai-prompt.md
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
@@ -71,14 +72,13 @@ jobs:
 
       - name: Run Tests
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           mkdir -p ci-ai
           set +e
           yarn test \
             --coverage \
-            --shard=${{ matrix.shard }}/${JEST_SHARD_TOTAL} \
+            --shard="${{ matrix.shard }}/${JEST_SHARD_TOTAL}" \
             --coverageDirectory=coverage/shard-${{ matrix.shard }} \
             --coverageReporters=text \
             --coverageReporters=lcov \
@@ -107,7 +107,7 @@ jobs:
 
       - name: Upload unit test AI diagnostics
         uses: actions/upload-artifact@v4
-        if: always()
+        if: failure()
         with:
           name: ci-ai-unittest-diagnostics-shard-${{ matrix.shard }}-of-${{ env.JEST_SHARD_TOTAL }}
           path: |
@@ -116,6 +116,16 @@ jobs:
             test-report.html
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Explain unit test failure diagnostics
+        if: failure()
+        run: |
+          {
+            echo "### CI diagnostics"
+            echo "- Download artifact: \`ci-ai-unittest-diagnostics-shard-${{ matrix.shard }}-of-${{ env.JEST_SHARD_TOTAL }}\`"
+            echo "- Open: \`jest-shard-${{ matrix.shard }}.log\`, \`test-report.html\`, and \`unittest-ai-prompt.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=CI diagnostics::Download ci-ai-unittest-diagnostics-shard-${{ matrix.shard }}-of-${{ env.JEST_SHARD_TOTAL }} and inspect jest-shard-${{ matrix.shard }}.log"
 
   coverage:
     name: unittest (24.x)

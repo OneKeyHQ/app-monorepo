@@ -39,7 +39,8 @@ jobs:
         run: |
           mkdir -p ci-ai
           if [ -f .github/scripts/ciFailureIssue.js ]; then
-            node .github/scripts/ciFailureIssue.js prompt bundlediff-ios > ci-ai/bundlediff-ios-ai-prompt.md
+            node .github/scripts/ciFailureIssue.js prompt bundlediff-ios > ci-ai/bundlediff-ios-ai-prompt.md || \
+              echo "AI prompt generation failed; inspect the failed step log and stats-ios-head.log." > ci-ai/bundlediff-ios-ai-prompt.md
           else
             echo "AI prompt helper is not present on this checked-out ref; use the compare job diagnostics artifact." > ci-ai/bundlediff-ios-ai-prompt.md
           fi
@@ -67,7 +68,7 @@ jobs:
           exit "$status"
 
       - name: Upload iOS head AI diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: ci-ai-bundlediff-ios-head
@@ -76,6 +77,16 @@ jobs:
             ci-ai/stats-ios-head.log
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Explain iOS head bundle diff failure diagnostics
+        if: failure()
+        run: |
+          {
+            echo "### CI diagnostics"
+            echo "- Download artifact: \`ci-ai-bundlediff-ios-head\`"
+            echo "- Open: \`stats-ios-head.log\` and \`bundlediff-ios-ai-prompt.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=CI diagnostics::Download ci-ai-bundlediff-ios-head and inspect stats-ios-head.log"
 
       - name: Upload stats.json
         uses: actions/upload-artifact@v4
@@ -108,7 +119,8 @@ jobs:
         run: |
           mkdir -p ci-ai
           if [ -f .github/scripts/ciFailureIssue.js ]; then
-            node .github/scripts/ciFailureIssue.js prompt bundlediff-ios > ci-ai/bundlediff-ios-ai-prompt.md
+            node .github/scripts/ciFailureIssue.js prompt bundlediff-ios > ci-ai/bundlediff-ios-ai-prompt.md || \
+              echo "AI prompt generation failed; inspect the failed step log and stats-ios-base.log." > ci-ai/bundlediff-ios-ai-prompt.md
           else
             echo "AI prompt helper is not present on this checked-out ref; use the compare job diagnostics artifact." > ci-ai/bundlediff-ios-ai-prompt.md
           fi
@@ -136,7 +148,7 @@ jobs:
           exit "$status"
 
       - name: Upload iOS base AI diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: ci-ai-bundlediff-ios-base
@@ -145,6 +157,16 @@ jobs:
             ci-ai/stats-ios-base.log
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Explain iOS base bundle diff failure diagnostics
+        if: failure()
+        run: |
+          {
+            echo "### CI diagnostics"
+            echo "- Download artifact: \`ci-ai-bundlediff-ios-base\`"
+            echo "- Open: \`stats-ios-base.log\` and \`bundlediff-ios-ai-prompt.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=CI diagnostics::Download ci-ai-bundlediff-ios-base and inspect stats-ios-base.log"
 
       - name: Upload stats.json
         uses: actions/upload-artifact@v4
@@ -157,13 +179,24 @@ jobs:
     name: 'Compare base & head bundle sizes'
     runs-on: ubuntu-24.04
     needs: [build-ios-base, build-ios-head]
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
-      - uses: actions/checkout@v4
-
       - name: Write iOS bundle diff compare AI prompt
         run: |
           mkdir -p ci-ai
-          node .github/scripts/ciFailureIssue.js prompt bundlediff-ios > ci-ai/bundlediff-ios-ai-prompt.md
+          cat > ci-ai/bundlediff-ios-ai-prompt.md <<'EOF'
+          ## AI Triage Prompt
+
+          Fix the OneKey iOS bundle diff failure by comparing head/base Metro stats and reducing unintended native bundle growth.
+
+          ### Start Here
+          - Inspect the failed compare action log first.
+          - Download artifacts: `head-stats`, `base-stats`, and `ci-ai-bundlediff-ios-*`.
+          - Compare `head-stats/stats.json` and `base-stats/stats.json` for modules newly entering main UI JS runtime, background JS runtime, common code, or shared vendor chunks.
+          - Do not hide bundle growth by weakening compare thresholds or removing stats output.
+          EOF
 
       - uses: actions/download-artifact@v4.1.7
 
@@ -175,10 +208,21 @@ jobs:
           base-stats-json-path: ./base-stats/stats.json
 
       - name: Upload iOS compare AI diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: ci-ai-bundlediff-ios-compare
           path: ci-ai/bundlediff-ios-ai-prompt.md
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Explain iOS compare failure diagnostics
+        if: failure()
+        run: |
+          {
+            echo "### CI diagnostics"
+            echo "- Download artifact: \`ci-ai-bundlediff-ios-compare\`"
+            echo "- Also download: \`head-stats\` and \`base-stats\`"
+            echo "- Open: \`bundlediff-ios-ai-prompt.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=CI diagnostics::Download ci-ai-bundlediff-ios-compare plus head-stats/base-stats"

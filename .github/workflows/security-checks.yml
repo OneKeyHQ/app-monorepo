@@ -51,7 +51,8 @@ jobs:
       - name: Write security checks AI prompt
         run: |
           mkdir -p ci-ai
-          node .github/scripts/ciFailureIssue.js prompt security-checks > ci-ai/security-checks-ai-prompt.md
+          node .github/scripts/ciFailureIssue.js prompt security-checks > ci-ai/security-checks-ai-prompt.md || \
+            echo "AI prompt generation failed; inspect the failed step log and minimum-release-age.log." > ci-ai/security-checks-ai-prompt.md
 
       - name: Install Dependency
         env:
@@ -70,7 +71,7 @@ jobs:
           exit "$status"
 
       - name: Upload security checks AI diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: ci-ai-security-checks-diagnostics
@@ -79,3 +80,13 @@ jobs:
             ci-ai/minimum-release-age.log
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Explain security check failure diagnostics
+        if: failure()
+        run: |
+          {
+            echo "### CI diagnostics"
+            echo "- Download artifact: \`ci-ai-security-checks-diagnostics\`"
+            echo "- Open: \`minimum-release-age.log\` and \`security-checks-ai-prompt.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=CI diagnostics::Download ci-ai-security-checks-diagnostics and inspect minimum-release-age.log"

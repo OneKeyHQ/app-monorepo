@@ -42,7 +42,8 @@ jobs:
       - name: Write bundle architecture AI prompt
         run: |
           mkdir -p ci-ai
-          node .github/scripts/ciFailureIssue.js prompt bundle-architecture > ci-ai/bundle-architecture-ai-prompt.md
+          node .github/scripts/ciFailureIssue.js prompt bundle-architecture > ci-ai/bundle-architecture-ai-prompt.md || \
+            echo "AI prompt generation failed; inspect the failed step log and bundle architecture logs." > ci-ai/bundle-architecture-ai-prompt.md
 
       - name: Install Dependencies
         env:
@@ -94,6 +95,16 @@ jobs:
             apps/mobile/dist/allocation-report-*.json
             apps/mobile/dist/segment-manifest*.json
           if-no-files-found: warn
+
+      - name: Explain bundle architecture failure diagnostics
+        if: failure()
+        run: |
+          {
+            echo "### CI diagnostics"
+            echo "- Download artifact: \`allocation-reports\`"
+            echo "- Open: \`bundle-architecture-check.log\`, \`bundle-architecture-union-build.log\`, and \`bundle-architecture-ai-prompt.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=CI diagnostics::Download allocation-reports and inspect bundle-architecture-check.log"
 
   notify-failure:
     name: Notify on Failure

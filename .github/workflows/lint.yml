@@ -45,7 +45,8 @@ jobs:
       - name: Write lint AI prompt
         run: |
           mkdir -p ci-ai
-          node .github/scripts/ciFailureIssue.js prompt lint > ci-ai/lint-ai-prompt.md
+          node .github/scripts/ciFailureIssue.js prompt lint > ci-ai/lint-ai-prompt.md || \
+            echo "AI prompt generation failed; inspect the failed step log and lint-output.log." > ci-ai/lint-ai-prompt.md
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
@@ -60,7 +61,6 @@ jobs:
 
       - name: Run lint
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
           mkdir -p ci-ai
@@ -71,7 +71,7 @@ jobs:
           exit "$status"
 
       - name: Upload lint AI diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: ci-ai-lint-diagnostics
@@ -80,3 +80,13 @@ jobs:
             ci-ai/lint-output.log
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Explain lint failure diagnostics
+        if: failure()
+        run: |
+          {
+            echo "### CI diagnostics"
+            echo "- Download artifact: \`ci-ai-lint-diagnostics\`"
+            echo "- Open: \`lint-output.log\` and \`lint-ai-prompt.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=CI diagnostics::Download ci-ai-lint-diagnostics and inspect lint-output.log"

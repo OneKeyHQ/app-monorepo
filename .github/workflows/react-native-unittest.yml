@@ -43,7 +43,8 @@ jobs:
       - name: Write RN unit AI prompt
         run: |
           mkdir -p ci-ai
-          node .github/scripts/ciFailureIssue.js prompt react-native-unittest > ci-ai/react-native-unittest-ai-prompt.md
+          node .github/scripts/ciFailureIssue.js prompt react-native-unittest > ci-ai/react-native-unittest-ai-prompt.md || \
+            echo "AI prompt generation failed; inspect the failed step log and RN harness/logcat logs." > ci-ai/react-native-unittest-ai-prompt.md
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -85,7 +86,7 @@ jobs:
           AVD_DIR=$(dirname "$AVD_INI")
           echo "Found AVD ini at: $AVD_INI"
           echo "Setting ANDROID_AVD_HOME=$AVD_DIR"
-          echo "ANDROID_AVD_HOME=$AVD_DIR" >> $GITHUB_ENV
+          echo "ANDROID_AVD_HOME=$AVD_DIR" >> "$GITHUB_ENV"
 
       - name: Install Dependencies
         env:
@@ -153,7 +154,7 @@ jobs:
 
       - name: Start Android Emulator
         run: |
-          $ANDROID_HOME/emulator/emulator -avd test_avd -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save -memory 6144 &
+          "$ANDROID_HOME/emulator/emulator" -avd test_avd -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save -memory 6144 &
           adb wait-for-device
           SECONDS=0
           TIMEOUT=300
@@ -179,7 +180,6 @@ jobs:
       - name: Run Harness Tests (Android)
         timeout-minutes: 60
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HARNESS_ANDROID_AVD: test_avd
         working-directory: apps/mobile
         run: |
@@ -204,7 +204,7 @@ jobs:
           } | tee ci-ai/app-logcat.txt
 
       - name: Upload RN unit AI diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: ci-ai-rn-unittest-diagnostics
@@ -215,6 +215,16 @@ jobs:
             ci-ai/app-logcat.txt
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Explain RN unit failure diagnostics
+        if: failure()
+        run: |
+          {
+            echo "### CI diagnostics"
+            echo "- Download artifact: \`ci-ai-rn-unittest-diagnostics\`"
+            echo "- Open: \`react-native-harness-android.log\`, \`logcat-tail.txt\`, \`app-logcat.txt\`, and \`react-native-unittest-ai-prompt.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=CI diagnostics::Download ci-ai-rn-unittest-diagnostics and inspect react-native-harness-android.log"
 
   notify-failure:
     name: Notify on Failure

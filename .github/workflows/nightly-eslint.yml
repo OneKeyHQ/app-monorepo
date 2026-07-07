@@ -42,7 +42,8 @@ jobs:
       - name: Write ESLint AI prompt
         run: |
           mkdir -p ci-ai
-          node .github/scripts/ciFailureIssue.js prompt eslint > ci-ai/eslint-ai-prompt.md
+          node .github/scripts/ciFailureIssue.js prompt eslint > ci-ai/eslint-ai-prompt.md || \
+            echo "AI prompt generation failed; inspect the failed step log and eslint-output.log." > ci-ai/eslint-ai-prompt.md
 
       - name: Install Dependencies
         env:
@@ -62,7 +63,7 @@ jobs:
           exit "$status"
 
       - name: Upload ESLint AI diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: ci-ai-eslint-diagnostics
@@ -71,6 +72,16 @@ jobs:
             ci-ai/eslint-output.log
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Explain ESLint failure diagnostics
+        if: failure()
+        run: |
+          {
+            echo "### CI diagnostics"
+            echo "- Download artifact: \`ci-ai-eslint-diagnostics\`"
+            echo "- Open: \`eslint-output.log\` and \`eslint-ai-prompt.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=CI diagnostics::Download ci-ai-eslint-diagnostics and inspect eslint-output.log"
 
   notify-failure:
     name: Notify on Failure

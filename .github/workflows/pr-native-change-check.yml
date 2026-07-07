@@ -45,16 +45,20 @@ jobs:
               echo "::error::Invalid head_ref: $INPUT_HEAD"
               exit 1
             fi
-            echo "base=$INPUT_BASE" >> "$GITHUB_OUTPUT"
-            echo "head=$INPUT_HEAD" >> "$GITHUB_OUTPUT"
-            echo "is_pr=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "base=$INPUT_BASE"
+              echo "head=$INPUT_HEAD"
+              echo "is_pr=false"
+            } >> "$GITHUB_OUTPUT"
             # Fetch refs that may not exist locally
             git fetch origin "$INPUT_BASE" --no-tags 2>/dev/null || true
             git fetch origin "$INPUT_HEAD" --no-tags 2>/dev/null || true
           else
-            echo "base=origin/$PR_BASE" >> "$GITHUB_OUTPUT"
-            echo "head=HEAD" >> "$GITHUB_OUTPUT"
-            echo "is_pr=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "base=origin/$PR_BASE"
+              echo "head=HEAD"
+              echo "is_pr=true"
+            } >> "$GITHUB_OUTPUT"
           fi
 
       - name: Detect native changes
