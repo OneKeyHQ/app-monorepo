@@ -78,20 +78,22 @@ const overviewLoadingFallback = <ModuleLoadingFallback minHeight={240} />;
 
 const LazyMarketTradingView = LazyLoad<IMarketTradingViewProps>(
   () =>
-    import('../components/MarketTradingView/MarketTradingView').then(
-      ({ MarketTradingView }) => ({
-        default: (props: IMarketTradingViewProps) => (
-          <MarketTradingView {...props} />
-        ),
-      }),
-    ),
+    import(
+      /* webpackChunkName: "market-detail-v2-tradingview" */ '../components/MarketTradingView/MarketTradingView'
+    ).then(({ MarketTradingView }) => ({
+      default: (props: IMarketTradingViewProps) => (
+        <MarketTradingView {...props} />
+      ),
+    })),
   undefined,
   chartLoadingFallback,
 );
 
 const LazySwapPanel = LazyLoad<ISwapPanelProps>(
   () =>
-    import('../components/SwapPanel/SwapPanel').then(({ SwapPanel }) => ({
+    import(
+      /* webpackChunkName: "market-detail-v2-swap-panel" */ '../components/SwapPanel/SwapPanel'
+    ).then(({ SwapPanel }) => ({
       default: SwapPanel,
     })),
   undefined,
@@ -100,44 +102,44 @@ const LazySwapPanel = LazyLoad<ISwapPanelProps>(
 
 const LazySwapPanelWrap = LazyLoad<ISwapPanelWrapProps>(
   () =>
-    import('../components/SwapPanel/SwapPanelWrap').then(
-      ({ SwapPanelWrap }) => ({
-        default: SwapPanelWrap,
-      }),
-    ),
+    import(
+      /* webpackChunkName: "market-detail-v2-swap-panel-wrap" */ '../components/SwapPanel/SwapPanelWrap'
+    ).then(({ SwapPanelWrap }) => ({
+      default: SwapPanelWrap,
+    })),
   undefined,
   swapPanelLoadingFallback,
 );
 
 const LazyTokenActivityOverview = LazyLoad<ITokenActivityOverviewProps>(
   () =>
-    import('../components/TokenActivityOverview/TokenActivityOverview').then(
-      ({ TokenActivityOverview }) => ({
-        default: TokenActivityOverview,
-      }),
-    ),
+    import(
+      /* webpackChunkName: "market-detail-v2-token-activity-overview" */ '../components/TokenActivityOverview/TokenActivityOverview'
+    ).then(({ TokenActivityOverview }) => ({
+      default: TokenActivityOverview,
+    })),
   undefined,
   overviewLoadingFallback,
 );
 
 const LazyTokenOverview = LazyLoad<Record<string, never>>(
   () =>
-    import('../components/TokenOverview/TokenOverview').then(
-      ({ TokenOverview }) => ({
-        default: TokenOverview,
-      }),
-    ),
+    import(
+      /* webpackChunkName: "market-detail-v2-token-overview" */ '../components/TokenOverview/TokenOverview'
+    ).then(({ TokenOverview }) => ({
+      default: TokenOverview,
+    })),
   undefined,
   overviewLoadingFallback,
 );
 
 const LazyStockTokenOverview = LazyLoad<Record<string, never>>(
   () =>
-    import('../components/TokenOverview/StockTokenOverview').then(
-      ({ StockTokenOverview }) => ({
-        default: StockTokenOverview,
-      }),
-    ),
+    import(
+      /* webpackChunkName: "market-detail-v2-stock-token-overview" */ '../components/TokenOverview/StockTokenOverview'
+    ).then(({ StockTokenOverview }) => ({
+      default: StockTokenOverview,
+    })),
   undefined,
   overviewLoadingFallback,
 );
@@ -671,12 +673,13 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
           </YStack>
         ))}
       </ScrollView>
-      <LazySwapPanel
-        swapToken={toSwapPanelToken}
-        portfolioData={portfolioData}
-        disableTrade={disableTrade}
-        onShowSwapDialog={showSwapDialog}
-      />
+      {disableTrade ? null : (
+        <LazySwapPanel
+          swapToken={toSwapPanelToken}
+          portfolioData={portfolioData}
+          onShowSwapDialog={showSwapDialog}
+        />
+      )}
     </YStack>
   );
 }

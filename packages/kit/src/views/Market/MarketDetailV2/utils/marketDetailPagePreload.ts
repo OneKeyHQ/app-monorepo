@@ -1,17 +1,49 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-type IMarketDetailLayoutPreloadTarget = 'desktop' | 'mobile';
+export type IMarketDetailLayoutPreloadTarget = 'desktop' | 'mobile';
+type IMarketDetailV2Module = typeof import('../index');
+
+let marketDetailV2ShellModule: IMarketDetailV2Module | undefined;
+let marketDetailV2ShellPromise: Promise<IMarketDetailV2Module> | undefined;
 
 function shouldSkipMarketDetailPreload() {
   return platformEnv.isJest || process.env.NODE_ENV === 'test';
 }
 
-function preloadMarketDetailV2Shell() {
-  if (shouldSkipMarketDetailPreload()) {
-    return;
+export function loadMarketDetailV2Shell() {
+  if (marketDetailV2ShellModule) {
+    return Promise.resolve(marketDetailV2ShellModule);
   }
 
-  void import(/* webpackPrefetch: true */ '../index').catch(() => undefined);
+  if (!marketDetailV2ShellPromise) {
+    marketDetailV2ShellPromise = import(
+      /* webpackChunkName: "market-detail-v2", webpackPrefetch: true */ '../index'
+    )
+      .then((module) => {
+        marketDetailV2ShellModule = module;
+        return module;
+      })
+      .catch((error: unknown) => {
+        marketDetailV2ShellPromise = undefined;
+        throw error;
+      });
+  }
+
+  return marketDetailV2ShellPromise;
+}
+
+export function getPreloadedMarketDetailV2Shell() {
+  return marketDetailV2ShellModule;
+}
+
+function preloadMarketDetailV2Shell() {
+  if (shouldSkipMarketDetailPreload()) {
+    return Promise.resolve();
+  }
+
+  return loadMarketDetailV2Shell()
+    .then(() => undefined)
+    .catch(() => undefined);
 }
 
 function resolveDefaultLayoutTarget(): IMarketDetailLayoutPreloadTarget {
@@ -26,15 +58,15 @@ export function preloadMarketDetailV2Layout(
   }
 
   if (target === 'desktop') {
-    void import(/* webpackPrefetch: true */ '../layouts/DesktopLayout').catch(
-      () => undefined,
-    );
+    void import(
+      /* webpackChunkName: "market-detail-v2-desktop-layout", webpackPrefetch: true */ '../layouts/DesktopLayout'
+    ).catch(() => undefined);
     return;
   }
 
-  void import(/* webpackPrefetch: true */ '../layouts/MobileLayout').catch(
-    () => undefined,
-  );
+  void import(
+    /* webpackChunkName: "market-detail-v2-mobile-layout", webpackPrefetch: true */ '../layouts/MobileLayout'
+  ).catch(() => undefined);
 }
 
 export function preloadMarketDetailV2TradingView() {
@@ -43,7 +75,7 @@ export function preloadMarketDetailV2TradingView() {
   }
 
   void import(
-    /* webpackPrefetch: true */ '../components/MarketTradingView/MarketTradingView'
+    /* webpackChunkName: "market-detail-v2-tradingview", webpackPrefetch: true */ '../components/MarketTradingView/MarketTradingView'
   ).catch(() => undefined);
 }
 
@@ -55,11 +87,11 @@ export function preloadMarketDetailV2SwapPanel(
   }
 
   void import(
-    /* webpackPrefetch: true */ '../components/SwapPanel/SwapPanel'
+    /* webpackChunkName: "market-detail-v2-swap-panel", webpackPrefetch: true */ '../components/SwapPanel/SwapPanel'
   ).catch(() => undefined);
   if (target === 'mobile') {
     void import(
-      /* webpackPrefetch: true */ '../components/SwapPanel/SwapPanelWrap'
+      /* webpackChunkName: "market-detail-v2-swap-panel-wrap", webpackPrefetch: true */ '../components/SwapPanel/SwapPanelWrap'
     ).catch(() => undefined);
   }
 }
@@ -73,7 +105,7 @@ export function preloadMarketDetailV2InfoPanel(
 
   if (target === 'desktop') {
     void import(
-      /* webpackPrefetch: true */ '../components/InformationTabs/layout/DesktopInformationTabs'
+      /* webpackChunkName: "market-detail-v2-desktop-info-tabs", webpackPrefetch: true */ '../components/InformationTabs/layout/DesktopInformationTabs'
     ).catch(() => undefined);
   }
 }
@@ -99,13 +131,17 @@ export function preloadMarketDetailV2BodyModules({
 export function preloadMarketDetailV2Page({
   includeBodyModules = false,
   includeHeavyModules = false,
+  layout = resolveDefaultLayoutTarget(),
 }: {
   includeBodyModules?: boolean;
   includeHeavyModules?: boolean;
+  layout?: IMarketDetailLayoutPreloadTarget;
 } = {}) {
-  preloadMarketDetailV2Shell();
+  const shellPreloadPromise = preloadMarketDetailV2Shell();
 
   if (includeBodyModules) {
-    preloadMarketDetailV2BodyModules({ includeHeavyModules });
+    preloadMarketDetailV2BodyModules({ layout, includeHeavyModules });
   }
+
+  return shellPreloadPromise;
 }

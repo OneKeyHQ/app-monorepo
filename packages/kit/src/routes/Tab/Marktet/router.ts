@@ -8,6 +8,7 @@ import {
   LazyLoadPage,
   LazyLoadRootTabPage,
 } from '../../../components/LazyLoadPage';
+import { createMarketDetailV2Route } from '../../../views/Market/MarketDetailV2/MarketDetailV2Route';
 import { RootTabLoadingFallback } from '../RootTabLoadingFallback';
 
 import { MarketDetailV2LoadingFallback } from './MarketDetailV2LoadingFallback';
@@ -21,11 +22,7 @@ const MarketDetail = LazyLoadPage(
   () => import('../../../views/Market/MarketDetail'),
 );
 
-const MarketDetailV2 = LazyLoadPage(
-  () =>
-    import(/* webpackPrefetch: true */ '../../../views/Market/MarketDetailV2'),
-  undefined,
-  undefined,
+const MarketDetailV2 = createMarketDetailV2Route(
   createElement(MarketDetailV2LoadingFallback),
 );
 

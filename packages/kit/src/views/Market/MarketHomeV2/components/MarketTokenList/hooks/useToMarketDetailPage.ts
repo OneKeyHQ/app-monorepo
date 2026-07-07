@@ -4,6 +4,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   ESplitViewType,
   rootNavigationRef,
+  useMedia,
   useSplitViewType,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -56,9 +57,12 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
   const tokenDetailActions = useTokenDetailActions();
   const splitViewType = useSplitViewType();
+  const media = useMedia();
+  const preloadLayout =
+    media.gtLg && !platformEnv.isNative ? 'desktop' : 'mobile';
 
   useEffect(() => {
-    preloadMarketDetailV2Page();
+    void preloadMarketDetailV2Page();
   }, []);
 
   const preparePreviewTokenDetail = useCallback(
@@ -90,9 +94,10 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
   const toMarketDetailPage = useCallback(
     async (item: IMarketToken) => {
-      preloadMarketDetailV2Page({
+      const marketDetailShellPreloadPromise = preloadMarketDetailV2Page({
         includeBodyModules: true,
         includeHeavyModules: true,
+        layout: preloadLayout,
       });
       const shortCode = networkUtils.getNetworkShortCode({
         networkId: item.networkId,
@@ -139,6 +144,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           : ETabRoutes.Market;
 
         if (platformEnv.isNative) {
+          await marketDetailShellPreloadPromise;
           // Navigate directly to the nested detail route to avoid briefly
           // revealing the Discovery root page before entering Market detail.
           rootNavigationRef.current?.navigate(ERootRoutes.Main, {
@@ -176,6 +182,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           );
         }
 
+        if (platformEnv.isNative) {
+          await marketDetailShellPreloadPromise;
+        }
         navigation.push(ETabMarketRoutes.MarketDetailV2, params);
       }
     },
@@ -185,6 +194,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       options?.switchToMarketTabFirst,
       options?.from,
       options?.showFavoriteButton,
+      preloadLayout,
       splitViewType,
     ],
   );

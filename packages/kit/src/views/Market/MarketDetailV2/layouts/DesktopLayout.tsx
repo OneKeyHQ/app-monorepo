@@ -88,24 +88,24 @@ const infoTabsLoadingFallback = (
 
 const LazyMarketTradingView = LazyLoad<IMarketTradingViewProps>(
   () =>
-    import('../components/MarketTradingView/MarketTradingView').then(
-      ({ MarketTradingView }) => ({
-        default: (props: IMarketTradingViewProps) => (
-          <MarketTradingView {...props} />
-        ),
-      }),
-    ),
+    import(
+      /* webpackChunkName: "market-detail-v2-tradingview" */ '../components/MarketTradingView/MarketTradingView'
+    ).then(({ MarketTradingView }) => ({
+      default: (props: IMarketTradingViewProps) => (
+        <MarketTradingView {...props} />
+      ),
+    })),
   undefined,
   chartLoadingFallback,
 );
 
 const LazyDesktopInformationTabs = LazyLoad<IDesktopInformationTabsProps>(
   () =>
-    import('../components/InformationTabs/layout/DesktopInformationTabs').then(
-      ({ DesktopInformationTabs }) => ({
-        default: DesktopInformationTabs,
-      }),
-    ),
+    import(
+      /* webpackChunkName: "market-detail-v2-desktop-info-tabs" */ '../components/InformationTabs/layout/DesktopInformationTabs'
+    ).then(({ DesktopInformationTabs }) => ({
+      default: DesktopInformationTabs,
+    })),
   undefined,
   infoTabsLoadingFallback,
 );

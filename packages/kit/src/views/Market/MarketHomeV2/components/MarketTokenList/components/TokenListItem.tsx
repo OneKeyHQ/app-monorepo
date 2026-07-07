@@ -1,7 +1,12 @@
 import type { FC } from 'react';
 import { memo, useCallback } from 'react';
 
-import { NumberSizeableText, XStack, useThemeName } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  XStack,
+  useMedia,
+  useThemeName,
+} from '@onekeyhq/components';
 import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -62,18 +67,22 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
   isDragging,
 }) => {
   const themeName = useThemeName();
+  const media = useMedia();
   const isDarkMode = themeName?.includes('dark');
   const isHighlighted = Boolean(isPrimed || (isDragging && isDarkMode));
   const priceChange =
     item.priceChangeRaw === '-' ? item.priceChangeRaw : item.change24h;
+  const preloadLayout =
+    media.gtLg && !platformEnv.isNative ? 'desktop' : 'mobile';
 
   const prewarmTokenDetail = useCallback(() => {
-    preloadMarketDetailV2Page({
+    void preloadMarketDetailV2Page({
       includeBodyModules: true,
       includeHeavyModules: true,
+      layout: preloadLayout,
     });
     prewarmMarketTokenImages(item);
-  }, [item]);
+  }, [item, preloadLayout]);
 
   const handlePressIn = useCallback(
     (event: GestureResponderEvent) => {
