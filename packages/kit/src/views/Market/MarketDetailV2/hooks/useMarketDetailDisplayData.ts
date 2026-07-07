@@ -35,6 +35,7 @@ function buildPreviewTokenDetail(
     volume24h: toDisplayNumber(tokenDetailPreview.turnover),
     communityRecognized: tokenDetailPreview.communityRecognized,
     stock: tokenDetailPreview.stock,
+    lastUpdated: tokenDetailPreview.selectedAt,
   };
 }
 
