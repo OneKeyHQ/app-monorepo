@@ -46,7 +46,7 @@ export function buildTrezorSolSignTransactionParams({
   path: string;
   serializedTx: string;
   ataDetails?: IATADetails[];
-  encodedToken?: ArrayBuffer;
+  encodedToken?: string;
 }) {
   const additionalInfo =
     ataDetails?.length || encodedToken

@@ -514,6 +514,9 @@ export interface IAppEventBusPayload {
     mode: 'perp' | 'spot';
     coin: string;
   };
+  [EAppEventBusNames.PerpSwitchInfoPanelTab]: {
+    tab: 'Positions' | 'Balances';
+  };
   [EAppEventBusNames.HyperliquidConnectionChange]: {
     type: 'connection';
     subType: 'datastream';

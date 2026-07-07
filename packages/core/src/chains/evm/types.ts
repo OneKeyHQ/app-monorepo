@@ -27,8 +27,8 @@ export type IEncodedTxEvm = {
 };
 
 export type IEvmEthereumDefinitions = {
-  encodedNetwork?: ArrayBuffer | string;
-  encodedToken?: ArrayBuffer | string;
+  encodedNetwork?: string;
+  encodedToken?: string;
 };
 
 export type IEvmPaymentRequestMemo = {
