@@ -1355,9 +1355,20 @@ export function useSwapProSupportNetworksTokenList(
   }
   const { swapProLoadSupportNetworksTokenListRun } =
     useSwapPositionsSupportTokenListAction();
+  const lastPositionsLoadKeyRef = useRef<string | undefined>(undefined);
   useEffect(() => {
+    const loadKey = `${positionOwnerKey ?? ''}:${positionNetworkIdsKey}`;
+    if (lastPositionsLoadKeyRef.current === loadKey) {
+      return;
+    }
+    lastPositionsLoadKeyRef.current = loadKey;
     void swapProLoadSupportNetworksTokenListRun(networkList);
-  }, [swapProLoadSupportNetworksTokenListRun, networkList]);
+  }, [
+    networkList,
+    positionNetworkIdsKey,
+    positionOwnerKey,
+    swapProLoadSupportNetworksTokenListRun,
+  ]);
 
   const checkSyncOrderTokenBalance = useCallback(
     async ({

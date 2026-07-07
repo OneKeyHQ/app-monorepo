@@ -1,3 +1,5 @@
+import { useMemo, useRef } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Empty, Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
@@ -17,6 +19,20 @@ import SwapProPositionListFooter from '../../components/SwapProPositionListFoote
 import SwapProPositionListHeader from '../../components/SwapProPositionListHeader';
 import { useSwapProPositionsListFilter } from '../../hooks/useSwapPro';
 import { useSwapProPositionsPnl } from '../../hooks/useSwapProPositionsPnl';
+
+const EMPTY_STOCK_METADATA_REQUESTS: {
+  key: string;
+  contractAddress: string;
+  chainId: string;
+  isNative: boolean;
+}[] = [];
+const EMPTY_STOCK_TOKEN_KEYS: string[] = [];
+
+function buildStockPositionTokenKey(token: ISwapToken) {
+  return `${token.networkId}:${(token.contractAddress ?? '').toLowerCase()}:${
+    token.isNative ? 'native' : 'token'
+  }`;
+}
 
 function SwapProPositionItemSkeleton() {
   return (
@@ -94,15 +110,41 @@ const SwapProPositionsList = ({
   );
   const [settings] = useSettingsPersistAtom();
 
+  const stockMetadataRequest = useMemo(() => {
+    if (!stockOnly) {
+      return {
+        key: '',
+        tokenAddressList: EMPTY_STOCK_METADATA_REQUESTS,
+      };
+    }
+    const tokenAddressList = finallyTokenList.map((token) => ({
+      key: buildStockPositionTokenKey(token),
+      contractAddress: token.contractAddress ?? '',
+      chainId: token.networkId,
+      isNative: !!token.isNative,
+    }));
+    return {
+      key: tokenAddressList.map((token) => token.key).join('|'),
+      tokenAddressList,
+    };
+  }, [finallyTokenList, stockOnly]);
+  const stockMetadataRequestKey = stockMetadataRequest.key;
+  const stockMetadataRequestRef = useRef(stockMetadataRequest);
+  stockMetadataRequestRef.current = stockMetadataRequest;
+
   // In the stock context, resolve which holdings are actually stocks by
-  // querying the server market metadata (account-holding tokens do NOT carry
-  // isStock, so the client-side field is unreliable here).
-  const { result: stockTokenList } = usePromiseResult(async () => {
+  // querying the server market metadata. Keep only stable token keys in async
+  // state; the rendered token rows are derived from the latest token list.
+  const { result: stockTokenKeys } = usePromiseResult(async () => {
+    const request = stockMetadataRequestRef.current;
     if (!stockOnly) {
       return undefined;
     }
-    if (!finallyTokenList.length) {
-      return [] as ISwapToken[];
+    if (request.key !== stockMetadataRequestKey) {
+      return EMPTY_STOCK_TOKEN_KEYS;
+    }
+    if (!request.tokenAddressList.length) {
+      return EMPTY_STOCK_TOKEN_KEYS;
     }
     // Let a fetch failure throw rather than swallowing it into an empty list:
     // usePromiseResult then keeps the previous successful result instead of
@@ -110,18 +152,31 @@ const SwapProPositionsList = ({
     const response =
       await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
         requestLocale: settings.locale,
-        tokenAddressList: finallyTokenList.map((token) => ({
-          contractAddress: token.contractAddress ?? '',
-          chainId: token.networkId,
-          isNative: !!token.isNative,
-        })),
+        tokenAddressList: request.tokenAddressList.map(
+          ({ chainId, contractAddress, isNative }) => ({
+            contractAddress,
+            chainId,
+            isNative,
+          }),
+        ),
       });
     const list = response.list ?? [];
-    // response.list is index-aligned with tokenAddressList: keep only the
-    // holdings whose server entry has a truthy .stock field, and mark the
-    // selected row as Stock-owned before it reaches downstream swap handlers.
-    return finallyTokenList.flatMap((token, i) =>
-      list[i]?.stock
+    // response.list is index-aligned with tokenAddressList.
+    return request.tokenAddressList.flatMap((token, i) =>
+      list[i]?.stock ? [token.key] : [],
+    );
+  }, [settings.locale, stockMetadataRequestKey, stockOnly]);
+
+  const stockTokenKeySet = useMemo(
+    () => new Set(stockTokenKeys ?? EMPTY_STOCK_TOKEN_KEYS),
+    [stockTokenKeys],
+  );
+  const stockTokenList = useMemo(() => {
+    if (!stockOnly || !stockTokenKeys) {
+      return undefined;
+    }
+    return finallyTokenList.flatMap((token) =>
+      stockTokenKeySet.has(buildStockPositionTokenKey(token))
         ? [
             {
               ...token,
@@ -130,7 +185,7 @@ const SwapProPositionsList = ({
           ]
         : [],
     );
-  }, [finallyTokenList, settings.locale, stockOnly]);
+  }, [finallyTokenList, stockOnly, stockTokenKeySet, stockTokenKeys]);
 
   // The stock list is undefined until the first batch resolves; treat that as a
   // loading state (skeleton below) so the list never flashes "No results" while
