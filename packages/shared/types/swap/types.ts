@@ -94,6 +94,30 @@ export enum ESwapSource {
   PERP = 'perp',
 }
 
+export enum ESwapAnalyticsCategory {
+  SWAP = 'Swap',
+  BRIDGE = 'Bridge',
+  LIMIT = 'Limit',
+  STOCK = 'Stock',
+}
+
+export enum ESwapAnalyticsEnterFrom {
+  HOME_TAB = 'homeTab',
+  TOKEN_DETAIL = 'tokenDetail',
+  MARKET = 'market',
+  EARN = 'earn',
+  OTHERS = 'others',
+}
+
+export enum EStockTradeAlertType {
+  MIN_AMOUNT = 'minAmount',
+  MAX_AMOUNT = 'maxAmount',
+  REGION_RESTRICTED = 'regionRestricted',
+  MARKET_CLOSED = 'marketClosed',
+  UNKNOWN = 'unknown',
+  OTHER = 'other',
+}
+
 export enum ESwapSelectTokenSource {
   NORMAL_SELECT = 'normal_select',
   POPULAR_SELECT = 'popular_select',

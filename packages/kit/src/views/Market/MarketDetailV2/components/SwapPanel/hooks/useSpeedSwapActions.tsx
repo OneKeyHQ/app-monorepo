@@ -28,6 +28,10 @@ import type {
   ISwapReviewGasInfoEntry,
   ISwapReviewState,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
+import {
+  getStockTradeAnalyticsPayload,
+  getSwapAnalyticsCategoryFromQuoteResult,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapStockAnalytics';
 import { getSwapExecutionTypeFromQuoteResult } from '@onekeyhq/kit/src/views/Swap/utils/swapTypeUtils';
 import {
   useCurrencyPersistAtom,
@@ -1105,6 +1109,7 @@ export function useSpeedSwapActions(props: {
         swapProvider: buildRes.result?.info.provider ?? '',
         swapProviderName: buildRes.result?.info.providerName ?? '',
         swapType: getSwapExecutionTypeFromQuoteResult(buildRes.result),
+        orderType: getSwapAnalyticsCategoryFromQuoteResult(buildRes.result),
         slippage: slippage.toString(),
         sourceChain: fromToken.networkId ?? '',
         receivedChain: toToken.networkId ?? '',
@@ -1114,6 +1119,11 @@ export function useSpeedSwapActions(props: {
         router: JSON.stringify(buildRes.result?.routesData ?? ''),
         isFirstTime: settingsAtom.isFirstTimeSwap,
         createFrom: 'marketDex',
+        ...getStockTradeAnalyticsPayload({
+          protocol: buildRes.result?.protocol,
+          fromToken: buildRes.result?.fromTokenInfo,
+          toToken: buildRes.result?.toTokenInfo,
+        }),
       });
     },
     [
