@@ -35,7 +35,6 @@ import type {
   IXStackProps,
   IYStackProps,
 } from '../../primitives';
-import type { FontSizeTokens } from '../../shared/tamagui';
 import type {
   LayoutChangeEvent,
   NativeScrollEvent,
@@ -57,7 +56,7 @@ const PILL_SCROLL_CONTENT_STYLE = {
   py: '$2',
 } as const;
 const TEXT_SCROLL_CONTENT_STYLE = {
-  px: '$2',
+  px: '$2.5',
   py: '$2',
 } as const;
 const DIRECT_TAB_PRESS_ANIMATION_DURATION = 220;
@@ -104,26 +103,39 @@ function AnimatedTabBarItemText({
     return { color };
   });
 
-  // Text variant bumps the focused label to $headingMd; resolve the style
-  // from the font tokens so this animated path cannot drift from the
+  // Text variant labels are fixed at 18px; only the weight moves between
+  // inactive (medium) and focused (semibold). The pill variant keeps its
+  // static $bodyLgMedium label and animates color only. Resolving the native
+  // face from the weight keeps this animated path in sync with the
   // SizableText fallback path rendering the same tab.
   const baseTextStyle = useMemo(() => {
-    const sizeToken: FontSizeTokens =
-      isTextVariant && isFocused ? '$headingMd' : '$bodyLgMedium';
-    const token = getFontToken(sizeToken);
-    if (!token || typeof token !== 'object') {
-      return animatedTextStyles.text;
-    }
-    const fontWeightValue = Number(token.fontWeight ?? 500);
     // Native maps weights to explicit faces (e.g. Roobert-SemiBold); web has
     // no face map and uses the family stack with a CSS font-weight.
     const faceMap = getConfig().fontsParsed.$body?.face as
       | Partial<Record<number, { normal?: string }>>
       | undefined;
+
+    let fontSize: number;
+    let lineHeight: number;
+    let fontWeightValue: number;
+    if (isTextVariant) {
+      fontSize = fs(18);
+      lineHeight = fs(24);
+      fontWeightValue = isFocused ? 600 : 500;
+    } else {
+      const token = getFontToken('$bodyLgMedium');
+      if (!token || typeof token !== 'object') {
+        return animatedTextStyles.text;
+      }
+      fontSize = token.fontSize;
+      lineHeight = token.lineHeight;
+      fontWeightValue = Number(token.fontWeight ?? 500);
+    }
+
     const faceFamily = faceMap?.[fontWeightValue]?.normal;
     return {
-      fontSize: token.fontSize,
-      lineHeight: token.lineHeight,
+      fontSize,
+      lineHeight,
       fontWeight: String(fontWeightValue) as TextStyle['fontWeight'],
       fontFamily: faceFamily ?? webFontFamily,
     } as const;
@@ -234,7 +246,7 @@ export function TabBarItem({
         testID={testID}
         ai="center"
         jc="center"
-        px="$3"
+        px="$2.5"
         py="$1.5"
         key={name}
         onPress={handlePress}
@@ -254,8 +266,11 @@ export function TabBarItem({
             isFocused={isFocused}
           />
         ) : (
+          // Text tabs are fixed at 18px ($headingLg); only the weight moves
+          // between inactive (medium) and focused (semibold).
           <SizableText
-            size={isFocused ? '$headingMd' : resolvedTextSize}
+            size="$headingLg"
+            fontWeight={isFocused ? '600' : '500'}
             color={isFocused || isHovered ? '$text' : '$textSubdued'}
             userSelect="none"
           >
