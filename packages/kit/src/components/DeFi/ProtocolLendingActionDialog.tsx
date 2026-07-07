@@ -12,6 +12,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -975,6 +976,7 @@ function ProtocolLendingActionBorrowContent({
   });
   const handleBorrowRepay = useUniversalBorrowRepay({ accountId, networkId });
   const closeRef = useRef<(() => void | Promise<void>) | undefined>(undefined);
+  const isBorrowDialogClosedRef = useRef(false);
 
   // The dialog stays open (confirm button spinning) while the server builds
   // the tx; onBeforeNavigate closes it right as tx-confirm opens, so a build
@@ -1013,6 +1015,8 @@ function ProtocolLendingActionBorrowContent({
           void onSuccess?.({ accountId, networkId, data });
         },
         onBeforeNavigate: () => {
+          if (isBorrowDialogClosedRef.current) return;
+          isBorrowDialogClosedRef.current = true;
           // Fire the close without awaiting it: Dialog.close resolves on a
           // fixed 300ms teardown timer, which would sit serially between the
           // build response and tx-confirm opening.
@@ -1040,6 +1044,8 @@ function ProtocolLendingActionBorrowContent({
         void onSuccess?.({ accountId, networkId, data });
       },
       onBeforeNavigate: () => {
+        if (isBorrowDialogClosedRef.current) return;
+        isBorrowDialogClosedRef.current = true;
         // Same as the repay call: don't serially pay Dialog.close's 300ms
         // teardown timer before tx-confirm opens.
         void closeRef.current?.();
@@ -1080,6 +1086,7 @@ function ProtocolLendingActionBorrowContent({
     preventClose: () => void;
   }) => {
     closeRef.current = close;
+    isBorrowDialogClosedRef.current = false;
     // We own the close timing: onBeforeNavigate closes right before the
     // tx-confirm page opens, and the approve hop keeps the dialog open until
     // it auto-submits.
@@ -1095,7 +1102,12 @@ function ProtocolLendingActionBorrowContent({
       await submitBorrowTx();
     } catch (error) {
       if (!isUserRejectedErrorMessage({ error, intl })) {
-        setSubmitError(getErrorMessage(error));
+        const errorMessage = getErrorMessage(error);
+        if (isBorrowDialogClosedRef.current) {
+          Toast.error({ title: errorMessage });
+        } else {
+          setSubmitError(errorMessage);
+        }
       }
     } finally {
       setSubmitting(false);

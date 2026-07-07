@@ -2325,7 +2325,7 @@ class ServiceStaking extends ServiceBase {
     },
     {
       promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
     },
   );
 

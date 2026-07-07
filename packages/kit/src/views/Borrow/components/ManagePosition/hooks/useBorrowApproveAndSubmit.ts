@@ -62,6 +62,61 @@ export function useBorrowApproveAndSubmit({
     const allowanceBN = new BigNumber(allowance || '0');
     return !amountBN.isNaN() && amountBN.gt(0) && allowanceBN.lt(amountBN);
   }, [allowance, amountValue, isFocus, useApprove]);
+  const approveSnapshotKey = useMemo(
+    () =>
+      [
+        approveTarget?.accountId ?? '',
+        approveTarget?.networkId ?? '',
+        approveTarget?.spenderAddress ?? '',
+        approveTarget?.token?.networkId ?? '',
+        approveTarget?.token?.address ?? '',
+        approveTarget?.token?.isNative ? 'native' : 'token',
+        approveTarget?.token?.decimals ?? '',
+        amountValue,
+      ].join('|'),
+    [
+      amountValue,
+      approveTarget?.accountId,
+      approveTarget?.networkId,
+      approveTarget?.spenderAddress,
+      approveTarget?.token?.address,
+      approveTarget?.token?.decimals,
+      approveTarget?.token?.isNative,
+      approveTarget?.token?.networkId,
+    ],
+  );
+  const latestApproveRequestRef = useRef({
+    snapshotKey: approveSnapshotKey,
+    onSubmit,
+  });
+
+  useEffect(() => {
+    const isSameRequest =
+      latestApproveRequestRef.current.snapshotKey === approveSnapshotKey &&
+      latestApproveRequestRef.current.onSubmit === onSubmit;
+    latestApproveRequestRef.current = {
+      snapshotKey: approveSnapshotKey,
+      onSubmit,
+    };
+    if (!isSameRequest) {
+      allowanceAbortRef.current?.abort();
+      allowanceAbortRef.current = undefined;
+      setApproving(false);
+    }
+  }, [approveSnapshotKey, onSubmit]);
+
+  const isCurrentApproveRequest = useCallback(
+    ({
+      snapshotKey,
+      submit,
+    }: {
+      snapshotKey: string;
+      submit: () => Promise<void>;
+    }) =>
+      latestApproveRequestRef.current.snapshotKey === snapshotKey &&
+      latestApproveRequestRef.current.onSubmit === submit,
+    [],
+  );
 
   useEffect(
     () => () => {
@@ -107,9 +162,29 @@ export function useBorrowApproveAndSubmit({
           });
         }
         if (attempt < maxAttempts - 1) {
-          await new Promise<void>((resolve) => {
-            setTimeout(resolve, intervalMs);
+          const shouldContinue = await new Promise<boolean>((resolve) => {
+            if (signal?.aborted) {
+              resolve(false);
+              return;
+            }
+            const timerRef: {
+              current?: ReturnType<typeof setTimeout>;
+            } = {};
+            const handleAbort = () => {
+              if (timerRef.current) {
+                clearTimeout(timerRef.current);
+              }
+              resolve(false);
+            };
+            timerRef.current = setTimeout(() => {
+              signal?.removeEventListener('abort', handleAbort);
+              resolve(true);
+            }, intervalMs);
+            signal?.addEventListener('abort', handleAbort, { once: true });
           });
+          if (!shouldContinue) {
+            return false;
+          }
         }
       }
       return false;
@@ -119,6 +194,8 @@ export function useBorrowApproveAndSubmit({
 
   const onApprove = useCallback(async () => {
     if (!approveTarget?.token || !amountValue) return;
+    const requestSnapshotKey = approveSnapshotKey;
+    const requestOnSubmit = onSubmit;
     Keyboard.dismiss();
     setApproving(true);
 
@@ -134,7 +211,14 @@ export function useBorrowApproveAndSubmit({
     const amountBN = new BigNumber(amountValue || '0');
     if (!amountBN.isNaN() && allowanceBN.gte(amountBN)) {
       setApproving(false);
-      await onSubmit();
+      if (
+        isCurrentApproveRequest({
+          snapshotKey: requestSnapshotKey,
+          submit: requestOnSubmit,
+        })
+      ) {
+        await requestOnSubmit();
+      }
       return;
     }
 
@@ -154,6 +238,15 @@ export function useBorrowApproveAndSubmit({
           },
         ],
         onSuccess(data) {
+          if (
+            !isCurrentApproveRequest({
+              snapshotKey: requestSnapshotKey,
+              submit: requestOnSubmit,
+            })
+          ) {
+            setApproving(false);
+            return;
+          }
           trackAllowance(data[0].decodedTx.txid);
           allowanceAbortRef.current?.abort();
           const abortController = new AbortController();
@@ -164,6 +257,9 @@ export function useBorrowApproveAndSubmit({
                 requiredAmount: amountValue,
                 signal: abortController.signal,
               });
+              if (abortController.signal.aborted) {
+                return;
+              }
               if (!allowanceReady) {
                 Toast.warning({
                   title: intl.formatMessage({
@@ -175,7 +271,15 @@ export function useBorrowApproveAndSubmit({
                 });
                 return;
               }
-              await onSubmit();
+              if (
+                !isCurrentApproveRequest({
+                  snapshotKey: requestSnapshotKey,
+                  submit: requestOnSubmit,
+                })
+              ) {
+                return;
+              }
+              await requestOnSubmit();
             } catch (error) {
               Toast.error({
                 title:
@@ -204,9 +308,11 @@ export function useBorrowApproveAndSubmit({
   }, [
     allowance,
     amountValue,
+    approveSnapshotKey,
     approveTarget,
     fetchAllowanceResponse,
     intl,
+    isCurrentApproveRequest,
     navigationToTxConfirm,
     onSubmit,
     trackAllowance,
