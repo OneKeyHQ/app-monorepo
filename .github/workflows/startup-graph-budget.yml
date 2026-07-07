@@ -108,7 +108,6 @@ jobs:
           name: bundle-architecture-reports
           path: |
             apps/mobile/dist/allocation-report-*.json
-            apps/mobile/out-dir-analysis/budget-check-report.json
             apps/mobile/out-dir-analysis/budget-check-report-*.json
             apps/mobile/out-dir-analysis/budget-check-ai-hints-*.json
             apps/mobile/out-dir-analysis/budget-check-ai-hints-*.md
@@ -146,11 +145,10 @@ jobs:
       # Keep scenario budgets in development/perf-ci/thresholds/web.cold.json
       # close to these per-entry baselines. LCP is reported by the script but is
       # not a hard budget because it is too sensitive to GitHub runner variance.
-      # NOTE: resourceCount, scriptCount and jsDecodedBytes are now de-duplicated
-      # by normalized resource URL (largest decoded/transfer size kept). The
-      # numbers below are raw PerformanceResourceTiming entry baselines and must
-      # be re-measured after the de-duplication change. Run this job on a clean
-      # PR and update both this comment and web.cold.json with the new medians.
+      # NOTE: resourceCount, scriptCount and jsDecodedBytes remain raw
+      # PerformanceResourceTiming hard gates matching web.cold.json. Normalized
+      # URL de-duplicated diagnostics are emitted as unique* fields in the
+      # report/hints; migrate thresholds in the same PR if those become gates.
       # root: 15.86 MiB JS, 157 scripts, 206 resources, 1737 ms long tasks
       # market: 15.86 MiB JS, 157 scripts, 205 resources, 1624 ms long tasks
       # perps: 16.21 MiB JS, 165 scripts, 204 resources, 1271 ms long tasks

@@ -650,19 +650,19 @@ async function runOne({
     }
 
     const rawResources = metrics.resources || [];
-    const resources = dedupeResourceEntries(rawResources);
-    const scripts = resources.filter(
+    const uniqueResources = dedupeResourceEntries(rawResources);
+    const rawScripts = rawResources.filter(
       (entry) =>
         entry.initiatorType === 'script' || /\.m?js($|\?)/.test(entry.name),
     );
-    const rawScripts = rawResources.filter(
+    const uniqueScripts = uniqueResources.filter(
       (entry) =>
         entry.initiatorType === 'script' || /\.m?js($|\?)/.test(entry.name),
     );
     const observerMetrics = metrics.observerMetrics || {};
     const longTasks = observerMetrics.longTasks || [];
     const lcp = Number(observerMetrics.largestContentfulPaint);
-    const preLcpScripts = scripts.filter(
+    const preLcpScripts = rawScripts.filter(
       (entry) => !Number.isFinite(lcp) || entry.startTime <= lcp,
     );
     const largestPreLcpScript = preLcpScripts.reduce(
@@ -697,19 +697,32 @@ async function runOne({
             businessReady?.domTokenItemCount ||
             (businessReady?.ready ? 1 : 0)
           : 0,
-      resourceCount: resources.length,
+      resourceCount: rawResources.length,
       rawResourceCount: rawResources.length,
-      scriptCount: scripts.length,
-      uniqueScriptCount: scripts.length,
+      uniqueResourceCount: uniqueResources.length,
+      scriptCount: rawScripts.length,
       rawScriptEntryCount: rawScripts.length,
+      uniqueScriptCount: uniqueScripts.length,
       totalTransferBytes:
-        sum(resources.map((entry) => entry.transferSize)) +
+        sum(rawResources.map((entry) => entry.transferSize)) +
         (metrics.navigation?.transferSize || 0),
       totalDecodedBytes:
-        sum(resources.map((entry) => entry.decodedBodySize)) +
+        sum(rawResources.map((entry) => entry.decodedBodySize)) +
         (metrics.navigation?.decodedBodySize || 0),
-      jsTransferBytes: sum(scripts.map((entry) => entry.transferSize)),
-      jsDecodedBytes: sum(scripts.map((entry) => entry.decodedBodySize)),
+      uniqueTotalTransferBytes:
+        sum(uniqueResources.map((entry) => entry.transferSize)) +
+        (metrics.navigation?.transferSize || 0),
+      uniqueTotalDecodedBytes:
+        sum(uniqueResources.map((entry) => entry.decodedBodySize)) +
+        (metrics.navigation?.decodedBodySize || 0),
+      jsTransferBytes: sum(rawScripts.map((entry) => entry.transferSize)),
+      jsDecodedBytes: sum(rawScripts.map((entry) => entry.decodedBodySize)),
+      uniqueJsTransferBytes: sum(
+        uniqueScripts.map((entry) => entry.transferSize),
+      ),
+      uniqueJsDecodedBytes: sum(
+        uniqueScripts.map((entry) => entry.decodedBodySize),
+      ),
       longTaskCount: longTasks.length,
       longTaskTotalMs: sum(longTasks.map((entry) => entry.duration)),
       longTaskMaxMs: Math.max(
@@ -725,7 +738,7 @@ async function runOne({
       largestPreLcpScriptDecodedBytes:
         largestPreLcpScript?.decodedBodySize || 0,
       largestPreLcpScriptUrl: largestPreLcpScript?.name || null,
-      topScripts: scripts
+      topScripts: rawScripts
         .toSorted((a, b) => (b.decodedBodySize || 0) - (a.decodedBodySize || 0))
         .slice(0, 12)
         .map((entry) => ({
@@ -735,7 +748,14 @@ async function runOne({
           transferSize: entry.transferSize,
           duration: entry.duration,
         })),
-      scripts: scripts.map((entry) => ({
+      scripts: rawScripts.map((entry) => ({
+        url: entry.name,
+        startTime: entry.startTime,
+        decodedBodySize: entry.decodedBodySize,
+        transferSize: entry.transferSize,
+        duration: entry.duration,
+      })),
+      uniqueScripts: uniqueScripts.map((entry) => ({
         url: entry.name,
         startTime: entry.startTime,
         decodedBodySize: entry.decodedBodySize,
@@ -749,7 +769,16 @@ async function runOne({
         transferSize: entry.transferSize,
         duration: entry.duration,
       })),
-      resources: resources.map((entry) => ({
+      resources: rawResources.map((entry) => ({
+        url: entry.name,
+        initiatorType: entry.initiatorType,
+        startTime: entry.startTime,
+        duration: entry.duration,
+        responseEnd: entry.responseEnd,
+        decodedBodySize: entry.decodedBodySize,
+        transferSize: entry.transferSize,
+      })),
+      uniqueResources: uniqueResources.map((entry) => ({
         url: entry.name,
         initiatorType: entry.initiatorType,
         startTime: entry.startTime,
@@ -796,13 +825,22 @@ function aggregateRuns(runs, initialScripts) {
     marketListReadyCount: median(runs.map((run) => run.marketListReadyCount)),
     resourceCount: median(runs.map((run) => run.resourceCount)),
     rawResourceCount: median(runs.map((run) => run.rawResourceCount)),
+    uniqueResourceCount: median(runs.map((run) => run.uniqueResourceCount)),
     scriptCount: median(runs.map((run) => run.scriptCount)),
     uniqueScriptCount: median(runs.map((run) => run.uniqueScriptCount)),
     rawScriptEntryCount: median(runs.map((run) => run.rawScriptEntryCount)),
     totalTransferBytes: median(runs.map((run) => run.totalTransferBytes)),
     totalDecodedBytes: median(runs.map((run) => run.totalDecodedBytes)),
+    uniqueTotalTransferBytes: median(
+      runs.map((run) => run.uniqueTotalTransferBytes),
+    ),
+    uniqueTotalDecodedBytes: median(
+      runs.map((run) => run.uniqueTotalDecodedBytes),
+    ),
     jsTransferBytes: median(runs.map((run) => run.jsTransferBytes)),
     jsDecodedBytes: median(runs.map((run) => run.jsDecodedBytes)),
+    uniqueJsTransferBytes: median(runs.map((run) => run.uniqueJsTransferBytes)),
+    uniqueJsDecodedBytes: median(runs.map((run) => run.uniqueJsDecodedBytes)),
     longTaskCount: median(runs.map((run) => run.longTaskCount)),
     longTaskTotalMs: median(runs.map((run) => run.longTaskTotalMs)),
     longTaskMaxMs: median(runs.map((run) => run.longTaskMaxMs)),
@@ -938,21 +976,27 @@ function printReport({
   }
   // eslint-disable-next-line no-console
   console.log(
-    `resources/scripts (deduped): ${summary.resourceCount} / ${summary.scriptCount}`,
+    `resources/scripts: ${summary.resourceCount} / ${summary.scriptCount}`,
   );
   if (
-    summary.rawResourceCount !== summary.resourceCount ||
-    summary.rawScriptEntryCount !== summary.scriptCount
+    summary.uniqueResourceCount !== summary.resourceCount ||
+    summary.uniqueScriptCount !== summary.scriptCount
   ) {
     // eslint-disable-next-line no-console
     console.log(
-      `raw resource/script entries: ${summary.rawResourceCount} / ${summary.rawScriptEntryCount}`,
+      `unique resources/scripts: ${summary.uniqueResourceCount} / ${summary.uniqueScriptCount}`,
     );
   }
   // eslint-disable-next-line no-console
   console.log(
     `JS decoded/transfer: ${formatBytes(summary.jsDecodedBytes)} / ${formatBytes(summary.jsTransferBytes)}`,
   );
+  if (summary.uniqueJsDecodedBytes !== summary.jsDecodedBytes) {
+    // eslint-disable-next-line no-console
+    console.log(
+      `unique JS decoded/transfer: ${formatBytes(summary.uniqueJsDecodedBytes)} / ${formatBytes(summary.uniqueJsTransferBytes)}`,
+    );
+  }
   // eslint-disable-next-line no-console
   console.log(
     `initial script raw: ${formatBytes(summary.initialScriptRawBytes)}`,
@@ -1215,18 +1259,24 @@ async function main() {
       'Use scenarios[] as the source of truth. Top-level url/budgets/budgetChecks/healthChecks/summary/runs are legacy-compatible fields for the first scenario only.';
     const metricDefinitions = {
       resourceCount:
-        'Count of distinct normalized resource URLs loaded during the cold-start sample. Duplicates from preload + fetch, repeated injection, or cache re-use are collapsed to one entry.',
+        'Raw PerformanceResourceTiming resource entry count used by the hard budget gate.',
       rawResourceCount:
-        'Raw PerformanceResourceTiming entries before URL de-duplication.',
+        'Alias of resourceCount for compatibility with diagnostic tooling.',
+      uniqueResourceCount:
+        'Count of distinct normalized resource URLs loaded during the cold-start sample; duplicates from preload + fetch, repeated injection, or cache re-use are collapsed.',
       scriptCount:
-        'Budgeted count of distinct normalized JavaScript resource URLs loaded during the cold-start sample. Duplicates are collapsed.',
+        'Raw PerformanceResourceTiming JavaScript resource entry count used by the hard budget gate.',
       uniqueScriptCount:
-        'Alias of scriptCount for readability in reports and AI hints.',
+        'Count of distinct normalized JavaScript resource URLs loaded during the cold-start sample; duplicates are collapsed.',
       rawScriptEntryCount:
-        'Raw PerformanceResourceTiming script/resource entries before URL de-duplication; duplicates can come from preload + script, repeated injection, or cache re-use.',
+        'Alias of scriptCount for compatibility with diagnostic tooling.',
       jsDecodedBytes:
-        'Sum of decodedBodySize for distinct normalized JavaScript URLs. When the same URL appears multiple times, the largest decodedBodySize is kept.',
+        'Sum of decodedBodySize for raw JavaScript resource entries, matching the existing hard budget baseline.',
       jsTransferBytes:
+        'Sum of transferSize for raw JavaScript resource entries.',
+      uniqueJsDecodedBytes:
+        'Sum of decodedBodySize for distinct normalized JavaScript URLs. When the same URL appears multiple times, the largest decodedBodySize is kept.',
+      uniqueJsTransferBytes:
         'Sum of transferSize for distinct normalized JavaScript URLs. When the same URL appears multiple times, the largest transferSize is kept.',
     };
     const output = {
@@ -1291,7 +1341,8 @@ async function main() {
           metricDefinitions.resourceCount,
           metricDefinitions.scriptCount,
           metricDefinitions.jsDecodedBytes,
-          metricDefinitions.rawScriptEntryCount,
+          metricDefinitions.uniqueScriptCount,
+          metricDefinitions.uniqueJsDecodedBytes,
           'Read scenarios[].failedOrWarnBudgetChecks and scenarios[].failedHealthChecks before choosing a fix.',
         ],
         log,

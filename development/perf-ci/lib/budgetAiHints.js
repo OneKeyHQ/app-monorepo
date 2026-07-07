@@ -195,6 +195,10 @@ function duplicateScriptsForRun(run) {
     .toSorted((a, b) => b.count - a.count || a.url.localeCompare(b.url));
 }
 
+function diagnosticScriptsForRun(run) {
+  return run?.uniqueScripts || run?.scripts || [];
+}
+
 function failedBudgetChecks(checks) {
   return (checks || [])
     .filter((check) => !check.pass || check.status === 'warn')
@@ -214,17 +218,18 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
   const scenarioScriptSets = new Map();
   for (const scenario of report.scenarios || []) {
     const run = representativeRun(scenario.runs || []);
+    const scripts = diagnosticScriptsForRun(run);
     scenarioScriptSets.set(
       scenario.name,
       new Set(
-        (run?.scripts || []).map((script) => normalizeScriptUrl(script.url)),
+        scripts.map((script) => normalizeScriptUrl(script.url)),
       ),
     );
   }
 
   const scenarios = (report.scenarios || []).map((scenario) => {
     const run = representativeRun(scenario.runs || []);
-    const scripts = run?.scripts || [];
+    const scripts = diagnosticScriptsForRun(run);
     const uniqueScripts = [
       ...new Set(scripts.map((script) => normalizeScriptUrl(script.url))),
     ];
@@ -252,10 +257,12 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
         (check) => !check.pass,
       ),
       representativeRunIndex: run?.runIndex || null,
-      scriptCount: run?.scriptCount || null,
-      rawResourceCount: run?.rawResourceCount || null,
-      rawScriptEntryCount: run?.rawScriptEntryCount || null,
-      uniqueScriptCount: uniqueScripts.length,
+      scriptCount: run?.scriptCount ?? null,
+      rawResourceCount: run?.rawResourceCount ?? null,
+      rawScriptEntryCount: run?.rawScriptEntryCount ?? null,
+      uniqueResourceCount: run?.uniqueResourceCount ?? null,
+      uniqueScriptCount: run?.uniqueScriptCount ?? uniqueScripts.length,
+      uniqueJsDecodedBytes: run?.uniqueJsDecodedBytes ?? null,
       duplicateScripts: duplicateScriptsForRun(run).slice(0, 30),
       topScriptsByDecodedSize: (run?.topScripts || [])
         .slice(0, 12)
@@ -286,13 +293,13 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
       report.legacyTopLevelFieldsNote ||
         'Use scenarios[] as the source of truth. Top-level summary/budgetChecks/runs are legacy-compatible fields for the first scenario only.',
       report.metricDefinitions?.resourceCount ||
-        'resourceCount is the count of distinct normalized resource URLs loaded during the cold-start sample; duplicates are collapsed.',
+        'resourceCount is the raw PerformanceResourceTiming resource entry count used by the hard budget gate.',
       report.metricDefinitions?.scriptCount ||
-        'scriptCount is the budgeted count of distinct normalized JavaScript resource URLs loaded during the cold-start sample.',
+        'scriptCount is the raw PerformanceResourceTiming JavaScript resource entry count used by the hard budget gate.',
       report.metricDefinitions?.jsDecodedBytes ||
-        'jsDecodedBytes is the sum of decodedBodySize for distinct normalized JavaScript URLs.',
-      report.metricDefinitions?.rawScriptEntryCount ||
-        'rawScriptEntryCount is the raw PerformanceResourceTiming script/resource entry count before URL de-duplication.',
+        'jsDecodedBytes is the sum of decodedBodySize for raw JavaScript resource entries.',
+      report.metricDefinitions?.uniqueScriptCount ||
+        'uniqueScriptCount is the count of distinct normalized JavaScript resource URLs after de-duplication.',
       'Warnings are still budget regressions. Do not silence failures by changing thresholds or workflow env values.',
       'If failedHealthChecks is non-empty, fix page rendering/readiness first because budget samples may be invalid.',
     ],
@@ -305,7 +312,7 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
       'Fix the OneKey web cold/startup budget without relaxing thresholds.',
       'Use scenarios[] as the source of truth; top-level summary/budgetChecks/runs are legacy-compatible first-scenario fields.',
       'Start from failedOrWarnBudgetChecks, then inspect duplicateScripts, scenarioOnlyScriptCandidates, and smallScriptCandidates.',
-      'scriptCount/resourceCount/jsDecodedBytes are de-duplicated by normalized URL; use rawResourceCount, rawScriptEntryCount, and duplicateScripts to inspect repeated preload/script/cache entries.',
+      'scriptCount/resourceCount/jsDecodedBytes are raw hard-gate metrics; use uniqueResourceCount, uniqueScriptCount, uniqueJsDecodedBytes, and duplicateScripts to inspect repeated preload/script/cache entries.',
       'Do not assume only the home page can fail: any change entering the global shell, shared modules, first-screen synchronous imports, or lazy loads auto-mounted within the cold-start window can affect this budget.',
       'For scriptCount/resourceCount failures, prefer merging related lazy import() boundaries or delaying non-first-screen providers.',
       'Do not edit development/perf-ci/thresholds or workflow budget env values to silence a regression.',
@@ -418,7 +425,7 @@ function createNativeStartupAiHints({
       `Cross-check dist/allocation-report-${report.entry}.json for raw startup modules and segments.`,
     ],
     reportNotes: [
-      'Use per-entry report/hints files. The generic budget-check-report.json may be overwritten by the last ENTRY check.',
+      'Use per-entry report/hints files. The generic budget-check-report.json is intentionally not emitted in dual-entry CI.',
       'Do not silence failures by changing STARTUP_* budgets or workflow env values.',
     ],
     nativeResourceNote:
@@ -611,9 +618,10 @@ function renderAiHintsMarkdown(hints) {
         lines.push(markdownHealthRows(scenario.failedHealthChecks));
       }
       const scriptMetrics = [
-        `budget scripts(unique): ${scenario.scriptCount ?? 'n/a'}`,
+        `budget scripts(raw): ${scenario.scriptCount ?? 'n/a'}`,
+        `unique scripts: ${scenario.uniqueScriptCount ?? 'n/a'}`,
+        `unique JS decoded: ${formatBytes(scenario.uniqueJsDecodedBytes)}`,
         `raw resource entries: ${scenario.rawResourceCount ?? 'n/a'}`,
-        `raw script entries: ${scenario.rawScriptEntryCount ?? 'n/a'}`,
       ];
       lines.push(`- ${scriptMetrics.join(', ')}`);
       if (scenario.duplicateScripts?.length) {

@@ -301,7 +301,6 @@ async function main() {
   report.failures = failures;
   report.pass = failures.length === 0;
 
-  const reportPath = path.join(outDir, 'budget-check-report.json');
   const entryReportPath = path.join(
     outDir,
     `budget-check-report-${entryName}.json`,
@@ -323,7 +322,6 @@ async function main() {
     process.env.STARTUP_AI_HINTS_MD_PATH ||
     path.join(outDir, `budget-check-ai-hints-${entryName}.md`);
 
-  fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
   fs.writeFileSync(entryReportPath, JSON.stringify(report, null, 2));
   writeAiHints({
     hints: aiHints,
@@ -334,8 +332,7 @@ async function main() {
   if (failures.length > 0) {
     console.log('\n=== BUDGET CHECK FAILED ===');
     failures.forEach((f) => console.log(`  FAIL: ${f}`));
-    console.log(`\nReport: ${reportPath}`);
-    console.log(`Entry report: ${entryReportPath}`);
+    console.log(`\nReport: ${entryReportPath}`);
     console.log(`AI hints JSON: ${aiHintsJsonPath}`);
     console.log(`AI hints Markdown: ${aiHintsMarkdownPath}`);
     printAiTriageInstructions({
@@ -346,10 +343,9 @@ async function main() {
       extraPaths: [
         `apps/mobile/dist/allocation-report-${entryName}.json`,
         'apps/mobile/dist/allocation-report-common.json',
-        reportPath,
       ],
       notes: [
-        `Read the ${entryName} per-entry report first. The generic budget-check-report.json may be overwritten by the last ENTRY check.`,
+        `Read the ${entryName} per-entry report first. Dual-entry CI intentionally does not emit the ambiguous generic budget-check-report.json file.`,
         'Label runtime impact explicitly as main UI JS runtime, background JS runtime, or both.',
       ],
       log: console.log,
@@ -357,8 +353,7 @@ async function main() {
     process.exit(1);
   } else {
     console.log('\n=== BUDGET CHECK PASSED ===');
-    console.log(`Report: ${reportPath}`);
-    console.log(`Entry report: ${entryReportPath}`);
+    console.log(`Report: ${entryReportPath}`);
     console.log(`AI hints JSON: ${aiHintsJsonPath}`);
     console.log(`AI hints Markdown: ${aiHintsMarkdownPath}`);
   }
