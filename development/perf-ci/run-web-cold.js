@@ -663,6 +663,7 @@ async function runOne({
           : 0,
       resourceCount: resources.length,
       scriptCount: uniqueScriptUrls.size,
+      uniqueScriptCount: uniqueScriptUrls.size,
       scriptEntryCount: scripts.length,
       totalTransferBytes:
         sum(resources.map((entry) => entry.transferSize)) +
@@ -742,6 +743,7 @@ function aggregateRuns(runs, initialScripts) {
     marketListReadyCount: median(runs.map((run) => run.marketListReadyCount)),
     resourceCount: median(runs.map((run) => run.resourceCount)),
     scriptCount: median(runs.map((run) => run.scriptCount)),
+    uniqueScriptCount: median(runs.map((run) => run.uniqueScriptCount)),
     scriptEntryCount: median(runs.map((run) => run.scriptEntryCount)),
     totalTransferBytes: median(runs.map((run) => run.totalTransferBytes)),
     totalDecodedBytes: median(runs.map((run) => run.totalDecodedBytes)),
@@ -882,11 +884,11 @@ function printReport({
   }
   // eslint-disable-next-line no-console
   console.log(
-    `resources/scripts: ${summary.resourceCount} / ${summary.scriptCount}`,
+    `resources/unique scripts: ${summary.resourceCount} / ${summary.uniqueScriptCount}`,
   );
-  if (summary.scriptEntryCount !== summary.scriptCount) {
+  if (summary.scriptEntryCount !== summary.uniqueScriptCount) {
     // eslint-disable-next-line no-console
-    console.log(`script entries: ${summary.scriptEntryCount}`);
+    console.log(`raw script entries: ${summary.scriptEntryCount}`);
   }
   // eslint-disable-next-line no-console
   console.log(
@@ -1152,6 +1154,14 @@ async function main() {
     const firstScenario = scenarioOutputs[0];
     const legacyTopLevelFieldsNote =
       'Use scenarios[] as the source of truth. Top-level url/budgets/budgetChecks/healthChecks/summary/runs are legacy-compatible fields for the first scenario only.';
+    const metricDefinitions = {
+      scriptCount:
+        'Budgeted count of distinct normalized JavaScript resource URLs loaded during the cold-start sample.',
+      uniqueScriptCount:
+        'Alias of scriptCount for readability in reports and AI hints.',
+      scriptEntryCount:
+        'Raw PerformanceResourceTiming script/resource entries before URL de-duplication; duplicates can come from preload + script, repeated injection, or cache re-use.',
+    };
     const output = {
       createdAt: new Date().toISOString(),
       repoRoot,
@@ -1160,6 +1170,7 @@ async function main() {
       budgetConfig,
       startupGraphBudget,
       legacyTopLevelFieldsNote,
+      metricDefinitions,
       scenarios: scenarioOutputs,
       url: firstScenario?.url,
       budgets: firstScenario?.budgets,
@@ -1210,6 +1221,8 @@ async function main() {
         ],
         notes: [
           legacyTopLevelFieldsNote,
+          metricDefinitions.scriptCount,
+          metricDefinitions.scriptEntryCount,
           'Read scenarios[].failedOrWarnBudgetChecks and scenarios[].failedHealthChecks before choosing a fix.',
         ],
         log,

@@ -284,17 +284,23 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
     reportNotes: [
       report.legacyTopLevelFieldsNote ||
         'Use scenarios[] as the source of truth. Top-level summary/budgetChecks/runs are legacy-compatible fields for the first scenario only.',
+      report.metricDefinitions?.scriptCount ||
+        'scriptCount is the budgeted count of distinct normalized JavaScript resource URLs loaded during the cold-start sample.',
+      report.metricDefinitions?.scriptEntryCount ||
+        'scriptEntryCount is the raw PerformanceResourceTiming script/resource entry count before URL de-duplication.',
       'Warnings are still budget regressions. Do not silence failures by changing thresholds or workflow env values.',
       'If failedHealthChecks is non-empty, fix page rendering/readiness first because budget samples may be invalid.',
     ],
     reportPath: report.reportPath || null,
     buildDir,
     command: "PERF_WEB_COLD_SCENARIOS='<failed scenarios>' yarn perf:web:cold",
+    metricDefinitions: report.metricDefinitions || null,
     aiFixPrompt: [
       'Download artifact web-startup-cold-budget-reports and read web-cold-budget-report-ai-hints.json plus web-cold-budget-report.json before editing; Markdown is only a summary.',
       'Fix the OneKey web cold/startup budget without relaxing thresholds.',
       'Use scenarios[] as the source of truth; top-level summary/budgetChecks/runs are legacy-compatible first-scenario fields.',
       'Start from failedOrWarnBudgetChecks, then inspect duplicateScripts, scenarioOnlyScriptCandidates, and smallScriptCandidates.',
+      'scriptCount is unique normalized script URLs; use scriptEntryCount and duplicateScripts only to inspect repeated preload/script/cache entries.',
       'Do not assume only the home page can fail: any change entering the global shell, shared modules, first-screen synchronous imports, or lazy loads auto-mounted within the cold-start window can affect this budget.',
       'For scriptCount/resourceCount failures, prefer merging related lazy import() boundaries or delaying non-first-screen providers.',
       'Do not edit development/perf-ci/thresholds or workflow budget env values to silence a regression.',
@@ -600,7 +606,7 @@ function renderAiHintsMarkdown(hints) {
         lines.push(markdownHealthRows(scenario.failedHealthChecks));
       }
       const scriptMetrics = [
-        `budget scripts: ${scenario.scriptCount ?? 'n/a'}`,
+        `budget scripts(unique): ${scenario.scriptCount ?? 'n/a'}`,
         `raw script entries: ${scenario.scriptEntryCount ?? 'n/a'}`,
         `unique scripts: ${scenario.uniqueScriptCount ?? 'n/a'}`,
       ];
