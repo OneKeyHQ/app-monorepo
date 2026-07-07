@@ -805,7 +805,7 @@ function PerpsEmptyRecommendSection() {
                 address=""
                 tokenLogoURI={token.tokenImageUrl}
                 showVolume
-                volume={token.volume24h}
+                volume={Number(token.volume24h)}
                 maxLeverage={token.maxLeverage}
                 perpsSubtitle={token.subtitle}
               />
@@ -1143,7 +1143,17 @@ function PerpsMobileHoldingsSummary({
             <SizableText size="$bodyXs" color="$textSubdued">
               {`${intl.formatMessage({ id: ETranslations.global_value })} / `}
             </SizableText>
-            <DashText size="$bodyXs" color="$textSubdued" dashThickness={0.5}>
+            <DashText
+              size="$bodyXs"
+              color="$textSubdued"
+              dashThickness={0.5}
+              tooltip={intl.formatMessage({
+                id: ETranslations.marketdex_un_pnl,
+              })}
+              tooltipTitle={intl.formatMessage({
+                id: ETranslations.marketdex_unrealized_pnl,
+              })}
+            >
               {intl.formatMessage({
                 id: ETranslations.perp_position_pnl_mobile,
               })}
