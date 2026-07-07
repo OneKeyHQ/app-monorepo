@@ -244,6 +244,13 @@ jobs:
               echo "**Action required:**"
               echo "- Add the \`no-release\` label if this should not be included in bundle releases"
               echo "- Coordinate with the release team for App Shell release scheduling"
+              echo ""
+              echo "**AI review prompt:**"
+              echo "- Review this range for bundle-release safety; do not remove the warning unless the detected native/App Shell boundary is wrong."
+              echo "- Label impact as \`main UI JS runtime\`, \`background JS runtime\`, \`both\`, or \`native shell only\`."
+              echo "- Production main/background JS runtimes have isolated JS heaps; native resources may be shared in the same process, so call out both sides explicitly."
+              echo "- For DB schema/migration hits, verify Realm and IndexedDB stay in sync and rollback is not expected through bundle-only release."
+              echo "- Preserve hardware-wallet isolation, extension CSP, transaction verification, and native security checks."
             else
               echo "### ✅ No Native Changes"
               echo ""
@@ -283,6 +290,13 @@ jobs:
                 '**Action required:**',
                 '- Add the `no-release` label if this PR should not be included in bundle releases',
                 '- Coordinate with the release team for App Shell release scheduling',
+                '',
+                '**AI review prompt:**',
+                '- Review this range for bundle-release safety; do not remove the warning unless the detected native/App Shell boundary is wrong.',
+                '- Label impact as `main UI JS runtime`, `background JS runtime`, `both`, or `native shell only`.',
+                '- Production main/background JS runtimes have isolated JS heaps; native resources may be shared in the same process, so call out both sides explicitly.',
+                '- For DB schema/migration hits, verify Realm and IndexedDB stay in sync and rollback is not expected through bundle-only release.',
+                '- Preserve hardware-wallet isolation, extension CSP, transaction verification, and native security checks.',
                 '',
                 '> _Auto-detected by native change check_',
               ].join('\n');

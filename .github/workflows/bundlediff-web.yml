@@ -35,6 +35,15 @@ jobs:
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
 
+      - name: Write web bundle diff AI prompt
+        run: |
+          mkdir -p ci-ai
+          if [ -f .github/scripts/ciFailureIssue.js ]; then
+            node .github/scripts/ciFailureIssue.js prompt bundlediff-web > ci-ai/bundlediff-web-ai-prompt.md
+          else
+            echo "AI prompt helper is not present on this checked-out ref; use the compare job diagnostics artifact." > ci-ai/bundlediff-web-ai-prompt.md
+          fi
+
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
@@ -49,7 +58,24 @@ jobs:
       - name: Generate stats.json
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
-        run: yarn stats:web
+        run: |
+          mkdir -p ci-ai
+          set +e
+          yarn stats:web 2>&1 | tee ci-ai/stats-web-head.log
+          status=${PIPESTATUS[0]}
+          set -e
+          exit "$status"
+
+      - name: Upload web head AI diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-ai-bundlediff-web-head
+          path: |
+            ci-ai/bundlediff-web-ai-prompt.md
+            ci-ai/stats-web-head.log
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload stats.json
         uses: actions/upload-artifact@v4
@@ -78,6 +104,15 @@ jobs:
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
 
+      - name: Write web bundle diff AI prompt
+        run: |
+          mkdir -p ci-ai
+          if [ -f .github/scripts/ciFailureIssue.js ]; then
+            node .github/scripts/ciFailureIssue.js prompt bundlediff-web > ci-ai/bundlediff-web-ai-prompt.md
+          else
+            echo "AI prompt helper is not present on this checked-out ref; use the compare job diagnostics artifact." > ci-ai/bundlediff-web-ai-prompt.md
+          fi
+
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
@@ -92,7 +127,24 @@ jobs:
       - name: Generate stats.json
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
-        run: yarn stats:web
+        run: |
+          mkdir -p ci-ai
+          set +e
+          yarn stats:web 2>&1 | tee ci-ai/stats-web-base.log
+          status=${PIPESTATUS[0]}
+          set -e
+          exit "$status"
+
+      - name: Upload web base AI diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-ai-bundlediff-web-base
+          path: |
+            ci-ai/bundlediff-web-ai-prompt.md
+            ci-ai/stats-web-base.log
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload stats.json
         uses: actions/upload-artifact@v4
@@ -106,6 +158,13 @@ jobs:
     runs-on: ubuntu-24.04
     needs: [build-web-base, build-web-head]
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Write web bundle diff compare AI prompt
+        run: |
+          mkdir -p ci-ai
+          node .github/scripts/ciFailureIssue.js prompt bundlediff-web > ci-ai/bundlediff-web-ai-prompt.md
+
       - uses: actions/download-artifact@v4.1.7
 
       - uses: github/webpack-bundlesize-compare-action@v1.7.0
@@ -114,3 +173,12 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           current-stats-json-path: ./head-stats/stats.json
           base-stats-json-path: ./base-stats/stats.json
+
+      - name: Upload web compare AI diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-ai-bundlediff-web-compare
+          path: ci-ai/bundlediff-web-ai-prompt.md
+          if-no-files-found: warn
+          retention-days: 14

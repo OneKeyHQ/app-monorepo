@@ -48,6 +48,11 @@ jobs:
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
 
+      - name: Write security checks AI prompt
+        run: |
+          mkdir -p ci-ai
+          node .github/scripts/ciFailureIssue.js prompt security-checks > ci-ai/security-checks-ai-prompt.md
+
       - name: Install Dependency
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -57,4 +62,20 @@ jobs:
 
       - name: Check minimum release age
         run: |
-          npx tsx development/scripts/minimum-release-age/run.ts diff origin/${{ github.base_ref }}
+          mkdir -p ci-ai
+          set +e
+          npx tsx development/scripts/minimum-release-age/run.ts diff origin/${{ github.base_ref }} 2>&1 | tee ci-ai/minimum-release-age.log
+          status=${PIPESTATUS[0]}
+          set -e
+          exit "$status"
+
+      - name: Upload security checks AI diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-ai-security-checks-diagnostics
+          path: |
+            ci-ai/security-checks-ai-prompt.md
+            ci-ai/minimum-release-age.log
+          if-no-files-found: warn
+          retention-days: 14

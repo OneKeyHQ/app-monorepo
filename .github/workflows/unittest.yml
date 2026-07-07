@@ -53,6 +53,11 @@ jobs:
           check-latest: true
           scope: '@onekeyhq'
 
+      - name: Write unit test AI prompt
+        run: |
+          mkdir -p ci-ai
+          node .github/scripts/ciFailureIssue.js prompt unittest > ci-ai/unittest-ai-prompt.md
+
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
@@ -69,6 +74,8 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
+          mkdir -p ci-ai
+          set +e
           yarn test \
             --coverage \
             --shard=${{ matrix.shard }}/${JEST_SHARD_TOTAL} \
@@ -77,7 +84,11 @@ jobs:
             --coverageReporters=lcov \
             --coverageReporters=json-summary \
             --coverageReporters=json \
-            --coverageThreshold='{}'
+            --coverageThreshold='{}' \
+            2>&1 | tee ci-ai/jest-shard-${{ matrix.shard }}.log
+          status=${PIPESTATUS[0]}
+          set -e
+          exit "$status"
 
       - name: Upload Test Report
         uses: actions/upload-artifact@v4
@@ -93,6 +104,18 @@ jobs:
           name: coverage-report-${{ github.sha }}-shard-${{ matrix.shard }}-of-${{ env.JEST_SHARD_TOTAL }}
           path: coverage/shard-${{ matrix.shard }}/
           if-no-files-found: error
+
+      - name: Upload unit test AI diagnostics
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ci-ai-unittest-diagnostics-shard-${{ matrix.shard }}-of-${{ env.JEST_SHARD_TOTAL }}
+          path: |
+            ci-ai/unittest-ai-prompt.md
+            ci-ai/jest-shard-${{ matrix.shard }}.log
+            test-report.html
+          if-no-files-found: warn
+          retention-days: 14
 
   coverage:
     name: unittest (24.x)
