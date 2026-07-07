@@ -95,6 +95,33 @@ describe('TrezorAdapter', () => {
     expect(hw.uiResponse).not.toHaveBeenCalled();
   });
 
+  it('records a probe cancel when a candidate asks to pair during a binding probe', () => {
+    const listeners = new Map<string, (event: unknown) => void>();
+    const hw = {
+      on: jest.fn((eventName: string, listener: (event: unknown) => void) => {
+        listeners.set(eventName, listener);
+      }),
+      uiResponse: jest.fn(),
+      cancel: jest.fn(),
+    };
+
+    const adapter = new TrezorAdapter(hw as never);
+    adapter.beginBindingProbe('BLE_X');
+    listeners.get(UI_REQUEST.REQUEST_TREZOR_THP_PAIRING)?.({
+      payload: { connectId: 'BLE_X' },
+    });
+
+    expect(hw.cancel).toHaveBeenCalledWith('BLE_X');
+    expect(adapter.wasBindingProbeCancelled()).toBe(true);
+    expect(mockedThirdPartyHardwareUiStateAtom.set).not.toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'requestTrezorThpPairing' }),
+    );
+
+    // A new probe starts clean.
+    adapter.beginBindingProbe('BLE_Y');
+    expect(adapter.wasBindingProbeCancelled()).toBe(false);
+  });
+
   it('cleans up registry-owned SDK event subscription on reset', () => {
     const listeners = new Map<string, (event: unknown) => void>();
     const disposeSdkEvents = jest.fn();
