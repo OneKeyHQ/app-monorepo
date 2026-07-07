@@ -87,6 +87,7 @@ import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
 
+import { preloadWarmComponents } from './preloadWarmComponents';
 import { useExtensionMarketTokenDetailHashNavigation } from './useExtensionMarketTokenDetailHashNavigation';
 
 import type { IntlShape } from 'react-intl';
@@ -821,6 +822,8 @@ export function Bootstrap() {
   useEffect(() => {
     setOnboardingConnectWalletLoading(false);
   }, [setOnboardingConnectWalletLoading]);
+
+  useEffect(() => preloadWarmComponents(), []);
 
   useEffect(() => {
     if (!platformEnv.isNative) {

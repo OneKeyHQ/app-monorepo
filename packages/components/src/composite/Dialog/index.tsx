@@ -115,28 +115,12 @@ const LazyDialogFormFieldComponent = createLazyModuleComponent<
   IDialogFormModule
 >(loadDialogFormModule, ({ DialogFormField }) => DialogFormField);
 
-function preloadDialogFormComponents() {
+export function preloadDialogFormComponents() {
   return preloadLazyComponents([
     LazyDialogFormComponent,
     LazyDialogFormFieldComponent,
   ]);
 }
-
-function scheduleDialogFormPreload() {
-  if (!platformEnv.isRuntimeBrowser || platformEnv.isNative) {
-    return;
-  }
-  const preload = () => {
-    void preloadDialogFormComponents();
-  };
-  if (typeof requestIdleCallback === 'function') {
-    requestIdleCallback(preload);
-    return;
-  }
-  setTimeout(preload, 0);
-}
-
-scheduleDialogFormPreload();
 
 export * from './dialogInstances';
 export * from './hooks';
@@ -841,6 +825,7 @@ export const Dialog = {
   Footer: FooterAction,
   Form: LazyDialogFormComponent,
   FormField: LazyDialogFormFieldComponent,
+  preloadForm: preloadDialogFormComponents,
   Loading: DialogLoadingView,
   show: dialogShow,
   confirm: dialogConfirm,
