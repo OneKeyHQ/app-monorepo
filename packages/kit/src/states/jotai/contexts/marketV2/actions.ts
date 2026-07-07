@@ -52,6 +52,31 @@ const uniqByFn = (i: IMarketWatchListItemV2) =>
 
 const CHART_PRICE_FRESHNESS_MS = 10_000;
 
+function isSameMarketTokenDetail({
+  tokenDetail,
+  tokenAddress,
+  networkId,
+}: {
+  tokenDetail?: IMarketTokenDetail;
+  tokenAddress: string;
+  networkId: string;
+}) {
+  if (!tokenDetail) {
+    return false;
+  }
+
+  return equalTokenNoCaseSensitive({
+    token1: {
+      networkId,
+      contractAddress: tokenAddress,
+    },
+    token2: {
+      networkId,
+      contractAddress: tokenDetail.address || '',
+    },
+  });
+}
+
 class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   // Token Detail Actions
   setTokenDetail = contextAtomMethod(
@@ -257,6 +282,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           typeof responseData?.data?.token?.name === 'undefined' ||
           responseData.data.token.name === ''
         ) {
+          set(tokenDetailAtom(), undefined);
+          set(tokenDetailPreviewAtom(), undefined);
+          set(tokenDetailWebsocketAtom(), undefined);
+          set(perpsInfoAtom(), undefined);
           return;
         }
         set(tokenDetailAtom(), responseData.data.token);
@@ -334,11 +363,30 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         // Assume new format with data.token and data.websocket
         const responseData = response as unknown as IMarketTokenDetailResponse;
 
+        const currentTokenDetail = get(tokenDetailAtom());
+
         if (
           typeof responseData?.data?.token?.name === 'undefined' ||
           responseData.data.token.name === ''
         ) {
+          if (
+            isSameMarketTokenDetail({
+              tokenDetail: currentTokenDetail,
+              tokenAddress,
+              networkId,
+            })
+          ) {
+            console.warn(
+              'Token detail is not available, keep current token detail',
+            );
+            return currentTokenDetail;
+          }
+
           console.warn('Token detail is not available');
+          set(tokenDetailAtom(), undefined);
+          set(tokenDetailPreviewAtom(), undefined);
+          set(tokenDetailWebsocketAtom(), undefined);
+          set(perpsInfoAtom(), undefined);
           return;
         }
 
@@ -348,18 +396,12 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         const perpsInfo = responseData.data.perpsInfo;
 
         // Preserve chart-updated price only while it is fresh.
-        const currentTokenDetail = get(tokenDetailAtom());
         const isSameToken =
           currentTokenDetail &&
-          equalTokenNoCaseSensitive({
-            token1: {
-              networkId,
-              contractAddress: tokenAddress,
-            },
-            token2: {
-              networkId,
-              contractAddress: currentTokenDetail.address || '',
-            },
+          isSameMarketTokenDetail({
+            tokenDetail: currentTokenDetail,
+            tokenAddress,
+            networkId,
           });
         const chartPriceUpdatedAt = currentTokenDetail?.chartPriceUpdatedAt;
         const hasFreshKLinePrice =

@@ -95,6 +95,13 @@ import StakingFormWrapper from '../StakingFormWrapper';
 
 import type { FontSizeTokens } from 'tamagui';
 
+type IFooterActionOverride = {
+  text: string;
+  onPress: () => void;
+  loading?: boolean;
+  disabled?: boolean;
+};
+
 type IUniversalWithdrawProps = {
   accountAddress: string;
   balance: string;
@@ -152,6 +159,7 @@ type IUniversalWithdrawProps = {
     withdrawType?: IEarnWithdrawType;
   }) => Promise<void>;
   beforeFooter?: ReactElement | null;
+  footerActionOverride?: IFooterActionOverride;
   showApyDetail?: boolean;
   isInModalContext?: boolean;
   receiveInputConfig?: IManagePageV2ReceiveInputConfig;
@@ -326,6 +334,7 @@ export function UniversalWithdraw({
 
   onConfirm,
   beforeFooter,
+  footerActionOverride,
   showApyDetail = false,
   isInModalContext = false,
   receiveInputConfig,
@@ -1342,6 +1351,17 @@ export function UniversalWithdraw({
     return isDisable;
   }, [shouldApprove, effectiveShowExpiredRefresh, isDisable]);
 
+  const effectiveConfirmText =
+    footerActionOverride?.text ?? intl.formatMessage({ id: confirmText });
+  const effectiveConfirmOnPress =
+    footerActionOverride?.onPress ?? confirmOnPress;
+  const effectiveConfirmLoading = footerActionOverride
+    ? Boolean(footerActionOverride.loading)
+    : confirmLoading;
+  const effectiveConfirmDisabled = footerActionOverride
+    ? Boolean(footerActionOverride.disabled)
+    : confirmDisabled;
+
   const shouldShowSummaryCard = shouldShowStakingSummaryCard({
     isDisabled,
     isPendleProvider,
@@ -1753,11 +1773,11 @@ export function UniversalWithdraw({
       {isInModalContext ? (
         <Page.Footer>
           <Page.FooterActions
-            onConfirmText={intl.formatMessage({ id: confirmText })}
+            onConfirmText={effectiveConfirmText}
             confirmButtonProps={{
-              onPress: confirmOnPress,
-              loading: confirmLoading,
-              disabled: confirmDisabled,
+              onPress: effectiveConfirmOnPress,
+              loading: effectiveConfirmLoading,
+              disabled: effectiveConfirmDisabled,
             }}
           />
           <PercentageStageOnKeyboard
@@ -1768,7 +1788,7 @@ export function UniversalWithdraw({
         <YStack>
           <Page.FooterActions
             p={0}
-            onConfirmText={intl.formatMessage({ id: confirmText })}
+            onConfirmText={effectiveConfirmText}
             buttonContainerProps={{
               $gtMd: {
                 ml: '0',
@@ -1776,9 +1796,9 @@ export function UniversalWithdraw({
               w: '100%',
             }}
             confirmButtonProps={{
-              onPress: confirmOnPress,
-              loading: confirmLoading,
-              disabled: confirmDisabled,
+              onPress: effectiveConfirmOnPress,
+              loading: effectiveConfirmLoading,
+              disabled: effectiveConfirmDisabled,
               w: '100%',
             }}
           />

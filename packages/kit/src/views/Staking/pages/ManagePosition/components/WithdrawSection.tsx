@@ -45,6 +45,7 @@ import {
   resolveStakeTokenAddress,
 } from '../../../utils/utils';
 
+import type { IManagePositionFooterAction } from './ManagePositionContent';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 
 export const WithdrawSection = ({
@@ -55,6 +56,7 @@ export const WithdrawSection = ({
   isDisabled,
   onSuccess,
   beforeFooter,
+  footerActionOverride,
   showApyDetail,
   isInModalContext,
   fallbackTokenImageUri,
@@ -80,6 +82,7 @@ export const WithdrawSection = ({
   isDisabled?: boolean;
   onSuccess?: () => void;
   beforeFooter?: ReactElement | null;
+  footerActionOverride?: IManagePositionFooterAction;
   showApyDetail?: boolean;
   isInModalContext?: boolean;
   fallbackTokenImageUri?: string;
@@ -992,6 +995,7 @@ export const WithdrawSection = ({
         isDisabled
         isInModalContext={isInModalContext}
         beforeFooter={beforeFooter}
+        footerActionOverride={footerActionOverride}
         tokenImageUri={fallbackTokenImageUri}
         tokenSymbol={tokenInfo?.token.symbol}
       />
@@ -1116,6 +1120,7 @@ export const WithdrawSection = ({
           protocolVault={protocolInfo?.vault ?? ''}
           isDisabled={isDisabled}
           beforeFooter={beforeFooter}
+          footerActionOverride={footerActionOverride}
           showApyDetail={showApyDetail}
           isInModalContext={isInModalContext}
           receiveInputConfig={effectiveReceiveInputConfig}
