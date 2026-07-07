@@ -842,7 +842,9 @@ const PositionRowMobilePnLAndROE = memo(
         </YStack>
         <YStack gap="$1" alignItems="flex-end">
           <SizableText size="$bodySm" color="$textSubdued">
-            ROE
+            {intl.formatMessage({
+              id: ETranslations.perp_share_roe,
+            })}
           </SizableText>
           <SizableText size="$bodyMdMedium" color={otherInfo.pnlColor}>
             {`${otherInfo.pnlPlusOrMinus}${otherInfo.roiPercent}%`}
