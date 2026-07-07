@@ -13,12 +13,16 @@ type IFormFieldDescriptionProps = ComponentProps<
 >;
 type IFormBaseModule = typeof import('./FormBase');
 
-const loadFormBaseModule = () => import('./FormBase');
-
-const LazyFormComponent = createLazyModuleComponent<
-  IFormProps,
-  IFormBaseModule
->(loadFormBaseModule, ({ Form }) => Form as ComponentType<IFormProps>);
+let loadFormBaseModulePromise: Promise<IFormBaseModule> | undefined;
+function loadFormBaseModule() {
+  if (!loadFormBaseModulePromise) {
+    loadFormBaseModulePromise = import('./FormBase').catch((error: unknown) => {
+      loadFormBaseModulePromise = undefined;
+      throw error;
+    });
+  }
+  return loadFormBaseModulePromise;
+}
 
 const LazyFormFieldComponent = createLazyModuleComponent<
   IFormFieldProps,
@@ -36,6 +40,20 @@ const LazyFormFieldDescriptionComponent = createLazyModuleComponent<
   ({ Form }) =>
     Form.FieldDescription as ComponentType<IFormFieldDescriptionProps>,
 );
+
+async function loadFormComponentModule() {
+  const formBaseModule = await loadFormBaseModule();
+  await preloadLazyComponents([
+    LazyFormFieldComponent,
+    LazyFormFieldDescriptionComponent,
+  ]);
+  return formBaseModule;
+}
+
+const LazyFormComponent = createLazyModuleComponent<
+  IFormProps,
+  IFormBaseModule
+>(loadFormComponentModule, ({ Form }) => Form as ComponentType<IFormProps>);
 
 function preloadForm() {
   return preloadLazyComponents([

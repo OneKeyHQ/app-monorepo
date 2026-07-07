@@ -99,21 +99,37 @@ type IDialogFormFieldProps = ComponentProps<
   (typeof import('./DialogForm'))['DialogFormField']
 >;
 
-const loadDialogFormModule = async () => {
-  const dialogFormModule = await import('./DialogForm');
-  await dialogFormModule.preloadDialogForm();
-  return dialogFormModule;
-};
-
-const LazyDialogFormComponent = createLazyModuleComponent<
-  IDialogFormProps,
-  IDialogFormModule
->(loadDialogFormModule, ({ DialogForm }) => DialogForm);
+let loadDialogFormModulePromise: Promise<IDialogFormModule> | undefined;
+function loadDialogFormModule() {
+  if (!loadDialogFormModulePromise) {
+    loadDialogFormModulePromise = import('./DialogForm')
+      .then(async (dialogFormModule) => {
+        await dialogFormModule.preloadDialogForm();
+        return dialogFormModule;
+      })
+      .catch((error: unknown) => {
+        loadDialogFormModulePromise = undefined;
+        throw error;
+      });
+  }
+  return loadDialogFormModulePromise;
+}
 
 const LazyDialogFormFieldComponent = createLazyModuleComponent<
   IDialogFormFieldProps,
   IDialogFormModule
 >(loadDialogFormModule, ({ DialogFormField }) => DialogFormField);
+
+async function loadDialogFormComponentModule() {
+  const dialogFormModule = await loadDialogFormModule();
+  await LazyDialogFormFieldComponent.preload();
+  return dialogFormModule;
+}
+
+const LazyDialogFormComponent = createLazyModuleComponent<
+  IDialogFormProps,
+  IDialogFormModule
+>(loadDialogFormComponentModule, ({ DialogForm }) => DialogForm);
 
 export function preloadDialogFormComponents() {
   return preloadLazyComponents([
