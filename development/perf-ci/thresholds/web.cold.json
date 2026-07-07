@@ -29,13 +29,13 @@
   "scenarios": {
     "root": {
       "resourceCount": 240,
-      "scriptCount": 180,
+      "scriptCount": 175,
       "jsDecodedBytes": 17616077,
       "longTaskTotalMs": 2000
     },
     "market": {
       "resourceCount": 240,
-      "scriptCount": 180,
+      "scriptCount": 175,
       "jsDecodedBytes": 17616077,
       "longTaskTotalMs": 1900,
       "businessReadyMs": 4000,
@@ -43,25 +43,25 @@
     },
     "perps": {
       "resourceCount": 218,
-      "scriptCount": 180,
+      "scriptCount": 174,
       "jsDecodedBytes": 17930650,
       "longTaskTotalMs": 1500
     },
     "swap": {
       "resourceCount": 220,
-      "scriptCount": 180,
+      "scriptCount": 169,
       "jsDecodedBytes": 17458790,
       "longTaskTotalMs": 1200
     },
     "defi": {
       "resourceCount": 222,
-      "scriptCount": 180,
+      "scriptCount": 171,
       "jsDecodedBytes": 17668506,
       "longTaskTotalMs": 1300
     },
     "referFriends": {
       "resourceCount": 200,
-      "scriptCount": 180,
+      "scriptCount": 167,
       "jsDecodedBytes": 17511219,
       "longTaskTotalMs": 850
     }
