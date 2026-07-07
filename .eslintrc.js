@@ -92,7 +92,8 @@ const jsRules = {
   'react/no-unstable-nested-components': 'warn',
   'react/jsx-key': 'error',
   'react/jsx-no-useless-fragment': 'off',
-  'use-effect-no-deps/use-effect-no-deps': 'error',
+  // Handled by oxlint via jsPlugins.
+  'use-effect-no-deps/use-effect-no-deps': 'off',
   'react-hooks/rules-of-hooks': 'error',
   'react-hooks/exhaustive-deps': [
     'error',

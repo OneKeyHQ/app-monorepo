@@ -5,6 +5,7 @@
     "eslint-plugin-import-path",
     "eslint-plugin-props-checker",
     "eslint-plugin-ban",
+    "eslint-plugin-use-effect-no-deps",
     "eslint-plugin-prettier",
     { "name": "import-js", "specifier": "eslint-plugin-import" },
     "./development/plugins/eslint-plugin-onekey.js"
@@ -19,14 +20,9 @@
     "jest",
     "jsx-a11y"
   ],
-  // NOTE: JavaScript ESLint plugins (experimental feature) are not used yet
-  // because some plugin configurations are not compatible with oxlint
-  // https://oxc.rs/docs/guide/usage/linter/migrate-from-eslint.html#local-custom-eslint-plugins
-  // The following plugins remain in ESLint:
-  // - eslint-plugin-ban
-  // - eslint-plugin-import-path
-  // - eslint-plugin-use-effect-no-deps
-  // - eslint-plugin-props-checker
+  // JavaScript ESLint plugins are used for selected rules without native
+  // oxlint equivalents. Keep .eslintrc.js as a compatibility fallback for the
+  // scheduled ESLint workflow until it is removed.
   "categories": {
     // Code that is outright wrong or useless
     "correctness": "error",
@@ -220,6 +216,7 @@
     "react/no-direct-mutation-state": "error",
     // react-hooks/rules-of-hooks (migrated from ESLint)
     "react/rules-of-hooks": "error",
+    "use-effect-no-deps/use-effect-no-deps": "error",
     "react/jsx-no-undef": "error",
     "react/jsx-pascal-case": "error",
     "react/self-closing-comp": "error",
@@ -310,7 +307,7 @@
       }
     ],
 
-    // Rules newly enabled by default in oxlint 1.57-1.62 that conflict with
+    // Rules newly enabled by default in oxlint 1.57-1.73 that conflict with
     // existing project conventions or are too noisy to fix wholesale.
     // Codebase widely uses `_foo` naming for private-like identifiers.
     "no-underscore-dangle": "off",
@@ -324,6 +321,15 @@
     // against API responses / async results that TypeScript types claim are
     // required but may be undefined at runtime. Removing them is unsafe.
     "typescript/no-useless-default-assignment": "off",
+    // Existing assertions often document API/runtime uncertainty even when the
+    // current static type makes them unnecessary.
+    "typescript/no-unnecessary-type-assertion": "off",
+    // Existing React components use object defaults and nested render helpers
+    // heavily; this should be handled as a dedicated cleanup.
+    "react/no-object-type-as-default-prop": "off",
+    "react/no-unstable-nested-components": "off",
+    // Existing test and demo code intentionally uses Array.fill() fixtures.
+    "unicorn/no-array-fill-with-reference-type": "off",
 
     // ============================================
     // Unicorn rules (matching ESLint config)
