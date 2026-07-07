@@ -316,6 +316,12 @@ async function checkWebStartupGraphBudget({ repoRoot, buildDir, log }) {
   const outputPath =
     process.env.PERF_WEB_STARTUP_GRAPH_OUT ||
     path.join(os.tmpdir(), `onekey-web-startup-graph-${Date.now()}.json`);
+  const aiHintsJsonPath =
+    process.env.WEB_STARTUP_AI_HINTS_JSON_PATH ||
+    defaultSiblingPath(outputPath, '-ai-hints.json');
+  const aiHintsMarkdownPath =
+    process.env.WEB_STARTUP_AI_HINTS_MD_PATH ||
+    defaultSiblingPath(outputPath, '-ai-hints.md');
   const result = await execCmd(
     'node',
     ['apps/web/scripts/check-startup-graph-budget.js', buildDir],
@@ -324,6 +330,8 @@ async function checkWebStartupGraphBudget({ repoRoot, buildDir, log }) {
       env: withRepoNodeBin(repoRoot, {
         WEB_STARTUP_BUILD_DIR: buildDir,
         WEB_STARTUP_REPORT_PATH: outputPath,
+        WEB_STARTUP_AI_HINTS_JSON_PATH: aiHintsJsonPath,
+        WEB_STARTUP_AI_HINTS_MD_PATH: aiHintsMarkdownPath,
         WEB_STARTUP_BUDGET_PATH:
           process.env.PERF_WEB_COLD_BUDGET_PATH ||
           path.join(
@@ -344,7 +352,12 @@ async function checkWebStartupGraphBudget({ repoRoot, buildDir, log }) {
   if (result.code !== 0) {
     throw new Error(formatExecResultError('web startup graph budget', result));
   }
-  return readJsonIfExists(outputPath);
+  return {
+    report: readJsonIfExists(outputPath),
+    reportPath: outputPath,
+    aiHintsJsonPath,
+    aiHintsMarkdownPath,
+  };
 }
 
 function installMetricObservers() {
@@ -1175,11 +1188,12 @@ async function main() {
     );
   }
 
-  const startupGraphBudget = await checkWebStartupGraphBudget({
+  const startupGraphBudgetResult = await checkWebStartupGraphBudget({
     repoRoot,
     buildDir,
     log,
   });
+  const startupGraphBudget = startupGraphBudgetResult?.report || null;
   const budgetConfig = loadBudgetConfig(repoRoot);
   const scenarios = parseScenarios();
   const initialScripts = parseInitialScriptFiles(buildDir);
@@ -1334,9 +1348,9 @@ async function main() {
         aiHintsMarkdownPath,
         reportPath: outputPath,
         extraPaths: [
-          'apps/web/out-dir-analysis/web-startup-graph-budget-report-ai-hints.json',
-          'apps/web/out-dir-analysis/web-startup-graph-budget-report.json',
-        ],
+          startupGraphBudgetResult?.aiHintsJsonPath,
+          startupGraphBudgetResult?.reportPath,
+        ].filter(Boolean),
         notes: [
           legacyTopLevelFieldsNote,
           metricDefinitions.resourceCount,
