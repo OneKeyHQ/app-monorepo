@@ -193,7 +193,7 @@ function collectExportTargets(value, targets = []) {
     ),
     ...Object.keys(value)
       .filter((key) => !preferredKeys.includes(key))
-      .sort(),
+      .toSorted(),
   ];
   for (const key of keys) {
     collectExportTargets(value[key], targets);
@@ -226,17 +226,22 @@ function getExportsValueForSubpath(exportsValue, subpath) {
     return exportsValue[exportKey];
   }
 
-  for (const [key, value] of Object.entries(exportsValue)) {
-    if (!key.includes('*')) continue;
-    const [prefix, suffix] = key.split('*');
-    if (exportKey.startsWith(prefix) && exportKey.endsWith(suffix)) {
-      const wildcard = exportKey.slice(
-        prefix.length,
-        exportKey.length - suffix.length,
-      );
-      return collectExportTargets(value)
-        .filter((target) => target.includes('*'))
-        .map((target) => target.replace('*', wildcard));
+  for (const [key, value] of Object.entries(exportsValue).toSorted(([a], [b]) =>
+    a.localeCompare(b),
+  )) {
+    const starIndex = key.indexOf('*');
+    if (starIndex >= 0) {
+      const prefix = key.slice(0, starIndex);
+      const suffix = key.slice(starIndex + 1);
+      if (exportKey.startsWith(prefix) && exportKey.endsWith(suffix)) {
+        const wildcard = exportKey.slice(
+          prefix.length,
+          exportKey.length - suffix.length,
+        );
+        return collectExportTargets(value)
+          .filter((target) => target.includes('*'))
+          .map((target) => target.split('*').join(wildcard));
+      }
     }
   }
   return null;
