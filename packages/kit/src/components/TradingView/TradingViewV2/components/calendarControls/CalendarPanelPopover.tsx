@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Icon,
@@ -10,6 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { HEADER_ICON_BUTTON_STYLE_PROPS } from '../utils/NativeChartControlsShared';
 
@@ -31,23 +34,25 @@ export type ICalendarPanelSubmitPayload =
       to: number;
     };
 
-const MONTH_LABELS = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
+const WEEKDAY_REFERENCE_DATES = [
+  new Date(Date.UTC(2020, 5, 7)),
+  new Date(Date.UTC(2020, 5, 8)),
+  new Date(Date.UTC(2020, 5, 9)),
+  new Date(Date.UTC(2020, 5, 10)),
+  new Date(Date.UTC(2020, 5, 11)),
+  new Date(Date.UTC(2020, 5, 12)),
+  new Date(Date.UTC(2020, 5, 13)),
 ] as const;
-const WEEKDAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] as const;
 const TIME_OPTIONS = Array.from({ length: 96 }, (_, index) => index * 15);
 const DEFAULT_TIME_RANGE_SECONDS = 86_400;
+const DEFAULT_CALENDAR_LOCALE = 'en-US';
+
+function createDateTimeFormatter(
+  locale: string,
+  options: Intl.DateTimeFormatOptions,
+) {
+  return new Intl.DateTimeFormat(locale || DEFAULT_CALENDAR_LOCALE, options);
+}
 
 function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -67,13 +72,6 @@ function isSameDay(a: Date, b: Date) {
 
 function compareDay(a: Date, b: Date) {
   return startOfDay(a).getTime() - startOfDay(b).getTime();
-}
-
-function formatDate(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}/${month}/${day}`;
 }
 
 function formatTime(totalMinutes: number) {
@@ -115,13 +113,20 @@ function getCalendarDayTextColor({
 
 function DateField({
   value,
+  dateFormatter,
   isActive,
   onPress,
 }: {
   value: Date;
+  dateFormatter: Intl.DateTimeFormat;
   isActive?: boolean;
   onPress?: () => void;
 }) {
+  const formattedDate = useMemo(
+    () => dateFormatter.format(value),
+    [dateFormatter, value],
+  );
+
   return (
     <XStack
       flex={1}
@@ -137,7 +142,7 @@ function DateField({
       onPress={onPress}
     >
       <SizableText size="$bodyLg" color="$textSubdued">
-        {formatDate(value)}
+        {formattedDate}
       </SizableText>
       <Icon name="CalendarOutline" size="$5" color="$iconSubdued" />
     </XStack>
@@ -222,6 +227,8 @@ function CalendarGrid({
   goToDate,
   rangeStartDate,
   rangeEndDate,
+  monthFormatter,
+  weekdayLabels,
   onDatePress,
   onMonthChange,
 }: {
@@ -230,12 +237,18 @@ function CalendarGrid({
   goToDate: Date;
   rangeStartDate: Date;
   rangeEndDate: Date;
+  monthFormatter: Intl.DateTimeFormat;
+  weekdayLabels: readonly string[];
   onDatePress: (date: Date) => void;
   onMonthChange: (date: Date) => void;
 }) {
   const calendarDays = useMemo(() => buildCalendarDays(monthDate), [monthDate]);
   const rangeStartTime = startOfDay(rangeStartDate).getTime();
   const rangeEndTime = startOfDay(rangeEndDate).getTime();
+  const monthLabel = useMemo(
+    () => monthFormatter.format(monthDate),
+    [monthFormatter, monthDate],
+  );
 
   return (
     <YStack gap="$3">
@@ -246,13 +259,12 @@ function CalendarGrid({
           variant="tertiary"
           icon="ChevronLeftOutline"
           iconSize="$5"
-          title="Previous month"
           onPress={() => onMonthChange(addMonths(monthDate, -1))}
           {...HEADER_ICON_BUTTON_STYLE_PROPS}
         />
         <XStack gap="$3" alignItems="center">
           <SizableText size="$headingLg" color="$text">
-            {MONTH_LABELS[monthDate.getMonth()]}
+            {monthLabel}
           </SizableText>
           <SizableText size="$headingLg" color="$text">
             {monthDate.getFullYear()}
@@ -264,7 +276,6 @@ function CalendarGrid({
           variant="tertiary"
           icon="ChevronRightOutline"
           iconSize="$5"
-          title="Next month"
           onPress={() => onMonthChange(addMonths(monthDate, 1))}
           {...HEADER_ICON_BUTTON_STYLE_PROPS}
         />
@@ -273,7 +284,7 @@ function CalendarGrid({
       <Stack h="$px" bg="$borderSubdued" />
 
       <XStack>
-        {WEEKDAY_LABELS.map((label) => (
+        {weekdayLabels.map((label) => (
           <XStack key={label} flex={1} justifyContent="center" py="$1">
             <SizableText size="$bodyLg" color="$textSubdued">
               {label}
@@ -349,7 +360,49 @@ export function CalendarPanelPopover({
   chartTimezone: string;
   onSubmit: (payload: ICalendarPanelSubmitPayload) => void;
 }) {
+  const intl = useIntl();
   const today = useMemo(() => startOfDay(new Date()), []);
+  const dateFormatters = useMemo(
+    () => ({
+      date: createDateTimeFormatter(intl.locale, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }),
+      month: createDateTimeFormatter(intl.locale, {
+        month: 'long',
+      }),
+      weekday: createDateTimeFormatter(intl.locale, {
+        weekday: 'short',
+        timeZone: 'UTC',
+      }),
+    }),
+    [intl.locale],
+  );
+  const weekdayLabels = useMemo(
+    () =>
+      WEEKDAY_REFERENCE_DATES.map((date) =>
+        dateFormatters.weekday.format(date),
+      ),
+    [dateFormatters],
+  );
+  const calendarLabels = useMemo(
+    () => ({
+      calendar: intl.formatMessage({ id: ETranslations.global_date }),
+      goToDate: intl.formatMessage({ id: ETranslations.global_go_to_date }),
+      timeRange: intl.formatMessage({ id: ETranslations.global_time_range }),
+      cancel: intl.formatMessage({ id: ETranslations.global_cancel }),
+      goTo: intl.formatMessage({ id: ETranslations.global_go_to }),
+    }),
+    [intl],
+  );
+  const panelOptions = useMemo<readonly [ICalendarPanel, string][]>(
+    () => [
+      ['goToDate', calendarLabels.goToDate],
+      ['timeRange', calendarLabels.timeRange],
+    ],
+    [calendarLabels.goToDate, calendarLabels.timeRange],
+  );
   const [isOpen, setIsOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<ICalendarPanel>('goToDate');
   const [monthDate, setMonthDate] = useState(() => startOfDay(new Date()));
@@ -461,12 +514,7 @@ export function CalendarPanelPopover({
     ({ closePopover }: { closePopover: () => void }) => (
       <YStack width={328}>
         <XStack borderBottomWidth="$px" borderBottomColor="$borderSubdued">
-          {(
-            [
-              ['goToDate', 'Go to date'],
-              ['timeRange', 'Time range'],
-            ] as const
-          ).map(([value, label]) => {
+          {panelOptions.map(([value, label]) => {
             const isActive = activePanel === value;
             return (
               <YStack
@@ -494,7 +542,7 @@ export function CalendarPanelPopover({
         <YStack p="$5" gap="$5">
           {activePanel === 'goToDate' ? (
             <XStack gap="$3">
-              <DateField value={goToDate} />
+              <DateField value={goToDate} dateFormatter={dateFormatters.date} />
               <TimeField value={goToTime} onChange={setGoToTime} />
             </XStack>
           ) : (
@@ -502,6 +550,7 @@ export function CalendarPanelPopover({
               <XStack gap="$3">
                 <DateField
                   value={rangeStartDate}
+                  dateFormatter={dateFormatters.date}
                   isActive={activeRangeField === 'from'}
                   onPress={() => setActiveRangeField('from')}
                 />
@@ -513,6 +562,7 @@ export function CalendarPanelPopover({
               <XStack gap="$3">
                 <DateField
                   value={rangeEndDate}
+                  dateFormatter={dateFormatters.date}
                   isActive={activeRangeField === 'to'}
                   onPress={() => setActiveRangeField('to')}
                 />
@@ -527,6 +577,8 @@ export function CalendarPanelPopover({
             goToDate={goToDate}
             rangeStartDate={rangeStartDate}
             rangeEndDate={rangeEndDate}
+            monthFormatter={dateFormatters.month}
+            weekdayLabels={weekdayLabels}
             onDatePress={handleDatePress}
             onMonthChange={setMonthDate}
           />
@@ -539,7 +591,7 @@ export function CalendarPanelPopover({
               variant="secondary"
               onPress={closePopover}
             >
-              Cancel
+              {calendarLabels.cancel}
             </Button>
             <Button
               testID="trading-view-calendar-submit"
@@ -551,7 +603,7 @@ export function CalendarPanelPopover({
                 closePopover();
               }}
             >
-              Go to
+              {calendarLabels.goTo}
             </Button>
           </XStack>
         </YStack>
@@ -560,22 +612,28 @@ export function CalendarPanelPopover({
     [
       activePanel,
       activeRangeField,
+      calendarLabels.cancel,
+      calendarLabels.goTo,
+      dateFormatters.date,
+      dateFormatters.month,
       goToDate,
       goToTime,
       handleDatePress,
       monthDate,
       onSubmit,
+      panelOptions,
       rangeEndDate,
       rangeEndTime,
       rangeStartDate,
       rangeStartTime,
       submit,
+      weekdayLabels,
     ],
   );
 
   return (
     <Popover
-      title="Calendar"
+      title={calendarLabels.calendar}
       open={isOpen}
       onOpenChange={handleOpenChange}
       showHeader={false}
@@ -591,7 +649,7 @@ export function CalendarPanelPopover({
           variant="tertiary"
           icon="CalendarOutline"
           iconSize="$5"
-          title="Calendar"
+          title={calendarLabels.calendar}
           {...HEADER_ICON_BUTTON_STYLE_PROPS}
         />
       }
