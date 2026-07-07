@@ -47,6 +47,7 @@ export type INetworkShortCode =
   | 'cronosposchain'
   | 'injective'
   | 'polygon'
+  | 'defioracle'
   | 'tlightning'
   | 'lightning'
   | 'ltc'
