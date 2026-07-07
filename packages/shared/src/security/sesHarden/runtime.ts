@@ -1,4 +1,4 @@
-// cspell:ignore lockdown Lockdown jsbi unpermitted
+// cspell:ignore lockdown Lockdown jsbi Reown unpermitted
 
 import { OneKeyLocalError } from '../../errors';
 
@@ -389,11 +389,29 @@ function defaultLoadSes(): void {
 // new offenders here as the patch-warning monitor surfaces their `culprit`.
 //
 // NOTE: a library that mutates a STANDARD intrinsic (adds non-standard own
-// properties to BigInt/Number/etc.) cannot be fixed by warm-up: lockdown()
-// REMOVES unpermitted intrinsics, so the additions are stripped regardless of
-// load order. js-conflux-sdk's jsbi shim hit exactly this; it is fixed by
-// making the shim self-contained instead (patches/js-conflux-sdk+2.3.0.patch).
+// properties to BigInt/Number/etc.) usually cannot be fixed by warm-up:
+// lockdown() REMOVES unpermitted intrinsics, so the additions are stripped
+// regardless of load order. js-conflux-sdk's jsbi shim hit exactly this; it is
+// fixed by making the shim self-contained instead
+// (patches/js-conflux-sdk+2.3.0.patch).
+function warmUpLitSymbolMetadata(): void {
+  try {
+    // Lit's @lit/reactive-element does this at module init because TypeScript
+    // does not polyfill decorator metadata. Reown AppKit can lazy-load Lit
+    // after lockdown, where adding a property to the frozen Symbol constructor
+    // throws "Cannot add property metadata, object is not extensible".
+    const symbolConstructor = Symbol as unknown as {
+      metadata?: symbol;
+    };
+    symbolConstructor.metadata ??= Symbol('metadata');
+  } catch {
+    // Best-effort: a failed warm-up must never block startup.
+  }
+}
+
 function defaultWarmUpBeforeLockdown(): void {
+  warmUpLitSymbolMetadata();
+
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
     require('axios');

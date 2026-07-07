@@ -1,4 +1,4 @@
-// cspell:ignore alephium lockdown jsbi JSBI unpermitted
+// cspell:ignore alephium appkit lockdown jsbi JSBI reown unpermitted
 // Verifies how specific third-party libraries behave under a real SES
 // `lockdown()`. `lockdown()` irreversibly freezes the realm's intrinsics, so
 // every scenario runs in its own child node process.
@@ -192,6 +192,84 @@ try {
     MODERATE_OPTIONS,
   );
   expect(out).toBe('OK:bar');
+});
+
+// --- Reown AppKit UI / Lit: Symbol.metadata must be warmed up --------------
+// @reown/appkit-ui imports Lit at module init. Lit seeds Symbol.metadata for
+// decorator metadata support, but the Symbol constructor is already frozen
+// after lockdown. The runtime warm-up seeds Symbol.metadata before lockdown so
+// AppKit UI can still be lazy-loaded by the WalletConnect flow.
+
+test('@reown/appkit-ui throws when lazy-loaded AFTER lockdown without Symbol.metadata warm-up', () => {
+  const out = runUnderLockdown(`
+(async () => {
+  require('ses');
+  lockdown(opts);
+  try {
+    await import('@reown/appkit-ui');
+    process.stdout.write('OK');
+  } catch (e) {
+    process.stdout.write('ERR:' + e.message);
+  }
+})();
+`);
+  expect(out).toContain(
+    'ERR:Cannot add property metadata, object is not extensible',
+  );
+});
+
+test('@reown/appkit-ui works AFTER lockdown when Symbol.metadata is warmed up', () => {
+  const out = runUnderLockdown(`
+(async () => {
+  require('ses');
+  Symbol.metadata ??= Symbol('metadata');
+  lockdown(opts);
+  try {
+    await import('@reown/appkit-ui');
+    process.stdout.write('OK:' + Boolean(Symbol.metadata));
+  } catch (e) {
+    process.stdout.write('ERR:' + e.message);
+  }
+})();
+`);
+  expect(out).toContain('OK:true');
+  expect(out).not.toContain('ERR:');
+});
+
+test('@lit/reactive-element throws when lazy-loaded AFTER lockdown without Symbol.metadata warm-up', () => {
+  const out = runUnderLockdown(`
+(async () => {
+  require('ses');
+  lockdown(opts);
+  try {
+    await import('@lit/reactive-element');
+    process.stdout.write('OK');
+  } catch (e) {
+    process.stdout.write('ERR:' + e.message);
+  }
+})();
+`);
+  expect(out).toContain(
+    'ERR:Cannot add property metadata, object is not extensible',
+  );
+});
+
+test('@lit/reactive-element works AFTER lockdown when Symbol.metadata is warmed up', () => {
+  const out = runUnderLockdown(`
+(async () => {
+  require('ses');
+  Symbol.metadata ??= Symbol('metadata');
+  lockdown(opts);
+  try {
+    await import('@lit/reactive-element');
+    process.stdout.write('OK:' + Boolean(Symbol.metadata));
+  } catch (e) {
+    process.stdout.write('ERR:' + e.message);
+  }
+})();
+`);
+  expect(out).toContain('OK:true');
+  expect(out).not.toContain('ERR:');
 });
 
 // --- js-conflux-sdk: the jsbi shim must be self-contained (patch-package) ----
