@@ -1,12 +1,15 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { isEmpty } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
@@ -34,6 +37,13 @@ export type IManagePositionProtocolSwitchConfig = {
   selectedProtocol: IManagePositionSelectedProtocol;
   indexedAccountId?: string;
   onProtocolSelect: (protocol: IStakeProtocolListItem) => void | Promise<void>;
+};
+
+export type IManagePositionFooterAction = {
+  text: string;
+  onPress: () => void;
+  loading?: boolean;
+  disabled?: boolean;
 };
 
 export interface IManagePositionContentProps {
@@ -130,7 +140,12 @@ export function ManagePositionContent({
   onStakeWithdrawSuccess,
   isInModalContext = false,
 }: IManagePositionContentProps) {
+  const intl = useIntl();
   const appNavigation = useAppNavigation();
+  const { showAccountSelector } = useAccountSelectorTrigger({
+    num: 0,
+    showConnectWalletModalInDappMode: true,
+  });
 
   const {
     tokenInfo,
@@ -211,11 +226,31 @@ export function ManagePositionContent({
     [accountId, indexedAccountId, earnAccount?.accountAddress],
   );
 
-  // Determine if we should show warning instead of normal content
-  // This includes: no address, no account, or BTC-only firmware on non-BTC network
+  const noConnectedWallet = useMemo(
+    () => !accountId && !indexedAccountId,
+    [accountId, indexedAccountId],
+  );
+
+  const noConnectedWalletFooterAction = useMemo<
+    IManagePositionFooterAction | undefined
+  >(() => {
+    if (!noConnectedWallet) {
+      return undefined;
+    }
+    return {
+      text: intl.formatMessage({ id: ETranslations.global_connect_wallet }),
+      onPress: showAccountSelector,
+    };
+  }, [intl, noConnectedWallet, showAccountSelector]);
+
+  // In the normal form footer, no-wallet state is represented by the primary
+  // connect-wallet CTA. Keep warnings for connected wallets that need address
+  // creation, and for BTC-only firmware on unsupported networks.
   const shouldShowWarning = useMemo(
-    () => noAddressOrAccount || !!accountNetworkNotSupported,
-    [noAddressOrAccount, accountNetworkNotSupported],
+    () =>
+      (!noConnectedWallet && noAddressOrAccount) ||
+      !!accountNetworkNotSupported,
+    [noConnectedWallet, noAddressOrAccount, accountNetworkNotSupported],
   );
 
   const resolvedTokenImageUri =
@@ -414,7 +449,7 @@ export function ManagePositionContent({
 
   // Create beforeFooter content for special layout (USDe, ADA)
   const specialBeforeFooter = useMemo(() => {
-    if (warningElement) {
+    if (shouldShowWarning && warningElement) {
       return warningElement;
     }
     if (!isEmpty(alertsHolding) || !isEmpty(alerts)) {
@@ -426,7 +461,7 @@ export function ManagePositionContent({
       );
     }
     return null;
-  }, [alertsHolding, alerts, warningElement]);
+  }, [alertsHolding, alerts, shouldShowWarning, warningElement]);
 
   if (isLoading && !managePageData) {
     return <SectionSkeleton />;
@@ -476,11 +511,12 @@ export function ManagePositionContent({
   // USDe special rendering is for Earn/Staking manage pages. Borrow manage
   // pages use the regular borrow action contract and do not return holdings.
   if (!isBorrowType && symbol.toLowerCase() === 'usde') {
-    // Show warning if needed (no address or BTC-only firmware)
-    if (warningElement) {
+    // Show warnings that still require explicit remediation, such as BTC-only
+    // firmware on unsupported networks or connected wallets missing an address.
+    if (shouldShowWarning && warningElement) {
       return <YStack px="$5">{warningElement}</YStack>;
     }
-    if (!managePageData?.holdings) {
+    if (!managePageData?.holdings && !noConnectedWalletFooterAction) {
       return null;
     }
 
@@ -501,6 +537,7 @@ export function ManagePositionContent({
         showApyDetail={showApyDetail}
         isInModalContext={isInModalContext}
         beforeFooter={specialBeforeFooter}
+        footerActionOverride={noConnectedWalletFooterAction}
         fallbackTokenImageUri={fallbackTokenImageUri}
       />
     );
@@ -520,6 +557,7 @@ export function ManagePositionContent({
         showApyDetail={showApyDetail}
         isInModalContext={isInModalContext}
         beforeFooter={specialBeforeFooter}
+        footerActionOverride={noConnectedWalletFooterAction}
         fallbackTokenImageUri={fallbackTokenImageUri}
         protocolInfo={resolvedProtocolInfo}
         tokenInfo={resolvedTokenInfo}
@@ -549,6 +587,7 @@ export function ManagePositionContent({
       withdrawDisabled={withdrawDisabled}
       stakeBeforeFooter={stakeBeforeFooter}
       withdrawBeforeFooter={withdrawBeforeFooter}
+      footerActionOverride={noConnectedWalletFooterAction}
       historyAction={historyAction}
       onHistory={onHistory}
       indicatorAccountId={earnAccount?.accountId}

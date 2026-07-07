@@ -114,7 +114,10 @@ import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
 
-import type { IManagePositionProtocolSwitchConfig } from '../../pages/ManagePosition/components/ManagePositionContent';
+import type {
+  IManagePositionFooterAction,
+  IManagePositionProtocolSwitchConfig,
+} from '../../pages/ManagePosition/components/ManagePositionContent';
 import type { FontSizeTokens } from 'tamagui';
 
 function withRewardUnit(text: string, rewardUnit: string): string {
@@ -371,6 +374,7 @@ type IUniversalStakeProps = {
     token?: IToken;
   };
   beforeFooter?: ReactElement | null;
+  footerActionOverride?: IManagePositionFooterAction;
   protocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   showApyDetail?: boolean;
   suppressPlatformBonus?: boolean;
@@ -413,6 +417,7 @@ export function UniversalStake({
   postWrapApproveTarget,
   currentAllowance,
   beforeFooter,
+  footerActionOverride,
   protocolSwitchConfig,
   showApyDetail = false,
   suppressPlatformBonus = false,
@@ -1807,6 +1812,20 @@ export function UniversalStake({
     onSubmit,
   ]);
 
+  const effectiveOnConfirmText = footerActionOverride?.text ?? onConfirmText;
+  const effectiveConfirmOnPress =
+    footerActionOverride?.onPress ?? confirmOnPress;
+  const baseConfirmLoading = effectiveShowExpiredRefresh
+    ? quoteRefreshing
+    : loadingAllowance || approving || submitting || checkAmountLoading;
+  const baseConfirmDisabled = effectiveShowExpiredRefresh ? false : isDisable;
+  const effectiveConfirmLoading = footerActionOverride
+    ? Boolean(footerActionOverride.loading)
+    : baseConfirmLoading;
+  const effectiveConfirmDisabled = footerActionOverride
+    ? Boolean(footerActionOverride.disabled)
+    : baseConfirmDisabled;
+
   const footerContent = (
     <YStack bg="$bgApp" gap="$5">
       {isShowStakeProgress ? (
@@ -1822,7 +1841,7 @@ export function UniversalStake({
       ) : null}
       <Page.FooterActions
         p={0}
-        onConfirmText={onConfirmText}
+        onConfirmText={effectiveOnConfirmText}
         buttonContainerProps={{
           $gtMd: {
             ml: '0',
@@ -1830,11 +1849,9 @@ export function UniversalStake({
           w: '100%',
         }}
         confirmButtonProps={{
-          onPress: confirmOnPress,
-          loading: effectiveShowExpiredRefresh
-            ? quoteRefreshing
-            : loadingAllowance || approving || submitting || checkAmountLoading,
-          disabled: effectiveShowExpiredRefresh ? false : isDisable,
+          onPress: effectiveConfirmOnPress,
+          loading: effectiveConfirmLoading,
+          disabled: effectiveConfirmDisabled,
           w: '100%',
         }}
       />
@@ -2302,16 +2319,11 @@ export function UniversalStake({
             </Stack>
 
             <Page.FooterActions
-              onConfirmText={onConfirmText}
+              onConfirmText={effectiveOnConfirmText}
               confirmButtonProps={{
-                onPress: confirmOnPress,
-                loading: effectiveShowExpiredRefresh
-                  ? quoteRefreshing
-                  : loadingAllowance ||
-                    approving ||
-                    submitting ||
-                    checkAmountLoading,
-                disabled: effectiveShowExpiredRefresh ? false : isDisable,
+                onPress: effectiveConfirmOnPress,
+                loading: effectiveConfirmLoading,
+                disabled: effectiveConfirmDisabled,
               }}
             />
           </Stack>
