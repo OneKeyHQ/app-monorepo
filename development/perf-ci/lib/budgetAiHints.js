@@ -3,6 +3,8 @@ const fs = require('fs');
 const path = require('path');
 
 const MB = 1024 * 1024;
+const WEB_BUDGET_ARTIFACT = 'web-startup-cold-budget-reports';
+const NATIVE_BUDGET_ARTIFACT = 'bundle-architecture-reports';
 
 function formatBytes(value) {
   if (!Number.isFinite(value)) return 'n/a';
@@ -273,14 +275,29 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
     kind: 'web-cold-budget',
     createdAt: new Date().toISOString(),
     git: getGitContext(repoRoot),
+    artifactName: WEB_BUDGET_ARTIFACT,
+    artifactInstructions: [
+      `Download GitHub Actions artifact "${WEB_BUDGET_ARTIFACT}".`,
+      'Read web-cold-budget-report-ai-hints.json first; Markdown is only a summary.',
+      'Cross-check web-cold-budget-report.json for raw runs, all scenarios, and health checks before editing.',
+    ],
+    reportNotes: [
+      report.legacyTopLevelFieldsNote ||
+        'Use scenarios[] as the source of truth. Top-level summary/budgetChecks/runs are legacy-compatible fields for the first scenario only.',
+      'Warnings are still budget regressions. Do not silence failures by changing thresholds or workflow env values.',
+      'If failedHealthChecks is non-empty, fix page rendering/readiness first because budget samples may be invalid.',
+    ],
     reportPath: report.reportPath || null,
     buildDir,
     command: "PERF_WEB_COLD_SCENARIOS='<failed scenarios>' yarn perf:web:cold",
     aiFixPrompt: [
+      'Download artifact web-startup-cold-budget-reports and read web-cold-budget-report-ai-hints.json plus web-cold-budget-report.json before editing; Markdown is only a summary.',
       'Fix the OneKey web cold/startup budget without relaxing thresholds.',
+      'Use scenarios[] as the source of truth; top-level summary/budgetChecks/runs are legacy-compatible first-scenario fields.',
       'Start from failedOrWarnBudgetChecks, then inspect duplicateScripts, scenarioOnlyScriptCandidates, and smallScriptCandidates.',
       'Do not assume only the home page can fail: any change entering the global shell, shared modules, first-screen synchronous imports, or lazy loads auto-mounted within the cold-start window can affect this budget.',
       'For scriptCount/resourceCount failures, prefer merging related lazy import() boundaries or delaying non-first-screen providers.',
+      'Do not edit development/perf-ci/thresholds or workflow budget env values to silence a regression.',
       'Preserve mount delays, side effects, routing behavior, and visible UI behavior.',
       'Validate with the focused PERF_WEB_COLD_SCENARIOS command plus yarn tsc:staged and yarn lint:staged.',
     ],
@@ -321,17 +338,29 @@ function createWebStartupAiHints({
     kind: 'web-startup-graph-budget',
     createdAt: new Date().toISOString(),
     git: getGitContext(repoRoot),
+    artifactName: WEB_BUDGET_ARTIFACT,
+    artifactInstructions: [
+      `Download GitHub Actions artifact "${WEB_BUDGET_ARTIFACT}".`,
+      'Read web-startup-graph-budget-report-ai-hints.json first; Markdown is only a summary.',
+      'Cross-check web-startup-graph-budget-report.json and web-cold-budget-report.json before editing startup imports.',
+    ],
+    reportNotes: [
+      'Fix startup graph and cold-entry budgets together. Moving code behind many one-file lazy chunks can pass startup graph while failing web cold script/resource budgets.',
+      'Do not silence failures by changing thresholds or workflow budget env values.',
+    ],
     buildDir,
     failedBudgetChecks: failedBudgetChecks(report.budgetChecks),
     failures: report.failures,
     summary: report.summary,
     budgets: report.budgets,
     aiFixPrompt: [
+      'Download artifact web-startup-cold-budget-reports and read web-startup-graph-budget-report-ai-hints.json plus the raw report JSON before editing; Markdown is only a summary.',
       'Fix the OneKey web startup graph budget without relaxing thresholds.',
       'Inspect failedBudgetChecks, then topModules, topPackages, and initialScriptHints.',
       'Do not assume only the home page can fail: any change entering the global shell, shared modules, first-screen synchronous imports, or lazy loads auto-mounted within the cold-start window can affect this budget.',
       'If initialScriptCount or startup module count grows, move non-first-screen imports behind lazy import() boundaries.',
       'If allScriptRawBytes grows, inspect newly created chunks and avoid one-file lazy chunks when related modules can share one lazy entry.',
+      'Do not edit development/perf-ci/thresholds or workflow budget env values to silence a regression.',
       'Validate with yarn perf:web:cold or apps/web/scripts/check-startup-graph-budget.js against the production build.',
     ],
     topModules: report.topModules,
@@ -364,11 +393,21 @@ function createNativeStartupAiHints({
     kind: 'native-startup-graph-budget',
     createdAt: new Date().toISOString(),
     git: getGitContext(repoRoot),
+    artifactName: NATIVE_BUDGET_ARTIFACT,
     entry: report.entry,
     runtimeScope:
       report.entry === 'background'
         ? 'background JS runtime'
         : 'main UI JS runtime',
+    artifactInstructions: [
+      `Download GitHub Actions artifact "${NATIVE_BUDGET_ARTIFACT}".`,
+      `Read out-dir-analysis/budget-check-ai-hints-${report.entry}.json and out-dir-analysis/budget-check-report-${report.entry}.json first; Markdown is only a summary.`,
+      `Cross-check dist/allocation-report-${report.entry}.json for raw startup modules and segments.`,
+    ],
+    reportNotes: [
+      'Use per-entry report/hints files. The generic budget-check-report.json may be overwritten by the last ENTRY check.',
+      'Do not silence failures by changing STARTUP_* budgets or workflow env values.',
+    ],
     nativeResourceNote:
       'This report describes JS bundle startup graphs. It does not imply JS heap sharing; production main/background JS runtimes are isolated even when native resources live in the same process.',
     failedBudgetChecks: failedBudgetChecks([
@@ -395,11 +434,13 @@ function createNativeStartupAiHints({
       segmentCount: segmentRows.length,
     },
     aiFixPrompt: [
+      `Download artifact bundle-architecture-reports and read budget-check-ai-hints-${report.entry}.json plus budget-check-report-${report.entry}.json before editing; Markdown is only a summary.`,
       'Fix the OneKey native startup graph budget without relaxing thresholds.',
       'Label runtime impact explicitly: main UI JS runtime, background JS runtime, or both.',
       'Do not reason from the changed screen name alone: startup graph regressions come from dependency chains that enter global shell code, shared modules, entrypoint synchronous imports, or auto-mounted startup/lazy providers.',
       'Use startupPackageCounts, startupPrefixCounts, and forbiddenModulesFound to find the dependency chain that entered startup.',
       'Move non-startup work behind lazy segments or runtime-specific imports while preserving main/background isolation.',
+      'Do not edit STARTUP_* budgets or workflow env values to silence a regression.',
       'Validate the affected ENTRY with ENABLE_NATIVE_BACKGROUND_THREAD=true and the same STARTUP_* budget env vars from CI.',
     ],
     forbiddenModulesFound: report.forbiddenModulesFound,
@@ -433,6 +474,49 @@ function markdownBudgetRows(checks) {
     .join('\n');
 }
 
+function markdownHealthRows(checks) {
+  if (!checks?.length) return '';
+  return checks
+    .map(
+      (check) =>
+        `- ${check.name}: actual ${check.actual}, expected ${check.expected}`,
+    )
+    .join('\n');
+}
+
+function countRowsText(rows, limit) {
+  return limitRows(rows || [], limit)
+    .map((item) => `${item.count} ${item.name}`)
+    .join(', ');
+}
+
+function printAiTriageInstructions({
+  artifactName,
+  aiHintsJsonPath,
+  aiHintsMarkdownPath,
+  reportPath,
+  extraPaths = [],
+  notes = [],
+  log,
+}) {
+  if (typeof log !== 'function') return;
+  const lines = [
+    '',
+    'AI triage instructions:',
+    `  1. Download GitHub Actions artifact: ${artifactName}`,
+    `  2. Read AI hints JSON first: ${aiHintsJsonPath}`,
+    `  3. Use Markdown only as a summary: ${aiHintsMarkdownPath}`,
+    `  4. Cross-check raw report JSON: ${reportPath}`,
+  ];
+  for (const item of extraPaths) {
+    lines.push(`  - Related report: ${item}`);
+  }
+  for (const note of notes) {
+    lines.push(`  - Note: ${note}`);
+  }
+  for (const line of lines) log(line);
+}
+
 function renderAiHintsMarkdown(hints) {
   const lines = [
     `# ${hints.kind}`,
@@ -446,18 +530,59 @@ function renderAiHintsMarkdown(hints) {
   if (hints.nativeResourceNote) {
     lines.push('', '## Runtime Note', hints.nativeResourceNote);
   }
+  if (hints.artifactName || hints.artifactInstructions?.length) {
+    lines.push('', '## Required Artifacts');
+    if (hints.artifactName) {
+      lines.push(`- GitHub Actions artifact: ${hints.artifactName}`);
+    }
+    for (const item of hints.artifactInstructions || []) {
+      lines.push(`- ${item}`);
+    }
+  }
+  if (hints.reportNotes?.length) {
+    lines.push('', '## Report Notes');
+    for (const item of hints.reportNotes) lines.push(`- ${item}`);
+  }
   lines.push('', '## AI Fix Prompt');
   for (const item of hints.aiFixPrompt || []) lines.push(`- ${item}`);
   lines.push('', '## Failed or Warning Budgets');
   lines.push(markdownBudgetRows(hints.failedBudgetChecks));
   if (hints.scenarios?.length) {
+    const failedScenarios = hints.scenarios.filter(
+      (scenario) =>
+        scenario.failedOrWarnBudgetChecks?.length ||
+        scenario.failedHealthChecks?.length,
+    );
+    if (failedScenarios.length) {
+      lines.push('', '## Failed or Warning Scenarios');
+      for (const scenario of failedScenarios) {
+        const failureNames = (scenario.failedOrWarnBudgetChecks || [])
+          .map((check) => `${check.status || 'fail'} ${check.name}`)
+          .join(', ');
+        const healthNames = (scenario.failedHealthChecks || [])
+          .map((check) => `health ${check.name}`)
+          .join(', ');
+        lines.push(
+          `- ${scenario.name}: ${[failureNames, healthNames]
+            .filter(Boolean)
+            .join('; ')}`,
+        );
+      }
+    }
     lines.push('', '## Scenarios');
     for (const scenario of hints.scenarios) {
       lines.push('', `### ${scenario.name}`);
       lines.push(markdownBudgetRows(scenario.failedOrWarnBudgetChecks));
-      lines.push(
-        `- scripts: ${scenario.scriptCount}, unique scripts: ${scenario.uniqueScriptCount}`,
-      );
+      if (scenario.failedHealthChecks?.length) {
+        lines.push('- failed health checks:');
+        lines.push(markdownHealthRows(scenario.failedHealthChecks));
+      }
+      const scriptMetrics = [
+        `budget scripts: ${scenario.scriptCount ?? 'n/a'}`,
+        `raw script entries: ${scenario.scriptEntryCount ?? 'n/a'}`,
+        `unique scripts: ${scenario.uniqueScriptCount ?? 'n/a'}`,
+      ];
+      lines.push(`- ${scriptMetrics.join(', ')}`);
       if (scenario.duplicateScripts?.length) {
         lines.push('- duplicate scripts:');
         for (const item of limitRows(scenario.duplicateScripts, 10)) {
@@ -483,12 +608,47 @@ function renderAiHintsMarkdown(hints) {
           );
         }
       }
+      if (scenario.topScriptsByDecodedSize?.length) {
+        lines.push('- top scripts by decoded size:');
+        for (const item of limitRows(scenario.topScriptsByDecodedSize, 8)) {
+          lines.push(
+            `  - ${formatBytes(item.decodedBodySize || item.bytes)} ${item.pathname} (${item.sourceCount} sources)`,
+          );
+        }
+      }
+    }
+  }
+  if (hints.topModules?.length) {
+    lines.push('', '## Top Modules');
+    for (const item of limitRows(hints.topModules, 20)) {
+      const packageName = item.packageName ? `, ${item.packageName}` : '';
+      lines.push(
+        `- ${formatBytes(item.bytes)} ${item.source} (${item.category || 'unknown'}${packageName})`,
+      );
     }
   }
   if (hints.topPackages?.length) {
     lines.push('', '## Top Packages');
     for (const item of limitRows(hints.topPackages, 20)) {
       lines.push(`- ${formatBytes(item.bytes)} ${item.name}`);
+    }
+  }
+  if (hints.initialScriptHints?.length) {
+    lines.push('', '## Initial Script Hints');
+    for (const item of limitRows(hints.initialScriptHints, 8)) {
+      lines.push(
+        `- ${formatBytes(item.bytes)} ${item.file} (${item.moduleCount} modules)`,
+      );
+      const packageCounts = countRowsText(item.packageCounts, 6);
+      if (packageCounts) lines.push(`  - packages: ${packageCounts}`);
+      if (item.topModules?.length) {
+        lines.push('  - top modules:');
+        for (const moduleRow of limitRows(item.topModules, 5)) {
+          lines.push(
+            `    - ${formatBytes(moduleRow.bytes)} ${moduleRow.source}`,
+          );
+        }
+      }
     }
   }
   if (hints.startupPackageCounts?.length) {
@@ -501,6 +661,30 @@ function renderAiHintsMarkdown(hints) {
     lines.push('', '## Startup Prefix Counts');
     for (const item of limitRows(hints.startupPrefixCounts, 20)) {
       lines.push(`- ${item.count} ${item.name}`);
+    }
+  }
+  if (hints.commonStartupPrefixCounts?.length) {
+    lines.push('', '## Common Startup Prefix Counts');
+    for (const item of limitRows(hints.commonStartupPrefixCounts, 20)) {
+      lines.push(`- ${item.count} ${item.name}`);
+    }
+  }
+  if (hints.topSegmentsBySize?.length) {
+    lines.push('', '## Top Segments By Size');
+    for (const item of limitRows(hints.topSegmentsBySize, 20)) {
+      const runtime = item.runtime || item.runtimes?.join(',') || 'unknown';
+      lines.push(
+        `- ${formatBytes(item.size)} ${item.name} (${item.moduleCount} modules, ${runtime})`,
+      );
+    }
+  }
+  if (hints.topSegmentsByModuleCount?.length) {
+    lines.push('', '## Top Segments By Module Count');
+    for (const item of limitRows(hints.topSegmentsByModuleCount, 20)) {
+      const runtime = item.runtime || item.runtimes?.join(',') || 'unknown';
+      lines.push(
+        `- ${item.moduleCount} modules ${item.name} (${formatBytes(item.size)}, ${runtime})`,
+      );
     }
   }
   if (hints.failures?.length) {
@@ -533,10 +717,13 @@ function defaultSiblingPath(filePath, suffix) {
 }
 
 module.exports = {
+  NATIVE_BUDGET_ARTIFACT,
+  WEB_BUDGET_ARTIFACT,
   createNativeStartupAiHints,
   createWebColdAiHints,
   createWebStartupAiHints,
   defaultSiblingPath,
   formatBytes,
+  printAiTriageInstructions,
   writeAiHints,
 };

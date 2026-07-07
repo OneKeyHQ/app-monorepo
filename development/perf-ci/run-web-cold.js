@@ -15,8 +15,10 @@ const path = require('path');
 const { chromium } = require('playwright-core');
 
 const {
+  WEB_BUDGET_ARTIFACT,
   createWebColdAiHints,
   defaultSiblingPath,
+  printAiTriageInstructions,
   writeAiHints,
 } = require('./lib/budgetAiHints');
 const { findChromiumExecutable } = require('./lib/chromium');
@@ -1148,6 +1150,8 @@ async function main() {
     }
 
     const firstScenario = scenarioOutputs[0];
+    const legacyTopLevelFieldsNote =
+      'Use scenarios[] as the source of truth. Top-level url/budgets/budgetChecks/healthChecks/summary/runs are legacy-compatible fields for the first scenario only.';
     const output = {
       createdAt: new Date().toISOString(),
       repoRoot,
@@ -1155,6 +1159,7 @@ async function main() {
       profileDir: booleanEnv('PERF_WEB_COLD_CPU_PROFILE') ? profileDir : null,
       budgetConfig,
       startupGraphBudget,
+      legacyTopLevelFieldsNote,
       scenarios: scenarioOutputs,
       url: firstScenario?.url,
       budgets: firstScenario?.budgets,
@@ -1188,14 +1193,30 @@ async function main() {
     log(`wrote ${aiHintsJsonPath}`);
     log(`wrote ${aiHintsMarkdownPath}`);
 
-    if (
-      scenarioOutputs.some(
-        (scenarioOutput) =>
-          scenarioOutput.healthChecks.some((check) => !check.pass) ||
-          scenarioOutput.budgetChecks.some((check) => check.status === 'fail'),
-      ) &&
-      process.env.PERF_WEB_COLD_BUDGET_FAIL !== '0'
-    ) {
+    const hasBlockingFailure = scenarioOutputs.some(
+      (scenarioOutput) =>
+        scenarioOutput.healthChecks.some((check) => !check.pass) ||
+        scenarioOutput.budgetChecks.some((check) => check.status === 'fail'),
+    );
+    if (hasBlockingFailure) {
+      printAiTriageInstructions({
+        artifactName: WEB_BUDGET_ARTIFACT,
+        aiHintsJsonPath,
+        aiHintsMarkdownPath,
+        reportPath: outputPath,
+        extraPaths: [
+          'apps/web/out-dir-analysis/web-startup-graph-budget-report-ai-hints.json',
+          'apps/web/out-dir-analysis/web-startup-graph-budget-report.json',
+        ],
+        notes: [
+          legacyTopLevelFieldsNote,
+          'Read scenarios[].failedOrWarnBudgetChecks and scenarios[].failedHealthChecks before choosing a fix.',
+        ],
+        log,
+      });
+    }
+
+    if (hasBlockingFailure && process.env.PERF_WEB_COLD_BUDGET_FAIL !== '0') {
       process.exitCode = 1;
     }
   } finally {

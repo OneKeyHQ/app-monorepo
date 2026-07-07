@@ -27,9 +27,13 @@ const reportPath =
 const budgetPath =
   process.env.WEB_STARTUP_BUDGET_PATH ||
   path.join(repoRoot, 'development', 'perf-ci', 'thresholds', 'web.cold.json');
-const { createWebStartupAiHints, defaultSiblingPath, writeAiHints } = require(
-  path.join(repoRoot, 'development/perf-ci/lib/budgetAiHints'),
-);
+const {
+  WEB_BUDGET_ARTIFACT,
+  createWebStartupAiHints,
+  defaultSiblingPath,
+  printAiTriageInstructions,
+  writeAiHints,
+} = require(path.join(repoRoot, 'development/perf-ci/lib/budgetAiHints'));
 
 const DEFAULT_BUDGETS = {
   moduleCount: 3500,
@@ -459,6 +463,21 @@ function main() {
     for (const failure of failures) {
       console.log(`  FAIL: ${failure}`);
     }
+    printAiTriageInstructions({
+      artifactName: WEB_BUDGET_ARTIFACT,
+      aiHintsJsonPath,
+      aiHintsMarkdownPath,
+      reportPath,
+      extraPaths: [
+        'apps/web/out-dir-analysis/web-cold-budget-report-ai-hints.json',
+        'apps/web/out-dir-analysis/web-cold-budget-report.json',
+      ],
+      notes: [
+        'Fix startup graph and web cold budgets together; avoid creating many one-file lazy chunks.',
+        'Read initialScriptHints and topModules in the JSON before editing imports.',
+      ],
+      log: console.log,
+    });
     process.exit(1);
   }
 

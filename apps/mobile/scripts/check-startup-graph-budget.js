@@ -22,9 +22,12 @@ const mobileDirPath = path.resolve(__dirname, '..');
 const repoRoot = path.resolve(mobileDirPath, '../..');
 const outDir = path.resolve(mobileDirPath, 'out-dir-analysis');
 const distDir = path.resolve(mobileDirPath, 'dist');
-const { createNativeStartupAiHints, writeAiHints } = require(
-  path.join(repoRoot, 'development/perf-ci/lib/budgetAiHints'),
-);
+const {
+  NATIVE_BUDGET_ARTIFACT,
+  createNativeStartupAiHints,
+  printAiTriageInstructions,
+  writeAiHints,
+} = require(path.join(repoRoot, 'development/perf-ci/lib/budgetAiHints'));
 
 process.env.ONEKEY_PLATFORM = process.env.ONEKEY_PLATFORM || 'app';
 if (process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true') {
@@ -335,6 +338,22 @@ async function main() {
     console.log(`Entry report: ${entryReportPath}`);
     console.log(`AI hints JSON: ${aiHintsJsonPath}`);
     console.log(`AI hints Markdown: ${aiHintsMarkdownPath}`);
+    printAiTriageInstructions({
+      artifactName: NATIVE_BUDGET_ARTIFACT,
+      aiHintsJsonPath,
+      aiHintsMarkdownPath,
+      reportPath: entryReportPath,
+      extraPaths: [
+        `apps/mobile/dist/allocation-report-${entryName}.json`,
+        'apps/mobile/dist/allocation-report-common.json',
+        reportPath,
+      ],
+      notes: [
+        `Read the ${entryName} per-entry report first. The generic budget-check-report.json may be overwritten by the last ENTRY check.`,
+        'Label runtime impact explicitly as main UI JS runtime, background JS runtime, or both.',
+      ],
+      log: console.log,
+    });
     process.exit(1);
   } else {
     console.log('\n=== BUDGET CHECK PASSED ===');
