@@ -959,9 +959,9 @@ function ProtocolLendingActionBorrowContent({
   const effectiveBalance = selectedBorrowAsset
     ? ((isWithdraw
         ? (selectedBorrowAsset.supplied?.number ??
-          selectedBorrowAsset.supplied?.title?.text)
+          selectedBorrowAsset.supplied?.amount)
         : (selectedBorrowAsset.borrowed?.number ??
-          selectedBorrowAsset.borrowed?.title?.text)) ?? '0')
+          selectedBorrowAsset.borrowed?.amount)) ?? '0')
     : (protocolInfo?.activeBalance ?? '0');
   // For repay the outstanding DEBT is NOT effectiveBalance: in fixed mode
   // effectiveBalance is the manage-page repay.balance, which is the WALLET
@@ -971,7 +971,7 @@ function ProtocolLendingActionBorrowContent({
   // never collapses the reference to 0 (which would zero out Max/percent).
   const debtText = selectedBorrowAsset
     ? (selectedBorrowAsset.borrowed?.number ??
-      selectedBorrowAsset.borrowed?.title?.text)
+      selectedBorrowAsset.borrowed?.amount)
     : (protocolInfo?.debtBalance ?? protocolInfo?.maxRepayBalance);
   // The exit-side balance shown in the hero anchor and used as the full-close
   // target: supplied collateral for withdraw, the outstanding debt for repay.
@@ -1369,10 +1369,15 @@ function ProtocolLendingActionBorrowContent({
   // Withdraw's anchor shows the suppliable "Available" balance; repay's shows the
   // "Remaining debt" being paid down (matches the manage page), with the wallet
   // balance as the secondary line beneath it.
+  // Only call the reference "Remaining debt" when the real debt is known
+  // (repayAllTargetAmount). Otherwise `referenceBalance` is the wallet-capped
+  // fill cap — show the neutral "Available" label rather than mislabeling the
+  // max repayable as remaining debt. Reuses the existing global_available key.
   const availableLabel = intl.formatMessage({
-    id: isWithdraw
-      ? ETranslations.global_available
-      : ETranslations.defi_borrow_repay_remaining_debt,
+    id:
+      !isWithdraw && repayAllTargetAmount
+        ? ETranslations.defi_borrow_repay_remaining_debt
+        : ETranslations.global_available,
   });
   const walletBalanceLabel = intl.formatMessage({
     id: ETranslations.global_wallet_balance,
@@ -1419,9 +1424,7 @@ function ProtocolLendingActionBorrowContent({
 
   const remainingDebtChange = resolveProtocolLendingRemainingDebtState({
     amount,
-    debtAmount: isWithdraw
-      ? undefined
-      : (repayAllTargetAmount ?? referenceBalance),
+    debtAmount: isWithdraw ? undefined : repayAllTargetAmount,
   });
   const healthFactor = actionResult.transactionConfirmation?.healthFactor;
   const confirmDisabled =
