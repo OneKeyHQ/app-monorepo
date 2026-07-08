@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { range } from 'lodash';
-import { useIntl } from 'react-intl';
+import { type IntlShape, useIntl } from 'react-intl';
 import {
   Easing,
   useSharedValue,
@@ -147,6 +147,7 @@ function getTrezorConnectFailureMessage(payload: unknown) {
 function getTrezorConnectFailureError(
   payload: unknown,
   vendor: EHardwareVendor,
+  intl: IntlShape,
 ) {
   const failure =
     payload && typeof payload === 'object'
@@ -171,7 +172,9 @@ function getTrezorConnectFailureError(
     return new OneKeyLocalError(failureMessage);
   }
   return new OneKeyLocalError({
-    key: ETranslations.trezor_connect_failed_before_wallet_creation__msg,
+    message: intl.formatMessage({
+      id: ETranslations.trezor_connect_failed_before_wallet_creation__msg,
+    }),
   });
 }
 
@@ -614,11 +617,14 @@ function FinalizeWalletSetupPage({
                 throw getTrezorConnectFailureError(
                   connected.payload,
                   deviceData.vendor,
+                  intl,
                 );
               }
               if (!connectedDeviceId) {
                 throw new OneKeyLocalError({
-                  key: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
+                  message: intl.formatMessage({
+                    id: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
+                  }),
                 });
               }
               // Device has no seed yet — block creation and prompt the user to
