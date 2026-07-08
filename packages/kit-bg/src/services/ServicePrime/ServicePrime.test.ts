@@ -420,8 +420,10 @@ describe('ServicePrime invalid-token handling', () => {
       const { service, simpleDbPrime } = createService();
       // Entry-time: no persisted source, no token anywhere -> guards pass
       // (legacy fallback would be cleared).
-      let source: unknown;
-      simpleDbPrime.getAuthSessionSource.mockImplementation(async () => source);
+      const sourceRef: { current: unknown } = { current: undefined };
+      simpleDbPrime.getAuthSessionSource.mockImplementation(
+        async () => sourceRef.current,
+      );
       simpleDbPrime.getActiveAuthToken.mockResolvedValue('');
       simpleDbPrime.getSupabaseAuthToken.mockResolvedValue('');
 
@@ -443,7 +445,7 @@ describe('ServicePrime invalid-token handling', () => {
       // A concurrent login commits a KeylessOAuth source (its token read
       // still returns '' here, keeping the token guards pass-through, so
       // only the source-changed re-check can catch this).
-      source = EPrimeAuthSessionSource.KeylessOAuth;
+      sourceRef.current = EPrimeAuthSessionSource.KeylessOAuth;
       releaseLock.resolve();
       await lockHolder;
 
