@@ -268,13 +268,18 @@ export function useShowOneKeyIdLogoutDialog() {
           // the non-destructive (wallet-preserving) classification.
         }
       }
+      // A not-logged-in OneKey ID logout must never remove the keyless
+      // wallet: without a confirmed server-side session there is no proof
+      // the wallet is OAuth-bound (e.g. the bg invalid-token cleanup may
+      // have just flipped the login state), so default to the
+      // wallet-preserving classification, same as unknown identity data.
       const shouldSkipLinkedLogout =
         Boolean(keylessWallet) &&
-        isOneKeyIdLoggedIn &&
-        isLegacyOneKeyIdAccountMissingOAuthIdentityWithFallback({
-          onekeyAccount: userOneKeyAccount,
-          authSessionSource,
-        });
+        (!isOneKeyIdLoggedIn ||
+          isLegacyOneKeyIdAccountMissingOAuthIdentityWithFallback({
+            onekeyAccount: userOneKeyAccount,
+            authSessionSource,
+          }));
       const shouldLogoutKeylessWallet =
         Boolean(keylessWallet) &&
         !(
