@@ -1051,6 +1051,139 @@ function detectStartupViolations(moduleIds, moduleIdToAbsPath) {
     .toSorted();
 }
 
+function getDependencyEdgeType(dep) {
+  return dep?.data?.data?.asyncType ? 'dynamic' : 'sync';
+}
+
+function buildMetroImportChain({
+  graph,
+  roots,
+  target,
+  allowedAbsPaths,
+  maxDepth = 32,
+}) {
+  const queue = roots
+    .filter((root) => graph.dependencies.has(root))
+    .map((root) => ({ absPath: root, depth: 0 }));
+  const visited = new Set(queue.map((item) => item.absPath));
+  const parent = new Map();
+
+  while (queue.length > 0) {
+    const item = queue.shift();
+    if (item.absPath === target) {
+      const chain = [];
+      let current = target;
+      while (parent.has(current)) {
+        const edge = parent.get(current);
+        chain.push(edge);
+        current = edge.from;
+      }
+      return chain.toReversed();
+    }
+    if (item.depth >= maxDepth) {
+      continue;
+    }
+
+    const moduleData = graph.dependencies.get(item.absPath);
+    if (!moduleData?.dependencies) {
+      continue;
+    }
+    for (const [specifier, dep] of moduleData.dependencies) {
+      const to = dep.absolutePath;
+      if (!to || visited.has(to) || !allowedAbsPaths.has(to)) {
+        continue;
+      }
+      const edgeType = getDependencyEdgeType(dep);
+      if (edgeType !== 'sync') {
+        continue;
+      }
+      visited.add(to);
+      parent.set(to, {
+        from: item.absPath,
+        to,
+        specifier,
+        edgeType,
+      });
+      queue.push({ absPath: to, depth: item.depth + 1 });
+    }
+  }
+  return null;
+}
+
+function buildStartupImportChains({
+  runtimeTarget,
+  entryAbsPaths,
+  startupModuleIds,
+  graph,
+  moduleIdToAbsPath,
+  violations,
+  maxChains = 20,
+}) {
+  const startupAbsPaths = [...startupModuleIds]
+    .map((moduleId) => moduleIdToAbsPath.get(moduleId))
+    .filter(Boolean);
+  const startupAbsPathSet = new Set(startupAbsPaths);
+  const violationAbsPaths = (violations || []).map((relPath) =>
+    path.resolve(monorepoRoot, relPath),
+  );
+  const topStartupAbsPaths = startupAbsPaths
+    .map((absPath) => ({
+      absPath,
+      size: estimateModuleSize(graph.dependencies.get(absPath)),
+    }))
+    .toSorted((a, b) => b.size - a.size)
+    .map((item) => item.absPath);
+  const targets = [
+    ...new Set([...violationAbsPaths, ...topStartupAbsPaths]),
+  ].slice(0, maxChains);
+  const roots = entryAbsPaths.filter(Boolean);
+  let graphEdgeCount = 0;
+  for (const absPath of startupAbsPathSet) {
+    const moduleData = graph.dependencies.get(absPath);
+    if (!moduleData?.dependencies) {
+      continue;
+    }
+    for (const [, dep] of moduleData.dependencies) {
+      if (
+        dep.absolutePath &&
+        startupAbsPathSet.has(dep.absolutePath) &&
+        getDependencyEdgeType(dep) === 'sync'
+      ) {
+        graphEdgeCount += 1;
+      }
+    }
+  }
+  const chains = targets.map((target) => {
+    const chain = buildMetroImportChain({
+      graph,
+      roots,
+      target,
+      allowedAbsPaths: startupAbsPathSet,
+    });
+    return {
+      target: relativePath(target),
+      status: chain ? 'found' : 'unreachable',
+      chain:
+        chain?.map((edge) => ({
+          from: relativePath(edge.from),
+          to: relativePath(edge.to),
+          specifier: edge.specifier,
+          edgeType: edge.edgeType,
+        })) || [],
+    };
+  });
+
+  return {
+    kind: 'metro-startup-import-chain',
+    runtimeTarget,
+    graphNodeCount: startupAbsPathSet.size,
+    graphEdgeCount,
+    roots: roots.map(relativePath),
+    targetCount: targets.length,
+    chains,
+  };
+}
+
 function buildAllocationReport({
   runtimeTarget,
   startupModuleIds,
@@ -1059,6 +1192,7 @@ function buildAllocationReport({
   moduleIdToAbsPath,
   segmentModules,
   violations,
+  entryAbsPaths,
 }) {
   const startupModules = [...startupModuleIds]
     .map((moduleId) => moduleIdToAbsPath.get(moduleId))
@@ -1092,6 +1226,14 @@ function buildAllocationReport({
       estimatedSizeBytes,
       modules: startupModules,
     },
+    importChains: buildStartupImportChains({
+      runtimeTarget,
+      entryAbsPaths,
+      startupModuleIds,
+      graph,
+      moduleIdToAbsPath,
+      violations,
+    }),
     segments,
     violations,
   };
@@ -2252,6 +2394,7 @@ async function main() {
           moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
           segmentModules: reportSegmentModules.common,
           violations: commonViolations,
+          entryAbsPaths: [mainEntry, bgEntry],
         }),
         null,
         2,
@@ -2269,6 +2412,7 @@ async function main() {
           moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
           segmentModules: reportSegmentModules.main,
           violations: mainViolations,
+          entryAbsPaths: [mainEntry],
         }),
         null,
         2,
@@ -2286,6 +2430,7 @@ async function main() {
           moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
           segmentModules: reportSegmentModules.background,
           violations: backgroundViolations,
+          entryAbsPaths: [bgEntry],
         }),
         null,
         2,

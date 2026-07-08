@@ -19,8 +19,15 @@ const path = require('path');
 const fs = require('fs-extra');
 
 const mobileDirPath = path.resolve(__dirname, '..');
+const repoRoot = path.resolve(mobileDirPath, '../..');
 const outDir = path.resolve(mobileDirPath, 'out-dir-analysis');
 const distDir = path.resolve(mobileDirPath, 'dist');
+const {
+  NATIVE_BUDGET_ARTIFACT,
+  createNativeStartupAiHints,
+  printAiTriageInstructions,
+  writeAiHints,
+} = require(path.join(repoRoot, 'development/perf-ci/lib/budgetAiHints'));
 
 process.env.ONEKEY_PLATFORM = process.env.ONEKEY_PLATFORM || 'app';
 if (process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true') {
@@ -42,6 +49,11 @@ const SIZE_BUDGET_BYTES =
 
 function formatMb(bytes) {
   return `${Number((bytes / 1024 / 1024).toFixed(2))} MB`;
+}
+
+function readJsonIfExists(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return null;
+  return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
 }
 
 // npm packages that must NEVER appear in the main startup graph.
@@ -144,7 +156,6 @@ async function main() {
     });
     elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
-    const monorepoRoot = path.resolve(mobileDirPath, '../..');
     const allModules = Array.from(graph.dependencies.entries());
     totalModules = allModules.length;
 
@@ -160,7 +171,7 @@ async function main() {
 
     categories = {};
     for (const [absPath] of allModules) {
-      const rel = relativePath(absPath, monorepoRoot);
+      const rel = relativePath(absPath, repoRoot);
       const cat = categorizeModule(rel);
       categories[cat] = (categories[cat] || 0) + 1;
     }
@@ -168,7 +179,7 @@ async function main() {
     foundForbidden = [];
     if (enableNativeBg && entryName !== 'background') {
       for (const [absPath] of allModules) {
-        const rel = relativePath(absPath, monorepoRoot);
+        const rel = relativePath(absPath, repoRoot);
         if (FORBIDDEN_IN_STARTUP.some((f) => rel.includes(f))) {
           foundForbidden.push(rel);
         }
@@ -226,9 +237,7 @@ async function main() {
 
   // Check forbidden npm packages (Phase 1 optimization guard)
   if (fs.existsSync(allocationReportPath)) {
-    const allocationReport = JSON.parse(
-      fs.readFileSync(allocationReportPath, 'utf-8'),
-    );
+    const allocationReport = readJsonIfExists(allocationReportPath);
     const startupModules = (allocationReport.startup || {}).modules || [];
     const forbiddenPatterns = entryName === 'main' ? FORBIDDEN_NPM_IN_MAIN : [];
     for (const pattern of forbiddenPatterns) {
@@ -247,9 +256,7 @@ async function main() {
         'allocation-report-common.json',
       );
       if (fs.existsSync(commonReportPath)) {
-        const commonReport = JSON.parse(
-          fs.readFileSync(commonReportPath, 'utf-8'),
-        );
+        const commonReport = readJsonIfExists(commonReportPath);
         const commonModules = (commonReport.startup || {}).modules || [];
         for (const pattern of FORBIDDEN_NPM_IN_COMMON) {
           const matches = commonModules.filter((m) => m.includes(pattern));
@@ -266,9 +273,7 @@ async function main() {
   // Check allocation report violations (Phase 4)
   if (fs.existsSync(allocationReportPath)) {
     try {
-      const allocationReport = JSON.parse(
-        fs.readFileSync(allocationReportPath, 'utf-8'),
-      );
+      const allocationReport = readJsonIfExists(allocationReportPath);
       // Skip violations for background entry — services/vaults are expected
       if (
         entryName !== 'background' &&
@@ -296,17 +301,61 @@ async function main() {
   report.failures = failures;
   report.pass = failures.length === 0;
 
-  const reportPath = path.join(outDir, 'budget-check-report.json');
-  fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
+  const entryReportPath = path.join(
+    outDir,
+    `budget-check-report-${entryName}.json`,
+  );
+  const allocationReport = readJsonIfExists(allocationReportPath);
+  const commonAllocationReport = readJsonIfExists(
+    path.resolve(distDir, 'allocation-report-common.json'),
+  );
+  const aiHints = createNativeStartupAiHints({
+    report,
+    allocationReport,
+    commonAllocationReport,
+    repoRoot,
+  });
+  const aiHintsJsonPath =
+    process.env.STARTUP_AI_HINTS_JSON_PATH ||
+    path.join(outDir, `budget-check-ai-hints-${entryName}.json`);
+  const aiHintsMarkdownPath =
+    process.env.STARTUP_AI_HINTS_MD_PATH ||
+    path.join(outDir, `budget-check-ai-hints-${entryName}.md`);
+
+  fs.writeFileSync(entryReportPath, JSON.stringify(report, null, 2));
+  writeAiHints({
+    hints: aiHints,
+    jsonPath: aiHintsJsonPath,
+    markdownPath: aiHintsMarkdownPath,
+  });
 
   if (failures.length > 0) {
     console.log('\n=== BUDGET CHECK FAILED ===');
     failures.forEach((f) => console.log(`  FAIL: ${f}`));
-    console.log(`\nReport: ${reportPath}`);
+    console.log(`\nReport: ${entryReportPath}`);
+    console.log(`AI hints JSON: ${aiHintsJsonPath}`);
+    console.log(`AI hints Markdown: ${aiHintsMarkdownPath}`);
+    printAiTriageInstructions({
+      artifactName: NATIVE_BUDGET_ARTIFACT,
+      aiHintsJsonPath,
+      aiHintsMarkdownPath,
+      reportPath: entryReportPath,
+      extraPaths: [
+        `apps/mobile/dist/allocation-report-${entryName}.json`,
+        'apps/mobile/dist/allocation-report-common.json',
+      ],
+      notes: [
+        `Read the ${entryName} per-entry report first. Dual-entry CI intentionally does not emit the ambiguous generic budget-check-report.json file.`,
+        'Label runtime impact explicitly as main UI JS runtime, background JS runtime, or both.',
+      ],
+      log: console.log,
+    });
     process.exit(1);
   } else {
     console.log('\n=== BUDGET CHECK PASSED ===');
-    console.log(`Report: ${reportPath}`);
+    console.log(`Report: ${entryReportPath}`);
+    console.log(`AI hints JSON: ${aiHintsJsonPath}`);
+    console.log(`AI hints Markdown: ${aiHintsMarkdownPath}`);
   }
 }
 
