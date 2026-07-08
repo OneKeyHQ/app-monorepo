@@ -29,7 +29,6 @@ import {
   ERootRoutes,
   ETabReferFriendsRoutes,
   ETabRoutes,
-  type ITabReferFriendsParamList,
 } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import {
@@ -43,7 +42,6 @@ import { useOneKeyAuth } from '../components/OneKeyAuth/useOneKeyAuth';
 
 import useAppNavigation from './useAppNavigation';
 
-const EXTENSION_POPUP_CLOSE_DELAY_MS = 100;
 const shouldUseReferralModalNav = platformEnv.isNative;
 const shouldOpenReferralInExtensionExpandTab =
   platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel;
@@ -53,38 +51,12 @@ type IExtensionReferralExpandRoute =
   | ETabReferFriendsRoutes.TabInviteReward
   | ETabReferFriendsRoutes.TabHardwareSalesReward;
 
-const referralTabPathMap: Record<IExtensionReferralExpandRoute, string> = {
-  [ETabReferFriendsRoutes.TabReferAFriend]: '/refer-friends',
-  [ETabReferFriendsRoutes.TabInviteReward]: '/refer-friends/invite-reward',
-  [ETabReferFriendsRoutes.TabHardwareSalesReward]:
-    '/refer-friends/hardware-sales-reward',
-};
-
-function buildExtensionReferralParams(
-  params?: ITabReferFriendsParamList[ETabReferFriendsRoutes],
-) {
-  if (!params) {
-    return undefined;
-  }
-  const entries = Object.entries(params).filter(
-    ([, value]) => value !== undefined,
-  );
-  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
-}
-
 async function openExtensionReferralInExpandTab<
   Route extends IExtensionReferralExpandRoute,
->(route: Route, params?: ITabReferFriendsParamList[Route]) {
-  await backgroundApiProxy.serviceApp.openExtensionExpandTab({
-    path: referralTabPathMap[route],
-    params: buildExtensionReferralParams(params),
-  });
-
-  if (platformEnv.isExtensionUiPopup) {
-    setTimeout(() => {
-      globalThis.close();
-    }, EXTENSION_POPUP_CLOSE_DELAY_MS);
-  }
+>(route: Route, params?: object) {
+  return (
+    await import('./useReferFriendsExtensionExpandTab')
+  ).openExtensionReferralInExpandTab(route, params);
 }
 
 export function useToReferFriendsModalByRootNavigation() {

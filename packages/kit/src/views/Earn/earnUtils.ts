@@ -17,6 +17,7 @@ import {
   ETabRoutes,
   type ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
+import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
@@ -26,7 +27,6 @@ type IEarnHomeTab = NonNullable<IEarnHomeParams['tab']>;
 
 const DEFAULT_EARN_HOME_TAB: IEarnHomeTab = 'assets';
 const EARN_HOME_TABS = new Set<IEarnHomeTab>(['assets', 'portfolio', 'faqs']);
-const EXTENSION_POPUP_CLOSE_DELAY_MS = 100;
 
 const NetworkNameToIdMap: Record<string, string> = {
   ethereum: getNetworkIdsMap().eth,
@@ -117,11 +117,7 @@ async function openExtensionEarnHomeInExpandTab(params?: IEarnHomeParams) {
     params: buildExtensionEarnHomeParams(params),
   });
 
-  if (platformEnv.isExtensionUiPopup) {
-    setTimeout(() => {
-      globalThis.close();
-    }, EXTENSION_POPUP_CLOSE_DELAY_MS);
-  }
+  closeExtensionPopupAfterExpandTabOpen();
 }
 
 function persistNativeEarnHomeTab(tab: IEarnHomeTab) {
