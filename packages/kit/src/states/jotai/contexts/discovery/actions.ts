@@ -58,6 +58,7 @@ import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 import {
   activeTabIdAtom,
   browserDataReadyAtom,
+  browserDataReadyWaiterAtom,
   contextAtomMethod,
   disabledAddedNewTabAtom,
   displayHomePageAtom,
@@ -303,8 +304,66 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     set(displayHomePageAtom(), payload);
   });
 
-  setBrowserDataReady = contextAtomMethod((_, set) => {
+  setBrowserDataReady = contextAtomMethod((get, set) => {
+    const waiter = get(browserDataReadyWaiterAtom());
     set(browserDataReadyAtom(), true);
+    if (waiter) {
+      waiter.resolve();
+      set(browserDataReadyWaiterAtom(), null);
+    }
+  });
+
+  isBrowserDataReady = contextAtomMethod((get) => get(browserDataReadyAtom()));
+
+  ensureBrowserDataReady = contextAtomMethod(async (get, set) => {
+    if (!platformEnv.isNative && !platformEnv.isDesktop) {
+      return;
+    }
+
+    if (get(browserDataReadyAtom())) {
+      return;
+    }
+
+    let waiter = get(browserDataReadyWaiterAtom());
+    let shouldHydrate = false;
+    if (!waiter) {
+      let resolveReady: () => void = () => undefined;
+      const promise = new Promise<void>((resolve) => {
+        resolveReady = resolve;
+      });
+      waiter = {
+        promise,
+        resolve: resolveReady,
+        hydrating: true,
+      };
+      set(browserDataReadyWaiterAtom(), waiter);
+      shouldHydrate = true;
+    } else if (!waiter.hydrating) {
+      waiter = {
+        ...waiter,
+        hydrating: true,
+      };
+      set(browserDataReadyWaiterAtom(), waiter);
+      shouldHydrate = true;
+    }
+
+    if (shouldHydrate) {
+      try {
+        const tabsData =
+          await backgroundApiProxy.simpleDb.browserTabs.getRawData();
+        const tabs = tabsData?.tabs ?? [];
+        this.buildWebTabs.call(set, {
+          data: tabs,
+          options: { isInitFromStorage: true },
+        });
+      } catch {
+        // Keep browser usable even if stored tab hydration fails.
+      } finally {
+        this.setBrowserDataReady.call(set);
+      }
+    }
+
+    await waiter.promise;
   });
 
   buildWebTabs = contextAtomMethod(
@@ -410,7 +469,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     const shouldUpdateActiveState = tabs.some(
       (t) => Boolean(t.isActive) !== (t.id === nextActiveTabId),
     );
-
     if (currentTabId !== nextActiveTabId || shouldUpdateActiveState) {
       if (currentTabId !== nextActiveTabId) {
         this.pauseDappInteraction.call(set, currentTabId);
@@ -1084,6 +1142,8 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           return openUrlInApp(validatedUrl);
         }
 
+        await this.ensureBrowserDataReady.call(set);
+
         const tab = this.getWebTabById.call(set, id ?? '');
         const tabId = tab?.id;
 
@@ -1098,7 +1158,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         if (shouldOpenInHomeTab) {
           isNewTab = false;
         }
-
         const bookmarks = await this.getBookmarkData.call(set);
         const isBookmark = bookmarks?.some((item) =>
           item.url.includes(validatedUrl),
@@ -1144,7 +1203,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             tabId,
           });
         }
-
         return true;
       }
       return false;
@@ -1234,6 +1292,8 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const isNewWindow = !useCurrentWindow;
 
       const openDApp = async () => {
+        await this.ensureBrowserDataReady.call(set);
+
         if (!useCurrentWindow) {
           const disabledAddedNewTab = get(disabledAddedNewTabAtom());
           if (disabledAddedNewTab) {
@@ -1263,7 +1323,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         const targetTab = platformEnv.isDesktop
           ? ETabRoutes.MultiTabBrowser
           : ETabRoutes.Discovery;
-
         if (platformEnv.isDesktop) {
           // Desktop renders the previous active web tab immediately after
           // switching to MultiTabBrowser. Create and activate the destination
@@ -1554,6 +1613,7 @@ export function useBrowserTabActions() {
   const setPinnedTab = actions.setPinnedTab.use();
   const setDisplayHomePage = actions.setDisplayHomePage.use();
   const setBrowserDataReady = actions.setBrowserDataReady.use();
+  const isBrowserDataReady = actions.isBrowserDataReady.use();
   const reOpenLastClosedTab = actions.reOpenLastClosedTab.use();
   const setSiteMode = actions.setSiteMode.use();
   return useRef({
@@ -1571,6 +1631,7 @@ export function useBrowserTabActions() {
     setPinnedTab,
     setDisplayHomePage,
     setBrowserDataReady,
+    isBrowserDataReady,
     reOpenLastClosedTab,
     setSiteMode,
   });

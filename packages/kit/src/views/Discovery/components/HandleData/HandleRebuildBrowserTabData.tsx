@@ -3,16 +3,22 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   // useBrowserBookmarkAction,
   // useBrowserHistoryAction,
+  useBrowserDataReadyAtom,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export function HandleRebuildBrowserData() {
-  const { buildWebTabs, setBrowserDataReady } = useBrowserTabActions().current;
+  const [browserDataReady] = useBrowserDataReadyAtom();
   // const { buildBookmarkData } = useBrowserBookmarkAction().current;
   // const { buildHistoryData } = useBrowserHistoryAction().current;
+  const { buildWebTabs, isBrowserDataReady, setBrowserDataReady } =
+    useBrowserTabActions().current;
 
   usePromiseResult(async () => {
+    if (browserDataReady) {
+      return;
+    }
     // Tabs
     const [tabsData] = await Promise.all([
       backgroundApiProxy.simpleDb.browserTabs.getRawData(),
@@ -20,6 +26,9 @@ export function HandleRebuildBrowserData() {
       // backgroundApiProxy.simpleDb.browserHistory.getRawData(),
       // backgroundApiProxy.simpleDb.browserClosedTabs.getRawData(),
     ]);
+    if (isBrowserDataReady()) {
+      return;
+    }
     const tabs = tabsData?.tabs ?? [];
     defaultLogger.discovery.browser.setTabsDataFunctionName(
       'setTabsInitializeLock-> true',
@@ -45,7 +54,6 @@ export function HandleRebuildBrowserData() {
     // }
 
     setBrowserDataReady();
-
     // // closed Tabs
     // const closedTabs = closedTabData?.tabs || [];
     // if (closedTabs && Array.isArray(closedTabs) && histories.length > 0) {
@@ -54,7 +62,7 @@ export function HandleRebuildBrowserData() {
     //     options: { isInitFromStorage: true },
     //   });
     // }
-  }, [buildWebTabs, setBrowserDataReady]);
+  }, [browserDataReady, buildWebTabs, isBrowserDataReady, setBrowserDataReady]);
 
   return null;
 }

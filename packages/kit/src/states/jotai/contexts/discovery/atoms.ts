@@ -8,6 +8,12 @@ import { computeAliveWebViewIds } from '@onekeyhq/kit/src/views/Discovery/utils/
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 
+type IBrowserDataReadyWaiter = {
+  promise: Promise<void>;
+  resolve: () => void;
+  hydrating?: boolean;
+};
+
 const {
   Provider: ProviderJotaiContextDiscovery,
   contextAtom,
@@ -99,3 +105,6 @@ export const { atom: phishingLruCacheAtom, use: usePhishingLruCacheAtom } =
 // sync data lock atom
 export const { atom: browserDataReadyAtom, use: useBrowserDataReadyAtom } =
   contextAtom<boolean>(false);
+
+export const { atom: browserDataReadyWaiterAtom } =
+  contextAtom<IBrowserDataReadyWaiter | null>(null);
