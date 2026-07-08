@@ -158,14 +158,22 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
         });
 
       const data = r?.[walletId];
+      // Drop a superseded response: another refresh() may have switched to a
+      // different device while this fetch was in flight — don't clobber it.
+      if (get(currentWalletIdAtom()) !== walletId) {
+        return data;
+      }
       set(currentWalletIdAtom(), walletId);
       set(walletWithDeviceStateAtom(), data);
       await this.updateDeviceMetaStatic.call(set);
       await this.updateDeviceMetaState.call(set);
       return data;
     } finally {
-      // First load has settled (data or failure) — the header can stop waiting.
-      set(refreshSettledAtom(), true);
+      // Settled (data or failure) — the header can stop waiting, unless a newer
+      // refresh for another device has already taken over.
+      if (get(currentWalletIdAtom()) === walletId) {
+        set(refreshSettledAtom(), true);
+      }
     }
   });
 
