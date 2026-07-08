@@ -990,6 +990,10 @@ function DepositWithdrawContent({
   ]);
 
   const depositQuoteAmountDebounced = useDebounce(tokenAmount || '0', 800);
+  const shouldEnableDepositQuote =
+    selectedAction === 'deposit' && checkAccountSupport;
+  const selectedActionForDepositQuote: IPerpsDepositWithdrawActionType =
+    shouldEnableDepositQuote ? selectedAction : 'withdraw';
 
   const {
     perpDepositQuote,
@@ -1003,17 +1007,17 @@ function DepositWithdrawContent({
     perpDepositQuoteAction,
     handlePerpDepositTxSuccess,
   } = usePerpDeposit(
-    selectedAction === 'deposit' ? depositQuoteAmountDebounced : amount,
-    selectedAction,
+    shouldEnableDepositQuote ? depositQuoteAmountDebounced : amount,
+    selectedActionForDepositQuote,
     selectedAccount.indexedAccountId ?? '',
     selectedAccount.accountId ?? '',
-    currentPerpsDepositSelectedToken,
-    checkFromTokenFiatValue.value,
+    shouldEnableDepositQuote ? currentPerpsDepositSelectedToken : undefined,
+    shouldEnableDepositQuote && checkFromTokenFiatValue.value,
   );
 
   const isDepositQuotePendingDebounce = useMemo(
     () =>
-      selectedAction === 'deposit' &&
+      shouldEnableDepositQuote &&
       !isArbitrumUsdcToken &&
       checkFromTokenFiatValue.value &&
       tokenAmount !== depositQuoteAmountDebounced,
@@ -1021,7 +1025,7 @@ function DepositWithdrawContent({
       checkFromTokenFiatValue.value,
       depositQuoteAmountDebounced,
       isArbitrumUsdcToken,
-      selectedAction,
+      shouldEnableDepositQuote,
       tokenAmount,
     ],
   );
@@ -1032,9 +1036,19 @@ function DepositWithdrawContent({
   );
 
   const shouldRefreshDepositQuote = useMemo(
-    () => checkRefreshQuote || isDepositQuotePendingDebounce,
-    [checkRefreshQuote, isDepositQuotePendingDebounce],
+    () =>
+      shouldEnableDepositQuote &&
+      (checkRefreshQuote || isDepositQuotePendingDebounce),
+    [
+      checkRefreshQuote,
+      isDepositQuotePendingDebounce,
+      shouldEnableDepositQuote,
+    ],
   );
+  const shouldShowDepositQuoteRefresh =
+    shouldEnableDepositQuote && !isArbitrumUsdcToken;
+  const canSwitchDepositInputUnit =
+    shouldEnableDepositQuote && tokenPriceBN.gt(0);
 
   const handleAmountChange = useCallback(
     (value: string) => {
@@ -1152,7 +1166,7 @@ function DepositWithdrawContent({
   );
 
   const handleToggleInputUnit = useCallback(() => {
-    if (selectedAction !== 'deposit') return;
+    if (!canSwitchDepositInputUnit) return;
     const newUnit = depositInputUnit === 'token' ? 'usd' : 'token';
     if (amount && !amountBN.isNaN() && amountBN.gt(0) && tokenPriceBN.gt(0)) {
       if (newUnit === 'usd') {
@@ -1172,7 +1186,7 @@ function DepositWithdrawContent({
     }
     setDepositInputUnit(newUnit);
   }, [
-    selectedAction,
+    canSwitchDepositInputUnit,
     depositInputUnit,
     amount,
     amountBN,
@@ -1320,7 +1334,12 @@ function DepositWithdrawContent({
   }, [intl, selectedAction]);
 
   const handleConfirm = useCallback(async () => {
-    if (!isValidAmount || !selectedAccount.accountAddress) return;
+    if (
+      !isValidAmount ||
+      !selectedAccount.accountAddress ||
+      !checkAccountSupport
+    )
+      return;
 
     const canSubmit = validateAmountBeforeSubmit();
     if (!canSubmit) return;
@@ -1416,6 +1435,7 @@ function DepositWithdrawContent({
     }
   }, [
     isValidAmount,
+    checkAccountSupport,
     selectedAccount.accountAddress,
     selectedAccount.accountId,
     validateAmountBeforeSubmit,
@@ -1554,6 +1574,21 @@ function DepositWithdrawContent({
     currentPerpsDepositSelectedToken ?? fallbackSelectedDepositToken;
 
   useEffect(() => {
+    if (!checkAccountSupport) {
+      if (currentPerpsDepositSelectedToken) {
+        setPerpsDepositTokensAtom((prev) => {
+          if (!prev.currentPerpsDepositSelectedToken) {
+            return prev;
+          }
+          return {
+            ...prev,
+            currentPerpsDepositSelectedToken: undefined,
+          };
+        });
+      }
+      return;
+    }
+
     if (!currentPerpsDepositSelectedToken && fallbackSelectedDepositToken) {
       const arbUSDCToken = depositTokensWithPrice.find((token) =>
         equalTokenNoCaseSensitive({
@@ -1564,18 +1599,19 @@ function DepositWithdrawContent({
           },
         }),
       );
-      setPerpsDepositTokensAtom((prev) => ({
-        ...prev,
-        currentPerpsDepositSelectedToken:
-          arbUSDCToken ??
-          depositTokensWithPrice?.[0] ??
-          fallbackSelectedDepositToken,
-      }));
-    } else if (!checkAccountSupport) {
-      setPerpsDepositTokensAtom((prev) => ({
-        ...prev,
-        currentPerpsDepositSelectedToken: undefined,
-      }));
+      const selectedToken =
+        arbUSDCToken ??
+        depositTokensWithPrice?.[0] ??
+        fallbackSelectedDepositToken;
+      setPerpsDepositTokensAtom((prev) => {
+        if (prev.currentPerpsDepositSelectedToken) {
+          return prev;
+        }
+        return {
+          ...prev,
+          currentPerpsDepositSelectedToken: selectedToken,
+        };
+      });
     }
   }, [
     fallbackSelectedDepositToken,
@@ -1603,6 +1639,7 @@ function DepositWithdrawContent({
     if (isMobile) {
       perpModalNavigation.push(EModalPerpRoutes.MobileDepositSelectToken, {
         depositTokensWithPrice,
+        hasLoadedDepositTokenBalances,
         symbol: PERPS_CURRENCY_SYMBOL,
       });
       return;
@@ -1612,6 +1649,7 @@ function DepositWithdrawContent({
     balanceLoading,
     checkAccountSupport,
     depositTokensWithPrice,
+    hasLoadedDepositTokenBalances,
     isMobile,
     perpModalNavigation,
   ]);
@@ -1955,7 +1993,7 @@ function DepositWithdrawContent({
           >
             <XStack alignItems="center" gap="$1.5">
               {depositEstimateHint}
-              {!isArbitrumUsdcToken ? (
+              {shouldShowDepositQuoteRefresh ? (
                 <Stack
                   w="$8"
                   h="$8"
@@ -1965,7 +2003,9 @@ function DepositWithdrawContent({
                   borderRadius="$full"
                   cursor="pointer"
                   onPress={() => {
-                    void perpDepositQuoteAction();
+                    if (shouldEnableDepositQuote) {
+                      void perpDepositQuoteAction();
+                    }
                   }}
                   hoverStyle={{ opacity: 0.7 }}
                   pressStyle={{ opacity: 0.6 }}
@@ -2022,6 +2062,7 @@ function DepositWithdrawContent({
                   !isValidAmount ||
                   isSubmitting ||
                   balanceLoading ||
+                  !checkAccountSupport ||
                   isDepositQuoteLoading ||
                   (!depositToAmount.canDeposit && !shouldRefreshDepositQuote)
                 }
@@ -2045,6 +2086,7 @@ function DepositWithdrawContent({
                 : !isValidAmount ||
                   isSubmitting ||
                   balanceLoading ||
+                  !checkAccountSupport ||
                   isDepositQuoteLoading ||
                   (!depositToAmount.canDeposit && !shouldRefreshDepositQuote)
             }
@@ -2244,20 +2286,22 @@ function DepositWithdrawContent({
                     ? undefined
                     : (currentPerpsDepositSelectedToken?.symbol ?? 'USDC')
                 }
-                reversible={tokenPriceBN.gt(0)}
+                reversible={canSwitchDepositInputUnit}
                 valueProps={{
                   value:
                     amount && convertedDisplayValue
                       ? convertedDisplayValue
                       : '0.00',
                   currency:
-                    !isUsdInput && tokenPriceBN.gt(0)
+                    !isUsdInput && canSwitchDepositInputUnit
                       ? PERPS_CURRENCY_SYMBOL
                       : undefined,
                   tokenSymbol: isUsdInput
                     ? (currentPerpsDepositSelectedToken?.symbol ?? 'USDC')
                     : undefined,
-                  onPress: handleToggleInputUnit,
+                  onPress: canSwitchDepositInputUnit
+                    ? handleToggleInputUnit
+                    : undefined,
                 }}
                 inputProps={{
                   ...nativeInputProps,

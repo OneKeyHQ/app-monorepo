@@ -309,7 +309,8 @@ function SideButtonInternal({
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal();
   const handleDepositFromToast = useCallback(() => {
     void showDepositWithdrawModal('deposit');
   }, [showDepositWithdrawModal]);
@@ -326,6 +327,7 @@ function SideButtonInternal({
             testID={PerpTestIDs.MarginToastDepositButton}
             size="small"
             variant="primary"
+            disabled={isDepositDisabled}
             onPress={handleDepositFromToast}
           >
             {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
@@ -335,7 +337,7 @@ function SideButtonInternal({
         toastId: `perp-no-enough-margin-${latestIsSpot ? 'spot' : 'perp'}`,
       });
     },
-    [handleDepositFromToast, intl],
+    [handleDepositFromToast, intl, isDepositDisabled],
   );
   const perpsAccountKey = useMemo(
     () => getPerpsAccountKey(perpsAccount),
