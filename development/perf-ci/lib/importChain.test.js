@@ -130,6 +130,69 @@ describe('createStaticImportChainReport', () => {
     ]);
   });
 
+  it('resolves the QR wallet SDK workspace package and src submodules', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'import-chain-'));
+    const root = 'apps/web/src/root.ts';
+    const sdkEntry = 'packages/qr-wallet-sdk/src/index.ts';
+    const requestDeviceQr =
+      'packages/qr-wallet-sdk/src/OneKeyRequestDeviceQR.ts';
+
+    writeFile(
+      repoRoot,
+      root,
+      [
+        "import { getAirGapSdk } from '@onekeyhq/qr-wallet-sdk';",
+        "import { OneKeyRequestDeviceQR } from '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR';",
+        'export const root = [getAirGapSdk, OneKeyRequestDeviceQR];',
+      ].join('\n'),
+    );
+    writeFile(
+      repoRoot,
+      'packages/qr-wallet-sdk/package.json',
+      JSON.stringify({ main: 'src/index.ts' }),
+    );
+    writeFile(repoRoot, sdkEntry, 'export const getAirGapSdk = null;');
+    writeFile(
+      repoRoot,
+      requestDeviceQr,
+      'export const OneKeyRequestDeviceQR = null;',
+    );
+
+    const report = createStaticImportChainReport({
+      repoRoot,
+      modules: [root, sdkEntry, requestDeviceQr],
+      roots: [root],
+      targets: [sdkEntry, requestDeviceQr],
+    });
+
+    expect(report.chains).toEqual([
+      {
+        target: sdkEntry,
+        status: 'found',
+        chain: [
+          {
+            from: root,
+            to: sdkEntry,
+            specifier: '@onekeyhq/qr-wallet-sdk',
+            edgeType: 'sync',
+          },
+        ],
+      },
+      {
+        target: requestDeviceQr,
+        status: 'found',
+        chain: [
+          {
+            from: root,
+            to: requestDeviceQr,
+            specifier: '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR',
+            edgeType: 'sync',
+          },
+        ],
+      },
+    ]);
+  });
+
   it('uses the shared web resolver extension order', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'import-chain-'));
     const root = 'apps/web/src/root.ts';
