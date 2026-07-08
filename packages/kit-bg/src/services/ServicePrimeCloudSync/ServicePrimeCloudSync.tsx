@@ -2081,7 +2081,10 @@ class ServicePrimeCloudSync extends ServiceBase {
     const { wallets: allWallets, allDevices } =
       await this.backgroundApi.serviceAccount.getAllWallets({
         refillWalletInfo: true,
-        excludeKeylessWallet: true,
+        // Keyless wallets sync name/avatar through the generic Wallet flow
+        // (CloudSyncFlowManagerWallet.isSupportSync treats them as HD), so
+        // init must build their sync items too — excluding them here would
+        // diverge from the ongoing-sync path and orphan existing server items.
       });
     // TODO only get watching or imported accounts for better performance
     const { accounts: allAccounts } =

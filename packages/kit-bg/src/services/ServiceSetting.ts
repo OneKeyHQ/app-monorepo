@@ -792,9 +792,12 @@ class ServiceSetting extends ServiceBase {
       return;
     }
 
-    const { wallets } = await this.backgroundApi.serviceAccount.getAllWallets({
-      excludeKeylessWallet: true,
-    });
+    // Keyless wallets count as HD wallets here: a keyless-only user is an
+    // existing wallet owner and must keep the legacy (fresh address off)
+    // default, same as before the excludeKeylessWallet filter took effect.
+    const { wallets } = await this.backgroundApi.serviceAccount.getAllWallets(
+      {},
+    );
 
     const hasHdOrHwWallet =
       wallets?.some((wallet) => {
