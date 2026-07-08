@@ -1,7 +1,9 @@
 import { switchTabAsync } from '@onekeyhq/components';
 import {
   ONEKEY_PERPS_APP_LINK_HOST,
+  ONEKEY_PERPS_TEST_APP_LINK_HOST,
   ONEKEY_STOCKS_APP_LINK_HOST,
+  ONEKEY_STOCKS_TEST_APP_LINK_HOST,
   ONEKEY_UNIVERSAL_LINK_HOST,
   ONEKEY_UNIVERSAL_TEST_LINK_HOST,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
@@ -30,7 +32,9 @@ const ONEKEY_BUSINESS_APP_LINK_HOST_TARGETS: Record<
   IOneKeyAppLinkTarget
 > = {
   [ONEKEY_STOCKS_APP_LINK_HOST]: 'stock',
+  [ONEKEY_STOCKS_TEST_APP_LINK_HOST]: 'stock',
   [ONEKEY_PERPS_APP_LINK_HOST]: 'perps',
+  [ONEKEY_PERPS_TEST_APP_LINK_HOST]: 'perps',
 };
 
 function normalizePath(pathname: string) {

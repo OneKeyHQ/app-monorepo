@@ -28,9 +28,15 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { usePerpTabConfig } from '../../../hooks/usePerpTabConfig';
 import { useReferFriends } from '../../../hooks/useReferFriends';
 import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
+import {
+  navigateToOneKeyAppLinkTarget,
+  parseOneKeyAppLinkTarget,
+  resolveOneKeyPerpsAppLinkRoute,
+} from '../../../utils/oneKeyAppLinkNavigation';
 import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 
 import { executeNotificationCommand } from './commandRegistry';
@@ -43,6 +49,7 @@ import {
 function BaseNotificationHandlerContainer() {
   const { showFallbackUpdateDialog } = useVersionCompatible();
   const navigation = useAppNavigation();
+  const { perpTabShowWeb } = usePerpTabConfig();
   const { toInviteRewardPage, openHardwareSalesOrderDetail } =
     useReferFriends();
 
@@ -65,6 +72,26 @@ function BaseNotificationHandlerContainer() {
 
   const handleShowNotificationDappNavigation =
     useNotificationDappNavigation(navigation);
+
+  const handleOneKeyNotificationAppLink = useCallback(
+    async (url: string | undefined) => {
+      if (!url) {
+        return false;
+      }
+      const target = parseOneKeyAppLinkTarget(url);
+      if (!target) {
+        return false;
+      }
+      await navigateToOneKeyAppLinkTarget({
+        target,
+        navigation,
+        perpSource: EPerpPageEnterSource.Notification,
+        perpTabRoute: resolveOneKeyPerpsAppLinkRoute(perpTabShowWeb),
+      });
+      return true;
+    },
+    [navigation, perpTabShowWeb],
+  );
 
   useEffect(() => {
     const handleShowFallbackUpdateDialog = ({
@@ -103,6 +130,13 @@ function BaseNotificationHandlerContainer() {
               }
               break;
             case ENotificationViewDialogActionType.openInApp:
+              if (
+                await handleOneKeyNotificationAppLink(
+                  payload as string | undefined,
+                )
+              ) {
+                break;
+              }
               openWebView({ url: payload as string, source: 'notification' });
               break;
             case ENotificationViewDialogActionType.openInBrowser:
@@ -164,9 +198,12 @@ function BaseNotificationHandlerContainer() {
         showFallbackUpdateDialog(null);
       });
     };
-    const handleShowNotificationInWebViewOverlay = (
+    const handleShowNotificationInWebViewOverlay = async (
       params: IWebViewPageParams,
     ) => {
+      if (await handleOneKeyNotificationAppLink(params.url)) {
+        return;
+      }
       openWebView(params);
     };
     // Durable registration: drains any intent buffered before this UI mounted
@@ -228,6 +265,7 @@ function BaseNotificationHandlerContainer() {
     };
   }, [
     getLocalParams,
+    handleOneKeyNotificationAppLink,
     handleShowNotificationDappNavigation,
     showFallbackUpdateDialog,
     toInviteRewardPage,

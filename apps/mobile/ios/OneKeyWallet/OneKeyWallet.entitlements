@@ -13,7 +13,9 @@
 		<string>applinks:app.onekey.so</string>
 		<string>applinks:app.onekeytest.com</string>
 		<string>applinks:stocks.onekey.so</string>
+		<string>applinks:stocks.onekeytest.com</string>
 		<string>applinks:perps.onekey.so</string>
+		<string>applinks:perps.onekeytest.com</string>
 	</array>
 	<key>com.apple.developer.icloud-container-environment</key>
 	<string>Production</string>

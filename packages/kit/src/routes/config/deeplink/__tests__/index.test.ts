@@ -170,7 +170,9 @@ describe('handleDeepLinkUrl', () => {
     ['https://app.onekey.so/perps', 'perps'],
     ['https://app.onekeytest.com/perps', 'perps'],
     ['https://stocks.onekey.so', 'stock'],
+    ['https://stocks.onekeytest.com', 'stock'],
     ['https://perps.onekey.so', 'perps'],
+    ['https://perps.onekeytest.com', 'perps'],
   ] as const)('parses supported OneKey app link: %s', (url, target) => {
     expect(parseOneKeyAppLinkTarget(url)).toBe(target);
   });
@@ -180,7 +182,9 @@ describe('handleDeepLinkUrl', () => {
     'https://app.onekey.so/swap?tab=swap',
     'https://app.onekey.so/market',
     'https://stocks.onekey.so.evil.com',
+    'https://stocks.onekeytest.com.evil.com',
     'https://perps.onekey.so.evil.com',
+    'https://perps.onekeytest.com.evil.com',
     'onekey-wallet://perps',
   ])('rejects unsupported OneKey app link: %s', (url) => {
     expect(parseOneKeyAppLinkTarget(url)).toBeUndefined();

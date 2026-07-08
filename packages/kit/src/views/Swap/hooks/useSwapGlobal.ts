@@ -373,6 +373,16 @@ export function useSwapInit(params?: ISwapInitParams) {
     [swapTypeSwitchAction],
   );
 
+  useEffect(() => {
+    if (!params?.swapTabSwitchType) {
+      return;
+    }
+    switchSwapTypeIfNeeded(
+      params.swapTabSwitchType,
+      swapAddressInfoRef.current?.networkId ?? fromTokenRef.current?.networkId,
+    );
+  }, [params?.swapTabSwitchType, switchSwapTypeIfNeeded]);
+
   const validateSelectedTokensColdStartContext = useCallback(() => {
     if (!fromTokenRef.current && !toTokenRef.current) {
       return true;
@@ -1488,6 +1498,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.importFromToken,
     params?.importToToken,
     params?.importNetworkId,
+    params?.swapTabSwitchType,
     // The initial home->swap account write-back can keep the same networkId while
     // changing account identity, so import/default token init must also watch the
     // resolved account fields.
