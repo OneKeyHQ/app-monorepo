@@ -130,6 +130,120 @@ describe('createStaticImportChainReport', () => {
     ]);
   });
 
+  it('uses the shared web resolver extension order', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'import-chain-'));
+    const root = 'apps/web/src/root.ts';
+    const webOnlyTarget = 'apps/web/src/target.web-only.tsx';
+
+    writeFile(repoRoot, root, "import { target } from './target';");
+    writeFile(repoRoot, webOnlyTarget, 'export const target = 1;');
+
+    const report = createStaticImportChainReport({
+      repoRoot,
+      modules: [root, webOnlyTarget],
+      roots: [root],
+      targets: [webOnlyTarget],
+    });
+
+    expect(report.chains).toEqual([
+      {
+        target: webOnlyTarget,
+        status: 'found',
+        chain: [
+          {
+            from: root,
+            to: webOnlyTarget,
+            specifier: './target',
+            edgeType: 'sync',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('applies web resolver aliases before following package entries', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'import-chain-'));
+    const root = 'apps/web/src/root.ts';
+    const reactNativeWebEntry = 'node_modules/react-native-web/dist/index.js';
+    const fastImageMock =
+      'development/module-resolver/react-native-fast-image-mock/index.js';
+    const reactAriaFocusEntry =
+      'node_modules/@react-aria/focus/src/index.ts';
+
+    writeFile(
+      repoRoot,
+      root,
+      [
+        "import { View } from 'react-native';",
+        "import FastImage from 'react-native-fast-image';",
+        "import { FocusScope } from '@react-aria/focus';",
+        'export const root = [View, FastImage, FocusScope];',
+      ].join('\n'),
+    );
+    writeFile(
+      repoRoot,
+      'node_modules/react-native-web/package.json',
+      JSON.stringify({ main: 'dist/index.js' }),
+    );
+    writeFile(repoRoot, reactNativeWebEntry, 'export const View = null;');
+    writeFile(
+      repoRoot,
+      fastImageMock,
+      'module.exports = { default: null };',
+    );
+    writeFile(
+      repoRoot,
+      reactAriaFocusEntry,
+      'export const FocusScope = null;',
+    );
+
+    const report = createStaticImportChainReport({
+      repoRoot,
+      modules: [root, reactNativeWebEntry, fastImageMock, reactAriaFocusEntry],
+      roots: [root],
+      targets: [reactNativeWebEntry, fastImageMock, reactAriaFocusEntry],
+    });
+
+    expect(report.chains).toEqual([
+      {
+        target: reactNativeWebEntry,
+        status: 'found',
+        chain: [
+          {
+            from: root,
+            to: reactNativeWebEntry,
+            specifier: 'react-native',
+            edgeType: 'sync',
+          },
+        ],
+      },
+      {
+        target: fastImageMock,
+        status: 'found',
+        chain: [
+          {
+            from: root,
+            to: fastImageMock,
+            specifier: 'react-native-fast-image',
+            edgeType: 'sync',
+          },
+        ],
+      },
+      {
+        target: reactAriaFocusEntry,
+        status: 'found',
+        chain: [
+          {
+            from: root,
+            to: reactAriaFocusEntry,
+            specifier: '@react-aria/focus',
+            edgeType: 'sync',
+          },
+        ],
+      },
+    ]);
+  });
+
   it('resolves node_modules package exports and follows internal sync edges', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'import-chain-'));
     const root = 'apps/web/src/root.ts';

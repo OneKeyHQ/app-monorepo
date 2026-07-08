@@ -150,28 +150,45 @@ function scriptPathFromUrl(buildDir, url) {
   };
 }
 
-function summarizeWebScript({ buildDir, script, maxSources = 30 }) {
+function summarizeWebScript({
+  buildDir,
+  script,
+  maxSources = 30,
+  scriptSummaryCache,
+}) {
   const paths = scriptPathFromUrl(buildDir, script.url || script);
-  const exists = fs.existsSync(paths.filePath);
-  const bytes = exists ? fs.statSync(paths.filePath).size : null;
-  const map = safeReadJson(paths.mapPath);
-  const sources = (map?.sources || []).map(normalizeSource);
-  const packageCounts = countBy(sources, getPackageName).slice(0, 12);
-  const categoryCounts = countBy(sources, categorizeSource).slice(0, 12);
+  let cached = scriptSummaryCache?.get(paths.filePath);
+  if (!cached) {
+    const exists = fs.existsSync(paths.filePath);
+    const bytes = exists ? fs.statSync(paths.filePath).size : null;
+    const map = safeReadJson(paths.mapPath);
+    const sources = (map?.sources || []).map(normalizeSource);
+    cached = {
+      pathname: paths.pathname,
+      relPath: paths.relPath,
+      bytes,
+      hasSourceMap: Boolean(map),
+      sourceCount: sources.length,
+      categoryCounts: countBy(sources, categorizeSource).slice(0, 12),
+      packageCounts: countBy(sources, getPackageName).slice(0, 12),
+      sources,
+    };
+    scriptSummaryCache?.set(paths.filePath, cached);
+  }
   return {
     url: script.url || script,
-    pathname: paths.pathname,
-    relPath: paths.relPath,
-    bytes,
+    pathname: cached.pathname,
+    relPath: cached.relPath,
+    bytes: cached.bytes,
     decodedBodySize: script.decodedBodySize,
     transferSize: script.transferSize,
     startTime: script.startTime,
     duration: script.duration,
-    hasSourceMap: Boolean(map),
-    sourceCount: sources.length,
-    categoryCounts,
-    packageCounts,
-    sourcesSample: sources.slice(0, maxSources),
+    hasSourceMap: cached.hasSourceMap,
+    sourceCount: cached.sourceCount,
+    categoryCounts: cached.categoryCounts,
+    packageCounts: cached.packageCounts,
+    sourcesSample: cached.sources.slice(0, maxSources),
   };
 }
 
@@ -215,6 +232,7 @@ function failedBudgetChecks(checks) {
 }
 
 function createWebColdAiHints({ report, buildDir, repoRoot }) {
+  const scriptSummaryCache = new Map();
   const scenarioScriptSets = new Map();
   for (const scenario of report.scenarios || []) {
     const run = representativeRun(scenario.runs || []);
@@ -241,7 +259,14 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
       (script) => !otherScripts.has(normalizeScriptUrl(script.url)),
     );
     const smallScripts = scripts
-      .map((script) => summarizeWebScript({ buildDir, script, maxSources: 20 }))
+      .map((script) =>
+        summarizeWebScript({
+          buildDir,
+          script,
+          maxSources: 20,
+          scriptSummaryCache,
+        }),
+      )
       .filter(
         (script) => Number.isFinite(script.bytes) && script.bytes <= 10 * 1024,
       )
@@ -265,12 +290,22 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
       topScriptsByDecodedSize: (run?.topScripts || [])
         .slice(0, 12)
         .map((script) =>
-          summarizeWebScript({ buildDir, script, maxSources: 12 }),
+          summarizeWebScript({
+            buildDir,
+            script,
+            maxSources: 12,
+            scriptSummaryCache,
+          }),
         ),
       smallScriptCandidates: smallScripts.slice(0, 30),
       scenarioOnlyScriptCandidates: scenarioOnlyScripts
         .map((script) =>
-          summarizeWebScript({ buildDir, script, maxSources: 20 }),
+          summarizeWebScript({
+            buildDir,
+            script,
+            maxSources: 20,
+            scriptSummaryCache,
+          }),
         )
         .toSorted((a, b) => (a.bytes || 0) - (b.bytes || 0))
         .slice(0, 30),

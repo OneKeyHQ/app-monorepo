@@ -1,19 +1,19 @@
 const fs = require('fs');
 const path = require('path');
 
-const WEB_EXTENSIONS = [
-  '.web.tsx',
-  '.web.ts',
-  '.tsx',
-  '.ts',
-  '.web.jsx',
-  '.web.js',
-  '.jsx',
-  '.js',
-  '.mjs',
-  '.cjs',
-  '.json',
-];
+const { createResolveExtensions } = require('../../webpack/utils');
+
+function createWebExtensions() {
+  const originalLog = console.log;
+  try {
+    console.log = () => {};
+    return createResolveExtensions({ platform: 'web' });
+  } finally {
+    console.log = originalLog;
+  }
+}
+
+const WEB_EXTENSIONS = createWebExtensions();
 
 const WORKSPACE_PACKAGES = [
   ['@onekeyhq/shared', 'packages/shared'],
@@ -319,6 +319,91 @@ function nodeModuleSpecifierToPackage(specifier) {
   };
 }
 
+function createWebResolveAliases(repoRoot) {
+  return [
+    ['react-native$', 'react-native-web'],
+    [
+      'react-native-fast-image',
+      path.join(
+        repoRoot,
+        'development/module-resolver/react-native-fast-image-mock',
+      ),
+    ],
+    [
+      'react-native-keyboard-controller',
+      path.join(
+        repoRoot,
+        'development/module-resolver/react-native-keyboard-controller-mock',
+      ),
+    ],
+    ['react-native-aes-crypto', false],
+    ['react-native-cloud-fs', false],
+    [
+      'react-native/Libraries/Components/View/ViewStylePropTypes$',
+      'react-native-web/dist/exports/View/ViewStylePropTypes',
+    ],
+    [
+      'react-native/Libraries/EventEmitter/RCTDeviceEventEmitter$',
+      'react-native-web/dist/vendor/react-native/NativeEventEmitter/RCTDeviceEventEmitter',
+    ],
+    [
+      'react-native/Libraries/vendor/emitter/EventEmitter$',
+      'react-native-web/dist/vendor/react-native/emitter/EventEmitter',
+    ],
+    [
+      'react-native/Libraries/vendor/emitter/EventSubscriptionVendor$',
+      'react-native-web/dist/vendor/react-native/emitter/EventSubscriptionVendor',
+    ],
+    [
+      'react-native/Libraries/EventEmitter/NativeEventEmitter$',
+      'react-native-web/dist/vendor/react-native/NativeEventEmitter',
+    ],
+    [
+      '@react-aria/focus',
+      path.join(repoRoot, 'node_modules/@react-aria/focus/src/index.ts'),
+    ],
+    [
+      '@react-aria/interactions',
+      path.join(
+        repoRoot,
+        'node_modules/@react-aria/interactions/src/index.ts',
+      ),
+    ],
+    [
+      '@react-aria/ssr',
+      path.join(repoRoot, 'node_modules/@react-aria/ssr/src/index.ts'),
+    ],
+    [
+      '@react-aria/utils',
+      path.join(repoRoot, 'node_modules/@react-aria/utils/src/index.ts'),
+    ],
+    ['bn.js$', require.resolve('bn.js')],
+  ].map(([request, replacement]) => ({
+    request: request.endsWith('$') ? request.slice(0, -1) : request,
+    exact: request.endsWith('$'),
+    replacement,
+  }));
+}
+
+function applyResolveAlias({ repoRoot, specifier, aliases }) {
+  for (const alias of aliases) {
+    const isMatch = alias.exact
+      ? specifier === alias.request
+      : specifier === alias.request || specifier.startsWith(`${alias.request}/`);
+    if (!isMatch) continue;
+    if (alias.replacement === false) return { ignored: true };
+
+    const suffix = alias.exact ? '' : specifier.slice(alias.request.length);
+    const target = `${alias.replacement}${suffix}`;
+    return {
+      specifier: path.isAbsolute(target)
+        ? toPosixPath(path.relative(repoRoot, target))
+        : toPosixPath(target),
+    };
+  }
+  return null;
+}
+
 function resolveCandidatePaths({ paths, candidateSet, extensions }) {
   for (const item of paths) {
     const resolved = tryResolveCandidate(item, candidateSet, extensions);
@@ -334,6 +419,7 @@ function resolveSpecifier({
   candidateSet,
   packageCandidateMap,
   extensions,
+  aliases,
 }) {
   if (!specifier) return null;
 
@@ -343,6 +429,52 @@ function resolveSpecifier({
       candidateSet,
       extensions,
     );
+  }
+
+  const aliasTarget = applyResolveAlias({ repoRoot, specifier, aliases });
+  if (aliasTarget?.ignored) return null;
+  if (aliasTarget?.specifier) {
+    const aliasSpecifier = aliasTarget.specifier;
+    if (aliasSpecifier.startsWith('.')) {
+      return tryResolveCandidate(
+        path.posix.join(path.posix.dirname(from), aliasSpecifier),
+        candidateSet,
+        extensions,
+      );
+    }
+    const normalizedAliasPath = toPosixPath(path.posix.normalize(aliasSpecifier));
+    const aliasPathResolved = tryResolveCandidate(
+      normalizedAliasPath,
+      candidateSet,
+      extensions,
+    );
+    if (aliasPathResolved) return aliasPathResolved;
+
+    const aliasedWorkspacePackage = workspaceSpecifierToPackage(aliasSpecifier);
+    if (aliasedWorkspacePackage) {
+      return resolveCandidatePaths({
+        paths: getPackageEntryCandidates({
+          repoRoot,
+          ...aliasedWorkspacePackage,
+        }),
+        candidateSet,
+        extensions,
+      });
+    }
+
+    const aliasedNodeModulePackage =
+      nodeModuleSpecifierToPackage(aliasSpecifier);
+    if (aliasedNodeModulePackage) {
+      const resolved = resolveCandidatePaths({
+        paths: getPackageEntryCandidates({
+          repoRoot,
+          ...aliasedNodeModulePackage,
+        }),
+        candidateSet,
+        extensions,
+      });
+      if (resolved) return resolved;
+    }
   }
 
   const workspacePackage = workspaceSpecifierToPackage(specifier);
@@ -373,6 +505,7 @@ function buildStaticImportGraph({ repoRoot, modules, extensions }) {
     modules.map((source) => normalizeSourcePath({ repoRoot, source })),
   );
   const packageCandidateMap = buildPackageCandidateMap(candidateSet);
+  const aliases = createWebResolveAliases(repoRoot);
   const graph = new Map();
 
   for (const source of candidateSet) {
@@ -397,6 +530,7 @@ function buildStaticImportGraph({ repoRoot, modules, extensions }) {
             candidateSet,
             packageCandidateMap,
             extensions,
+            aliases,
           });
           if (resolved) {
             edges.push({
