@@ -19,6 +19,17 @@
           {
             "/": "/wc/*",
             "comment": "Matches any URL associate with wallet-connect"
+          },
+          {
+            "/": "/swap",
+            "?": {
+              "tab": "stock"
+            },
+            "comment": "Matches stock app links"
+          },
+          {
+            "/": "/perps",
+            "comment": "Matches Perps app links"
           }
         ]
       }
