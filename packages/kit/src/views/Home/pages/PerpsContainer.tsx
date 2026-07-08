@@ -31,7 +31,6 @@ import {
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useNavigateToMarketTab } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
-import { TokenIdentityItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/TokenIdentityItem';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import {
   perpsPendingInfoPanelTabAtom,
@@ -62,7 +61,6 @@ import {
   getValidPriceDecimals,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { convertFiat } from '../../../utils/fiatConvert';
 import {
@@ -805,10 +803,6 @@ function PerpsEmptyRecommendSection() {
       </YStack>
       <YStack display="flex" $gtMd={{ display: 'none' }}>
         {displayTokens.map((token) => {
-          const priceChangeStyle = getTokenPriceChangeStyle({
-            priceChange: token.change24hPercent ?? 0,
-          });
-
           return (
             <Stack key={token.name}>
               <XStack
@@ -824,17 +818,49 @@ function PerpsEmptyRecommendSection() {
                 alignItems="center"
                 alignSelf="stretch"
               >
-                <Stack flex={1} minWidth={0}>
-                  <TokenIdentityItem
-                    symbol={token.displayName}
-                    address=""
-                    tokenLogoURI={token.tokenImageUrl}
-                    showVolume
-                    volume={Number(token.volume24h ?? 0)}
-                    maxLeverage={token.maxLeverage}
-                    perpsSubtitle={token.subtitle}
+                <XStack flex={1} alignItems="center" gap="$3" minWidth={0}>
+                  <Token
+                    size="md"
+                    borderRadius="$full"
+                    tokenImageUri={token.tokenImageUrl}
+                    fallbackIcon="CryptoCoinOutline"
                   />
-                </Stack>
+                  <YStack flex={1} minWidth={0}>
+                    <XStack
+                      alignItems="center"
+                      gap="$1"
+                      minWidth={0}
+                      overflow="hidden"
+                    >
+                      <SizableText
+                        size="$bodyLgMedium"
+                        numberOfLines={1}
+                        flexShrink={1}
+                        ellipsizeMode="tail"
+                        userSelect="none"
+                      >
+                        {token.displayName}
+                      </SizableText>
+                      <LeverageBadge leverage={token.maxLeverage} />
+                    </XStack>
+                    <XStack alignItems="center" gap="$1" minWidth={0}>
+                      {token.subtitle ? (
+                        <SubtitleText subtitle={token.subtitle} />
+                      ) : null}
+                      <NumberSizeableText
+                        size="$bodyMd"
+                        color="$textSubdued"
+                        numberOfLines={1}
+                        flexShrink={0}
+                        formatter="marketCap"
+                        formatterOptions={{ currency: '$' }}
+                        userSelect="none"
+                      >
+                        {token.volume24h ?? '0'}
+                      </NumberSizeableText>
+                    </XStack>
+                  </YStack>
+                </XStack>
 
                 <YStack alignItems="flex-end">
                   <NumberSizeableText
@@ -849,11 +875,13 @@ function PerpsEmptyRecommendSection() {
                   </NumberSizeableText>
                   <NumberSizeableText
                     size="$bodyMd"
-                    color={priceChangeStyle.changeColor}
+                    color={
+                      (token.change24hPercent ?? 0) >= 0
+                        ? '$textSuccess'
+                        : '$textCritical'
+                    }
                     formatter="priceChange"
-                    formatterOptions={{
-                      showPlusMinusSigns: priceChangeStyle.showPlusMinusSigns,
-                    }}
+                    formatterOptions={{ showPlusMinusSigns: true }}
                   >
                     {token.change24hPercent ?? '-'}
                   </NumberSizeableText>
