@@ -1968,6 +1968,61 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
+  // Trezor-only dedup — intentionally NOT sharing the OneKey path above.
+  updateTrezorWalletsDeprecatedStatus = contextAtomMethod(
+    async (
+      get,
+      set,
+      { connectId, deviceId }: { connectId: string; deviceId: string },
+    ) => {
+      if (!connectId || !deviceId) {
+        return;
+      }
+
+      // Best-effort cleanup: runs after the wallet is already created +
+      // committed; a throw must never fail that success path.
+      try {
+        const allHwWallets =
+          await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+            filterHiddenWallet: false,
+            filterQrWallet: true,
+          });
+
+        const willUpdateDeprecateMap: Record<string, boolean> = {};
+
+        for (const walletWithDevice of Object.values(allHwWallets)) {
+          const wallet = walletWithDevice.wallet;
+          const device = walletWithDevice.device;
+          if (wallet?.id && device?.connectId) {
+            // A Trezor device is reachable by any of its transport ids — match
+            // the same key set the connection-status light uses.
+            const walletConnectIds = [
+              device.connectId,
+              device.usbConnectId,
+              device.bleConnectId,
+            ].filter(Boolean);
+            if (walletConnectIds.includes(connectId)) {
+              // Same physical device but a different device_id (e.g. after a
+              // reset) → the stored wallet is stale, mark it deprecated.
+              const isSameDevice = device.deviceId === deviceId;
+              willUpdateDeprecateMap[wallet.id] = !isSameDevice;
+            }
+          }
+        }
+
+        const result =
+          await backgroundApiProxy.serviceAccount.updateWalletsDeprecatedState({
+            willUpdateDeprecateMap,
+          });
+        if (result && Object.keys(willUpdateDeprecateMap).length > 0) {
+          appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+        }
+      } catch (error) {
+        console.error('updateTrezorWalletsDeprecatedStatus failed:', error);
+      }
+    },
+  );
+
   removeAccount = contextAtomMethod(
     async (
       get,
@@ -3169,6 +3224,8 @@ export function useAccountSelectorActions() {
   const waitForAutoSelectUnlock = actions.waitForAutoSelectUnlock.use();
   const updateHwWalletsDeprecatedStatus =
     actions.updateHwWalletsDeprecatedStatus.use();
+  const updateTrezorWalletsDeprecatedStatus =
+    actions.updateTrezorWalletsDeprecatedStatus.use();
   const autoSelectNetworkOfOthersWalletAccount =
     actions.autoSelectNetworkOfOthersWalletAccount.use();
   const syncFromScene = actions.syncFromScene.use();
@@ -3207,6 +3264,7 @@ export function useAccountSelectorActions() {
     createQrWallet,
     createTonImportedWallet,
     updateHwWalletsDeprecatedStatus,
+    updateTrezorWalletsDeprecatedStatus,
     autoSelectNextAccount,
     waitForAutoSelectUnlock,
     autoSelectNetworkOfOthersWalletAccount,
