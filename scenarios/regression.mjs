@@ -184,6 +184,16 @@ async function firstVisibleLocator(page, testIds) {
   return null;
 }
 
+async function firstVisibleSelector(page, selectors) {
+  for (const selector of selectors) {
+    const locator = page.locator(selector).first();
+    if (await locator.isVisible().catch(() => false)) {
+      return locator;
+    }
+  }
+  return null;
+}
+
 async function replaceText(locator, page, text) {
   await locator.click({ force: true, timeout: 5000 });
   await locator.fill(text).catch(async () => {
@@ -307,6 +317,50 @@ async function findDappSearchResult(page, expectedHost) {
   return null;
 }
 
+function desktopBrowserShortcutKey() {
+  return process.platform === 'darwin' ? 'Meta+7' : 'Control+7';
+}
+
+async function findBrowserHomeSearchInput(page) {
+  return firstVisibleSelector(page, [
+    'input[data-testid="search-input"]',
+    '[data-testid="search-input"] input',
+    'textarea[data-testid="search-input"]',
+    'input[placeholder*="Search dApps"]',
+    'input[placeholder*="enter URL"]',
+  ]);
+}
+
+async function submitBrowserHomeSearch(page, targetUrl) {
+  const searchInput = await waitForCondition(
+    'desktop browser home search input',
+    () => findBrowserHomeSearchInput(page),
+    15_000,
+  );
+  await replaceText(searchInput, page, targetUrl);
+
+  const directUrlResult = await waitForCondition(
+    'desktop browser direct URL result',
+    () => firstVisibleSelector(page, ['[data-testid="dapp-search0"]']),
+    5000,
+  ).catch(() => null);
+  if (directUrlResult) {
+    await directUrlResult.click({ force: true, timeout: 5000 });
+  } else {
+    await page.keyboard.press('Enter');
+  }
+}
+
+async function openDappViaDesktopBrowserShortcut(page, targetUrl) {
+  await page
+    .locator('[data-testid="Desktop-AppSideBar-Container"]')
+    .first()
+    .waitFor({ state: 'visible', timeout: 10_000 });
+  await page.keyboard.press(desktopBrowserShortcutKey());
+  await submitBrowserHomeSearch(page, targetUrl);
+  return 'browser-shortcut-search-input';
+}
+
 function reportVerification(name, checks) {
   const failed = checks.filter((check) => !check.pass);
   console.log('\n===== RESULT =====');
@@ -326,6 +380,17 @@ function reportVerification(name, checks) {
 }
 
 async function openDappFromDesktopUi(page, targetUrl, expectedHost) {
+  const shortcutMethod = await openDappViaDesktopBrowserShortcut(
+    page,
+    targetUrl,
+  ).catch((error) => {
+    log(`browser shortcut path unavailable: ${error?.message || error}`);
+    return '';
+  });
+  if (shortcutMethod) {
+    return shortcutMethod;
+  }
+
   const browserAddButton = page
     .locator('[data-testid="browser-bar-add"]')
     .first();
@@ -431,7 +496,10 @@ async function runDappColdStartDesktop(cdpUrl, flags) {
   }
 
   log(`opening DApp URL ${targetUrl}`);
-  const openMethod = await openDappFromDesktopUi(page, targetUrl, expectedHost);
+  const openOutcome = await captureOutcome('open DApp from desktop UI', () =>
+    openDappFromDesktopUi(page, targetUrl, expectedHost),
+  );
+  const openMethod = openOutcome.value || 'unavailable';
 
   const tabCreated = await captureOutcome('browser tab creation', () =>
     waitForCondition('browser tab creation', async () => {
@@ -475,6 +543,11 @@ async function runDappColdStartDesktop(cdpUrl, flags) {
   );
 
   const checks = [
+    {
+      name: 'DApp navigation was initiated from desktop UI',
+      pass: openOutcome.pass,
+      detail: openOutcome.pass ? openMethod : openOutcome.detail,
+    },
     {
       name: 'browser tab was created',
       pass: tabCreated.pass && tabCreated.value > beforeTabCount,

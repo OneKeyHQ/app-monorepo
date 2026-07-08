@@ -15,6 +15,12 @@ const {
 const SCHEMA_VERSION = 1;
 const VALID_PROFILES = new Set(['commit', 'pr', 'ci']);
 const RELEASE_READY_GATE = 'release-ready-merge-gate';
+const LINT_WORKTREE_EXCLUDED_FILES = new Set([
+  'packages/shared/src/locale/enum/translations.ts',
+  'packages/shared/src/locale/localeJsonMap.ts',
+]);
+const JAVASCRIPT_LINT_FILE_RE = /\.(?:cjs|js|jsx|mjs)$/u;
+const TYPESCRIPT_LINT_FILE_RE = /\.(?:cts|mts|ts|tsx)$/u;
 
 let jsonStdout = false;
 
@@ -82,7 +88,7 @@ function usage() {
     '  yarn agent:check --profile ci --json-file /tmp/agent-check.json',
     '',
     'Profiles:',
-    '  commit  Run local staged lint and type checks.',
+    '  commit  Run local worktree/staged lint and type checks.',
     '  pr      Run commit checks, then summarize PR CI and reviews when a PR exists.',
     '  ci      Summarize PR CI and reviews only. Requires a PR.',
     '',
@@ -206,6 +212,102 @@ function runJsonCommand(logDir, name, command, args) {
     parseError,
     ok: result.ok && !parseError,
   };
+}
+
+function splitLines(value) {
+  return String(value || '')
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function runGitOutput(args) {
+  const result = spawnSync('git', args, {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024 * 10,
+  });
+
+  if (result.status !== 0) {
+    throw new Error(
+      `git ${args.join(' ')} exited with ${String(result.status)}: ${
+        result.stderr || result.stdout || ''
+      }`,
+    );
+  }
+
+  return splitLines(result.stdout);
+}
+
+function isWorktreeLintTarget(filePath) {
+  if (LINT_WORKTREE_EXCLUDED_FILES.has(filePath)) {
+    return false;
+  }
+  return (
+    JAVASCRIPT_LINT_FILE_RE.test(filePath) ||
+    TYPESCRIPT_LINT_FILE_RE.test(filePath)
+  );
+}
+
+function getWorktreeLintFiles() {
+  const files = [
+    ...runGitOutput([
+      'diff',
+      '--name-only',
+      '--diff-filter=ACMR',
+      'HEAD',
+      '--',
+    ]),
+    ...runGitOutput(['ls-files', '--others', '--exclude-standard', '--']),
+  ];
+
+  return [...new Set(files.filter(isWorktreeLintTarget))].toSorted();
+}
+
+function splitLintFiles(files) {
+  return {
+    js: files.filter((file) => JAVASCRIPT_LINT_FILE_RE.test(file)),
+    ts: files.filter((file) => TYPESCRIPT_LINT_FILE_RE.test(file)),
+  };
+}
+
+function runWorktreeLintChecks(logDir) {
+  const files = getWorktreeLintFiles();
+  if (!files.length) {
+    humanLog('SKIP lint-worktree: no changed JS/TS files.');
+    return [];
+  }
+
+  const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  const { js, ts } = splitLintFiles(files);
+  const results = [];
+
+  if (js.length) {
+    results.push(
+      runCommand(logDir, 'lint-worktree-js', npx, [
+        'oxlint',
+        '--fix',
+        '--deny-warnings',
+        ...js,
+      ]),
+    );
+  }
+
+  if (ts.length) {
+    results.push(
+      runCommand(logDir, 'lint-worktree-ts', npx, [
+        'oxlint',
+        '--tsconfig',
+        './tsconfig.json',
+        '--type-aware',
+        '--fix',
+        '--deny-warnings',
+        ...ts,
+      ]),
+    );
+  }
+
+  return results;
 }
 
 function parsePrNumber(input) {
@@ -476,6 +578,7 @@ function printThreads(summary) {
 function runLocalChecks(logDir) {
   humanLog('\nLocal checks');
   return [
+    ...runWorktreeLintChecks(logDir),
     runCommand(logDir, 'lint-staged', 'yarn', ['lint:staged']),
     runCommand(logDir, 'tsc-staged', 'yarn', ['tsc:staged']),
   ];
