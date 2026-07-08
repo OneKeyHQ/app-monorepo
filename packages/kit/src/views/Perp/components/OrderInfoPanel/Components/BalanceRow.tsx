@@ -21,14 +21,13 @@ import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils'
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
-
 import {
   calcCellAlign,
   formatSpotHoldingPnlText,
   getColumnStyle,
 } from '../utils';
-import { DesktopActionIconButton } from './DesktopActionIconButton';
 
+import { DesktopActionIconButton } from './DesktopActionIconButton';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
 import type { IBalanceDisplayItem } from '../List/SpotBalanceList';
