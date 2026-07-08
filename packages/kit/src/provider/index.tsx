@@ -44,13 +44,16 @@ if (platformEnv.isRuntimeBrowser) {
 
 appGlobals.$Toast = Toast;
 
+const LAST_ACTIVITY_TRACKER_IMPORT_DELAY_MS = platformEnv.isWeb ? 6000 : 3000;
 const LastActivityTracker = LazyLoad(
   () => import('../components/LastActivityTracker'),
-  3000,
+  LAST_ACTIVITY_TRACKER_IMPORT_DELAY_MS,
 );
 
 // Non-first-screen siblings — delayed to shorten the KitProvider sync-mount
 // critical path. The UX-visible behavior of each is deferred:
+//   - LastActivityTracker: analytics/activity refresh work is not needed for
+//       first paint; web import is pushed past the cold-budget window
 //   - PasswordVerify: only renders on user-triggered protected actions
 //   - StateActive: badge clear + AppState handler — a 300ms delay is not
 //       visible to the user on cold start
