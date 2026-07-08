@@ -553,6 +553,7 @@ export function DappHeader({
     return (
       <>
         <Page.Header
+          headerShown
           headerTitleAlign="center"
           headerShadowVisible={false}
           headerStyle={{
@@ -571,6 +572,7 @@ export function DappHeader({
   return (
     <>
       <Page.Header
+        headerShown
         headerShadowVisible={false}
         headerStyle={{
           backgroundColor: 'transparent',

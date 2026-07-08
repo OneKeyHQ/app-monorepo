@@ -35,9 +35,10 @@ const Index = () => {
   }
 
   const tabBarHeight = useScrollContentTabBarOffset();
+  const topPadding = platformEnv.isNativeIOS ? '$10' : undefined;
   return (
     <Page>
-      <Page.Body>
+      <Page.Body pt={topPadding}>
         <View
           style={{
             width: '90%',

@@ -14,6 +14,13 @@ const path = require('path');
 
 const { chromium } = require('playwright-core');
 
+const {
+  WEB_BUDGET_ARTIFACT,
+  createWebColdAiHints,
+  defaultSiblingPath,
+  printAiTriageInstructions,
+  writeAiHints,
+} = require('./lib/budgetAiHints');
 const { findChromiumExecutable } = require('./lib/chromium');
 const {
   execCmd,
@@ -209,6 +216,49 @@ function scenarioUrl(baseUrl, scenario) {
   return new URL(scenario.path, baseUrl).toString();
 }
 
+function normalizeResourceUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return String(url || '').split(/[?#]/)[0];
+  }
+}
+
+function dedupeResourceEntries(entries) {
+  const map = new Map();
+  for (const entry of entries) {
+    const key = normalizeResourceUrl(entry.name);
+    const existing = map.get(key);
+    if (existing) {
+      existing.decodedBodySize = Math.max(
+        existing.decodedBodySize || 0,
+        entry.decodedBodySize || 0,
+      );
+      existing.encodedBodySize = Math.max(
+        existing.encodedBodySize || 0,
+        entry.encodedBodySize || 0,
+      );
+      existing.transferSize = Math.max(
+        existing.transferSize || 0,
+        entry.transferSize || 0,
+      );
+      existing.duration = Math.max(existing.duration || 0, entry.duration || 0);
+      existing.startTime = Math.min(
+        Number.isFinite(existing.startTime) ? existing.startTime : Infinity,
+        Number.isFinite(entry.startTime) ? entry.startTime : Infinity,
+      );
+      existing.responseEnd = Math.max(
+        existing.responseEnd || 0,
+        entry.responseEnd || 0,
+      );
+    } else {
+      map.set(key, { ...entry });
+    }
+  }
+  return [...map.values()];
+}
+
 function parseInitialScriptFiles(buildDir) {
   const indexHtmlPath = path.join(buildDir, 'index.html');
   const html = fs.readFileSync(indexHtmlPath, 'utf8');
@@ -266,6 +316,12 @@ async function checkWebStartupGraphBudget({ repoRoot, buildDir, log }) {
   const outputPath =
     process.env.PERF_WEB_STARTUP_GRAPH_OUT ||
     path.join(os.tmpdir(), `onekey-web-startup-graph-${Date.now()}.json`);
+  const aiHintsJsonPath =
+    process.env.WEB_STARTUP_AI_HINTS_JSON_PATH ||
+    defaultSiblingPath(outputPath, '-ai-hints.json');
+  const aiHintsMarkdownPath =
+    process.env.WEB_STARTUP_AI_HINTS_MD_PATH ||
+    defaultSiblingPath(outputPath, '-ai-hints.md');
   const result = await execCmd(
     'node',
     ['apps/web/scripts/check-startup-graph-budget.js', buildDir],
@@ -274,6 +330,8 @@ async function checkWebStartupGraphBudget({ repoRoot, buildDir, log }) {
       env: withRepoNodeBin(repoRoot, {
         WEB_STARTUP_BUILD_DIR: buildDir,
         WEB_STARTUP_REPORT_PATH: outputPath,
+        WEB_STARTUP_AI_HINTS_JSON_PATH: aiHintsJsonPath,
+        WEB_STARTUP_AI_HINTS_MD_PATH: aiHintsMarkdownPath,
         WEB_STARTUP_BUDGET_PATH:
           process.env.PERF_WEB_COLD_BUDGET_PATH ||
           path.join(
@@ -294,7 +352,12 @@ async function checkWebStartupGraphBudget({ repoRoot, buildDir, log }) {
   if (result.code !== 0) {
     throw new Error(formatExecResultError('web startup graph budget', result));
   }
-  return readJsonIfExists(outputPath);
+  return {
+    report: readJsonIfExists(outputPath),
+    reportPath: outputPath,
+    aiHintsJsonPath,
+    aiHintsMarkdownPath,
+  };
 }
 
 function installMetricObservers() {
@@ -600,15 +663,20 @@ async function runOne({
       fs.writeFileSync(cpuProfilePath, JSON.stringify(profile));
     }
 
-    const resources = metrics.resources || [];
-    const scripts = resources.filter(
+    const rawResources = metrics.resources || [];
+    const uniqueResources = dedupeResourceEntries(rawResources);
+    const rawScripts = rawResources.filter(
+      (entry) =>
+        entry.initiatorType === 'script' || /\.m?js($|\?)/.test(entry.name),
+    );
+    const uniqueScripts = uniqueResources.filter(
       (entry) =>
         entry.initiatorType === 'script' || /\.m?js($|\?)/.test(entry.name),
     );
     const observerMetrics = metrics.observerMetrics || {};
     const longTasks = observerMetrics.longTasks || [];
     const lcp = Number(observerMetrics.largestContentfulPaint);
-    const preLcpScripts = scripts.filter(
+    const preLcpScripts = rawScripts.filter(
       (entry) => !Number.isFinite(lcp) || entry.startTime <= lcp,
     );
     const largestPreLcpScript = preLcpScripts.reduce(
@@ -643,16 +711,32 @@ async function runOne({
             businessReady?.domTokenItemCount ||
             (businessReady?.ready ? 1 : 0)
           : 0,
-      resourceCount: resources.length,
-      scriptCount: scripts.length,
+      resourceCount: rawResources.length,
+      rawResourceCount: rawResources.length,
+      uniqueResourceCount: uniqueResources.length,
+      scriptCount: rawScripts.length,
+      rawScriptEntryCount: rawScripts.length,
+      uniqueScriptCount: uniqueScripts.length,
       totalTransferBytes:
-        sum(resources.map((entry) => entry.transferSize)) +
+        sum(rawResources.map((entry) => entry.transferSize)) +
         (metrics.navigation?.transferSize || 0),
       totalDecodedBytes:
-        sum(resources.map((entry) => entry.decodedBodySize)) +
+        sum(rawResources.map((entry) => entry.decodedBodySize)) +
         (metrics.navigation?.decodedBodySize || 0),
-      jsTransferBytes: sum(scripts.map((entry) => entry.transferSize)),
-      jsDecodedBytes: sum(scripts.map((entry) => entry.decodedBodySize)),
+      uniqueTotalTransferBytes:
+        sum(uniqueResources.map((entry) => entry.transferSize)) +
+        (metrics.navigation?.transferSize || 0),
+      uniqueTotalDecodedBytes:
+        sum(uniqueResources.map((entry) => entry.decodedBodySize)) +
+        (metrics.navigation?.decodedBodySize || 0),
+      jsTransferBytes: sum(rawScripts.map((entry) => entry.transferSize)),
+      jsDecodedBytes: sum(rawScripts.map((entry) => entry.decodedBodySize)),
+      uniqueJsTransferBytes: sum(
+        uniqueScripts.map((entry) => entry.transferSize),
+      ),
+      uniqueJsDecodedBytes: sum(
+        uniqueScripts.map((entry) => entry.decodedBodySize),
+      ),
       longTaskCount: longTasks.length,
       longTaskTotalMs: sum(longTasks.map((entry) => entry.duration)),
       longTaskMaxMs: Math.max(
@@ -668,7 +752,7 @@ async function runOne({
       largestPreLcpScriptDecodedBytes:
         largestPreLcpScript?.decodedBodySize || 0,
       largestPreLcpScriptUrl: largestPreLcpScript?.name || null,
-      topScripts: scripts
+      topScripts: rawScripts
         .toSorted((a, b) => (b.decodedBodySize || 0) - (a.decodedBodySize || 0))
         .slice(0, 12)
         .map((entry) => ({
@@ -678,14 +762,46 @@ async function runOne({
           transferSize: entry.transferSize,
           duration: entry.duration,
         })),
-      scripts: scripts.map((entry) => ({
+      scripts: rawScripts.map((entry) => ({
         url: entry.name,
         startTime: entry.startTime,
         decodedBodySize: entry.decodedBodySize,
         transferSize: entry.transferSize,
         duration: entry.duration,
       })),
-      resources: resources.map((entry) => ({
+      uniqueScripts: uniqueScripts.map((entry) => ({
+        url: entry.name,
+        startTime: entry.startTime,
+        decodedBodySize: entry.decodedBodySize,
+        transferSize: entry.transferSize,
+        duration: entry.duration,
+      })),
+      rawScripts: rawScripts.map((entry) => ({
+        url: entry.name,
+        startTime: entry.startTime,
+        decodedBodySize: entry.decodedBodySize,
+        transferSize: entry.transferSize,
+        duration: entry.duration,
+      })),
+      resources: rawResources.map((entry) => ({
+        url: entry.name,
+        initiatorType: entry.initiatorType,
+        startTime: entry.startTime,
+        duration: entry.duration,
+        responseEnd: entry.responseEnd,
+        decodedBodySize: entry.decodedBodySize,
+        transferSize: entry.transferSize,
+      })),
+      uniqueResources: uniqueResources.map((entry) => ({
+        url: entry.name,
+        initiatorType: entry.initiatorType,
+        startTime: entry.startTime,
+        duration: entry.duration,
+        responseEnd: entry.responseEnd,
+        decodedBodySize: entry.decodedBodySize,
+        transferSize: entry.transferSize,
+      })),
+      rawResources: rawResources.map((entry) => ({
         url: entry.name,
         initiatorType: entry.initiatorType,
         startTime: entry.startTime,
@@ -722,11 +838,23 @@ function aggregateRuns(runs, initialScripts) {
     ),
     marketListReadyCount: median(runs.map((run) => run.marketListReadyCount)),
     resourceCount: median(runs.map((run) => run.resourceCount)),
+    rawResourceCount: median(runs.map((run) => run.rawResourceCount)),
+    uniqueResourceCount: median(runs.map((run) => run.uniqueResourceCount)),
     scriptCount: median(runs.map((run) => run.scriptCount)),
+    uniqueScriptCount: median(runs.map((run) => run.uniqueScriptCount)),
+    rawScriptEntryCount: median(runs.map((run) => run.rawScriptEntryCount)),
     totalTransferBytes: median(runs.map((run) => run.totalTransferBytes)),
     totalDecodedBytes: median(runs.map((run) => run.totalDecodedBytes)),
+    uniqueTotalTransferBytes: median(
+      runs.map((run) => run.uniqueTotalTransferBytes),
+    ),
+    uniqueTotalDecodedBytes: median(
+      runs.map((run) => run.uniqueTotalDecodedBytes),
+    ),
     jsTransferBytes: median(runs.map((run) => run.jsTransferBytes)),
     jsDecodedBytes: median(runs.map((run) => run.jsDecodedBytes)),
+    uniqueJsTransferBytes: median(runs.map((run) => run.uniqueJsTransferBytes)),
+    uniqueJsDecodedBytes: median(runs.map((run) => run.uniqueJsDecodedBytes)),
     longTaskCount: median(runs.map((run) => run.longTaskCount)),
     longTaskTotalMs: median(runs.map((run) => run.longTaskTotalMs)),
     longTaskMaxMs: median(runs.map((run) => run.longTaskMaxMs)),
@@ -864,10 +992,25 @@ function printReport({
   console.log(
     `resources/scripts: ${summary.resourceCount} / ${summary.scriptCount}`,
   );
+  if (
+    summary.uniqueResourceCount !== summary.resourceCount ||
+    summary.uniqueScriptCount !== summary.scriptCount
+  ) {
+    // eslint-disable-next-line no-console
+    console.log(
+      `unique resources/scripts: ${summary.uniqueResourceCount} / ${summary.uniqueScriptCount}`,
+    );
+  }
   // eslint-disable-next-line no-console
   console.log(
     `JS decoded/transfer: ${formatBytes(summary.jsDecodedBytes)} / ${formatBytes(summary.jsTransferBytes)}`,
   );
+  if (summary.uniqueJsDecodedBytes !== summary.jsDecodedBytes) {
+    // eslint-disable-next-line no-console
+    console.log(
+      `unique JS decoded/transfer: ${formatBytes(summary.uniqueJsDecodedBytes)} / ${formatBytes(summary.uniqueJsTransferBytes)}`,
+    );
+  }
   // eslint-disable-next-line no-console
   console.log(
     `initial script raw: ${formatBytes(summary.initialScriptRawBytes)}`,
@@ -1045,11 +1188,12 @@ async function main() {
     );
   }
 
-  const startupGraphBudget = await checkWebStartupGraphBudget({
+  const startupGraphBudgetResult = await checkWebStartupGraphBudget({
     repoRoot,
     buildDir,
     log,
   });
+  const startupGraphBudget = startupGraphBudgetResult?.report || null;
   const budgetConfig = loadBudgetConfig(repoRoot);
   const scenarios = parseScenarios();
   const initialScripts = parseInitialScriptFiles(buildDir);
@@ -1126,6 +1270,30 @@ async function main() {
     }
 
     const firstScenario = scenarioOutputs[0];
+    const legacyTopLevelFieldsNote =
+      'Use scenarios[] as the source of truth. Top-level url/budgets/budgetChecks/healthChecks/summary/runs are legacy-compatible fields for the first scenario only.';
+    const metricDefinitions = {
+      resourceCount:
+        'Raw PerformanceResourceTiming resource entry count used by the hard budget gate.',
+      rawResourceCount:
+        'Alias of resourceCount for compatibility with diagnostic tooling.',
+      uniqueResourceCount:
+        'Count of distinct normalized resource URLs loaded during the cold-start sample; duplicates from preload + fetch, repeated injection, or cache re-use are collapsed.',
+      scriptCount:
+        'Raw PerformanceResourceTiming JavaScript resource entry count used by the hard budget gate.',
+      uniqueScriptCount:
+        'Count of distinct normalized JavaScript resource URLs loaded during the cold-start sample; duplicates are collapsed.',
+      rawScriptEntryCount:
+        'Alias of scriptCount for compatibility with diagnostic tooling.',
+      jsDecodedBytes:
+        'Sum of decodedBodySize for raw JavaScript resource entries, matching the existing hard budget baseline.',
+      jsTransferBytes:
+        'Sum of transferSize for raw JavaScript resource entries.',
+      uniqueJsDecodedBytes:
+        'Sum of decodedBodySize for distinct normalized JavaScript URLs. When the same URL appears multiple times, the largest decodedBodySize is kept.',
+      uniqueJsTransferBytes:
+        'Sum of transferSize for distinct normalized JavaScript URLs. When the same URL appears multiple times, the largest transferSize is kept.',
+    };
     const output = {
       createdAt: new Date().toISOString(),
       repoRoot,
@@ -1133,6 +1301,8 @@ async function main() {
       profileDir: booleanEnv('PERF_WEB_COLD_CPU_PROFILE') ? profileDir : null,
       budgetConfig,
       startupGraphBudget,
+      legacyTopLevelFieldsNote,
+      metricDefinitions,
       scenarios: scenarioOutputs,
       url: firstScenario?.url,
       budgets: firstScenario?.budgets,
@@ -1142,17 +1312,59 @@ async function main() {
       initialScripts,
       runs: firstScenario?.runs,
     };
+    const aiHints = createWebColdAiHints({
+      report: {
+        ...output,
+        reportPath: outputPath,
+      },
+      buildDir,
+      repoRoot,
+    });
+    const aiHintsJsonPath =
+      process.env.PERF_WEB_COLD_AI_HINTS_JSON_OUT ||
+      defaultSiblingPath(outputPath, '-ai-hints.json');
+    const aiHintsMarkdownPath =
+      process.env.PERF_WEB_COLD_AI_HINTS_MD_OUT ||
+      defaultSiblingPath(outputPath, '-ai-hints.md');
     fs.writeFileSync(outputPath, `${JSON.stringify(output, null, 2)}\n`);
+    writeAiHints({
+      hints: aiHints,
+      jsonPath: aiHintsJsonPath,
+      markdownPath: aiHintsMarkdownPath,
+    });
     log(`wrote ${outputPath}`);
+    log(`wrote ${aiHintsJsonPath}`);
+    log(`wrote ${aiHintsMarkdownPath}`);
 
-    if (
-      scenarioOutputs.some(
-        (scenarioOutput) =>
-          scenarioOutput.healthChecks.some((check) => !check.pass) ||
-          scenarioOutput.budgetChecks.some((check) => check.status === 'fail'),
-      ) &&
-      process.env.PERF_WEB_COLD_BUDGET_FAIL !== '0'
-    ) {
+    const hasBlockingFailure = scenarioOutputs.some(
+      (scenarioOutput) =>
+        scenarioOutput.healthChecks.some((check) => !check.pass) ||
+        scenarioOutput.budgetChecks.some((check) => check.status === 'fail'),
+    );
+    if (hasBlockingFailure) {
+      printAiTriageInstructions({
+        artifactName: WEB_BUDGET_ARTIFACT,
+        aiHintsJsonPath,
+        aiHintsMarkdownPath,
+        reportPath: outputPath,
+        extraPaths: [
+          startupGraphBudgetResult?.aiHintsJsonPath,
+          startupGraphBudgetResult?.reportPath,
+        ].filter(Boolean),
+        notes: [
+          legacyTopLevelFieldsNote,
+          metricDefinitions.resourceCount,
+          metricDefinitions.scriptCount,
+          metricDefinitions.jsDecodedBytes,
+          metricDefinitions.uniqueScriptCount,
+          metricDefinitions.uniqueJsDecodedBytes,
+          'Read scenarios[].failedOrWarnBudgetChecks and scenarios[].failedHealthChecks before choosing a fix.',
+        ],
+        log,
+      });
+    }
+
+    if (hasBlockingFailure && process.env.PERF_WEB_COLD_BUDGET_FAIL !== '0') {
       process.exitCode = 1;
     }
   } finally {
