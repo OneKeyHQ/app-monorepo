@@ -3,6 +3,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   Heading,
   Icon,
   Popover,
@@ -86,12 +87,26 @@ const TimeInForceSelector = memo<ITimeInForceSelectorProps>(
           width: isMobile ? 260 : 360,
         }}
         renderTrigger={
-          <XStack
+          <Button
             testID={testID}
+            size="small"
+            variant="tertiary"
+            childrenAsText={false}
+            disabled={disabled}
             alignItems="center"
             justifyContent="flex-end"
             gap="$2"
+            p="$0"
+            m="$0"
+            bg="transparent"
             cursor={disabled ? 'default' : 'pointer'}
+            hoverStyle={{ bg: 'transparent' }}
+            pressStyle={{ bg: 'transparent' }}
+            onPress={() => {
+              if (!disabled) {
+                setIsOpen(true);
+              }
+            }}
           >
             <SizableText
               size={isMobile ? '$bodySm' : '$bodyMd'}
@@ -114,7 +129,7 @@ const TimeInForceSelector = memo<ITimeInForceSelectorProps>(
                 size="$4"
               />
             </XStack>
-          </XStack>
+          </Button>
         }
         renderContent={({ closePopover }) => (
           <YStack px="$2" pb="$2">
@@ -125,9 +140,14 @@ const TimeInForceSelector = memo<ITimeInForceSelectorProps>(
             )}
             {items.map((item) => (
               <YStack key={item.value}>
-                <YStack
+                <Button
+                  testID={testID ? `${testID}-option-${item.value}` : undefined}
+                  variant="tertiary"
+                  childrenAsText={false}
+                  justifyContent="flex-start"
                   px="$3"
                   py="$2"
+                  m="$0"
                   borderRadius="$2"
                   onPress={() => {
                     if (disabled) {
@@ -170,7 +190,7 @@ const TimeInForceSelector = memo<ITimeInForceSelectorProps>(
                       ) : null}
                     </YStack>
                   </XStack>
-                </YStack>
+                </Button>
               </YStack>
             ))}
           </YStack>

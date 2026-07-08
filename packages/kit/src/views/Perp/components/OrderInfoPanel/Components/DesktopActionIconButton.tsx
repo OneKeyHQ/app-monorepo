@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import { Icon, XStack } from '@onekeyhq/components';
+import { IconButton } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 
 import type { GestureResponderEvent } from 'react-native';
@@ -22,28 +22,23 @@ export const DesktopActionIconButton = memo(
     onPress,
   }: IDesktopActionIconButtonProps) => {
     return (
-      <XStack
+      <IconButton
         testID={testID}
-        p={size === 'small' ? '$1' : '$1.5'}
-        m={size === 'small' ? -5 : -7}
-        borderRadius="$full"
-        alignItems="center"
-        justifyContent="center"
-        cursor="pointer"
-        bg="transparent"
+        size={size}
+        variant="tertiary"
+        icon={icon}
+        iconSize={iconSize}
+        iconProps={{
+          color: '$iconSubdued',
+          '$group-hover': { color: '$icon' },
+          '$group-press': { color: '$iconActive' },
+        }}
         group
         hoverStyle={{ bg: 'transparent' }}
         pressStyle={{ bg: 'transparent' }}
         onPress={onPress}
-      >
-        <Icon
-          name={icon}
-          size={iconSize}
-          color="$iconSubdued"
-          $group-hover={{ color: '$icon' }}
-          $group-press={{ color: '$iconActive' }}
-        />
-      </XStack>
+        hotKey
+      />
     );
   },
 );

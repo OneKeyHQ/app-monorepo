@@ -784,6 +784,14 @@ function PerpsEmptyRecommendSection() {
       </YStack>
       <YStack display="flex" $gtMd={{ display: 'none' }}>
         {displayTokens.map((token) => {
+          const hasChange24hPercent =
+            token.change24hPercent !== undefined &&
+            token.change24hPercent !== null;
+          let change24hPercentColor = '$textSubdued';
+          if (hasChange24hPercent) {
+            change24hPercentColor =
+              token.change24hPercent >= 0 ? '$textSuccess' : '$textCritical';
+          }
           return (
             <Stack key={token.name}>
               <XStack
@@ -856,11 +864,7 @@ function PerpsEmptyRecommendSection() {
                   </NumberSizeableText>
                   <NumberSizeableText
                     size="$bodyMd"
-                    color={
-                      (token.change24hPercent ?? 0) >= 0
-                        ? '$textSuccess'
-                        : '$textCritical'
-                    }
+                    color={change24hPercentColor}
                     formatter="priceChange"
                     formatterOptions={{ showPlusMinusSigns: true }}
                   >
