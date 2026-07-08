@@ -130,8 +130,48 @@ export class AccountSelectorListDataScene extends BaseScene {
   }
 
   @LogToLocal()
+  public clearUnavailableWalletSelection(params: {
+    num: number;
+    selectedAccount: IAccountSelectorSelectedAccount | undefined;
+    clearedSelectedAccount: IAccountSelectorSelectedAccount;
+    walletId: string | undefined;
+    isMissingWallet: boolean;
+    isDeprecatedOrMocked: boolean;
+    isTempWalletRemoved: boolean;
+  }) {
+    return params;
+  }
+
+  @LogToLocal()
   public initFromStorageSelectedAccountsMapResult(params: {
     selectedAccountsMap: IAccountSelectorSelectedAccountsMap | undefined;
+  }) {
+    return params;
+  }
+
+  @LogToLocal()
+  public buildActiveAccountInfoResult(params: {
+    selectedWalletId: string | undefined;
+    selectedIndexedAccountId: string | undefined;
+    selectedNetworkId: string | undefined;
+    selectedDeriveType: IAccountDeriveTypes | undefined;
+    walletId: string | undefined;
+    indexedAccountId: string | undefined;
+    networkId: string | undefined;
+    deriveType: IAccountDeriveTypes | undefined;
+    hasWallet: boolean;
+    isWalletUnusable: boolean;
+    hasIndexedAccount: boolean;
+    hasAccount: boolean;
+    hasDbAccount: boolean;
+    hasDevice: boolean;
+    hasNetwork: boolean;
+    isAllNetwork: boolean;
+    isOthersWallet: boolean;
+    canCreateAddress: boolean;
+    isNetworkNotMatched: boolean;
+    deriveInfoItemsLength: number;
+    ready: boolean;
   }) {
     return params;
   }
