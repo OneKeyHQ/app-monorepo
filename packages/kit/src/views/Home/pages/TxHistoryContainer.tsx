@@ -18,9 +18,11 @@ import {
   HISTORY_PAGE_SIZE,
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
+  POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
+  type IAppEventBusPayload,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -40,6 +42,7 @@ import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
+import { getTokensTabLastState } from '../../../hooks/useRunAfterTokensDone';
 import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
@@ -51,6 +54,7 @@ import { maybeOpenPrivateSendHistoryDetail } from '../../Swap/utils/privateSendH
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 
+import { filterAccountsNeedingTokenRefreshAfterHistory } from './historyTokenRefreshGate';
 import {
   FrozenTopHistoryScrollObserver,
   useFrozenTopHistoryData,
@@ -253,6 +257,7 @@ function TxHistoryListContainer(
     async () => {
       fetchRequestIdRef.current += 1;
       const requestId = fetchRequestIdRef.current;
+      const isManualRefreshForThisRun = isManualRefresh.current;
       const isCurrentRequest = () => fetchRequestIdRef.current === requestId;
 
       let emittedTrue = false;
@@ -316,7 +321,7 @@ function TxHistoryListContainer(
               {
                 indexedAccountId: indexedAccount?.id ?? '',
                 networkId: network.id,
-                isManualRefresh: isManualRefresh.current,
+                isManualRefresh: isManualRefreshForThisRun,
                 filterScam: settings.isFilterScamHistoryEnabled,
                 filterLowValue: settings.isFilterLowValueHistoryEnabled,
                 excludeTestNetwork: true,
@@ -330,7 +335,7 @@ function TxHistoryListContainer(
           r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
             accountId,
             networkId: network.id,
-            isManualRefresh: isManualRefresh.current,
+            isManualRefresh: isManualRefreshForThisRun,
             filterScam: settings.isFilterScamHistoryEnabled,
             filterLowValue: settings.isFilterLowValueHistoryEnabled,
             excludeTestNetwork: true,
@@ -367,9 +372,22 @@ function TxHistoryListContainer(
         });
         updateHistoryData(r.txs);
 
-        if (r.accountsWithChangedTxs.length > 0) {
-          appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+        const accountsNeedingTokenRefresh =
+          filterAccountsNeedingTokenRefreshAfterHistory({
             accounts: r.accountsWithChangedTxs,
+            lastTokensTabState: getTokensTabLastState(),
+            tokenRefreshScope: {
+              accountId: refreshAccountId,
+              networkId: refreshNetworkId,
+              includesAllAccountsInNetwork: !!mergeDeriveAddressData,
+            },
+            now: Date.now(),
+            minIntervalMs: POLLING_INTERVAL_FOR_TOKEN,
+          });
+
+        if (accountsNeedingTokenRefresh.length > 0) {
+          appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+            accounts: accountsNeedingTokenRefresh,
           });
         }
         if (r.accountsWithCompletedDeFiPortfolioTxs.length > 0) {
@@ -634,7 +652,6 @@ function TxHistoryListContainer(
       return;
     }
     lastVisibilityRefreshAtRef.current = now;
-    isManualRefresh.current = true;
     void run({ alwaysSetState: true });
   }, [run]);
 
@@ -648,9 +665,13 @@ function TxHistoryListContainer(
   }, [handleRefreshOnVisibilityActive, isFocused, isRouteFocused]);
 
   useEffect(() => {
-    const refresh = () => {
+    const refresh = (
+      payload?: IAppEventBusPayload[EAppEventBusNames.AccountDataUpdate],
+    ) => {
       if (isFocused) {
-        isManualRefresh.current = true;
+        if (payload?.isManualRefresh) {
+          isManualRefresh.current = true;
+        }
         void run();
       }
     };
