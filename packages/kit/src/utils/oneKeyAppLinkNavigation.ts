@@ -1,8 +1,10 @@
 import { switchTabAsync } from '@onekeyhq/components';
 import {
-  WEB_APP_URL,
-  WEB_APP_URL_DEV,
-} from '@onekeyhq/shared/src/config/appConfig';
+  ONEKEY_PERPS_APP_LINK_HOST,
+  ONEKEY_STOCKS_APP_LINK_HOST,
+  ONEKEY_UNIVERSAL_LINK_HOST,
+  ONEKEY_UNIVERSAL_TEST_LINK_HOST,
+} from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import type { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import { setPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import {
@@ -14,14 +16,31 @@ import {
 import type { IAppNavigation } from '../hooks/useAppNavigation';
 
 export type IOneKeyAppLinkTarget = 'stock' | 'perps';
+export type IOneKeyPerpsAppLinkRoute =
+  | ETabRoutes.Perp
+  | ETabRoutes.WebviewPerpTrade;
 
-const ONEKEY_APP_LINK_HOSTS = new Set([
-  new URL(WEB_APP_URL).hostname,
-  new URL(WEB_APP_URL_DEV).hostname,
+const ONEKEY_WEB_APP_LINK_HOSTS = new Set([
+  ONEKEY_UNIVERSAL_LINK_HOST,
+  ONEKEY_UNIVERSAL_TEST_LINK_HOST,
 ]);
+
+const ONEKEY_BUSINESS_APP_LINK_HOST_TARGETS: Record<
+  string,
+  IOneKeyAppLinkTarget
+> = {
+  [ONEKEY_STOCKS_APP_LINK_HOST]: 'stock',
+  [ONEKEY_PERPS_APP_LINK_HOST]: 'perps',
+};
 
 function normalizePath(pathname: string) {
   return pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
+}
+
+export function resolveOneKeyPerpsAppLinkRoute(
+  perpTabShowWeb?: boolean,
+): IOneKeyPerpsAppLinkRoute {
+  return perpTabShowWeb ? ETabRoutes.WebviewPerpTrade : ETabRoutes.Perp;
 }
 
 export function parseOneKeyAppLinkTarget(
@@ -38,7 +57,13 @@ export function parseOneKeyAppLinkTarget(
     return undefined;
   }
 
-  if (!ONEKEY_APP_LINK_HOSTS.has(parsedUrl.hostname.toLowerCase())) {
+  const hostname = parsedUrl.hostname.toLowerCase();
+  const businessDomainTarget = ONEKEY_BUSINESS_APP_LINK_HOST_TARGETS[hostname];
+  if (businessDomainTarget) {
+    return businessDomainTarget;
+  }
+
+  if (!ONEKEY_WEB_APP_LINK_HOSTS.has(hostname)) {
     return undefined;
   }
 
@@ -61,10 +86,12 @@ export async function navigateToOneKeyAppLinkTarget({
   target,
   navigation,
   perpSource,
+  perpTabRoute,
 }: {
   target: IOneKeyAppLinkTarget;
   navigation: IAppNavigation;
   perpSource?: EPerpPageEnterSource;
+  perpTabRoute?: IOneKeyPerpsAppLinkRoute;
 }) {
   if (target === 'stock') {
     await switchTabAsync(ETabRoutes.Swap);
@@ -83,5 +110,5 @@ export async function navigateToOneKeyAppLinkTarget({
   if (perpSource) {
     setPerpPageEnterSource(perpSource);
   }
-  await switchTabAsync(ETabRoutes.Perp);
+  await switchTabAsync(perpTabRoute ?? resolveOneKeyPerpsAppLinkRoute());
 }

@@ -1,5 +1,6 @@
 import { switchTabAsync } from '@onekeyhq/components';
 import { parseOneKeyAppLinkTarget } from '@onekeyhq/kit/src/utils/oneKeyAppLinkNavigation';
+import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   ERootRoutes,
@@ -15,6 +16,15 @@ import {
 
 jest.mock('@onekeyhq/components', () => ({
   switchTabAsync: jest.fn(async () => undefined),
+}));
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  perpsCommonConfigPersistAtom: {
+    get: jest.fn(async () => ({
+      perpConfigCommon: {},
+      perpConfigLoaded: true,
+    })),
+  },
 }));
 
 jest.mock('expo-linking', () => ({
@@ -85,6 +95,10 @@ const mockedNavigateToReferralLanding =
 const mockedSwitchTabAsync = switchTabAsync as jest.MockedFunction<
   typeof switchTabAsync
 >;
+const mockPerpsCommonConfigPersistAtomGet =
+  perpsCommonConfigPersistAtom.get as jest.MockedFunction<
+    typeof perpsCommonConfigPersistAtom.get
+  >;
 
 const mockNavigation = {
   navigate: jest.fn(),
@@ -99,6 +113,10 @@ async function flushAsyncTasks() {
 describe('handleDeepLinkUrl', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPerpsCommonConfigPersistAtomGet.mockResolvedValue({
+      perpConfigCommon: {},
+      perpConfigLoaded: true,
+    });
     appGlobals.$rootAppNavigation = mockNavigation as never;
   });
 
@@ -151,6 +169,8 @@ describe('handleDeepLinkUrl', () => {
     ['https://app.onekeytest.com/swap?tab=stock', 'stock'],
     ['https://app.onekey.so/perps', 'perps'],
     ['https://app.onekeytest.com/perps', 'perps'],
+    ['https://stocks.onekey.so', 'stock'],
+    ['https://perps.onekey.so', 'perps'],
   ] as const)('parses supported OneKey app link: %s', (url, target) => {
     expect(parseOneKeyAppLinkTarget(url)).toBe(target);
   });
@@ -159,8 +179,8 @@ describe('handleDeepLinkUrl', () => {
     'https://app.onekey.so/swap',
     'https://app.onekey.so/swap?tab=swap',
     'https://app.onekey.so/market',
-    'https://stocks.onekey.so',
-    'https://perps.onekey.so',
+    'https://stocks.onekey.so.evil.com',
+    'https://perps.onekey.so.evil.com',
     'onekey-wallet://perps',
   ])('rejects unsupported OneKey app link: %s', (url) => {
     expect(parseOneKeyAppLinkTarget(url)).toBeUndefined();
@@ -168,7 +188,7 @@ describe('handleDeepLinkUrl', () => {
 
   it('routes stock app links to the Swap stock tab', async () => {
     handleDeepLinkUrl({
-      url: 'https://app.onekey.so/swap?tab=stock',
+      url: 'https://stocks.onekey.so',
     });
     await flushAsyncTasks();
 
@@ -184,9 +204,9 @@ describe('handleDeepLinkUrl', () => {
     });
   });
 
-  it('routes perps app links to the Perps tab', async () => {
+  it('routes perps app links to the native Perps tab by default', async () => {
     handleDeepLinkUrl({
-      url: 'https://app.onekey.so/perps',
+      url: 'https://perps.onekey.so',
     });
     await flushAsyncTasks();
 
@@ -194,13 +214,22 @@ describe('handleDeepLinkUrl', () => {
     expect(mockNavigation.navigate).not.toHaveBeenCalled();
   });
 
-  it('does not route business redirect domains directly in app', async () => {
+  it('routes perps app links to the web Perps tab when configured', async () => {
+    mockPerpsCommonConfigPersistAtomGet.mockResolvedValueOnce({
+      perpConfigCommon: {
+        usePerpWeb: true,
+      },
+      perpConfigLoaded: true,
+    });
+
     handleDeepLinkUrl({
       url: 'https://perps.onekey.so',
     });
     await flushAsyncTasks();
 
-    expect(mockedSwitchTabAsync).not.toHaveBeenCalled();
+    expect(mockedSwitchTabAsync).toHaveBeenCalledWith(
+      ETabRoutes.WebviewPerpTrade,
+    );
     expect(mockNavigation.navigate).not.toHaveBeenCalled();
   });
 });

@@ -2,6 +2,7 @@ import * as Linking from 'expo-linking';
 import { isString } from 'lodash';
 
 import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/app/app';
+import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import type { IEOneKeyDeepLinkParams } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import {
@@ -28,6 +29,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import {
   navigateToOneKeyAppLinkTarget,
   parseOneKeyAppLinkTarget,
+  resolveOneKeyPerpsAppLinkRoute,
 } from '../../../utils/oneKeyAppLinkNavigation';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
@@ -118,6 +120,15 @@ async function handleReferralLandingAppDeepLink({
   return true;
 }
 
+async function resolveCurrentOneKeyPerpsAppLinkRoute() {
+  try {
+    const { perpConfigCommon } = await perpsCommonConfigPersistAtom.get();
+    return resolveOneKeyPerpsAppLinkRoute(perpConfigCommon?.usePerpWeb);
+  } catch {
+    return resolveOneKeyPerpsAppLinkRoute();
+  }
+}
+
 async function processOneKeyAppLink(params: IProcessDeepLinkParams, times = 0) {
   const target = parseOneKeyAppLinkTarget(params.url);
   if (!target) {
@@ -140,6 +151,10 @@ async function processOneKeyAppLink(params: IProcessDeepLinkParams, times = 0) {
     target,
     navigation,
     perpSource: EPerpPageEnterSource.DirectUrl,
+    perpTabRoute:
+      target === 'perps'
+        ? await resolveCurrentOneKeyPerpsAppLinkRoute()
+        : undefined,
   });
   return true;
 }

@@ -18,11 +18,13 @@ import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 import {
   navigateToOneKeyAppLinkTarget,
   parseOneKeyAppLinkTarget,
+  resolveOneKeyPerpsAppLinkRoute,
 } from '../utils/oneKeyAppLinkNavigation';
 import { EarnNavigation } from '../views/Earn/earnUtils';
 import useParseQRCodeLazy from '../views/ScanQrCode/hooks/useParseQRCodeLazy';
 
 import useAppNavigation from './useAppNavigation';
+import { usePerpTabConfig } from './usePerpTabConfig';
 
 function useWalletBanner({
   account,
@@ -35,6 +37,7 @@ function useWalletBanner({
 }) {
   const navigation = useAppNavigation();
   const parseQRCode = useParseQRCodeLazy();
+  const { perpTabShowWeb } = usePerpTabConfig();
 
   const handleBannerOnPress = useCallback(
     async (item: IWalletBanner) => {
@@ -101,6 +104,7 @@ function useWalletBanner({
             target,
             navigation,
             perpSource: EPerpPageEnterSource.WalletBanner,
+            perpTabRoute: resolveOneKeyPerpsAppLinkRoute(perpTabShowWeb),
           });
           return;
         }
@@ -121,7 +125,7 @@ function useWalletBanner({
         });
       }
     },
-    [account, network, wallet, parseQRCode, navigation],
+    [account, network, wallet, parseQRCode, navigation, perpTabShowWeb],
   );
 
   return {
