@@ -39,8 +39,8 @@ Prereq: `yarn app:desktop` running — its `dev:main` launches Electron with
 `--remote-debugging-port=9222 --remote-debugging-address=127.0.0.1`.
 
 ```bash
-node .claude/skills/1k-ui-verify/scripts/cdp-shot.mjs --out .tmp/ui/after.png
-node .claude/skills/1k-ui-verify/scripts/cdp-shot.mjs --testid header-gift-action --click --out .tmp/ui/clicked.png
+node .skillshare/skills/1k-ui-verify/scripts/cdp-shot.mjs --out .tmp/ui/after.png
+node .skillshare/skills/1k-ui-verify/scripts/cdp-shot.mjs --testid header-gift-action --click --out .tmp/ui/clicked.png
 ```
 
 The script connects to the main window (the page with `[data-testid^="tab-modal"]`), captures a
@@ -74,6 +74,7 @@ over CDP to an already-running Chrome).
 
 ```bash
 node scenarios/regression.mjs list
+node scenarios/regression.mjs dapp-cold-start-desktop --url https://onekey.so # CDP 9222, verifies tab + active URL + real webview render
 node scenarios/regression.mjs gift-storm-desktop              # CDP 9222 (yarn app:desktop)
 node scenarios/regression.mjs gift-storm-web                  # CDP 9223 (Chrome --remote-debugging-port=9223 on app:web)
 node scenarios/regression.mjs gift-storm-rn --platform ios    # agent-device

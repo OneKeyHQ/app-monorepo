@@ -57,7 +57,7 @@ git checkout -b feat/my-new-feature
 ```bash
 /commit
 ```
-The `/commit` command automatically runs pre-commit checks (`yarn lint:staged` and `yarn tsc:staged`) and creates a well-formatted commit message.
+The `/commit` command should run `yarn agent:check --profile commit` and create a well-formatted commit message.
 
 **Option 2: Manual commit with pre-checks**
 ```bash
@@ -65,8 +65,7 @@ The `/commit` command automatically runs pre-commit checks (`yarn lint:staged` a
 git add .
 
 # Run pre-commit checks (MANDATORY)
-yarn lint:staged
-yarn tsc:staged
+yarn agent:check --profile commit
 
 # If checks pass, commit
 git commit -m "feat: add user profile page"

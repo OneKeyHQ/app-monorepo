@@ -20,12 +20,11 @@ Prefer the smallest validation that proves the changed owner. Add runtime proof 
 
 ## Command pattern
 
-Use repo-standard targeted commands where possible, then staged checks before commit:
+Use repo-standard targeted commands where possible, then the agent check before commit:
 
 ```bash
 yarn jest <changed-test-file>
-yarn tsc:staged
-yarn lint:staged
+yarn agent:check --profile commit
 ```
 
 If touching broad Perps/shared/kit-bg code, consider the relevant package typecheck/test command from `/1k-dev-commands`.

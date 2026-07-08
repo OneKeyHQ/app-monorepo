@@ -2,7 +2,7 @@
 /* eslint-disable no-console, onekey/no-raw-error -- standalone Node CLI script, no @onekeyhq/shared dependency */
 /* cspell:ignore appstate */
 /**
- * scenarios/regression.mjs — unified UI-freeze regression series.
+ * scenarios/regression.mjs — unified UI regression series.
  *
  * One runner, many scenarios. Each scenario picks a backend by the platform it
  * targets — the renderer's *detection signal* dictates the backend, never the
@@ -16,6 +16,7 @@
  *
  * Usage:
  *   node scenarios/regression.mjs list
+ *   node scenarios/regression.mjs dapp-cold-start-desktop --url https://onekey.so
  *   node scenarios/regression.mjs gift-storm-desktop          # CDP 9222 (yarn app:desktop)
  *   node scenarios/regression.mjs gift-storm-web              # CDP 9223 (Chrome --remote-debugging-port=9223 on the web build)
  *   node scenarios/regression.mjs gift-storm-rn --platform ios
@@ -120,6 +121,487 @@ async function connectCdpMainWindow(cdpUrl) {
     throw new Error('OneKey main window not found on CDP (no tab-modal root)');
   }
   return { browser, page };
+}
+
+function normalizeHost(value) {
+  try {
+    const normalizedUrl = /^https?:\/\//i.test(value)
+      ? value
+      : `https://${value}`;
+    return new URL(normalizedUrl).hostname.replace(/^www\./i, '');
+  } catch {
+    return '';
+  }
+}
+
+function urlMatchesHost(value, expectedHost) {
+  const actualHost = normalizeHost(value);
+  if (!actualHost || !expectedHost) return false;
+  return actualHost === expectedHost || actualHost.endsWith(`.${expectedHost}`);
+}
+
+async function waitForCondition(label, predicate, timeoutMs = 30_000) {
+  const startedAt = Date.now();
+  let lastError = null;
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const result = await predicate();
+      if (result) return result;
+    } catch (error) {
+      lastError = error;
+    }
+    await sleep(500);
+  }
+  throw new Error(
+    `${label} timed out after ${timeoutMs}ms${
+      lastError?.message ? `: ${lastError.message}` : ''
+    }`,
+  );
+}
+
+async function getVisibleInputValues(page, testId) {
+  const inputs = await page.locator(`[data-testid="${testId}"]`).all();
+  const values = [];
+  for (const input of inputs) {
+    const isVisible = await input.isVisible().catch(() => false);
+    if (isVisible) {
+      const value = await input.inputValue().catch(async () => {
+        return input.textContent().catch(() => '');
+      });
+      values.push(value ?? '');
+    }
+  }
+  return values;
+}
+
+async function firstVisibleLocator(page, testIds) {
+  for (const testId of testIds) {
+    const locator = page.locator(`[data-testid="${testId}"]`).first();
+    if (await locator.isVisible().catch(() => false)) {
+      return locator;
+    }
+  }
+  return null;
+}
+
+async function firstVisibleSelector(page, selectors) {
+  for (const selector of selectors) {
+    const locator = page.locator(selector).first();
+    if (await locator.isVisible().catch(() => false)) {
+      return locator;
+    }
+  }
+  return null;
+}
+
+async function replaceText(locator, page, text) {
+  await locator.click({ force: true, timeout: 5000 });
+  await locator.fill(text).catch(async () => {
+    await page.keyboard.press(
+      process.platform === 'darwin' ? 'Meta+A' : 'Control+A',
+    );
+    await page.keyboard.type(text);
+  });
+}
+
+async function readDesktopWebviewStates(page) {
+  const handles = await page.locator('webview').elementHandles();
+  return Promise.all(
+    handles.map((handle) =>
+      handle
+        .evaluate(async (element) => {
+          let pageInfo = null;
+          let pageInfoError = '';
+          if (typeof element.executeJavaScript === 'function') {
+            try {
+              pageInfo = await element.executeJavaScript(`
+                (() => {
+                  const visibleText = (
+                    document.body?.innerText ||
+                    document.documentElement?.innerText ||
+                    ''
+                  ).replace(/\\s+/g, ' ').trim();
+                  return {
+                    href: window.location.href,
+                    readyState: document.readyState,
+                    textLength: visibleText.length,
+                    title: document.title || ''
+                  };
+                })()
+              `);
+            } catch (error) {
+              pageInfoError =
+                error instanceof Error ? error.message : String(error);
+            }
+          }
+
+          return {
+            loading:
+              typeof element.isLoading === 'function'
+                ? element.isLoading()
+                : undefined,
+            pageInfo,
+            pageInfoError,
+            src: element.getAttribute('src') || '',
+            title:
+              typeof element.getTitle === 'function' ? element.getTitle() : '',
+            url: typeof element.getURL === 'function' ? element.getURL() : '',
+          };
+        })
+        .catch((error) => ({
+          pageInfo: null,
+          pageInfoError: error?.message || String(error),
+          src: '',
+          title: '',
+          url: '',
+        })),
+    ),
+  );
+}
+
+function webviewStateHref(state) {
+  return state.pageInfo?.href || state.url || state.src || '';
+}
+
+function hasRenderedWebviewContent(state) {
+  if (!state.pageInfo) {
+    return false;
+  }
+  const readyState = state.pageInfo?.readyState || '';
+  const textLength = Number(state.pageInfo?.textLength || 0);
+  const title = state.pageInfo?.title || '';
+  return readyState !== 'loading' && (title.length > 0 || textLength > 0);
+}
+
+function compactWebviewState(state) {
+  return {
+    href: webviewStateHref(state),
+    title: state.pageInfo?.title || state.title || '',
+    readyState: state.pageInfo?.readyState || '',
+    textLength: Number(state.pageInfo?.textLength || 0),
+    pageInfoError: state.pageInfoError || '',
+    src: state.src || '',
+    url: state.url || '',
+  };
+}
+
+function textMentionsHost(value, expectedHost) {
+  return String(value || '')
+    .toLowerCase()
+    .includes(String(expectedHost || '').toLowerCase());
+}
+
+async function findDappSearchResult(page, expectedHost) {
+  const directResult = page.locator('[data-testid="dapp-search0"]').first();
+  if (await directResult.isVisible().catch(() => false)) {
+    return directResult;
+  }
+
+  const modalItems = await page.locator('[data-testid^="search-modal-"]').all();
+  for (const item of modalItems) {
+    if (await item.isVisible().catch(() => false)) {
+      const marker = await item
+        .evaluate(
+          (element) =>
+            `${element.getAttribute('data-testid') || ''} ${
+              element.textContent || ''
+            }`,
+        )
+        .catch(() => '');
+      if (textMentionsHost(marker, expectedHost)) {
+        return item;
+      }
+    }
+  }
+
+  return null;
+}
+
+function desktopBrowserShortcutKey() {
+  return process.platform === 'darwin' ? 'Meta+7' : 'Control+7';
+}
+
+async function findBrowserHomeSearchInput(page) {
+  return firstVisibleSelector(page, [
+    'input[data-testid="search-input"]',
+    '[data-testid="search-input"] input',
+    'textarea[data-testid="search-input"]',
+    'input[placeholder*="Search dApps"]',
+    'input[placeholder*="enter URL"]',
+  ]);
+}
+
+async function submitBrowserHomeSearch(page, targetUrl) {
+  const searchInput = await waitForCondition(
+    'desktop browser home search input',
+    () => findBrowserHomeSearchInput(page),
+    15_000,
+  );
+  await replaceText(searchInput, page, targetUrl);
+
+  const directUrlResult = await waitForCondition(
+    'desktop browser direct URL result',
+    () => firstVisibleSelector(page, ['[data-testid="dapp-search0"]']),
+    5000,
+  ).catch(() => null);
+  if (directUrlResult) {
+    await directUrlResult.click({ force: true, timeout: 5000 });
+  } else {
+    await page.keyboard.press('Enter');
+  }
+}
+
+async function openDappViaDesktopBrowserShortcut(page, targetUrl) {
+  await page
+    .locator('[data-testid="Desktop-AppSideBar-Container"]')
+    .first()
+    .waitFor({ state: 'visible', timeout: 10_000 });
+  await page.keyboard.press(desktopBrowserShortcutKey());
+  await submitBrowserHomeSearch(page, targetUrl);
+  return 'browser-shortcut-search-input';
+}
+
+function reportVerification(name, checks) {
+  const failed = checks.filter((check) => !check.pass);
+  console.log('\n===== RESULT =====');
+  for (const check of checks) {
+    console.log(
+      `[${name}] ${check.pass ? 'PASS' : 'FAIL'} ${check.name}${
+        check.detail ? ` | ${check.detail}` : ''
+      }`,
+    );
+  }
+  if (failed.length > 0) {
+    console.log(`${name}: ${failed.length} failed check(s)`);
+    return REGRESSION ? 1 : 3;
+  }
+  console.log(`${name}: all checks passed`);
+  return 0;
+}
+
+async function openDappFromDesktopUi(page, targetUrl, expectedHost) {
+  const shortcutMethod = await openDappViaDesktopBrowserShortcut(
+    page,
+    targetUrl,
+  ).catch((error) => {
+    log(`browser shortcut path unavailable: ${error?.message || error}`);
+    return '';
+  });
+  if (shortcutMethod) {
+    return shortcutMethod;
+  }
+
+  const browserAddButton = page
+    .locator('[data-testid="browser-bar-add"]')
+    .first();
+  if (await browserAddButton.isVisible().catch(() => false)) {
+    await browserAddButton.click({ force: true, timeout: 10_000 });
+    const input = page
+      .locator('[data-testid="explore-index-search-input"]')
+      .last();
+    await input.waitFor({ state: 'visible', timeout: 10_000 });
+    await replaceText(input, page, targetUrl);
+    await page.keyboard.press('Enter');
+    return 'browser-sidebar';
+  }
+
+  if (
+    !(await page
+      .locator('[data-testid="nav-header-search-universal-search-search-bar"]')
+      .first()
+      .isVisible()
+      .catch(() => false))
+  ) {
+    await page
+      .locator('[data-testid="nav-header-search"]')
+      .first()
+      .click({ force: true, timeout: 10_000 });
+  }
+
+  const searchInput = await waitForCondition(
+    'desktop global search input',
+    () =>
+      firstVisibleLocator(page, [
+        'nav-header-search-universal-search-search-bar',
+        'discovery-search-input',
+        'explore-index-search',
+      ]),
+    10_000,
+  );
+  await replaceText(searchInput, page, targetUrl);
+  const searchResult = await waitForCondition(
+    'desktop global DApp search result',
+    () => findDappSearchResult(page, expectedHost),
+    5000,
+  ).catch(() => null);
+  if (searchResult) {
+    await searchResult.click({ force: true, timeout: 5000 });
+  } else {
+    await page.keyboard.press('Enter');
+  }
+  return 'global-search';
+}
+
+async function runDappColdStartDesktop(cdpUrl, flags) {
+  const targetUrl = String(
+    flags.url || process.env.DAPP_URL || 'https://onekey.so',
+  );
+  const expectedHost = normalizeHost(targetUrl);
+  if (!expectedHost) {
+    throw new Error(`Invalid DApp URL: ${targetUrl}`);
+  }
+
+  const { browser, page } = await connectCdpMainWindow(cdpUrl);
+  const browserTabs = page.locator(
+    '[data-testid^="tab-list-stack-"], [data-testid^="tab-list-stack-pinned-"]',
+  );
+  const beforeTabCount = await browserTabs.count().catch(() => 0);
+  const consoleErrors = [];
+  const attachedErrorPages = new WeakSet();
+  const collectError = (source, text) => {
+    const message = String(text || '')
+      .split('\n')[0]
+      .slice(0, 240);
+    if (message) {
+      consoleErrors.push(`${source}: ${message}`);
+    }
+  };
+  const attachErrorListeners = (targetPage, source) => {
+    if (!targetPage || attachedErrorPages.has(targetPage)) return;
+    attachedErrorPages.add(targetPage);
+    targetPage.on('console', (message) => {
+      if (message.type() === 'error') collectError(source, message.text());
+    });
+    targetPage.on('pageerror', (error) =>
+      collectError(source, error.message || String(error)),
+    );
+  };
+  const captureOutcome = async (label, action) => {
+    try {
+      return { pass: true, value: await action(), detail: '' };
+    } catch (error) {
+      return {
+        pass: false,
+        value: null,
+        detail: `${label}: ${error?.message || String(error)}`,
+      };
+    }
+  };
+
+  attachErrorListeners(page, 'main');
+  for (const context of browser.contexts()) {
+    context.on('page', (candidate) => {
+      if (candidate !== page) attachErrorListeners(candidate, 'webview');
+    });
+  }
+
+  log(`opening DApp URL ${targetUrl}`);
+  const openOutcome = await captureOutcome('open DApp from desktop UI', () =>
+    openDappFromDesktopUi(page, targetUrl, expectedHost),
+  );
+  const openMethod = openOutcome.value || 'unavailable';
+
+  const tabCreated = await captureOutcome('browser tab creation', () =>
+    waitForCondition('browser tab creation', async () => {
+      const count = await browserTabs.count().catch(() => 0);
+      return count > beforeTabCount ? count : 0;
+    }),
+  );
+
+  const activeInputValues = await captureOutcome('active browser URL bar', () =>
+    waitForCondition(
+      'active browser URL bar',
+      async () => {
+        const values = await getVisibleInputValues(
+          page,
+          'explore-index-search-input',
+        );
+        return values.some((value) => urlMatchesHost(value, expectedHost))
+          ? values
+          : null;
+      },
+      20_000,
+    ),
+  );
+
+  const webviewSnapshot = await captureOutcome(
+    'webview element readiness',
+    () =>
+      waitForCondition(
+        'webview element readiness',
+        async () => {
+          const states = await readDesktopWebviewStates(page);
+          const match = states.find((state) =>
+            urlMatchesHost(webviewStateHref(state), expectedHost),
+          );
+          return match && hasRenderedWebviewContent(match)
+            ? compactWebviewState(match)
+            : null;
+        },
+        35_000,
+      ),
+  );
+
+  const checks = [
+    {
+      name: 'DApp navigation was initiated from desktop UI',
+      pass: openOutcome.pass,
+      detail: openOutcome.pass ? openMethod : openOutcome.detail,
+    },
+    {
+      name: 'browser tab was created',
+      pass: tabCreated.pass && tabCreated.value > beforeTabCount,
+      detail: tabCreated.pass
+        ? `${beforeTabCount} -> ${tabCreated.value} via ${openMethod}`
+        : tabCreated.detail,
+    },
+    {
+      name: 'active URL bar points at target host',
+      pass:
+        activeInputValues.pass &&
+        activeInputValues.value.some((value) =>
+          urlMatchesHost(value, expectedHost),
+        ),
+      detail: activeInputValues.pass
+        ? activeInputValues.value.join(', ')
+        : activeInputValues.detail,
+    },
+    {
+      name: 'Electron webview element loaded target host',
+      pass:
+        webviewSnapshot.pass &&
+        urlMatchesHost(webviewSnapshot.value.href, expectedHost),
+      detail: webviewSnapshot.pass
+        ? webviewSnapshot.value.href
+        : webviewSnapshot.detail,
+    },
+    {
+      name: 'webview document has rendered content',
+      pass:
+        webviewSnapshot.pass &&
+        (webviewSnapshot.value.title.length > 0 ||
+          webviewSnapshot.value.textLength > 0),
+      detail: webviewSnapshot.pass
+        ? `title="${webviewSnapshot.value.title}" textLength=${webviewSnapshot.value.textLength}`
+        : webviewSnapshot.detail,
+    },
+    {
+      name: 'main renderer and webview probe have no captured DApp errors',
+      pass:
+        consoleErrors.length === 0 &&
+        (!webviewSnapshot.pass || !webviewSnapshot.value.pageInfoError),
+      detail: [
+        ...consoleErrors.slice(0, 3),
+        webviewSnapshot.pass && webviewSnapshot.value.pageInfoError
+          ? `webview: ${webviewSnapshot.value.pageInfoError}`
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' | '),
+    },
+  ];
+
+  return reportVerification('dapp-cold-start-desktop', checks);
 }
 
 // Ported from the former cdp-repro-gift-storm.mjs. The detection
@@ -431,6 +913,18 @@ async function runGiftStormRn(platform) {
 // registry + dispatch
 // ===========================================================================
 const scenarios = {
+  'dapp-cold-start-desktop': {
+    backend: 'cdp',
+    describe:
+      'Open a desktop DApp from cold UI state and verify tab, active URL, and real webview render. CDP 9222.',
+    run: (flags) =>
+      runDappColdStartDesktop(
+        process.env.CDP_URL_DESKTOP ||
+          process.env.CDP_URL ||
+          'http://127.0.0.1:9222',
+        flags,
+      ),
+  },
   'gift-storm-desktop': {
     backend: 'cdp',
     describe:
@@ -463,7 +957,7 @@ async function main() {
   const flags = parseFlags(rest);
 
   if (!cmd || cmd === 'list' || cmd === '--help') {
-    console.log('UI-freeze regression scenarios:\n');
+    console.log('UI regression scenarios:\n');
     for (const [name, s] of Object.entries(scenarios)) {
       console.log(`  ${name.padEnd(20)} [${s.backend}]  ${s.describe}`);
     }
