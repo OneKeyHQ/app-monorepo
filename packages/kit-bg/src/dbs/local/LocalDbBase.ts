@@ -498,8 +498,7 @@ export function getThirdPartyDeviceModelName({
     getExtraDeviceFieldString(device, 'vendorModelName') ||
     featureRecord.model ||
     getExtraDeviceFieldString(device, 'raw.modelName') ||
-    getExtraDeviceFieldString(device, 'raw.productName') ||
-    getExtraDeviceFieldString(device, 'raw.provider_product') ||
+    // No raw.productName/provider_product fallback: USB-layer fields vary per platform.
     featureRecord.provider_product;
 
   return vendorModelName;
