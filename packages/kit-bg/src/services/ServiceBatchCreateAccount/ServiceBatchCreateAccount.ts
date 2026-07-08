@@ -411,7 +411,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     let hwAllNetworkPrepareAccountsResponse:
       | IHwAllNetworkPrepareAccountsResponse
       | undefined;
-    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+    const flow = this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
         let customNetworks: {
           networkId: string;
@@ -525,6 +525,19 @@ class ServiceBatchCreateAccount extends ServiceBase {
         },
       },
     );
+    return flow.catch((error) => {
+      // Surface top-level flow errors to ProcessingDialog so it doesn't hang.
+      if (!this.isCreateFlowCancelled) {
+        appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
+          totalCount: this.progressInfo?.totalCount ?? 0,
+          createdCount: this.progressInfo?.createdCount ?? 0,
+          progressTotal: this.progressInfo?.progressTotal ?? 0,
+          progressCurrent: this.progressInfo?.progressCurrent ?? 0,
+          error: errorUtils.toPlainErrorObject(error),
+        });
+      }
+      throw error;
+    });
   }
 
   @backgroundMethod()
