@@ -31,6 +31,7 @@ import {
   useUniversalBorrowRepay,
   useUniversalBorrowWithdraw,
 } from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks';
+import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { useManagePage } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
@@ -1654,26 +1655,33 @@ function showProtocolLendingActionDialog({
 }) {
   Dialog.show({
     showFooter: false,
-    renderContent:
-      source.type === 'borrow' ? (
-        <ProtocolLendingActionBorrowContent
-          accountId={accountId}
-          networkId={networkId}
-          actionType={actionType}
-          source={source}
-          hasDebts={hasDebts}
-          onSuccess={onSuccess}
-        />
-      ) : (
-        <ProtocolLendingActionDefiContent
-          accountId={accountId}
-          networkId={networkId}
-          actionType={actionType}
-          source={source}
-          hasDebts={hasDebts}
-          onSuccess={onSuccess}
-        />
-      ),
+    // Rendered into the FULL_WINDOW_OVERLAY_PORTAL, which sits outside the
+    // discovery Jotai context. LendingActionAlerts calls useBrowserAction() to
+    // open alert links, so mirror the discovery store here or that hook throws
+    // `store not initialized` and the dialog crashes on open.
+    renderContent: (
+      <DiscoveryBrowserProviderMirror>
+        {source.type === 'borrow' ? (
+          <ProtocolLendingActionBorrowContent
+            accountId={accountId}
+            networkId={networkId}
+            actionType={actionType}
+            source={source}
+            hasDebts={hasDebts}
+            onSuccess={onSuccess}
+          />
+        ) : (
+          <ProtocolLendingActionDefiContent
+            accountId={accountId}
+            networkId={networkId}
+            actionType={actionType}
+            source={source}
+            hasDebts={hasDebts}
+            onSuccess={onSuccess}
+          />
+        )}
+      </DiscoveryBrowserProviderMirror>
+    ),
   });
 }
 
