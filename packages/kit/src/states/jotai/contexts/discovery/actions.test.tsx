@@ -2,11 +2,12 @@
 
 import type { ReactNode } from 'react';
 
-import { act, renderHook } from '@testing-library/react';
+import { act, render, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
 import { rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
+import { HandleRebuildBrowserData } from '@onekeyhq/kit/src/views/Discovery/components/HandleData/HandleRebuildBrowserTabData';
 import type {
   IBrowserBookmark,
   IWebTab,
@@ -25,14 +26,19 @@ import {
   ProviderJotaiContextDiscovery,
   activeTabIdAtom,
   browserDataReadyAtom,
+  browserDataReadyWaiterAtom,
   displayHomePageAtom,
   useActiveTabIdAtom,
+  useBrowserDataReadyAtom,
   useDisplayHomePageAtom,
   useWebTabsAtom,
   webTabsAtom,
   webTabsMapAtom,
 } from './atoms';
 
+const mockGetBrowserTabsRawData = jest.fn(
+  async (): Promise<{ tabs: IWebTab[] }> => ({ tabs: [] }),
+);
 const mockSetBrowserTabsRawData = jest.fn();
 const mockSetBrowserHistoryRawData = jest.fn();
 const mockSetBrowserClosedTabsRawData = jest.fn();
@@ -131,6 +137,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     simpleDb: {
       browserTabs: {
+        getRawData: () => mockGetBrowserTabsRawData(),
         setRawData: (payload: unknown) => {
           mockSetBrowserTabsRawData(payload);
         },
@@ -162,6 +169,17 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 jest.mock('@onekeyhq/kit/src/routes/config/deeplink', () => ({
   handleDeepLinkUrl: jest.fn(),
 }));
+
+jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  return {
+    usePromiseResult: (fn: () => unknown) => {
+      React.useEffect(() => {
+        void fn();
+      });
+    },
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/views/Discovery/utils/explorerUtils', () => ({
   browserTypeHandler: 'MultiTabBrowser',
@@ -214,14 +232,25 @@ function createWrapper({
   tabs: tabsValue = tabsFixture,
   activeTabId = 'tab-1',
   displayHomePage = true,
+  browserDataReady = true,
+  browserDataReadyWaiter,
 }: {
   tabs?: IWebTab[];
-  activeTabId?: string;
+  activeTabId?: string | null;
   displayHomePage?: boolean;
+  browserDataReady?: boolean;
+  browserDataReadyWaiter?: {
+    promise: Promise<void>;
+    resolve: () => void;
+    startedAt: number;
+  } | null;
 } = {}) {
   const tabs = tabsValue.map((tab) => ({ ...tab }));
   const store = createStore();
-  store.set(browserDataReadyAtom(), true);
+  store.set(browserDataReadyAtom(), browserDataReady);
+  if (browserDataReadyWaiter !== undefined) {
+    store.set(browserDataReadyWaiterAtom(), browserDataReadyWaiter);
+  }
   store.set(activeTabIdAtom(), activeTabId);
   store.set(displayHomePageAtom(), displayHomePage);
   store.set(webTabsAtom(), {
@@ -250,6 +279,14 @@ function createDeferred<T>() {
     reject = rejectPromise;
   });
   return { promise, resolve, reject };
+}
+
+async function flushMicrotasks(times = 5) {
+  let promise = Promise.resolve();
+  for (let i = 0; i < times; i += 1) {
+    promise = promise.then(() => undefined);
+  }
+  await promise;
 }
 
 function getBookmarkCacheWrites() {
@@ -1125,6 +1162,637 @@ describe('useBrowserTabActions', () => {
     expect(mockCrossWebviewLoadUrl).not.toHaveBeenCalled();
     expect(
       result.current.tabs.some((tab) => tab.url.includes('google.com/search')),
+    ).toBe(false);
+  });
+
+  it('hydrates browser tab data before opening a desktop search result from cold start', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+    mockRootNavigationRef.current.getRootState.mockReturnValue({
+      index: 0,
+      routes: [
+        {
+          name: ERootRoutes.Main,
+          state: {
+            index: 0,
+            routes: [{ name: ETabRoutes.Discovery }],
+          },
+        },
+      ],
+    });
+
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserAction().current;
+        const [activeTabId] = useActiveTabIdAtom();
+        const [displayHomePage] = useDisplayHomePageAtom();
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          activeTabId,
+          displayHomePage,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: [],
+          activeTabId: null,
+          browserDataReady: false,
+        }),
+      },
+    );
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+    await act(async () => {
+      result.current.actions.handleOpenWebSite({
+        webSite: {
+          title: 'Example',
+          url: 'https://example.com/',
+          logo: undefined,
+          sortIndex: undefined,
+        },
+      });
+      await flushMicrotasks(10);
+    });
+
+    expect(mockGetBrowserTabsRawData).toHaveBeenCalledTimes(1);
+    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.MultiTabBrowser);
+    expect(
+      emitSpy.mock.calls.some(
+        ([eventName]) =>
+          eventName === EAppEventBusNames.ClearSavedBrowserActiveTab,
+      ),
+    ).toBe(true);
+    expect(result.current.displayHomePage).toBe(false);
+    expect(
+      result.current.tabs.find((tab) => tab.id === result.current.activeTabId),
+    ).toEqual(
+      expect.objectContaining({
+        url: 'https://example.com',
+        isActive: true,
+      }),
+    );
+  });
+
+  it('opens a desktop search result when stored browser tabs fail to hydrate', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+    mockGetBrowserTabsRawData.mockRejectedValueOnce(new Error('read failed'));
+    mockRootNavigationRef.current.getRootState.mockReturnValue({
+      index: 0,
+      routes: [
+        {
+          name: ERootRoutes.Main,
+          state: {
+            index: 0,
+            routes: [{ name: ETabRoutes.Discovery }],
+          },
+        },
+      ],
+    });
+
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserAction().current;
+        const [activeTabId] = useActiveTabIdAtom();
+        const [displayHomePage] = useDisplayHomePageAtom();
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          activeTabId,
+          displayHomePage,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: [],
+          activeTabId: null,
+          browserDataReady: false,
+        }),
+      },
+    );
+
+    await act(async () => {
+      result.current.actions.handleOpenWebSite({
+        webSite: {
+          title: 'Example',
+          url: 'https://example.com/',
+          logo: undefined,
+          sortIndex: undefined,
+        },
+      });
+      await flushMicrotasks(10);
+    });
+
+    expect(mockGetBrowserTabsRawData).toHaveBeenCalledTimes(1);
+    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.MultiTabBrowser);
+    expect(result.current.displayHomePage).toBe(false);
+    expect(
+      result.current.tabs.find((tab) => tab.id === result.current.activeTabId),
+    ).toEqual(
+      expect.objectContaining({
+        url: 'https://example.com',
+        isActive: true,
+      }),
+    );
+    expect(
+      mockSetBrowserTabsRawData.mock.calls.some(
+        ([payload]) => (payload as { tabs: IWebTab[] }).tabs.length === 0,
+      ),
+    ).toBe(false);
+  });
+
+  it('recovers a timed-out desktop browser data waiter before opening a search result', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+    mockRootNavigationRef.current.getRootState.mockReturnValue({
+      index: 0,
+      routes: [
+        {
+          name: ERootRoutes.Main,
+          state: {
+            index: 0,
+            routes: [{ name: ETabRoutes.Discovery }],
+          },
+        },
+      ],
+    });
+
+    const staleReady = createDeferred<void>();
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserAction().current;
+        const [activeTabId] = useActiveTabIdAtom();
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          activeTabId,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: [],
+          activeTabId: null,
+          browserDataReady: false,
+          browserDataReadyWaiter: {
+            promise: staleReady.promise,
+            resolve: () => staleReady.resolve(),
+            startedAt: 0,
+          },
+        }),
+      },
+    );
+
+    await act(async () => {
+      result.current.actions.handleOpenWebSite({
+        webSite: {
+          title: 'Example',
+          url: 'https://example.com/',
+          logo: undefined,
+          sortIndex: undefined,
+        },
+      });
+      await flushMicrotasks(10);
+    });
+
+    expect(mockGetBrowserTabsRawData).toHaveBeenCalledTimes(1);
+    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.MultiTabBrowser);
+    expect(
+      result.current.tabs.find((tab) => tab.id === result.current.activeTabId),
+    ).toEqual(
+      expect.objectContaining({
+        url: 'https://example.com',
+        isActive: true,
+      }),
+    );
+  });
+
+  it('does not let an in-flight ensure hydration overwrite tabs after browser data becomes ready', async () => {
+    const activeDappTab: IWebTab = {
+      id: 'dapp-tab',
+      url: 'https://app.uniswap.org',
+      title: 'Uniswap',
+      isActive: true,
+      timestamp: 10,
+    };
+    const staleRead = createDeferred<{ tabs: IWebTab[] }>();
+    mockGetBrowserTabsRawData.mockReturnValueOnce(staleRead.promise);
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserTabActions().current;
+        const [activeTabId] = useActiveTabIdAtom();
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          activeTabId,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: tabsFixture,
+          activeTabId: 'tab-1',
+          browserDataReady: false,
+        }),
+      },
+    );
+
+    let hydrationResultPromise: Promise<boolean> | undefined;
+    await act(async () => {
+      hydrationResultPromise = result.current.actions.ensureBrowserDataReady();
+      await flushMicrotasks(2);
+    });
+    expect(mockGetBrowserTabsRawData).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      result.current.actions.setBrowserDataReady();
+      result.current.actions.addWebTab(activeDappTab);
+      await flushMicrotasks(5);
+    });
+    const persistCallsAfterDappOpen =
+      mockSetBrowserTabsRawData.mock.calls.length;
+
+    let hydrationResult = false;
+    await act(async () => {
+      staleRead.resolve({ tabs: tabsFixture });
+      hydrationResult = Boolean(await hydrationResultPromise);
+      await flushMicrotasks(10);
+    });
+
+    expect(hydrationResult).toBe(true);
+    expect(mockSetBrowserTabsRawData).toHaveBeenCalledTimes(
+      persistCallsAfterDappOpen,
+    );
+    expect(result.current.activeTabId).toBe(activeDappTab.id);
+    expect(result.current.tabs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: activeDappTab.id,
+          url: activeDappTab.url,
+          isActive: true,
+        }),
+      ]),
+    );
+  });
+
+  it('treats a stored tabs read failure as empty browser data hydration', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+    mockGetBrowserTabsRawData.mockRejectedValueOnce(new Error('read failed'));
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserTabActions().current;
+        const [browserDataReady] = useBrowserDataReadyAtom();
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          browserDataReady,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: [],
+          activeTabId: null,
+          browserDataReady: false,
+        }),
+      },
+    );
+
+    let hydrationResult = false;
+    await act(async () => {
+      hydrationResult = await result.current.actions.ensureBrowserDataReady();
+      await flushMicrotasks(5);
+    });
+
+    expect(hydrationResult).toBe(true);
+    expect(result.current.browserDataReady).toBe(true);
+    expect(result.current.tabs).toEqual([]);
+    expect(mockGetBrowserTabsRawData).toHaveBeenCalledTimes(1);
+    expect(mockSetBrowserTabsRawData).not.toHaveBeenCalled();
+  });
+
+  it('hydrates stored browser tabs without persisting the stored snapshot', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+    mockGetBrowserTabsRawData.mockResolvedValueOnce({ tabs: tabsFixture });
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserTabActions().current;
+        const [browserDataReady] = useBrowserDataReadyAtom();
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          browserDataReady,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: [],
+          activeTabId: null,
+          browserDataReady: false,
+        }),
+      },
+    );
+
+    let hydrationResult = false;
+    await act(async () => {
+      hydrationResult = await result.current.actions.ensureBrowserDataReady();
+      await flushMicrotasks(5);
+    });
+
+    expect(hydrationResult).toBe(true);
+    expect(result.current.browserDataReady).toBe(true);
+    expect(result.current.tabs.map((tab) => tab.id)).toEqual([
+      'tab-1',
+      'tab-2',
+    ]);
+    expect(mockGetBrowserTabsRawData).toHaveBeenCalledTimes(1);
+    expect(mockSetBrowserTabsRawData).not.toHaveBeenCalled();
+  });
+
+  it('does not overwrite ready browser tabs with a stale stored snapshot when the desktop browser page mounts', async () => {
+    const activeDappTab: IWebTab = {
+      id: 'dapp-tab',
+      url: 'https://app.uniswap.org',
+      title: 'Uniswap',
+      isActive: true,
+      timestamp: 10,
+    };
+    mockGetBrowserTabsRawData.mockResolvedValueOnce({ tabs: tabsFixture });
+    const Wrapper = createWrapper({
+      tabs: [activeDappTab],
+      activeTabId: activeDappTab.id,
+      displayHomePage: false,
+      browserDataReady: true,
+    });
+
+    render(<HandleRebuildBrowserData />, { wrapper: Wrapper });
+    await act(async () => {
+      await flushMicrotasks(10);
+    });
+
+    const { result } = renderHook(
+      () => {
+        const [activeTabId] = useActiveTabIdAtom();
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          activeTabId,
+          tabs: webTabs.tabs,
+        };
+      },
+      { wrapper: Wrapper },
+    );
+
+    expect(mockGetBrowserTabsRawData).not.toHaveBeenCalled();
+    expect(result.current.activeTabId).toBe(activeDappTab.id);
+    expect(result.current.tabs).toEqual([
+      expect.objectContaining({
+        id: activeDappTab.id,
+        url: activeDappTab.url,
+        isActive: true,
+      }),
+    ]);
+  });
+
+  it('does not let an in-flight rebuild overwrite tabs after browser data becomes ready', async () => {
+    const activeDappTab: IWebTab = {
+      id: 'dapp-tab',
+      url: 'https://app.uniswap.org',
+      title: 'Uniswap',
+      isActive: true,
+      timestamp: 10,
+    };
+    const staleRead = createDeferred<{ tabs: IWebTab[] }>();
+    mockGetBrowserTabsRawData.mockReturnValueOnce(staleRead.promise);
+    const Wrapper = createWrapper({
+      tabs: tabsFixture,
+      activeTabId: 'tab-1',
+      displayHomePage: true,
+      browserDataReady: false,
+    });
+
+    render(<HandleRebuildBrowserData />, { wrapper: Wrapper });
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserTabActions().current;
+        const [activeTabId] = useActiveTabIdAtom();
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          activeTabId,
+          tabs: webTabs.tabs,
+        };
+      },
+      { wrapper: Wrapper },
+    );
+
+    await act(async () => {
+      await flushMicrotasks(2);
+    });
+    expect(mockGetBrowserTabsRawData).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      result.current.actions.setBrowserDataReady();
+      result.current.actions.addWebTab(activeDappTab);
+      await flushMicrotasks(5);
+    });
+    const persistCallsAfterDappOpen =
+      mockSetBrowserTabsRawData.mock.calls.length;
+
+    await act(async () => {
+      staleRead.resolve({ tabs: tabsFixture });
+      await flushMicrotasks(10);
+    });
+
+    expect(mockSetBrowserTabsRawData).toHaveBeenCalledTimes(
+      persistCallsAfterDappOpen,
+    );
+    expect(result.current.activeTabId).toBe(activeDappTab.id);
+    expect(result.current.tabs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: activeDappTab.id,
+          url: activeDappTab.url,
+          isActive: true,
+        }),
+      ]),
+    );
+  });
+
+  it('hydrates browser tab data before opening a native search result from cold start', async () => {
+    mockRootNavigationRef.current.getRootState.mockReturnValue({
+      index: 0,
+      routes: [
+        {
+          name: ERootRoutes.Main,
+          state: {
+            index: 0,
+            routes: [{ name: ETabRoutes.Home }],
+          },
+        },
+      ],
+    });
+
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserAction().current;
+        const [activeTabId] = useActiveTabIdAtom();
+        const [displayHomePage] = useDisplayHomePageAtom();
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          activeTabId,
+          displayHomePage,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: [],
+          activeTabId: null,
+          browserDataReady: false,
+        }),
+      },
+    );
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+    await act(async () => {
+      result.current.actions.handleOpenWebSite({
+        webSite: {
+          title: 'Example',
+          url: 'https://example.com/',
+          logo: undefined,
+          sortIndex: undefined,
+        },
+      });
+      await flushMicrotasks(10);
+    });
+
+    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Discovery);
+    expect(
+      emitSpy.mock.calls.some(
+        ([eventName]) =>
+          eventName === EAppEventBusNames.SwitchDiscoveryTabInNative,
+      ),
+    ).toBe(true);
+    expect(mockGetBrowserTabsRawData).toHaveBeenCalledTimes(1);
+    expect(result.current.displayHomePage).toBe(false);
+    expect(
+      result.current.tabs.find((tab) => tab.id === result.current.activeTabId),
+    ).toEqual(
+      expect.objectContaining({
+        url: 'https://example.com',
+        isActive: true,
+      }),
+    );
+  });
+
+  it('opens a native search result when stored browser tabs fail to hydrate', async () => {
+    mockGetBrowserTabsRawData.mockRejectedValueOnce(new Error('read failed'));
+    mockRootNavigationRef.current.getRootState.mockReturnValue({
+      index: 0,
+      routes: [
+        {
+          name: ERootRoutes.Main,
+          state: {
+            index: 0,
+            routes: [{ name: ETabRoutes.Home }],
+          },
+        },
+      ],
+    });
+
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserAction().current;
+        const [activeTabId] = useActiveTabIdAtom();
+        const [displayHomePage] = useDisplayHomePageAtom();
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          activeTabId,
+          displayHomePage,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: [],
+          activeTabId: null,
+          browserDataReady: false,
+        }),
+      },
+    );
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+    await act(async () => {
+      result.current.actions.handleOpenWebSite({
+        webSite: {
+          title: 'Example',
+          url: 'https://example.com/',
+          logo: undefined,
+          sortIndex: undefined,
+        },
+      });
+      await flushMicrotasks(10);
+    });
+
+    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Discovery);
+    expect(
+      emitSpy.mock.calls.some(
+        ([eventName]) =>
+          eventName === EAppEventBusNames.SwitchDiscoveryTabInNative,
+      ),
+    ).toBe(true);
+    expect(mockGetBrowserTabsRawData).toHaveBeenCalledTimes(1);
+    expect(result.current.displayHomePage).toBe(false);
+    expect(
+      result.current.tabs.find((tab) => tab.id === result.current.activeTabId),
+    ).toEqual(
+      expect.objectContaining({
+        url: 'https://example.com',
+        isActive: true,
+      }),
+    );
+    expect(
+      mockSetBrowserTabsRawData.mock.calls.some(
+        ([payload]) => (payload as { tabs: IWebTab[] }).tabs.length === 0,
+      ),
     ).toBe(false);
   });
 
