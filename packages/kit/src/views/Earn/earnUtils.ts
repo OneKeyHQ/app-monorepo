@@ -26,6 +26,7 @@ type IEarnHomeTab = NonNullable<IEarnHomeParams['tab']>;
 
 const DEFAULT_EARN_HOME_TAB: IEarnHomeTab = 'assets';
 const EARN_HOME_TABS = new Set<IEarnHomeTab>(['assets', 'portfolio', 'faqs']);
+const EXTENSION_POPUP_CLOSE_DELAY_MS = 100;
 
 const NetworkNameToIdMap: Record<string, string> = {
   ethereum: getNetworkIdsMap().eth,
@@ -92,6 +93,35 @@ function dispatchToTargetStack({
 
 function isEarnHomeTab(tab: unknown): tab is IEarnHomeTab {
   return typeof tab === 'string' && EARN_HOME_TABS.has(tab as IEarnHomeTab);
+}
+
+function buildExtensionEarnHomeParams(params?: IEarnHomeParams) {
+  const result: IEarnHomeParams = {};
+
+  if (isEarnHomeTab(params?.tab)) {
+    result.tab = params.tab;
+  }
+  if (params?.mode === 'earn' || params?.mode === 'borrow') {
+    result.mode = params.mode;
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+async function openExtensionEarnHomeInExpandTab(params?: IEarnHomeParams) {
+  const { default: backgroundApiProxy } =
+    await import('../../background/instance/backgroundApiProxy');
+
+  await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+    path: '/defi',
+    params: buildExtensionEarnHomeParams(params),
+  });
+
+  if (platformEnv.isExtensionUiPopup) {
+    setTimeout(() => {
+      globalThis.close();
+    }, EXTENSION_POPUP_CLOSE_DELAY_MS);
+  }
 }
 
 function persistNativeEarnHomeTab(tab: IEarnHomeTab) {
@@ -183,6 +213,14 @@ export async function safePushToEarnRoute(
     route === ETabEarnRoutes.EarnProtocolDetailsShare;
   if (shouldSwitchToEarnMode) {
     appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
+  }
+
+  if (
+    route === ETabEarnRoutes.EarnHome &&
+    (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel)
+  ) {
+    await openExtensionEarnHomeInExpandTab(params);
+    return;
   }
 
   const targetTab = getEarnTargetTab();
