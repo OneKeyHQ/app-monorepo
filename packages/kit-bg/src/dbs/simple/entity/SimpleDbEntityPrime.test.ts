@@ -73,3 +73,35 @@ describe('SimpleDbEntityPrime.getEffectiveAuthSessionSource', () => {
     expect(persist).not.toHaveBeenCalled();
   });
 });
+
+describe('SimpleDbEntityPrime.hasShownLocalKeylessUpgradeBindPrompt', () => {
+  test('treats a recent shownAt as throttled', async () => {
+    const entity = new SimpleDbEntityPrime();
+    jest.spyOn(entity, 'getRawData').mockResolvedValue({
+      localKeylessUpgradeBindPromptShownAtByUserId: {
+        'user-1': Date.now() - 60 * 1000,
+      },
+    });
+
+    await expect(
+      entity.hasShownLocalKeylessUpgradeBindPrompt({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toBe(true);
+  });
+
+  test('treats a future shownAt (clock skew) as not throttled', async () => {
+    const entity = new SimpleDbEntityPrime();
+    jest.spyOn(entity, 'getRawData').mockResolvedValue({
+      localKeylessUpgradeBindPromptShownAtByUserId: {
+        'user-1': Date.now() + 60 * 60 * 1000,
+      },
+    });
+
+    await expect(
+      entity.hasShownLocalKeylessUpgradeBindPrompt({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toBe(false);
+  });
+});

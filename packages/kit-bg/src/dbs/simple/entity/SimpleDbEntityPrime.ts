@@ -146,6 +146,12 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       return false;
     }
     const elapsed = Date.now() - shownAt;
+    // A future shownAt (device clock was ahead, then corrected) yields a
+    // negative elapsed; treat it as not throttled instead of extending the
+    // throttle past the future timestamp.
+    if (elapsed < 0) {
+      return false;
+    }
     return elapsed < LOCAL_KEYLESS_UPGRADE_BIND_PROMPT_INTERVAL_MS;
   }
 

@@ -472,10 +472,13 @@ class ServicePrime extends ServiceBase {
       if (!accessToken) {
         return;
       }
+      // This endpoint (/prime/v1/user/login) only accepts legacy-realm
+      // tokens, so the source is statically LegacyEmailSupabase. Never fall
+      // back to the persisted source: a stale KeylessOAuth source would be
+      // committed for a legacy-token login and getActiveAuthToken would then
+      // read the wrong realm.
       const nextAuthSessionSource =
-        authSessionSource ??
-        (await this.backgroundApi.simpleDb.prime.getAuthSessionSource()) ??
-        EPrimeAuthSessionSource.LegacyEmailSupabase;
+        authSessionSource ?? EPrimeAuthSessionSource.LegacyEmailSupabase;
       // Invalidation site (login): the active account/session is about to
       // change, so any user info cached before this login must not be served
       // to post-login callers.
@@ -1354,8 +1357,15 @@ class ServicePrime extends ServiceBase {
   }> {
     console.log('call servicePrime.apiFetchPrimeUserInfo');
     await this.loginMutex.waitForUnlock();
+    // Snapshot the RESOLVED source (not the raw persisted one): the
+    // getActiveAuthToken() call below runs the self-healing resolver, which
+    // persists LegacyEmailSupabase for pre-authSessionSource legacy sessions.
+    // A raw before-snapshot (undefined) would then differ from the
+    // after-snapshot (legacy) and falsely discard the first valid response
+    // after upgrading. Resolving here persists the source up front, so the
+    // raw after-snapshot stays comparable.
     const authSessionSourceBeforeFetch =
-      await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+      await this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource();
     const localUserInfoBeforeFetch = await primePersistAtom.get();
     const authToken =
       await this.backgroundApi.simpleDb.prime.getActiveAuthToken();

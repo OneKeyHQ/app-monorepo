@@ -14,6 +14,12 @@ export function isRetryableSupabaseAuthError(error: unknown): boolean {
   if (authError.name === 'AuthRetryableFetchError') {
     return true;
   }
+  // Thrown by @supabase/auth-js when a non-2xx response has an unparseable
+  // body (e.g. a CDN/proxy HTML error page such as Cloudflare 520/522/524).
+  // An unparseable body is never a definite GoTrue rejection, so retry.
+  if (authError.name === 'AuthUnknownError') {
+    return true;
+  }
   // Other transient infrastructure failures (rate limit, timeout, other
   // 5xx) surface as AuthApiError with a numeric `status`. Treat them as
   // retryable too, so callers do not misread a recoverable session as
