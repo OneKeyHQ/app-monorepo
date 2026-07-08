@@ -180,8 +180,14 @@ export function FirmwareUpdateCheckList({
                     },
                   );
 
+                  // Never let analytics context reading break the update flow
                   const trackingInfo =
-                    await backgroundApiProxy.serviceFirmwareUpdate.getUpdateWorkflowTrackingInfo();
+                    await backgroundApiProxy.serviceFirmwareUpdate
+                      .getUpdateWorkflowTrackingInfo()
+                      .catch(() => ({
+                        retryCount: undefined,
+                        durationMs: undefined,
+                      }));
                   defaultLogger.update.firmware.firmwareUpdateResult({
                     deviceType: result?.deviceType,
                     transportType: hardwareTransportType,
@@ -219,8 +225,14 @@ export function FirmwareUpdateCheckList({
                       error: err,
                     },
                   });
+                  // Never let analytics context reading break the update flow
                   const trackingInfo =
-                    await backgroundApiProxy.serviceFirmwareUpdate.getUpdateWorkflowTrackingInfo();
+                    await backgroundApiProxy.serviceFirmwareUpdate
+                      .getUpdateWorkflowTrackingInfo()
+                      .catch(() => ({
+                        retryCount: undefined,
+                        durationMs: undefined,
+                      }));
                   defaultLogger.update.firmware.firmwareUpdateResult({
                     deviceType: result?.deviceType,
                     transportType: hardwareTransportType,
