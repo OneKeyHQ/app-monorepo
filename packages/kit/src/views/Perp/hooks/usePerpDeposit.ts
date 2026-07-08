@@ -30,10 +30,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
-import {
-  numberFormat,
-  toBigIntHex,
-} from '@onekeyhq/shared/src/utils/numberUtils';
+import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IFeeAlgo,
@@ -194,9 +191,7 @@ const usePerpDeposit = (
       skipToast?: boolean;
     }) => {
       if (!skipToast) {
-        const formattedAmount = numberFormat(fromAmount, {
-          formatter: 'balance',
-        });
+        const formattedAmount = new BigNumber(fromAmount).toFixed();
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.feedback_transaction_submitted,

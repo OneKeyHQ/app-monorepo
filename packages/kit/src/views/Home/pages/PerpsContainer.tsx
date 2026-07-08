@@ -50,15 +50,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IPerpsHomeHolding,
   IPerpsHomePosition,
 } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
 import {
-  formatPriceToSignificantDigits,
   getHyperliquidTokenImageUrl,
-  getValidPriceDecimals,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
@@ -103,22 +100,6 @@ function isTradableSpotHolding(holding: IPerpsHomeHolding) {
   return Boolean(
     holding.symbol.toUpperCase() !== 'USDC' && holding.spotUniverseName,
   );
-}
-
-function formatPerpsPositionPrice(price: string | number) {
-  const decimals = getValidPriceDecimals(price);
-  return new BigNumber(price || '0').toFixed(decimals);
-}
-
-function formatPerpsPositionLiquidationPrice(
-  liqPx: string | null,
-  entryPx: string,
-) {
-  const liquidationPrice = new BigNumber(liqPx || '0');
-  if (liquidationPrice.isZero()) {
-    return 'N/A';
-  }
-  return liquidationPrice.toFixed(getValidPriceDecimals(entryPx || '0'));
 }
 
 function useEnsureHomePerpsAccount() {
@@ -1376,23 +1357,12 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
   });
   const roiPercent = new BigNumber(position.roi).times(100).abs().toFixed(1);
   const displayCoin = parseDexCoin(position.coin).displayName;
-  const positionSizeUsd = numberFormat(
-    new BigNumber(position.sizeCoin).times(position.markPx).abs().toFixed(),
-    {
-      formatter: BALANCE_FORMATTER,
-    },
-  );
-  const fundingDisplay = `${position.fundingUsd > 0 ? '-' : '+'}$${new BigNumber(
-    position.fundingUsd,
-  )
+  const positionSizeUsd = new BigNumber(position.sizeCoin)
+    .times(position.markPx)
     .abs()
-    .toFixed(2)}`;
-  const entryPriceDisplay = formatPerpsPositionPrice(position.entryPx);
-  const markPriceDisplay = formatPriceToSignificantDigits(position.markPx);
-  const liqPriceDisplay = formatPerpsPositionLiquidationPrice(
-    position.liqPx,
-    position.entryPx,
-  );
+    .toFixed();
+  const fundingAmount = new BigNumber(position.fundingUsd).abs().toFixed();
+  const hasLiquidationPrice = !new BigNumber(position.liqPx || '0').isZero();
 
   return (
     <YStack
@@ -1497,6 +1467,7 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
               labelId={ETranslations.perp_position_position_size}
               labelExtra=" (USDC)"
               value={positionSizeUsd}
+              formatter={BALANCE_FORMATTER}
               column="left"
             />
             <PerpsMetric
@@ -1508,7 +1479,9 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_entry_price}
-              value={entryPriceDisplay}
+              value={position.entryPx}
+              formatter="price"
+              formatterOptions={{ currency: '$' }}
               align="right"
               column="right"
             />
@@ -1518,19 +1491,29 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
             {/* fundingUsd > 0 = paid -> red '-$' (mirrors PositionsRow) */}
             <PerpsMetric
               labelId={ETranslations.perp_position_funding_2}
-              value={fundingDisplay}
+              value={fundingAmount}
+              formatter={VALUE_FORMATTER}
+              formatterOptions={{
+                currency: position.fundingUsd > 0 ? '-$' : '+$',
+              }}
               positive={position.fundingUsd <= 0}
               negative={position.fundingUsd > 0}
               column="left"
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_mark_price}
-              value={markPriceDisplay}
+              value={position.markPx}
+              formatter="price"
+              formatterOptions={{ currency: '$' }}
               column="center"
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_liq_price}
-              value={liqPriceDisplay}
+              value={hasLiquidationPrice ? position.liqPx || '0' : 'N/A'}
+              formatter={hasLiquidationPrice ? 'price' : undefined}
+              formatterOptions={
+                hasLiquidationPrice ? { currency: '$' } : undefined
+              }
               align="right"
               column="right"
             />
