@@ -245,7 +245,13 @@ function useDepositButtonIconProps() {
   );
 }
 
-function MobileDepositButton({ onPress }: { onPress: () => void }) {
+function MobileDepositButton({
+  onPress,
+  disabled,
+}: {
+  onPress: () => void;
+  disabled?: boolean;
+}) {
   const depositButtonIconProps = useDepositButtonIconProps();
 
   return (
@@ -257,7 +263,8 @@ function MobileDepositButton({ onPress }: { onPress: () => void }) {
       icon="PlusCircleSolid"
       iconProps={depositButtonIconProps}
       onPress={onPress}
-      cursor="pointer"
+      disabled={disabled}
+      cursor={disabled ? 'default' : 'pointer'}
     />
   );
 }
@@ -498,7 +505,8 @@ function PerpTradingForm({
   const { price: orderPriceBN } = useOrderPrice(formData.side, {
     priceSource: tradingPriceSource,
   });
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal();
   const enableTrading = useEnableTradingWithDepositFallback();
   const { universeByBaseName } = useSpotMetaMaps();
   const perpsPositions = usePerpsAccountScopedActivePositions();
@@ -1343,8 +1351,11 @@ function PerpTradingForm({
   }, [actions, spotAvailableTradeUniverse]);
 
   const handleSpotAvailableDepositPress = useCallback(() => {
+    if (isDepositDisabled) {
+      return;
+    }
     void showDepositWithdrawModal('deposit');
-  }, [showDepositWithdrawModal]);
+  }, [isDepositDisabled, showDepositWithdrawModal]);
   const handleSpotEnableTradingPress = useCallback(() => {
     if (perpsAccountLoading.enableTradingLoading) {
       return;
@@ -1352,8 +1363,11 @@ function PerpTradingForm({
     void enableTrading();
   }, [enableTrading, perpsAccountLoading.enableTradingLoading]);
   const handleDepositPress = useCallback(() => {
+    if (isDepositDisabled) {
+      return;
+    }
     void showDepositWithdrawModal('deposit');
-  }, [showDepositWithdrawModal]);
+  }, [isDepositDisabled, showDepositWithdrawModal]);
 
   const isUnifiedAccountMode = useMemo(
     () =>
@@ -3093,7 +3107,10 @@ function PerpTradingForm({
                           shouldDisplayAvailableToTradeDuringLoading
                         }
                       />
-                      <MobileDepositButton onPress={handleDepositPress} />
+                      <MobileDepositButton
+                        onPress={handleDepositPress}
+                        disabled={isDepositDisabled}
+                      />
                     </>
                   )}
                 </XStack>

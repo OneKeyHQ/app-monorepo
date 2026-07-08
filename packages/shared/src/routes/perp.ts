@@ -43,6 +43,7 @@ export type IModalPerpParamList = {
   [EModalPerpRoutes.MobileDepositSelectToken]: {
     depositTokensWithPrice: IPerpsDepositTokenRouteItem[];
     depositTokenListOwnerKey?: string;
+    hasLoadedDepositTokenBalances?: boolean;
     symbol: string;
   };
   [EModalPerpRoutes.PerpsInviteeRewardModal]: undefined;

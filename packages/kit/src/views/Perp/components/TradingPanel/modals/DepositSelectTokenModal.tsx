@@ -32,6 +32,17 @@ function DepositSelectTokenModal() {
   const [{ tokens, depositTokenListOwnerKey, depositTokenListSource }] =
     usePerpsDepositTokensAtom();
   const routeDepositTokenListOwnerKey = route.params.depositTokenListOwnerKey;
+  const hasRouteDepositTokens = Array.isArray(
+    route.params.depositTokensWithPrice,
+  );
+  const routeDepositTokens = useMemo(
+    () => (route.params.depositTokensWithPrice ?? []) as IPerpsDepositToken[],
+    [route.params.depositTokensWithPrice],
+  );
+  const atomDepositTokens = useMemo(
+    () => Object.values(tokens).flat(),
+    [tokens],
+  );
   const liveDepositTokens = useMemo(() => {
     if (
       !shouldUsePerpsDepositLiveWalletTokens({
@@ -42,16 +53,17 @@ function DepositSelectTokenModal() {
     ) {
       return [];
     }
-    return Object.values(tokens).flat();
+    return atomDepositTokens;
   }, [
+    atomDepositTokens,
     depositTokenListOwnerKey,
     depositTokenListSource,
     routeDepositTokenListOwnerKey,
-    tokens,
   ]);
-  const routeDepositTokens = route.params
-    .depositTokensWithPrice as IPerpsDepositToken[];
   const depositTokensWithPrice = useMemo(() => {
+    if (!hasRouteDepositTokens) {
+      return atomDepositTokens;
+    }
     if (liveDepositTokens.length === 0) {
       return routeDepositTokens;
     }
@@ -59,7 +71,15 @@ function DepositSelectTokenModal() {
       currentTokens: routeDepositTokens,
       nextTokens: liveDepositTokens,
     });
-  }, [liveDepositTokens, routeDepositTokens]);
+  }, [
+    atomDepositTokens,
+    hasRouteDepositTokens,
+    liveDepositTokens,
+    routeDepositTokens,
+  ]);
+  const hasLoadedDepositTokenBalances =
+    route.params.hasLoadedDepositTokenBalances ??
+    (hasRouteDepositTokens ? true : atomDepositTokens.length > 0);
 
   const handleClose = useCallback(() => {
     navigation.goBack();
@@ -76,7 +96,7 @@ function DepositSelectTokenModal() {
             symbol={route.params.symbol}
             depositTokensWithPrice={depositTokensWithPrice}
             onClose={handleClose}
-            hasLoaded
+            hasLoaded={hasLoadedDepositTokenBalances}
           />
         </YStack>
       </Page.Body>
