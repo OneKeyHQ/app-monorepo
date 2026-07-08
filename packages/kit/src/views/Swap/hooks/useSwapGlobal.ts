@@ -107,6 +107,14 @@ function getSelectedTokensColdStartSwapType({
   toToken?: ISwapToken;
 }) {
   if (
+    currentSwapType === ESwapTabSwitchType.STOCK ||
+    fromToken?.isStock ||
+    toToken?.isStock
+  ) {
+    return ESwapTabSwitchType.STOCK;
+  }
+
+  if (
     fromToken?.networkId &&
     toToken?.networkId &&
     fromToken.networkId !== toToken.networkId
@@ -890,6 +898,9 @@ export function useSwapInit(params?: ISwapInitParams) {
     const isStockDefaultTokenFlow =
       swapTypeSwitchRef.current === ESwapTabSwitchType.STOCK ||
       params?.swapTabSwitchType === ESwapTabSwitchType.STOCK;
+    const hasStockExecutionSelectedTokens =
+      fromTokenRef.current?.isStock === true ||
+      toTokenRef.current?.isStock === true;
     const hasInitFromAmount = Boolean(
       hasUnconsumedSwapInitParams && params?.fromAmount,
     );
@@ -905,8 +916,9 @@ export function useSwapInit(params?: ISwapInitParams) {
     }
     if (isStockDefaultTokenFlow) {
       if (
+        !hasStockExecutionSelectedTokens &&
         selectedTokensColdStartContextRef.current?.swapType !==
-        ESwapTabSwitchType.STOCK
+          ESwapTabSwitchType.STOCK
       ) {
         if (fromTokenRef.current) {
           setSwapFromToken(undefined);
