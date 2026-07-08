@@ -49,6 +49,7 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { showDeFiActionTxConfirmDialog } from './DeFiActionTxConfirmResult';
+import { resolveProtocolLendingDefiFillableAmountState } from './protocolLendingActionUtils';
 import {
   ProtocolValueCell,
   isProtocolAssetValueUnavailable,
@@ -56,6 +57,11 @@ import {
 
 const DEFAULT_ACTION_PERCENT = 100;
 const PERCENTAGE_PRESET_VALUES = [25, 50, 75, 100] as const;
+
+type IRepayWalletBalanceLoadState = {
+  balance?: string;
+  errorMessage?: string;
+};
 
 // Both action heroes (typed-amount and percentage) reserve this height and
 // center their content, so the Dialog stays the same size in either mode and
@@ -1569,24 +1575,49 @@ function ProtocolPositionActionDialogContent({
   const isRepayAction = action.action === EDeFiPositionAction.Repay;
   const repayTokenAddress =
     manualAmountAsset?.tokenAddress ?? manualAmountAsset?.asset.address;
-  const { result: repayWalletBalance } = usePromiseResult(async () => {
-    if (!isRepayAction || repayTokenAddress === undefined) return undefined;
-    const details = await backgroundApiProxy.serviceToken.fetchTokensDetails({
-      accountId,
-      networkId,
-      contractList: [repayTokenAddress],
-    });
-    return details?.[0]?.balanceParsed;
-  }, [accountId, isRepayAction, networkId, repayTokenAddress]);
+  const {
+    result: repayWalletBalanceState,
+    isLoading: repayWalletBalanceLoading,
+  } = usePromiseResult<IRepayWalletBalanceLoadState>(
+    async () => {
+      if (!isRepayAction || repayTokenAddress === undefined) return {};
+      try {
+        const details =
+          await backgroundApiProxy.serviceToken.fetchTokensDetails({
+            accountId,
+            networkId,
+            contractList: [repayTokenAddress],
+          });
+        return { balance: details?.[0]?.balanceParsed };
+      } catch (error) {
+        return { errorMessage: getErrorMessage(error) };
+      }
+    },
+    [accountId, isRepayAction, networkId, repayTokenAddress],
+    { watchLoading: true, undefinedResultIfReRun: true },
+  );
+  const repayWalletBalance = repayWalletBalanceState?.balance;
+  const repayWalletBalanceError = repayWalletBalanceState?.errorMessage;
+  const isRepayWalletBalancePending =
+    isRepayAction &&
+    (repayWalletBalanceLoading || repayWalletBalanceState === undefined);
   const amountBN = new BigNumber(amount || '0');
   const availableBN = new BigNumber(availableAmount || '0');
   const isAmountPositive = amountBN.isFinite() && amountBN.gt(0);
-  // While the wallet balance is still loading (undefined) the check is
-  // skipped — behavior degrades to today's, and tx-confirm still catches it.
   const repayWalletBalanceBN =
     isRepayAction && repayWalletBalance !== undefined
       ? new BigNumber(repayWalletBalance)
       : undefined;
+  const {
+    fillableMaxBN,
+    fillableMax,
+    isFillableMaxFullClose,
+    isRepayWalletBalanceReady,
+  } = resolveProtocolLendingDefiFillableAmountState({
+    isRepay: isRepayAction,
+    availableAmount,
+    repayWalletBalance,
+  });
   const isAmountInsufficient =
     (amountBN.isFinite() &&
       availableBN.isFinite() &&
@@ -1605,8 +1636,8 @@ function ProtocolPositionActionDialogContent({
   let selectedAmountPercent = 0;
   if (isMaxAmount) {
     selectedAmountPercent = 100;
-  } else if (isAmountPositive && availableBN.gt(0)) {
-    const pct = amountBN.div(availableBN).multipliedBy(100);
+  } else if (isAmountPositive && fillableMaxBN.gt(0)) {
+    const pct = amountBN.div(fillableMaxBN).multipliedBy(100);
     selectedAmountPercent =
       PERCENTAGE_PRESET_VALUES.find((preset) =>
         pct.minus(preset).abs().lt(0.5),
@@ -1614,6 +1645,10 @@ function ProtocolPositionActionDialogContent({
   }
   const isConfirmDisabled =
     selectedAssets.length === 0 ||
+    (isRepayAction &&
+      (isRepayWalletBalancePending ||
+        Boolean(repayWalletBalanceError) ||
+        !isRepayWalletBalanceReady)) ||
     (useManualAmountInput
       ? !isAmountValid
       : isPercentAction && !actionPercentBps);
@@ -1734,9 +1769,16 @@ function ProtocolPositionActionDialogContent({
   };
 
   const handleMaxAmount = () => {
+    if (
+      isRepayWalletBalancePending ||
+      repayWalletBalanceError ||
+      !isRepayWalletBalanceReady
+    ) {
+      return;
+    }
     hasUserSetMaxRef.current = true;
-    setAmount(clampAmountDecimals(availableAmount, amountDecimals));
-    setIsMaxAmount(true);
+    setAmount(clampAmountDecimals(fillableMax, amountDecimals));
+    setIsMaxAmount(isFillableMaxFullClose);
   };
 
   const handleSelectPercent = (percent: number) => {
@@ -1746,7 +1788,14 @@ function ProtocolPositionActionDialogContent({
       handleMaxAmount();
       return;
     }
-    const next = availableBN.multipliedBy(percent).div(100);
+    if (
+      isRepayWalletBalancePending ||
+      repayWalletBalanceError ||
+      !isRepayWalletBalanceReady
+    ) {
+      return;
+    }
+    const next = fillableMaxBN.multipliedBy(percent).div(100);
     setAmount(clampAmountDecimals(next.toFixed(), amountDecimals));
     setIsMaxAmount(false);
   };
@@ -1982,14 +2031,14 @@ function ProtocolPositionActionDialogContent({
         />
       ) : null}
 
-      {submitError ? (
+      {submitError || repayWalletBalanceError ? (
         <Alert
           type="critical"
           icon="ErrorOutline"
           title={intl.formatMessage({
             id: ETranslations.global_an_error_occurred,
           })}
-          description={submitError}
+          description={submitError ?? repayWalletBalanceError}
         />
       ) : null}
 
@@ -2012,6 +2061,7 @@ function ProtocolPositionActionDialogContent({
         onConfirm={handleConfirm}
         confirmButtonProps={{
           disabled: isConfirmDisabled,
+          loading: isRepayWalletBalancePending,
         }}
       />
     </YStack>

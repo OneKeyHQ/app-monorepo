@@ -1,6 +1,7 @@
 import {
   findSupportedBorrowMarket,
   resolveProtocolLendingDefiFillableAmountState,
+  resolveProtocolLendingRemainingDebtState,
   resolveProtocolLendingRepayAmountState,
 } from './protocolLendingActionUtils';
 
@@ -112,6 +113,30 @@ describe('protocolLendingActionUtils', () => {
     expect(state.isRepayWalletBalanceReady).toBe(true);
     expect(state.fillableMax).toBe('10');
     expect(state.isFillableMaxFullClose).toBe(true);
+  });
+
+  it('shows the remaining debt after a wallet-capped repay', () => {
+    const state = resolveProtocolLendingRemainingDebtState({
+      amount: '2',
+      debtAmount: '10',
+    });
+
+    expect(state).toEqual({
+      currentDebt: '10',
+      remainingDebt: '8',
+    });
+  });
+
+  it('floors remaining debt at zero for over-target amounts', () => {
+    const state = resolveProtocolLendingRemainingDebtState({
+      amount: '12',
+      debtAmount: '10',
+    });
+
+    expect(state).toEqual({
+      currentDebt: '10',
+      remainingDebt: '0',
+    });
   });
 });
 

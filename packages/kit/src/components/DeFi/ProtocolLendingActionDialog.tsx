@@ -19,7 +19,9 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useBorrowApproveAndSubmit } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/hooks/useBorrowApproveAndSubmit';
 import type { IManagePositionApproveTarget } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/types';
@@ -49,11 +51,13 @@ import {
   EManagePositionType,
   type IBorrowAsset,
   type IBorrowAssetsList,
+  type ICheckAmountAlert,
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import {
   resolveProtocolLendingDefiFillableAmountState,
+  resolveProtocolLendingRemainingDebtState,
   resolveProtocolLendingRepayAmountState,
 } from './protocolLendingActionUtils';
 import {
@@ -98,7 +102,20 @@ type ILendingSelectorItem = {
   descriptionText?: string;
 };
 
+type IRepayWalletBalanceLoadState = {
+  balance?: string;
+  errorMessage?: string;
+};
+
+type IBorrowAssetsListLoadState = {
+  assetsList: IBorrowAssetsList;
+  errorMessage?: string;
+};
+
 const LENDING_PERCENT_PRESETS = [25, 50, 75, 100] as const;
+const EMPTY_BORROW_ASSETS_LIST: IBorrowAssetsList = {
+  assets: [] as IBorrowAsset[],
+};
 
 // Mirrors DEFI_ACTION_HERO_MIN_HEIGHT in ProtocolPositionActionDialog so the
 // loading skeleton reserves the same amount-hero height.
@@ -184,6 +201,73 @@ function buildDefiSelectorFiatText({
     formatter: 'value',
     formatterOptions: { currency: currencySymbol },
   });
+}
+
+function normalizeBorrowReserveAddress({
+  networkId,
+  address,
+}: {
+  networkId: string;
+  address: string;
+}) {
+  return earnUtils.normalizeBorrowAddress({ networkId, address });
+}
+
+function LendingAmountValue({
+  amount,
+  symbol,
+  color = '$text',
+}: {
+  amount: string;
+  symbol: string;
+  color?: '$text' | '$textSubdued';
+}) {
+  return (
+    <XStack alignItems="center" gap="$1" flexShrink={0} minWidth={0}>
+      <NumberSizeableTextWrapper
+        hideValue
+        size="$bodyMdMedium"
+        color={color}
+        formatter="balance"
+        numberOfLines={1}
+      >
+        {amount}
+      </NumberSizeableTextWrapper>
+      <SizableText size="$bodyMdMedium" color={color} numberOfLines={1}>
+        {symbol}
+      </SizableText>
+    </XStack>
+  );
+}
+
+function RemainingDebtChangeRow({
+  label,
+  currentDebt,
+  remainingDebt,
+  symbol,
+}: {
+  label: string;
+  currentDebt: string;
+  remainingDebt: string;
+  symbol: string;
+}) {
+  return (
+    <ProtocolPositionActionAnchor
+      label={label}
+      iconNode={null}
+      valueNode={
+        <XStack alignItems="center" gap="$2" flexShrink={0}>
+          <LendingAmountValue
+            amount={currentDebt}
+            symbol={symbol}
+            color="$textSubdued"
+          />
+          <Icon name="ArrowRightSolid" size="$4" color="$iconDisabled" />
+          <LendingAmountValue amount={remainingDebt} symbol={symbol} />
+        </XStack>
+      }
+    />
+  );
 }
 
 function LendingSelectorRowContent({ item }: { item: ILendingSelectorItem }) {
@@ -341,20 +425,33 @@ function LendingAssetSelectorRow({
 function LendingActionAlerts({
   showLiquidationWarning,
   errorMessage,
+  checkAmountAlerts = [],
 }: {
   showLiquidationWarning: boolean;
   errorMessage?: string;
+  checkAmountAlerts?: ICheckAmountAlert[];
 }) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  const { handleOpenWebSite } = useBrowserAction().current;
+  const liquidationWarningText = intl.formatMessage({
+    id: ETranslations.defi_liquidation_withdraw_desc,
+  });
+  const visibleCheckAmountAlerts = checkAmountAlerts.filter((alert) => {
+    if (!showLiquidationWarning) {
+      return true;
+    }
+    return ![alert.title?.text, alert.text?.text, alert.description?.text].some(
+      (text) => text?.trim() === liquidationWarningText.trim(),
+    );
+  });
   return (
     <>
       {showLiquidationWarning ? (
         <Alert
           type="warning"
           icon="InfoCircleOutline"
-          description={intl.formatMessage({
-            id: ETranslations.defi_liquidation_withdraw_desc,
-          })}
+          description={liquidationWarningText}
         />
       ) : null}
       {errorMessage ? (
@@ -367,6 +464,40 @@ function LendingActionAlerts({
           description={errorMessage}
         />
       ) : null}
+      {visibleCheckAmountAlerts.map((alert, index) => (
+        <Alert
+          key={index}
+          type="warning"
+          renderTitle={() => (
+            <YStack>
+              <EarnText text={alert.title} size="$bodyMdMedium" />
+              <EarnText text={alert.text} size="$bodyMdMedium" />
+              <EarnText text={alert.description} size="$bodyMdMedium" />
+            </YStack>
+          )}
+          action={
+            alert.button
+              ? {
+                  primary: alert.button.text.text,
+                  onPrimaryPress: () => {
+                    const link = alert.button?.data?.link;
+                    if (!link) return;
+                    handleOpenWebSite({
+                      navigation,
+                      useCurrentWindow: false,
+                      webSite: {
+                        url: link,
+                        title: link,
+                        logo: undefined,
+                        sortIndex: undefined,
+                      },
+                    });
+                  },
+                }
+              : undefined
+          }
+        />
+      ))}
     </>
   );
 }
@@ -437,15 +568,32 @@ function ProtocolLendingActionDefiContent({
   const isRepay = actionType === 'repay';
   const repayTokenAddress =
     selectedAsset?.tokenAddress ?? selectedAsset?.asset.address;
-  const { result: repayWalletBalance } = usePromiseResult(async () => {
-    if (!isRepay || repayTokenAddress === undefined) return undefined;
-    const details = await backgroundApiProxy.serviceToken.fetchTokensDetails({
-      accountId,
-      networkId,
-      contractList: [repayTokenAddress],
-    });
-    return details?.[0]?.balanceParsed;
-  }, [accountId, isRepay, networkId, repayTokenAddress]);
+  const {
+    result: repayWalletBalanceState,
+    isLoading: repayWalletBalanceLoading,
+  } = usePromiseResult<IRepayWalletBalanceLoadState>(
+    async () => {
+      if (!isRepay || repayTokenAddress === undefined) return {};
+      try {
+        const details =
+          await backgroundApiProxy.serviceToken.fetchTokensDetails({
+            accountId,
+            networkId,
+            contractList: [repayTokenAddress],
+          });
+        return { balance: details?.[0]?.balanceParsed };
+      } catch (error) {
+        return { errorMessage: getErrorMessage(error) };
+      }
+    },
+    [accountId, isRepay, networkId, repayTokenAddress],
+    { watchLoading: true, undefinedResultIfReRun: true },
+  );
+  const repayWalletBalance = repayWalletBalanceState?.balance;
+  const repayWalletBalanceError = repayWalletBalanceState?.errorMessage;
+  const isRepayWalletBalancePending =
+    isRepay &&
+    (repayWalletBalanceLoading || repayWalletBalanceState === undefined);
 
   const amountBN = new BigNumber(amount || '0');
   const availableBN = new BigNumber(availableAmount || '0');
@@ -520,7 +668,13 @@ function ProtocolLendingActionDefiContent({
   };
 
   const handleMaxAmount = () => {
-    if (!isRepayWalletBalanceReady) return;
+    if (
+      isRepayWalletBalancePending ||
+      repayWalletBalanceError ||
+      !isRepayWalletBalanceReady
+    ) {
+      return;
+    }
     hasUserSetMaxRef.current = true;
     setAmount(clampAmountDecimals(fillableMax, amountDecimals));
     setIsMaxAmount(isFillableMaxFullClose);
@@ -529,7 +683,13 @@ function ProtocolLendingActionDefiContent({
   const handleSelectPercent = (percent: number) => {
     // Max routes through handleMaxAmount so a full close still submits bps=10000
     // (no dust); 25/50/75 fill an exact token amount of the fillable max.
-    if (!isRepayWalletBalanceReady) return;
+    if (
+      isRepayWalletBalancePending ||
+      repayWalletBalanceError ||
+      !isRepayWalletBalanceReady
+    ) {
+      return;
+    }
     if (percent >= 100) {
       handleMaxAmount();
       return;
@@ -618,7 +778,11 @@ function ProtocolLendingActionDefiContent({
   );
   const selectedItem = selectorItems[selectedIndex];
   const isConfirmDisabled =
-    !selectedAsset || !isAmountValid || !isRepayWalletBalanceReady;
+    !selectedAsset ||
+    !isAmountValid ||
+    !isRepayWalletBalanceReady ||
+    isRepayWalletBalancePending ||
+    Boolean(repayWalletBalanceError);
 
   return (
     <YStack gap="$5">
@@ -662,7 +826,7 @@ function ProtocolLendingActionDefiContent({
 
       <LendingActionAlerts
         showLiquidationWarning={Boolean(hasDebts) && isWithdraw}
-        errorMessage={submitError}
+        errorMessage={submitError ?? repayWalletBalanceError}
       />
 
       <Dialog.Footer
@@ -670,7 +834,10 @@ function ProtocolLendingActionDefiContent({
         showConfirmButton
         onConfirmText={actionLabel}
         onConfirm={handleConfirm}
-        confirmButtonProps={{ disabled: isConfirmDisabled }}
+        confirmButtonProps={{
+          disabled: isConfirmDisabled,
+          loading: isRepayWalletBalancePending,
+        }}
       />
     </YStack>
   );
@@ -705,29 +872,55 @@ function ProtocolLendingActionBorrowContent({
 
   // Fixed mode (a desktop row already named the asset) skips the fetch — the
   // dropdown is only for the position-level entry.
-  const { result: assetsList, isLoading: assetsLoading } = usePromiseResult(
-    async (): Promise<IBorrowAssetsList> => {
-      if (!source.selectable) return { assets: [] };
-      return backgroundApiProxy.serviceStaking.getBorrowAssetsList({
+  const { result: assetsLoadState, isLoading: assetsLoading } =
+    usePromiseResult<IBorrowAssetsListLoadState>(
+      async () => {
+        if (!source.selectable) {
+          return { assetsList: EMPTY_BORROW_ASSETS_LIST };
+        }
+        try {
+          const assetsList =
+            await backgroundApiProxy.serviceStaking.getBorrowAssetsList({
+              accountId,
+              networkId,
+              provider: source.provider,
+              marketAddress: source.marketAddress,
+              action: LENDING_ACTION_TO_BORROW_ACTION[actionType],
+            });
+          return { assetsList };
+        } catch (error) {
+          return {
+            assetsList: EMPTY_BORROW_ASSETS_LIST,
+            errorMessage: getErrorMessage(error),
+          };
+        }
+      },
+      [
         accountId,
         networkId,
-        provider: source.provider,
-        marketAddress: source.marketAddress,
-        action: LENDING_ACTION_TO_BORROW_ACTION[actionType],
-      });
-    },
-    [
-      accountId,
-      networkId,
-      actionType,
-      source.selectable,
-      source.provider,
-      source.marketAddress,
-    ],
-    { initResult: { assets: [] as IBorrowAsset[] }, watchLoading: true },
-  );
+        actionType,
+        source.selectable,
+        source.provider,
+        source.marketAddress,
+      ],
+      {
+        initResult: { assetsList: EMPTY_BORROW_ASSETS_LIST },
+        watchLoading: true,
+        undefinedResultIfReRun: true,
+      },
+    );
+  const assetsList = assetsLoadState?.assetsList ?? EMPTY_BORROW_ASSETS_LIST;
+  const assetsError = assetsLoadState?.errorMessage;
+  const normalizedReserveAddress = normalizeBorrowReserveAddress({
+    networkId,
+    address: reserveAddress,
+  });
   const selectedBorrowAsset = assetsList.assets.find(
-    (item) => item.reserveAddress === reserveAddress,
+    (item) =>
+      normalizeBorrowReserveAddress({
+        networkId,
+        address: item.reserveAddress,
+      }) === normalizedReserveAddress,
   );
 
   // Approve target, decimals, price and balances for the selected reserve
@@ -751,6 +944,7 @@ function ProtocolLendingActionBorrowContent({
     reserveAddress,
     marketAddress: source.marketAddress,
     revalidateOnFocus: false,
+    undefinedResultIfReRun: true,
   });
   const baseToken = tokenInfo?.token as IToken | undefined;
 
@@ -844,15 +1038,37 @@ function ProtocolLendingActionBorrowContent({
   const repayTokenAddress = selectedBorrowAsset
     ? (selectedBorrowAsset.token.address ?? '')
     : baseToken?.address;
-  const { result: repayWalletBalance } = usePromiseResult(async () => {
-    if (isWithdraw || repayTokenAddress === undefined) return undefined;
-    const details = await backgroundApiProxy.serviceToken.fetchTokensDetails({
-      accountId,
-      networkId,
-      contractList: [repayTokenAddress],
-    });
-    return details?.[0]?.balanceParsed;
-  }, [accountId, isWithdraw, networkId, repayTokenAddress]);
+  const {
+    result: repayWalletBalanceState,
+    isLoading: repayWalletBalanceLoading,
+  } = usePromiseResult<IRepayWalletBalanceLoadState>(
+    async () => {
+      if (isWithdraw || repayTokenAddress === undefined) return {};
+      try {
+        const details =
+          await backgroundApiProxy.serviceToken.fetchTokensDetails({
+            accountId,
+            networkId,
+            contractList: [repayTokenAddress],
+          });
+        return { balance: details?.[0]?.balanceParsed };
+      } catch (error) {
+        return { errorMessage: getErrorMessage(error) };
+      }
+    },
+    [accountId, isWithdraw, networkId, repayTokenAddress],
+    { watchLoading: true, undefinedResultIfReRun: true },
+  );
+  const repayWalletBalance = repayWalletBalanceState?.balance;
+  const repayWalletBalanceError = repayWalletBalanceState?.errorMessage;
+  const isRepayWalletBalancePending =
+    !isWithdraw &&
+    (repayWalletBalanceLoading ||
+      repayWalletBalanceState === undefined ||
+      repayTokenAddress === undefined);
+  const isBorrowDataLoading =
+    manageLoading || (source.selectable && Boolean(assetsLoading));
+  const hasBorrowLoadError = Boolean(assetsError || repayWalletBalanceError);
   // Show the wallet balance for repay whenever it has resolved — it tells the
   // user whether they can fully close the loan and why Max may cap below the debt.
   const walletBalanceText = isWithdraw ? undefined : repayWalletBalance;
@@ -906,6 +1122,12 @@ function ProtocolLendingActionBorrowContent({
     }
   };
   const handleMaxAmount = () => {
+    if (!isWithdraw && (isBorrowDataLoading || isRepayWalletBalancePending)) {
+      return;
+    }
+    if (hasBorrowLoadError) {
+      return;
+    }
     hasUserTouchedRef.current = true;
     setAmount(clampAmountDecimals(valueForMax, effectiveDecimals));
     setIsMaxAmount(true);
@@ -914,6 +1136,12 @@ function ProtocolLendingActionBorrowContent({
     // A full close (amount === debt/supplied balance) maps to
     // withdrawAll/repayAll via isFullClose; 25/50/75 fill an exact token
     // amount of the actionable max (wallet-capped for fixed-mode repay).
+    if (!isWithdraw && (isBorrowDataLoading || isRepayWalletBalancePending)) {
+      return;
+    }
+    if (hasBorrowLoadError) {
+      return;
+    }
     if (percent >= 100) {
       handleMaxAmount();
       return;
@@ -942,6 +1170,8 @@ function ProtocolLendingActionBorrowContent({
     marketAddress: source.marketAddress,
     reserveAddress,
     amount,
+    isDisabled:
+      isBorrowDataLoading || isRepayWalletBalancePending || hasBorrowLoadError,
     repayAll: actionType === 'repay' ? isFullClose : undefined,
   });
 
@@ -1186,13 +1416,24 @@ function ProtocolLendingActionBorrowContent({
         balanceText: effectiveBalance,
       };
 
+  const remainingDebtChange = resolveProtocolLendingRemainingDebtState({
+    amount,
+    debtAmount: isWithdraw
+      ? undefined
+      : (repayAllTargetAmount ?? referenceBalance),
+  });
   const healthFactor = actionResult.transactionConfirmation?.healthFactor;
   const confirmDisabled =
+    isBorrowDataLoading ||
+    isRepayWalletBalancePending ||
+    hasBorrowLoadError ||
     !isAmountPositive ||
     isAmountInsufficient ||
     actionResult.isCheckAmountMessageError ||
     actionResult.checkAmountResult === false ||
     actionResult.checkAmountLoading;
+  const shouldShowHealthFactorSkeleton =
+    !healthFactor && isAmountPositive && !actionResult.transactionConfirmation;
   // Belt-and-suspenders: a selectable Aave entry whose asset fetch AND protocol
   // info both come back empty falls back to the empty state instead of crashing.
   const isEmpty =
@@ -1205,7 +1446,7 @@ function ProtocolLendingActionBorrowContent({
   // revealing the body, so balances/decimals/price land together instead of
   // popping in from '0'. Flips true once the first load settles (data or not),
   // so the empty state can still show and reserve switches don't re-flash.
-  const isBusy = manageLoading || (source.selectable && assetsLoading);
+  const isBusy = isBorrowDataLoading;
   if (!isBusy) {
     hasLoadedOnceRef.current = true;
   }
@@ -1302,6 +1543,14 @@ function ProtocolLendingActionBorrowContent({
                   </XStack>
                 }
               />
+              {remainingDebtChange ? (
+                <RemainingDebtChangeRow
+                  label={availableLabel}
+                  currentDebt={remainingDebtChange.currentDebt}
+                  remainingDebt={remainingDebtChange.remainingDebt}
+                  symbol={effectiveSymbol}
+                />
+              ) : null}
               <XStack justifyContent="flex-end">
                 <EarnText
                   text={
@@ -1322,9 +1571,7 @@ function ProtocolLendingActionBorrowContent({
               amount is set — reserve its exact height with a skeleton so the
               dialog doesn't grow when it lands. Reuses the same anchor + label
               so the row height matches the loaded state byte-for-byte. */}
-          {!healthFactor &&
-          isAmountPositive &&
-          !actionResult.transactionConfirmation ? (
+          {shouldShowHealthFactorSkeleton ? (
             <YStack gap="$1">
               <ProtocolPositionActionAnchor
                 label={intl.formatMessage({
@@ -1335,6 +1582,14 @@ function ProtocolLendingActionBorrowContent({
                   <Skeleton height="$4" width="$16" borderRadius="$1" />
                 }
               />
+              {remainingDebtChange ? (
+                <RemainingDebtChangeRow
+                  label={availableLabel}
+                  currentDebt={remainingDebtChange.currentDebt}
+                  remainingDebt={remainingDebtChange.remainingDebt}
+                  symbol={effectiveSymbol}
+                />
+              ) : null}
               <XStack justifyContent="flex-end">
                 <Skeleton height="$4" width="$24" borderRadius="$1" />
               </XStack>
@@ -1347,19 +1602,16 @@ function ProtocolLendingActionBorrowContent({
         <LendingActionAlerts
           showLiquidationWarning={Boolean(hasDebts) && isWithdraw}
           errorMessage={
+            assetsError ??
+            repayWalletBalanceError ??
             submitError ??
             (actionResult.isCheckAmountMessageError
               ? actionResult.checkAmountMessage
               : undefined)
           }
+          checkAmountAlerts={actionResult.checkAmountAlerts}
         />
       ) : null}
-      {/* Server checkAmountAlerts are intentionally NOT rendered here: for the
-          withdraw-with-debt case they duplicate the always-on client
-          liquidation warning above (same copy), popping in after the
-          checkAmount request and jumping the dialog height. The manage page
-          keeps rendering them. */}
-
       <Dialog.Footer
         showCancelButton={false}
         showConfirmButton
@@ -1372,7 +1624,11 @@ function ProtocolLendingActionBorrowContent({
         confirmButtonProps={{
           disabled: confirmDisabled,
           loading:
-            approveLoading || actionResult.checkAmountLoading || submitting,
+            approveLoading ||
+            actionResult.checkAmountLoading ||
+            submitting ||
+            isBorrowDataLoading ||
+            isRepayWalletBalancePending,
         }}
       />
     </YStack>

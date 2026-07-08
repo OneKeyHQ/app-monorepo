@@ -559,7 +559,11 @@ const ProtocolPositionActionButton = memo(
           if (!hasAaveDebt) {
             return [];
           }
-          return backgroundApiProxy.serviceStaking.getBorrowMarkets();
+          try {
+            return await backgroundApiProxy.serviceStaking.getBorrowMarkets();
+          } catch {
+            return [] as IBorrowMarketItem[];
+          }
         },
         [hasAaveDebt],
         // Repo precedent for typed empty initResult: ProtocolLendingActionDialog

@@ -137,6 +137,26 @@ export function resolveProtocolLendingRepayAmountState({
   };
 }
 
+export function resolveProtocolLendingRemainingDebtState({
+  amount,
+  debtAmount,
+}: {
+  amount: string;
+  debtAmount?: string;
+}) {
+  const amountBN = toNonNegativeAmountBN(amount);
+  const debtBN = toNonNegativeAmountBN(debtAmount);
+  if (!amountBN?.gt(0) || !debtBN?.gt(0)) {
+    return undefined;
+  }
+
+  const remainingDebtBN = BigNumber.max(debtBN.minus(amountBN), 0);
+  return {
+    currentDebt: debtBN.toFixed(),
+    remainingDebt: remainingDebtBN.toFixed(),
+  };
+}
+
 // The server's /earn/v1/borrow/markets list is the per-environment source of
 // truth for which (provider, network, market) combos the borrow stack
 // supports. Fail-closed by design: no markets (still loading, fetch failed,

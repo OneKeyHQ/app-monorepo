@@ -41,6 +41,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalAssetDetailRoutes,
@@ -106,7 +107,11 @@ function DeFiProtocolDetails() {
       try {
         return await backgroundApiProxy.serviceDeFi.fetchSupportedDeFiProtocols();
       } catch (error) {
-        console.error(error);
+        defaultLogger.app.error.log(
+          `DeFi supported actions fetch failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
         return [];
       }
     }, [routeSupportedActions]);
@@ -125,7 +130,13 @@ function DeFiProtocolDetails() {
           accountId,
           networkId,
         })
-        .catch(console.error);
+        .catch((error) => {
+          defaultLogger.app.error.log(
+            `DeFi positions refresh after action failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        });
       navigation.pop();
     },
     [navigation],
