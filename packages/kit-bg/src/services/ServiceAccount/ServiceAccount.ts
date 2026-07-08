@@ -6757,7 +6757,7 @@ class ServiceAccount extends ServiceBase {
           // duplicate is lossless (the user holds the mnemonic and its
           // accounts are re-added into the kept wallet below). Stable sort:
           // keyless wallets first, existing relative order otherwise kept.
-          const walletsInGroup = [...sameWallet.wallets].sort(
+          const walletsInGroup = sameWallet.wallets.toSorted(
             (a, b) =>
               Number(Boolean(b.isKeyless)) - Number(Boolean(a.isKeyless)),
           );

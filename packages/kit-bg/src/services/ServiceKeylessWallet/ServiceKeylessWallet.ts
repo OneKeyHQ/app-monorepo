@@ -113,7 +113,7 @@ const KEYLESS_TOKEN_VALID_BUFFER_MS = timerUtils.getTimeDurationMs({
 // GoTrue codes that definitively mean the refresh token is invalid, revoked,
 // or already rotated elsewhere — the only verdicts that justify deleting the
 // legacy encrypted refresh-token blob.
-const GOTRUE_DEFINITIVE_REFRESH_TOKEN_REJECTION_CODES = new Set([
+const SUPABASE_AUTH_DEFINITIVE_REFRESH_TOKEN_REJECTION_CODES = new Set([
   'invalid_grant',
   'refresh_token_not_found',
   'refresh_token_already_used',
@@ -214,8 +214,8 @@ class ServiceKeylessWallet extends ServiceBase {
 
   // Serializes EVERY consumer of the legacy per-owner encrypted keyless
   // OAuth refresh-token blob (pre-OneKey-ID-unification builds). The blob
-  // holds a SINGLE-USE rotating GoTrue refresh token, and two unsynchronized
-  // paths consume it:
+  // holds a SINGLE-USE rotating GoTrue refresh token, and two concurrent
+  // paths consume it without any other coordination:
   //   1. interactive: migrateLegacyKeylessOAuthSessionForLocalWallet
   //   2. passive:     refreshLegacyAccessTokenForKeylessBackendShareV2MigrationPassive
   //      (via tryMigrateLocalExistingKeylessBackendShareToV2, which fires
@@ -1233,7 +1233,7 @@ class ServiceKeylessWallet extends ServiceBase {
     return [body?.error, body?.error_code].some(
       (code) =>
         typeof code === 'string' &&
-        GOTRUE_DEFINITIVE_REFRESH_TOKEN_REJECTION_CODES.has(code),
+        SUPABASE_AUTH_DEFINITIVE_REFRESH_TOKEN_REJECTION_CODES.has(code),
     );
   }
 

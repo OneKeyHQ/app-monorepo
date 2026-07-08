@@ -204,7 +204,7 @@ export function buildSupabaseSealedValueCodec({
       } catch (error) {
         // Wrong/lost device key (e.g. browser cleared IndexedDB but not
         // appStorage): the session is unrecoverable; returning null makes the
-        // user re-OAuth instead of looping on undecryptable data.
+        // user re-OAuth instead of looping on data that can never decrypt.
         console.error(
           'SupabaseStorage sealed-value decrypt failed, treating session as lost:',
           error,

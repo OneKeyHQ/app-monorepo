@@ -16,13 +16,13 @@ import {
   toWebCryptoBytes,
   writeCryptoKeyRecord,
 } from '@onekeyhq/shared/src/storage/indexedDbCryptoKeyStore';
+import type { IIndexedDbCryptoKeyRecord } from '@onekeyhq/shared/src/storage/indexedDbCryptoKeyStore';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import type {
   ILocalSecretEnvelopeLayerAdapter,
   ILocalSecretEnvelopeLayerCapabilities,
 } from './types';
-import type { IIndexedDbCryptoKeyRecord } from '@onekeyhq/shared/src/storage/indexedDbCryptoKeyStore';
 
 // The IndexedDB CryptoKey persistence primitives live in
 // `@onekeyhq/shared/src/storage/indexedDbCryptoKeyStore` (extracted from this
