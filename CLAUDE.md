@@ -94,7 +94,9 @@ Never violate this dependency order:
   `yarn agent:review-thread --pr <number> --thread <thread-id> --reply-file <file>`.
 - Use lower-level lint/typecheck/GitHub commands only when debugging a failed
   `agent:check` step; detailed logs are under `node_modules/.cache/agent-checks`.
-- Use targeted tests when possible; run `yarn test` when risk or scope requires it.
+- Use targeted tests when risk or scope requires them. Prefer explicit Jest paths,
+  workspace test scripts, or documented scenario commands over the ambiguous root
+  `yarn test` alias.
 
 Common commands:
 
@@ -108,7 +110,6 @@ yarn agent:check --profile commit
 yarn agent:check --profile pr
 yarn agent:check --profile ci --pr <number>
 yarn agent:review-thread --pr <number> --list
-yarn test
 ```
 
 ## Skills And CLI
