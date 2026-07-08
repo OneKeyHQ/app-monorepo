@@ -75,6 +75,13 @@ function csvEnv(name, fallback) {
     .filter(Boolean);
 }
 
+function getExistingExtraReportPaths() {
+  return csvEnv('WEB_STARTUP_EXTRA_REPORT_PATHS', []).filter((item) => {
+    const fullPath = path.isAbsolute(item) ? item : path.join(repoRoot, item);
+    return fs.existsSync(fullPath);
+  });
+}
+
 function readJsonIfExists(filePath) {
   if (!filePath || !fs.existsSync(filePath)) return null;
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -488,10 +495,7 @@ function main() {
       aiHintsJsonPath,
       aiHintsMarkdownPath,
       reportPath,
-      extraPaths: [
-        'apps/web/out-dir-analysis/web-cold-budget-report-ai-hints.json',
-        'apps/web/out-dir-analysis/web-cold-budget-report.json',
-      ],
+      extraPaths: getExistingExtraReportPaths(),
       notes: [
         'Fix startup graph and web cold budgets together; avoid creating many one-file lazy chunks.',
         'Read initialScriptHints and topModules in the JSON before editing imports.',
