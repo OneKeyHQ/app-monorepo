@@ -47,41 +47,13 @@ const shouldUseReferralModalNav = platformEnv.isNative;
 const shouldOpenReferralInExtensionExpandTab =
   platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel;
 
-type IExtensionReferralExpandRoute =
-  | ETabReferFriendsRoutes.TabReferAFriend
-  | ETabReferFriendsRoutes.TabInviteReward
-  | ETabReferFriendsRoutes.TabHardwareSalesReward;
-
-function getExtensionReferralPath(route: IExtensionReferralExpandRoute) {
-  if (route === ETabReferFriendsRoutes.TabInviteReward) {
-    return '/refer-friends/invite-reward';
-  }
-  if (route === ETabReferFriendsRoutes.TabHardwareSalesReward) {
-    return '/refer-friends/hardware-sales-reward';
-  }
-  return '/refer-friends';
-}
-
-function buildExtensionReferralParams(params?: object) {
-  if (!params) {
-    return undefined;
-  }
-  const entries = Object.entries(params).filter(
-    ([, value]) => value !== undefined,
-  );
-  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
-}
-
-async function openExtensionReferralInExpandTab(
-  route: IExtensionReferralExpandRoute,
-  params?: object,
-) {
-  await backgroundApiProxy.serviceApp.openExtensionExpandTab({
-    path: getExtensionReferralPath(route),
-    params: buildExtensionReferralParams(params),
-  });
-
-  closeExtensionPopupAfterExpandTabOpen();
+function openExtensionReferralInExpandTab(path: string, params?: object) {
+  return backgroundApiProxy.serviceApp
+    .openExtensionExpandTab({
+      path,
+      params,
+    })
+    .then(closeExtensionPopupAfterExpandTabOpen);
 }
 
 export function useToReferFriendsModalByRootNavigation() {
@@ -90,9 +62,7 @@ export function useToReferFriendsModalByRootNavigation() {
 
     if (shouldOpenReferralInExtensionExpandTab) {
       await openExtensionReferralInExpandTab(
-        isLogin
-          ? ETabReferFriendsRoutes.TabInviteReward
-          : ETabReferFriendsRoutes.TabReferAFriend,
+        isLogin ? '/refer-friends/invite-reward' : '/refer-friends',
       );
       return;
     }
@@ -182,7 +152,7 @@ export const useReferFriends = () => {
       if (isLogin) {
         if (shouldOpenReferralInExtensionExpandTab) {
           await openExtensionReferralInExpandTab(
-            ETabReferFriendsRoutes.TabInviteReward,
+            '/refer-friends/invite-reward',
             params,
           );
           return;
@@ -213,7 +183,7 @@ export const useReferFriends = () => {
       if (isLogin) {
         if (shouldOpenReferralInExtensionExpandTab) {
           await openExtensionReferralInExpandTab(
-            ETabReferFriendsRoutes.TabHardwareSalesReward,
+            '/refer-friends/hardware-sales-reward',
             params,
           );
           return;
@@ -255,8 +225,8 @@ export const useReferFriends = () => {
     if (shouldOpenReferralInExtensionExpandTab) {
       await openExtensionReferralInExpandTab(
         shouldShowInviteReward
-          ? ETabReferFriendsRoutes.TabInviteReward
-          : ETabReferFriendsRoutes.TabReferAFriend,
+          ? '/refer-friends/invite-reward'
+          : '/refer-friends',
       );
       return;
     }
@@ -345,7 +315,7 @@ export const useReferFriends = () => {
         if (isLogin) {
           if (shouldOpenReferralInExtensionExpandTab) {
             await openExtensionReferralInExpandTab(
-              ETabReferFriendsRoutes.TabInviteReward,
+              '/refer-friends/invite-reward',
             );
             return;
           }
