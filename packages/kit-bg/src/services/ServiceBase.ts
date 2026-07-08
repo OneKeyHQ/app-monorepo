@@ -106,11 +106,10 @@ export default class ServiceBase {
         },
         async (error) => {
           const errorData = error as {
-            config?: {
-              headers?: {
-                get?: (headerName: string) => unknown;
-              } & Record<string, unknown>;
-            };
+            // set by the global axios interceptor on OneKeyServerApiError:
+            // the X-Onekey-Request-Token the failed request carried
+            // (the full request config is intentionally not attached)
+            $$requestAuthToken?: string;
             requestId?: string;
             data: {
               code: number;
@@ -125,13 +124,7 @@ export default class ServiceBase {
           // TODO 90_002 sdk refresh token required
           // TODO 90_003 user login required
           if ([90_002, 90_003].includes(errorCode)) {
-            const headers = errorData?.config?.headers;
-            const requestAuthToken = String(
-              headers?.get?.(ONEKEY_REQUEST_TOKEN_HEADER) ||
-                headers?.[ONEKEY_REQUEST_TOKEN_HEADER] ||
-                headers?.[ONEKEY_REQUEST_TOKEN_HEADER_LOWERCASE] ||
-                '',
-            );
+            const requestAuthToken = errorData?.$$requestAuthToken || '';
             defaultLogger.prime.subscription.onekeyIdInvalidToken({
               url: errorData?.data?.requestUrl || '',
               errorCode,

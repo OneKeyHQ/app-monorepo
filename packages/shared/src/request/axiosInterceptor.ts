@@ -43,6 +43,10 @@ import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 const NETWORK_THROTTLE_LOG_PREFIX = '[NETWORK-THROTTLE]';
 const LOG_URL_MAX_LENGTH = 160;
 
+// Keep in sync with ONEKEY_REQUEST_TOKEN_HEADER in kit-bg ServiceBase
+// (shared must not import from kit-bg).
+const ONEKEY_REQUEST_TOKEN_HEADER = 'X-Onekey-Request-Token';
+
 type IAxiosNetworkTimingConfig = AxiosRequestConfig & {
   $oneKeyNetworkThrottleTiming?: {
     startedAt: number;
@@ -102,27 +106,6 @@ function normalizeDesktopNetworkThrottleTimingConfig(config: {
   };
 }
 
-async function syncNativeNetworkThrottleFromDevSettings(): Promise<boolean> {
-  if (!platformEnv.isNative) {
-    return true;
-  }
-
-  const enabled = await getPersistedNativeNetworkThrottleEnabled();
-  const isStableStorageState =
-    !nativeNetworkThrottleSyncStorageHydrationTimedOut;
-  if (lastSyncedNativeNetworkThrottleEnabled === enabled) {
-    return isStableStorageState;
-  }
-
-  await nativeNetworkThrottle.setNetworkThrottle({
-    enabled,
-    profile: 'slow4g',
-    latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
-  });
-  lastSyncedNativeNetworkThrottleEnabled = enabled;
-  return isStableStorageState;
-}
-
 function readPersistedNativeNetworkThrottleEnabled(): boolean | undefined {
   const devModeEnabled = devSettingSyncStorage.getBoolean(
     EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
@@ -167,6 +150,27 @@ async function getPersistedNativeNetworkThrottleEnabled(): Promise<boolean> {
   }
   nativeNetworkThrottleSyncStorageHydrationTimedOut = true;
   return false;
+}
+
+async function syncNativeNetworkThrottleFromDevSettings(): Promise<boolean> {
+  if (!platformEnv.isNative) {
+    return true;
+  }
+
+  const enabled = await getPersistedNativeNetworkThrottleEnabled();
+  const isStableStorageState =
+    !nativeNetworkThrottleSyncStorageHydrationTimedOut;
+  if (lastSyncedNativeNetworkThrottleEnabled === enabled) {
+    return isStableStorageState;
+  }
+
+  await nativeNetworkThrottle.setNetworkThrottle({
+    enabled,
+    profile: 'slow4g',
+    latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
+  });
+  lastSyncedNativeNetworkThrottleEnabled = enabled;
+  return isStableStorageState;
 }
 
 async function ensureNativeNetworkThrottleSyncedBeforeRequest() {
@@ -398,11 +402,20 @@ axios.interceptors.response.use(
         },
         requestId: config.headers[requestIdKey] as string,
       });
-      // Preserve the request config (like AxiosError.config) so later
-      // response interceptors can identify the failed request, e.g. the
-      // prime invalid-token handler compares the request's auth token
+      // Attach ONLY the request's auth token so later response interceptors
+      // (e.g. the prime invalid-token handler in ServiceBase) can compare it
       // against the currently active one before clearing the session.
-      serverApiError.config = config;
+      // Deliberately NOT the whole axios config: the full config carries the
+      // request body and every header on an error object that escapes to
+      // arbitrary catch blocks in both runtimes.
+      const requestHeaders = config.headers;
+      const requestAuthToken =
+        requestHeaders?.get?.(ONEKEY_REQUEST_TOKEN_HEADER) ||
+        requestHeaders?.[ONEKEY_REQUEST_TOKEN_HEADER] ||
+        requestHeaders?.[ONEKEY_REQUEST_TOKEN_HEADER.toLowerCase()];
+      if (requestAuthToken) {
+        serverApiError.$$requestAuthToken = String(requestAuthToken);
+      }
       throw serverApiError;
     }
     if (isEnableLogNetwork(config.url)) {

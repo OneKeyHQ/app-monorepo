@@ -18,7 +18,6 @@ import type {
   IOneKeyHardwareErrorPayload,
   IOneKeyJsError,
 } from '../types/errorTypes';
-import type { InternalAxiosRequestConfig } from 'axios';
 
 // const fakeMessage = 'FAKE_MESSAGE:F43E2460-AB7F-4EA5-9651-7D38C189AB45';
 
@@ -178,9 +177,14 @@ export class OneKeyServerApiError extends OneKeyError<
   override className?: EOneKeyErrorClassNames | undefined =
     EOneKeyErrorClassNames.OneKeyServerApiError;
 
-  // Mirrors AxiosError.config so response interceptors registered after the
-  // global one (e.g. the prime invalid-token handler in ServiceBase) can read
-  // which auth token the failed request carried. Never serialized across the
-  // bg/main bridge (toPlainErrorObject whitelists its fields).
-  config?: InternalAxiosRequestConfig;
+  // Auth token (X-Onekey-Request-Token) the failed request carried, so
+  // response interceptors registered after the global one (e.g. the prime
+  // invalid-token handler in ServiceBase) can compare it against the
+  // currently active token before clearing the session.
+  // Intentionally NOT the whole axios request config: attaching the full
+  // config would pin the request body and auth headers on an error object
+  // that propagates to arbitrary catch blocks. Never serialized across the
+  // bg/main bridge (toPlainErrorObject whitelists its fields, and this
+  // $$-prefixed internal field is not in the whitelist).
+  $$requestAuthToken?: string;
 }
