@@ -307,6 +307,27 @@ export const { target: perpsSpotBalancesAtom, use: usePerpsSpotBalancesAtom } =
   });
 // #endregion
 
+export type IPerpsActiveAccountStatusDetails = {
+  activatedOk: boolean;
+  agentOk: boolean;
+  referralCodeOk: boolean;
+  builderFeeOk: boolean;
+  internalRebateBoundOk: boolean;
+  abstractionOk: boolean;
+  requiresAgentRemovalSignature?: boolean;
+};
+export type IPerpsActiveAccountStatusInfoAtom =
+  | {
+      accountAddress: IHex | null;
+      details: IPerpsActiveAccountStatusDetails;
+    }
+  | undefined;
+export const { target: perpsActiveAccountStatusInfoAtom } =
+  globalAtom<IPerpsActiveAccountStatusInfoAtom>({
+    name: EAtomNames.perpsActiveAccountStatusInfoAtom,
+    initialValue: undefined,
+  });
+
 export const {
   target: perpsComputedAccountValueAtom,
   use: usePerpsComputedAccountValueAtom,
@@ -320,8 +341,12 @@ export const {
     const modeData = get(perpsAbstractionModeAtom.atom());
     const summary = get(perpsActiveAccountSummaryAtom.atom());
     const spotData = get(perpsSpotBalancesAtom.atom());
+    const status = get(perpsActiveAccountStatusInfoAtom.atom());
 
     const activeAddress = account?.accountAddress?.toLowerCase();
+    const isStatusForActiveAccount =
+      Boolean(activeAddress) &&
+      status?.accountAddress?.toLowerCase() === activeAddress;
     const isSummaryForActiveAccount =
       Boolean(activeAddress) &&
       summary?.accountAddress?.toLowerCase() === activeAddress;
@@ -335,6 +360,16 @@ export const {
     const activeSummary = isSummaryForActiveAccount ? summary : undefined;
     const activeSpotData = isSpotForActiveAccount ? spotData : undefined;
     const mode = isModeForActiveAccount ? modeData?.mode : undefined;
+    const isActiveAccountNotActivated =
+      isStatusForActiveAccount && status?.details?.activatedOk === false;
+
+    if (isActiveAccountNotActivated) {
+      return {
+        accountValue: '0',
+        withdrawable: '0',
+        isLoading: false,
+      };
+    }
 
     // Mode unknown or DEFAULT: use existing clearinghouse value as fallback, mark loading
     // DEFAULT is treated like disabled (spot+perps) until auto-correction sets it to unified
@@ -414,27 +449,6 @@ export const {
     return { mmr: mmr.toFixed(), mmrPercent: mmr.multipliedBy(100).toFixed(2) };
   },
 });
-
-export type IPerpsActiveAccountStatusDetails = {
-  activatedOk: boolean;
-  agentOk: boolean;
-  referralCodeOk: boolean;
-  builderFeeOk: boolean;
-  internalRebateBoundOk: boolean;
-  abstractionOk: boolean;
-  requiresAgentRemovalSignature?: boolean;
-};
-export type IPerpsActiveAccountStatusInfoAtom =
-  | {
-      accountAddress: IHex | null;
-      details: IPerpsActiveAccountStatusDetails;
-    }
-  | undefined;
-export const { target: perpsActiveAccountStatusInfoAtom } =
-  globalAtom<IPerpsActiveAccountStatusInfoAtom>({
-    name: EAtomNames.perpsActiveAccountStatusInfoAtom,
-    initialValue: undefined,
-  });
 
 export type IPerpsActiveAccountStatusAtom = {
   canTrade: boolean | null | undefined;

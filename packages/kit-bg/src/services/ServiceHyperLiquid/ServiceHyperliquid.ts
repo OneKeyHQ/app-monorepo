@@ -2918,6 +2918,17 @@ export default class ServiceHyperliquid extends ServiceBase {
           isEnableTradingTrigger,
           statusDetails: { ...statusDetails },
         });
+        const latestActiveAccount = await perpsActiveAccountAtom.get();
+        if (
+          latestActiveAccount?.accountAddress?.toLowerCase() === accountAddress
+        ) {
+          await spotBalancesAtom.set({ balances: [], isLoaded: true });
+          await perpsSpotBalancesAtom.set({
+            accountAddress,
+            balances: [],
+            spotTotalUsd: '0',
+          });
+        }
         // await this.checkBuilderFeeStatus({
         //   accountAddress,
         //   isEnableTradingTrigger,
