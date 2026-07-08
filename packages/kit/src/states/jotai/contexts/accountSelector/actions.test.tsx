@@ -452,6 +452,47 @@ describe('useAccountSelectorActions', () => {
     );
   });
 
+  it('keeps a locked temp hidden wallet selection during storage init', async () => {
+    const lockedHiddenWalletSelection = {
+      ...defaultSelectedAccount(),
+      walletId: 'hw-standard--hidden',
+      indexedAccountId: 'hw-standard--hidden-indexed-1',
+      networkId: 'onekeyall',
+      deriveType: 'default' as const,
+      focusedWallet: 'hw-standard--hidden',
+    };
+    const lockedHiddenWallet = {
+      id: 'hw-standard--hidden',
+      name: 'Hidden wallet',
+      isTemp: true,
+    } as IWallet;
+
+    mockGetSelectedAccountsMap.mockResolvedValue({
+      0: lockedHiddenWalletSelection,
+    });
+    mockGetWalletSafe.mockResolvedValue(lockedHiddenWallet);
+    mockIsTempWalletRemoved.mockResolvedValue(true);
+
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.initFromStorage({
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: lockedHiddenWallet.id,
+      focusedWallet: lockedHiddenWallet.id,
+      indexedAccountId: lockedHiddenWalletSelection.indexedAccountId,
+      networkId: 'onekeyall',
+    });
+    expect(mockSaveSelectedAccount).not.toHaveBeenCalled();
+  });
+
   it('selects an empty hardware wallet after a hidden wallet becomes unavailable', async () => {
     const hiddenWalletSelection = {
       ...defaultSelectedAccount(),
@@ -659,7 +700,7 @@ describe('useAccountSelectorActions', () => {
     });
   });
 
-  it('persists a cleared selection after a temp hidden wallet is removed without a usable fallback', async () => {
+  it('clears a temp hidden wallet without persisting when no usable fallback exists', async () => {
     const hiddenWalletSelection = {
       ...defaultSelectedAccount(),
       walletId: 'hw-standard--hidden',
@@ -733,19 +774,7 @@ describe('useAccountSelectorActions', () => {
       networkId: 'onekeyall',
     });
 
-    expect(mockSaveSelectedAccount).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sceneName: EAccountSelectorSceneName.home,
-        num: 0,
-        selectedAccount: expect.objectContaining({
-          walletId: undefined,
-          focusedWallet: undefined,
-          indexedAccountId: undefined,
-          othersWalletAccountId: undefined,
-          networkId: 'onekeyall',
-        }),
-      }),
-    );
+    expect(mockSaveSelectedAccount).not.toHaveBeenCalled();
   });
 
   it('clears an empty standard wallet selection after the standard wallet is removed', async () => {

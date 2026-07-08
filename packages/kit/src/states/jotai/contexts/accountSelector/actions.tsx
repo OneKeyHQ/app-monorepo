@@ -828,7 +828,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     return undefined;
   };
 
-  isSelectedAccountWalletUnavailable = async ({
+  isSelectedAccountWalletPersistentlyUnavailable = async ({
     selectedAccount,
   }: {
     selectedAccount: IAccountSelectorSelectedAccount | undefined;
@@ -851,12 +851,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     const isDeprecatedOrMocked = Boolean(
       wallet && accountUtils.isWalletDeprecatedOrMocked(wallet),
     );
-    const isTempWalletRemoved = wallet
-      ? await serviceAccount.isTempWalletRemoved({
-          wallet,
-        })
-      : false;
-    return isMissingWallet || isDeprecatedOrMocked || isTempWalletRemoved;
+    return isMissingWallet || isDeprecatedOrMocked;
   };
 
   clearUnavailableWalletSelectionsInStorage = async ({
@@ -881,11 +876,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     await Promise.all(
       Object.entries(selectedAccountsMap).map(
         async ([numText, selectedAccount]) => {
-          const isUnavailableWallet =
-            await this.isSelectedAccountWalletUnavailable({
+          const isPersistentlyUnavailableWallet =
+            await this.isSelectedAccountWalletPersistentlyUnavailable({
               selectedAccount,
             });
-          if (!isUnavailableWallet) {
+          if (!isPersistentlyUnavailableWallet) {
             return;
           }
           const num = Number(numText);
@@ -2904,6 +2899,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       if (
         !previousSelectedAccountHasWalletSelection ||
         selectedAccountHasIdentity
+      ) {
+        return;
+      }
+      if (
+        !(await this.isSelectedAccountWalletPersistentlyUnavailable({
+          selectedAccount: previousSelectedAccount,
+        }))
       ) {
         return;
       }
