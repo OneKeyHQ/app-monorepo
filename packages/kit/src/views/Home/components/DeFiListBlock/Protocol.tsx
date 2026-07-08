@@ -312,9 +312,19 @@ function useProtocolViewModel({
         protocolInfo,
         accountId,
         indexedAccountId,
+        // Hand the already-resolved actions to the detail page so its buttons
+        // render on the first paint, together with the positions.
+        supportedActions,
       },
     });
-  }, [accountId, indexedAccountId, navigation, protocol, protocolInfo]);
+  }, [
+    accountId,
+    indexedAccountId,
+    navigation,
+    protocol,
+    protocolInfo,
+    supportedActions,
+  ]);
 
   return {
     categoryGroups,

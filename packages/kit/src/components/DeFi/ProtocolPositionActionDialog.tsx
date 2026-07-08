@@ -1,9 +1,10 @@
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Button,
   Checkbox,
   Dialog,
@@ -16,6 +17,7 @@ import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token, TokenGroup } from '@onekeyhq/kit/src/components/Token';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { SendAutoSizeAmountInput } from '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput';
@@ -47,6 +49,7 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { showDeFiActionTxConfirmDialog } from './DeFiActionTxConfirmResult';
+import { resolveProtocolLendingDefiFillableAmountState } from './protocolLendingActionUtils';
 import {
   ProtocolValueCell,
   isProtocolAssetValueUnavailable,
@@ -54,6 +57,11 @@ import {
 
 const DEFAULT_ACTION_PERCENT = 100;
 const PERCENTAGE_PRESET_VALUES = [25, 50, 75, 100] as const;
+
+type IRepayWalletBalanceLoadState = {
+  balance?: string;
+  errorMessage?: string;
+};
 
 // Both action heroes (typed-amount and percentage) reserve this height and
 // center their content, so the Dialog stays the same size in either mode and
@@ -156,6 +164,7 @@ type IProtocolPositionActionPreviewAsset = {
   symbol: string;
   value: number;
   metaLabel?: string;
+  minAmount?: string;
 };
 
 function getPercentScale(percent?: number) {
@@ -216,8 +225,21 @@ function buildSelectedAssetPreviewAssets({
   percent?: number;
 }): IProtocolPositionActionPreviewAsset[] {
   const isPercentAction = isPercentageAction(action);
-  return getOutputPreviewSourceAssets({ action, selectedAsset }).map(
-    (asset) => ({
+  const sourceAssets = getOutputPreviewSourceAssets({ action, selectedAsset });
+  // Uniswap-style removes carry human-decimal slippage floors positionally:
+  // amount0Min -> underlyingAssets[0], amount1Min -> underlyingAssets[1].
+  // The underlying list is positive-amount filtered, so positional trust
+  // requires exactly the pool's two tokens to be present.
+  const minAmounts =
+    action === EDeFiPositionAction.RemoveLiquidity && sourceAssets.length === 2
+      ? [
+          getPositiveAmount(selectedAsset.extraParams?.amount0Min),
+          getPositiveAmount(selectedAsset.extraParams?.amount1Min),
+        ]
+      : [];
+  return sourceAssets.map((asset, index) => {
+    const minAmount = minAmounts[index];
+    return {
       asset,
       amount: isPercentAction
         ? scaleAmountByPercent(asset.amount, percent)
@@ -226,8 +248,12 @@ function buildSelectedAssetPreviewAssets({
       value: isPercentAction
         ? scaleValueByPercent(asset.value, percent)
         : asset.value,
-    }),
-  );
+      minAmount:
+        isPercentAction && minAmount
+          ? getPositiveAmount(scaleAmountByPercent(minAmount, percent))
+          : minAmount,
+    };
+  });
 }
 
 function getPreviewAssetKey(asset: IProtocolPositionActionPreviewAsset) {
@@ -253,6 +279,9 @@ function aggregatePreviewAssets(assets: IProtocolPositionActionPreviewAsset[]) {
     const value = existing.value + asset.value;
     result[existingIndex] = {
       ...existing,
+      // A merged row sums amounts across pools; a single pool's floor no
+      // longer applies, so it is dropped rather than shown misleadingly.
+      minAmount: undefined,
       amount: amount.isFinite() ? amount.toFixed() : existing.amount,
       value,
       asset: {
@@ -719,6 +748,11 @@ type IProtocolPositionActionSubmitParams = {
   isMaxAmount?: boolean;
   // Position holds rewards — drives the "Remove & Claim rewards" tx label.
   hasRewards?: boolean;
+  // When provided and returning true at failure time, the hook skips its
+  // error Toast — the caller renders the error inline instead. A callback
+  // (not a boolean) so the dialog can fall back to the Toast for errors
+  // thrown after it has already closed (e.g. tx-confirm init failures).
+  isErrorToastSuppressed?: () => boolean;
   onBeforeNavigateConfirm?: () => void | Promise<void>;
 };
 
@@ -782,6 +816,7 @@ function useProtocolPositionActionSubmit({
       amount,
       isMaxAmount,
       hasRewards,
+      isErrorToastSuppressed,
       onBeforeNavigateConfirm,
     }: IProtocolPositionActionSubmitParams) => {
       if (selectedAssets.length === 0) {
@@ -988,7 +1023,11 @@ function useProtocolPositionActionSubmit({
         }
       } catch (error) {
         if (!isUserRejectedErrorMessage({ error, intl })) {
-          showProtocolPositionActionErrorToast(error);
+          if (isErrorToastSuppressed?.()) {
+            errorToastUtils.toastIfErrorDisable(error);
+          } else {
+            showProtocolPositionActionErrorToast(error);
+          }
         }
         throw error;
       }
@@ -1052,92 +1091,117 @@ function ProtocolPositionActionAnchor({
   label,
   iconNode,
   valueNode,
+  secondaryLabel,
+  secondaryValueNode,
 }: {
   label: string;
   iconNode: ReactNode;
   valueNode: ReactNode;
+  // Optional second fact rendered inside the same box (e.g. repay shows the
+  // remaining debt on top and the spendable wallet balance beneath it).
+  secondaryLabel?: string;
+  secondaryValueNode?: ReactNode;
 }) {
+  // Icon is a left accent that vertically centres against the whole block; the
+  // label/value rows live in a column beside it, so a second fact (repay's
+  // wallet balance) stacks cleanly under the first and both values right-align.
   return (
     <XStack
       alignItems="center"
-      justifyContent="space-between"
-      gap="$3"
+      gap="$2"
       bg="$bgSubdued"
       borderRadius="$3"
       px="$3"
       py="$2.5"
     >
-      <XStack alignItems="center" gap="$2" flexShrink={1} minWidth={0}>
-        {iconNode}
-        <SizableText
-          size="$bodyMd"
-          color="$textSubdued"
-          numberOfLines={1}
-          flexShrink={1}
-        >
-          {label}
-        </SizableText>
-      </XStack>
-      {valueNode}
+      {iconNode}
+      <YStack flex={1} gap="$1.5" minWidth={0}>
+        <XStack alignItems="center" justifyContent="space-between" gap="$3">
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            numberOfLines={1}
+            flexShrink={1}
+          >
+            {label}
+          </SizableText>
+          {valueNode}
+        </XStack>
+        {secondaryLabel !== undefined ? (
+          <XStack alignItems="center" justifyContent="space-between" gap="$3">
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              numberOfLines={1}
+              flexShrink={1}
+            >
+              {secondaryLabel}
+            </SizableText>
+            {secondaryValueNode}
+          </XStack>
+        ) : null}
+      </YStack>
     </XStack>
   );
 }
 
 // The percentage hero for remove-liquidity (and other no-fungible-amount
-// percentage actions): the % being removed is the hero, the fiat value sits
-// beneath — mirroring the typed-amount hero in withdraw.
+// percentage actions): the % being removed is an editable auto-sizing input —
+// the same control as the typed-amount hero — with the fiat value beneath.
+// Presets fill it; free typing covers any integer 1..100.
 function ProtocolPositionActionPercentHero({
-  percent,
+  percentText,
+  onChangePercentText,
+  onFocus,
   value,
   isUnavailable,
   showPriceUnavailableTooltip,
   currencySymbol,
   priceUnavailableLabel,
 }: {
-  percent: number;
+  percentText: string;
+  onChangePercentText: (value: string) => void;
+  onFocus?: () => void;
   value: number;
   isUnavailable: boolean;
   showPriceUnavailableTooltip: boolean;
   currencySymbol: string;
   priceUnavailableLabel: string;
 }) {
-  const normalizedPercent = normalizeActionPercent(percent);
-  // Mirror the typed-amount hero (SendAutoSizeAmountInput): no top label — the
-  // Dialog.Title already carries the verb — a large centered value with the
-  // fiat at $headingLg beneath, sharing DEFI_ACTION_HERO_MIN_HEIGHT so the
-  // percentage and typed-amount flows read as one hero, not two screens.
   return (
-    <YStack
-      gap="$2"
-      alignItems="center"
-      justifyContent="center"
+    <SendAutoSizeAmountInput
       minHeight={DEFI_ACTION_HERO_MIN_HEIGHT}
-    >
-      <SizableText
-        size="$heading5xl"
-        color="$text"
-        fontVariant={['tabular-nums']}
-      >
-        {`${normalizedPercent}%`}
-      </SizableText>
-      <XStack alignItems="center" gap="$1" minWidth={0}>
-        <SizableText size="$headingLg" color="$textSubdued">
-          ≈
-        </SizableText>
-        <ProtocolValueCell
-          value={value}
-          currencySymbol={currencySymbol}
-          priceUnavailableLabel={priceUnavailableLabel}
-          isUnavailable={isUnavailable}
-          showPriceUnavailableTooltip={showPriceUnavailableTooltip}
-          size="$headingLg"
-          color="$textSubdued"
-          textAlign="center"
-          numberOfLines={1}
-          fontVariant={['tabular-nums']}
-        />
-      </XStack>
-    </YStack>
+      justifyContent="center"
+      maxFontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
+      value={percentText}
+      onChange={onChangePercentText}
+      tokenSymbol="%"
+      inputProps={{ keyboardType: 'number-pad', onFocus }}
+      extraContent={
+        <XStack
+          alignItems="center"
+          justifyContent="center"
+          gap="$1"
+          minWidth={0}
+        >
+          <SizableText size="$headingLg" color="$textSubdued">
+            ≈
+          </SizableText>
+          <ProtocolValueCell
+            value={value}
+            currencySymbol={currencySymbol}
+            priceUnavailableLabel={priceUnavailableLabel}
+            isUnavailable={isUnavailable}
+            showPriceUnavailableTooltip={showPriceUnavailableTooltip}
+            size="$headingLg"
+            color="$textSubdued"
+            textAlign="center"
+            numberOfLines={1}
+            fontVariant={['tabular-nums']}
+          />
+        </XStack>
+      }
+    />
   );
 }
 
@@ -1156,24 +1220,51 @@ function ProtocolPositionActionReceiveRow({
     <XStack alignItems="center" justifyContent="space-between" gap="$3">
       <XStack alignItems="center" gap="$2.5" flexShrink={1} minWidth={0}>
         <Token size="sm" tokenImageUri={asset.asset.meta?.logoUrl} bg="$bg" />
-        <XStack alignItems="center" gap="$1" flexShrink={1} minWidth={0}>
-          <NumberSizeableTextWrapper
-            hideValue
-            size="$bodyLgMedium"
-            formatter="balance"
-            numberOfLines={1}
-          >
-            {asset.amount}
-          </NumberSizeableTextWrapper>
-          <SizableText
-            size="$bodyLgMedium"
-            color="$text"
-            numberOfLines={1}
-            flexShrink={1}
-          >
-            {asset.symbol}
-          </SizableText>
-        </XStack>
+        <YStack flexShrink={1} minWidth={0} gap="$0.5">
+          <XStack alignItems="center" gap="$1" flexShrink={1} minWidth={0}>
+            <NumberSizeableTextWrapper
+              hideValue
+              size="$bodyLgMedium"
+              formatter="balance"
+              numberOfLines={1}
+            >
+              {asset.amount}
+            </NumberSizeableTextWrapper>
+            <SizableText
+              size="$bodyLgMedium"
+              color="$text"
+              numberOfLines={1}
+              flexShrink={1}
+            >
+              {asset.symbol}
+            </SizableText>
+            {asset.metaLabel ? (
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {asset.metaLabel}
+              </SizableText>
+            ) : null}
+          </XStack>
+          {asset.minAmount ? (
+            <XStack alignItems="center" gap="$1" minWidth={0}>
+              <SizableText size="$bodySm" color="$textSubdued">
+                ≥
+              </SizableText>
+              <NumberSizeableTextWrapper
+                hideValue
+                size="$bodySm"
+                color="$textSubdued"
+                formatter="balance"
+                numberOfLines={1}
+              >
+                {asset.minAmount}
+              </NumberSizeableTextWrapper>
+            </XStack>
+          ) : null}
+        </YStack>
       </XStack>
       {showValue ? (
         <ProtocolValueCell
@@ -1271,6 +1362,9 @@ function ProtocolPositionActionAmountInput({
   maxLabel,
   insufficientLabel,
   validator,
+  onFocus,
+  secondaryLabel,
+  secondaryAmount,
 }: {
   amount: string;
   onChangeAmount: (value: string) => void;
@@ -1286,6 +1380,11 @@ function ProtocolPositionActionAmountInput({
   maxLabel: string;
   insufficientLabel: string;
   validator?: (value: string) => boolean;
+  onFocus?: () => void;
+  // Optional secondary balance line under the primary anchor (repay uses it for
+  // the spendable wallet balance beneath the remaining debt).
+  secondaryLabel?: string;
+  secondaryAmount?: string;
 }) {
   return (
     <YStack gap="$5">
@@ -1297,6 +1396,7 @@ function ProtocolPositionActionAmountInput({
         onChange={onChangeAmount}
         validator={validator}
         tokenSymbol={symbol}
+        inputProps={{ onFocus }}
         valueProps={{
           value: fiatValue,
           currency: currencySymbol,
@@ -1333,6 +1433,31 @@ function ProtocolPositionActionAmountInput({
             </SizableText>
           </XStack>
         }
+        secondaryLabel={
+          secondaryAmount !== undefined ? secondaryLabel : undefined
+        }
+        secondaryValueNode={
+          secondaryAmount !== undefined ? (
+            <XStack alignItems="center" gap="$1" flexShrink={0} minWidth={0}>
+              <NumberSizeableTextWrapper
+                hideValue
+                size="$bodyMdMedium"
+                color="$textSubdued"
+                formatter="balance"
+                numberOfLines={1}
+              >
+                {secondaryAmount}
+              </NumberSizeableTextWrapper>
+              <SizableText
+                size="$bodyMdMedium"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {symbol}
+              </SizableText>
+            </XStack>
+          ) : null
+        }
       />
       <ProtocolPositionActionPercentPresetRow
         percent={selectedPercent}
@@ -1348,12 +1473,16 @@ function ProtocolPositionActionDialogContent({
   networkId,
   action,
   hasRewards,
+  hasDebts,
+  rewardAssets,
   onSuccess,
 }: {
   accountId: string;
   networkId: string;
   action: IResolvedDeFiPositionAction;
   hasRewards?: boolean;
+  hasDebts?: boolean;
+  rewardAssets?: IDeFiAsset[];
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
   ) => void | Promise<void>;
@@ -1369,7 +1498,15 @@ function ProtocolPositionActionDialogContent({
       currencyInfo: { symbol: currencySymbol },
     },
   ] = useSettingsPersistAtom();
-  const [actionPercent, setActionPercent] = useState(DEFAULT_ACTION_PERCENT);
+  // Percent as typed text so the hero is directly editable. Invalid or empty
+  // text zeroes the preview and disables confirm (buildDeFiActionBps returns
+  // undefined outside integer 1..100) while keeping the field editable.
+  const [actionPercentText, setActionPercentText] = useState(
+    String(DEFAULT_ACTION_PERCENT),
+  );
+  const actionPercent = /^(0|[1-9]\d{0,2})$/.test(actionPercentText)
+    ? Math.min(100, Number(actionPercentText))
+    : 0;
   // Manual single-token entry (withdraw / repay). `amount` is human-decimal;
   // `isMaxAmount` flags a full close so submit sends bps=10000 instead.
   //
@@ -1391,6 +1528,7 @@ function ProtocolPositionActionDialogContent({
   const [selectedAssetIndexes, setSelectedAssetIndexes] = useState<number[]>(
     () => (action.assets[0] ? [0] : []),
   );
+  const [submitError, setSubmitError] = useState<string | undefined>(undefined);
 
   const selectedAssets = useMemo(
     () =>
@@ -1430,11 +1568,65 @@ function ProtocolPositionActionDialogContent({
     (next: string) => validateAmountInput(next, amountDecimals),
     [amountDecimals],
   );
+  // Repay spends tokens from the wallet, but `availableAmount` above is the
+  // DEBT size — the user may hold less than the debt. Fetch the wallet
+  // balance so over-spend fails here instead of at tx-confirm simulation.
+  // `address` is '' for the native token; the API handles both uniformly.
+  const isRepayAction = action.action === EDeFiPositionAction.Repay;
+  const repayTokenAddress =
+    manualAmountAsset?.tokenAddress ?? manualAmountAsset?.asset.address;
+  const {
+    result: repayWalletBalanceState,
+    isLoading: repayWalletBalanceLoading,
+  } = usePromiseResult<IRepayWalletBalanceLoadState>(
+    async () => {
+      if (!isRepayAction || repayTokenAddress === undefined) return {};
+      try {
+        const details =
+          await backgroundApiProxy.serviceToken.fetchTokensDetails({
+            accountId,
+            networkId,
+            contractList: [repayTokenAddress],
+          });
+        return { balance: details?.[0]?.balanceParsed };
+      } catch (error) {
+        return { errorMessage: getErrorMessage(error) };
+      }
+    },
+    [accountId, isRepayAction, networkId, repayTokenAddress],
+    { watchLoading: true, undefinedResultIfReRun: true },
+  );
+  const repayWalletBalance = repayWalletBalanceState?.balance;
+  const repayWalletBalanceError = repayWalletBalanceState?.errorMessage;
+  const isRepayWalletBalancePending =
+    isRepayAction &&
+    (repayWalletBalanceLoading || repayWalletBalanceState === undefined);
   const amountBN = new BigNumber(amount || '0');
   const availableBN = new BigNumber(availableAmount || '0');
   const isAmountPositive = amountBN.isFinite() && amountBN.gt(0);
+  const repayWalletBalanceBN =
+    isRepayAction && repayWalletBalance !== undefined
+      ? new BigNumber(repayWalletBalance)
+      : undefined;
+  const {
+    fillableMaxBN,
+    fillableMax,
+    isFillableMaxFullClose,
+    isRepayWalletBalanceReady,
+  } = resolveProtocolLendingDefiFillableAmountState({
+    isRepay: isRepayAction,
+    availableAmount,
+    repayWalletBalance,
+  });
   const isAmountInsufficient =
-    amountBN.isFinite() && availableBN.isFinite() && amountBN.gt(availableBN);
+    (amountBN.isFinite() &&
+      availableBN.isFinite() &&
+      amountBN.gt(availableBN)) ||
+    Boolean(
+      repayWalletBalanceBN?.isFinite() &&
+      amountBN.isFinite() &&
+      amountBN.gt(repayWalletBalanceBN),
+    );
   const isAmountValid = isAmountPositive && !isAmountInsufficient;
   const amountFiatValue = isAmountPositive
     ? amountBN.multipliedBy(manualAmountAsset?.asset.price ?? 0).toFixed()
@@ -1444,8 +1636,8 @@ function ProtocolPositionActionDialogContent({
   let selectedAmountPercent = 0;
   if (isMaxAmount) {
     selectedAmountPercent = 100;
-  } else if (isAmountPositive && availableBN.gt(0)) {
-    const pct = amountBN.div(availableBN).multipliedBy(100);
+  } else if (isAmountPositive && fillableMaxBN.gt(0)) {
+    const pct = amountBN.div(fillableMaxBN).multipliedBy(100);
     selectedAmountPercent =
       PERCENTAGE_PRESET_VALUES.find((preset) =>
         pct.minus(preset).abs().lt(0.5),
@@ -1453,6 +1645,10 @@ function ProtocolPositionActionDialogContent({
   }
   const isConfirmDisabled =
     selectedAssets.length === 0 ||
+    (isRepayAction &&
+      (isRepayWalletBalancePending ||
+        Boolean(repayWalletBalanceError) ||
+        !isRepayWalletBalanceReady)) ||
     (useManualAmountInput
       ? !isAmountValid
       : isPercentAction && !actionPercentBps);
@@ -1472,9 +1668,34 @@ function ProtocolPositionActionDialogContent({
     () => aggregatePreviewAssets(outputPreviewAssets),
     [outputPreviewAssets],
   );
+  // Removing an LP that holds rewards also claims them ("Remove & Claim
+  // rewards"), so the preview must list the reward tokens too. Rewards are
+  // claimed in FULL regardless of the removal percent, so they are not
+  // percent-scaled — and they stay out of aggregatePreviewAssets so a reward
+  // token that is also a pool underlying keeps its own "Rewards"-tagged row.
+  const rewardsLabel = intl.formatMessage({ id: ETranslations.earn_rewards });
+  const rewardPreviewAssets = useMemo<IProtocolPositionActionPreviewAsset[]>(
+    () =>
+      action.action === EDeFiPositionAction.RemoveLiquidity && hasRewards
+        ? (rewardAssets ?? [])
+            .filter((asset) => new BigNumber(asset.amount).gt(0))
+            .map((asset) => ({
+              asset,
+              amount: asset.amount,
+              symbol: asset.symbol,
+              value: asset.value,
+              metaLabel: rewardsLabel,
+            }))
+        : [],
+    [action.action, hasRewards, rewardAssets, rewardsLabel],
+  );
+  const receivePreviewAssets = useMemo(
+    () => [...aggregatedOutputPreviewAssets, ...rewardPreviewAssets],
+    [aggregatedOutputPreviewAssets, rewardPreviewAssets],
+  );
   const outputValueState = useMemo(
-    () => getPreviewAssetsValueState(aggregatedOutputPreviewAssets),
-    [aggregatedOutputPreviewAssets],
+    () => getPreviewAssetsValueState(receivePreviewAssets),
+    [receivePreviewAssets],
   );
   const selectAllLabel = intl.formatMessage({
     id: allSelected
@@ -1500,6 +1721,15 @@ function ProtocolPositionActionDialogContent({
   const receiveLabel = isPercentAction ? resultLabel : sourceLabel;
   const currentSelectedAsset = selectedAssets[0];
 
+  const handleActionPercentChange = (next: string) => {
+    // Integers 0..100 only, no leading zeros; allow empty while editing.
+    // Reject other keystrokes outright (same convention as the token-amount
+    // input's validateAmountInput gate).
+    if (next !== '' && !/^(0|[1-9]\d{0,2})$/.test(next)) return;
+    if (next !== '' && Number(next) > 100) return;
+    setActionPercentText(next);
+  };
+
   const handleAmountChange = (next: string) => {
     // Project convention: reject keystrokes that exceed the token's decimals
     // (same gate as Send), rather than silently truncating.
@@ -1510,9 +1740,45 @@ function ProtocolPositionActionDialogContent({
     setIsMaxAmount(false);
   };
 
+  // Withdraw prefills the full balance as an untouched Max default. First
+  // focus clears it — the user is here to type a custom amount and would
+  // otherwise delete the prefill by hand. A Max the user pressed deliberately
+  // (preset row) is never cleared; the ref marks that intent.
+  const hasUserSetMaxRef = useRef(false);
+  const handleAmountInputFocus = () => {
+    if (isMaxAmount && !hasUserSetMaxRef.current) {
+      setAmount('');
+      setIsMaxAmount(false);
+    }
+  };
+
+  // The percent hero prefills 100% as an untouched default; first focus clears
+  // it, mirroring the amount hero's Max-prefill clear. A percent the user set
+  // deliberately (typed, or picked from the preset row) is never cleared.
+  const isPercentPristineRef = useRef(true);
+  const handlePercentInputFocus = () => {
+    if (isPercentPristineRef.current) {
+      isPercentPristineRef.current = false;
+      setActionPercentText('');
+    }
+  };
+
+  const handlePercentPresetChange = (presetPercent: number) => {
+    isPercentPristineRef.current = false;
+    setActionPercentText(String(presetPercent));
+  };
+
   const handleMaxAmount = () => {
-    setAmount(clampAmountDecimals(availableAmount, amountDecimals));
-    setIsMaxAmount(true);
+    if (
+      isRepayWalletBalancePending ||
+      repayWalletBalanceError ||
+      !isRepayWalletBalanceReady
+    ) {
+      return;
+    }
+    hasUserSetMaxRef.current = true;
+    setAmount(clampAmountDecimals(fillableMax, amountDecimals));
+    setIsMaxAmount(isFillableMaxFullClose);
   };
 
   const handleSelectPercent = (percent: number) => {
@@ -1522,7 +1788,14 @@ function ProtocolPositionActionDialogContent({
       handleMaxAmount();
       return;
     }
-    const next = availableBN.multipliedBy(percent).div(100);
+    if (
+      isRepayWalletBalancePending ||
+      repayWalletBalanceError ||
+      !isRepayWalletBalanceReady
+    ) {
+      return;
+    }
+    const next = fillableMaxBN.multipliedBy(percent).div(100);
     setAmount(clampAmountDecimals(next.toFixed(), amountDecimals));
     setIsMaxAmount(false);
   };
@@ -1560,12 +1833,13 @@ function ProtocolPositionActionDialogContent({
       return;
     }
 
+    setSubmitError(undefined);
     // Keep the action dialog open while the server builds the transaction so
     // the button can show loading. Close it immediately before opening any
     // signing/tx-confirm modal, otherwise the old dialog stays stacked above
     // the confirm page until the async submit finishes.
+    let isActionDialogClosed = false;
     try {
-      let isActionDialogClosed = false;
       await submitProtocolPositionAction({
         action,
         selectedAssets,
@@ -1573,15 +1847,23 @@ function ProtocolPositionActionDialogContent({
         percent: isPercentAction ? actionPercent : undefined,
         amount: useManualAmountInput ? amount : undefined,
         isMaxAmount: useManualAmountInput ? isMaxAmount : undefined,
+        // Errors raised while the dialog is still open render inline below;
+        // once it has closed, the hook's Toast is the only visible surface.
+        isErrorToastSuppressed: () => !isActionDialogClosed,
         onBeforeNavigateConfirm: async () => {
           if (isActionDialogClosed) return;
           isActionDialogClosed = true;
           await close?.();
         },
       });
-    } catch {
-      // submitProtocolPositionAction already surfaced the error via global
-      // error toast; keep the dialog open so the user can retry.
+    } catch (error) {
+      if (
+        !isActionDialogClosed &&
+        !isUserRejectedErrorMessage({ error, intl })
+      ) {
+        setSubmitError(getErrorMessage(error));
+      }
+      // Keep the dialog open so the user can retry instead of auto-closing.
       preventClose();
     }
   };
@@ -1647,6 +1929,7 @@ function ProtocolPositionActionDialogContent({
         availableLabel={availableLabel}
         maxLabel={maxLabel}
         insufficientLabel={insufficientLabel}
+        onFocus={handleAmountInputFocus}
       />
     );
   } else if (isPercentAction) {
@@ -1657,7 +1940,9 @@ function ProtocolPositionActionDialogContent({
     actionBody = (
       <YStack gap="$5">
         <ProtocolPositionActionPercentHero
-          percent={actionPercent}
+          percentText={actionPercentText}
+          onChangePercentText={handleActionPercentChange}
+          onFocus={handlePercentInputFocus}
           value={outputValueState.value}
           isUnavailable={outputValueState.isUnavailable}
           showPriceUnavailableTooltip={
@@ -1704,11 +1989,11 @@ function ProtocolPositionActionDialogContent({
         <ProtocolPositionActionPercentPresetRow
           percent={actionPercent}
           maxLabel={maxLabel}
-          onChange={setActionPercent}
+          onChange={handlePercentPresetChange}
         />
         <ProtocolPositionActionReceive
           label={resultLabel}
-          assets={aggregatedOutputPreviewAssets}
+          assets={receivePreviewAssets}
           currencySymbol={currencySymbol}
           priceUnavailableLabel={priceUnavailableLabel}
           estimated
@@ -1719,7 +2004,7 @@ function ProtocolPositionActionDialogContent({
     actionBody = (
       <ProtocolPositionActionReceive
         label={receiveLabel}
-        assets={aggregatedOutputPreviewAssets}
+        assets={receivePreviewAssets}
         currencySymbol={currencySymbol}
         priceUnavailableLabel={priceUnavailableLabel}
         estimated={isPercentAction}
@@ -1736,6 +2021,39 @@ function ProtocolPositionActionDialogContent({
       {selectable ? assetSelector : null}
       {actionBody}
 
+      {hasDebts && action.action === EDeFiPositionAction.Withdraw ? (
+        <Alert
+          type="warning"
+          icon="InfoCircleOutline"
+          description={intl.formatMessage({
+            id: ETranslations.defi_liquidation_withdraw_desc,
+          })}
+        />
+      ) : null}
+
+      {submitError || repayWalletBalanceError ? (
+        <Alert
+          type="critical"
+          icon="ErrorOutline"
+          title={intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          })}
+          description={submitError ?? repayWalletBalanceError}
+        />
+      ) : null}
+
+      {selectedAssets.length > 1 ? (
+        // Each selected asset builds its own transaction (approvals discovered
+        // at build time may add more), so hardware-wallet users know how many
+        // confirmations to expect. Count shown is the business-tx floor.
+        <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
+          {intl.formatMessage(
+            { id: ETranslations.address_risk_check_txs__msg },
+            { count: selectedAssets.length },
+          )}
+        </SizableText>
+      ) : null}
+
       <Dialog.Footer
         showCancelButton={false}
         showConfirmButton
@@ -1743,6 +2061,7 @@ function ProtocolPositionActionDialogContent({
         onConfirm={handleConfirm}
         confirmButtonProps={{
           disabled: isConfirmDisabled,
+          loading: isRepayWalletBalancePending,
         }}
       />
     </YStack>
@@ -1754,12 +2073,16 @@ function showProtocolPositionActionDialog({
   networkId,
   action,
   hasRewards,
+  hasDebts,
+  rewardAssets,
   onSuccess,
 }: {
   accountId: string;
   networkId: string;
   action: IResolvedDeFiPositionAction;
   hasRewards?: boolean;
+  hasDebts?: boolean;
+  rewardAssets?: IDeFiAsset[];
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
   ) => void | Promise<void>;
@@ -1772,6 +2095,8 @@ function showProtocolPositionActionDialog({
         networkId={networkId}
         action={action}
         hasRewards={hasRewards}
+        hasDebts={hasDebts}
+        rewardAssets={rewardAssets}
         onSuccess={onSuccess}
       />
     ),
@@ -1779,7 +2104,12 @@ function showProtocolPositionActionDialog({
 }
 
 export {
+  clampAmountDecimals,
   getActionLabel,
+  getErrorMessage,
+  isUserRejectedErrorMessage,
+  ProtocolPositionActionAmountInput,
+  ProtocolPositionActionAnchor,
   showProtocolPositionActionDialog,
   useProtocolPositionActionSubmit,
   type IProtocolPositionActionSuccessParams,
