@@ -30,7 +30,6 @@ import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
 import {
   type IProtocolLendingActionType,
-  preloadProtocolLendingActionDialog,
   showProtocolLendingActionDialog,
 } from './ProtocolLendingActionDialog';
 import { findSupportedBorrowMarket } from './protocolLendingActionUtils';
@@ -702,20 +701,6 @@ const ProtocolPositionActionButton = memo(
           action.action !== EDeFiPositionAction.Repay,
       );
     }
-    const shouldPreloadProtocolLendingActionDialog =
-      shouldShowManage ||
-      (preferLendingDialog &&
-        renderedActions.some(
-          (action) =>
-            (action.action === EDeFiPositionAction.Withdraw ||
-              action.action === EDeFiPositionAction.Repay) &&
-            !action.buildAction,
-        ));
-    useEffect(() => {
-      if (shouldPreloadProtocolLendingActionDialog) {
-        preloadProtocolLendingActionDialog();
-      }
-    }, [shouldPreloadProtocolLendingActionDialog]);
     useEffect(
       () => () => {
         cancelPendingLendingDialogOpenRef.current?.();
