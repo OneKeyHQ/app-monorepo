@@ -6691,7 +6691,12 @@ class ServiceAccount extends ServiceBase {
     } = {};
     for (const wallet of allWallets) {
       const walletHash = wallet.hash;
-      if (walletHash) {
+      // Exclude bot wallets from duplicate grouping. A bot wallet's hash can
+      // collide with a plain HD wallet (e.g. its derived mnemonic was imported
+      // separately), but bot wallets are managed by the keyless cloud-sync
+      // lifecycle: removing one as a "duplicate" would push a deletion
+      // tombstone that removes it on all devices.
+      if (walletHash && !accountUtils.isBotWallet({ walletId: wallet.id })) {
         sameWalletsMap[walletHash] = sameWalletsMap[walletHash] || [];
         sameWalletsMap[walletHash].push(wallet);
       }
@@ -6746,8 +6751,19 @@ class ServiceAccount extends ServiceBase {
             name: string;
           }[] = [];
 
-          for (let i = 0; i < sameWallet.wallets.length; i += 1) {
-            const wallet = sameWallet.wallets[i];
+          // A keyless wallet must always be the survivor of a merge group:
+          // removing it irreversibly destroys its OAuth credentials, PIN
+          // recovery data and child bot wallets, while removing a plain HD
+          // duplicate is lossless (the user holds the mnemonic and its
+          // accounts are re-added into the kept wallet below). Stable sort:
+          // keyless wallets first, existing relative order otherwise kept.
+          const walletsInGroup = [...sameWallet.wallets].sort(
+            (a, b) =>
+              Number(Boolean(b.isKeyless)) - Number(Boolean(a.isKeyless)),
+          );
+
+          for (let i = 0; i < walletsInGroup.length; i += 1) {
+            const wallet = walletsInGroup[i];
             if (i === 0) {
               walletToKeep = wallet;
             } else {
