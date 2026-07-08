@@ -111,6 +111,17 @@ type IBorrowAssetsListLoadState = {
   errorMessage?: string;
 };
 
+type IShowProtocolLendingActionDialogParams = {
+  accountId: string;
+  networkId: string;
+  actionType: IProtocolLendingActionType;
+  source: IProtocolLendingActionSource;
+  hasDebts?: boolean;
+  onSuccess?: (
+    params: IProtocolPositionActionSuccessParams,
+  ) => void | Promise<void>;
+};
+
 const LENDING_PERCENT_PRESETS = [25, 50, 75, 100] as const;
 const EMPTY_BORROW_ASSETS_LIST: IBorrowAssetsList = {
   assets: [] as IBorrowAsset[],
@@ -1633,16 +1644,7 @@ function showProtocolLendingActionDialog({
   source,
   hasDebts,
   onSuccess,
-}: {
-  accountId: string;
-  networkId: string;
-  actionType: IProtocolLendingActionType;
-  source: IProtocolLendingActionSource;
-  hasDebts?: boolean;
-  onSuccess?: (
-    params: IProtocolPositionActionSuccessParams,
-  ) => void | Promise<void>;
-}) {
+}: IShowProtocolLendingActionDialogParams) {
   Dialog.show({
     showFooter: false,
     renderContent:
@@ -1669,4 +1671,8 @@ function showProtocolLendingActionDialog({
 }
 
 export { showProtocolLendingActionDialog };
-export type { IProtocolLendingActionSource, IProtocolLendingActionType };
+export type {
+  IProtocolLendingActionSource,
+  IProtocolLendingActionType,
+  IShowProtocolLendingActionDialogParams,
+};
