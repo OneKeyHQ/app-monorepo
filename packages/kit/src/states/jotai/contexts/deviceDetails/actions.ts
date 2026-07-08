@@ -121,21 +121,28 @@ async function buildDeviceMetaState(
 }
 
 class DeviceDetailsActions extends ContextJotaiActionsBase {
-  updateDeviceMetaStatic = contextAtomMethod(async (get, set) => {
-    const data = get(walletWithDeviceStateAtom());
-    const metaStatic = await buildDeviceMetaStatic(data);
-    if (metaStatic) {
-      set(deviceMetaStaticAtom(), metaStatic);
-    }
-  });
+  updateDeviceMetaStatic = contextAtomMethod(
+    async (get, set, walletId?: string) => {
+      const data = get(walletWithDeviceStateAtom());
+      const metaStatic = await buildDeviceMetaStatic(data);
+      // Superseded by a newer device switch during the await — drop this write.
+      if (walletId && get(currentWalletIdAtom()) !== walletId) return;
+      if (metaStatic) {
+        set(deviceMetaStaticAtom(), metaStatic);
+      }
+    },
+  );
 
-  updateDeviceMetaState = contextAtomMethod(async (get, set) => {
-    const data = get(walletWithDeviceStateAtom());
-    const metaState = await buildDeviceMetaState(data);
-    if (metaState) {
-      set(deviceMetaStateAtom(), metaState);
-    }
-  });
+  updateDeviceMetaState = contextAtomMethod(
+    async (get, set, walletId?: string) => {
+      const data = get(walletWithDeviceStateAtom());
+      const metaState = await buildDeviceMetaState(data);
+      if (walletId && get(currentWalletIdAtom()) !== walletId) return;
+      if (metaState) {
+        set(deviceMetaStateAtom(), metaState);
+      }
+    },
+  );
 
   refresh = contextAtomMethod(async (get, set, incomingWalletId?: string) => {
     const walletId = incomingWalletId ?? get(currentWalletIdAtom());
@@ -163,8 +170,8 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
       }
       set(currentWalletIdAtom(), walletId);
       set(walletWithDeviceStateAtom(), data);
-      await this.updateDeviceMetaStatic.call(set);
-      await this.updateDeviceMetaState.call(set);
+      await this.updateDeviceMetaStatic.call(set, walletId);
+      await this.updateDeviceMetaState.call(set, walletId);
       return data;
     } finally {
       // Don't mark settled if a newer refresh already took over.
