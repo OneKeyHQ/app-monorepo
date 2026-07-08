@@ -14,8 +14,9 @@ const mockUseTransactionsWebSocket: jest.MockedFunction<
 > = jest.fn();
 const mockSetRealtimePauseState = jest.fn();
 const mockLoadMore = jest.fn();
-const mockAddNewTransaction = jest.fn();
+const mockAddNewTransactions = jest.fn();
 const mockFlushBufferedTransactions = jest.fn();
+const mockFlushPendingTransactions = jest.fn();
 const mockResumeRealtimeUpdates = jest.fn();
 const mockHandleRealtimePauseHoverIn = jest.fn();
 const mockHandleRealtimePauseHoverOut = jest.fn();
@@ -34,7 +35,7 @@ const mockMarketTransactionsResult = {
   isLoadingMore: false,
   hasMore: false,
   loadMore: mockLoadMore,
-  addNewTransaction: mockAddNewTransaction,
+  addNewTransactions: mockAddNewTransactions,
   bufferedTransactionsCount: 0,
   hasBufferOverflow: false,
   isRealtimePaused: false,
@@ -125,6 +126,11 @@ jest.mock('./hooks/useMarketTransactions', () => ({
 jest.mock('./hooks/useTransactionsWebSocket', () => ({
   useTransactionsWebSocket: (params: unknown) => {
     mockUseTransactionsWebSocket(params);
+    return {
+      pendingTransactionsCount: 0,
+      hasPendingTransactionsOverflow: false,
+      flushPendingTransactions: mockFlushPendingTransactions,
+    };
   },
 }));
 
@@ -158,8 +164,9 @@ describe('TransactionsHistory', () => {
     mockSetRealtimePauseState.mockReset();
     mockUseTransactionsWebSocket.mockReset();
     mockLoadMore.mockReset();
-    mockAddNewTransaction.mockReset();
+    mockAddNewTransactions.mockReset();
     mockFlushBufferedTransactions.mockReset();
+    mockFlushPendingTransactions.mockReset();
     mockResumeRealtimeUpdates.mockReset();
     mockHandleRealtimePauseHoverIn.mockReset();
     mockHandleRealtimePauseHoverOut.mockReset();
@@ -191,7 +198,8 @@ describe('TransactionsHistory', () => {
         networkId: 'evm--1',
         tokenAddress: '0xabc',
         enabled: true,
-        onNewTransaction: mockAddNewTransaction,
+        isPaused: false,
+        onNewTransactions: mockAddNewTransactions,
       }),
     );
     expect(websocketParams).not.toHaveProperty('onSubscriptionRestored');
@@ -254,6 +262,11 @@ describe('TransactionsHistory', () => {
     expect(mockTransactionsRelativeTimeProvider).toHaveBeenCalledWith(
       expect.objectContaining({
         isTickingEnabled: true,
+      }),
+    );
+    expect(mockUseTransactionsWebSocket).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isPaused: true,
       }),
     );
   });

@@ -118,7 +118,7 @@ export function TransactionsHistoryBase({
     isLoadingMore,
     hasMore,
     loadMore,
-    addNewTransaction,
+    addNewTransactions,
     bufferedTransactionsCount,
     hasBufferOverflow,
     isRealtimePaused,
@@ -136,12 +136,27 @@ export function TransactionsHistoryBase({
 
   // Subscribe to real-time transaction updates
   // Only enable if websocket.txs is enabled and other conditions are met
-  useTransactionsWebSocket({
+  const {
+    pendingTransactionsCount,
+    hasPendingTransactionsOverflow,
+    flushPendingTransactions,
+  } = useTransactionsWebSocket({
     networkId,
     tokenAddress,
     enabled: !normalMode && isVisible,
-    onNewTransaction: addNewTransaction,
+    isPaused: isRealtimePaused,
+    onNewTransactions: addNewTransactions,
   });
+
+  const flushPendingRealtimeTransactions = useCallback(() => {
+    flushPendingTransactions();
+    flushBufferedTransactions();
+  }, [flushBufferedTransactions, flushPendingTransactions]);
+
+  const resumePendingRealtimeTransactions = useCallback(() => {
+    flushPendingTransactions();
+    resumeRealtimeUpdates();
+  }, [flushPendingTransactions, resumeRealtimeUpdates]);
 
   const scrollTransactionsToTop = useCallback(() => {
     if (platformEnv.isNative) {
@@ -184,10 +199,12 @@ export function TransactionsHistoryBase({
     setRealtimePauseState((prev) => {
       if (
         prev.isPaused === isRealtimePaused &&
-        prev.bufferedCount === bufferedTransactionsCount &&
-        prev.hasBufferOverflow === hasBufferOverflow &&
-        prev.flushBufferedTransactions === flushBufferedTransactions &&
-        prev.resumeRealtimeUpdates === resumeRealtimeUpdates &&
+        prev.bufferedCount ===
+          bufferedTransactionsCount + pendingTransactionsCount &&
+        prev.hasBufferOverflow ===
+          (hasBufferOverflow || hasPendingTransactionsOverflow) &&
+        prev.flushBufferedTransactions === flushPendingRealtimeTransactions &&
+        prev.resumeRealtimeUpdates === resumePendingRealtimeTransactions &&
         prev.scrollTransactionsToTop === scrollTransactionsToTop &&
         prev.handleRealtimePauseHoverIn === handleRealtimePauseHoverIn &&
         prev.handleRealtimePauseHoverOut === handleRealtimePauseHoverOut
@@ -196,10 +213,10 @@ export function TransactionsHistoryBase({
       }
       return {
         isPaused: isRealtimePaused,
-        bufferedCount: bufferedTransactionsCount,
-        hasBufferOverflow,
-        flushBufferedTransactions,
-        resumeRealtimeUpdates,
+        bufferedCount: bufferedTransactionsCount + pendingTransactionsCount,
+        hasBufferOverflow: hasBufferOverflow || hasPendingTransactionsOverflow,
+        flushBufferedTransactions: flushPendingRealtimeTransactions,
+        resumeRealtimeUpdates: resumePendingRealtimeTransactions,
         scrollTransactionsToTop,
         handleRealtimePauseHoverIn,
         handleRealtimePauseHoverOut,
@@ -207,12 +224,14 @@ export function TransactionsHistoryBase({
     });
   }, [
     bufferedTransactionsCount,
-    flushBufferedTransactions,
+    flushPendingRealtimeTransactions,
     handleRealtimePauseHoverIn,
     handleRealtimePauseHoverOut,
     hasBufferOverflow,
+    hasPendingTransactionsOverflow,
     isRealtimePaused,
-    resumeRealtimeUpdates,
+    pendingTransactionsCount,
+    resumePendingRealtimeTransactions,
     scrollTransactionsToTop,
     setRealtimePauseState,
   ]);

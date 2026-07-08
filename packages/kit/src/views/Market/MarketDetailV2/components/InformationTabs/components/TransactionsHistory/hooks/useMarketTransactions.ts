@@ -21,6 +21,7 @@ interface IUseMarketTransactionsProps {
 }
 
 const DEFAULT_PAGE_SIZE = 20;
+const MAX_CACHED_TRANSACTIONS = 50;
 
 export function useMarketTransactions({
   tokenAddress,
@@ -49,9 +50,7 @@ export function useMarketTransactions({
   const cursorRef = useRef<string | undefined>(undefined);
   const getVisibleTransactions = useCallback(
     (transactions: IMarketTokenTransaction[]) =>
-      platformEnv.isNative
-        ? transactions.slice(0, 50 + loadTimesRef.current * 30)
-        : transactions,
+      transactions.slice(0, MAX_CACHED_TRANSACTIONS),
     [],
   );
   const setAccumulatedTransactionsImmediately = useCallback(
@@ -190,12 +189,18 @@ export function useMarketTransactions({
       ...newTransactions,
       ...prev,
     ]);
+    const currentTransactions = getVisibleTransactions(uniqueTransactions);
+    accumulatedTransactionsRef.current = currentTransactions;
 
-    throttleSetAccumulatedTransactions(uniqueTransactions);
+    throttleSetAccumulatedTransactions(currentTransactions);
 
     // Update hasMore based on response
     setHasMore(Boolean(transactionsData?.cursor));
-  }, [throttleSetAccumulatedTransactions, transactionsData]);
+  }, [
+    getVisibleTransactions,
+    throttleSetAccumulatedTransactions,
+    transactionsData,
+  ]);
 
   const loadMore = useCallback(async (): Promise<void> => {
     if (platformEnv.isNative && loadTimesRef.current > 10) {
@@ -235,9 +240,10 @@ export function useMarketTransactions({
         ...prev,
         ...response.list,
       ]);
+      const currentTransactions = getVisibleTransactions(uniqueTransactions);
 
-      accumulatedTransactionsRef.current = uniqueTransactions;
-      throttleSetAccumulatedTransactions(uniqueTransactions);
+      accumulatedTransactionsRef.current = currentTransactions;
+      throttleSetAccumulatedTransactions(currentTransactions);
 
       setHasMore(Boolean(response.cursor));
     } catch (error) {
@@ -251,6 +257,7 @@ export function useMarketTransactions({
     isRefreshing,
     tokenAddress,
     networkId,
+    getVisibleTransactions,
     throttleSetAccumulatedTransactions,
   ]);
 
@@ -258,26 +265,38 @@ export function useMarketTransactions({
     await fetchTransactions();
   }, [fetchTransactions]);
 
-  const addNewTransaction = useCallback(
-    (newTransaction: IMarketTokenTransaction) => {
+  const addNewTransactions = useCallback(
+    (newTransactions: IMarketTokenTransaction[]) => {
+      if (newTransactions.length === 0) {
+        return;
+      }
+
       const prev = accumulatedTransactionsRef.current;
 
       if (isRealtimePausedRef.current) {
-        const result = appendBufferedTransaction({
-          bufferedTransactions: bufferedTransactionsRef.current,
-          currentTransactions: prev,
-          transaction: newTransaction,
+        let nextBufferedTransactions = bufferedTransactionsRef.current;
+        let isOverflow = false;
+
+        newTransactions.forEach((transaction) => {
+          const result = appendBufferedTransaction({
+            bufferedTransactions: nextBufferedTransactions,
+            currentTransactions: prev,
+            transaction,
+          });
+          nextBufferedTransactions = result.bufferedTransactions;
+          isOverflow = isOverflow || result.isOverflow;
         });
-        bufferedTransactionsRef.current = result.bufferedTransactions;
-        setBufferedTransactions(result.bufferedTransactions);
-        if (result.isOverflow) {
+
+        bufferedTransactionsRef.current = nextBufferedTransactions;
+        setBufferedTransactions(nextBufferedTransactions);
+        if (isOverflow) {
           setHasBufferOverflow(true);
         }
         return;
       }
 
       const updatedTransactions = mergeUniqueTransactions([
-        newTransaction,
+        ...newTransactions,
         ...prev,
       ]);
       const currentTransactions = getVisibleTransactions(updatedTransactions);
@@ -351,7 +370,7 @@ export function useMarketTransactions({
     hasMore,
     loadMore,
     onRefresh,
-    addNewTransaction,
+    addNewTransactions,
     bufferedTransactionsCount: bufferedTransactions.length,
     hasBufferOverflow,
     isRealtimePaused,
