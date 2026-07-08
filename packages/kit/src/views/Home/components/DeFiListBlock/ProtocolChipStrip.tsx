@@ -40,7 +40,10 @@ import type {
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
-import { isChipFullyVisible } from '../../pages/defiDesktopStickyDom';
+import {
+  findScrollableAncestorFromLocalNode,
+  isChipFullyVisible,
+} from '../../pages/defiDesktopStickyDom';
 
 const CHIP_PADDING_Y = '$1' as const;
 const CHIP_PADDING_LEFT = '$1.5' as const;
@@ -69,6 +72,9 @@ const ARROW_PAGE_FRACTION = 0.7;
 // jumps is ~500ms; 1500ms covers a comfortable scroll-then-aim-then-click
 // sequence with margin.
 const STRIP_SCROLL_GRACE_MS = 1500;
+const WHEEL_DELTA_MODE_LINE = 1;
+const WHEEL_DELTA_MODE_PAGE = 2;
+const WHEEL_DELTA_LINE_PX = 16;
 
 // Distinguishes "the strip's active chip changed because the page scrolled"
 // (must always recenter, even mid-grace) from automatic catch-ups
@@ -245,6 +251,16 @@ type IProtocolChipStripProps = {
   revealProgress: SharedValue<number>;
 };
 
+function getWheelDeltaYInPixels(event: WheelEvent, scroller: HTMLElement) {
+  if (event.deltaMode === WHEEL_DELTA_MODE_LINE) {
+    return event.deltaY * WHEEL_DELTA_LINE_PX;
+  }
+  if (event.deltaMode === WHEEL_DELTA_MODE_PAGE) {
+    return event.deltaY * scroller.clientHeight;
+  }
+  return event.deltaY;
+}
+
 function ProtocolChipStripBase({
   protocols,
   protocolMap,
@@ -255,6 +271,9 @@ function ProtocolChipStripBase({
   revealProgress,
 }: IProtocolChipStripProps) {
   const scrollViewRef = useRef<IScrollViewRef | null>(null);
+  const [wheelForwardNode, setWheelForwardNode] = useState<HTMLElement | null>(
+    null,
+  );
   // Live DOM nodes for each chip, captured via React ref callback. We
   // measure with `getBoundingClientRect()` at recenter time rather than
   // caching `onLayout` coordinates because those coordinates are reported
@@ -315,6 +334,45 @@ function ProtocolChipStripBase({
     if (node instanceof HTMLElement) return node;
     return null;
   }, []);
+
+  const handleWheelForwardNodeRef = useCallback((node: unknown) => {
+    const next = (node as HTMLElement | null) ?? null;
+    setWheelForwardNode((prev) => (prev === next ? prev : next));
+  }, []);
+
+  useEffect(() => {
+    if (platformEnv.isNative || !wheelForwardNode) return undefined;
+
+    const onWheel = (event: WheelEvent) => {
+      if (event.defaultPrevented) return;
+      const absDeltaY = Math.abs(event.deltaY);
+      if (absDeltaY <= Math.abs(event.deltaX) || absDeltaY === 0) return;
+
+      const pageScroller =
+        findScrollableAncestorFromLocalNode(wheelForwardNode);
+      if (!pageScroller) return;
+
+      const deltaY = getWheelDeltaYInPixels(event, pageScroller);
+      const maxScrollTop = Math.max(
+        0,
+        pageScroller.scrollHeight - pageScroller.clientHeight,
+      );
+      const nextScrollTop = Math.max(
+        0,
+        Math.min(maxScrollTop, pageScroller.scrollTop + deltaY),
+      );
+      if (Math.abs(nextScrollTop - pageScroller.scrollTop) < 0.5) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      pageScroller.scrollTop = nextScrollTop;
+    };
+
+    wheelForwardNode.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      wheelForwardNode.removeEventListener('wheel', onWheel);
+    };
+  }, [wheelForwardNode]);
 
   const updateArrows = useCallback(() => {
     const el = getScrollEl();
@@ -571,6 +629,7 @@ function ProtocolChipStripBase({
       pointerEvents={interactive ? 'auto' : 'none'}
     >
       <YStack
+        ref={handleWheelForwardNodeRef}
         bg="$bgApp"
         position="relative"
         borderBottomWidth={StyleSheet.hairlineWidth}
