@@ -618,6 +618,7 @@ function PerpsEmptyRecommendSection() {
           testID={HomeTestIDs.popularViewMoreBtn}
           onPress={() =>
             navigateToMarketTab({
+              tabToSelect: 'perps',
               perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
             })
           }
@@ -823,16 +824,7 @@ function PerpsEmptyRecommendSection() {
                   </XStack>
                   <XStack alignItems="center" gap="$1" minWidth={0}>
                     {token.subtitle ? (
-                      <SizableText
-                        size="$bodyMd"
-                        color="$textSubdued"
-                        numberOfLines={1}
-                        flexShrink={1}
-                        ellipsizeMode="tail"
-                        userSelect="none"
-                      >
-                        {token.subtitle}
-                      </SizableText>
+                      <SubtitleText subtitle={token.subtitle} />
                     ) : null}
                     <NumberSizeableText
                       size="$bodyMd"
@@ -881,16 +873,17 @@ function PerpsEmptyRecommendSection() {
             testID={HomeTestIDs.popularViewMoreBtn}
             onPress={() =>
               navigateToMarketTab({
+                tabToSelect: 'perps',
                 perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
               })
             }
             childrenAsText={false}
           >
             <XStack alignItems="center" gap="$2">
-              <SizableText size="$bodySmMedium">
+              <SizableText size="$bodyMdMedium">
                 {intl.formatMessage({ id: ETranslations.global_view_more })}
               </SizableText>
-              <Icon name="ChevronRightSmallOutline" size="$5" />
+              <Icon name="ChevronRightSmallOutline" size="$5.5" />
             </XStack>
           </Button>
         </XStack>
@@ -1151,7 +1144,18 @@ function PerpsMobileHoldingsSummary({
   isDepositDisabled: boolean;
 }) {
   const intl = useIntl();
+  const media = useMedia();
   const openPerp = useOpenPerpAsset();
+  const tooltipText = media.gtMd
+    ? undefined
+    : intl.formatMessage({
+        id: ETranslations.marketdex_un_pnl,
+      });
+  const tooltipTitle = media.gtMd
+    ? undefined
+    : intl.formatMessage({
+        id: ETranslations.marketdex_unrealized_pnl,
+      });
 
   return (
     <YStack display="flex" $gtMd={{ display: 'none' }} gap="$3" py="$2">
@@ -1200,7 +1204,13 @@ function PerpsMobileHoldingsSummary({
             <SizableText size="$bodyXs" color="$textSubdued">
               {`${intl.formatMessage({ id: ETranslations.global_value })} / `}
             </SizableText>
-            <DashText size="$bodyXs" color="$textSubdued" dashThickness={0.5}>
+            <DashText
+              size="$bodyXs"
+              color="$textSubdued"
+              dashThickness={0.5}
+              tooltip={tooltipText}
+              tooltipTitle={tooltipTitle}
+            >
               {intl.formatMessage({
                 id: ETranslations.perp_position_pnl_mobile,
               })}
