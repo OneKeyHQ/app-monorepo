@@ -93,6 +93,7 @@ jest.mock('../../endpoints', () => ({
 
 const mockSupabaseGetSession = jest.fn();
 const mockSupabaseRefreshSession = jest.fn();
+const mockSupabaseSetSession = jest.fn();
 
 jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
   __esModule: true,
@@ -101,6 +102,7 @@ jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
       auth: {
         getSession: mockSupabaseGetSession,
         refreshSession: mockSupabaseRefreshSession,
+        setSession: mockSupabaseSetSession,
       },
     },
   }),
@@ -635,6 +637,61 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
       ownerId: OWNER_ID,
     });
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  test('fast-yields with network-error semantics while the legacy exchange lock is held, without touching the blob', async () => {
+    const { service, serviceAny } = createService();
+    mockLegacyRefreshTokenFallback(serviceAny);
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        access_token: TOKEN,
+        refresh_token: 'rotated-refresh-token',
+      }),
+    } as any);
+
+    // Simulate the interactive OneKey ID login flow holding the shared
+    // legacy-blob exchange lock (e.g. mid refresh-grant exchange).
+    const [, releaseExchangeLock] =
+      await serviceAny.legacyKeylessOAuthTokenExchangeMutex.acquire();
+    try {
+      await expect(
+        service.tryMigrateLocalExistingKeylessBackendShareToV2(),
+      ).resolves.toMatchObject({
+        skipped: true,
+        reason: 'network_unavailable',
+      });
+    } finally {
+      releaseExchangeLock();
+    }
+
+    // Contention is treated exactly like a transient network failure: the
+    // 24h throttle write is rolled back so a later trigger retries…
+    expect(migrationPersist.byWalletId[WALLET_ID]).toBeUndefined();
+    // …and the single-use blob token is neither read, exchanged, rotated
+    // nor deleted while the interactive path owns it.
+    expect(serviceAny.getLegacyKeylessOAuthRefreshToken).not.toHaveBeenCalled();
+    expect(
+      serviceAny.saveLegacyKeylessOAuthRefreshToken,
+    ).not.toHaveBeenCalled();
+    expect(serviceAny.removeLegacyKeylessOAuthTokens).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    // Once the lock is free again, the same trigger succeeds normally.
+    mockPassiveV1HappyPath(serviceAny);
+    delete serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive;
+    await expect(
+      service.tryMigrateLocalExistingKeylessBackendShareToV2(),
+    ).resolves.toMatchObject({
+      migrated: true,
+      skipped: false,
+    });
+    expect(serviceAny.saveLegacyKeylessOAuthRefreshToken).toHaveBeenCalledWith({
+      ownerId: OWNER_ID,
+      refreshToken: 'rotated-refresh-token',
+      password: PASSWORD,
+    });
   });
 
   test('does not consume the 24-hour throttle when Prime API meta call fails with AxiosNetworkError', async () => {
@@ -1855,6 +1912,135 @@ describe('ServiceKeylessWallet legacy keyless OAuth token passcode handling', ()
       }),
     ).resolves.toBeNull();
 
+    expect(serviceAny.removeLegacyKeylessOAuthTokens).toHaveBeenCalledWith({
+      ownerId: OWNER_ID,
+    });
+  });
+});
+
+describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization', () => {
+  beforeEach(() => {
+    jest.restoreAllMocks();
+    jest.clearAllMocks();
+    mockSupabaseSetSession.mockResolvedValue({
+      data: { session: null, user: null },
+      error: null,
+    });
+  });
+
+  test('interactive migration re-checks blob presence inside the lock and returns null without any exchange when it is gone', async () => {
+    const { serviceAny, wallet, backgroundApi } = createService();
+    // Blob exists at the cheap pre-prompt check, but is gone by the time the
+    // exchange lock is acquired (the passive path consumed it and removed it
+    // after a definitive GoTrue rejection while this call waited).
+    serviceAny.hasLegacyKeylessOAuthRefreshToken = jest
+      .fn()
+      .mockResolvedValueOnce(true) // pre-prompt check
+      .mockResolvedValueOnce(false); // in-lock re-check
+    serviceAny.getLegacyKeylessOAuthRefreshToken = jest.fn();
+    serviceAny.saveLegacyKeylessOAuthRefreshToken = jest.fn();
+    serviceAny.removeLegacyKeylessOAuthTokens = jest.fn();
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+    } as any);
+
+    await expect(
+      serviceAny.migrateLegacyKeylessOAuthSessionForLocalWallet({
+        keylessWallet: wallet,
+        ownerId: OWNER_ID,
+      }),
+    ).resolves.toBeNull();
+
+    expect(
+      backgroundApi.servicePassword.promptPasswordVerify,
+    ).toHaveBeenCalledTimes(1);
+    expect(serviceAny.hasLegacyKeylessOAuthRefreshToken).toHaveBeenCalledTimes(
+      2,
+    );
+    // No decrypt, no HTTP refresh grant, no blob mutation.
+    expect(serviceAny.getLegacyKeylessOAuthRefreshToken).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(
+      serviceAny.saveLegacyKeylessOAuthRefreshToken,
+    ).not.toHaveBeenCalled();
+    expect(serviceAny.removeLegacyKeylessOAuthTokens).not.toHaveBeenCalled();
+    expect(mockSupabaseSetSession).not.toHaveBeenCalled();
+  });
+
+  test('interactive migration queues behind the exchange lock and then consumes the freshly rotated blob token', async () => {
+    const { serviceAny, wallet } = createService();
+    serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => true);
+    // Simulates the passive path having already rotated the blob while it
+    // held the lock: the in-lock re-read must pick up the rotated token,
+    // not a stale pre-lock copy.
+    serviceAny.getLegacyKeylessOAuthRefreshToken = jest.fn(
+      async () => 'passively-rotated-refresh-token',
+    );
+    serviceAny.saveLegacyKeylessOAuthRefreshToken = jest.fn(
+      async () => undefined,
+    );
+    serviceAny.removeLegacyKeylessOAuthTokens = jest.fn(async () => undefined);
+    serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
+      async () => undefined,
+    );
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        access_token: TOKEN,
+        refresh_token: 'interactively-rotated-refresh-token',
+      }),
+    } as any);
+
+    // Another legacy-blob consumer (the passive migration) holds the lock.
+    const [, releaseExchangeLock] =
+      await serviceAny.legacyKeylessOAuthTokenExchangeMutex.acquire();
+
+    let migrateResolved = false;
+    const migratePromise = serviceAny
+      .migrateLegacyKeylessOAuthSessionForLocalWallet({
+        keylessWallet: wallet,
+        ownerId: OWNER_ID,
+      })
+      .then((result: string | null) => {
+        migrateResolved = true;
+        return result;
+      });
+
+    await waitForScheduledBackgroundTask();
+
+    // The interactive path must queue (the user is actively waiting), and
+    // must not read or exchange the blob while the lock is held elsewhere.
+    expect(migrateResolved).toBe(false);
+    expect(serviceAny.getLegacyKeylessOAuthRefreshToken).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    releaseExchangeLock();
+
+    await expect(migratePromise).resolves.toBe(TOKEN);
+    // The in-lock re-read exchanged the rotated token (not a stale copy)…
+    expect(fetchSpy).toHaveBeenCalledWith(
+      `${KEYLESS_SUPABASE_PROJECT_URL}/auth/v1/token?grant_type=refresh_token`,
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          refresh_token: 'passively-rotated-refresh-token',
+        }),
+      }),
+    );
+    // …persisted the newly rotated token before setSession, and removed the
+    // blob after the session was installed.
+    expect(serviceAny.saveLegacyKeylessOAuthRefreshToken).toHaveBeenCalledWith({
+      ownerId: OWNER_ID,
+      refreshToken: 'interactively-rotated-refresh-token',
+      password: PASSWORD,
+    });
+    expect(mockSupabaseSetSession).toHaveBeenCalledWith({
+      access_token: TOKEN,
+      refresh_token: 'interactively-rotated-refresh-token',
+    });
     expect(serviceAny.removeLegacyKeylessOAuthTokens).toHaveBeenCalledWith({
       ownerId: OWNER_ID,
     });

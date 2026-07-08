@@ -208,6 +208,26 @@ class ServiceKeylessWallet extends ServiceBase {
 
   updatePinConfirmStatusMutex = new Semaphore(1);
 
+  // Serializes EVERY consumer of the legacy per-owner encrypted keyless
+  // OAuth refresh-token blob (pre-OneKey-ID-unification builds). The blob
+  // holds a SINGLE-USE rotating GoTrue refresh token, and two unsynchronized
+  // paths consume it:
+  //   1. interactive: migrateLegacyKeylessOAuthSessionForLocalWallet
+  //   2. passive:     refreshLegacyAccessTokenForKeylessBackendShareV2MigrationPassive
+  //      (via tryMigrateLocalExistingKeylessBackendShareToV2, which fires
+  //      from ServicePassword.setCachedPassword — i.e. the interactive
+  //      path's own successful password prompt triggers the passive path,
+  //      so the two race BY CONSTRUCTION).
+  // If both POST the refresh grant with the same stored token, the second
+  // exchange lands outside GoTrue's short reuse window and revokes the whole
+  // token family (including the winner's freshly persisted session → a
+  // spurious OneKey ID logout ~1h later), and the loser's
+  // definitive-rejection handler can delete a blob the winner just refilled
+  // with a valid rotated token. Every read-blob → HTTP exchange →
+  // save-rotated-token / delete-blob sequence must therefore run while
+  // holding this semaphore.
+  legacyKeylessOAuthTokenExchangeMutex = new Semaphore(1);
+
   private passiveBackendShareV2MigrationPromise:
     | Promise<IKeylessBackendShareV2MigrationResult>
     | undefined;
@@ -1672,185 +1692,216 @@ class ServiceKeylessWallet extends ServiceBase {
     });
 
     try {
-      const tokenInfo =
-        await this.getAccessTokenForKeylessBackendShareV2MigrationPassive({
-          keylessWallet,
-          ownerId,
-          password,
-        });
-      if (!tokenInfo) {
-        await this.markKeylessBackendShareV2MigrationFailed({
-          walletId: keylessWallet.id,
-          identity: migrationIdentity,
-          time: now,
-        });
-        return {
-          migrated: false,
-          checked: false,
-          skipped: true,
-          reason: 'token_missing',
-        };
+      // Legacy-blob race guard (fast-yield instead of queueing): when the
+      // exchange lock is already held, the interactive OneKey ID login flow
+      // is consuming/rotating the legacy refresh-token blob right now — and
+      // this passive run was very likely triggered by that flow's own
+      // password prompt (promptPasswordVerify → setCachedPassword →
+      // tryMigrateLocalExistingKeylessBackendShareToV2). Queueing behind it
+      // would re-exchange a single-use token the interactive path is about
+      // to rotate or remove, so treat the contention exactly like a
+      // transient network failure: the thrown error rolls back the 24h
+      // throttle in the catch below WITHOUT touching the blob, and a later
+      // natural trigger retries cleanly.
+      if (this.legacyKeylessOAuthTokenExchangeMutex.isLocked()) {
+        throw new KeylessPassiveMigrationNetworkError();
       }
-      const token = tokenInfo.accessToken;
+      // Hold the lock across the WHOLE passive attempt — read-blob → HTTP
+      // refresh exchange → in-memory token usage → save-rotated-token — so
+      // a concurrent interactive migration can never exchange the same
+      // single-use token, nor delete a blob this run is about to refill
+      // with the rotated token. The blob-presence check itself runs inside
+      // the lock (refreshLegacyAccessTokenForKeylessBackendShareV2MigrationPassive
+      // re-checks it and returns null gracefully if the blob is gone).
+      return await this.legacyKeylessOAuthTokenExchangeMutex.runExclusive(
+        async () => {
+          const tokenInfo =
+            await this.getAccessTokenForKeylessBackendShareV2MigrationPassive({
+              keylessWallet,
+              ownerId,
+              password,
+            });
+          if (!tokenInfo) {
+            await this.markKeylessBackendShareV2MigrationFailed({
+              walletId: keylessWallet.id,
+              identity: migrationIdentity,
+              time: now,
+            });
+            return {
+              migrated: false,
+              checked: false,
+              skipped: true,
+              reason: 'token_missing',
+            };
+          }
+          const token = tokenInfo.accessToken;
 
-      const tokenValidationError =
-        await this.validateKeylessAccessTokenMatchesLocalWallet({
-          token,
-          keylessWallet,
-        });
-      if (tokenValidationError) {
-        await this.markKeylessBackendShareV2MigrationFailed({
-          walletId: keylessWallet.id,
-          identity: migrationIdentity,
-          time: now,
-        });
-        return {
-          migrated: false,
-          checked: false,
-          skipped: true,
-          reason: tokenValidationError,
-        };
-      }
+          const tokenValidationError =
+            await this.validateKeylessAccessTokenMatchesLocalWallet({
+              token,
+              keylessWallet,
+            });
+          if (tokenValidationError) {
+            await this.markKeylessBackendShareV2MigrationFailed({
+              walletId: keylessWallet.id,
+              identity: migrationIdentity,
+              time: now,
+            });
+            return {
+              migrated: false,
+              checked: false,
+              skipped: true,
+              reason: tokenValidationError,
+            };
+          }
 
-      const current = await this.apiGetKeylessBackendShareMeta({ token });
-      if (!current.backendShare) {
-        await this.markKeylessBackendShareV2MigrationFailed({
-          walletId: keylessWallet.id,
-          identity: migrationIdentity,
-          time: now,
-        });
-        return {
-          migrated: false,
-          checked: true,
-          skipped: true,
-          reason: 'backend_share_missing',
-        };
-      }
+          const current = await this.apiGetKeylessBackendShareMeta({ token });
+          if (!current.backendShare) {
+            await this.markKeylessBackendShareV2MigrationFailed({
+              walletId: keylessWallet.id,
+              identity: migrationIdentity,
+              time: now,
+            });
+            return {
+              migrated: false,
+              checked: true,
+              skipped: true,
+              reason: 'backend_share_missing',
+            };
+          }
 
-      const expectedOwnerId = await this.buildKeylessOwnerIdFromSocialToken({
-        token,
-        hashId: current.hashId,
-        providerOverride: provider,
-      });
-      if (expectedOwnerId !== ownerId) {
-        await this.markKeylessBackendShareV2MigrationFailed({
-          walletId: keylessWallet.id,
-          identity: migrationIdentity,
-          time: now,
-        });
-        return {
-          migrated: false,
-          checked: true,
-          skipped: true,
-          reason: 'owner_id_mismatch',
-        };
-      }
+          const expectedOwnerId = await this.buildKeylessOwnerIdFromSocialToken(
+            {
+              token,
+              hashId: current.hashId,
+              providerOverride: provider,
+            },
+          );
+          if (expectedOwnerId !== ownerId) {
+            await this.markKeylessBackendShareV2MigrationFailed({
+              walletId: keylessWallet.id,
+              identity: migrationIdentity,
+              time: now,
+            });
+            return {
+              migrated: false,
+              checked: true,
+              skipped: true,
+              reason: 'owner_id_mismatch',
+            };
+          }
 
-      if (tokenInfo.refreshToken) {
-        // The access token came from the legacy blob and Supabase rotates
-        // refresh tokens on use — persist the rotated token back (only after
-        // it has been validated against the local wallet and the server
-        // owner id, mirroring the pre-v2 behavior) so the blob stays usable
-        // for future passive attempts and for the interactive OneKey ID
-        // login flow (which migrates + removes it). The save itself is never
-        // rolled back when a later migration step fails, because the
-        // previous refresh token was already consumed by the exchange.
-        await this.saveLegacyKeylessOAuthRefreshToken({
-          ownerId,
-          refreshToken: tokenInfo.refreshToken,
-          password,
-        });
-      }
+          if (tokenInfo.refreshToken) {
+            // The access token came from the legacy blob and Supabase rotates
+            // refresh tokens on use — persist the rotated token back (only after
+            // it has been validated against the local wallet and the server
+            // owner id, mirroring the pre-v2 behavior) so the blob stays usable
+            // for future passive attempts and for the interactive OneKey ID
+            // login flow (which migrates + removes it). The save itself is never
+            // rolled back when a later migration step fails, because the
+            // previous refresh token was already consumed by the exchange.
+            await this.saveLegacyKeylessOAuthRefreshToken({
+              ownerId,
+              refreshToken: tokenInfo.refreshToken,
+              password,
+            });
+          }
 
-      if (current.canonicalFormat === 'v2') {
-        const readResult = await this.apiGetKeylessBackendShare({ token });
-        if (!readResult.backendShareData || readResult.ownerId !== ownerId) {
-          await this.markKeylessBackendShareV2MigrationFailed({
-            walletId: keylessWallet.id,
-            identity: migrationIdentity,
-            time: now,
-          });
-          return {
-            migrated: false,
-            checked: true,
-            skipped: true,
-            reason: 'owner_id_mismatch',
-          };
-        }
-        const validationError =
-          await this.validateKeylessBackendShareMatchesLocalWallet({
-            backendShareData: readResult.backendShareData,
-            keylessWallet,
+          if (current.canonicalFormat === 'v2') {
+            const readResult = await this.apiGetKeylessBackendShare({ token });
+            if (
+              !readResult.backendShareData ||
+              readResult.ownerId !== ownerId
+            ) {
+              await this.markKeylessBackendShareV2MigrationFailed({
+                walletId: keylessWallet.id,
+                identity: migrationIdentity,
+                time: now,
+              });
+              return {
+                migrated: false,
+                checked: true,
+                skipped: true,
+                reason: 'owner_id_mismatch',
+              };
+            }
+            const validationError =
+              await this.validateKeylessBackendShareMatchesLocalWallet({
+                backendShareData: readResult.backendShareData,
+                keylessWallet,
+                ownerId,
+                password,
+              });
+            if (validationError) {
+              await this.markKeylessBackendShareV2MigrationFailed({
+                walletId: keylessWallet.id,
+                identity: migrationIdentity,
+                time: now,
+              });
+              return {
+                migrated: false,
+                checked: true,
+                skipped: true,
+                reason: validationError,
+              };
+            }
+
+            await this.markKeylessBackendShareV2MigrationSucceeded({
+              walletId: keylessWallet.id,
+              identity: migrationIdentity,
+              time: now,
+            });
+            return {
+              migrated: false,
+              checked: true,
+              skipped: true,
+              reason: 'canonical_format_v2',
+            };
+          }
+
+          const backendShareData =
+            await this.decryptKeylessBackendSharePayloadV1({
+              backendShare: current.backendShare,
+            });
+          const validationError =
+            await this.validateKeylessBackendShareMatchesLocalWallet({
+              backendShareData,
+              keylessWallet,
+              ownerId,
+              password,
+            });
+          if (validationError) {
+            await this.markKeylessBackendShareV2MigrationFailed({
+              walletId: keylessWallet.id,
+              identity: migrationIdentity,
+              time: now,
+            });
+            return {
+              migrated: false,
+              checked: true,
+              skipped: true,
+              reason: validationError,
+            };
+          }
+
+          await this.migrateKeylessBackendShareToV2({
+            token,
             ownerId,
-            password,
+            expectedHashId: current.hashId,
+            expectedBackendShareData: backendShareData,
           });
-        if (validationError) {
-          await this.markKeylessBackendShareV2MigrationFailed({
+          await this.markKeylessBackendShareV2MigrationSucceeded({
             walletId: keylessWallet.id,
             identity: migrationIdentity,
             time: now,
           });
           return {
-            migrated: false,
+            migrated: true,
             checked: true,
-            skipped: true,
-            reason: validationError,
+            skipped: false,
           };
-        }
-
-        await this.markKeylessBackendShareV2MigrationSucceeded({
-          walletId: keylessWallet.id,
-          identity: migrationIdentity,
-          time: now,
-        });
-        return {
-          migrated: false,
-          checked: true,
-          skipped: true,
-          reason: 'canonical_format_v2',
-        };
-      }
-
-      const backendShareData = await this.decryptKeylessBackendSharePayloadV1({
-        backendShare: current.backendShare,
-      });
-      const validationError =
-        await this.validateKeylessBackendShareMatchesLocalWallet({
-          backendShareData,
-          keylessWallet,
-          ownerId,
-          password,
-        });
-      if (validationError) {
-        await this.markKeylessBackendShareV2MigrationFailed({
-          walletId: keylessWallet.id,
-          identity: migrationIdentity,
-          time: now,
-        });
-        return {
-          migrated: false,
-          checked: true,
-          skipped: true,
-          reason: validationError,
-        };
-      }
-
-      await this.migrateKeylessBackendShareToV2({
-        token,
-        ownerId,
-        expectedHashId: current.hashId,
-        expectedBackendShareData: backendShareData,
-      });
-      await this.markKeylessBackendShareV2MigrationSucceeded({
-        walletId: keylessWallet.id,
-        identity: migrationIdentity,
-        time: now,
-      });
-      return {
-        migrated: true,
-        checked: true,
-        skipped: false,
-      };
+        },
+      );
     } catch (error) {
       if (this.isKeylessPassiveMigrationNetworkLikeError(error)) {
         // Roll back the throttle write so the next natural trigger (app
@@ -2903,108 +2954,131 @@ class ServiceKeylessWallet extends ServiceBase {
       return null;
     }
 
+    // Prompt for the password BEFORE taking the exchange lock — holding a
+    // mutex across an interactive prompt would stall the passive migration
+    // for as long as the dialog stays open. Note the prompt itself is what
+    // arms the race this lock exists for: a successful verify caches the
+    // password, which fires tryMigrateLocalExistingKeylessBackendShareToV2
+    // and thus the passive consumer of the same single-use blob token.
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerify();
-    let refreshToken: string | null = null;
-    try {
-      refreshToken = await this.getLegacyKeylessOAuthRefreshToken({
+
+    // Serialize the whole decrypt → refresh-grant exchange → persist/remove
+    // sequence with every other legacy-blob consumer. Unlike the passive
+    // path (which fast-yields), the interactive path queues: the user is
+    // actively waiting, and after the passive path finishes the blob holds
+    // its rotated — still valid — token, so this attempt still succeeds.
+    return this.legacyKeylessOAuthTokenExchangeMutex.runExclusive(async () => {
+      // Re-check INSIDE the lock and re-read the blob fresh: while this call
+      // waited, the passive migration may have consumed the stored token and
+      // saved a rotated one back (re-read picks it up), or removed the blob
+      // after a definitive GoTrue rejection (return null so callers fall
+      // back to a fresh OAuth login instead of replaying a dead token).
+      if (!(await this.hasLegacyKeylessOAuthRefreshToken({ ownerId }))) {
+        return null;
+      }
+
+      let refreshToken: string | null = null;
+      try {
+        refreshToken = await this.getLegacyKeylessOAuthRefreshToken({
+          ownerId,
+          password,
+        });
+      } catch (error) {
+        if (this.isKeylessDataCorruptedError(error)) {
+          // The legacy blob can no longer be decrypted (e.g. it was left stale
+          // by a passcode change on an old build). It is unrecoverable and
+          // would fail again on every retry, so drop it and let callers fall
+          // back to a fresh OAuth login.
+          await this.removeLegacyKeylessOAuthTokens({ ownerId });
+          return null;
+        }
+        throw error;
+      }
+      if (!refreshToken) {
+        return null;
+      }
+
+      const refreshUrl = `${KEYLESS_SUPABASE_PROJECT_URL}/auth/v1/token?grant_type=refresh_token`;
+      const response = await fetch(refreshUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // oxlint-disable-next-line @cspell/spellchecker
+          apikey: KEYLESS_SUPABASE_PUBLIC_API_KEY,
+        },
+        body: JSON.stringify({
+          refresh_token: refreshToken,
+        }),
+      });
+      // Transient HTTP failures (auth server down / timeout / rate limited)
+      // keep the blob so a later attempt can retry the exchange.
+      if (
+        response.status >= 500 ||
+        response.status === 408 ||
+        response.status === 429
+      ) {
+        return null;
+      }
+      if (!response.ok) {
+        if (await this.isDefinitiveGoTrueRefreshTokenRejection(response)) {
+          // GoTrue definitively rejected the refresh token (revoked / expired /
+          // already rotated elsewhere). The blob is dead and would fail on
+          // every retry — drop it so prepareOneKeyIdLoginWithLocalKeyless stops
+          // steering to ContinueWithKeyless (passcode prompt + doomed exchange)
+          // and routes to a fresh OAuth login instead. Mirrors the passive
+          // migration path.
+          await this.removeLegacyKeylessOAuthTokens({ ownerId });
+          return null;
+        }
+        // Any other non-OK response (proxy / CDN challenge page, unparseable
+        // body) is not a GoTrue verdict on the token — keep the blob and treat
+        // it like the transient branch above.
+        return null;
+      }
+
+      const refreshResult = (await response.json()) as {
+        access_token?: string;
+        refresh_token?: string;
+      };
+      const accessToken = refreshResult?.access_token;
+      const nextRefreshToken = refreshResult?.refresh_token;
+      if (!accessToken || !nextRefreshToken) {
+        return null;
+      }
+
+      const mismatchReason =
+        await this.validateKeylessAccessTokenMatchesLocalWallet({
+          keylessWallet,
+          token: accessToken,
+        });
+      if (mismatchReason) {
+        return null;
+      }
+
+      // Supabase rotates refresh tokens on use — the exchange above consumed
+      // the stored token, so persist the rotated one back (only after it has
+      // been validated against the local wallet, mirroring the passive
+      // migration path). If setSession below throws, the blob then still holds
+      // a usable token for the next attempt instead of a consumed one.
+      await this.saveLegacyKeylessOAuthRefreshToken({
         ownerId,
+        refreshToken: nextRefreshToken,
         password,
       });
-    } catch (error) {
-      if (this.isKeylessDataCorruptedError(error)) {
-        // The legacy blob can no longer be decrypted (e.g. it was left stale
-        // by a passcode change on an old build). It is unrecoverable and
-        // would fail again on every retry, so drop it and let callers fall
-        // back to a fresh OAuth login.
-        await this.removeLegacyKeylessOAuthTokens({ ownerId });
-        return null;
+
+      const setSessionResult =
+        await getKeylessSupabaseClient().client.auth.setSession({
+          access_token: accessToken,
+          refresh_token: nextRefreshToken,
+        });
+      if (setSessionResult.error) {
+        throw new OneKeyLocalError(setSessionResult.error.message);
       }
-      throw error;
-    }
-    if (!refreshToken) {
-      return null;
-    }
 
-    const refreshUrl = `${KEYLESS_SUPABASE_PROJECT_URL}/auth/v1/token?grant_type=refresh_token`;
-    const response = await fetch(refreshUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // oxlint-disable-next-line @cspell/spellchecker
-        apikey: KEYLESS_SUPABASE_PUBLIC_API_KEY,
-      },
-      body: JSON.stringify({
-        refresh_token: refreshToken,
-      }),
+      await this.removeLegacyKeylessOAuthTokens({ ownerId });
+      return accessToken;
     });
-    // Transient HTTP failures (auth server down / timeout / rate limited)
-    // keep the blob so a later attempt can retry the exchange.
-    if (
-      response.status >= 500 ||
-      response.status === 408 ||
-      response.status === 429
-    ) {
-      return null;
-    }
-    if (!response.ok) {
-      if (await this.isDefinitiveGoTrueRefreshTokenRejection(response)) {
-        // GoTrue definitively rejected the refresh token (revoked / expired /
-        // already rotated elsewhere). The blob is dead and would fail on
-        // every retry — drop it so prepareOneKeyIdLoginWithLocalKeyless stops
-        // steering to ContinueWithKeyless (passcode prompt + doomed exchange)
-        // and routes to a fresh OAuth login instead. Mirrors the passive
-        // migration path.
-        await this.removeLegacyKeylessOAuthTokens({ ownerId });
-        return null;
-      }
-      // Any other non-OK response (proxy / CDN challenge page, unparseable
-      // body) is not a GoTrue verdict on the token — keep the blob and treat
-      // it like the transient branch above.
-      return null;
-    }
-
-    const refreshResult = (await response.json()) as {
-      access_token?: string;
-      refresh_token?: string;
-    };
-    const accessToken = refreshResult?.access_token;
-    const nextRefreshToken = refreshResult?.refresh_token;
-    if (!accessToken || !nextRefreshToken) {
-      return null;
-    }
-
-    const mismatchReason =
-      await this.validateKeylessAccessTokenMatchesLocalWallet({
-        keylessWallet,
-        token: accessToken,
-      });
-    if (mismatchReason) {
-      return null;
-    }
-
-    // Supabase rotates refresh tokens on use — the exchange above consumed
-    // the stored token, so persist the rotated one back (only after it has
-    // been validated against the local wallet, mirroring the passive
-    // migration path). If setSession below throws, the blob then still holds
-    // a usable token for the next attempt instead of a consumed one.
-    await this.saveLegacyKeylessOAuthRefreshToken({
-      ownerId,
-      refreshToken: nextRefreshToken,
-      password,
-    });
-
-    const setSessionResult =
-      await getKeylessSupabaseClient().client.auth.setSession({
-        access_token: accessToken,
-        refresh_token: nextRefreshToken,
-      });
-    if (setSessionResult.error) {
-      throw new OneKeyLocalError(setSessionResult.error.message);
-    }
-
-    await this.removeLegacyKeylessOAuthTokens({ ownerId });
-    return accessToken;
   }
 
   @backgroundMethod()
