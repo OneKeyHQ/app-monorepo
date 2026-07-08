@@ -526,8 +526,13 @@ class ServiceBatchCreateAccount extends ServiceBase {
       },
     );
     return flow.catch((error) => {
-      // Emit only for the prepare-phase escape; the loop's forceExit owns the rest.
-      if (!this.isCreateFlowCancelled && !this.progressInfo) {
+      // Emit only for a UI-progress flow's prepare-phase escape; background
+      // (no-UI) flows must not broadcast to the shared progress event.
+      if (
+        !this.isCreateFlowCancelled &&
+        !this.progressInfo &&
+        payload.params.showUIProgress
+      ) {
         appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
           totalCount: 0,
           createdCount: 0,
