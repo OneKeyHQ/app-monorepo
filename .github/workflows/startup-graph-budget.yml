@@ -108,7 +108,9 @@ jobs:
           name: bundle-architecture-reports
           path: |
             apps/mobile/dist/allocation-report-*.json
-            apps/mobile/out-dir-analysis/budget-check-report.json
+            apps/mobile/out-dir-analysis/budget-check-report-*.json
+            apps/mobile/out-dir-analysis/budget-check-ai-hints-*.json
+            apps/mobile/out-dir-analysis/budget-check-ai-hints-*.md
           retention-days: 30
 
   web-startup-graph-budget:
@@ -143,6 +145,10 @@ jobs:
       # Keep scenario budgets in development/perf-ci/thresholds/web.cold.json
       # close to these per-entry baselines. LCP is reported by the script but is
       # not a hard budget because it is too sensitive to GitHub runner variance.
+      # NOTE: resourceCount, scriptCount and jsDecodedBytes remain raw
+      # PerformanceResourceTiming hard gates matching web.cold.json. Normalized
+      # URL de-duplicated diagnostics are emitted as unique* fields in the
+      # report/hints; migrate thresholds in the same PR if those become gates.
       # root: 15.86 MiB JS, 157 scripts, 206 resources, 1737 ms long tasks
       # market: 15.86 MiB JS, 157 scripts, 205 resources, 1624 ms long tasks
       # perps: 16.21 MiB JS, 165 scripts, 204 resources, 1271 ms long tasks
@@ -195,5 +201,9 @@ jobs:
           name: web-startup-cold-budget-reports
           path: |
             apps/web/out-dir-analysis/web-startup-graph-budget-report.json
+            apps/web/out-dir-analysis/web-startup-graph-budget-report-ai-hints.json
+            apps/web/out-dir-analysis/web-startup-graph-budget-report-ai-hints.md
             apps/web/out-dir-analysis/web-cold-budget-report.json
+            apps/web/out-dir-analysis/web-cold-budget-report-ai-hints.json
+            apps/web/out-dir-analysis/web-cold-budget-report-ai-hints.md
           retention-days: 30
