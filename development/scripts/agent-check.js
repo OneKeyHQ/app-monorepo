@@ -367,8 +367,18 @@ function getReviewState(view) {
   );
 }
 
+const MERGEABLE_STATES = new Set(['CLEAN', 'HAS_HOOKS']);
+
+function mergeStateFailureReason(value) {
+  const status = String(value || '').toUpperCase();
+  if (!status || MERGEABLE_STATES.has(status)) {
+    return '';
+  }
+  return `pr-merge-state-blocked:${status}`;
+}
+
 function isHardBlockedMergeState(value) {
-  return String(value || '').toUpperCase() === 'DIRTY';
+  return Boolean(mergeStateFailureReason(value));
 }
 
 function reviewDecisionFailureReason(value) {
@@ -696,7 +706,7 @@ function failureReasons(report) {
       report.remote.pr.mergeStateStatus &&
       isHardBlockedMergeState(report.remote.pr.mergeStateStatus)
     ) {
-      reasons.push('pr-merge-state-blocked');
+      reasons.push(mergeStateFailureReason(report.remote.pr.mergeStateStatus));
     }
     if (report.remote.pr) {
       const reviewReason = reviewDecisionFailureReason(

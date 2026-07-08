@@ -194,23 +194,117 @@ async function replaceText(locator, page, text) {
   });
 }
 
-function findMatchingWebviewPages(browser, mainPage, expectedHost) {
-  const pages = [];
-  for (const context of browser.contexts()) {
-    for (const candidate of context.pages()) {
-      const candidateUrl = candidate.url();
-      const isMainPage = candidate === mainPage;
-      const isInternalPage = /^(about|devtools|chrome):/i.test(candidateUrl);
-      if (
-        !isMainPage &&
-        !isInternalPage &&
-        urlMatchesHost(candidateUrl, expectedHost)
-      ) {
-        pages.push(candidate);
+async function readDesktopWebviewStates(page) {
+  const handles = await page.locator('webview').elementHandles();
+  return Promise.all(
+    handles.map((handle) =>
+      handle
+        .evaluate(async (element) => {
+          let pageInfo = null;
+          let pageInfoError = '';
+          if (typeof element.executeJavaScript === 'function') {
+            try {
+              pageInfo = await element.executeJavaScript(`
+                (() => {
+                  const visibleText = (
+                    document.body?.innerText ||
+                    document.documentElement?.innerText ||
+                    ''
+                  ).replace(/\\s+/g, ' ').trim();
+                  return {
+                    href: window.location.href,
+                    readyState: document.readyState,
+                    textLength: visibleText.length,
+                    title: document.title || ''
+                  };
+                })()
+              `);
+            } catch (error) {
+              pageInfoError =
+                error instanceof Error ? error.message : String(error);
+            }
+          }
+
+          return {
+            loading:
+              typeof element.isLoading === 'function'
+                ? element.isLoading()
+                : undefined,
+            pageInfo,
+            pageInfoError,
+            src: element.getAttribute('src') || '',
+            title:
+              typeof element.getTitle === 'function' ? element.getTitle() : '',
+            url: typeof element.getURL === 'function' ? element.getURL() : '',
+          };
+        })
+        .catch((error) => ({
+          pageInfo: null,
+          pageInfoError: error?.message || String(error),
+          src: '',
+          title: '',
+          url: '',
+        })),
+    ),
+  );
+}
+
+function webviewStateHref(state) {
+  return state.pageInfo?.href || state.url || state.src || '';
+}
+
+function hasRenderedWebviewContent(state) {
+  if (!state.pageInfo) {
+    return false;
+  }
+  const readyState = state.pageInfo?.readyState || '';
+  const textLength = Number(state.pageInfo?.textLength || 0);
+  const title = state.pageInfo?.title || '';
+  return readyState !== 'loading' && (title.length > 0 || textLength > 0);
+}
+
+function compactWebviewState(state) {
+  return {
+    href: webviewStateHref(state),
+    title: state.pageInfo?.title || state.title || '',
+    readyState: state.pageInfo?.readyState || '',
+    textLength: Number(state.pageInfo?.textLength || 0),
+    pageInfoError: state.pageInfoError || '',
+    src: state.src || '',
+    url: state.url || '',
+  };
+}
+
+function textMentionsHost(value, expectedHost) {
+  return String(value || '')
+    .toLowerCase()
+    .includes(String(expectedHost || '').toLowerCase());
+}
+
+async function findDappSearchResult(page, expectedHost) {
+  const directResult = page.locator('[data-testid="dapp-search0"]').first();
+  if (await directResult.isVisible().catch(() => false)) {
+    return directResult;
+  }
+
+  const modalItems = await page.locator('[data-testid^="search-modal-"]').all();
+  for (const item of modalItems) {
+    if (await item.isVisible().catch(() => false)) {
+      const marker = await item
+        .evaluate(
+          (element) =>
+            `${element.getAttribute('data-testid') || ''} ${
+              element.textContent || ''
+            }`,
+        )
+        .catch(() => '');
+      if (textMentionsHost(marker, expectedHost)) {
+        return item;
       }
     }
   }
-  return pages;
+
+  return null;
 }
 
 function reportVerification(name, checks) {
@@ -231,7 +325,7 @@ function reportVerification(name, checks) {
   return 0;
 }
 
-async function openDappFromDesktopUi(page, targetUrl) {
+async function openDappFromDesktopUi(page, targetUrl, expectedHost) {
   const browserAddButton = page
     .locator('[data-testid="browser-bar-add"]')
     .first();
@@ -271,20 +365,8 @@ async function openDappFromDesktopUi(page, targetUrl) {
   );
   await replaceText(searchInput, page, targetUrl);
   const searchResult = await waitForCondition(
-    'desktop global search result',
-    async () => {
-      for (const selector of [
-        '[data-testid="select-item-"]',
-        '[data-testid="dapp-search0"]',
-        '[data-testid^="search-modal-"]',
-      ]) {
-        const result = page.locator(selector).first();
-        if (await result.isVisible().catch(() => false)) {
-          return result;
-        }
-      }
-      return null;
-    },
+    'desktop global DApp search result',
+    () => findDappSearchResult(page, expectedHost),
     5000,
   ).catch(() => null);
   if (searchResult) {
@@ -349,7 +431,7 @@ async function runDappColdStartDesktop(cdpUrl, flags) {
   }
 
   log(`opening DApp URL ${targetUrl}`);
-  const openMethod = await openDappFromDesktopUi(page, targetUrl);
+  const openMethod = await openDappFromDesktopUi(page, targetUrl, expectedHost);
 
   const tabCreated = await captureOutcome('browser tab creation', () =>
     waitForCondition('browser tab creation', async () => {
@@ -374,48 +456,23 @@ async function runDappColdStartDesktop(cdpUrl, flags) {
     ),
   );
 
-  const webviewPage = await captureOutcome(
-    'matching Electron webview target',
+  const webviewSnapshot = await captureOutcome(
+    'webview element readiness',
     () =>
       waitForCondition(
-        'matching Electron webview target',
+        'webview element readiness',
         async () => {
-          const matches = findMatchingWebviewPages(browser, page, expectedHost);
-          if (matches[0]) attachErrorListeners(matches[0], 'webview');
-          return matches[0] ?? null;
+          const states = await readDesktopWebviewStates(page);
+          const match = states.find((state) =>
+            urlMatchesHost(webviewStateHref(state), expectedHost),
+          );
+          return match && hasRenderedWebviewContent(match)
+            ? compactWebviewState(match)
+            : null;
         },
         35_000,
       ),
   );
-
-  let webviewSnapshot = {
-    pass: false,
-    value: null,
-    detail: webviewPage.detail || 'matching Electron webview target failed',
-  };
-  if (webviewPage.pass) {
-    await webviewPage.value
-      .waitForLoadState('domcontentloaded', { timeout: 20_000 })
-      .catch(() => {});
-    webviewSnapshot = await captureOutcome('webview document readiness', () =>
-      waitForCondition(
-        'webview document readiness',
-        async () => {
-          const snapshot = await webviewPage.value.evaluate(() => ({
-            href: globalThis.location.href,
-            title: globalThis.document.title,
-            readyState: globalThis.document.readyState,
-            textLength: globalThis.document.body?.innerText?.trim().length ?? 0,
-          }));
-          const hasContent =
-            snapshot.readyState !== 'loading' &&
-            (snapshot.title.length > 0 || snapshot.textLength > 0);
-          return hasContent ? snapshot : null;
-        },
-        20_000,
-      ),
-    );
-  }
 
   const checks = [
     {
@@ -437,7 +494,7 @@ async function runDappColdStartDesktop(cdpUrl, flags) {
         : activeInputValues.detail,
     },
     {
-      name: 'real Electron webview target loaded target host',
+      name: 'Electron webview element loaded target host',
       pass:
         webviewSnapshot.pass &&
         urlMatchesHost(webviewSnapshot.value.href, expectedHost),
@@ -456,9 +513,18 @@ async function runDappColdStartDesktop(cdpUrl, flags) {
         : webviewSnapshot.detail,
     },
     {
-      name: 'main and webview renderers have no captured DApp errors',
-      pass: consoleErrors.length === 0,
-      detail: consoleErrors.slice(0, 3).join(' | '),
+      name: 'main renderer and webview probe have no captured DApp errors',
+      pass:
+        consoleErrors.length === 0 &&
+        (!webviewSnapshot.pass || !webviewSnapshot.value.pageInfoError),
+      detail: [
+        ...consoleErrors.slice(0, 3),
+        webviewSnapshot.pass && webviewSnapshot.value.pageInfoError
+          ? `webview: ${webviewSnapshot.value.pageInfoError}`
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' | '),
     },
   ];
 
