@@ -372,11 +372,22 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       });
       this.setBrowserDataReady.call(set);
     } catch {
-      if (get(browserDataReadyWaiterAtom()) === waiter) {
-        set(browserDataReadyWaiterAtom(), null);
-        waiter.resolve();
+      if (get(browserDataReadyAtom())) {
+        return true;
       }
-      return false;
+      const currentWaiter = get(browserDataReadyWaiterAtom());
+      if (currentWaiter !== waiter) {
+        waiter.resolve();
+        if (currentWaiter) {
+          await currentWaiter.promise;
+        }
+        return get(browserDataReadyAtom());
+      }
+      this.buildWebTabs.call(set, {
+        data: [],
+        options: { isInitFromStorage: true, persist: false },
+      });
+      this.setBrowserDataReady.call(set);
     }
 
     await waiter.promise;

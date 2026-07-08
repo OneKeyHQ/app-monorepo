@@ -9,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 
 import { consts } from '@onekeyfe/cross-inpage-provider-core';
@@ -58,6 +59,24 @@ type IDesktopDidFailLoadEvent = DidFailLoadEvent & {
 
 let preloadJsUrl = '';
 let preloadJsUrlPromise: Promise<string> | undefined;
+const preloadJsUrlListeners = new Set<() => void>();
+
+function emitPreloadJsUrlChange() {
+  preloadJsUrlListeners.forEach((listener) => {
+    listener();
+  });
+}
+
+function subscribePreloadJsUrl(listener: () => void) {
+  preloadJsUrlListeners.add(listener);
+  return () => {
+    preloadJsUrlListeners.delete(listener);
+  };
+}
+
+function getPreloadJsUrlSnapshot() {
+  return preloadJsUrl;
+}
 
 function getPreloadJsUrl() {
   if (preloadJsUrl) {
@@ -67,6 +86,7 @@ function getPreloadJsUrl() {
     .getPreloadJsContent()
     .then((url: string) => {
       preloadJsUrl = url;
+      emitPreloadJsUrlChange();
       return url;
     })
     .catch((error: unknown) => {
@@ -114,8 +134,11 @@ const DesktopWebView = forwardRef(
     const [devToolsAtLeft, setDevToolsAtLeft] = useState(false);
     const [devSettings] = useDevSettingsPersistAtom();
     const isUnmountingRef = useRef(false);
-    const [resolvedPreloadJsUrl, setResolvedPreloadJsUrl] =
-      useState(preloadJsUrl);
+    const resolvedPreloadJsUrl = useSyncExternalStore(
+      subscribePreloadJsUrl,
+      getPreloadJsUrlSnapshot,
+      getPreloadJsUrlSnapshot,
+    );
     const [preloadJsUrlError, setPreloadJsUrlError] = useState(false);
 
     const [desktopLoadError, setDesktopLoadError] = useState(false);
@@ -172,11 +195,7 @@ const DesktopWebView = forwardRef(
 
       let isMounted = true;
       void getPreloadJsUrl()
-        .then((url) => {
-          if (isMounted) {
-            setResolvedPreloadJsUrl(url);
-          }
-        })
+        .then(() => undefined)
         .catch(() => {
           if (isMounted) {
             setPreloadJsUrlError(true);
@@ -187,6 +206,12 @@ const DesktopWebView = forwardRef(
         isMounted = false;
       };
     }, [disableBridge, preloadJsUrlError, resolvedPreloadJsUrl]);
+
+    useEffect(() => {
+      if (resolvedPreloadJsUrl && preloadJsUrlError) {
+        setPreloadJsUrlError(false);
+      }
+    }, [preloadJsUrlError, resolvedPreloadJsUrl]);
 
     // Register event listeners
     useEffect(() => {

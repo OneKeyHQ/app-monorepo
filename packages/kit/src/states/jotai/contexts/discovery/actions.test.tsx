@@ -1240,6 +1240,80 @@ describe('useBrowserTabActions', () => {
     );
   });
 
+  it('opens a desktop search result when stored browser tabs fail to hydrate', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+    mockGetBrowserTabsRawData.mockRejectedValueOnce(new Error('read failed'));
+    mockRootNavigationRef.current.getRootState.mockReturnValue({
+      index: 0,
+      routes: [
+        {
+          name: ERootRoutes.Main,
+          state: {
+            index: 0,
+            routes: [{ name: ETabRoutes.Discovery }],
+          },
+        },
+      ],
+    });
+
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserAction().current;
+        const [activeTabId] = useActiveTabIdAtom();
+        const [displayHomePage] = useDisplayHomePageAtom();
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          activeTabId,
+          displayHomePage,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: [],
+          activeTabId: null,
+          browserDataReady: false,
+        }),
+      },
+    );
+
+    await act(async () => {
+      result.current.actions.handleOpenWebSite({
+        webSite: {
+          title: 'Example',
+          url: 'https://example.com/',
+          logo: undefined,
+          sortIndex: undefined,
+        },
+      });
+      await flushMicrotasks(10);
+    });
+
+    expect(mockGetBrowserTabsRawData).toHaveBeenCalledTimes(1);
+    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.MultiTabBrowser);
+    expect(result.current.displayHomePage).toBe(false);
+    expect(
+      result.current.tabs.find((tab) => tab.id === result.current.activeTabId),
+    ).toEqual(
+      expect.objectContaining({
+        url: 'https://example.com',
+        isActive: true,
+      }),
+    );
+    expect(
+      mockSetBrowserTabsRawData.mock.calls.some(
+        ([payload]) => (payload as { tabs: IWebTab[] }).tabs.length === 0,
+      ),
+    ).toBe(false);
+  });
+
   it('recovers a timed-out desktop browser data waiter before opening a search result', async () => {
     Object.assign(platformEnv, {
       isDesktop: true,
@@ -1380,24 +1454,24 @@ describe('useBrowserTabActions', () => {
     );
   });
 
-  it('keeps browser data hydration retryable when the stored tabs read fails', async () => {
+  it('treats a stored tabs read failure as empty browser data hydration', async () => {
     Object.assign(platformEnv, {
       isDesktop: true,
       isNative: false,
       isNativeAndroid: false,
       isNativeIOS: false,
     });
-    mockGetBrowserTabsRawData
-      .mockRejectedValueOnce(new Error('read failed'))
-      .mockResolvedValueOnce({ tabs: [] });
+    mockGetBrowserTabsRawData.mockRejectedValueOnce(new Error('read failed'));
     const { result } = renderHook(
       () => {
         const actions = useBrowserTabActions().current;
         const [browserDataReady] = useBrowserDataReadyAtom();
+        const [webTabs] = useWebTabsAtom();
 
         return {
           actions,
           browserDataReady,
+          tabs: webTabs.tabs,
         };
       },
       {
@@ -1409,25 +1483,17 @@ describe('useBrowserTabActions', () => {
       },
     );
 
-    let firstResult = true;
+    let hydrationResult = false;
     await act(async () => {
-      firstResult = await result.current.actions.ensureBrowserDataReady();
+      hydrationResult = await result.current.actions.ensureBrowserDataReady();
       await flushMicrotasks(5);
     });
 
-    expect(firstResult).toBe(false);
-    expect(result.current.browserDataReady).toBe(false);
-    expect(mockGetBrowserTabsRawData).toHaveBeenCalledTimes(1);
-
-    let secondResult = false;
-    await act(async () => {
-      secondResult = await result.current.actions.ensureBrowserDataReady();
-      await flushMicrotasks(5);
-    });
-
-    expect(secondResult).toBe(true);
+    expect(hydrationResult).toBe(true);
     expect(result.current.browserDataReady).toBe(true);
-    expect(mockGetBrowserTabsRawData).toHaveBeenCalledTimes(2);
+    expect(result.current.tabs).toEqual([]);
+    expect(mockGetBrowserTabsRawData).toHaveBeenCalledTimes(1);
+    expect(mockSetBrowserTabsRawData).not.toHaveBeenCalled();
   });
 
   it('hydrates stored browser tabs without persisting the stored snapshot', async () => {
@@ -1653,6 +1719,81 @@ describe('useBrowserTabActions', () => {
         isActive: true,
       }),
     );
+  });
+
+  it('opens a native search result when stored browser tabs fail to hydrate', async () => {
+    mockGetBrowserTabsRawData.mockRejectedValueOnce(new Error('read failed'));
+    mockRootNavigationRef.current.getRootState.mockReturnValue({
+      index: 0,
+      routes: [
+        {
+          name: ERootRoutes.Main,
+          state: {
+            index: 0,
+            routes: [{ name: ETabRoutes.Home }],
+          },
+        },
+      ],
+    });
+
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserAction().current;
+        const [activeTabId] = useActiveTabIdAtom();
+        const [displayHomePage] = useDisplayHomePageAtom();
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          activeTabId,
+          displayHomePage,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: [],
+          activeTabId: null,
+          browserDataReady: false,
+        }),
+      },
+    );
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+    await act(async () => {
+      result.current.actions.handleOpenWebSite({
+        webSite: {
+          title: 'Example',
+          url: 'https://example.com/',
+          logo: undefined,
+          sortIndex: undefined,
+        },
+      });
+      await flushMicrotasks(10);
+    });
+
+    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Discovery);
+    expect(
+      emitSpy.mock.calls.some(
+        ([eventName]) =>
+          eventName === EAppEventBusNames.SwitchDiscoveryTabInNative,
+      ),
+    ).toBe(true);
+    expect(mockGetBrowserTabsRawData).toHaveBeenCalledTimes(1);
+    expect(result.current.displayHomePage).toBe(false);
+    expect(
+      result.current.tabs.find((tab) => tab.id === result.current.activeTabId),
+    ).toEqual(
+      expect.objectContaining({
+        url: 'https://example.com',
+        isActive: true,
+      }),
+    );
+    expect(
+      mockSetBrowserTabsRawData.mock.calls.some(
+        ([payload]) => (payload as { tabs: IWebTab[] }).tabs.length === 0,
+      ),
+    ).toBe(false);
   });
 
   it('creates the desktop destination tab before switching to MultiTabBrowser', async () => {

@@ -92,7 +92,7 @@ describe('DesktopWebView', () => {
     jest.clearAllMocks();
   });
 
-  it('renders the initial webview after retrying a failed async preload url', async () => {
+  it('recovers all mounted webviews after one preload retry succeeds', async () => {
     const preload = createDeferred<string>();
     const getPreloadJsContent = jest
       .fn()
@@ -108,20 +108,27 @@ describe('DesktopWebView', () => {
     });
 
     render(
-      <DesktopWebView
-        data-testid="desktop-webview"
-        src="https://app.uniswap.org"
-        receiveHandler={jest.fn()}
-      />,
+      <>
+        <DesktopWebView
+          data-testid="desktop-webview"
+          src="https://app.uniswap.org"
+          receiveHandler={jest.fn()}
+        />
+        <DesktopWebView
+          data-testid="desktop-webview"
+          src="https://app.uniswap.org"
+          receiveHandler={jest.fn()}
+        />
+      </>,
     );
 
     expect(screen.queryByTestId('desktop-webview')).toBeNull();
 
     await waitFor(() =>
-      expect(screen.queryByTestId('desktop-webview-error')).not.toBeNull(),
+      expect(screen.getAllByTestId('desktop-webview-error')).toHaveLength(2),
     );
 
-    fireEvent.click(screen.getByTestId('desktop-webview-error'));
+    fireEvent.click(screen.getAllByTestId('desktop-webview-error')[0]);
 
     await waitFor(() => expect(getPreloadJsContent).toHaveBeenCalledTimes(2));
 
@@ -131,12 +138,18 @@ describe('DesktopWebView', () => {
     });
 
     await waitFor(() =>
-      expect(screen.queryByTestId('desktop-webview')).not.toBeNull(),
+      expect(screen.getAllByTestId('desktop-webview')).toHaveLength(2),
     );
 
-    expect(screen.getByTestId('desktop-webview').getAttribute('preload')).toBe(
-      'file:///tmp/preload.js',
-    );
+    expect(screen.queryByTestId('desktop-webview-error')).toBeNull();
+    expect(
+      screen
+        .getAllByTestId('desktop-webview')
+        .every(
+          (webview) =>
+            webview.getAttribute('preload') === 'file:///tmp/preload.js',
+        ),
+    ).toBe(true);
     expect(getPreloadJsContent).toHaveBeenCalledTimes(2);
   });
 });
