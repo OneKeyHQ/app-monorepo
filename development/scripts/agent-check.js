@@ -4,13 +4,26 @@ const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const SCHEMA_VERSION = 1;
 const VALID_PROFILES = new Set(['commit', 'pr', 'ci']);
 const RELEASE_READY_GATE = 'release-ready-merge-gate';
+
+let jsonStdout = false;
+
+function humanLog(message = '') {
+  if (jsonStdout) {
+    console.error(message);
+  } else {
+    console.log(message);
+  }
+}
 
 function parseArgs(argv) {
   const args = {
     profile: 'commit',
     pr: '',
+    json: false,
+    jsonFile: '',
     help: false,
   };
 
@@ -18,6 +31,13 @@ function parseArgs(argv) {
     const arg = argv[i];
     if (arg === '--help' || arg === '-h') {
       args.help = true;
+    } else if (arg === '--json') {
+      args.json = true;
+    } else if (arg === '--json-file') {
+      args.jsonFile = argv[i + 1] || '';
+      i += 1;
+    } else if (arg.startsWith('--json-file=')) {
+      args.jsonFile = arg.slice('--json-file='.length);
     } else if (arg === '--profile') {
       args.profile = argv[i + 1] || '';
       i += 1;
@@ -50,11 +70,17 @@ function usage() {
     '  yarn agent:check --profile commit',
     '  yarn agent:check --profile pr [--pr 123]',
     '  yarn agent:check --profile ci [--pr 123]',
+    '  yarn agent:check --profile ci --json',
+    '  yarn agent:check --profile ci --json-file /tmp/agent-check.json',
     '',
     'Profiles:',
     '  commit  Run local staged lint and type checks.',
     '  pr      Run commit checks, then summarize PR CI and reviews when a PR exists.',
     '  ci      Summarize PR CI and reviews only. Requires a PR.',
+    '',
+    'Machine output:',
+    '  --json       Print only the JSON report to stdout; human logs go to stderr.',
+    '  --json-file  Write the same stable JSON report to the provided path.',
   ].join('\n');
 }
 
@@ -78,6 +104,10 @@ function formatDuration(ms) {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+function relativeLogPath(logPath) {
+  return path.relative(process.cwd(), logPath);
+}
+
 function writeCommandLog(logDir, name, command, args, result, durationMs) {
   const fileName = `${name.replace(/[^a-zA-Z0-9._-]/g, '_')}.log`;
   const logPath = path.join(logDir, fileName);
@@ -98,6 +128,19 @@ function writeCommandLog(logDir, name, command, args, result, durationMs) {
   return logPath;
 }
 
+function compactCommandResult(result) {
+  return {
+    name: result.name,
+    command: result.command,
+    args: result.args,
+    ok: result.ok,
+    exitCode: result.exitCode,
+    signal: result.signal || '',
+    durationMs: result.durationMs,
+    logPath: result.logPath,
+  };
+}
+
 function runCommand(logDir, name, command, args) {
   const startedAt = Date.now();
   const result = spawnSync(command, args, {
@@ -116,17 +159,20 @@ function runCommand(logDir, name, command, args) {
   );
   const ok = result.status === 0;
 
-  console.log(
+  humanLog(
     `${ok ? 'PASS' : 'FAIL'} ${name} (${formatDuration(
       durationMs,
-    )}) log: ${path.relative(process.cwd(), logPath)}`,
+    )}) log: ${relativeLogPath(logPath)}`,
   );
 
   return {
     name,
+    command,
+    args,
     ok,
     exitCode: result.status,
     signal: result.signal,
+    durationMs,
     logPath,
     stdout: result.stdout || '',
     stderr: result.stderr || '',
@@ -219,8 +265,7 @@ function detectRepo(logDir) {
 
   if (!result.ok || !result.data) {
     throw new Error(
-      `Unable to detect GitHub repository. See ${path.relative(
-        process.cwd(),
+      `Unable to detect GitHub repository. See ${relativeLogPath(
         result.logPath,
       )}`,
     );
@@ -239,6 +284,18 @@ function lastItem(items) {
   return items[items.length - 1];
 }
 
+function compactCheck(check) {
+  return {
+    name: check.name || '',
+    bucket: check.bucket || '',
+    state: check.state || '',
+    workflow: check.workflow || '',
+    link: check.link || '',
+    startedAt: check.startedAt || '',
+    completedAt: check.completedAt || '',
+  };
+}
+
 function summarizeChecks(checks) {
   const summary = {
     pass: [],
@@ -253,25 +310,37 @@ function summarizeChecks(checks) {
   for (const check of checks || []) {
     const bucket = String(check.bucket || '').toLowerCase();
     if (bucket === 'pass') {
-      summary.pass.push(check);
+      summary.pass.push(compactCheck(check));
     } else if (bucket === 'fail') {
       if (check.name === RELEASE_READY_GATE) {
-        summary.gateFailed.push(check);
+        summary.gateFailed.push(compactCheck(check));
       } else {
-        summary.failed.push(check);
+        summary.failed.push(compactCheck(check));
       }
     } else if (bucket === 'pending') {
-      summary.pending.push(check);
+      summary.pending.push(compactCheck(check));
     } else if (bucket === 'skipping') {
-      summary.skipped.push(check);
+      summary.skipped.push(compactCheck(check));
     } else if (bucket === 'cancel') {
-      summary.cancelled.push(check);
+      summary.cancelled.push(compactCheck(check));
     } else {
-      summary.unknown.push(check);
+      summary.unknown.push(compactCheck(check));
     }
   }
 
   return summary;
+}
+
+function checksCounts(summary) {
+  return {
+    pass: summary.pass.length,
+    failed: summary.failed.length,
+    pending: summary.pending.length,
+    skipped: summary.skipped.length,
+    cancelled: summary.cancelled.length,
+    gateFailed: summary.gateFailed.length,
+    unknown: summary.unknown.length,
+  };
 }
 
 function getReviewState(view) {
@@ -291,32 +360,92 @@ function getReviewState(view) {
 }
 
 function getThreads(graphqlData) {
+  const connection = getThreadConnection(graphqlData);
+  return connection.nodes || [];
+}
+
+function getThreadConnection(graphqlData) {
   const payload =
     graphqlData && graphqlData.data ? graphqlData.data : graphqlData;
   return (
     (payload &&
       payload.repository &&
       payload.repository.pullRequest &&
-      payload.repository.pullRequest.reviewThreads &&
-      payload.repository.pullRequest.reviewThreads.nodes) ||
-    []
+      payload.repository.pullRequest.reviewThreads) || {
+      nodes: [],
+      pageInfo: { hasNextPage: false },
+    }
   );
 }
 
+function reviewThreadDataFlags(graphqlData) {
+  const connection = getThreadConnection(graphqlData);
+  const nodes = connection.nodes || [];
+  const threadPageTruncated = Boolean(
+    connection.pageInfo && connection.pageInfo.hasNextPage,
+  );
+  const commentPageTruncated = nodes.some(
+    (thread) =>
+      thread.comments &&
+      thread.comments.pageInfo &&
+      thread.comments.pageInfo.hasPreviousPage,
+  );
+
+  return {
+    dataComplete: !threadPageTruncated && !commentPageTruncated,
+    threadPageTruncated,
+    commentPageTruncated,
+  };
+}
+
+function threadComments(thread) {
+  if (Array.isArray(thread.comments)) {
+    return thread.comments;
+  }
+  return (thread.comments && thread.comments.nodes) || [];
+}
+
+function compactThread(thread) {
+  const latest = lastItem(threadComments(thread));
+  const body = latest && latest.body ? latest.body.replace(/\s+/g, ' ') : '';
+
+  return {
+    id: thread.id || '',
+    isResolved: Boolean(thread.isResolved),
+    isOutdated: Boolean(thread.isOutdated),
+    path: thread.path || '',
+    line: thread.line || null,
+    startLine: thread.startLine || null,
+    diffSide: thread.diffSide || '',
+    latestComment: latest
+      ? {
+          id: latest.id || '',
+          databaseId: latest.databaseId || null,
+          author:
+            latest.author && latest.author.login ? latest.author.login : '',
+          createdAt: latest.createdAt || '',
+          bodyPreview: body.length > 240 ? `${body.slice(0, 237)}...` : body,
+        }
+      : null,
+  };
+}
+
 function summarizeThreads(threads) {
-  const unresolved = threads.filter((thread) => !thread.isResolved);
+  const compactThreads = (threads || []).map(compactThread);
+  const unresolved = compactThreads.filter((thread) => !thread.isResolved);
   const active = unresolved.filter((thread) => !thread.isOutdated);
 
   return {
-    total: threads.length,
+    total: compactThreads.length,
     unresolved,
     active,
   };
 }
 
 function printChecks(summary) {
-  console.log(
-    `CI checks: ${summary.pass.length} pass, ${summary.failed.length} failed, ${summary.pending.length} pending, ${summary.gateFailed.length} gate-blocked`,
+  const counts = checksCounts(summary);
+  humanLog(
+    `CI checks: ${counts.pass} pass, ${counts.failed} failed, ${counts.pending} pending, ${counts.gateFailed} gate-blocked`,
   );
 
   const important = [
@@ -326,40 +455,54 @@ function printChecks(summary) {
   ];
 
   for (const [state, check] of important) {
-    console.log(
+    humanLog(
       `- ${state}: ${check.name}${check.link ? ` (${check.link})` : ''}`,
     );
   }
 }
 
 function printThreads(summary) {
-  console.log(
+  humanLog(
     `Review threads: ${summary.active.length} active unresolved, ${summary.unresolved.length} total unresolved`,
   );
 
   for (const thread of summary.active.slice(0, 8)) {
-    const comment = lastItem(thread.comments && thread.comments.nodes);
-    const author = comment && comment.author ? comment.author.login : 'unknown';
-    const body =
-      comment && comment.body ? comment.body.replace(/\s+/g, ' ') : '';
-    const preview = body.length > 120 ? `${body.slice(0, 117)}...` : body;
-    console.log(
+    const comment = thread.latestComment;
+    const author = comment && comment.author ? comment.author : 'unknown';
+    const preview = comment && comment.bodyPreview ? comment.bodyPreview : '';
+    humanLog(
       `- ${thread.path}:${thread.line || thread.startLine || '?'} @${author}: ${preview}`,
     );
   }
 }
 
 function runLocalChecks(logDir) {
-  console.log('\nLocal checks');
-  const results = [
+  humanLog('\nLocal checks');
+  return [
     runCommand(logDir, 'lint-staged', 'yarn', ['lint:staged']),
     runCommand(logDir, 'tsc-staged', 'yarn', ['tsc:staged']),
   ];
-  return results;
+}
+
+function buildLocalReport(results, ran) {
+  if (!ran) {
+    return {
+      ran: false,
+      status: 'skipped',
+      checks: [],
+    };
+  }
+
+  const checks = results.map(compactCommandResult);
+  return {
+    ran: true,
+    status: checks.every((check) => check.ok) ? 'pass' : 'fail',
+    checks,
+  };
 }
 
 function runRemoteChecks(logDir, explicitPr, required) {
-  console.log('\nGitHub checks');
+  humanLog('\nGitHub checks');
   const prNumber = detectPrNumber(logDir, explicitPr);
 
   if (!prNumber) {
@@ -368,11 +511,17 @@ function runRemoteChecks(logDir, explicitPr, required) {
         'No PR found. Pass --pr <number-or-url> or push/open a PR first.',
       );
     }
-    console.log('SKIP GitHub checks: no PR found for the current branch.');
+    humanLog('SKIP GitHub checks: no PR found for the current branch.');
     return {
+      ran: true,
       skipped: true,
-      prNumber: '',
+      required,
+      status: 'skipped',
+      pr: null,
       exitCode: 0,
+      checks: null,
+      review: null,
+      logs: {},
     };
   }
 
@@ -402,6 +551,9 @@ query($owner: String!, $repo: String!, $pr: Int!) {
     pullRequest(number: $pr) {
       id
       reviewThreads(first: 100) {
+        pageInfo {
+          hasNextPage
+        }
         nodes {
           id
           isResolved
@@ -410,7 +562,10 @@ query($owner: String!, $repo: String!, $pr: Int!) {
           line
           startLine
           diffSide
-          comments(first: 20) {
+          comments(last: 20) {
+            pageInfo {
+              hasPreviousPage
+            }
             nodes {
               id
               databaseId
@@ -442,74 +597,128 @@ query($owner: String!, $repo: String!, $pr: Int!) {
 
   if (!view.ok || !view.data) {
     throw new Error(
-      `Unable to read PR metadata. See ${path.relative(process.cwd(), view.logPath)}`,
+      `Unable to read PR metadata. See ${relativeLogPath(view.logPath)}`,
     );
   }
 
   const checksData = Array.isArray(checks.data) ? checks.data : [];
   const checksSummary = summarizeChecks(checksData);
   const reviewThreads = threads.ok ? getThreads(threads.data) : [];
+  const threadDataFlags = threads.ok
+    ? reviewThreadDataFlags(threads.data)
+    : {
+        dataComplete: false,
+        threadPageTruncated: false,
+        commentPageTruncated: false,
+      };
   const threadsSummary = summarizeThreads(reviewThreads);
   const changesRequested = getReviewState(view.data);
+  const changesRequestedBy = changesRequested.map((review) =>
+    review.author && review.author.login ? review.author.login : '',
+  );
   const inlineCount = Array.isArray(inlineComments.data)
     ? inlineComments.data.length
     : 0;
 
-  console.log(`PR: ${view.data.url}`);
-  console.log(
+  humanLog(`PR: ${view.data.url}`);
+  humanLog(
     `State: ${view.data.state}, reviewDecision: ${view.data.reviewDecision}`,
   );
   printChecks(checksSummary);
-  console.log(`Inline comments: ${inlineCount}`);
+  humanLog(`Inline comments: ${inlineCount}`);
   if (!threads.ok) {
-    console.log(
-      `Review threads: unavailable via GraphQL. See ${path.relative(
-        process.cwd(),
+    humanLog(
+      `Review threads: unavailable via GraphQL. See ${relativeLogPath(
         threads.logPath,
       )}`,
     );
   } else {
     printThreads(threadsSummary);
     if (threadsSummary.active.length) {
-      console.log(
+      humanLog(
         `Review action: yarn agent:review-thread --pr ${prNumber} --list`,
       );
     }
   }
 
-  if (changesRequested.length) {
-    console.log('Changes requested by:');
-    for (const review of changesRequested) {
-      console.log(`- ${review.author.login}`);
+  if (changesRequestedBy.length) {
+    humanLog('Changes requested by:');
+    for (const login of changesRequestedBy) {
+      humanLog(`- ${login}`);
     }
   }
 
   const hasBlockingState = view.data.state !== 'OPEN';
+  const mergeStateStatus = String(
+    view.data.mergeStateStatus || '',
+  ).toUpperCase();
+  const hasDraft = Boolean(view.data.isDraft);
+  const hasMergeBlocked =
+    mergeStateStatus && !['CLEAN', 'HAS_HOOKS'].includes(mergeStateStatus);
   const hasFailures = checksSummary.failed.length > 0;
   const hasPending = checksSummary.pending.length > 0;
-  const hasThreads = threadsSummary.active.length > 0;
-  const hasChangesRequested = changesRequested.length > 0;
+  const hasGateFailure = checksSummary.gateFailed.length > 0;
+  const hasThreads = threadsSummary.unresolved.length > 0;
+  const hasChangesRequested = changesRequestedBy.length > 0;
   const hasUnavailableRequiredData =
     !checks.ok || !inlineComments.ok || !threads.ok;
+  const hasTruncatedReviewData = !threadDataFlags.dataComplete;
   const exitCode =
     hasBlockingState ||
+    hasDraft ||
+    hasMergeBlocked ||
     hasFailures ||
     hasPending ||
+    hasGateFailure ||
     hasThreads ||
     hasChangesRequested ||
-    hasUnavailableRequiredData
+    hasUnavailableRequiredData ||
+    hasTruncatedReviewData
       ? 1
       : 0;
 
   return {
+    ran: true,
     skipped: false,
-    prNumber,
-    url: view.data.url,
+    required,
+    status: exitCode === 0 ? 'pass' : 'fail',
+    pr: {
+      number: Number(prNumber),
+      url: view.data.url,
+      state: view.data.state,
+      reviewDecision: view.data.reviewDecision,
+      mergeStateStatus: view.data.mergeStateStatus,
+      isDraft: Boolean(view.data.isDraft),
+      headRefName: view.data.headRefName,
+      baseRefName: view.data.baseRefName,
+    },
     exitCode,
-    checks: checksSummary,
-    reviewThreads: threadsSummary,
-    reviewDecision: view.data.reviewDecision,
-    changesRequested: changesRequested.map((review) => review.author.login),
+    checks: {
+      counts: checksCounts(checksSummary),
+      failed: checksSummary.failed,
+      pending: checksSummary.pending,
+      gateFailed: checksSummary.gateFailed,
+      skipped: checksSummary.skipped,
+      cancelled: checksSummary.cancelled,
+      unknown: checksSummary.unknown,
+      all: checksData.map(compactCheck),
+    },
+    review: {
+      inlineComments: {
+        count: inlineCount,
+      },
+      threads: {
+        total: threadsSummary.total,
+        unresolved: threadsSummary.unresolved.length,
+        activeUnresolved: threadsSummary.active.length,
+        dataComplete: threadDataFlags.dataComplete,
+        threadPageTruncated: threadDataFlags.threadPageTruncated,
+        commentPageTruncated: threadDataFlags.commentPageTruncated,
+        active: threadsSummary.active,
+        unresolvedItems: threadsSummary.unresolved,
+      },
+      changesRequestedBy: changesRequestedBy.filter(Boolean),
+    },
     logs: {
       view: view.logPath,
       checks: checks.logPath,
@@ -519,9 +728,58 @@ query($owner: String!, $repo: String!, $pr: Int!) {
   };
 }
 
-function writeReport(logDir, report) {
-  const reportPath = path.join(logDir, 'summary.json');
-  const compactReport = JSON.parse(
+function failureReasons(report) {
+  const reasons = [];
+
+  if (report.local.ran && report.local.status === 'fail') {
+    reasons.push('local-checks-failed');
+  }
+
+  if (report.remote && report.remote.ran && report.remote.status === 'fail') {
+    if (report.remote.pr && report.remote.pr.state !== 'OPEN') {
+      reasons.push('pr-not-open');
+    }
+    if (report.remote.pr && report.remote.pr.isDraft) {
+      reasons.push('pr-is-draft');
+    }
+    if (
+      report.remote.pr &&
+      report.remote.pr.mergeStateStatus &&
+      !['CLEAN', 'HAS_HOOKS'].includes(report.remote.pr.mergeStateStatus)
+    ) {
+      reasons.push('pr-merge-state-blocked');
+    }
+    if (report.remote.checks && report.remote.checks.counts.failed > 0) {
+      reasons.push('ci-checks-failed');
+    }
+    if (report.remote.checks && report.remote.checks.counts.pending > 0) {
+      reasons.push('ci-checks-pending');
+    }
+    if (report.remote.checks && report.remote.checks.counts.gateFailed > 0) {
+      reasons.push('release-ready-gate-blocked');
+    }
+    if (report.remote.review && report.remote.review.threads.unresolved) {
+      reasons.push('review-threads-unresolved');
+    }
+    if (
+      report.remote.review &&
+      report.remote.review.threads.dataComplete === false
+    ) {
+      reasons.push('review-data-truncated');
+    }
+    if (
+      report.remote.review &&
+      report.remote.review.changesRequestedBy.length > 0
+    ) {
+      reasons.push('changes-requested');
+    }
+  }
+
+  return reasons;
+}
+
+function stableReport(report) {
+  return JSON.parse(
     JSON.stringify(report, (key, value) => {
       if (key === 'stdout' || key === 'stderr' || key === 'data') {
         return undefined;
@@ -529,8 +787,66 @@ function writeReport(logDir, report) {
       return value;
     }),
   );
-  fs.writeFileSync(reportPath, `${JSON.stringify(compactReport, null, 2)}\n`);
-  console.log(`\nSummary JSON: ${path.relative(process.cwd(), reportPath)}`);
+}
+
+function writeReport(logDir, report, args) {
+  const reportPath = path.join(logDir, 'summary.json');
+  report.summaryPath = reportPath;
+
+  if (args.jsonFile) {
+    report.jsonFile = path.resolve(args.jsonFile);
+  }
+
+  const output = `${JSON.stringify(stableReport(report), null, 2)}\n`;
+  fs.writeFileSync(reportPath, output);
+
+  if (args.jsonFile) {
+    fs.mkdirSync(path.dirname(report.jsonFile), { recursive: true });
+    fs.writeFileSync(report.jsonFile, output);
+    humanLog(`JSON file: ${path.relative(process.cwd(), report.jsonFile)}`);
+  }
+
+  humanLog(`\nSummary JSON: ${relativeLogPath(reportPath)}`);
+
+  if (args.json) {
+    process.stdout.write(output);
+  }
+}
+
+function createInitialReport(args, logDir) {
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    tool: 'agent-check',
+    generatedAt: new Date().toISOString(),
+    cwd: process.cwd(),
+    profile: args.profile,
+    status: 'running',
+    exitCode: null,
+    logDir,
+    summaryPath: '',
+    jsonFile: args.jsonFile ? path.resolve(args.jsonFile) : '',
+    input: {
+      pr: args.pr,
+    },
+    local: {
+      ran: false,
+      status: 'skipped',
+      checks: [],
+    },
+    remote: {
+      ran: false,
+      skipped: true,
+      required: false,
+      status: 'skipped',
+      pr: null,
+      exitCode: 0,
+      checks: null,
+      review: null,
+      logs: {},
+    },
+    failureReasons: [],
+    error: null,
+  };
 }
 
 function main() {
@@ -544,39 +860,44 @@ function main() {
     process.exit(1);
   }
 
+  jsonStdout = args.json;
+
   if (args.help) {
     console.log(usage());
     return;
   }
 
   const logDir = createLogDir();
-  const report = {
-    profile: args.profile,
-    logDir,
-    local: [],
-    remote: null,
-  };
+  const report = createInitialReport(args, logDir);
 
-  console.log(`Agent check profile: ${args.profile}`);
-  console.log(`Log dir: ${path.relative(process.cwd(), logDir)}`);
+  humanLog(`Agent check profile: ${args.profile}`);
+  humanLog(`Log dir: ${relativeLogPath(logDir)}`);
 
   try {
+    let localResults = [];
     if (args.profile === 'commit' || args.profile === 'pr') {
-      report.local = runLocalChecks(logDir);
+      localResults = runLocalChecks(logDir);
+      report.local = buildLocalReport(localResults, true);
     }
 
-    const localFailed = report.local.some((result) => !result.ok);
+    const localFailed = report.local.ran && report.local.status === 'fail';
     if (!localFailed && (args.profile === 'pr' || args.profile === 'ci')) {
       report.remote = runRemoteChecks(logDir, args.pr, args.profile === 'ci');
     }
 
-    writeReport(logDir, report);
-
     const remoteExitCode = report.remote ? report.remote.exitCode : 0;
-    process.exit(localFailed || remoteExitCode ? 1 : 0);
+    report.exitCode = localFailed || remoteExitCode ? 1 : 0;
+    report.status = report.exitCode === 0 ? 'pass' : 'fail';
+    report.failureReasons = failureReasons(report);
+
+    writeReport(logDir, report, args);
+    process.exit(report.exitCode);
   } catch (error) {
+    report.status = 'error';
+    report.exitCode = 1;
     report.error = error.message;
-    writeReport(logDir, report);
+    report.failureReasons = ['error'];
+    writeReport(logDir, report, args);
     console.error(`\nFAIL ${error.message}`);
     process.exit(1);
   }

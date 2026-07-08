@@ -55,11 +55,13 @@ function usage() {
   return [
     'Usage:',
     '  yarn agent:review-thread --pr 123 --list',
-    '  yarn agent:review-thread --pr 123 --thread <thread-id-or-index> --reply "Fixed: ..."',
-    '  yarn agent:review-thread --pr 123 --thread <thread-id-or-index> --reply-file /tmp/reply.txt',
+    '  yarn agent:review-thread --pr 123 --thread <thread-id> --reply "Fixed: ..."',
+    '  yarn agent:review-thread --pr 123 --thread <thread-id> --reply-file /tmp/reply.txt',
+    '  yarn agent:review-thread --pr 123 --thread <index> --reply "..." --dry-run',
     '',
     'Notes:',
-    '  --thread accepts a GraphQL thread node id or the 1-based index from --list.',
+    '  For GitHub writes, --thread must be a GraphQL thread node id from --list.',
+    '  Numeric indexes are accepted only with --dry-run.',
     '  The command replies to the latest comment in the selected thread, then resolves the thread.',
     '  Use --dry-run to validate selection without writing to GitHub.',
   ].join('\n');
@@ -246,6 +248,9 @@ query($owner: String!, $repo: String!, $pr: Int!) {
     pullRequest(number: $pr) {
       id
       reviewThreads(first: 100) {
+        pageInfo {
+          hasNextPage
+        }
         nodes {
           id
           isResolved
@@ -254,7 +259,10 @@ query($owner: String!, $repo: String!, $pr: Int!) {
           line
           startLine
           diffSide
-          comments(first: 20) {
+          comments(last: 20) {
+            pageInfo {
+              hasPreviousPage
+            }
             nodes {
               id
               databaseId
@@ -305,6 +313,15 @@ query($owner: String!, $repo: String!, $pr: Int!) {
     throw new Error(`No review thread data found for PR #${prNumber}.`);
   }
 
+  if (
+    payload.repository.pullRequest.reviewThreads.pageInfo &&
+    payload.repository.pullRequest.reviewThreads.pageInfo.hasNextPage
+  ) {
+    throw new Error(
+      'Review thread data is truncated. Increase pagination before resolving threads.',
+    );
+  }
+
   return nodes.map((thread) => ({
     ...thread,
     comments: thread.comments.nodes,
@@ -323,37 +340,38 @@ function commentPreview(comment) {
   return body.length > 120 ? `${body.slice(0, 117)}...` : body;
 }
 
-function activeUnresolvedThreads(threads) {
-  return threads.filter((thread) => !thread.isResolved && !thread.isOutdated);
+function unresolvedThreads(threads) {
+  return threads.filter((thread) => !thread.isResolved);
 }
 
 function printThreadList(threads) {
-  const active = activeUnresolvedThreads(threads);
+  const unresolved = unresolvedThreads(threads);
   console.log(
-    `Review threads: ${active.length} active unresolved, ${threads.filter((thread) => !thread.isResolved).length} total unresolved`,
+    `Review threads: ${unresolved.filter((thread) => !thread.isOutdated).length} active unresolved, ${unresolved.length} total unresolved`,
   );
 
-  active.forEach((thread, index) => {
+  unresolved.forEach((thread, index) => {
     const comment = latestComment(thread);
     const author = comment && comment.author ? comment.author.login : 'unknown';
     const line = thread.line || thread.startLine || '?';
+    const flags = thread.isOutdated ? ' outdated' : '';
     console.log(
-      `[${index + 1}] ${thread.path}:${line} @${author} thread=${thread.id} comment=${comment ? comment.databaseId : 'unknown'}`,
+      `[${index + 1}]${flags} ${thread.path}:${line} @${author} thread=${thread.id} comment=${comment ? comment.databaseId : 'unknown'}`,
     );
     console.log(`    ${commentPreview(comment)}`);
   });
 }
 
 function selectThread(threads, selector) {
-  const active = activeUnresolvedThreads(threads);
+  const unresolved = unresolvedThreads(threads);
   if (/^\d+$/.test(selector)) {
     const index = Number(selector) - 1;
-    if (index >= 0 && index < active.length) {
-      return active[index];
+    if (index >= 0 && index < unresolved.length) {
+      return unresolved[index];
     }
   }
 
-  return active.find((thread) => thread.id === selector);
+  return unresolved.find((thread) => thread.id === selector);
 }
 
 function readReply(args) {
@@ -459,6 +477,11 @@ function main() {
 
     if (!args.thread) {
       throw new Error('Missing --thread. Run with --list first to choose one.');
+    }
+    if (!args.dryRun && /^\d+$/.test(args.thread)) {
+      throw new Error(
+        'Use the GraphQL thread id for write operations. Numeric indexes are only allowed with --dry-run.',
+      );
     }
 
     const reply = readReply(args);
