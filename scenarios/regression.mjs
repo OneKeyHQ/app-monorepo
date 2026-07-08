@@ -2,7 +2,7 @@
 /* eslint-disable no-console, onekey/no-raw-error -- standalone Node CLI script, no @onekeyhq/shared dependency */
 /* cspell:ignore appstate */
 /**
- * scenarios/regression.mjs — unified UI-freeze regression series.
+ * scenarios/regression.mjs — unified UI regression series.
  *
  * One runner, many scenarios. Each scenario picks a backend by the platform it
  * targets — the renderer's *detection signal* dictates the backend, never the
@@ -16,6 +16,7 @@
  *
  * Usage:
  *   node scenarios/regression.mjs list
+ *   node scenarios/regression.mjs dapp-cold-start-desktop --url https://onekey.so
  *   node scenarios/regression.mjs gift-storm-desktop          # CDP 9222 (yarn app:desktop)
  *   node scenarios/regression.mjs gift-storm-web              # CDP 9223 (Chrome --remote-debugging-port=9223 on the web build)
  *   node scenarios/regression.mjs gift-storm-rn --platform ios
@@ -120,6 +121,290 @@ async function connectCdpMainWindow(cdpUrl) {
     throw new Error('OneKey main window not found on CDP (no tab-modal root)');
   }
   return { browser, page };
+}
+
+function normalizeHost(value) {
+  try {
+    const normalizedUrl = /^https?:\/\//i.test(value)
+      ? value
+      : `https://${value}`;
+    return new URL(normalizedUrl).hostname.replace(/^www\./i, '');
+  } catch {
+    return '';
+  }
+}
+
+function urlMatchesHost(value, expectedHost) {
+  const actualHost = normalizeHost(value);
+  if (!actualHost || !expectedHost) return false;
+  return actualHost === expectedHost || actualHost.endsWith(`.${expectedHost}`);
+}
+
+async function waitForCondition(label, predicate, timeoutMs = 30_000) {
+  const startedAt = Date.now();
+  let lastError = null;
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const result = await predicate();
+      if (result) return result;
+    } catch (error) {
+      lastError = error;
+    }
+    await sleep(500);
+  }
+  throw new Error(
+    `${label} timed out after ${timeoutMs}ms${
+      lastError?.message ? `: ${lastError.message}` : ''
+    }`,
+  );
+}
+
+async function getVisibleInputValues(page, testId) {
+  const inputs = await page.locator(`[data-testid="${testId}"]`).all();
+  const values = [];
+  for (const input of inputs) {
+    const isVisible = await input.isVisible().catch(() => false);
+    if (isVisible) {
+      const value = await input.inputValue().catch(async () => {
+        return input.textContent().catch(() => '');
+      });
+      values.push(value ?? '');
+    }
+  }
+  return values;
+}
+
+async function firstVisibleLocator(page, testIds) {
+  for (const testId of testIds) {
+    const locator = page.locator(`[data-testid="${testId}"]`).first();
+    if (await locator.isVisible().catch(() => false)) {
+      return locator;
+    }
+  }
+  return null;
+}
+
+async function replaceText(locator, page, text) {
+  await locator.click({ force: true, timeout: 5000 });
+  await locator.fill(text).catch(async () => {
+    await page.keyboard.press(
+      process.platform === 'darwin' ? 'Meta+A' : 'Control+A',
+    );
+    await page.keyboard.type(text);
+  });
+}
+
+function findMatchingWebviewPages(browser, mainPage, expectedHost) {
+  const pages = [];
+  for (const context of browser.contexts()) {
+    for (const candidate of context.pages()) {
+      const candidateUrl = candidate.url();
+      const isMainPage = candidate === mainPage;
+      const isInternalPage = /^(about|devtools|chrome):/i.test(candidateUrl);
+      if (
+        !isMainPage &&
+        !isInternalPage &&
+        urlMatchesHost(candidateUrl, expectedHost)
+      ) {
+        pages.push(candidate);
+      }
+    }
+  }
+  return pages;
+}
+
+function reportVerification(name, checks) {
+  const failed = checks.filter((check) => !check.pass);
+  console.log('\n===== RESULT =====');
+  for (const check of checks) {
+    console.log(
+      `[${name}] ${check.pass ? 'PASS' : 'FAIL'} ${check.name}${
+        check.detail ? ` | ${check.detail}` : ''
+      }`,
+    );
+  }
+  if (failed.length > 0) {
+    console.log(`${name}: ${failed.length} failed check(s)`);
+    return REGRESSION ? 1 : 3;
+  }
+  console.log(`${name}: all checks passed`);
+  return 0;
+}
+
+async function openDappFromDesktopUi(page, targetUrl) {
+  const browserAddButton = page
+    .locator('[data-testid="browser-bar-add"]')
+    .first();
+  if (await browserAddButton.isVisible().catch(() => false)) {
+    await browserAddButton.click({ force: true, timeout: 10_000 });
+    const input = page
+      .locator('[data-testid="explore-index-search-input"]')
+      .last();
+    await input.waitFor({ state: 'visible', timeout: 10_000 });
+    await replaceText(input, page, targetUrl);
+    await page.keyboard.press('Enter');
+    return 'browser-sidebar';
+  }
+
+  if (
+    !(await page
+      .locator('[data-testid="nav-header-search-universal-search-search-bar"]')
+      .first()
+      .isVisible()
+      .catch(() => false))
+  ) {
+    await page
+      .locator('[data-testid="nav-header-search"]')
+      .first()
+      .click({ force: true, timeout: 10_000 });
+  }
+
+  const searchInput = await waitForCondition(
+    'desktop global search input',
+    () =>
+      firstVisibleLocator(page, [
+        'nav-header-search-universal-search-search-bar',
+        'discovery-search-input',
+        'explore-index-search',
+      ]),
+    10_000,
+  );
+  await replaceText(searchInput, page, targetUrl);
+  const searchResult = await waitForCondition(
+    'desktop global search result',
+    async () => {
+      for (const selector of [
+        '[data-testid="select-item-"]',
+        '[data-testid="dapp-search0"]',
+        '[data-testid^="search-modal-"]',
+      ]) {
+        const result = page.locator(selector).first();
+        if (await result.isVisible().catch(() => false)) {
+          return result;
+        }
+      }
+      return null;
+    },
+    5000,
+  ).catch(() => null);
+  if (searchResult) {
+    await searchResult.click({ force: true, timeout: 5000 });
+  } else {
+    await page.keyboard.press('Enter');
+  }
+  return 'global-search';
+}
+
+async function runDappColdStartDesktop(cdpUrl, flags) {
+  const targetUrl = String(
+    flags.url || process.env.DAPP_URL || 'https://onekey.so',
+  );
+  const expectedHost = normalizeHost(targetUrl);
+  if (!expectedHost) {
+    throw new Error(`Invalid DApp URL: ${targetUrl}`);
+  }
+
+  const { browser, page } = await connectCdpMainWindow(cdpUrl);
+  const browserTabs = page.locator(
+    '[data-testid^="tab-list-stack-"], [data-testid^="tab-list-stack-pinned-"]',
+  );
+  const beforeTabCount = await browserTabs.count().catch(() => 0);
+  const consoleErrors = [];
+  const collectError = (text) => {
+    if (/error|failed|exception|webview/i.test(text)) {
+      consoleErrors.push(text.split('\n')[0].slice(0, 240));
+    }
+  };
+  page.on('console', (message) => {
+    if (message.type() === 'error') collectError(message.text());
+  });
+  page.on('pageerror', (error) => collectError(error.message || String(error)));
+
+  log(`opening DApp URL ${targetUrl}`);
+  const openMethod = await openDappFromDesktopUi(page, targetUrl);
+
+  const tabCreated = await waitForCondition(
+    'browser tab creation',
+    async () => {
+      const count = await browserTabs.count().catch(() => 0);
+      return count > beforeTabCount ? count : 0;
+    },
+  );
+
+  const activeInputValues = await waitForCondition(
+    'active browser URL bar',
+    async () => {
+      const values = await getVisibleInputValues(
+        page,
+        'explore-index-search-input',
+      );
+      return values.some((value) => urlMatchesHost(value, expectedHost))
+        ? values
+        : null;
+    },
+    20_000,
+  );
+
+  const webviewPage = await waitForCondition(
+    'matching Electron webview target',
+    async () => {
+      const matches = findMatchingWebviewPages(browser, page, expectedHost);
+      return matches[0] ?? null;
+    },
+    35_000,
+  );
+
+  await webviewPage
+    .waitForLoadState('domcontentloaded', { timeout: 20_000 })
+    .catch(() => {});
+  const webviewSnapshot = await waitForCondition(
+    'webview document readiness',
+    async () => {
+      const snapshot = await webviewPage.evaluate(() => ({
+        href: globalThis.location.href,
+        title: globalThis.document.title,
+        readyState: globalThis.document.readyState,
+        textLength: globalThis.document.body?.innerText?.trim().length ?? 0,
+      }));
+      const hasContent =
+        snapshot.readyState !== 'loading' &&
+        (snapshot.title.length > 0 || snapshot.textLength > 0);
+      return hasContent ? snapshot : null;
+    },
+    20_000,
+  );
+
+  const checks = [
+    {
+      name: 'browser tab was created',
+      pass: tabCreated > beforeTabCount,
+      detail: `${beforeTabCount} -> ${tabCreated} via ${openMethod}`,
+    },
+    {
+      name: 'active URL bar points at target host',
+      pass: activeInputValues.some((value) =>
+        urlMatchesHost(value, expectedHost),
+      ),
+      detail: activeInputValues.join(', '),
+    },
+    {
+      name: 'real Electron webview target loaded target host',
+      pass: urlMatchesHost(webviewSnapshot.href, expectedHost),
+      detail: webviewSnapshot.href,
+    },
+    {
+      name: 'webview document has rendered content',
+      pass: webviewSnapshot.title.length > 0 || webviewSnapshot.textLength > 0,
+      detail: `title="${webviewSnapshot.title}" textLength=${webviewSnapshot.textLength}`,
+    },
+    {
+      name: 'main renderer console has no captured DApp/webview errors',
+      pass: consoleErrors.length === 0,
+      detail: consoleErrors.slice(0, 3).join(' | '),
+    },
+  ];
+
+  return reportVerification('dapp-cold-start-desktop', checks);
 }
 
 // Ported from the former cdp-repro-gift-storm.mjs. The detection
@@ -431,6 +716,18 @@ async function runGiftStormRn(platform) {
 // registry + dispatch
 // ===========================================================================
 const scenarios = {
+  'dapp-cold-start-desktop': {
+    backend: 'cdp',
+    describe:
+      'Open a desktop DApp from cold UI state and verify tab, active URL, and real webview render. CDP 9222.',
+    run: (flags) =>
+      runDappColdStartDesktop(
+        process.env.CDP_URL_DESKTOP ||
+          process.env.CDP_URL ||
+          'http://127.0.0.1:9222',
+        flags,
+      ),
+  },
   'gift-storm-desktop': {
     backend: 'cdp',
     describe:
@@ -463,7 +760,7 @@ async function main() {
   const flags = parseFlags(rest);
 
   if (!cmd || cmd === 'list' || cmd === '--help') {
-    console.log('UI-freeze regression scenarios:\n');
+    console.log('UI regression scenarios:\n');
     for (const [name, s] of Object.entries(scenarios)) {
       console.log(`  ${name.padEnd(20)} [${s.backend}]  ${s.describe}`);
     }

@@ -92,6 +92,7 @@ When working with patch-package, never edit .patch files directly. Instead, modi
 
 - After making a fix attempt that the user reports as not working, do NOT retry the same approach with minor tweaks. Instead, re-analyze the root cause from scratch, explain your new hypothesis, and propose a fundamentally different approach before implementing.
 - When the user reports a visual bug, ask for the specific platform and confirm the expected vs actual behavior before attempting a fix. Do not assume the root cause — misdiagnosis wastes rounds.
+- For Electron, DApp, UI, startup, and interaction fixes, state the repro condition, what does NOT count as passing, and the final pass condition before editing. Do not treat element existence as sufficient proof: verify the active tab state, real webview render, URL/title/content readiness, and console/log evidence where applicable.
 
 ## Essential Commands
 
