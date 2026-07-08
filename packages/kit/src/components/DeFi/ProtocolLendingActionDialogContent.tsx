@@ -28,7 +28,7 @@ import { useUniversalBorrowAction } from '@onekeyhq/kit/src/views/Borrow/compone
 import {
   useUniversalBorrowRepay,
   useUniversalBorrowWithdraw,
-} from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks';
+} from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowWithdrawRepayHooks';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { useManagePage } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
