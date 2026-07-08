@@ -19,9 +19,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useBorrowApproveAndSubmit } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/hooks/useBorrowApproveAndSubmit';
 import type { IManagePositionApproveTarget } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/types';
@@ -31,7 +29,6 @@ import {
   useUniversalBorrowRepay,
   useUniversalBorrowWithdraw,
 } from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks';
-import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { useManagePage } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
@@ -40,6 +37,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import defiActionUtils from '@onekeyhq/shared/src/utils/defiActionUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { openUrlInDiscovery } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   EDeFiPositionAction,
   type IResolvedDeFiPositionAction,
@@ -433,8 +431,6 @@ function LendingActionAlerts({
   checkAmountAlerts?: ICheckAmountAlert[];
 }) {
   const intl = useIntl();
-  const navigation = useAppNavigation();
-  const { handleOpenWebSite } = useBrowserAction().current;
   const liquidationWarningText = intl.formatMessage({
     id: ETranslations.defi_liquidation_withdraw_desc,
   });
@@ -483,16 +479,7 @@ function LendingActionAlerts({
                   onPrimaryPress: () => {
                     const link = alert.button?.data?.link;
                     if (!link) return;
-                    handleOpenWebSite({
-                      navigation,
-                      useCurrentWindow: false,
-                      webSite: {
-                        url: link,
-                        title: link,
-                        logo: undefined,
-                        sortIndex: undefined,
-                      },
-                    });
+                    openUrlInDiscovery({ url: link, title: link });
                   },
                 }
               : undefined
@@ -1658,33 +1645,26 @@ function showProtocolLendingActionDialog({
 }) {
   Dialog.show({
     showFooter: false,
-    // Rendered into the FULL_WINDOW_OVERLAY_PORTAL, which sits outside the
-    // discovery Jotai context. LendingActionAlerts calls useBrowserAction() to
-    // open alert links, so mirror the discovery store here or that hook throws
-    // `store not initialized` and the dialog crashes on open.
-    renderContent: (
-      <DiscoveryBrowserProviderMirror>
-        {source.type === 'borrow' ? (
-          <ProtocolLendingActionBorrowContent
-            accountId={accountId}
-            networkId={networkId}
-            actionType={actionType}
-            source={source}
-            hasDebts={hasDebts}
-            onSuccess={onSuccess}
-          />
-        ) : (
-          <ProtocolLendingActionDefiContent
-            accountId={accountId}
-            networkId={networkId}
-            actionType={actionType}
-            source={source}
-            hasDebts={hasDebts}
-            onSuccess={onSuccess}
-          />
-        )}
-      </DiscoveryBrowserProviderMirror>
-    ),
+    renderContent:
+      source.type === 'borrow' ? (
+        <ProtocolLendingActionBorrowContent
+          accountId={accountId}
+          networkId={networkId}
+          actionType={actionType}
+          source={source}
+          hasDebts={hasDebts}
+          onSuccess={onSuccess}
+        />
+      ) : (
+        <ProtocolLendingActionDefiContent
+          accountId={accountId}
+          networkId={networkId}
+          actionType={actionType}
+          source={source}
+          hasDebts={hasDebts}
+          onSuccess={onSuccess}
+        />
+      ),
   });
 }
 
