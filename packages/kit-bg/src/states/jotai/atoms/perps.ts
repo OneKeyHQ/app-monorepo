@@ -896,6 +896,7 @@ export interface IPerpsDepositTokensAtom {
   currentPerpsDepositSelectedToken?: IPerpsDepositToken;
   depositTokenListOwnerKey?: string;
   depositTokenListRevision?: number;
+  depositTokenListSource?: 'serverConfig' | 'walletBalance';
 }
 export const {
   target: perpsDepositTokensAtom,

@@ -4,7 +4,6 @@ import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { ESplitViewType, SplitViewContext } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
-import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { setSplitViewLayoutDisabled } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 
@@ -31,6 +30,7 @@ import { KeylessWebAutoConnectHashCleanupContainer } from './KeylessWebAutoConne
 import { LinuxUdevGuideDialogContainer } from './LinuxUdevGuideDialogContainer/LinuxUdevGuideDialogContainer';
 import { LocalSecretEnvelopeErrorDialogContainer } from './LocalSecretEnvelopeErrorDialogContainer';
 import { NavigationContainer } from './NavigationContainer';
+import PageTrackerContainer from './PageTrackerContainer';
 import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeGlobalEffectLazy } from './PrimeGlobalEffectLazy';
@@ -42,11 +42,6 @@ import { ThirdPartyHardwareUiStateContainerLazy } from './ThirdPartyHardwareUiSt
 import { VerifyTxContainer } from './VerifyTxContainer';
 import { WalletBackupPreCheckContainerLazy } from './WalletBackupPreCheckContainerLazy';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
-
-const PageTrackerContainer = LazyLoad(
-  () => import('./PageTrackerContainer'),
-  100,
-);
 
 function GlobalRootAppNavigationUpdate() {
   const navigation = useAppNavigation();
