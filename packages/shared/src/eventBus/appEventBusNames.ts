@@ -102,6 +102,10 @@ export enum EAppEventBusNames {
   RefreshNetInfo = 'RefreshNetInfo',
   ShowSwitchAccountSelector = 'ShowSwitchAccountSelector',
   PrimeLoginInvalidToken = 'PrimeLoginInvalidToken',
+  // bg -> main: the shared keyless Supabase auth session storage was cleared
+  // by the bg runtime (e.g. keyless wallet removal); main-runtime holders
+  // must sign out their isolated in-memory keyless client copy.
+  KeylessAuthSessionCleared = 'KeylessAuthSessionCleared',
   PrimeExceedDeviceLimit = 'PrimeExceedDeviceLimit',
   PrimeDeviceLogout = 'PrimeDeviceLogout',
   PrimeMasterPasswordInvalid = 'PrimeMasterPasswordInvalid',

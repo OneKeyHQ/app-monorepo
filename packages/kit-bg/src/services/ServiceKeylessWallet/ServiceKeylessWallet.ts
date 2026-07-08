@@ -35,6 +35,10 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type {
   IKeylessBackendShare,
   IKeylessCreateWithOneKeyIdPrepareResult,
@@ -3534,6 +3538,14 @@ class ServiceKeylessWallet extends ServiceBase {
       await this.backgroundApi.simpleDb.prime.clearAuthTokens();
       await this.backgroundApi.servicePrime.setPrimePersistAtomNotLoggedIn();
     }
+    // Runtime note (bg -> main): the clear above only affects the shared
+    // native session storage plus THIS (bg) runtime's JS client copy. The
+    // main runtime's keyless Supabase client keeps its own isolated
+    // in-memory session, so notify main-side holders (SupabaseAuthProvider)
+    // to sign out their copy; otherwise they keep acting logged-in until
+    // reload. On desktop/web (standalone, single runtime) the event is a
+    // harmless self-delivery no-op.
+    appEventBus.emit(EAppEventBusNames.KeylessAuthSessionCleared, undefined);
   }
 
   @backgroundMethod()
