@@ -326,6 +326,8 @@ class ServiceWebviewPerp extends ServiceBase {
     IPerpsDepositTokenListCacheEntry
   >();
 
+  private perpsDepositTokenListWriteGenerations = new Map<string, number>();
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -403,6 +405,29 @@ class ServiceWebviewPerp extends ServiceBase {
     return `${ownerKey}::${supportedNetworkIds.join(',')}`;
   }
 
+  private getPerpsDepositTokenListWriteGeneration(cacheKey: string) {
+    return this.perpsDepositTokenListWriteGenerations.get(cacheKey) ?? 0;
+  }
+
+  private bumpPerpsDepositTokenListWriteGeneration(cacheKey: string) {
+    const writeGeneration =
+      this.getPerpsDepositTokenListWriteGeneration(cacheKey) + 1;
+    this.perpsDepositTokenListWriteGenerations.set(cacheKey, writeGeneration);
+    return writeGeneration;
+  }
+
+  private isPerpsDepositTokenListWriteGenerationCurrent({
+    cacheKey,
+    writeGeneration,
+  }: {
+    cacheKey: string;
+    writeGeneration: number;
+  }) {
+    return (
+      this.getPerpsDepositTokenListWriteGeneration(cacheKey) === writeGeneration
+    );
+  }
+
   private buildPerpsDepositTokenListOwnerKey({
     allNetworksAccountId,
     ownerIndexId,
@@ -427,6 +452,7 @@ class ServiceWebviewPerp extends ServiceBase {
         depositTokenListOwnerKey: ownerKey,
         currentPerpsDepositSelectedToken: undefined,
         depositTokenListRevision: (prev.depositTokenListRevision ?? 0) + 1,
+        depositTokenListSource: undefined,
       };
     });
   }
@@ -532,6 +558,10 @@ class ServiceWebviewPerp extends ServiceBase {
 
   private fetchPerpsDepositTokenListDataCached(
     params: IPerpsDepositTokenListCacheParams,
+    options: {
+      cacheKey: string;
+      writeGeneration: number;
+    },
   ): Promise<IPerpsDepositTokenListData> {
     const cacheKey = this.buildPerpsDepositTokenListCacheKey(params);
     const now = Date.now();
@@ -543,12 +573,19 @@ class ServiceWebviewPerp extends ServiceBase {
 
     const promise = this.fetchPerpsDepositTokenListDataUncached(params)
       .then((data) => {
-        void this.backgroundApi.simpleDb.perp.setPerpsDepositTokenListCache({
-          cacheKey,
-          ownerKey: data.ownerKey,
-          tokens: data.tokens,
-          tokensByNetwork: data.tokensByNetwork,
-        });
+        if (
+          this.isPerpsDepositTokenListWriteGenerationCurrent({
+            cacheKey: options.cacheKey,
+            writeGeneration: options.writeGeneration,
+          })
+        ) {
+          void this.backgroundApi.simpleDb.perp.setPerpsDepositTokenListCache({
+            cacheKey,
+            ownerKey: data.ownerKey,
+            tokens: data.tokens,
+            tokensByNetwork: data.tokensByNetwork,
+          });
+        }
         return data;
       })
       .catch((error: unknown) => {
@@ -565,13 +602,22 @@ class ServiceWebviewPerp extends ServiceBase {
     return promise;
   }
 
-  private async updatePerpsDepositTokenListAtom({
-    ownerKey,
-    tokens,
-    tokensByNetwork,
-  }: IPerpsDepositTokenListData) {
+  private async updatePerpsDepositTokenListAtom(
+    { ownerKey, tokens, tokensByNetwork }: IPerpsDepositTokenListData,
+    options?: {
+      cacheKey: string;
+      writeGeneration: number;
+    },
+  ) {
     let selectedToken: IPerpsDepositToken | undefined;
     let isStale = false;
+
+    if (
+      options &&
+      !this.isPerpsDepositTokenListWriteGenerationCurrent(options)
+    ) {
+      return { selectedToken, isStale: true };
+    }
 
     await perpsDepositTokensAtom.set((prev) => {
       if (prev.depositTokenListOwnerKey !== ownerKey) {
@@ -588,6 +634,7 @@ class ServiceWebviewPerp extends ServiceBase {
         currentPerpsDepositSelectedToken: selectedToken,
         depositTokenListOwnerKey: ownerKey,
         depositTokenListRevision: (prev.depositTokenListRevision ?? 0) + 1,
+        depositTokenListSource: 'walletBalance',
       };
     });
 
@@ -596,9 +643,13 @@ class ServiceWebviewPerp extends ServiceBase {
 
   private refreshPerpsDepositTokenListDataInBackground(
     params: IPerpsDepositTokenListCacheParams,
+    options: {
+      cacheKey: string;
+      writeGeneration: number;
+    },
   ) {
-    void this.fetchPerpsDepositTokenListDataCached(params)
-      .then((data) => this.updatePerpsDepositTokenListAtom(data))
+    void this.fetchPerpsDepositTokenListDataCached(params, options)
+      .then((data) => this.updatePerpsDepositTokenListAtom(data, options))
       .catch((error: unknown) => {
         console.error(
           '[ServiceWebviewPerp] Failed to refresh perps deposit tokens:',
@@ -635,11 +686,18 @@ class ServiceWebviewPerp extends ServiceBase {
     await this.setPerpsDepositTokenListActiveOwner(ownerKey);
 
     const cacheKey = this.buildPerpsDepositTokenListCacheKey(cacheParams);
+    let writeGeneration =
+      this.getPerpsDepositTokenListWriteGeneration(cacheKey);
     if (forceRefresh) {
+      writeGeneration = this.bumpPerpsDepositTokenListWriteGeneration(cacheKey);
       this.perpsDepositTokenListCache.delete(cacheKey);
-      const data = await this.fetchPerpsDepositTokenListDataCached(cacheParams);
+      const writeOptions = { cacheKey, writeGeneration };
+      const data = await this.fetchPerpsDepositTokenListDataCached(
+        cacheParams,
+        writeOptions,
+      );
       const { selectedToken, isStale } =
-        await this.updatePerpsDepositTokenListAtom(data);
+        await this.updatePerpsDepositTokenListAtom(data, writeOptions);
       return {
         ...data,
         selectedToken,
@@ -650,9 +708,10 @@ class ServiceWebviewPerp extends ServiceBase {
     const memoryCache =
       this.getPerpsDepositTokenListDataMemoryCache(cacheParams);
     if (memoryCache) {
+      const writeOptions = { cacheKey, writeGeneration };
       const data = await memoryCache;
       const { selectedToken, isStale } =
-        await this.updatePerpsDepositTokenListAtom(data);
+        await this.updatePerpsDepositTokenListAtom(data, writeOptions);
       return {
         ...data,
         selectedToken,
@@ -673,8 +732,14 @@ class ServiceWebviewPerp extends ServiceBase {
         tokensByNetwork: coldCache.tokensByNetwork,
       };
       const { selectedToken, isStale } =
-        await this.updatePerpsDepositTokenListAtom(data);
-      this.refreshPerpsDepositTokenListDataInBackground(cacheParams);
+        await this.updatePerpsDepositTokenListAtom(data, {
+          cacheKey,
+          writeGeneration,
+        });
+      this.refreshPerpsDepositTokenListDataInBackground(cacheParams, {
+        cacheKey,
+        writeGeneration,
+      });
       return {
         ...data,
         selectedToken,
@@ -682,9 +747,13 @@ class ServiceWebviewPerp extends ServiceBase {
       };
     }
 
-    const data = await this.fetchPerpsDepositTokenListDataCached(cacheParams);
+    const writeOptions = { cacheKey, writeGeneration };
+    const data = await this.fetchPerpsDepositTokenListDataCached(
+      cacheParams,
+      writeOptions,
+    );
     const { selectedToken, isStale } =
-      await this.updatePerpsDepositTokenListAtom(data);
+      await this.updatePerpsDepositTokenListAtom(data, writeOptions);
 
     return {
       ...data,

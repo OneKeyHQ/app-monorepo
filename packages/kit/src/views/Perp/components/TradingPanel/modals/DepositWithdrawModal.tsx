@@ -85,11 +85,6 @@ import usePerpDeposit from '../../../hooks/usePerpDeposit';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import {
-  getPerpsDepositMinAmountTextColor,
-  mergePerpsDepositTokensPreservingOrder,
-  shouldWaitForPerpsDepositQuoteDebounce,
-} from '../../../utils/depositWithdrawModalState';
-import {
   PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
 } from '../../PerpDialogLayout';
@@ -107,6 +102,99 @@ const PERP_DESKTOP_DEPOSIT_AMOUNT_INPUT_BLOCK_HEIGHT = 220;
 const PERP_DESKTOP_DEPOSIT_SELECT_TOKEN_LIST_HEIGHT = 430;
 const PERP_NATIVE_DEPOSIT_WITHDRAW_ESTIMATED_CONTENT_HEIGHT = 300;
 const LIFI_FALLBACK_LOGO = require('@onekeyhq/kit/assets/perps/lifi-logo.png');
+
+function hasPositivePerpsDepositTokenAmount(tokenAmount?: string) {
+  if (!tokenAmount) {
+    return false;
+  }
+  const amountBN = new BigNumber(tokenAmount);
+  return !amountBN.isNaN() && amountBN.gt(0);
+}
+
+function shouldWaitForPerpsDepositQuoteDebounce({
+  selectedAction,
+  isArbitrumUsdcToken,
+  canQuoteDepositAmount,
+  tokenAmount,
+  debouncedTokenAmount,
+}: {
+  selectedAction: IPerpsDepositWithdrawActionType;
+  isArbitrumUsdcToken: boolean;
+  canQuoteDepositAmount: boolean;
+  tokenAmount: string;
+  debouncedTokenAmount: string;
+}) {
+  return (
+    selectedAction === 'deposit' &&
+    !isArbitrumUsdcToken &&
+    canQuoteDepositAmount &&
+    hasPositivePerpsDepositTokenAmount(tokenAmount) &&
+    tokenAmount !== debouncedTokenAmount
+  );
+}
+
+function getPerpsDepositMinAmountTextColor(
+  selectedAction: IPerpsDepositWithdrawActionType,
+) {
+  return selectedAction === 'deposit' ? '$textCritical' : '$textSubdued';
+}
+
+export function shouldUsePerpsDepositLiveWalletTokens({
+  atomOwnerKey,
+  routeOwnerKey,
+  depositTokenListSource,
+}: {
+  atomOwnerKey?: string;
+  routeOwnerKey?: string;
+  depositTokenListSource?: 'serverConfig' | 'walletBalance';
+}) {
+  return (
+    Boolean(routeOwnerKey) &&
+    atomOwnerKey === routeOwnerKey &&
+    depositTokenListSource === 'walletBalance'
+  );
+}
+
+export function mergePerpsDepositTokensPreservingOrder({
+  currentTokens,
+  nextTokens,
+}: {
+  currentTokens: IPerpsDepositToken[];
+  nextTokens: IPerpsDepositToken[];
+}) {
+  if (currentTokens.length === 0) {
+    return nextTokens;
+  }
+
+  const usedNextTokenIndexes = new Set<number>();
+  const mergedTokens = currentTokens.reduce<IPerpsDepositToken[]>(
+    (memo, currentToken) => {
+      const nextTokenIndex = nextTokens.findIndex((nextToken, index) => {
+        if (usedNextTokenIndexes.has(index)) {
+          return false;
+        }
+        return equalTokenNoCaseSensitive({
+          token1: currentToken,
+          token2: nextToken,
+        });
+      });
+
+      if (nextTokenIndex === -1) {
+        return memo;
+      }
+
+      usedNextTokenIndexes.add(nextTokenIndex);
+      memo.push(nextTokens[nextTokenIndex]);
+      return memo;
+    },
+    [],
+  );
+
+  const appendedTokens = nextTokens.filter(
+    (_, index) => !usedNextTokenIndexes.has(index),
+  );
+  return [...mergedTokens, ...appendedTokens];
+}
 
 interface IDepositWithdrawParams {
   actionType: IPerpsDepositWithdrawActionType;
@@ -649,6 +737,7 @@ function DepositWithdrawContent({
         const didSync = await syncDepositTokenBalances({
           depositTokens,
           requestKey,
+          preserveCurrentOrder: depositTokensWithPriceRef.current.length > 0,
         });
         if (!didSync) {
           return [];
@@ -1678,6 +1767,7 @@ function DepositWithdrawContent({
     if (isMobile) {
       perpModalNavigation.push(EModalPerpRoutes.MobileDepositSelectToken, {
         depositTokensWithPrice,
+        depositTokenListOwnerKey: depositTokenListOwnerKeyRef.current,
         symbol: PERPS_CURRENCY_SYMBOL,
       });
       return;

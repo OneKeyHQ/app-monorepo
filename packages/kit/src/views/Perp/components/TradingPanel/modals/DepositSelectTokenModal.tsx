@@ -14,9 +14,11 @@ import type {
   IModalPerpParamList,
 } from '@onekeyhq/shared/src/routes/perp';
 
-import { mergePerpsDepositTokensPreservingOrder } from '../../../utils/depositWithdrawModalState';
-
-import { DepositTokenSelectionContent } from './DepositWithdrawModal';
+import {
+  DepositTokenSelectionContent,
+  mergePerpsDepositTokensPreservingOrder,
+  shouldUsePerpsDepositLiveWalletTokens,
+} from './DepositWithdrawModal';
 
 import type { RouteProp } from '@react-navigation/native';
 
@@ -27,11 +29,26 @@ function DepositSelectTokenModal() {
     useRoute<
       RouteProp<IModalPerpParamList, EModalPerpRoutes.MobileDepositSelectToken>
     >();
-  const [{ tokens }] = usePerpsDepositTokensAtom();
-  const liveDepositTokens = useMemo(
-    () => Object.values(tokens).flat(),
-    [tokens],
-  );
+  const [{ tokens, depositTokenListOwnerKey, depositTokenListSource }] =
+    usePerpsDepositTokensAtom();
+  const routeDepositTokenListOwnerKey = route.params.depositTokenListOwnerKey;
+  const liveDepositTokens = useMemo(() => {
+    if (
+      !shouldUsePerpsDepositLiveWalletTokens({
+        atomOwnerKey: depositTokenListOwnerKey,
+        routeOwnerKey: routeDepositTokenListOwnerKey,
+        depositTokenListSource,
+      })
+    ) {
+      return [];
+    }
+    return Object.values(tokens).flat();
+  }, [
+    depositTokenListOwnerKey,
+    depositTokenListSource,
+    routeDepositTokenListOwnerKey,
+    tokens,
+  ]);
   const routeDepositTokens = route.params
     .depositTokensWithPrice as IPerpsDepositToken[];
   const depositTokensWithPrice = useMemo(() => {

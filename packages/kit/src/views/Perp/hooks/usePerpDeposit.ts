@@ -61,7 +61,43 @@ import type { ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { shouldRefreshPerpsDepositQuote } from '../utils/depositWithdrawModalState';
+
+function hasPositivePerpsDepositTokenAmount(tokenAmount?: string) {
+  if (!tokenAmount) {
+    return false;
+  }
+  const amountBN = new BigNumber(tokenAmount);
+  return !amountBN.isNaN() && amountBN.gt(0);
+}
+
+function shouldRefreshPerpsDepositQuote({
+  selectedAction,
+  isArbitrumUsdcToken,
+  canQuoteDepositAmount,
+  isQuoteLoading,
+  tokenAmount,
+  quoteToAmount,
+}: {
+  selectedAction: 'deposit' | 'withdraw';
+  isArbitrumUsdcToken: boolean;
+  canQuoteDepositAmount: boolean;
+  isQuoteLoading: boolean;
+  tokenAmount: string;
+  quoteToAmount?: string;
+}) {
+  if (
+    selectedAction !== 'deposit' ||
+    isArbitrumUsdcToken ||
+    !canQuoteDepositAmount ||
+    isQuoteLoading ||
+    !hasPositivePerpsDepositTokenAmount(tokenAmount)
+  ) {
+    return false;
+  }
+
+  const quoteAmountBN = new BigNumber(quoteToAmount || '0');
+  return quoteAmountBN.isNaN() || quoteAmountBN.lte(0);
+}
 
 export const usePerpDepositOrder = ({
   accountId,
