@@ -82,6 +82,7 @@
     "patch:fix": "node development/patch-fix.js",
     "reinstall": "yarn clean && yarn install",
     "agent:check": "node development/scripts/agent-check.js",
+    "agent:review-thread": "node development/scripts/agent-review-thread.js",
     "_tsc": "node ./development/lint/ts",
     "_lint": "node ./development/lint/eslint",
     "_electron": "node ./development/lint/electron",

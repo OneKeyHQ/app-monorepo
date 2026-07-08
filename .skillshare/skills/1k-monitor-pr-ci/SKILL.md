@@ -15,8 +15,15 @@ For a one-shot, low-context PR status summary, use:
 yarn agent:check --profile ci --pr <PR_NUMBER>
 ```
 
+To reply to and resolve a specific review thread without starting the monitor:
+
+```bash
+yarn agent:review-thread --pr <PR_NUMBER> --list
+yarn agent:review-thread --pr <PR_NUMBER> --thread <THREAD_ID_OR_INDEX> --reply-file <FILE>
+```
+
 Use this monitor workflow only when the user wants polling, automatic fixes, or
-review-thread replies.
+batch review-thread handling.
 
 ## Usage
 

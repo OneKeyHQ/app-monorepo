@@ -89,6 +89,9 @@ Never violate this dependency order:
 - Before commit: `yarn agent:check --profile commit`.
 - Before PR readiness checks: `yarn agent:check --profile pr`.
 - For remote-only CI/review status: `yarn agent:check --profile ci --pr <number>`.
+- To reply to and resolve one review thread: list with
+  `yarn agent:review-thread --pr <number> --list`, then run
+  `yarn agent:review-thread --pr <number> --thread <id-or-index> --reply-file <file>`.
 - Use lower-level lint/typecheck/GitHub commands only when debugging a failed
   `agent:check` step; detailed logs are under `node_modules/.cache/agent-checks`.
 - Use targeted tests when possible; run `yarn test` when risk or scope requires it.
@@ -104,6 +107,7 @@ yarn app:android
 yarn agent:check --profile commit
 yarn agent:check --profile pr
 yarn agent:check --profile ci --pr <number>
+yarn agent:review-thread --pr <number> --list
 yarn test
 ```
 

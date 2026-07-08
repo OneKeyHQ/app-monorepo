@@ -291,12 +291,14 @@ function getReviewState(view) {
 }
 
 function getThreads(graphqlData) {
+  const payload =
+    graphqlData && graphqlData.data ? graphqlData.data : graphqlData;
   return (
-    (graphqlData &&
-      graphqlData.repository &&
-      graphqlData.repository.pullRequest &&
-      graphqlData.repository.pullRequest.reviewThreads &&
-      graphqlData.repository.pullRequest.reviewThreads.nodes) ||
+    (payload &&
+      payload.repository &&
+      payload.repository.pullRequest &&
+      payload.repository.pullRequest.reviewThreads &&
+      payload.repository.pullRequest.reviewThreads.nodes) ||
     []
   );
 }
@@ -468,6 +470,11 @@ query($owner: String!, $repo: String!, $pr: Int!) {
     );
   } else {
     printThreads(threadsSummary);
+    if (threadsSummary.active.length) {
+      console.log(
+        `Review action: yarn agent:review-thread --pr ${prNumber} --list`,
+      );
+    }
   }
 
   if (changesRequested.length) {
