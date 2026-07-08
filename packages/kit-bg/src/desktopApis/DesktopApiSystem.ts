@@ -358,6 +358,22 @@ class DesktopApiSystem {
     return true;
   }
 
+  async openExternalUrl(url: string): Promise<void> {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'mailto:') {
+        logger.warn(
+          '[openExternalUrl] blocked non-https url:',
+          parsed.protocol,
+        );
+        return;
+      }
+      await shell.openExternal(url);
+    } catch {
+      logger.warn('[openExternalUrl] blocked malformed url');
+    }
+  }
+
   async installOneKeyUdevRules(): Promise<IInstallOneKeyUdevRulesResult> {
     if (process.platform !== 'linux') {
       return {
@@ -388,13 +404,23 @@ class DesktopApiSystem {
       };
     }
 
+    let rules: string;
     try {
-      const [rules, currentRules] = await Promise.all([
-        readOneKeyLinuxUdevRules(),
-        fs.readFile(ONEKEY_LINUX_UDEV_RULES_PATH, {
-          encoding: 'utf8',
-        }),
-      ]);
+      rules = await readOneKeyLinuxUdevRules();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        supported: true,
+        installed: false,
+        skippedReason: 'failed',
+        message: `OneKey udev rules file is unavailable: ${message}`,
+      };
+    }
+
+    try {
+      const currentRules = await fs.readFile(ONEKEY_LINUX_UDEV_RULES_PATH, {
+        encoding: 'utf8',
+      });
       if (currentRules === rules) {
         return {
           supported: true,
@@ -404,20 +430,6 @@ class DesktopApiSystem {
       }
     } catch {
       // Missing or unreadable installed rules are handled by the pkexec installer below.
-    }
-
-    let rulesSourcePath: string;
-    try {
-      await readOneKeyLinuxUdevRules();
-      rulesSourcePath = getOneKeyLinuxUdevRulesSourcePath();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return {
-        supported: true,
-        installed: false,
-        skippedReason: 'failed',
-        message: `OneKey udev rules file is unavailable: ${message}`,
-      };
     }
 
     try {
@@ -444,7 +456,20 @@ if command -v udevadm >/dev/null 2>&1; then
 fi
 `;
 
+    let tempRulesDir: string | undefined;
     try {
+      // AppImage resources can live on a FUSE mount that the elevated pkexec
+      // process cannot stat, so give pkexec a normal host temp file instead.
+      tempRulesDir = await fs.mkdtemp(path.join(os.tmpdir(), 'onekey-udev-'));
+      const rulesSourcePath = path.join(
+        tempRulesDir,
+        path.basename(ONEKEY_LINUX_UDEV_RULES_PATH),
+      );
+      await fs.writeFile(rulesSourcePath, rules, {
+        encoding: 'utf8',
+        mode: 0o644,
+      });
+
       const { stdout, stderr } = await execFileAsync(
         'pkexec',
         [
@@ -483,6 +508,12 @@ fi
         needsManualInstall: exitCode === '127',
         message,
       };
+    } finally {
+      if (tempRulesDir) {
+        await fs
+          .rm(tempRulesDir, { recursive: true, force: true })
+          .catch(() => undefined);
+      }
     }
   }
 
