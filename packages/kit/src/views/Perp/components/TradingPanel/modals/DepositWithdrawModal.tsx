@@ -1852,37 +1852,45 @@ function DepositWithdrawContent({
         justifyContent="space-between"
         gap="$3"
         minHeight={50}
-        cursor={checkAccountSupport ? 'pointer' : 'default'}
-        onPress={openTokenSelectorPage}
       >
-        <XStack alignItems="center" gap="$2.5" flex={1} minWidth={0}>
-          <Token
-            size="md"
-            tokenImageUri={displayDepositToken?.logoURI}
-            networkImageUri={displayDepositToken?.networkLogoURI}
-            showNetworkIcon
-          />
-          <YStack flex={1} minWidth={0}>
-            <YStack gap="$0.5">
-              <XStack alignItems="center" gap="$1" flexWrap="wrap">
-                <SizableText size="$bodyMdMedium" color="$text">
-                  {displayDepositToken?.symbol ?? '-'}
+        <YStack flex={1} minWidth={0}>
+          <XStack
+            alignItems="center"
+            gap="$2.5"
+            flexShrink={1}
+            minWidth={0}
+            alignSelf="flex-start"
+            cursor={checkAccountSupport ? 'pointer' : 'default'}
+            onPress={openTokenSelectorPage}
+          >
+            <Token
+              size="md"
+              tokenImageUri={displayDepositToken?.logoURI}
+              networkImageUri={displayDepositToken?.networkLogoURI}
+              showNetworkIcon
+            />
+            <YStack flex={1} minWidth={0}>
+              <YStack gap="$0.5">
+                <XStack alignItems="center" gap="$1" flexWrap="wrap">
+                  <SizableText size="$bodyMdMedium" color="$text">
+                    {displayDepositToken?.symbol ?? '-'}
+                  </SizableText>
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {currentNetworkInfo?.name ?? ''}
+                  </SizableText>
+                  <Icon
+                    name="ChevronDownSmallOutline"
+                    color="$iconSubdued"
+                    size="$3.5"
+                  />
+                </XStack>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {hasSourceBalance ? sourceBalanceText : ' '}
                 </SizableText>
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {currentNetworkInfo?.name ?? ''}
-                </SizableText>
-                <Icon
-                  name="ChevronDownSmallOutline"
-                  color="$iconSubdued"
-                  size="$3.5"
-                />
-              </XStack>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {hasSourceBalance ? sourceBalanceText : ' '}
-              </SizableText>
+              </YStack>
             </YStack>
-          </YStack>
-        </XStack>
+          </XStack>
+        </YStack>
         {checkAccountSupport ? (
           <Button
             testID="perp-deposit-token-max"
