@@ -3,9 +3,9 @@ import {
   validateMnemonic as tonValidateMnemonicFn,
 } from 'tonweb-mnemonic';
 
-import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { InvalidMnemonic } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ensureWebembedApiProxyAvailable } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import type { IBip39RevealableSeed } from './bip39';
@@ -40,7 +40,7 @@ async function tonValidateMnemonic(mnemonicArray: string[]): Promise<boolean> {
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
-    return appGlobals.$webembedApiProxy.secret.tonValidateMnemonic(
+    return ensureWebembedApiProxyAvailable().secret.tonValidateMnemonic(
       mnemonicArray,
     );
   }
@@ -55,7 +55,7 @@ async function tonMnemonicToKeyPair(
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
-    return appGlobals.$webembedApiProxy.secret.tonMnemonicToKeyPair(
+    return ensureWebembedApiProxyAvailable().secret.tonMnemonicToKeyPair(
       mnemonicArray,
     );
   }
