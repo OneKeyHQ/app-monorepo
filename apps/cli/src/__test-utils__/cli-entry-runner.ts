@@ -13,6 +13,7 @@ const SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const;
 
 type ISignalName = (typeof SIGNALS)[number];
 type IProcessListener = Parameters<typeof process.on>[1];
+type ITtyWritableStream = NodeJS.WriteStream & { isTTY?: boolean };
 
 export type ICliSideEffects = {
   axiosCalls: number;
@@ -53,6 +54,28 @@ function chunkToString(chunk: unknown): string {
   return String(chunk);
 }
 
+function forceNonTty(
+  stream: ITtyWritableStream,
+): PropertyDescriptor | undefined {
+  const descriptor = Object.getOwnPropertyDescriptor(stream, 'isTTY');
+  Object.defineProperty(stream, 'isTTY', {
+    configurable: true,
+    value: false,
+  });
+  return descriptor;
+}
+
+function restoreIsTty(
+  stream: ITtyWritableStream,
+  descriptor: PropertyDescriptor | undefined,
+) {
+  if (descriptor) {
+    Object.defineProperty(stream, 'isTTY', descriptor);
+  } else {
+    delete (stream as { isTTY?: boolean }).isTTY;
+  }
+}
+
 export async function runCliEntry(args: string[]): Promise<ICliEntryRunResult> {
   jest.resetModules();
 
@@ -79,6 +102,8 @@ export async function runCliEntry(args: string[]): Promise<ICliEntryRunResult> {
 
   const originalArgv = process.argv;
   const originalExitCode = process.exitCode;
+  const originalStdoutIsTty = forceNonTty(process.stdout);
+  const originalStderrIsTty = forceNonTty(process.stderr);
   const originalSignalListeners = new Map<ISignalName, IProcessListener[]>(
     SIGNALS.map((signal) => [
       signal,
@@ -169,6 +194,8 @@ export async function runCliEntry(args: string[]): Promise<ICliEntryRunResult> {
   } finally {
     process.argv = originalArgv;
     process.exitCode = originalExitCode;
+    restoreIsTty(process.stdout, originalStdoutIsTty);
+    restoreIsTty(process.stderr, originalStderrIsTty);
     for (const signal of SIGNALS) {
       const originalListeners = originalSignalListeners.get(signal) ?? [];
       for (const listener of process.listeners(signal)) {

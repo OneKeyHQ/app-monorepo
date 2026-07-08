@@ -895,16 +895,18 @@ function PerpsEmptyRecommendSection() {
 function PerpsDepositButton({
   testID,
   canDeposit,
+  isDepositDisabled,
 }: {
   testID: string;
   canDeposit: boolean;
+  isDepositDisabled: boolean;
 }) {
   const intl = useIntl();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const ensureHomePerpsAccount = useEnsureHomePerpsAccount();
 
   const handleDeposit = useCallback(async () => {
-    if (!canDeposit) {
+    if (!canDeposit || isDepositDisabled) {
       return;
     }
     const activePerpsAccount = await ensureHomePerpsAccount();
@@ -912,7 +914,12 @@ function PerpsDepositButton({
       return;
     }
     await showDepositWithdrawModal('deposit');
-  }, [canDeposit, ensureHomePerpsAccount, showDepositWithdrawModal]);
+  }, [
+    canDeposit,
+    ensureHomePerpsAccount,
+    isDepositDisabled,
+    showDepositWithdrawModal,
+  ]);
 
   if (!canDeposit) {
     return null;
@@ -926,7 +933,8 @@ function PerpsDepositButton({
       bg="$brand8"
       minHeight={32}
       color="$textOnColor"
-      cursor="pointer"
+      cursor={isDepositDisabled ? 'default' : 'pointer'}
+      disabled={isDepositDisabled}
       hoverStyle={{ bg: '$brand9' }}
       pressStyle={{ bg: '$brand10' }}
       onPress={() => void handleDeposit()}
@@ -942,7 +950,13 @@ function PerpsDepositButton({
   );
 }
 
-function PerpsHeaderActions({ canDeposit }: { canDeposit: boolean }) {
+function PerpsHeaderActions({
+  canDeposit,
+  isDepositDisabled,
+}: {
+  canDeposit: boolean;
+  isDepositDisabled: boolean;
+}) {
   if (!canDeposit) {
     return null;
   }
@@ -952,12 +966,19 @@ function PerpsHeaderActions({ canDeposit }: { canDeposit: boolean }) {
       <PerpsDepositButton
         testID={HomeTestIDs.perpsDesktopDepositButton}
         canDeposit={canDeposit}
+        isDepositDisabled={isDepositDisabled}
       />
     </XStack>
   );
 }
 
-function PerpsEmptyState({ canDeposit }: { canDeposit: boolean }) {
+function PerpsEmptyState({
+  canDeposit,
+  isDepositDisabled,
+}: {
+  canDeposit: boolean;
+  isDepositDisabled: boolean;
+}) {
   const intl = useIntl();
 
   return (
@@ -982,6 +1003,7 @@ function PerpsEmptyState({ canDeposit }: { canDeposit: boolean }) {
           <PerpsDepositButton
             testID={HomeTestIDs.perpsDepositButton}
             canDeposit={canDeposit}
+            isDepositDisabled={isDepositDisabled}
           />
         </XStack>
       </YStack>
@@ -993,7 +1015,12 @@ function PerpsEmptyState({ canDeposit }: { canDeposit: boolean }) {
           })}
           subTitle="$0.00"
           headerContainerProps={{ px: 0, pb: 0 }}
-          headerActions={<PerpsHeaderActions canDeposit={canDeposit} />}
+          headerActions={
+            <PerpsHeaderActions
+              canDeposit={canDeposit}
+              isDepositDisabled={isDepositDisabled}
+            />
+          }
           content={null}
           plainContentContainer
         />
@@ -1108,11 +1135,13 @@ function PerpsMobileHoldingsSummary({
   holdings,
   isDegraded,
   canDeposit,
+  isDepositDisabled,
 }: {
   totalUsd: number;
   holdings: IPerpsHomeHolding[];
   isDegraded?: boolean;
   canDeposit: boolean;
+  isDepositDisabled: boolean;
 }) {
   const intl = useIntl();
   const media = useMedia();
@@ -1149,6 +1178,7 @@ function PerpsMobileHoldingsSummary({
         <PerpsDepositButton
           testID={HomeTestIDs.perpsDepositButton}
           canDeposit={canDeposit}
+          isDepositDisabled={isDepositDisabled}
         />
       </XStack>
       <YStack gap="$0.5">
@@ -1488,7 +1518,8 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
 export function PerpsContainer() {
   const intl = useIntl();
   const tabBarHeight = useScrollContentTabBarOffset();
-  const { viewState, view, canDeposit } = usePerpsHomePortfolio();
+  const { viewState, view, canDeposit, isDepositDisabled } =
+    usePerpsHomePortfolio();
 
   return (
     <Stack flex={1}>
@@ -1511,7 +1542,10 @@ export function PerpsContainer() {
         >
           {viewState === 'loading' ? <PerpsLoadingState /> : null}
           {viewState === 'empty' ? (
-            <PerpsEmptyState canDeposit={canDeposit} />
+            <PerpsEmptyState
+              canDeposit={canDeposit}
+              isDepositDisabled={isDepositDisabled}
+            />
           ) : null}
           {viewState === 'ready' && view ? (
             <>
@@ -1520,6 +1554,7 @@ export function PerpsContainer() {
                 holdings={view.holdings}
                 isDegraded={view.isDegraded}
                 canDeposit={canDeposit}
+                isDepositDisabled={isDepositDisabled}
               />
               <YStack display="none" $gtMd={{ display: 'flex' }}>
                 <RichBlock
@@ -1536,7 +1571,12 @@ export function PerpsContainer() {
                     />
                   }
                   headerContainerProps={{ px: 0, pb: 0 }}
-                  headerActions={<PerpsHeaderActions canDeposit={canDeposit} />}
+                  headerActions={
+                    <PerpsHeaderActions
+                      canDeposit={canDeposit}
+                      isDepositDisabled={isDepositDisabled}
+                    />
+                  }
                   content={null}
                   plainContentContainer
                 />
