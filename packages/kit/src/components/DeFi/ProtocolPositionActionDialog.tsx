@@ -1694,8 +1694,8 @@ function ProtocolPositionActionDialogContent({
     [aggregatedOutputPreviewAssets, rewardPreviewAssets],
   );
   const outputValueState = useMemo(
-    () => getPreviewAssetsValueState(aggregatedOutputPreviewAssets),
-    [aggregatedOutputPreviewAssets],
+    () => getPreviewAssetsValueState(receivePreviewAssets),
+    [receivePreviewAssets],
   );
   const selectAllLabel = intl.formatMessage({
     id: allSelected
