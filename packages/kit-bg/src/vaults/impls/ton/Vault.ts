@@ -240,7 +240,14 @@ export default class Vault extends VaultBase {
                 symbol: token?.symbol ?? '',
                 name: token?.name ?? '',
                 tokenIdOnNetwork: token?.address ?? '',
-                isNative: token?.symbol === network.symbol,
+                // Determine native by transfer structure, not by symbol equality.
+                // The native-coin symbol can be renamed server-side (e.g. TON ->
+                // GRAM) while network.symbol stays "TON"; a `token.symbol ===
+                // network.symbol` check would then flip isNative to false and
+                // silently disable the max-send fee reservation, making a
+                // full-balance send get dropped on-chain by the IGNORE_ERRORS
+                // send mode. A native TON transfer never carries a jetton.
+                isNative: !message.jetton && !decodedPayload.jetton,
               },
             ],
           });

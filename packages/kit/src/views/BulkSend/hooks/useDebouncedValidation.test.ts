@@ -62,6 +62,70 @@ describe('useDebouncedValidation', () => {
     expect(nextValidateFn).toHaveBeenCalledWith('0xabc');
   });
 
+  it('re-runs in-flight validation when validateFn changes after the debounce fires', async () => {
+    let resolveStaleValidation: ((value: string | boolean) => void) | undefined;
+    let resolveLatestValidation:
+      | ((value: string | boolean) => void)
+      | undefined;
+    const validateFn = jest.fn<Promise<string | boolean>, [string]>(
+      () =>
+        new Promise((resolve) => {
+          resolveStaleValidation = resolve;
+        }),
+    );
+    const nextValidateFn = jest.fn<Promise<string | boolean>, [string]>(
+      () =>
+        new Promise((resolve) => {
+          resolveLatestValidation = resolve;
+        }),
+    );
+    const { result, rerender } = renderHook(
+      ({ fn }) => useDebouncedValidation(fn, 300),
+      {
+        initialProps: {
+          fn: validateFn,
+        },
+      },
+    );
+
+    let resolvedValue: string | boolean | undefined;
+    let validationPromise: Promise<string | boolean> | undefined;
+
+    act(() => {
+      validationPromise = result.current.validate('0xabc').then((value) => {
+        resolvedValue = value;
+        return value;
+      });
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+      await Promise.resolve();
+    });
+    expect(validateFn).toHaveBeenCalledWith('0xabc');
+
+    rerender({ fn: nextValidateFn });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(nextValidateFn).toHaveBeenCalledWith('0xabc');
+
+    await act(async () => {
+      resolveStaleValidation?.('stale invalid');
+      await Promise.resolve();
+    });
+    expect(resolvedValue).toBeUndefined();
+
+    await act(async () => {
+      resolveLatestValidation?.(true);
+      await Promise.resolve();
+    });
+
+    await expect(validationPromise).resolves.toBe(true);
+    expect(resolvedValue).toBe(true);
+  });
+
   it('resolves with the validator result once the debounce fires', async () => {
     const validateFn = jest.fn<Promise<string | boolean>, [string]>(
       async (value) => (value === '0xgood' ? true : 'bad address'),

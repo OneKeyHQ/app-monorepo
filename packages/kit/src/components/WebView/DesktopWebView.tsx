@@ -9,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 
 import { consts } from '@onekeyfe/cross-inpage-provider-core';
@@ -57,12 +58,43 @@ type IDesktopDidFailLoadEvent = DidFailLoadEvent & {
 };
 
 let preloadJsUrl = '';
+let preloadJsUrlPromise: Promise<string> | undefined;
+const preloadJsUrlListeners = new Set<() => void>();
 
-void globalThis.desktopApiProxy.webview
-  .getPreloadJsContent()
-  .then((url: string) => {
-    preloadJsUrl = url;
+function emitPreloadJsUrlChange() {
+  preloadJsUrlListeners.forEach((listener) => {
+    listener();
   });
+}
+
+function subscribePreloadJsUrl(listener: () => void) {
+  preloadJsUrlListeners.add(listener);
+  return () => {
+    preloadJsUrlListeners.delete(listener);
+  };
+}
+
+function getPreloadJsUrlSnapshot() {
+  return preloadJsUrl;
+}
+
+function getPreloadJsUrl() {
+  if (preloadJsUrl) {
+    return Promise.resolve(preloadJsUrl);
+  }
+  preloadJsUrlPromise ??= globalThis.desktopApiProxy.webview
+    .getPreloadJsContent()
+    .then((url: string) => {
+      preloadJsUrl = url;
+      emitPreloadJsUrlChange();
+      return url;
+    })
+    .catch((error: unknown) => {
+      preloadJsUrlPromise = undefined;
+      throw error;
+    });
+  return preloadJsUrlPromise;
+}
 
 // Used for webview type referencing
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -102,6 +134,12 @@ const DesktopWebView = forwardRef(
     const [devToolsAtLeft, setDevToolsAtLeft] = useState(false);
     const [devSettings] = useDevSettingsPersistAtom();
     const isUnmountingRef = useRef(false);
+    const resolvedPreloadJsUrl = useSyncExternalStore(
+      subscribePreloadJsUrl,
+      getPreloadJsUrlSnapshot,
+      getPreloadJsUrlSnapshot,
+    );
+    const [preloadJsUrlError, setPreloadJsUrlError] = useState(false);
 
     const [desktopLoadError, setDesktopLoadError] = useState(false);
     const [desktopLoadErrorCode, setDesktopLoadErrorCode] = useState<number>();
@@ -149,6 +187,31 @@ const DesktopWebView = forwardRef(
         }
       }
     }, [isDomReady]);
+
+    useEffect(() => {
+      if (disableBridge || preloadJsUrlError || resolvedPreloadJsUrl) {
+        return undefined;
+      }
+
+      let isMounted = true;
+      void getPreloadJsUrl()
+        .then(() => undefined)
+        .catch(() => {
+          if (isMounted) {
+            setPreloadJsUrlError(true);
+          }
+        });
+
+      return () => {
+        isMounted = false;
+      };
+    }, [disableBridge, preloadJsUrlError, resolvedPreloadJsUrl]);
+
+    useEffect(() => {
+      if (resolvedPreloadJsUrl && preloadJsUrlError) {
+        setPreloadJsUrlError(false);
+      }
+    }, [preloadJsUrlError, resolvedPreloadJsUrl]);
 
     // Register event listeners
     useEffect(() => {
@@ -495,10 +558,21 @@ const DesktopWebView = forwardRef(
       flushPendingScripts();
     }, [flushPendingScripts, isWebviewReady]);
 
-    if (!preloadJsUrl && !disableBridge) {
-      return null;
+    if (preloadJsUrlError && !disableBridge) {
+      return (
+        <Stack flex={1} position="relative" bg="$bgApp">
+          <ErrorView
+            onRefresh={() => {
+              setPreloadJsUrlError(false);
+            }}
+          />
+        </Stack>
+      );
     }
 
+    if (!resolvedPreloadJsUrl && !disableBridge) {
+      return null;
+    }
     return (
       <Stack flex={1} position="relative" bg="$bgApp">
         {devSettings?.enabled && devSettings?.settings?.showWebviewDevTools ? (
@@ -523,7 +597,7 @@ const DesktopWebView = forwardRef(
         ) : null}
         <webview
           ref={initWebviewByRef}
-          {...(disableBridge ? {} : { preload: preloadJsUrl })}
+          {...(disableBridge ? {} : { preload: resolvedPreloadJsUrl })}
           src={src}
           partition={partitionProp ?? 'persist:onekey'}
           style={{
