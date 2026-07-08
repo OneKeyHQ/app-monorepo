@@ -51,12 +51,15 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IPerpsHomeHolding,
   IPerpsHomePosition,
 } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
 import {
+  formatPriceToSignificantDigits,
   getHyperliquidTokenImageUrl,
+  getValidPriceDecimals,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
@@ -91,11 +94,32 @@ const HOT_MARKETS_DESKTOP_GRID: React.CSSProperties = {
 const noop = () => undefined;
 type IPerpsTradeMode = 'perp' | 'spot';
 type IPerpsInfoPanelTab = 'Positions' | 'Balances';
+const VALUE_FORMATTER: INumberFormatProps['formatter'] = 'value';
+const VALUE_FORMATTER_OPTIONS: INumberFormatProps['formatterOptions'] = {
+  currency: '$',
+};
+const BALANCE_FORMATTER: INumberFormatProps['formatter'] = 'balance';
 
 function isTradableSpotHolding(holding: IPerpsHomeHolding) {
   return Boolean(
     holding.symbol.toUpperCase() !== 'USDC' && holding.spotUniverseName,
   );
+}
+
+function formatPerpsPositionPrice(price: string | number) {
+  const decimals = getValidPriceDecimals(price);
+  return new BigNumber(price || '0').toFixed(decimals);
+}
+
+function formatPerpsPositionLiquidationPrice(
+  liqPx: string | null,
+  entryPx: string,
+) {
+  const liquidationPrice = new BigNumber(liqPx || '0');
+  if (liquidationPrice.isZero()) {
+    return 'N/A';
+  }
+  return liquidationPrice.toFixed(getValidPriceDecimals(entryPx || '0'));
 }
 
 function useEnsureHomePerpsAccount() {
@@ -615,6 +639,9 @@ function PerpsEmptyRecommendSection() {
           $gtMd={{ display: 'flex' }}
           size="small"
           variant="tertiary"
+          color="$textSubdued"
+          iconAfter="ChevronRightSmallOutline"
+          iconProps={{ color: '$iconSubdued' }}
           testID={HomeTestIDs.popularViewMoreBtn}
           onPress={() =>
             navigateToMarketTab({
@@ -622,14 +649,8 @@ function PerpsEmptyRecommendSection() {
             })
           }
           cursor="pointer"
-          childrenAsText={false}
         >
-          <XStack alignItems="center" gap="$1.5">
-            <SizableText size="$bodySmMedium">
-              {intl.formatMessage({ id: ETranslations.global_view_more })}
-            </SizableText>
-            <Icon name="ChevronRightSmallOutline" size="$4" />
-          </XStack>
+          {intl.formatMessage({ id: ETranslations.global_view_more })}
         </Button>
       </XStack>
       <YStack display="none" $gtMd={{ display: 'flex' }}>
@@ -1331,13 +1352,25 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
         ? ETranslations.perp_trade_cross
         : ETranslations.perp_trade_isolated,
   });
-  // priceChange formatter is fixed at 2 decimals; PositionsRow shows ROE at 1.
   const roiPercent = new BigNumber(position.roi).times(100).abs().toFixed(1);
   const displayCoin = parseDexCoin(position.coin).displayName;
-  const positionSizeUsd = new BigNumber(position.sizeCoin)
-    .times(position.markPx)
+  const positionSizeUsd = numberFormat(
+    new BigNumber(position.sizeCoin).times(position.markPx).abs().toFixed(),
+    {
+      formatter: BALANCE_FORMATTER,
+    },
+  );
+  const fundingDisplay = `${position.fundingUsd > 0 ? '-' : '+'}$${new BigNumber(
+    position.fundingUsd,
+  )
     .abs()
-    .toFixed();
+    .toFixed(2)}`;
+  const entryPriceDisplay = formatPerpsPositionPrice(position.entryPx);
+  const markPriceDisplay = formatPriceToSignificantDigits(position.markPx);
+  const liqPriceDisplay = formatPerpsPositionLiquidationPrice(
+    position.liqPx,
+    position.entryPx,
+  );
 
   return (
     <YStack
@@ -1418,8 +1451,10 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
           <PerpsMetric
             labelId={ETranslations.perp_position_pnl_mobile}
             value={new BigNumber(position.pnlUsd).abs().toFixed()}
-            formatter="value"
-            formatterOptions={{ currency: position.pnlUsd < 0 ? '-$' : '+$' }}
+            formatter={VALUE_FORMATTER}
+            formatterOptions={{
+              currency: position.pnlUsd < 0 ? '-$' : '+$',
+            }}
             positive={position.pnlUsd >= 0}
             negative={position.pnlUsd < 0}
             emphasis
@@ -1440,22 +1475,18 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
               labelId={ETranslations.perp_position_position_size}
               labelExtra=" (USDC)"
               value={positionSizeUsd}
-              formatter="value"
-              formatterOptions={{ currency: '$' }}
               column="left"
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_margin}
               value={position.marginUsd}
-              formatter="value"
-              formatterOptions={{ currency: '$' }}
+              formatter={VALUE_FORMATTER}
+              formatterOptions={VALUE_FORMATTER_OPTIONS}
               column="center"
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_entry_price}
-              value={position.entryPx}
-              formatter="price"
-              formatterOptions={{ currency: '$' }}
+              value={entryPriceDisplay}
               align="right"
               column="right"
             />
@@ -1465,27 +1496,19 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
             {/* fundingUsd > 0 = paid -> red '-$' (mirrors PositionsRow) */}
             <PerpsMetric
               labelId={ETranslations.perp_position_funding_2}
-              value={new BigNumber(position.fundingUsd).abs().toFixed()}
-              formatter="value"
-              formatterOptions={{
-                currency: position.fundingUsd > 0 ? '-$' : '+$',
-              }}
+              value={fundingDisplay}
               positive={position.fundingUsd <= 0}
               negative={position.fundingUsd > 0}
               column="left"
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_mark_price}
-              value={position.markPx}
-              formatter="price"
-              formatterOptions={{ currency: '$' }}
+              value={markPriceDisplay}
               column="center"
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_liq_price}
-              value={position.liqPx || 'N/A'}
-              formatter={position.liqPx ? 'price' : undefined}
-              formatterOptions={position.liqPx ? { currency: '$' } : undefined}
+              value={liqPriceDisplay}
               align="right"
               column="right"
             />
