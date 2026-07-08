@@ -2046,3 +2046,196 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
     });
   });
 });
+
+describe('ServiceKeylessWallet.validateKeylessAccessTokenMatchesLocalWallet (real implementation)', () => {
+  // Unlike the suites above (which stub this method per-instance), these
+  // tests call the REAL private implementation on a fresh service instance:
+  // JWT payload decoding via stringUtils.decodeJWT, social-user-id hashing
+  // via accountUtils.hashKeylessSocialUserId, and issuer-derived provider
+  // comparison with skipFixedProvider=true.
+  const accountUtils =
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require('@onekeyhq/shared/src/utils/accountUtils').default;
+
+  const GOOGLE_ISSUER = 'https://accounts.google.com';
+  const APPLE_ISSUER = 'https://appleid.apple.com';
+  const SOCIAL_SUB = 'social-sub-1';
+
+  let matchingSocialUserIdHash: string;
+
+  beforeAll(async () => {
+    matchingSocialUserIdHash = await accountUtils.hashKeylessSocialUserId({
+      socialUserId: SOCIAL_SUB,
+    });
+  });
+
+  beforeEach(() => {
+    jest.restoreAllMocks();
+    jest.clearAllMocks();
+  });
+
+  // Minimal unsigned JWT with an arbitrary payload; the implementation only
+  // base64url-decodes the payload segment (no signature verification).
+  function buildSocialJwt(payload: Record<string, unknown>): string {
+    const header = Buffer.from(JSON.stringify({ alg: 'none' })).toString(
+      'base64url',
+    );
+    const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+    return `${header}.${body}.signature`;
+  }
+
+  function buildSocialJwtForIssuer(params: {
+    sub?: string;
+    iss?: string;
+  }): string {
+    return buildSocialJwt({
+      user_metadata: {
+        ...(params.sub !== undefined ? { sub: params.sub } : {}),
+        ...(params.iss !== undefined ? { iss: params.iss } : {}),
+      },
+    });
+  }
+
+  function createWalletForValidate(overrides: {
+    keylessProvider?: string;
+    socialUserIdHash?: string;
+  }) {
+    return createKeylessWallet({
+      keylessDetailsInfo: {
+        keylessOwnerId: OWNER_ID,
+        keylessProvider:
+          overrides.keylessProvider ?? EOAuthSocialLoginProvider.Google,
+        socialUserIdHash:
+          overrides.socialUserIdHash ?? matchingSocialUserIdHash,
+      },
+    });
+  }
+
+  test('returns undefined for a Google token matching the wallet provider and social user id hash', async () => {
+    const { serviceAny } = createService();
+    await expect(
+      serviceAny.validateKeylessAccessTokenMatchesLocalWallet({
+        token: buildSocialJwtForIssuer({ sub: SOCIAL_SUB, iss: GOOGLE_ISSUER }),
+        keylessWallet: createWalletForValidate({
+          keylessProvider: EOAuthSocialLoginProvider.Google,
+        }),
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  test('returns undefined for an Apple token matching an Apple wallet', async () => {
+    const { serviceAny } = createService();
+    await expect(
+      serviceAny.validateKeylessAccessTokenMatchesLocalWallet({
+        token: buildSocialJwtForIssuer({ sub: SOCIAL_SUB, iss: APPLE_ISSUER }),
+        keylessWallet: createWalletForValidate({
+          keylessProvider: EOAuthSocialLoginProvider.Apple,
+        }),
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  test('returns token_provider_mismatch when the token issuer provider differs from the wallet provider', async () => {
+    const { serviceAny } = createService();
+    await expect(
+      serviceAny.validateKeylessAccessTokenMatchesLocalWallet({
+        token: buildSocialJwtForIssuer({ sub: SOCIAL_SUB, iss: GOOGLE_ISSUER }),
+        keylessWallet: createWalletForValidate({
+          keylessProvider: EOAuthSocialLoginProvider.Apple,
+        }),
+      }),
+    ).resolves.toBe('token_provider_mismatch');
+  });
+
+  test('ignores fixedKeylessProviderMap rewrites (skipFixedProvider): same-email wallets still mismatch', async () => {
+    // Same-email both-providers wallets have their local keylessProvider
+    // rewritten via fixedKeylessProviderMap; validation must compare the
+    // issuer-derived provider strictly and still report a mismatch.
+    const { serviceAny } = createService();
+    serviceAny.fixedKeylessProviderMap = {
+      [SOCIAL_SUB]: EOAuthSocialLoginProvider.Apple,
+    };
+    await expect(
+      serviceAny.validateKeylessAccessTokenMatchesLocalWallet({
+        token: buildSocialJwtForIssuer({ sub: SOCIAL_SUB, iss: GOOGLE_ISSUER }),
+        keylessWallet: createWalletForValidate({
+          keylessProvider: EOAuthSocialLoginProvider.Apple,
+        }),
+      }),
+    ).resolves.toBe('token_provider_mismatch');
+  });
+
+  test('returns token_identity_mismatch when the token social user id hashes to a different value', async () => {
+    const { serviceAny } = createService();
+    await expect(
+      serviceAny.validateKeylessAccessTokenMatchesLocalWallet({
+        token: buildSocialJwtForIssuer({
+          sub: 'another-social-sub',
+          iss: GOOGLE_ISSUER,
+        }),
+        keylessWallet: createWalletForValidate({}),
+      }),
+    ).resolves.toBe('token_identity_mismatch');
+  });
+
+  test('returns token_identity_mismatch for a malformed (undecodable) token', async () => {
+    const { serviceAny } = createService();
+    await expect(
+      serviceAny.validateKeylessAccessTokenMatchesLocalWallet({
+        token: 'not-a-jwt',
+        keylessWallet: createWalletForValidate({}),
+      }),
+    ).resolves.toBe('token_identity_mismatch');
+  });
+
+  test('returns token_identity_mismatch when the token payload has no user_metadata.sub', async () => {
+    const { serviceAny } = createService();
+    await expect(
+      serviceAny.validateKeylessAccessTokenMatchesLocalWallet({
+        token: buildSocialJwtForIssuer({ iss: GOOGLE_ISSUER }),
+        keylessWallet: createWalletForValidate({}),
+      }),
+    ).resolves.toBe('token_identity_mismatch');
+  });
+
+  test('returns token_identity_mismatch when the token issuer is unsupported (error swallowed after hash match)', async () => {
+    // Characterization: an unsupported issuer throws inside the try block
+    // AFTER the hash comparison passed, so it surfaces as
+    // token_identity_mismatch (not token_provider_mismatch).
+    const { serviceAny } = createService();
+    await expect(
+      serviceAny.validateKeylessAccessTokenMatchesLocalWallet({
+        token: buildSocialJwtForIssuer({
+          sub: SOCIAL_SUB,
+          iss: 'https://evil.example.com',
+        }),
+        keylessWallet: createWalletForValidate({}),
+      }),
+    ).resolves.toBe('token_identity_mismatch');
+  });
+
+  test('returns token_identity_mismatch when the wallet has no keylessDetailsInfo', async () => {
+    const { serviceAny } = createService();
+    await expect(
+      serviceAny.validateKeylessAccessTokenMatchesLocalWallet({
+        token: buildSocialJwtForIssuer({ sub: SOCIAL_SUB, iss: GOOGLE_ISSUER }),
+        keylessWallet: createKeylessWallet({ keylessDetailsInfo: undefined }),
+      }),
+    ).resolves.toBe('token_identity_mismatch');
+  });
+
+  test('returns token_identity_mismatch when keylessDetailsInfo is missing socialUserIdHash', async () => {
+    const { serviceAny } = createService();
+    await expect(
+      serviceAny.validateKeylessAccessTokenMatchesLocalWallet({
+        token: buildSocialJwtForIssuer({ sub: SOCIAL_SUB, iss: GOOGLE_ISSUER }),
+        keylessWallet: createKeylessWallet({
+          keylessDetailsInfo: {
+            keylessOwnerId: OWNER_ID,
+            keylessProvider: EOAuthSocialLoginProvider.Google,
+          },
+        }),
+      }),
+    ).resolves.toBe('token_identity_mismatch');
+  });
+});
