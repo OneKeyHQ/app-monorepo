@@ -983,6 +983,11 @@ class ServiceHardware extends ServiceBase {
           '[LinuxWebUSB] OneKey udev rules not installed',
           JSON.stringify(result),
         );
+        if (result.skippedReason === 'cancelled') {
+          this.linuxUdevRulesInstallMutedUntil =
+            Date.now() + LINUX_UDEV_RULES_INSTALL_RETRY_DELAY_MS;
+          return false;
+        }
         const shouldShowManualGuide =
           this.markLinuxUdevRulesInstallFailed() ||
           result.needsManualInstall ||
