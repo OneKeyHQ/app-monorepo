@@ -124,7 +124,7 @@ PODS:
     - ReactNativeNativeLogger
     - SocketRocket
     - Yoga
-  - BleUtils (0.1.6):
+  - BleUtils (0.1.5):
     - boost
     - DoubleConversion
     - fast_float
@@ -5398,7 +5398,7 @@ SPEC CHECKSUMS:
   AsyncStorage: c412e811f40580575ae1349fe3a00ba20abbd7b9
   AutoSizeInput: 058768d2d7b2eba06620d9a3fabe260d08de1218
   BackgroundThread: 2716941fdd405d1e2b782579834ded774968bd62
-  BleUtils: 3ab85e1bcf3c7a5594488ee144a0b9bbf4537d55
+  BleUtils: 100aa150e12ea28847766790f44f673628827abb
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
   Burnt: e3a3397e26172fca31a59bb27421475a58068836
   ChartWebview: 91e4e32693e817baee0d449695939d98a66fbb8e
