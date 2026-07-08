@@ -904,7 +904,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
     await Promise.all(
       clearedEntries.map(async ({ num, clearedSelectedAccount }) => {
-        await backgroundApiProxy.simpleDb.accountSelector.saveSelectedAccount({
+        await this.savePersistentlyUnavailableWalletSelectionToStorage({
           sceneName,
           sceneUrl,
           num,
@@ -914,6 +914,70 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     );
 
     return selectedAccountsMap;
+  };
+
+  savePersistentlyUnavailableWalletSelectionToStorage = async ({
+    sceneName,
+    sceneUrl,
+    num,
+    selectedAccount,
+  }: {
+    sceneName: EAccountSelectorSceneName;
+    sceneUrl?: string;
+    num: number;
+    selectedAccount: IAccountSelectorSelectedAccount;
+  }) => {
+    const { serviceAccountSelector, simpleDb } = backgroundApiProxy;
+    const currentSaved = await simpleDb.accountSelector.getSelectedAccount({
+      sceneName,
+      sceneUrl,
+      num,
+    });
+    if (
+      !isEqual(
+        omitBy(currentSaved, isUndefined),
+        omitBy(selectedAccount, isUndefined),
+      )
+    ) {
+      await simpleDb.accountSelector.saveSelectedAccount({
+        sceneName,
+        sceneUrl,
+        num,
+        selectedAccount,
+      });
+    }
+
+    if (
+      sceneName !== EAccountSelectorSceneName.home &&
+      (await serviceAccountSelector.shouldSyncWithHomeSource({
+        sceneName,
+        sceneUrl,
+        num,
+      }))
+    ) {
+      const homeSelectedAccount =
+        await simpleDb.accountSelector.getSelectedAccount({
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+        });
+      const newHomeSelectedAccount =
+        accountSelectorUtils.buildMergedSelectedAccount({
+          data: homeSelectedAccount,
+          mergedByData: selectedAccount,
+        });
+      if (
+        !isEqual(
+          omitBy(homeSelectedAccount, isUndefined),
+          omitBy(newHomeSelectedAccount, isUndefined),
+        )
+      ) {
+        await simpleDb.accountSelector.saveSelectedAccount({
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+          selectedAccount: newHomeSelectedAccount,
+        });
+      }
+    }
   };
 
   updateSelectedAccountNetwork = contextAtomMethod(
@@ -2922,22 +2986,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         return;
       }
 
-      const { simpleDb } = backgroundApiProxy;
-      const currentSaved = await simpleDb.accountSelector.getSelectedAccount({
-        sceneName,
-        sceneUrl,
-        num,
-      });
-      if (
-        isEqual(
-          omitBy(currentSaved, isUndefined),
-          omitBy(selectedAccount, isUndefined),
-        )
-      ) {
-        return;
-      }
-
-      await simpleDb.accountSelector.saveSelectedAccount({
+      await this.savePersistentlyUnavailableWalletSelectionToStorage({
         sceneName,
         sceneUrl,
         num,

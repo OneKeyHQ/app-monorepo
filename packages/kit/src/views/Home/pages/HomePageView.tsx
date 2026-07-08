@@ -1049,11 +1049,14 @@ export function HomePageView({
     [homePageContent],
   );
   const activeWalletId = wallet?.id;
+  const activeWalletUnavailable =
+    accountUtils.isWalletDeprecatedOrMocked(wallet);
   const showNoWalletContent = shouldShowNoWalletContent({
     hasNoUsableWallet,
     accountSelectorStorageInitDone,
     accountSelectorActiveAccountInitDone,
     walletListResolvedNoWallet,
+    activeWalletUnavailable,
     activeWalletId,
     walletListWalletIds,
   });

@@ -36,12 +36,20 @@ type IBuildActiveAccountInfoResult = {
 type IFixDeriveTypesForInitAccountSelectorMapParams = {
   selectedAccountsMapInDB: ISelectedAccountsMap | undefined;
 };
+type IGetSelectedAccountParams = {
+  sceneName: EAccountSelectorSceneName;
+  sceneUrl?: string;
+  num: number;
+};
 type ISaveSelectedAccountParams = {
   selectedAccount: ISelectedAccount;
   sceneName: EAccountSelectorSceneName;
   sceneUrl?: string;
   num: number;
   selectedAccountUpdatedAt?: number;
+};
+type IMergeHomeDataToSwapMapParams = {
+  swapMap: ISelectedAccountsMap | undefined;
 };
 type IIndexedAccount = NonNullable<
   ReturnType<typeof defaultActiveAccountInfo>['indexedAccount']
@@ -75,7 +83,7 @@ const mockFixDeriveTypesForInitAccountSelectorMap: jest.MockedFunction<
   ) => Promise<ISelectedAccountsMap | undefined>
 > = jest.fn();
 const mockGetSelectedAccount: jest.MockedFunction<
-  () => Promise<ISelectedAccount | undefined>
+  (params: IGetSelectedAccountParams) => Promise<ISelectedAccount | undefined>
 > = jest.fn();
 const mockSaveSelectedAccount: jest.MockedFunction<
   (params: ISaveSelectedAccountParams) => Promise<void>
@@ -83,7 +91,12 @@ const mockSaveSelectedAccount: jest.MockedFunction<
 const mockSaveGlobalDeriveType: jest.MockedFunction<() => Promise<void>> =
   jest.fn();
 const mockShouldSyncWithHomeSource: jest.MockedFunction<
-  () => Promise<boolean>
+  (params: IGetSelectedAccountParams) => Promise<boolean>
+> = jest.fn();
+const mockMergeHomeDataToSwapMap: jest.MockedFunction<
+  (
+    params: IMergeHomeDataToSwapMapParams,
+  ) => Promise<ISelectedAccountsMap | undefined>
 > = jest.fn();
 const mockGetGlobalDeriveType: jest.MockedFunction<() => Promise<string>> =
   jest.fn();
@@ -229,10 +242,13 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         params: IFixDeriveTypesForInitAccountSelectorMapParams,
       ) => mockFixDeriveTypesForInitAccountSelectorMap(params),
       getGlobalDeriveType: () => mockGetGlobalDeriveType(),
+      mergeHomeDataToSwapMap: (params: IMergeHomeDataToSwapMapParams) =>
+        mockMergeHomeDataToSwapMap(params),
       saveGlobalDeriveType: () => mockSaveGlobalDeriveType(),
       shouldSyncHomeAndSwapSelectedAccount: () =>
         mockShouldSyncHomeAndSwapSelectedAccount(),
-      shouldSyncWithHomeSource: () => mockShouldSyncWithHomeSource(),
+      shouldSyncWithHomeSource: (params: IGetSelectedAccountParams) =>
+        mockShouldSyncWithHomeSource(params),
       shouldUseGlobalDeriveType: () => mockShouldUseGlobalDeriveType(),
     },
     serviceNetwork: {
@@ -241,7 +257,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     },
     simpleDb: {
       accountSelector: {
-        getSelectedAccount: () => mockGetSelectedAccount(),
+        getSelectedAccount: (params: IGetSelectedAccountParams) =>
+          mockGetSelectedAccount(params),
         getSelectedAccountsMap: () => mockGetSelectedAccountsMap(),
         saveSelectedAccount: (params: ISaveSelectedAccountParams) =>
           mockSaveSelectedAccount(params),
@@ -304,6 +321,9 @@ describe('useAccountSelectorActions', () => {
     mockGetSelectedAccount.mockResolvedValue(undefined);
     mockSaveSelectedAccount.mockResolvedValue(undefined);
     mockSaveGlobalDeriveType.mockResolvedValue(undefined);
+    mockMergeHomeDataToSwapMap.mockImplementation(
+      async (params) => params.swapMap,
+    );
     mockGetGlobalDeriveType.mockResolvedValue('default');
     mockShouldUseGlobalDeriveType.mockResolvedValue(true);
     mockIsDeriveTypeAvailableForNetwork.mockResolvedValue(true);
@@ -448,6 +468,72 @@ describe('useAccountSelectorActions', () => {
           othersWalletAccountId: undefined,
           networkId: 'onekeyall',
         }),
+      }),
+    );
+  });
+
+  it('syncs home when storage init clears an unavailable home-sync source wallet', async () => {
+    const staleHomeSelection = {
+      ...defaultSelectedAccount(),
+      walletId: 'hw-zombie',
+      indexedAccountId: 'hw-zombie--0',
+      networkId: 'evm--1',
+      deriveType: 'default' as const,
+      focusedWallet: 'hw-zombie',
+    };
+    const clearedSelection = {
+      ...defaultSelectedAccount(),
+      networkId: 'evm--1',
+      deriveType: 'default' as const,
+    };
+    const mockedWallet = {
+      id: 'hw-zombie',
+      name: 'Removed wallet',
+      isMocked: true,
+    } as IWallet;
+
+    mockGetSelectedAccountsMap.mockResolvedValue({
+      0: clearedSelection,
+    });
+    mockMergeHomeDataToSwapMap.mockImplementation(async ({ swapMap }) => ({
+      ...swapMap,
+      0: staleHomeSelection,
+    }));
+    mockGetWalletSafe.mockResolvedValue(mockedWallet);
+    mockGetSelectedAccount.mockImplementation(async ({ sceneName }) =>
+      sceneName === EAccountSelectorSceneName.home
+        ? staleHomeSelection
+        : clearedSelection,
+    );
+    mockShouldSyncWithHomeSource.mockResolvedValue(true);
+
+    const { Wrapper } = createWrapper(EAccountSelectorSceneName.swap);
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.initFromStorage({
+        sceneName: EAccountSelectorSceneName.swap,
+      });
+    });
+
+    expect(mockSaveSelectedAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccount: expect.objectContaining({
+          walletId: undefined,
+          focusedWallet: undefined,
+          indexedAccountId: undefined,
+          othersWalletAccountId: undefined,
+          networkId: 'evm--1',
+        }),
+      }),
+    );
+    expect(mockSaveSelectedAccount).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        sceneName: EAccountSelectorSceneName.swap,
       }),
     );
   });

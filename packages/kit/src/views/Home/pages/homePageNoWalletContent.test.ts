@@ -55,10 +55,25 @@ describe('shouldShowNoWalletContent', () => {
         accountSelectorStorageInitDone: true,
         accountSelectorActiveAccountInitDone: true,
         walletListResolvedNoWallet: false,
+        activeWalletUnavailable: true,
         activeWalletId: 'hw-removed',
         walletListWalletIds: ['hw-removed'],
       }),
     ).toBe(true);
+  });
+
+  it('keeps blocking the no-wallet empty state for a usable single wallet without a matched account', () => {
+    expect(
+      shouldShowNoWalletContent({
+        hasNoUsableWallet: true,
+        accountSelectorStorageInitDone: true,
+        accountSelectorActiveAccountInitDone: true,
+        walletListResolvedNoWallet: false,
+        activeWalletUnavailable: false,
+        activeWalletId: '$$watching',
+        walletListWalletIds: ['$$watching'],
+      }),
+    ).toBe(false);
   });
 
   it('keeps blocking the no-wallet empty state when another wallet remains in the list', () => {
@@ -68,6 +83,7 @@ describe('shouldShowNoWalletContent', () => {
         accountSelectorStorageInitDone: true,
         accountSelectorActiveAccountInitDone: true,
         walletListResolvedNoWallet: false,
+        activeWalletUnavailable: true,
         activeWalletId: 'hw-removed',
         walletListWalletIds: ['hw-removed', 'hw-usable'],
       }),
