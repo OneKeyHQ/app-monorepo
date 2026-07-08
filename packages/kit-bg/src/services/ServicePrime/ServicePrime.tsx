@@ -210,6 +210,19 @@ class ServicePrime extends ServiceBase {
     )?.reason;
     if (invalidTokenError) {
       const error = invalidTokenError as OneKeyErrorPrimeLoginInvalidToken;
+      if (error.$$invalidTokenHandled) {
+        // HTTP-level 90002/90003: the ServiceBase response interceptor
+        // already ran (or attempted — the marker means "handled or
+        // attempted") handlePrimeLoginInvalidToken and emitted the event
+        // for this error. Re-handling here would read the already-cleared
+        // source, fall back to LegacyEmailSupabase, and fire a second
+        // PrimeLoginInvalidToken event with the wrong source for
+        // KeylessOAuth users — so just propagate. Errors without the
+        // marker (HTTP-200 body-code 90002/90003, built by
+        // buildPrimeApiResponseError, which never passes the error
+        // interceptor) keep the full handling below.
+        throw error;
+      }
       defaultLogger.prime.subscription.onekeyIdInvalidToken({
         url: '',
         errorCode: Number(error.code),
@@ -362,6 +375,102 @@ class ServicePrime extends ServiceBase {
 
   loginMutex = new Semaphore(1);
 
+  // Narrow mutex serializing WRITES to the shared auth-state pair
+  // (persisted authSessionSource in simpleDb + primePersistAtom): the
+  // login-side commit (commitAuthSessionSourceBeforeAtomUpdate + the atom
+  // update that immediately follows it) versus the invalid-token cleanup
+  // (handlePrimeLoginInvalidToken) and the logout clear
+  // (clearOneKeyIdAuthState). Without it, the cleanup's multi-await
+  // read -> guard -> clear sequence can interleave with a login commit and
+  // either reset the atom right after a successful login, or wipe the
+  // source while the atom still says logged-in (orphaning a KeylessOAuth
+  // session — a wiped KeylessOAuth source is never re-inferred).
+  //
+  // Deliberately NOT loginMutex: the invalid-token response interceptor
+  // fires for the login POST itself while loginMutex is held, so taking
+  // loginMutex inside the cleanup handler would deadlock.
+  //
+  // Lock ordering: always loginMutex (outer) -> authStateWriteMutex
+  // (inner). Sections holding authStateWriteMutex must never wait on
+  // either mutex and must never await a OneKey-ID-client HTTP request
+  // (whose response interceptor could re-enter the cleanup handler and
+  // thus this mutex). Only local simpleDb/atom writes belong inside; the
+  // Supabase getSession token reads used by the guards are the single
+  // documented exception (they can refresh over the network, but go
+  // directly to Supabase, never through the intercepted client).
+  authStateWriteMutex = new Semaphore(1);
+
+  /**
+   * Guard evaluation shared by handlePrimeLoginInvalidToken's entry-time
+   * pass (outside authStateWriteMutex: cheap fast-path skip plus session
+   * warm-up before the lock) and its authoritative in-lock re-check
+   * (against a login commit that finished while waiting for the lock).
+   * Returns skip=true when clearing must NOT proceed.
+   */
+  private async evaluateInvalidTokenClearGuards({
+    requestAuthToken,
+    errorCode,
+    errorMessage,
+    requestUrl,
+    phase,
+  }: {
+    requestAuthToken?: string;
+    errorCode?: number;
+    errorMessage?: string;
+    requestUrl?: string;
+    phase: '' | ' (in-lock recheck)';
+  }): Promise<{
+    skip: boolean;
+    authSessionSource: EPrimeAuthSessionSource | undefined;
+  }> {
+    const authSessionSource =
+      await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+    const tokenRead = await readAuthTokenAllowingRetryableAuthError(() =>
+      authSessionSource
+        ? this.backgroundApi.simpleDb.prime.getActiveAuthToken()
+        : this.backgroundApi.simpleDb.prime.getSupabaseAuthToken(),
+    );
+    if (tokenRead.retryableError) {
+      defaultLogger.prime.subscription.onekeyIdInvalidToken({
+        url: requestUrl || '',
+        errorCode: errorCode || -1,
+        errorMessage: `skip clearing invalid token response because local refresh failed${phase}: ${String(
+          tokenRead.retryableError,
+        )}`,
+      });
+      return { skip: true, authSessionSource };
+    }
+    const currentAuthToken = tokenRead.token;
+
+    if (
+      requestAuthToken &&
+      currentAuthToken &&
+      requestAuthToken !== currentAuthToken
+    ) {
+      defaultLogger.prime.subscription.onekeyIdInvalidToken({
+        url: requestUrl || '',
+        errorCode: errorCode || -1,
+        errorMessage: `skip clearing stale invalid token response${phase}: ${
+          errorMessage || ''
+        }`,
+      });
+      return { skip: true, authSessionSource };
+    }
+
+    if (!requestAuthToken && currentAuthToken) {
+      defaultLogger.prime.subscription.onekeyIdInvalidToken({
+        url: requestUrl || '',
+        errorCode: errorCode || -1,
+        errorMessage: `skip clearing invalid token response without request token${phase}: ${
+          errorMessage || ''
+        }`,
+      });
+      return { skip: true, authSessionSource };
+    }
+
+    return { skip: false, authSessionSource };
+  }
+
   async handlePrimeLoginInvalidToken({
     requestAuthToken,
     errorCode,
@@ -376,64 +485,97 @@ class ServicePrime extends ServiceBase {
     cleared: boolean;
     authSessionSource?: EPrimeAuthSessionSource;
   }> {
-    const authSessionSource =
-      await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
-    const tokenRead = await readAuthTokenAllowingRetryableAuthError(() =>
-      authSessionSource
-        ? this.backgroundApi.simpleDb.prime.getActiveAuthToken()
-        : this.backgroundApi.simpleDb.prime.getSupabaseAuthToken(),
+    // Entry-time guard pass OUTSIDE authStateWriteMutex: skips cheaply
+    // without contending on the lock, and performs the possibly-slow
+    // Supabase session read (network-capable token refresh) before the
+    // lock is taken, keeping the in-lock re-read fast (cached session).
+    const entryGuards = await this.evaluateInvalidTokenClearGuards({
+      requestAuthToken,
+      errorCode,
+      errorMessage,
+      requestUrl,
+      phase: '',
+    });
+    if (entryGuards.skip) {
+      return {
+        cleared: false,
+        authSessionSource: entryGuards.authSessionSource,
+      };
+    }
+
+    // Decide + write under authStateWriteMutex so the clear can never
+    // interleave with a concurrent login commit. Guards are re-checked
+    // inside the lock because a login may have committed a new source
+    // and/or token between the entry-time reads above and lock
+    // acquisition.
+    const lockResult = await this.authStateWriteMutex.runExclusive(
+      async (): Promise<{
+        cleared: boolean;
+        authSessionSource?: EPrimeAuthSessionSource;
+      }> => {
+        const guards = await this.evaluateInvalidTokenClearGuards({
+          requestAuthToken,
+          errorCode,
+          errorMessage,
+          requestUrl,
+          phase: ' (in-lock recheck)',
+        });
+        if (guards.skip) {
+          return {
+            cleared: false,
+            authSessionSource: guards.authSessionSource,
+          };
+        }
+        if (guards.authSessionSource !== entryGuards.authSessionSource) {
+          // A login committed a different source while this handler waited
+          // for the lock: the failed request belongs to the pre-login
+          // session, so clearing now would wipe the fresh login.
+          defaultLogger.prime.subscription.onekeyIdInvalidToken({
+            url: requestUrl || '',
+            errorCode: errorCode || -1,
+            errorMessage: `skip clearing invalid token response because auth session source changed (in-lock recheck): ${
+              errorMessage || ''
+            }`,
+          });
+          return {
+            cleared: false,
+            authSessionSource: guards.authSessionSource,
+          };
+        }
+
+        const sourceToClear =
+          guards.authSessionSource ??
+          EPrimeAuthSessionSource.LegacyEmailSupabase;
+        // Write section: simpleDb + atom only — no network I/O while the
+        // lock is held (clearAuthTokens is a simpleDb write plus a local
+        // storage-cache clear; setPrimePersistAtomNotLoggedIn is atom +
+        // local credential-cache writes).
+        await this.backgroundApi.simpleDb.prime.clearAuthTokens();
+        await this.setPrimePersistAtomNotLoggedIn();
+        return {
+          cleared: true,
+          authSessionSource: sourceToClear,
+        };
+      },
     );
-    if (tokenRead.retryableError) {
-      defaultLogger.prime.subscription.onekeyIdInvalidToken({
-        url: requestUrl || '',
-        errorCode: errorCode || -1,
-        errorMessage: `skip clearing invalid token response because local refresh failed: ${String(
-          tokenRead.retryableError,
-        )}`,
-      });
-      return { cleared: false, authSessionSource };
-    }
-    const currentAuthToken = tokenRead.token;
 
-    if (
-      requestAuthToken &&
-      currentAuthToken &&
-      requestAuthToken !== currentAuthToken
-    ) {
-      defaultLogger.prime.subscription.onekeyIdInvalidToken({
-        url: requestUrl || '',
-        errorCode: errorCode || -1,
-        errorMessage: `skip clearing stale invalid token response: ${
-          errorMessage || ''
-        }`,
-      });
-      return { cleared: false, authSessionSource };
+    if (!lockResult.cleared) {
+      return lockResult;
     }
 
-    if (!requestAuthToken && currentAuthToken) {
-      defaultLogger.prime.subscription.onekeyIdInvalidToken({
-        url: requestUrl || '',
-        errorCode: errorCode || -1,
-        errorMessage: `skip clearing invalid token response without request token: ${
-          errorMessage || ''
-        }`,
-      });
-      return { cleared: false, authSessionSource };
-    }
-
-    const sourceToClear =
-      authSessionSource ?? EPrimeAuthSessionSource.LegacyEmailSupabase;
-    await this.backgroundApi.simpleDb.prime.clearAuthTokens();
-    if (sourceToClear === EPrimeAuthSessionSource.KeylessOAuth) {
+    // Per-source Supabase session clear (auth.signOut can perform network
+    // I/O) deliberately runs OUTSIDE the lock, after the guarded
+    // simpleDb+atom write above committed the clear decision. A login
+    // racing this signOut is not made worse by the move: its own Supabase
+    // sign-in happens outside any mutex either way, and
+    // commitAuthSessionSourceBeforeAtomUpdate fails safe (clears + throws)
+    // when the session storage was swept underneath it.
+    if (lockResult.authSessionSource === EPrimeAuthSessionSource.KeylessOAuth) {
       await this.backgroundApi.simpleDb.prime.clearKeylessAuthSession();
     } else {
       await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
     }
-    await this.setPrimePersistAtomNotLoggedIn();
-    return {
-      cleared: true,
-      authSessionSource: sourceToClear,
-    };
+    return lockResult;
   }
 
   private async commitAuthSessionSourceBeforeAtomUpdate({
@@ -500,18 +642,28 @@ class ServicePrime extends ServiceBase {
             },
           },
         );
-        await this.commitAuthSessionSourceBeforeAtomUpdate({
-          authSessionSource: nextAuthSessionSource,
-          callerName: 'ServicePrime.apiLogin',
-        });
-        await this.updatePrimeAtomByServerUserInfo({
-          serverUserInfo: response.data.data,
+        // Commit section (authStateWriteMutex, inner to loginMutex):
+        // persist the auth session source and update the prime atom as one
+        // atomic write, so the invalid-token cleanup can never observe —
+        // and wipe — a half-committed login. The network POST above stays
+        // outside this lock; it is held only for the few-ms local commit.
+        await this.authStateWriteMutex.runExclusive(async () => {
+          await this.commitAuthSessionSourceBeforeAtomUpdate({
+            authSessionSource: nextAuthSessionSource,
+            callerName: 'ServicePrime.apiLogin',
+          });
+          await this.updatePrimeAtomByServerUserInfo({
+            serverUserInfo: response.data.data,
+          });
         });
       } catch (error) {
         if (this.isPrimeLoginInvalidTokenError(error)) {
           // Confirmed invalid-token rejection: drop both the cached token
-          // and the auth session source.
-          await this.backgroundApi.simpleDb.prime.clearAuthTokens();
+          // and the auth session source. Serialized like every other
+          // source/token write so it cannot tear a concurrent writer.
+          await this.authStateWriteMutex.runExclusive(async () => {
+            await this.backgroundApi.simpleDb.prime.clearAuthTokens();
+          });
         }
         // For any other failure (e.g. transient network error), keep the
         // persisted authSessionSource so the existing session stays usable
@@ -557,12 +709,18 @@ class ServicePrime extends ServiceBase {
       if (!data) {
         throw new OneKeyLocalError('apiOAuthLogin ERROR: Empty response data');
       }
-      await this.commitAuthSessionSourceBeforeAtomUpdate({
-        authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
-        callerName: 'ServicePrime.apiOAuthLogin',
-      });
-      await this.updatePrimeAtomByOAuthLoginResponse({
-        loginResponse: data,
+      // Commit section (authStateWriteMutex, inner to loginMutex): source +
+      // atom written as one atomic pair — see apiLogin. The POST above and
+      // the legacy-session cleanup below (Supabase signOut, network-capable)
+      // stay outside the lock.
+      await this.authStateWriteMutex.runExclusive(async () => {
+        await this.commitAuthSessionSourceBeforeAtomUpdate({
+          authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+          callerName: 'ServicePrime.apiOAuthLogin',
+        });
+        await this.updatePrimeAtomByOAuthLoginResponse({
+          loginResponse: data,
+        });
       });
       await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
       await this.cleanupLegacyKeylessSessionStorage({
@@ -803,12 +961,18 @@ class ServicePrime extends ServiceBase {
         );
       }
 
-      await this.commitAuthSessionSourceBeforeAtomUpdate({
-        authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
-        callerName: 'ServicePrime.apiBindLegacyOneKeyIdOAuth',
-      });
-      await this.updatePrimeAtomByOneKeyIdAccount({
-        onekeyAccount: data.onekeyAccount,
+      // Commit section (authStateWriteMutex, inner to loginMutex): source +
+      // atom written as one atomic pair — see apiLogin. The bind POST above
+      // and the legacy-session cleanup below (Supabase signOut,
+      // network-capable) stay outside the lock.
+      await this.authStateWriteMutex.runExclusive(async () => {
+        await this.commitAuthSessionSourceBeforeAtomUpdate({
+          authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+          callerName: 'ServicePrime.apiBindLegacyOneKeyIdOAuth',
+        });
+        await this.updatePrimeAtomByOneKeyIdAccount({
+          onekeyAccount: data.onekeyAccount,
+        });
       });
       await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
       await this.cleanupLegacyKeylessSessionStorage({
@@ -853,14 +1017,27 @@ class ServicePrime extends ServiceBase {
     preserveLocalKeylessAuth?: boolean;
     callerName: string;
   }) {
-    if (preserveLocalKeylessAuth) {
+    // Decide + write under authStateWriteMutex: the persisted-source wipe
+    // and the atom reset must be atomic with respect to a concurrent login
+    // commit (see authStateWriteMutex), otherwise the interleaving could
+    // leave the atom logged-in with a wiped source (orphaned session) or
+    // logged-out right after a successful commit. The Supabase session
+    // clears below (auth.signOut, network-capable) intentionally stay
+    // OUTSIDE the lock: once the source is wiped and the atom is reset,
+    // the logout decision is committed, and the session-storage sweep is
+    // best-effort cleanup that must not extend the lock hold time.
+    await this.authStateWriteMutex.runExclusive(async () => {
       await this.backgroundApi.simpleDb.prime.clearAuthTokens();
+      await this.setPrimePersistAtomNotLoggedIn();
+    });
+    if (preserveLocalKeylessAuth) {
       await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
     } else {
       await this.cleanupLegacyKeylessSessionStorage({ callerName });
+      // clearLocalAuthSession repeats clearAuthTokens (idempotent) before
+      // sweeping every Supabase session storage key.
       await this.backgroundApi.simpleDb.prime.clearLocalAuthSession();
     }
-    await this.setPrimePersistAtomNotLoggedIn();
   }
 
   @backgroundMethod()

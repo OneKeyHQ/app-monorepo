@@ -130,24 +130,45 @@ export default class ServiceBase {
               errorCode,
               errorMessage: errorMessage || '',
             });
-            const clearResult =
-              await this.backgroundApi.servicePrime.handlePrimeLoginInvalidToken(
-                {
-                  requestAuthToken,
-                  errorCode,
-                  errorMessage,
-                  requestUrl: errorData?.data?.requestUrl,
-                },
-              );
-            if (clearResult.cleared) {
-              appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, {
-                authSessionSource: clearResult.authSessionSource,
-                clearedByBackground: true,
-              });
-            }
-            throw new OneKeyErrorPrimeLoginInvalidToken({
+            const invalidTokenError = new OneKeyErrorPrimeLoginInvalidToken({
               message: errorMessage,
             });
+            // The marker means "handled OR attempted": it is set even when
+            // the handler below fails, so downstream matchers (e.g.
+            // ServicePrime.throwIfAllPrimeUserInfoRequestsFailedByInvalidTokenError)
+            // never run handlePrimeLoginInvalidToken a second time — by
+            // then the auth session source may already be cleared, and a
+            // second pass would fall back to the wrong source and emit a
+            // duplicate PrimeLoginInvalidToken event.
+            invalidTokenError.$$invalidTokenHandled = true;
+            try {
+              const clearResult =
+                await this.backgroundApi.servicePrime.handlePrimeLoginInvalidToken(
+                  {
+                    requestAuthToken,
+                    errorCode,
+                    errorMessage,
+                    requestUrl: errorData?.data?.requestUrl,
+                  },
+                );
+              if (clearResult.cleared) {
+                appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, {
+                  authSessionSource: clearResult.authSessionSource,
+                  clearedByBackground: true,
+                });
+              }
+            } catch (handlerError) {
+              // Handler failure must not mask the invalid-token error: log
+              // and still throw the marked OneKeyErrorPrimeLoginInvalidToken.
+              defaultLogger.prime.subscription.onekeyIdInvalidToken({
+                url: errorData?.data?.requestUrl || '',
+                errorCode,
+                errorMessage: `handlePrimeLoginInvalidToken failed: ${String(
+                  handlerError,
+                )}`,
+              });
+            }
+            throw invalidTokenError;
           }
           if ([90_004].includes(errorCode)) {
             appEventBus.emit(
