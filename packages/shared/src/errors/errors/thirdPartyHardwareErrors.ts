@@ -19,8 +19,8 @@ export const THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE =
   ThirdPartyHwErrorCode.DevicePathForbidden;
 export const THIRD_PARTY_HW_BLE_CONNECT_FAILED_CODE =
   ThirdPartyHwErrorCode.BleConnectFailed;
-// hwk-adapter-core HardwareErrorCode.PinMismatch; literal until SDK >= 1.1.29-alpha.10
-export const THIRD_PARTY_HW_PIN_MISMATCH_CODE = 10_404;
+export const THIRD_PARTY_HW_PIN_MISMATCH_CODE =
+  ThirdPartyHwErrorCode.PinMismatch;
 
 // ---------------------------------------------------------------------------
 // Base class for third-party hardware errors
