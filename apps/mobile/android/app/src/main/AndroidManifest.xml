@@ -113,6 +113,24 @@
         <category android:name="android.intent.category.BROWSABLE" />
         <data android:scheme="ethereum" />
       </intent-filter>
+      <intent-filter android:autoVerify="true">
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="https" android:host="app.onekey.so" android:path="/swap" />
+        <data android:scheme="https" android:host="app.onekey.so" android:path="/perps" />
+        <data android:scheme="https" android:host="app.onekeytest.com" android:path="/swap" />
+        <data android:scheme="https" android:host="app.onekeytest.com" android:path="/perps" />
+      </intent-filter>
+      <intent-filter android:autoVerify="true">
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="https" android:host="stocks.onekey.so" android:pathPrefix="/" />
+        <data android:scheme="https" android:host="stocks.onekeytest.com" android:pathPrefix="/" />
+        <data android:scheme="https" android:host="perps.onekey.so" android:pathPrefix="/" />
+        <data android:scheme="https" android:host="perps.onekeytest.com" android:pathPrefix="/" />
+      </intent-filter>
     </activity>
     <activity
         android:name=".RecoveryActivity"
