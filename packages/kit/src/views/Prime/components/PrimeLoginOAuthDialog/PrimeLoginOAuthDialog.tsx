@@ -166,21 +166,34 @@ function PrimeLoginOAuthDialog(props: {
     if (loggingInProviderRef.current) {
       return;
     }
+    let isOneKeyIdLoginCommitted = false;
     try {
       onComplete?.();
       await timerUtils.wait(300);
       await loginOneKeyIdWithLegacyEmail({
         preserveLocalKeylessAuth: isLocalKeylessOAuthMode,
       });
+      isOneKeyIdLoginCommitted = true;
       await onLoginSuccess?.();
     } catch (error) {
       if (error instanceof PrimeLoginDialogCancelError) {
         await onCancel?.();
         return;
       }
-      throw error;
+      // The OAuth dialog was already closed via onComplete above, so a
+      // non-cancel failure (e.g. a bridge error before the email dialog
+      // shows) leaves no dialog on screen. The outer
+      // showOneKeyIdLoginDialog promise only exposes onLoginSuccess/onCancel
+      // (no reject-with-original-error callback), so surface the failure
+      // with a toast and settle through the cancel path; otherwise callers
+      // awaiting loginOneKeyId() would hang forever.
+      if (!isOneKeyIdLoginCommitted) {
+        showOneKeyIdLoginFailedToast({ error, intl });
+      }
+      await onCancel?.();
     }
   }, [
+    intl,
     isLocalKeylessOAuthMode,
     loginOneKeyIdWithLegacyEmail,
     onCancel,

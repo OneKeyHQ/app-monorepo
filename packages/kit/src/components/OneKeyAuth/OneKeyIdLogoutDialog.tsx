@@ -227,6 +227,12 @@ function OneKeyIdLogoutDialogContent({
   );
 }
 
+// Prevent stacking duplicate logout dialogs when the logout entry is tapped
+// again while the pre-show bridge calls below are still awaiting (mirrors the
+// isPinReminderDialogShowing pattern). Held from entry until the dialog is
+// closed on any path (confirm close, cancel, dismiss).
+let isOneKeyIdLogoutDialogShowing = false;
+
 export function useShowOneKeyIdLogoutDialog() {
   const intl = useIntl();
   const { logoutWithPurchasesSdk, user } = useOneKeyAuthMethods();
@@ -237,99 +243,114 @@ export function useShowOneKeyIdLogoutDialog() {
 
   return useCallback(
     async (options: IOneKeyIdLogoutDialogOptions) => {
-      let keylessWallet = options.keylessWallet;
-
-      if (options.source === EOneKeyIdLogoutDialogSource.OneKeyId) {
-        try {
-          keylessWallet =
-            await backgroundApiProxy.serviceAccount.getKeylessWallet();
-        } catch {
-          // Fall back to the OneKey ID only logout dialog.
-        }
+      if (isOneKeyIdLogoutDialogShowing) {
+        return;
       }
+      isOneKeyIdLogoutDialogShowing = true;
+      try {
+        let keylessWallet = options.keylessWallet;
 
-      const isOneKeyIdLoggedIn =
-        options.isOneKeyIdLoggedIn ?? isUserOneKeyIdLoggedIn;
-      // `onekeyAccount.identities` is only populated by successful profile
-      // fetches. When it is missing, read the offline-available auth session
-      // source so the classification below never falls into the destructive
-      // linked wallet logout branch just because identity data is unknown.
-      let authSessionSource: EPrimeAuthSessionSource | undefined;
-      if (
-        Boolean(keylessWallet) &&
-        isOneKeyIdLoggedIn &&
-        !userOneKeyAccount?.identities?.length
-      ) {
-        try {
-          authSessionSource =
-            await backgroundApiProxy.simpleDb.prime.getAuthSessionSource();
-        } catch {
-          // Leave the source undefined; unknown identity data defaults to
-          // the non-destructive (wallet-preserving) classification.
+        if (options.source === EOneKeyIdLogoutDialogSource.OneKeyId) {
+          try {
+            keylessWallet =
+              await backgroundApiProxy.serviceAccount.getKeylessWallet();
+          } catch {
+            // Fall back to the OneKey ID only logout dialog.
+          }
         }
-      }
-      // A not-logged-in OneKey ID logout must never remove the keyless
-      // wallet: without a confirmed server-side session there is no proof
-      // the wallet is OAuth-bound (e.g. the bg invalid-token cleanup may
-      // have just flipped the login state), so default to the
-      // wallet-preserving classification, same as unknown identity data.
-      const shouldSkipLinkedLogout =
-        Boolean(keylessWallet) &&
-        (!isOneKeyIdLoggedIn ||
-          isLegacyOneKeyIdAccountMissingOAuthIdentityWithFallback({
-            onekeyAccount: userOneKeyAccount,
-            authSessionSource,
-          }));
-      const shouldLogoutKeylessWallet =
-        Boolean(keylessWallet) &&
-        !(
-          options.source === EOneKeyIdLogoutDialogSource.OneKeyId &&
-          shouldSkipLinkedLogout
-        );
-      const shouldLogoutOneKeyId =
-        options.source === EOneKeyIdLogoutDialogSource.OneKeyId ||
-        (options.source === EOneKeyIdLogoutDialogSource.KeylessWallet &&
+
+        const isOneKeyIdLoggedIn =
+          options.isOneKeyIdLoggedIn ?? isUserOneKeyIdLoggedIn;
+        // `onekeyAccount.identities` is only populated by successful profile
+        // fetches. When it is missing, read the offline-available auth session
+        // source so the classification below never falls into the destructive
+        // linked wallet logout branch just because identity data is unknown.
+        let authSessionSource: EPrimeAuthSessionSource | undefined;
+        if (
+          Boolean(keylessWallet) &&
           isOneKeyIdLoggedIn &&
-          !shouldSkipLinkedLogout);
-      const keylessWalletForDialog = shouldLogoutKeylessWallet
-        ? keylessWallet
-        : undefined;
-      const shouldLinkKeylessOneKeyIdLogout =
-        Boolean(keylessWalletForDialog) && shouldLogoutOneKeyId;
+          !userOneKeyAccount?.identities?.length
+        ) {
+          try {
+            authSessionSource =
+              await backgroundApiProxy.simpleDb.prime.getAuthSessionSource();
+          } catch {
+            // Leave the source undefined; unknown identity data defaults to
+            // the non-destructive (wallet-preserving) classification.
+          }
+        }
+        // A not-logged-in OneKey ID logout must never remove the keyless
+        // wallet: without a confirmed server-side session there is no proof
+        // the wallet is OAuth-bound (e.g. the bg invalid-token cleanup may
+        // have just flipped the login state), so default to the
+        // wallet-preserving classification, same as unknown identity data.
+        const shouldSkipLinkedLogout =
+          Boolean(keylessWallet) &&
+          (!isOneKeyIdLoggedIn ||
+            isLegacyOneKeyIdAccountMissingOAuthIdentityWithFallback({
+              onekeyAccount: userOneKeyAccount,
+              authSessionSource,
+            }));
+        const shouldLogoutKeylessWallet =
+          Boolean(keylessWallet) &&
+          !(
+            options.source === EOneKeyIdLogoutDialogSource.OneKeyId &&
+            shouldSkipLinkedLogout
+          );
+        const shouldLogoutOneKeyId =
+          options.source === EOneKeyIdLogoutDialogSource.OneKeyId ||
+          (options.source === EOneKeyIdLogoutDialogSource.KeylessWallet &&
+            isOneKeyIdLoggedIn &&
+            !shouldSkipLinkedLogout);
+        const keylessWalletForDialog = shouldLogoutKeylessWallet
+          ? keylessWallet
+          : undefined;
+        const shouldLinkKeylessOneKeyIdLogout =
+          Boolean(keylessWalletForDialog) && shouldLogoutOneKeyId;
 
-      const content = getOneKeyIdLogoutDialogContent({
-        intl,
-        source: options.source,
-        keylessWallet: keylessWalletForDialog,
-        shouldLinkKeylessOneKeyIdLogout,
-      });
+        const content = getOneKeyIdLogoutDialogContent({
+          intl,
+          source: options.source,
+          keylessWallet: keylessWalletForDialog,
+          shouldLinkKeylessOneKeyIdLogout,
+        });
 
-      Dialog.show({
-        icon: content.icon,
-        tone: content.tone,
-        title: content.title,
-        description: content.description,
-        renderContent: (
-          <AccountSelectorProviderMirror
-            enabledNum={[0]}
-            config={
-              options.config ?? { sceneName: EAccountSelectorSceneName.home }
-            }
-          >
-            <OneKeyIdLogoutDialogContent
-              {...options}
-              keylessWallet={keylessWalletForDialog}
-              confirmText={content.confirmText}
-              logoutWithPurchasesSdk={logoutWithPurchasesSdk}
-              shouldLogoutOneKeyId={shouldLogoutOneKeyId}
-              preserveLocalKeylessAuthOnOneKeyIdLogout={
-                shouldSkipLinkedLogout &&
-                options.source === EOneKeyIdLogoutDialogSource.OneKeyId
+        Dialog.show({
+          icon: content.icon,
+          tone: content.tone,
+          title: content.title,
+          description: content.description,
+          onClose: () => {
+            isOneKeyIdLogoutDialogShowing = false;
+          },
+          renderContent: (
+            <AccountSelectorProviderMirror
+              enabledNum={[0]}
+              config={
+                options.config ?? { sceneName: EAccountSelectorSceneName.home }
               }
-            />
-          </AccountSelectorProviderMirror>
-        ),
-      });
+            >
+              <OneKeyIdLogoutDialogContent
+                {...options}
+                keylessWallet={keylessWalletForDialog}
+                confirmText={content.confirmText}
+                logoutWithPurchasesSdk={logoutWithPurchasesSdk}
+                shouldLogoutOneKeyId={shouldLogoutOneKeyId}
+                preserveLocalKeylessAuthOnOneKeyIdLogout={
+                  shouldSkipLinkedLogout
+                    ? options.source === EOneKeyIdLogoutDialogSource.OneKeyId
+                    : false
+                }
+              />
+            </AccountSelectorProviderMirror>
+          ),
+        });
+      } catch (error) {
+        // Release the guard if anything before Dialog.show throws; once the
+        // dialog is shown, onClose above releases it instead.
+        isOneKeyIdLogoutDialogShowing = false;
+        throw error;
+      }
     },
     [intl, isUserOneKeyIdLoggedIn, logoutWithPurchasesSdk, userOneKeyAccount],
   );

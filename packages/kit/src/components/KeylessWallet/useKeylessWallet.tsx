@@ -658,6 +658,13 @@ export function useKeylessWallet() {
           }),
           onConfirm: async ({ close, preventClose }) => {
             preventClose();
+            // Single-fire: onCancel takes the `close` param so the dialog
+            // does NOT auto-close and stays open while logout() is awaited;
+            // without this guard a second Confirm/Cancel press mid-flight
+            // would start a concurrent flow (double logout / OAuth popups).
+            if (isActionTriggered) {
+              return;
+            }
             isActionTriggered = true;
             try {
               await close({ flag: 'confirm' });
@@ -671,6 +678,9 @@ export function useKeylessWallet() {
             }
           },
           onCancel: (close) => {
+            if (isActionTriggered) {
+              return;
+            }
             isActionTriggered = true;
             void (async () => {
               try {
@@ -680,6 +690,10 @@ export function useKeylessWallet() {
                 await startKeylessCreateWithOAuthProvider({ provider });
                 resolveOnce();
               } catch (error) {
+                // Ensure the dialog is not left open with the single-fire
+                // guard permanently blocking both buttons (close is a no-op
+                // if the dialog is already closed).
+                void close();
                 rejectOnce(error);
               }
             })();
