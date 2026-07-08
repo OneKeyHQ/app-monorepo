@@ -31,6 +31,7 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import {
   openUrlExternal,
   openUrlInDiscovery,
@@ -42,17 +43,29 @@ import { useOneKeyAuth } from '../components/OneKeyAuth/useOneKeyAuth';
 
 import useAppNavigation from './useAppNavigation';
 
-// Extension popup/side panel hides the bottom tab bar (see routes/Tab/Navigator),
-// so tab-based referral navigation would strand the user on a headerless tab
-// root with no way back to Home. Use the modal path there, matching native.
-const shouldUseReferralModalNav =
-  platformEnv.isNative ||
-  platformEnv.isExtensionUiPopup ||
-  platformEnv.isExtensionUiSidePanel;
+const shouldUseReferralModalNav = platformEnv.isNative;
+const shouldOpenReferralInExtensionExpandTab =
+  platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel;
+
+function openExtensionReferralInExpandTab(path: string, params?: object) {
+  return backgroundApiProxy.serviceApp
+    .openExtensionExpandTab({
+      path,
+      params,
+    })
+    .then(closeExtensionPopupAfterExpandTabOpen);
+}
 
 export function useToReferFriendsModalByRootNavigation() {
   return useCallback(async () => {
     const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+
+    if (shouldOpenReferralInExtensionExpandTab) {
+      await openExtensionReferralInExpandTab(
+        isLogin ? '/refer-friends/invite-reward' : '/refer-friends',
+      );
+      return;
+    }
 
     if (shouldUseReferralModalNav) {
       const screen = isLogin
@@ -137,6 +150,13 @@ export const useReferFriends = () => {
     async (params?: { showRewardDistributionHistory?: boolean }) => {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
       if (isLogin) {
+        if (shouldOpenReferralInExtensionExpandTab) {
+          await openExtensionReferralInExpandTab(
+            '/refer-friends/invite-reward',
+            params,
+          );
+          return;
+        }
         if (shouldUseReferralModalNav) {
           navigation.pushModal(EModalRoutes.ReferFriendsModal, {
             screen: EModalReferFriendsRoutes.InviteReward,
@@ -161,6 +181,13 @@ export const useReferFriends = () => {
     async (params?: { showOrderDetail?: boolean; orderId?: string }) => {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
       if (isLogin) {
+        if (shouldOpenReferralInExtensionExpandTab) {
+          await openExtensionReferralInExpandTab(
+            '/refer-friends/hardware-sales-reward',
+            params,
+          );
+          return;
+        }
         if (shouldUseReferralModalNav) {
           navigation.pushModal(EModalRoutes.ReferFriendsModal, {
             screen: EModalReferFriendsRoutes.HardwareSalesReward,
@@ -195,8 +222,17 @@ export const useReferFriends = () => {
 
     const shouldShowInviteReward = isLogin && isVisited;
 
+    if (shouldOpenReferralInExtensionExpandTab) {
+      await openExtensionReferralInExpandTab(
+        shouldShowInviteReward
+          ? '/refer-friends/invite-reward'
+          : '/refer-friends',
+      );
+      return;
+    }
+
     if (shouldUseReferralModalNav) {
-      // Native / ext popup: use Modal
+      // Native: use Modal
       navigation.pushModal(EModalRoutes.ReferFriendsModal, {
         screen: shouldShowInviteReward
           ? EModalReferFriendsRoutes.InviteReward
@@ -277,6 +313,12 @@ export const useReferFriends = () => {
 
       const handleConfirm = async () => {
         if (isLogin) {
+          if (shouldOpenReferralInExtensionExpandTab) {
+            await openExtensionReferralInExpandTab(
+              '/refer-friends/invite-reward',
+            );
+            return;
+          }
           if (shouldUseReferralModalNav) {
             navigation.pushModal(EModalRoutes.ReferFriendsModal, {
               screen: EModalReferFriendsRoutes.InviteReward,
