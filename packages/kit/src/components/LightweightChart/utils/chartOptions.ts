@@ -21,29 +21,40 @@ function padTimePart(value: number) {
   return value.toString().padStart(2, '0');
 }
 
-function getDatePartsFromChartTime(time: Parameters<TickMarkFormatter>[0]) {
-  if (typeof time === 'number') {
-    const date = new Date(time * 1000);
+function getDatePartsFromDate(date: Date) {
+  return {
+    year: date.getFullYear(),
+    month: date.getMonth() + 1,
+    day: date.getDate(),
+    hours: date.getHours(),
+    minutes: date.getMinutes(),
+    seconds: date.getSeconds(),
+  };
+}
+
+function getDatePartsFromDateString(time: string) {
+  const businessDayParts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(time);
+  if (businessDayParts) {
     return {
-      year: date.getUTCFullYear(),
-      month: date.getUTCMonth() + 1,
-      day: date.getUTCDate(),
-      hours: date.getUTCHours(),
-      minutes: date.getUTCMinutes(),
-      seconds: date.getUTCSeconds(),
+      year: Number(businessDayParts[1]),
+      month: Number(businessDayParts[2]),
+      day: Number(businessDayParts[3]),
+      hours: 0,
+      minutes: 0,
+      seconds: 0,
     };
   }
 
+  return getDatePartsFromDate(new Date(time));
+}
+
+function getDatePartsFromChartTime(time: Parameters<TickMarkFormatter>[0]) {
+  if (typeof time === 'number') {
+    return getDatePartsFromDate(new Date(time * 1000));
+  }
+
   if (typeof time === 'string') {
-    const date = new Date(time);
-    return {
-      year: date.getUTCFullYear(),
-      month: date.getUTCMonth() + 1,
-      day: date.getUTCDate(),
-      hours: date.getUTCHours(),
-      minutes: date.getUTCMinutes(),
-      seconds: date.getUTCSeconds(),
-    };
+    return getDatePartsFromDateString(time);
   }
 
   return {
