@@ -107,7 +107,8 @@ export function PerpTradingButton({
     perpsAccountLoading.enableTradingLoading,
     perpsAccountLoading.selectAccountLoading,
   ]);
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal();
 
   const handleDepositFromToast = useCallback(() => {
     void showDepositWithdrawModal('deposit');
@@ -127,6 +128,7 @@ export function PerpTradingButton({
           testID={PerpTestIDs.MarginToastDepositButton}
           size="small"
           variant="primary"
+          disabled={isDepositDisabled}
           onPress={handleDepositFromToast}
         >
           {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
@@ -135,7 +137,7 @@ export function PerpTradingButton({
       actionsAlign: 'left',
       toastId: `perp-no-enough-margin-${isSpot ? 'spot' : 'perp'}`,
     });
-  }, [handleDepositFromToast, intl, isSpot]);
+  }, [handleDepositFromToast, intl, isDepositDisabled, isSpot]);
 
   const buttonDisabled = useMemo(() => {
     return (

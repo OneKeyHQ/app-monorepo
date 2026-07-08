@@ -26,6 +26,8 @@ type IPerpTokenSelectorDynamicTabItem = {
 const PRIMARY_TAB_IDS = ['favorites', 'perps', 'spot'] as const;
 const FIXED_TAB_IDS = ['favorites', 'all', 'perps', 'spot'] as const;
 const ALL_TAB_IDS = new Set(['all']);
+const HOT_TAB_IDS = new Set(['hot', 'popular', 'trending']);
+const HOT_TAB_NAMES = new Set(['hot', 'popular', 'trending', '热门']);
 const PERPS_TAB_IDS = new Set(['perps']);
 const PRIMARY_TAB_ID_SET = new Set<string>(PRIMARY_TAB_IDS);
 
@@ -129,6 +131,23 @@ function isPerpTokenSelectorFavoritesTab(tabId: string) {
 
 function isPerpTokenSelectorSpotTab(tabId: string) {
   return normalizeTabId(tabId) === 'spot';
+}
+
+function isPerpTokenSelectorHotTab(
+  tab: Pick<IPerpDynamicTab, 'tabId' | 'name'>,
+) {
+  return (
+    HOT_TAB_IDS.has(normalizeTabId(tab.tabId)) ||
+    HOT_TAB_NAMES.has(normalizeTabId(tab.name))
+  );
+}
+
+function getPerpTokenSelectorHotTab(
+  serverTabs: IPerpDynamicTab[] | null | undefined,
+) {
+  return normalizeServerTabs(serverTabs).find((tab) =>
+    isPerpTokenSelectorHotTab(tab),
+  );
 }
 
 function getPerpTokenSelectorFallbackTabId(tabs: IPerpDynamicTab[]) {
@@ -436,6 +455,7 @@ export {
   comparePerpTokenSelectorSortValues,
   getPerpTokenSelectorDynamicTabItems,
   getPerpTokenSelectorFallbackTabId,
+  getPerpTokenSelectorHotTab,
   getNextPerpTokenSelectorActiveTabConfig,
   getNextPerpTokenSelectorSortConfig,
   getPerpTokenSelectorPrimaryTabId,
@@ -447,6 +467,7 @@ export {
   isPerpTokenSelectorPrimaryTab,
   isPerpTokenSelectorSortFieldActive,
   isPerpTokenSelectorSpotTab,
+  isPerpTokenSelectorHotTab,
   shouldRefreshPerpTokenSelectorSortSnapshot,
   sortPerpTokenSelectorItemsByServerOrder,
   sortPerpTokenSelectorItemsBySortValue,
