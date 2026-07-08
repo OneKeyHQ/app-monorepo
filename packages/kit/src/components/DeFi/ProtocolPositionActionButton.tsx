@@ -2,6 +2,7 @@ import {
   type ComponentProps,
   memo,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -29,6 +30,7 @@ import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
 import {
   type IProtocolLendingActionType,
+  preloadProtocolLendingActionDialog,
   showProtocolLendingActionDialog,
 } from './ProtocolLendingActionDialog';
 import { findSupportedBorrowMarket } from './protocolLendingActionUtils';
@@ -531,6 +533,9 @@ const ProtocolPositionActionButton = memo(
     const [submittingActionKey, setSubmittingActionKey] = useState<
       string | undefined
     >(undefined);
+    const cancelPendingLendingDialogOpenRef = useRef<(() => void) | undefined>(
+      undefined,
+    );
     const shouldResolveActionButtons = !!accountId;
     const actions = useMemo(
       () =>
@@ -697,6 +702,27 @@ const ProtocolPositionActionButton = memo(
           action.action !== EDeFiPositionAction.Repay,
       );
     }
+    const shouldPreloadProtocolLendingActionDialog =
+      shouldShowManage ||
+      (preferLendingDialog &&
+        renderedActions.some(
+          (action) =>
+            (action.action === EDeFiPositionAction.Withdraw ||
+              action.action === EDeFiPositionAction.Repay) &&
+            !action.buildAction,
+        ));
+    useEffect(() => {
+      if (shouldPreloadProtocolLendingActionDialog) {
+        preloadProtocolLendingActionDialog();
+      }
+    }, [shouldPreloadProtocolLendingActionDialog]);
+    useEffect(
+      () => () => {
+        cancelPendingLendingDialogOpenRef.current?.();
+        cancelPendingLendingDialogOpenRef.current = undefined;
+      },
+      [],
+    );
     const handleActionPress = useCallback(
       async (action: IResolvedDeFiPositionAction) => {
         if (!accountId) {
@@ -740,17 +766,19 @@ const ProtocolPositionActionButton = memo(
             action.action === EDeFiPositionAction.Repay) &&
           !action.buildAction
         ) {
-          showProtocolLendingActionDialog({
-            accountId,
-            networkId: protocol.networkId,
-            actionType:
-              action.action === EDeFiPositionAction.Repay
-                ? 'repay'
-                : 'withdraw',
-            source: { type: 'defi', action },
-            hasDebts: positionHasDebts,
-            onSuccess,
-          });
+          cancelPendingLendingDialogOpenRef.current =
+            showProtocolLendingActionDialog({
+              accountId,
+              networkId: protocol.networkId,
+              actionType:
+                action.action === EDeFiPositionAction.Repay
+                  ? 'repay'
+                  : 'withdraw',
+              source: { type: 'defi', action },
+              hasDebts: positionHasDebts,
+              intl,
+              onSuccess,
+            });
           return;
         }
 
@@ -769,6 +797,7 @@ const ProtocolPositionActionButton = memo(
       [
         accountId,
         hasRewards,
+        intl,
         onSuccess,
         position,
         positionHasDebts,
@@ -787,31 +816,34 @@ const ProtocolPositionActionButton = memo(
             ? repayManageParams
             : withdrawManageParams;
         if (!params) return;
-        showProtocolLendingActionDialog({
-          accountId,
-          networkId: protocol.networkId,
-          actionType,
-          source: {
-            type: 'borrow',
-            provider: params.provider,
-            marketAddress: params.marketAddress,
-            reserveAddress: params.reserveAddress,
-            symbol: params.symbol,
-            logoURI: params.logoURI,
-            providerDisplayName: params.providerDisplayName,
-            providerLogoURI: params.providerLogoURI,
-            indexedAccountId: protocol.indexedAccountId ?? indexedAccountId,
-            // A row-scoped button already names the asset (fixed); the
-            // position-level block button lets the dialog's dropdown choose it.
-            selectable: !manageAsset,
-          },
-          hasDebts: positionHasDebts,
-          onSuccess,
-        });
+        cancelPendingLendingDialogOpenRef.current =
+          showProtocolLendingActionDialog({
+            accountId,
+            networkId: protocol.networkId,
+            actionType,
+            source: {
+              type: 'borrow',
+              provider: params.provider,
+              marketAddress: params.marketAddress,
+              reserveAddress: params.reserveAddress,
+              symbol: params.symbol,
+              logoURI: params.logoURI,
+              providerDisplayName: params.providerDisplayName,
+              providerLogoURI: params.providerLogoURI,
+              indexedAccountId: protocol.indexedAccountId ?? indexedAccountId,
+              // A row-scoped button already names the asset (fixed); the
+              // position-level block button lets the dialog's dropdown choose it.
+              selectable: !manageAsset,
+            },
+            hasDebts: positionHasDebts,
+            intl,
+            onSuccess,
+          });
       },
       [
         accountId,
         indexedAccountId,
+        intl,
         manageAsset,
         onSuccess,
         positionHasDebts,
