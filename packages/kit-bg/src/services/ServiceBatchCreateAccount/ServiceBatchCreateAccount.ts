@@ -526,13 +526,15 @@ class ServiceBatchCreateAccount extends ServiceBase {
       },
     );
     return flow.catch((error) => {
-      // Surface top-level flow errors to ProcessingDialog so it doesn't hang.
-      if (!this.isCreateFlowCancelled) {
+      // Only the prepare-phase escape (before progressInfo exists) emits here;
+      // once the loop owns progressInfo, forceExitFlowWhenErrorMatched emits, so
+      // gating on !progressInfo keeps ProcessingDialog to a single error event.
+      if (!this.isCreateFlowCancelled && !this.progressInfo) {
         appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
-          totalCount: this.progressInfo?.totalCount ?? 0,
-          createdCount: this.progressInfo?.createdCount ?? 0,
-          progressTotal: this.progressInfo?.progressTotal ?? 0,
-          progressCurrent: this.progressInfo?.progressCurrent ?? 0,
+          totalCount: 0,
+          createdCount: 0,
+          progressTotal: 0,
+          progressCurrent: 0,
           error: errorUtils.toPlainErrorObject(error),
         });
       }
