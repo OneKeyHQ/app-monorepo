@@ -217,6 +217,9 @@ type IBorrowBuildTxParams = {
   routeKey?: string;
   stakingInfo?: IStakingInfo;
   onSetupLutReadyForRepay?: () => void;
+  // Awaited right before navigationToTxConfirm so dialog callers can close
+  // themselves at navigation time instead of before the build request.
+  onBeforeNavigate?: () => void | Promise<void>;
   onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
   onFail?: IModalSendParamList['SendConfirm']['onFail'];
 };
@@ -298,6 +301,7 @@ export function useUniversalBorrowWithdraw({
       reserveAddress,
       withdrawAll,
       stakingInfo,
+      onBeforeNavigate,
       onSuccess,
       onFail,
     }: IBorrowBuildTxParams) => {
@@ -316,6 +320,8 @@ export function useUniversalBorrowWithdraw({
         stakingInfo,
         orderId: resp.orderId,
       });
+
+      await onBeforeNavigate?.();
 
       await navigationToTxConfirm({
         encodedTx: parseBorrowEncodedTx(resp.tx),
@@ -414,6 +420,7 @@ export function useUniversalBorrowRepay({
       reserveAddress,
       repayAll,
       stakingInfo,
+      onBeforeNavigate,
       onSuccess,
       onFail,
     }: IBorrowBuildTxParams) => {
@@ -432,6 +439,8 @@ export function useUniversalBorrowRepay({
         stakingInfo,
         orderId: resp.orderId,
       });
+
+      await onBeforeNavigate?.();
 
       await navigationToTxConfirm({
         encodedTx: parseBorrowEncodedTx(resp.tx),

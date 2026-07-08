@@ -12,17 +12,23 @@ import {
   EAccountSelectorSceneName,
 } from '@onekeyhq/shared/types';
 
-import { useAccountSelectorActions } from './actions';
+import {
+  getAccountSelectorActions,
+  useAccountSelectorActions,
+} from './actions';
 import {
   AccountSelectorJotaiProvider,
   accountSelectorActiveAccountInitDoneAtom,
   accountSelectorStorageInitDoneAtom,
   accountSelectorStorageReadyAtom,
+  accountSelectorUpdateMetaAtom,
   activeAccountsAtom,
   defaultActiveAccountInfo,
   defaultSelectedAccount,
   selectedAccountsAtom,
 } from './atoms';
+
+import type { IAccountSelectorContextData } from './atoms';
 
 type IDeferred<T> = {
   promise: Promise<T>;
@@ -57,6 +63,8 @@ type IIndexedAccount = NonNullable<
 type IWallet = NonNullable<
   ReturnType<typeof defaultActiveAccountInfo>['wallet']
 >;
+type IWriteContextAtomColdStartCacheValues =
+  typeof import('@onekeyhq/kit-bg/src/states/jotai/utils').writeContextAtomColdStartCacheValues;
 
 function createDeferred<T>(): IDeferred<T> {
   let resolve: ((value: T) => void) | undefined;
@@ -73,6 +81,9 @@ function createDeferred<T>(): IDeferred<T> {
 
 const mockGetSelectedAccountsMap: jest.MockedFunction<
   () => Promise<ISelectedAccountsMap | undefined>
+> = jest.fn();
+const mockGetDappAccountSelectorMap: jest.MockedFunction<
+  () => Promise<Record<number, Record<string, unknown>> | undefined>
 > = jest.fn();
 const mockBuildActiveAccountInfoFromSelectedAccount: jest.MockedFunction<
   () => Promise<IBuildActiveAccountInfoResult>
@@ -155,6 +166,23 @@ const mockColdStartCacheStorage = {
   }),
 };
 const mockFlushColdStartCacheNow = jest.fn(async () => undefined);
+const mockWriteContextAtomColdStartCacheValues: jest.MockedFunction<IWriteContextAtomColdStartCacheValues> =
+  jest.fn();
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/utils', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/kit-bg/src/states/jotai/utils')
+  >('@onekeyhq/kit-bg/src/states/jotai/utils');
+
+  return {
+    ...actual,
+    writeContextAtomColdStartCacheValues: async (
+      ...args: Parameters<IWriteContextAtomColdStartCacheValues>
+    ): Promise<void> => {
+      await mockWriteContextAtomColdStartCacheValues(...args);
+    },
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/components/Hardware/Hardware', () => ({
   CommonDeviceLoading: jest.fn(() => null),
@@ -264,7 +292,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
           mockSaveSelectedAccount(params),
       },
       dappConnection: {
-        getAccountSelectorMap: jest.fn(async () => undefined),
+        getAccountSelectorMap: () => mockGetDappAccountSelectorMap(),
       },
     },
   },
@@ -281,7 +309,9 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => {
   };
 });
 
-function createWrapper(sceneName = EAccountSelectorSceneName.home) {
+function createWrapper(
+  config?: EAccountSelectorSceneName | IAccountSelectorContextData,
+) {
   const store = createStore();
   store.set(accountSelectorStorageReadyAtom(), true);
   store.set(accountSelectorStorageInitDoneAtom(), false);
@@ -289,10 +319,14 @@ function createWrapper(sceneName = EAccountSelectorSceneName.home) {
   store.set(selectedAccountsAtom(), {
     0: defaultSelectedAccount(),
   });
+  const providerConfig: IAccountSelectorContextData =
+    config && typeof config === 'object'
+      ? config
+      : { sceneName: config ?? EAccountSelectorSceneName.home };
 
   function Wrapper({ children }: { children?: ReactNode }) {
     return (
-      <AccountSelectorJotaiProvider store={store} config={{ sceneName }}>
+      <AccountSelectorJotaiProvider store={store} config={providerConfig}>
         {children}
       </AccountSelectorJotaiProvider>
     );
@@ -309,6 +343,8 @@ describe('useAccountSelectorActions', () => {
     jest.clearAllMocks();
     jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
     mockColdStartCacheStorageData.clear();
+    mockGetDappAccountSelectorMap.mockResolvedValue(undefined);
+    mockWriteContextAtomColdStartCacheValues.mockResolvedValue(undefined);
     mockBuildActiveAccountInfoFromSelectedAccount.mockResolvedValue({
       activeAccount: {
         ...defaultActiveAccountInfo(),
@@ -939,5 +975,161 @@ describe('useAccountSelectorActions', () => {
         }),
       }),
     );
+  });
+
+  // OK-57139: the dApp connection record is the single source of truth for
+  // discover scenes. The cold-start keep/restore logic must never resurrect
+  // a stale browser-side selection over a connection record that background
+  // has since re-aligned to the wallet account.
+  describe('discover scene init must follow the dApp connection record', () => {
+    const dappOrigin = 'https://1inch.com';
+    const staleSelectedAccount = {
+      ...defaultSelectedAccount(),
+      walletId: 'hd-1',
+      indexedAccountId: 'hd-1--0',
+      focusedWallet: 'hd-1',
+      networkId: 'evm--1',
+      deriveType: 'default' as const,
+    };
+    const alignedConnectionAccount = {
+      walletId: 'hd-2',
+      indexedAccountId: 'hd-2--1',
+      focusedWallet: 'hd-2',
+      networkId: 'evm--1',
+      deriveType: 'default' as const,
+    };
+
+    it('applies the connection record even when a recent stale selection exists in memory', async () => {
+      mockGetSelectedAccountsMap.mockResolvedValue(undefined);
+      mockGetDappAccountSelectorMap.mockResolvedValue({
+        0: { ...alignedConnectionAccount },
+      });
+
+      const { store, Wrapper } = createWrapper({
+        sceneName: EAccountSelectorSceneName.discover,
+        sceneUrl: dappOrigin,
+      });
+      // Simulate a browser-side account switch made moments ago: the stale
+      // account sits in memory with a fresh updateMeta timestamp, exactly
+      // the state that used to win over the re-aligned connection record.
+      store.set(selectedAccountsAtom(), {
+        0: { ...staleSelectedAccount },
+      });
+      store.set(accountSelectorUpdateMetaAtom(), {
+        0: {
+          eventEmitDisabled: false,
+          updatedAt: Date.now(),
+        },
+      });
+
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.initFromStorage({
+          sceneName: EAccountSelectorSceneName.discover,
+          sceneUrl: dappOrigin,
+        });
+      });
+
+      expect(store.get(selectedAccountsAtom())[0]).toEqual(
+        alignedConnectionAccount,
+      );
+      expect(store.get(accountSelectorStorageInitDoneAtom())).toBe(true);
+    });
+
+    it('never reads or writes the recent-selection cache for discover scenes', () => {
+      const actions = getAccountSelectorActions();
+
+      expect(
+        actions.buildAccountSelectorRecentSelectionCacheSceneId({
+          sceneName: EAccountSelectorSceneName.discover,
+          sceneUrl: dappOrigin,
+        }),
+      ).toBeUndefined();
+      expect(
+        actions.buildAccountSelectorRecentSelectionCacheSceneId({
+          sceneName: EAccountSelectorSceneName.home,
+        }),
+      ).toBe(EAccountSelectorSceneName.home);
+    });
+
+    it('does not write generic cold-start snapshots for discover scenes', async () => {
+      const actions = getAccountSelectorActions();
+
+      await actions.flushAccountSelectorColdStartSnapshot({
+        sceneName: EAccountSelectorSceneName.discover,
+        sceneUrl: dappOrigin,
+        selectedAccounts: {
+          0: { ...staleSelectedAccount },
+        },
+        updateMeta: {
+          0: {
+            eventEmitDisabled: false,
+            updatedAt: Date.now(),
+          },
+        },
+      });
+
+      expect(mockWriteContextAtomColdStartCacheValues).not.toHaveBeenCalled();
+    });
+
+    it('still keeps a recent in-memory selection for the home scene (cold-start protection intact)', async () => {
+      const homeRecentSelectedAccount = {
+        ...defaultSelectedAccount(),
+        walletId: 'hd-3',
+        indexedAccountId: 'hd-3--2',
+        focusedWallet: 'hd-3',
+        networkId: 'evm--1',
+        deriveType: 'default' as const,
+      };
+      const homeSelectedAccountInDB = {
+        ...defaultSelectedAccount(),
+        walletId: 'hd-1',
+        indexedAccountId: 'hd-1--0',
+        focusedWallet: 'hd-1',
+        networkId: 'evm--1',
+        deriveType: 'default' as const,
+      };
+      mockGetSelectedAccountsMap.mockResolvedValue({
+        0: homeSelectedAccountInDB,
+      });
+
+      const { store, Wrapper } = createWrapper();
+      store.set(selectedAccountsAtom(), {
+        0: { ...homeRecentSelectedAccount },
+      });
+      store.set(accountSelectorUpdateMetaAtom(), {
+        0: {
+          eventEmitDisabled: false,
+          updatedAt: Date.now(),
+        },
+      });
+
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+      const recentCacheSpy = jest
+        .spyOn(
+          getAccountSelectorActions(),
+          'getRecentAccountSelectorSelectionCache',
+        )
+        .mockReturnValue(undefined);
+
+      try {
+        await act(async () => {
+          await result.current.initFromStorage({
+            sceneName: EAccountSelectorSceneName.home,
+          });
+        });
+      } finally {
+        recentCacheSpy.mockRestore();
+      }
+
+      expect(store.get(selectedAccountsAtom())[0]).toEqual(
+        homeRecentSelectedAccount,
+      );
+    });
   });
 });

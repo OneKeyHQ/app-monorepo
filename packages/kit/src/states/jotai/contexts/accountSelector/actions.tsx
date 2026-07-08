@@ -248,6 +248,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     if (!sceneName) {
       return undefined;
     }
+    // OK-57139: discover scenes are backed by the dApp connection record
+    // (simpleDb.dappConnection), which background keeps re-aligning to the
+    // wallet account. Caching a "recent selection" for them lets a stale
+    // browser-side account survive re-init and overwrite the aligned
+    // session (and, via dApp->Home sync, the wallet home account).
+    if (sceneName === EAccountSelectorSceneName.discover) {
+      return undefined;
+    }
     return accountSelectorUtils.buildAccountSelectorSceneId({
       sceneName,
       sceneUrl,
@@ -433,6 +441,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         sceneUrl,
       });
       if (!coldStartScopeKey) {
+        return;
+      }
+      if (sceneName === EAccountSelectorSceneName.discover) {
         return;
       }
 
@@ -2644,6 +2655,16 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             });
         }
 
+        // OK-57139: the dApp connection record loaded above is the single
+        // source of truth for discover scenes; background keeps re-aligning
+        // it to the wallet account. Cold-start keep/restore must not
+        // resurrect a stale browser-side selection over it, or the stale
+        // account gets written back into the connection session and then
+        // into the wallet home account. (getRecentAccountSelectorSelectionCache
+        // already returns undefined for discover scenes.)
+        const isDappConnectionBackedScene =
+          sceneName === EAccountSelectorSceneName.discover;
+
         const recentSelectionCache =
           this.getRecentAccountSelectorSelectionCache({
             sceneName,
@@ -2713,6 +2734,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           })) || {};
         const updateMeta = get(accountSelectorUpdateMetaAtom());
         if (
+          !isDappConnectionBackedScene &&
           this.shouldKeepColdStartSelectedAccounts({
             selectedAccountsMap,
             selectedAccountsMapInDB,
