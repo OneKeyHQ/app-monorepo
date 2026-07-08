@@ -129,13 +129,6 @@ type IAccountSelectorRecentSelectionCache = Record<
   IAccountSelectorRecentSelectionCacheItem
 >;
 
-type IUnavailableSelectedAccountWallet = {
-  walletId: string;
-  isMissingWallet: boolean;
-  isDeprecatedOrMocked: boolean;
-  isTempWalletRemoved: boolean;
-};
-
 const safeIsAccountCompatibleWithNetwork = ({
   account,
   networkId,
@@ -839,18 +832,18 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     selectedAccount,
   }: {
     selectedAccount: IAccountSelectorSelectedAccount | undefined;
-  }): Promise<IUnavailableSelectedAccountWallet | undefined> => {
+  }): Promise<boolean> => {
     const walletId = this.getSelectedAccountWalletIdForAvailabilityCheck({
       selectedAccount,
     });
     if (!walletId) {
-      return undefined;
+      return false;
     }
     if (
       !accountUtils.isHdWallet({ walletId }) &&
       !accountUtils.isHwOrQrWallet({ walletId })
     ) {
-      return undefined;
+      return false;
     }
 
     const wallet = await serviceAccount.getWalletSafe({ walletId });
@@ -863,15 +856,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           wallet,
         })
       : false;
-    if (!isMissingWallet && !isDeprecatedOrMocked && !isTempWalletRemoved) {
-      return undefined;
-    }
-    return {
-      walletId,
-      isMissingWallet,
-      isDeprecatedOrMocked,
-      isTempWalletRemoved,
-    };
+    return isMissingWallet || isDeprecatedOrMocked || isTempWalletRemoved;
   };
 
   clearUnavailableWalletSelectionsInStorage = async ({
@@ -890,19 +875,17 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     const selectedAccountsMap = cloneDeep(selectedAccountsMapInDB);
     const clearedEntries: {
       num: number;
-      selectedAccount: IAccountSelectorSelectedAccount | undefined;
       clearedSelectedAccount: IAccountSelectorSelectedAccount;
-      unavailableWallet: IUnavailableSelectedAccountWallet;
     }[] = [];
 
     await Promise.all(
       Object.entries(selectedAccountsMap).map(
         async ([numText, selectedAccount]) => {
-          const unavailableWallet =
+          const isUnavailableWallet =
             await this.isSelectedAccountWalletUnavailable({
               selectedAccount,
             });
-          if (!unavailableWallet) {
+          if (!isUnavailableWallet) {
             return;
           }
           const num = Number(numText);
@@ -914,9 +897,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           selectedAccountsMap[num] = clearedSelectedAccount;
           clearedEntries.push({
             num,
-            selectedAccount,
             clearedSelectedAccount,
-            unavailableWallet,
           });
         },
       ),
@@ -927,34 +908,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     }
 
     await Promise.all(
-      clearedEntries.map(
-        async ({
+      clearedEntries.map(async ({ num, clearedSelectedAccount }) => {
+        await backgroundApiProxy.simpleDb.accountSelector.saveSelectedAccount({
+          sceneName,
+          sceneUrl,
           num,
-          selectedAccount,
-          clearedSelectedAccount,
-          unavailableWallet,
-        }) => {
-          defaultLogger.accountSelector.listData.clearUnavailableWalletSelection(
-            {
-              num,
-              selectedAccount,
-              clearedSelectedAccount,
-              walletId: unavailableWallet.walletId,
-              isMissingWallet: unavailableWallet.isMissingWallet,
-              isDeprecatedOrMocked: unavailableWallet.isDeprecatedOrMocked,
-              isTempWalletRemoved: unavailableWallet.isTempWalletRemoved,
-            },
-          );
-          await backgroundApiProxy.simpleDb.accountSelector.saveSelectedAccount(
-            {
-              sceneName,
-              sceneUrl,
-              num,
-              selectedAccount: clearedSelectedAccount,
-            },
-          );
-        },
-      ),
+          selectedAccount: clearedSelectedAccount,
+        });
+      }),
     );
 
     return selectedAccountsMap;
