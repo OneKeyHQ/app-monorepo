@@ -358,22 +358,6 @@ class DesktopApiSystem {
     return true;
   }
 
-  async openExternalUrl(url: string): Promise<void> {
-    try {
-      const parsed = new URL(url);
-      if (parsed.protocol !== 'https:' && parsed.protocol !== 'mailto:') {
-        logger.warn(
-          '[openExternalUrl] blocked non-https url:',
-          parsed.protocol,
-        );
-        return;
-      }
-      await shell.openExternal(url);
-    } catch {
-      logger.warn('[openExternalUrl] blocked malformed url');
-    }
-  }
-
   async installOneKeyUdevRules(): Promise<IInstallOneKeyUdevRulesResult> {
     if (process.platform !== 'linux') {
       return {

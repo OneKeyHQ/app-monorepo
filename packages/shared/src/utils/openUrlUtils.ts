@@ -117,13 +117,10 @@ export const openUrlInApp = (url: string, title?: string) => {
 };
 
 export const openUrlExternal = (url: string) => {
-  const trimmedUrl = url.trim();
   if (platformEnv.isNative) {
-    void linkingOpenURL(trimmedUrl);
-  } else if (platformEnv.isDesktop) {
-    void globalThis.desktopApiProxy?.system?.openExternalUrl(trimmedUrl);
+    void linkingOpenURL(url.trim());
   } else {
-    openUrlOutsideNative(trimmedUrl);
+    openUrlOutsideNative(url.trim());
   }
 };
 
