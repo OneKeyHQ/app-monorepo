@@ -17,7 +17,6 @@ import {
   ETabRoutes,
   type ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
-import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
@@ -93,31 +92,6 @@ function dispatchToTargetStack({
 
 function isEarnHomeTab(tab: unknown): tab is IEarnHomeTab {
   return typeof tab === 'string' && EARN_HOME_TABS.has(tab as IEarnHomeTab);
-}
-
-function buildExtensionEarnHomeParams(params?: IEarnHomeParams) {
-  const result: IEarnHomeParams = {};
-
-  if (isEarnHomeTab(params?.tab)) {
-    result.tab = params.tab;
-  }
-  if (params?.mode === 'earn' || params?.mode === 'borrow') {
-    result.mode = params.mode;
-  }
-
-  return Object.keys(result).length > 0 ? result : undefined;
-}
-
-async function openExtensionEarnHomeInExpandTab(params?: IEarnHomeParams) {
-  const { default: backgroundApiProxy } =
-    await import('../../background/instance/backgroundApiProxy');
-
-  await backgroundApiProxy.serviceApp.openExtensionExpandTab({
-    path: '/defi',
-    params: buildExtensionEarnHomeParams(params),
-  });
-
-  closeExtensionPopupAfterExpandTabOpen();
 }
 
 function persistNativeEarnHomeTab(tab: IEarnHomeTab) {
@@ -209,14 +183,6 @@ export async function safePushToEarnRoute(
     route === ETabEarnRoutes.EarnProtocolDetailsShare;
   if (shouldSwitchToEarnMode) {
     appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
-  }
-
-  if (
-    route === ETabEarnRoutes.EarnHome &&
-    (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel)
-  ) {
-    await openExtensionEarnHomeInExpandTab(params);
-    return;
   }
 
   const targetTab = getEarnTargetTab();

@@ -239,9 +239,7 @@ async function openExpandTab(
 
 export function closeExtensionPopupAfterExpandTabOpen() {
   if (platformEnv.isExtensionUiPopup) {
-    setTimeout(() => {
-      globalThis.close();
-    }, EXTENSION_EXPAND_TAB_POPUP_CLOSE_DELAY_MS);
+    setTimeout(globalThis.close, EXTENSION_EXPAND_TAB_POPUP_CLOSE_DELAY_MS);
   }
 }
 

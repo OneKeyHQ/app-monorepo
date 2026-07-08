@@ -31,6 +31,7 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import {
   openUrlExternal,
   openUrlInDiscovery,
@@ -51,12 +52,36 @@ type IExtensionReferralExpandRoute =
   | ETabReferFriendsRoutes.TabInviteReward
   | ETabReferFriendsRoutes.TabHardwareSalesReward;
 
-async function openExtensionReferralInExpandTab<
-  Route extends IExtensionReferralExpandRoute,
->(route: Route, params?: object) {
-  return (
-    await import('./useReferFriendsExtensionExpandTab')
-  ).openExtensionReferralInExpandTab(route, params);
+function getExtensionReferralPath(route: IExtensionReferralExpandRoute) {
+  if (route === ETabReferFriendsRoutes.TabInviteReward) {
+    return '/refer-friends/invite-reward';
+  }
+  if (route === ETabReferFriendsRoutes.TabHardwareSalesReward) {
+    return '/refer-friends/hardware-sales-reward';
+  }
+  return '/refer-friends';
+}
+
+function buildExtensionReferralParams(params?: object) {
+  if (!params) {
+    return undefined;
+  }
+  const entries = Object.entries(params).filter(
+    ([, value]) => value !== undefined,
+  );
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+async function openExtensionReferralInExpandTab(
+  route: IExtensionReferralExpandRoute,
+  params?: object,
+) {
+  await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+    path: getExtensionReferralPath(route),
+    params: buildExtensionReferralParams(params),
+  });
+
+  closeExtensionPopupAfterExpandTabOpen();
 }
 
 export function useToReferFriendsModalByRootNavigation() {
