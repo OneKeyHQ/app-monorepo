@@ -166,6 +166,14 @@ const basicFontVariants = {
 };
 
 const tamaguiWebFontFamily = webFontFamily;
+const monoFontFamilyFallback =
+  'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+const monoRegularFontFamily = isTamaguiNative
+  ? 'GeistMono-Regular'
+  : `"GeistMono-Regular", ${monoFontFamilyFallback}`;
+const monoMediumFontFamily = isTamaguiNative
+  ? 'GeistMono-Medium'
+  : `"GeistMono-Medium", ${monoFontFamilyFallback}`;
 
 const font = createFont({
   family: isTamaguiNative ? 'Roobert-Regular' : tamaguiWebFontFamily,
@@ -183,12 +191,12 @@ const font = createFont({
 });
 
 const monoRegularFont = createFont({
-  family: 'GeistMono-Regular',
+  family: monoRegularFontFamily,
   ...basicFontVariants,
 });
 
 const monoMediumFont = createFont({
-  family: 'GeistMono-Medium',
+  family: monoMediumFontFamily,
   ...basicFontVariants,
 });
 
