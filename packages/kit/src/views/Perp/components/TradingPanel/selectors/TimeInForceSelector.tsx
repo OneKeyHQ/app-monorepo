@@ -70,7 +70,6 @@ const TimeInForceSelector = memo<ITimeInForceSelectorProps>(
 
     return (
       <Popover
-        testID={testID}
         title={title}
         open={isOpen}
         onOpenChange={setIsOpen}
@@ -80,6 +79,7 @@ const TimeInForceSelector = memo<ITimeInForceSelectorProps>(
         }}
         renderTrigger={
           <XStack
+            testID={testID}
             alignItems="center"
             justifyContent="flex-end"
             gap="$2"

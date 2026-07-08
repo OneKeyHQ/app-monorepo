@@ -32,13 +32,11 @@ import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid/sdk
 import { usePerpsAccountScopedOpenOrdersByCoin } from '../../../hooks/usePerpsAccountScopedOpenOrdersByCoin';
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
-
-
+import { DesktopActionIconButton } from './DesktopActionIconButton';
 import { showAdjustPositionMarginDialog } from '../AdjustPositionMarginModal';
 import { showClosePositionDialog } from '../ClosePositionModal';
 import { showSetTpslDialog } from '../SetTpslModal';
 import { calcCellAlign, getColumnStyle } from '../utils';
-import { DesktopActionIconButton } from './DesktopActionIconButton';
 
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
