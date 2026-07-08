@@ -5,7 +5,10 @@ import { useIntl } from 'react-intl';
 import { Toast } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { showDeFiActionTxConfirmDialog } from '@onekeyhq/kit/src/components/DeFi/DeFiActionTxConfirmResult';
+import {
+  type IDeFiActionTxConfirmDialogResult,
+  showDeFiActionTxConfirmDialog,
+} from '@onekeyhq/kit/src/components/DeFi/DeFiActionTxConfirmResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -102,6 +105,11 @@ type ITxConfirmResult =
       status: 'cancel';
     };
 
+type IBorrowSettleResult = {
+  status: IDeFiActionTxConfirmDialogResult;
+  data: ISendTxOnSuccessData[];
+};
+
 // React Navigation modal transitions take about 300ms on mobile. Waiting for
 // that animation to settle avoids racing the second repay confirm with the
 // closing setup modal.
@@ -151,6 +159,7 @@ const handleBorrowSuccess = async ({
   networkId,
   accountId,
   stakingInfo,
+  onSettleResult,
   onSuccess,
 }: {
   data: ISendTxOnSuccessData[];
@@ -158,13 +167,17 @@ const handleBorrowSuccess = async ({
   networkId: string;
   accountId?: string;
   stakingInfo?: IStakingInfo;
+  onSettleResult?: (
+    result: IBorrowSettleResult,
+  ) => boolean | void | Promise<boolean | void>;
   onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
 }) => {
   const latestTxId =
     Array.isArray(data) && data.length > 0 ? getLatestTxId(data) : undefined;
 
-  // Aave withdraw / repay get the shared confirming sheet before the caller's
-  // refresh; supply / borrow keep the existing pending-badge flow.
+  // Aave withdraw / repay get the shared tx-status observer and confirming
+  // sheet before the caller's refresh; supply / borrow keep the existing
+  // pending-badge flow.
   const label = stakingInfo?.label;
   const shouldShowConfirmSheet =
     !!accountId &&
@@ -194,7 +207,14 @@ const handleBorrowSuccess = async ({
       networkId,
       data,
     });
-    if (finalStatus === EOnChainHistoryTxStatus.Failed) {
+    const shouldContinueSuccess = await onSettleResult?.({
+      status: finalStatus,
+      data,
+    });
+    if (shouldContinueSuccess === false) {
+      return;
+    }
+    if (finalStatus !== EOnChainHistoryTxStatus.Success) {
       return;
     }
   }
@@ -220,6 +240,15 @@ type IBorrowBuildTxParams = {
   // Awaited right before navigationToTxConfirm so dialog callers can close
   // themselves at navigation time instead of before the build request.
   onBeforeNavigate?: () => void | Promise<void>;
+  // Fires after the tx-status observer resolves (Success / Failed / undefined
+  // when the receipt poll exhausts), before the legacy onSuccess. Only the
+  // sheet paths (Withdraw / Repay labels) ever call it. Any non-Success final
+  // status (Failed, or an unconfirmed / undefined settle) short-circuits
+  // onSuccess so success-only refreshes don't run — this also holds for callers
+  // that pass no onSettleResult (e.g. the Aave ManagePosition page).
+  onSettleResult?: (
+    result: IBorrowSettleResult,
+  ) => boolean | void | Promise<boolean | void>;
   onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
   onFail?: IModalSendParamList['SendConfirm']['onFail'];
 };
@@ -302,6 +331,7 @@ export function useUniversalBorrowWithdraw({
       withdrawAll,
       stakingInfo,
       onBeforeNavigate,
+      onSettleResult,
       onSuccess,
       onFail,
     }: IBorrowBuildTxParams) => {
@@ -333,6 +363,7 @@ export function useUniversalBorrowWithdraw({
             networkId,
             accountId,
             stakingInfo: stakingInfoWithOrderId,
+            onSettleResult,
             onSuccess,
           });
         },
@@ -421,6 +452,7 @@ export function useUniversalBorrowRepay({
       repayAll,
       stakingInfo,
       onBeforeNavigate,
+      onSettleResult,
       onSuccess,
       onFail,
     }: IBorrowBuildTxParams) => {
@@ -452,6 +484,7 @@ export function useUniversalBorrowRepay({
             networkId,
             accountId,
             stakingInfo: stakingInfoWithOrderId,
+            onSettleResult,
             onSuccess,
           });
         },
@@ -536,7 +569,11 @@ export function useUniversalBorrowRepayWithCollateral({
           | undefined;
 
         if (!collateralReserveAddress) {
-          throw new OneKeyLocalError('collateralReserveAddress is required');
+          throw new OneKeyLocalError(
+            intl.formatMessage({
+              id: ETranslations.borrow_repay_with_collateral_unavailable__msg,
+            }),
+          );
         }
 
         if (needsSetupLut) {

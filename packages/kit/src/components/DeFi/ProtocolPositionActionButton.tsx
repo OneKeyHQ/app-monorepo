@@ -11,7 +11,12 @@ import {
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  SizableText,
+  XStack,
+  useInPageDialog,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
@@ -33,6 +38,10 @@ import {
   showProtocolLendingActionDialog,
 } from './ProtocolLendingActionDialog';
 import { findSupportedBorrowMarket } from './protocolLendingActionUtils';
+import {
+  findResolvedActionRefreshMatch,
+  getResolvedActionKey,
+} from './protocolPositionActionButtonUtils';
 import {
   type IProtocolPositionActionSuccessParams,
   getActionLabel,
@@ -330,18 +339,6 @@ function getAaveBorrowManageParams({
   };
 }
 
-function getResolvedActionKey(action: IResolvedDeFiPositionAction) {
-  return [
-    action.protocolId,
-    action.networkId,
-    action.positionCategory,
-    action.assetCategory ?? '',
-    action.debtCategory ?? '',
-    action.rewardCategory ?? '',
-    action.action,
-  ].join('-');
-}
-
 function isBalancePlacementAction(action: EDeFiPositionAction) {
   return (
     action === EDeFiPositionAction.Withdraw ||
@@ -523,6 +520,7 @@ const ProtocolPositionActionButton = memo(
     onSuccess,
   }: IProtocolPositionActionButtonProps) => {
     const intl = useIntl();
+    const inPageDialog = useInPageDialog();
     const submitProtocolPositionAction = useProtocolPositionActionSubmit({
       accountId: accountId ?? '',
       networkId: protocol.networkId,
@@ -585,6 +583,41 @@ const ProtocolPositionActionButton = memo(
     const positionHasDebts = useMemo(
       () => defiActionUtils.positionHasDebts(position),
       [position],
+    );
+    // Post-settle stay-refresh for the dialogs: run the established post-tx
+    // force refresh (it also schedules the indexer-lag retries and feeds the
+    // page via the event bus), then re-resolve THIS action from the fresh
+    // payload. Same-category multi-pool protocols can collide, so prefer stable
+    // action identity (pool/group/token id) before falling back to token overlap.
+    const refreshResolvedAction = useCallback(
+      async (staleAction: IResolvedDeFiPositionAction) => {
+        if (!accountId) return undefined;
+        const refreshed =
+          await backgroundApiProxy.serviceDeFi.refreshAccountDeFiPositionsAfterAction(
+            {
+              accountId,
+              networkId: protocol.networkId,
+            },
+          );
+        if (!refreshed) return undefined;
+        const freshActions: IResolvedDeFiPositionAction[] = [];
+        for (const freshProtocol of refreshed.protocols) {
+          for (const freshPosition of freshProtocol.positions) {
+            const resolved = defiActionUtils.resolveDeFiPositionActions({
+              protocol: freshProtocol,
+              position: freshPosition,
+              supportedActions,
+            });
+            const scoped = scopeActionsToManageAsset(resolved, manageAsset);
+            freshActions.push(...scoped);
+          }
+        }
+        return findResolvedActionRefreshMatch({
+          staleAction,
+          freshActions,
+        });
+      },
+      [accountId, manageAsset, protocol.networkId, supportedActions],
     );
     // Withdraw and Repay resolve to different reserves (collateral vs debt), so
     // each manage type gets its own params object.
@@ -763,6 +796,8 @@ const ProtocolPositionActionButton = memo(
               hasDebts: positionHasDebts,
               intl,
               onSuccess,
+              refreshAction: refreshResolvedAction,
+              dialog: inPageDialog,
             });
           return;
         }
@@ -777,17 +812,21 @@ const ProtocolPositionActionButton = memo(
           hasDebts: positionHasDebts,
           rewardAssets: defiActionUtils.getPositionRewardAssets(position),
           onSuccess,
+          refreshAction: refreshResolvedAction,
+          dialog: inPageDialog,
         });
       },
       [
         accountId,
         hasRewards,
         intl,
+        inPageDialog,
         onSuccess,
         position,
         positionHasDebts,
         preferLendingDialog,
         protocol.networkId,
+        refreshResolvedAction,
         submitProtocolPositionAction,
       ],
     );
@@ -823,17 +862,21 @@ const ProtocolPositionActionButton = memo(
             hasDebts: positionHasDebts,
             intl,
             onSuccess,
+            refreshAction: refreshResolvedAction,
+            dialog: inPageDialog,
           });
       },
       [
         accountId,
         indexedAccountId,
         intl,
+        inPageDialog,
         manageAsset,
         onSuccess,
         positionHasDebts,
         protocol.indexedAccountId,
         protocol.networkId,
+        refreshResolvedAction,
         repayManageParams,
         withdrawManageParams,
       ],

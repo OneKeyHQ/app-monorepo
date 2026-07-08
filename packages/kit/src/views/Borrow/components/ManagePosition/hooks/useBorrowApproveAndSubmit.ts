@@ -20,14 +20,23 @@ export function useBorrowApproveAndSubmit({
   currentAllowance,
   amountValue,
   onSubmit,
+  autoSubmitAfterApprove = true,
+  onAllowanceReady,
 }: {
   approveTarget?: IManagePositionProps['approveTarget'];
   currentAllowance?: string;
   amountValue: string;
   onSubmit: () => Promise<void>;
+  // Default true keeps Kamino ManagePosition byte-identical: pre-flight
+  // allowance short-circuit + auto onSubmit once the post-approve poll lands.
+  autoSubmitAfterApprove?: boolean;
+  // Manual mode: the approve settled and the allowance covers the amount —
+  // the caller flips its UI to step 2 instead of this hook submitting.
+  onAllowanceReady?: () => void;
 }): {
   needsApproval: boolean;
   approveLoading: boolean;
+  waitingAllowance: boolean;
   onApprove: () => Promise<void>;
 } {
   const intl = useIntl();
@@ -35,7 +44,11 @@ export function useBorrowApproveAndSubmit({
   const useApprove =
     !!approveTarget?.spenderAddress && !approveTarget?.token?.isNative;
   const [approving, setApproving] = useState(false);
+  const [waitingAllowance, setWaitingAllowance] = useState(false);
   const allowanceAbortRef = useRef<AbortController | undefined>(undefined);
+  // Set on a poll timeout so the NEXT approve click re-checks the chain once
+  // before navigating — the tracked allowance may simply be behind.
+  const lastPollTimedOutRef = useRef(false);
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget?.accountId ?? '',
     networkId: approveTarget?.networkId ?? '',
@@ -44,6 +57,7 @@ export function useBorrowApproveAndSubmit({
     allowance,
     loading: loadingAllowance,
     trackAllowance,
+    updateAllowance,
     fetchAllowanceResponse,
   } = useTrackTokenAllowance({
     accountId: approveTarget?.accountId ?? '',
@@ -154,6 +168,9 @@ export function useBorrowApproveAndSubmit({
             allowanceInfo.allowanceParsed || '0',
           );
           if (!allowanceBN.isNaN() && allowanceBN.gte(requiredAmountBN)) {
+            // Keep the tracked allowance in step with the chain so
+            // `needsApproval` flips off without waiting for the tx tracker.
+            updateAllowance(allowanceInfo.allowanceParsed);
             return true;
           }
         } catch (error) {
@@ -189,7 +206,7 @@ export function useBorrowApproveAndSubmit({
       }
       return false;
     },
-    [fetchAllowanceResponse, useApprove],
+    [fetchAllowanceResponse, updateAllowance, useApprove],
   );
 
   const onApprove = useCallback(async () => {
@@ -199,27 +216,39 @@ export function useBorrowApproveAndSubmit({
     Keyboard.dismiss();
     setApproving(true);
 
-    let approveAllowance = allowance;
-    try {
-      const allowanceInfo = await fetchAllowanceResponse();
-      approveAllowance = allowanceInfo.allowanceParsed;
-    } catch (_e) {
-      // Use cached allowance.
-    }
-
-    const allowanceBN = new BigNumber(approveAllowance || '0');
-    const amountBN = new BigNumber(amountValue || '0');
-    if (!amountBN.isNaN() && allowanceBN.gte(amountBN)) {
-      setApproving(false);
-      if (
-        isCurrentApproveRequest({
-          snapshotKey: requestSnapshotKey,
-          submit: requestOnSubmit,
-        })
-      ) {
-        await requestOnSubmit();
+    // Auto mode keeps the legacy pre-flight check + short-circuit. Manual
+    // mode skips the RPC so the approve confirm opens immediately — except
+    // one conditional re-check after a poll timeout, when the tracked
+    // allowance is the thing in doubt.
+    if (autoSubmitAfterApprove || lastPollTimedOutRef.current) {
+      let approveAllowance = allowance;
+      try {
+        const allowanceInfo = await fetchAllowanceResponse();
+        approveAllowance = allowanceInfo.allowanceParsed;
+      } catch (_e) {
+        // Use cached allowance.
       }
-      return;
+
+      const allowanceBN = new BigNumber(approveAllowance || '0');
+      const amountBN = new BigNumber(amountValue || '0');
+      if (!amountBN.isNaN() && allowanceBN.gte(amountBN)) {
+        lastPollTimedOutRef.current = false;
+        updateAllowance(approveAllowance || '0');
+        setApproving(false);
+        if (
+          isCurrentApproveRequest({
+            snapshotKey: requestSnapshotKey,
+            submit: requestOnSubmit,
+          })
+        ) {
+          if (autoSubmitAfterApprove) {
+            await requestOnSubmit();
+          } else {
+            onAllowanceReady?.();
+          }
+        }
+        return;
+      }
     }
 
     try {
@@ -251,6 +280,7 @@ export function useBorrowApproveAndSubmit({
           allowanceAbortRef.current?.abort();
           const abortController = new AbortController();
           allowanceAbortRef.current = abortController;
+          setWaitingAllowance(true);
           void (async () => {
             try {
               const allowanceReady = await waitForAllowanceAfterApprove({
@@ -261,14 +291,19 @@ export function useBorrowApproveAndSubmit({
                 return;
               }
               if (!allowanceReady) {
-                Toast.warning({
-                  title: intl.formatMessage({
-                    id: ETranslations.swap_page_toast_approve_failed,
-                  }),
-                  message: intl.formatMessage({
-                    id: ETranslations.global_try_again,
-                  }),
-                });
+                // Aborts (asset switch, unmount) are deliberate — only a
+                // genuine timeout earns the failure toast.
+                if (!abortController.signal.aborted) {
+                  lastPollTimedOutRef.current = true;
+                  Toast.warning({
+                    title: intl.formatMessage({
+                      id: ETranslations.swap_page_toast_approve_failed,
+                    }),
+                    message: intl.formatMessage({
+                      id: ETranslations.global_try_again,
+                    }),
+                  });
+                }
                 return;
               }
               if (
@@ -279,7 +314,12 @@ export function useBorrowApproveAndSubmit({
               ) {
                 return;
               }
-              await requestOnSubmit();
+              lastPollTimedOutRef.current = false;
+              if (autoSubmitAfterApprove) {
+                await requestOnSubmit();
+              } else {
+                onAllowanceReady?.();
+              }
             } catch (error) {
               Toast.error({
                 title:
@@ -290,6 +330,7 @@ export function useBorrowApproveAndSubmit({
                       }),
               });
             } finally {
+              setWaitingAllowance(false);
               setApproving(false);
             }
           })();
@@ -310,18 +351,22 @@ export function useBorrowApproveAndSubmit({
     amountValue,
     approveSnapshotKey,
     approveTarget,
+    autoSubmitAfterApprove,
     fetchAllowanceResponse,
     intl,
     isCurrentApproveRequest,
     navigationToTxConfirm,
+    onAllowanceReady,
     onSubmit,
     trackAllowance,
+    updateAllowance,
     waitForAllowanceAfterApprove,
   ]);
 
   return {
     needsApproval,
     approveLoading: loadingAllowance || approving,
+    waitingAllowance,
     onApprove,
   };
 }

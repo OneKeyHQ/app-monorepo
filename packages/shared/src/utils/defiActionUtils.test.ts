@@ -1303,6 +1303,91 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xstakedusde');
   });
 
+  it('hides Lido claimWithdrawal when pool metadata is missing', () => {
+    const sourcePosition = makeSourcePosition({
+      protocol: 'lido',
+      protocolName: 'Lido',
+      category: 'deposit',
+      groupId: 'lido-withdrawal-129315',
+      name: 'LIDO Deposit',
+      assets: [
+        makeAsset({
+          symbol: 'stETH',
+          address: '0xwithdrawal-request',
+          amount: '0.000306392814497503',
+          category: 'deposit',
+          poolAddress: undefined,
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'lido',
+        networkId: 'evm--1',
+        positionCategory: 'deposit',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.ClaimWithdrawal,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'lido',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(0);
+  });
+
+  it('resolves Lido claimWithdrawal when contracts.pool is available', () => {
+    const withdrawalQueueAddress = '0x889edc2edab5f40e902b864ad4d7ade8e412f9b1';
+    const sourcePosition = makeSourcePosition({
+      protocol: 'lido',
+      protocolName: 'Lido',
+      category: 'deposit',
+      groupId: 'lido-withdrawal-129315',
+      name: 'LIDO Deposit',
+      contracts: {
+        pool: withdrawalQueueAddress,
+      },
+      assets: [
+        makeAsset({
+          symbol: 'stETH',
+          address: '0xwithdrawal-request',
+          amount: '0.000306392814497503',
+          category: 'deposit',
+          poolAddress: undefined,
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'lido',
+        networkId: 'evm--1',
+        positionCategory: 'deposit',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.ClaimWithdrawal,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'lido',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0].assets[0].extraParams?.poolAddress).toBe(
+      withdrawalQueueAddress,
+    );
+  });
+
   it('hides non-Polygon pool-address-gated withdraw actions when only groupId has an address', () => {
     const sourcePosition = makeSourcePosition({
       protocol: 'fluid',

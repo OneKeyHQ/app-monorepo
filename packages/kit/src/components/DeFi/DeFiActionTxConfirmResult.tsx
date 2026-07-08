@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { Dialog } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import PreSwapConfirmResult from '@onekeyhq/kit/src/views/Swap/components/PreSwapConfirmResult';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type { ISwapStep, ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -17,24 +19,20 @@ export type IDeFiActionTxConfirmDialogResult =
   | undefined;
 
 // A shared "confirming → result" sheet shown after a DeFi action tx is
-// broadcast. It polls the tx receipt (waitForTxFinalStatus) and drives the swap
-// Review Order result component (PreSwapConfirmResult) — the same dynamic
-// pending / success / failed animation the swap review sheet uses — so DeFi
-// actions (withdraw / repay / remove / claim) get an identical confirming
-// experience. `onDone` closes the dialog and returns the final status to the
-// caller so failed transactions do not trigger success-only refresh effects.
+// broadcast. It subscribes to the tx receipt observer and drives the swap Review
+// Order result component (PreSwapConfirmResult) — the same dynamic pending /
+// success / failed animation the swap review sheet uses — so DeFi actions
+// (withdraw / repay / remove / claim) get an identical confirming experience.
 function DeFiActionTxConfirmResult({
-  accountId,
   networkId,
   txid,
+  finalStatusPromise,
   onDone,
-  onStatusChange,
 }: {
-  accountId: string;
   networkId: string;
   txid: string;
-  onDone: (result: IDeFiActionTxConfirmDialogResult) => void;
-  onStatusChange: (result: IDeFiActionTxConfirmDialogResult) => void;
+  finalStatusPromise: Promise<IDeFiActionTxConfirmDialogResult>;
+  onDone: () => void;
 }) {
   const [stepStatus, setStepStatus] = useState<ESwapStepStatus>(
     ESwapStepStatus.PENDING,
@@ -43,32 +41,26 @@ function DeFiActionTxConfirmResult({
     useState<IDeFiActionTxConfirmDialogResult>();
 
   useEffect(() => {
-    const controller = new AbortController();
-    void (async () => {
-      const result = await waitForTxFinalStatus({
-        accountId,
-        networkId,
-        txid,
-        signal: controller.signal,
-      });
-      if (controller.signal.aborted) {
+    let mounted = true;
+    void finalStatusPromise.then((result) => {
+      if (!mounted) {
         return;
       }
       if (result === EOnChainHistoryTxStatus.Success) {
         setFinalStatus(result);
-        onStatusChange(result);
         setStepStatus(ESwapStepStatus.SUCCESS);
       } else if (result === EOnChainHistoryTxStatus.Failed) {
         setFinalStatus(result);
-        onStatusChange(result);
         setStepStatus(ESwapStepStatus.FAILED);
       }
       // Poll exhausted (undefined): keep it PENDING. PreSwapConfirmResult's
       // pending state already reads as "submitted — check history", which is the
       // truth for a broadcast-but-not-yet-final tx.
-    })();
-    return () => controller.abort();
-  }, [accountId, networkId, onStatusChange, txid]);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [finalStatusPromise]);
 
   // PreSwapConfirmResult is fully prop-driven; it reads only status / txHash off
   // the step and networkId off fromToken (to build the explorer link). The
@@ -96,7 +88,12 @@ function DeFiActionTxConfirmResult({
     <PreSwapConfirmResult
       lastStep={lastStep}
       fromToken={fromToken}
-      onConfirm={() => onDone(finalStatus)}
+      confirmButtonTextId={
+        finalStatus === EOnChainHistoryTxStatus.Failed
+          ? ETranslations.global_done
+          : undefined
+      }
+      onConfirm={onDone}
     />
   );
 }
@@ -117,9 +114,9 @@ function getLastTxid(
 }
 
 // Show the confirming sheet for the last broadcast tx in `data` and resolve once
-// the user dismisses it (Done / close). Resolves immediately when there's no
-// account or no txid, so callers can `await` it unconditionally before running
-// their refresh.
+// the receipt observer reaches a final state, or when the user dismisses the
+// pending sheet. Resolves immediately when there's no account or no txid, so
+// callers can `await` it unconditionally before running their refresh.
 export function showDeFiActionTxConfirmDialog({
   accountId,
   networkId,
@@ -133,32 +130,68 @@ export function showDeFiActionTxConfirmDialog({
   if (!accountId || !txid) {
     return Promise.resolve(undefined);
   }
-  return new Promise<IDeFiActionTxConfirmDialogResult>((resolve) => {
-    let settled = false;
-    let latestResult: IDeFiActionTxConfirmDialogResult;
-    const finish = (result?: IDeFiActionTxConfirmDialogResult) => {
-      if (!settled) {
-        settled = true;
-        resolve(result);
-      }
-    };
-    const dialog = Dialog.show({
-      showFooter: false,
-      onClose: () => finish(latestResult),
-      renderContent: (
-        <DeFiActionTxConfirmResult
-          accountId={accountId}
-          networkId={networkId}
-          txid={txid}
-          onStatusChange={(result) => {
-            latestResult = result;
-          }}
-          onDone={(result) => {
-            finish(result);
-            void dialog.close();
-          }}
-        />
-      ),
-    });
+  const finalStatusPromise = waitForTxFinalStatus({
+    accountId,
+    networkId,
+    txid,
+  }).catch(() => undefined);
+  let latestResult: IDeFiActionTxConfirmDialogResult;
+  let uiSettled = false;
+  let dismissedBeforeFinal = false;
+  let resolveUiResult:
+    | ((result: IDeFiActionTxConfirmDialogResult) => void)
+    | undefined;
+  const uiResultPromise = new Promise<IDeFiActionTxConfirmDialogResult>(
+    (resolve) => {
+      resolveUiResult = resolve;
+    },
+  );
+  const finish = ({
+    result,
+    source,
+  }: {
+    result: IDeFiActionTxConfirmDialogResult;
+    source: 'status' | 'user';
+  }) => {
+    if (uiSettled) {
+      return;
+    }
+    uiSettled = true;
+    dismissedBeforeFinal =
+      source === 'user' && result === undefined && latestResult === undefined;
+    resolveUiResult?.(result);
+  };
+  void finalStatusPromise.then((result) => {
+    latestResult = result;
+    if (!uiSettled) {
+      finish({ result, source: 'status' });
+      return;
+    }
+    if (dismissedBeforeFinal && result === EOnChainHistoryTxStatus.Success) {
+      void backgroundApiProxy.serviceDeFi.refreshAccountDeFiPositionsAfterAction(
+        {
+          accountId,
+          networkId,
+        },
+      );
+    }
   });
+  const dialogRef: { current?: ReturnType<typeof Dialog.show> } = {};
+  const closeDialog = () => {
+    finish({ result: latestResult, source: 'user' });
+    void dialogRef.current?.close();
+  };
+  dialogRef.current = Dialog.show({
+    showFooter: false,
+    onClose: () => finish({ result: latestResult, source: 'user' }),
+    renderContent: (
+      <DeFiActionTxConfirmResult
+        networkId={networkId}
+        txid={txid}
+        finalStatusPromise={finalStatusPromise}
+        onDone={closeDialog}
+      />
+    ),
+  });
+  return uiResultPromise;
 }

@@ -166,12 +166,6 @@ const basicFontVariants = {
 };
 
 const tamaguiWebFontFamily = webFontFamily;
-const monoRegularFontFamily = isTamaguiNative
-  ? 'GeistMono-Regular'
-  : '"GeistMono-Regular", monospace';
-const monoMediumFontFamily = isTamaguiNative
-  ? 'GeistMono-Medium'
-  : '"GeistMono-Medium", "GeistMono-Regular", monospace';
 
 const font = createFont({
   family: isTamaguiNative ? 'Roobert-Regular' : tamaguiWebFontFamily,
@@ -189,12 +183,12 @@ const font = createFont({
 });
 
 const monoRegularFont = createFont({
-  family: monoRegularFontFamily,
+  family: 'GeistMono-Regular',
   ...basicFontVariants,
 });
 
 const monoMediumFont = createFont({
-  family: monoMediumFontFamily,
+  family: 'GeistMono-Medium',
   ...basicFontVariants,
 });
 

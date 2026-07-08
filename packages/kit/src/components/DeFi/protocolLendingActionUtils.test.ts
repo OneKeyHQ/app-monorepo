@@ -1,8 +1,14 @@
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
+
 import {
   findSupportedBorrowMarket,
+  resolveLendingStepState,
+  resolvePostActionNavigation,
   resolveProtocolLendingDefiFillableAmountState,
   resolveProtocolLendingRemainingDebtState,
   resolveProtocolLendingRepayAmountState,
+  resolveVisibleLendingStepState,
+  shouldAutoSubmitLendingStep2,
 } from './protocolLendingActionUtils';
 
 describe('protocolLendingActionUtils', () => {
@@ -245,5 +251,159 @@ describe('findSupportedBorrowMarket', () => {
         marketAddress: undefined,
       }),
     ).toBeUndefined();
+  });
+});
+
+describe('resolveLendingStepState', () => {
+  it('waiting allowance wins over every other state', () => {
+    expect(
+      resolveLendingStepState({
+        needsApproval: true,
+        waitingAllowance: true,
+        approveSessionActive: true,
+      }),
+    ).toEqual({ kind: 'waitingAllowance' });
+  });
+
+  it('needs approval shows step 1 even after an approve this session', () => {
+    expect(
+      resolveLendingStepState({
+        needsApproval: true,
+        waitingAllowance: false,
+        approveSessionActive: true,
+      }),
+    ).toEqual({ kind: 'approveStep1' });
+  });
+
+  it('after an approve session with allowance covered shows step 2', () => {
+    expect(
+      resolveLendingStepState({
+        needsApproval: false,
+        waitingAllowance: false,
+        approveSessionActive: true,
+      }),
+    ).toEqual({ kind: 'actionStep2' });
+  });
+
+  it('plain action when no approve was ever involved', () => {
+    expect(
+      resolveLendingStepState({
+        needsApproval: false,
+        waitingAllowance: false,
+        approveSessionActive: false,
+      }),
+    ).toEqual({ kind: 'action' });
+  });
+});
+
+describe('resolveVisibleLendingStepState', () => {
+  it('keeps the submitted step visible while navigation blurs the route', () => {
+    expect(
+      resolveVisibleLendingStepState({
+        liveStepState: { kind: 'approveStep1' },
+        submitting: true,
+        submittedStepKind: 'actionStep2',
+      }),
+    ).toEqual({ kind: 'actionStep2' });
+  });
+
+  it('falls back to the live step outside an active submit', () => {
+    expect(
+      resolveVisibleLendingStepState({
+        liveStepState: { kind: 'approveStep1' },
+        submitting: false,
+        submittedStepKind: 'actionStep2',
+      }),
+    ).toEqual({ kind: 'approveStep1' });
+  });
+});
+
+describe('shouldAutoSubmitLendingStep2', () => {
+  it('auto-fires step 2 once the approve settled and the allowance covers it', () => {
+    expect(
+      shouldAutoSubmitLendingStep2({
+        stepKind: 'actionStep2',
+        submitting: false,
+        alreadyAutoSubmitted: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not auto-fire before the approve completes', () => {
+    expect(
+      shouldAutoSubmitLendingStep2({
+        stepKind: 'approveStep1',
+        submitting: false,
+        alreadyAutoSubmitted: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldAutoSubmitLendingStep2({
+        stepKind: 'waitingAllowance',
+        submitting: false,
+        alreadyAutoSubmitted: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('never auto-fires the plain single-step action (no approve involved)', () => {
+    expect(
+      shouldAutoSubmitLendingStep2({
+        stepKind: 'action',
+        submitting: false,
+        alreadyAutoSubmitted: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not re-fire while a submit is already in flight', () => {
+    expect(
+      shouldAutoSubmitLendingStep2({
+        stepKind: 'actionStep2',
+        submitting: true,
+        alreadyAutoSubmitted: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('fires only once per approve session (dedupe)', () => {
+    expect(
+      shouldAutoSubmitLendingStep2({
+        stepKind: 'actionStep2',
+        submitting: false,
+        alreadyAutoSubmitted: true,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('resolvePostActionNavigation', () => {
+  it('closes to page on Success regardless of amount shape', () => {
+    expect(
+      resolvePostActionNavigation({
+        txStatus: EOnChainHistoryTxStatus.Success,
+      }),
+    ).toBe('closeToPage');
+    expect(
+      resolvePostActionNavigation({
+        txStatus: EOnChainHistoryTxStatus.Success,
+      }),
+    ).toBe('closeToPage');
+  });
+
+  it('closes to page on Failed because it is a final chain status', () => {
+    expect(
+      resolvePostActionNavigation({
+        txStatus: EOnChainHistoryTxStatus.Failed,
+      }),
+    ).toBe('closeToPage');
+  });
+
+  it('keeps the dialog only for an unconfirmed tx or exhausted poll', () => {
+    expect(
+      resolvePostActionNavigation({
+        txStatus: undefined,
+      }),
+    ).toBe('stayAndRefresh');
   });
 });

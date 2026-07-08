@@ -2964,6 +2964,11 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
+  async clearBorrowAssetsListCache() {
+    this._getBorrowAssetsList.clear();
+  }
+
+  @backgroundMethod()
   async getBorrowFaqList(params: {
     networkId: string;
     provider: string;

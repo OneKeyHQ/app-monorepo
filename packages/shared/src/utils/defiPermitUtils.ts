@@ -177,6 +177,13 @@ function validateLidoWithdrawPermitTypedData({
   }
 }
 
+function isDeFiPermitValidationError(error: unknown) {
+  return (
+    error instanceof Error && error.message.startsWith('Invalid DeFi permit')
+  );
+}
+
 export default {
+  isDeFiPermitValidationError,
   validateLidoWithdrawPermitTypedData,
 };

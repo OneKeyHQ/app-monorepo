@@ -48,6 +48,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useSignatureConfirm', () => {
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const serviceStaking = {
     addEarnOrder: jest.fn(),
+    borrowBuildRepayTransaction: jest.fn(),
     getBorrowRepayWithCollateralQuote: jest.fn(),
     borrowBuildRepayWithCollateralTransaction: jest.fn(),
     borrowBuildSetupLutTransaction: jest.fn(),
@@ -88,8 +89,15 @@ jest.mock(
 import { act, renderHook } from '@testing-library/react-native';
 
 import { Toast } from '@onekeyhq/components';
+import { showDeFiActionTxConfirmDialog } from '@onekeyhq/kit/src/components/DeFi/DeFiActionTxConfirmResult';
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
-import { useUniversalBorrowRepayWithCollateral } from './useUniversalBorrowHooks';
+import {
+  useUniversalBorrowRepay,
+  useUniversalBorrowRepayWithCollateral,
+} from './useUniversalBorrowHooks';
 
 // In the harness, Metro's export * creates non-configurable getters so
 // jest.mock('@onekeyhq/components') can't replace the Toast export.
@@ -104,6 +112,7 @@ const signatureConfirmMock = (globalThis as any)
 const backgroundMock = (globalThis as any).__borrowBackgroundMock as {
   serviceStaking: {
     addEarnOrder: jest.Mock;
+    borrowBuildRepayTransaction: jest.Mock;
     getBorrowRepayWithCollateralQuote: jest.Mock;
     borrowBuildRepayWithCollateralTransaction: jest.Mock;
     borrowBuildSetupLutTransaction: jest.Mock;
@@ -521,5 +530,113 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
       slippageBps: undefined,
     });
     expect(toastErrorSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('useUniversalBorrowRepay settle plumbing', () => {
+  const REPAY_PARAMS = {
+    amount: '1',
+    provider: 'aave',
+    marketAddress: '0xmarket',
+    reserveAddress: '0xreserve',
+    stakingInfo: { label: EEarnLabels.Repay, tags: ['repay'] },
+  } as any;
+  const TX_DATA = [
+    { signedTx: { txid: '0xtx1' }, decodedTx: { txid: '0xtx1', status: 1 } },
+  ] as any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    backgroundMock.serviceStaking.borrowBuildRepayTransaction.mockResolvedValue(
+      { tx: '{}', orderId: 'order-1' },
+    );
+    backgroundMock.serviceStaking.addEarnOrder.mockResolvedValue(undefined);
+  });
+
+  async function runRepayAndSettle({
+    sheetStatus,
+    onSettleResult = jest.fn(),
+  }: {
+    sheetStatus: EOnChainHistoryTxStatus | undefined;
+    onSettleResult?: jest.Mock;
+  }) {
+    (showDeFiActionTxConfirmDialog as jest.Mock).mockResolvedValueOnce(
+      sheetStatus,
+    );
+    const onSuccess = jest.fn();
+    let confirmOptions:
+      | { onSuccess: (data: ISendTxOnSuccessData[]) => Promise<void> }
+      | undefined;
+    signatureConfirmMock.navigationToTxConfirm.mockImplementation(
+      async (options: {
+        onSuccess: (data: ISendTxOnSuccessData[]) => Promise<void>;
+      }) => {
+        confirmOptions = options;
+      },
+    );
+
+    const { result } = renderHook(() =>
+      useUniversalBorrowRepay({ networkId: 'evm--1', accountId: 'acc-1' }),
+    );
+    await act(async () => {
+      await result.current({ ...REPAY_PARAMS, onSuccess, onSettleResult });
+    });
+    await act(async () => {
+      await confirmOptions?.onSuccess(TX_DATA as ISendTxOnSuccessData[]);
+    });
+    return { onSuccess, onSettleResult };
+  }
+
+  it('surfaces Failed to onSettleResult and skips onSuccess', async () => {
+    const { onSuccess, onSettleResult } = await runRepayAndSettle({
+      sheetStatus: EOnChainHistoryTxStatus.Failed,
+    });
+    expect(onSettleResult).toHaveBeenCalledWith({
+      status: EOnChainHistoryTxStatus.Failed,
+      data: expect.anything(),
+    });
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it('fires onSettleResult before onSuccess on Success', async () => {
+    const { onSuccess, onSettleResult } = await runRepayAndSettle({
+      sheetStatus: EOnChainHistoryTxStatus.Success,
+    });
+    expect(onSettleResult).toHaveBeenCalledTimes(1);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(onSettleResult.mock.invocationCallOrder[0]).toBeLessThan(
+      onSuccess.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('passes undefined status when final-status polling exhausts and skips onSuccess', async () => {
+    const { onSuccess, onSettleResult } = await runRepayAndSettle({
+      sheetStatus: undefined,
+    });
+    expect(onSettleResult).toHaveBeenCalledWith({
+      status: undefined,
+      data: expect.anything(),
+    });
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it('skips onSuccess when onSettleResult vetoes with false after a Success settle', async () => {
+    const onSettleResult = jest.fn().mockResolvedValue(false);
+    const { onSuccess } = await runRepayAndSettle({
+      sheetStatus: EOnChainHistoryTxStatus.Success,
+      onSettleResult,
+    });
+    expect(onSettleResult).toHaveBeenCalledTimes(1);
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it('skips onSuccess when onSettleResult vetoes with false on undefined settle status', async () => {
+    const onSettleResult = jest.fn().mockResolvedValue(false);
+    const { onSuccess } = await runRepayAndSettle({
+      sheetStatus: undefined,
+      onSettleResult,
+    });
+    expect(onSettleResult).toHaveBeenCalledTimes(1);
+    expect(onSuccess).not.toHaveBeenCalled();
   });
 });
