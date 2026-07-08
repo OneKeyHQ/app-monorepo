@@ -331,8 +331,6 @@ function getExtraDeviceFieldString(
     | 'raw.firmwareVersion'
     | 'raw.serialNumber'
     | 'raw.modelName'
-    | 'raw.productName'
-    | 'raw.provider_product'
     | 'vendorModel'
     | 'vendorModelName',
 ) {
