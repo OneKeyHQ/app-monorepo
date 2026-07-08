@@ -5,6 +5,10 @@ import type { ReactNode } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
+import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -69,6 +73,21 @@ const mockFixDeriveTypesForInitAccountSelectorMap: jest.MockedFunction<
 > = jest.fn();
 const mockWriteContextAtomColdStartCacheValues: jest.MockedFunction<IWriteContextAtomColdStartCacheValues> =
   jest.fn();
+const mockAddTonImportedAccountByMnemonic = jest.fn<
+  Promise<{
+    networkId: string;
+    walletId: string;
+    accounts: IDBAccount[];
+    isOverrideAccounts: boolean;
+  }>,
+  [
+    {
+      mnemonic: string;
+      name?: string;
+      shouldCheckDuplicateName?: boolean;
+    },
+  ]
+>();
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/utils', () => {
   const actual = jest.requireActual<
@@ -118,7 +137,11 @@ jest.mock(
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
-    serviceAccount: {},
+    serviceAccount: {
+      addTonImportedAccountByMnemonic: (
+        ...args: Parameters<typeof mockAddTonImportedAccountByMnemonic>
+      ) => mockAddTonImportedAccountByMnemonic(...args),
+    },
     serviceAccountSelector: {
       buildActiveAccountInfoFromSelectedAccount: () =>
         mockBuildActiveAccountInfoFromSelectedAccount(),
@@ -259,6 +282,44 @@ describe('useAccountSelectorActions', () => {
     expect(store.get(accountSelectorActiveAccountInitDoneAtom())?.[0]).toBe(
       true,
     );
+  });
+
+  it('creates TON imported wallets through the background service', async () => {
+    const accountId = 'imported--607--ton';
+    const mnemonic = 'encoded-ton-mnemonic';
+    const waitSpy = jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    mockAddTonImportedAccountByMnemonic.mockResolvedValue({
+      networkId: getNetworkIdsMap().ton,
+      walletId: WALLET_TYPE_IMPORTED,
+      accounts: [{ id: accountId } as IDBAccount],
+      isOverrideAccounts: false,
+    });
+
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    try {
+      await act(async () => {
+        await result.current.createTonImportedWallet({ mnemonic });
+      });
+    } finally {
+      waitSpy.mockRestore();
+    }
+
+    expect(mockAddTonImportedAccountByMnemonic).toHaveBeenCalledWith({
+      mnemonic,
+      name: '',
+      shouldCheckDuplicateName: true,
+    });
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      networkId: getNetworkIdsMap().ton,
+      walletId: WALLET_TYPE_IMPORTED,
+      focusedWallet: WALLET_TYPE_IMPORTED,
+      indexedAccountId: undefined,
+      othersWalletAccountId: accountId,
+    });
   });
 
   // OK-57139: the dApp connection record is the single source of truth for

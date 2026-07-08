@@ -1,30 +1,32 @@
-import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { ensureWebembedApiProxyAvailable } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import type { IEnsureSDKReady, IGetKaspaApi, IKaspaSdk } from '../types';
 
 const ensureSDKReady: IEnsureSDKReady = async () => Promise.resolve(true);
 
 const buildCommitTxInfo = async (...args: any[]) =>
-  appGlobals.$webembedApiProxy.chainKaspa.buildCommitTxInfo(...args);
+  ensureWebembedApiProxyAvailable().chainKaspa.buildCommitTxInfo(...args);
 
 const createKRC20RevealTxJSON = async (...args: any[]) =>
-  appGlobals.$webembedApiProxy.chainKaspa.createKRC20RevealTxJSON(...args);
+  ensureWebembedApiProxyAvailable().chainKaspa.createKRC20RevealTxJSON(...args);
 
 const signRevealTransactionSoftware = async (...args: any[]) =>
-  appGlobals.$webembedApiProxy.chainKaspa.signRevealTransactionSoftware(
+  ensureWebembedApiProxyAvailable().chainKaspa.signRevealTransactionSoftware(
     ...args,
   );
 
 const signRevealTransactionHardware = async (...args: any[]) =>
-  appGlobals.$webembedApiProxy.chainKaspa.signRevealTransactionHardware(
+  ensureWebembedApiProxyAvailable().chainKaspa.signRevealTransactionHardware(
     ...args,
   );
 
 const buildUnsignedTxForHardware = async (...args: any[]) =>
-  appGlobals.$webembedApiProxy.chainKaspa.buildUnsignedTxForHardware(...args);
+  ensureWebembedApiProxyAvailable().chainKaspa.buildUnsignedTxForHardware(
+    ...args,
+  );
 
 const deserializeFromSafeJSON = async (...args: any[]) =>
-  appGlobals.$webembedApiProxy.chainKaspa.deserializeFromSafeJSON(...args);
+  ensureWebembedApiProxyAvailable().chainKaspa.deserializeFromSafeJSON(...args);
 
 const getKaspaApi: IGetKaspaApi = async () =>
   Promise.resolve({
