@@ -28,7 +28,7 @@ const webPreloadConfig: Record<string, IPreloadEntry> = {
       ETabRoutes.DeviceManagement,
       ETabRoutes.ReferFriends,
     ],
-    intervalMs: 1500,
+    intervalMs: 2000,
   },
   [EDevicePerformanceTier.medium]: {
     queue: [ETabRoutes.Swap, ETabRoutes.Market, ETabRoutes.Discovery],
