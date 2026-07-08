@@ -32,10 +32,13 @@ import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid/sdk
 import { usePerpsAccountScopedOpenOrdersByCoin } from '../../../hooks/usePerpsAccountScopedOpenOrdersByCoin';
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
+
+
 import { showAdjustPositionMarginDialog } from '../AdjustPositionMarginModal';
 import { showClosePositionDialog } from '../ClosePositionModal';
 import { showSetTpslDialog } from '../SetTpslModal';
 import { calcCellAlign, getColumnStyle } from '../utils';
+import { DesktopActionIconButton } from './DesktopActionIconButton';
 
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
@@ -314,14 +317,12 @@ const PositionRowDesktopPnL = memo(
           >
             {`${otherInfo.pnlPlusOrMinus}${otherInfo.unrealizedPnl}(${otherInfo.pnlPlusOrMinus}${otherInfo.roiPercent}%)`}
           </SizableText>
-          <IconButton
+          <DesktopActionIconButton
             testID="perp-position-row-desktop-pn-l-icon-btn"
-            variant="tertiary"
-            size="small"
             icon="ShareOutline"
-            iconSize="$3.5"
+            size="medium"
+            iconSize="$4"
             onPress={onShare}
-            cursor="default"
           />
         </XStack>
       </DebugRenderTracker>
@@ -359,14 +360,11 @@ const PositionRowDesktopMargin = memo(
               size="$bodySm"
             >{`${otherInfo.marginUsedFormatted}`}</SizableText>
             {isIsolatedMode ? (
-              <IconButton
+              <DesktopActionIconButton
                 testID="perp-position-row-desktop-margin-icon-btn"
-                variant="tertiary"
-                size="small"
                 icon="PencilOutline"
-                iconSize="$3"
+                iconSize="$4"
                 onPress={onAdjustMargin}
-                cursor="default"
               />
             ) : null}
           </XStack>
@@ -524,15 +522,6 @@ const PositionRowDesktopTPSL = memo(
         >
           {tpslInfo.showOrder ? (
             <XStack alignItems="center" gap="$1" cursor="default">
-              <IconButton
-                testID="perp-icon-btn"
-                variant="tertiary"
-                size="small"
-                icon="HighlightOutline"
-                iconSize="$3"
-                onPress={onSetTpsl}
-              />
-
               <SizableText
                 hoverStyle={{ size: '$bodySmMedium' }}
                 color="$bgAccent"
@@ -544,6 +533,12 @@ const PositionRowDesktopTPSL = memo(
                   id: ETranslations.perp_position_view_orders,
                 })}
               </SizableText>
+              <DesktopActionIconButton
+                testID="perp-icon-btn"
+                icon="HighlightOutline"
+                iconSize="$3.5"
+                onPress={onSetTpsl}
+              />
             </XStack>
           ) : (
             <XStack
@@ -552,14 +547,6 @@ const PositionRowDesktopTPSL = memo(
               cursor="default"
               onPress={onSetTpsl}
             >
-              <IconButton
-                testID="perp-icon-btn"
-                variant="tertiary"
-                size="medium"
-                icon="HighlightOutline"
-                iconSize="$3.5"
-                onPress={onSetTpsl}
-              />
               <SizableText
                 numberOfLines={1}
                 ellipsizeMode="tail"
@@ -567,6 +554,12 @@ const PositionRowDesktopTPSL = memo(
               >
                 {tpslInfo.tpsl}
               </SizableText>
+              <DesktopActionIconButton
+                testID="perp-icon-btn"
+                icon="HighlightOutline"
+                iconSize="$3.5"
+                onPress={onSetTpsl}
+              />
             </XStack>
           )}
         </XStack>

@@ -21,11 +21,14 @@ import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils'
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
+
 import {
   calcCellAlign,
   formatSpotHoldingPnlText,
   getColumnStyle,
 } from '../utils';
+import { DesktopActionIconButton } from './DesktopActionIconButton';
+
 
 import type { IColumnConfig } from '../List/CommonTableListView';
 import type { IBalanceDisplayItem } from '../List/SpotBalanceList';
@@ -130,23 +133,19 @@ function ContractAddressCell({
       >
         {shortened}
       </SizableText>
-      <IconButton
+      <DesktopActionIconButton
         testID={PerpTestIDs.BalanceRowCopyContractButton}
-        size="small"
-        variant="tertiary"
         icon="Copy3Outline"
-        iconProps={{ size: '$3', color: '$iconSubdued' }}
+        iconSize="$4"
         onPress={(e) => {
           e?.stopPropagation?.();
           copyText(contract);
         }}
       />
-      <IconButton
+      <DesktopActionIconButton
         testID={PerpTestIDs.BalanceRowOpenContractButton}
-        size="small"
-        variant="tertiary"
         icon="OpenOutline"
-        iconProps={{ size: '$3', color: '$iconSubdued' }}
+        iconSize="$4"
         onPress={(e) => {
           e?.stopPropagation?.();
           void openHyperLiquidTokenExplorerUrl({ tokenId: contract });
@@ -326,18 +325,14 @@ function BalanceRowDesktop({
             {cell.cellValue}
           </SizableText>
           {canShare ? (
-            <IconButton
+            <DesktopActionIconButton
               testID={PerpTestIDs.BalanceRowShareButton}
-              variant="tertiary"
-              size="small"
               icon="ShareOutline"
-              iconSize="$3.5"
+              iconSize="$4"
               onPress={(e) => {
                 e?.stopPropagation?.();
                 handleShare();
               }}
-              hoverStyle={null}
-              pressStyle={null}
             />
           ) : null}
         </XStack>

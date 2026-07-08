@@ -1654,6 +1654,13 @@ function DepositWithdrawContent({
     perpModalNavigation,
   ]);
 
+  useEffect(() => {
+    if (!isMobile || selectedAction !== 'deposit') {
+      return;
+    }
+    void import('./DepositSelectTokenModal');
+  }, [isMobile, selectedAction]);
+
   const closeDesktopTokenSelectorPage = useCallback(() => {
     setDesktopDepositPage('form');
   }, []);
@@ -2252,7 +2259,7 @@ function DepositWithdrawContent({
     );
   }
 
-  const content = isDesktopDepositSelectTokenPage ? (
+  const selectTokenContent = (
     <YStack flex={1} minHeight={0} height="100%" pt="$1">
       <DepositTokenSelectionContent
         symbol={PERPS_CURRENCY_SYMBOL}
@@ -2263,7 +2270,9 @@ function DepositWithdrawContent({
         hasLoaded={hasLoadedDepositTokenBalances}
       />
     </YStack>
-  ) : (
+  );
+
+  const formContent = (
     <YStack
       flex={1}
       height="100%"
@@ -2438,6 +2447,25 @@ function DepositWithdrawContent({
         </YStack>
       ) : null}
     </YStack>
+  );
+
+  const content = isDesktopDepositSelectTokenPage ? (
+    <YStack flex={1} minHeight={0} height="100%" position="relative">
+      <YStack
+        flex={1}
+        minHeight={0}
+        height="100%"
+        opacity={0}
+        pointerEvents="none"
+      >
+        {formContent}
+      </YStack>
+      <YStack position="absolute" top={0} right={0} bottom={0} left={0}>
+        {selectTokenContent}
+      </YStack>
+    </YStack>
+  ) : (
+    formContent
   );
 
   return (
