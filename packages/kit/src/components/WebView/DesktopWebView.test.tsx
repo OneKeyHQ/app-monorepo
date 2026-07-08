@@ -1,6 +1,12 @@
 /** @jest-environment jsdom */
 
-import { act, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 import { DesktopWebView } from './DesktopWebView';
 
@@ -62,8 +68,12 @@ jest.mock('./ErrorView', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
     __esModule: true,
-    default: () =>
-      React.createElement('div', { 'data-testid': 'desktop-webview-error' }),
+    default: ({ onRefresh }: { onRefresh: () => void }) =>
+      React.createElement(
+        'button',
+        { 'data-testid': 'desktop-webview-error', onClick: onRefresh },
+        'retry',
+      ),
   };
 });
 
@@ -82,9 +92,12 @@ describe('DesktopWebView', () => {
     jest.clearAllMocks();
   });
 
-  it('renders the initial webview after the async preload url resolves', async () => {
+  it('renders the initial webview after retrying a failed async preload url', async () => {
     const preload = createDeferred<string>();
-    const getPreloadJsContent = jest.fn(() => preload.promise);
+    const getPreloadJsContent = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('preload failed'))
+      .mockReturnValueOnce(preload.promise);
     Object.defineProperty(globalThis, 'desktopApiProxy', {
       configurable: true,
       value: {
@@ -104,6 +117,14 @@ describe('DesktopWebView', () => {
 
     expect(screen.queryByTestId('desktop-webview')).toBeNull();
 
+    await waitFor(() =>
+      expect(screen.queryByTestId('desktop-webview-error')).not.toBeNull(),
+    );
+
+    fireEvent.click(screen.getByTestId('desktop-webview-error'));
+
+    await waitFor(() => expect(getPreloadJsContent).toHaveBeenCalledTimes(2));
+
     await act(async () => {
       preload.resolve('file:///tmp/preload.js');
       await preload.promise;
@@ -116,6 +137,6 @@ describe('DesktopWebView', () => {
     expect(screen.getByTestId('desktop-webview').getAttribute('preload')).toBe(
       'file:///tmp/preload.js',
     );
-    expect(getPreloadJsContent).toHaveBeenCalledTimes(1);
+    expect(getPreloadJsContent).toHaveBeenCalledTimes(2);
   });
 });

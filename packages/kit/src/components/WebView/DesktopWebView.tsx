@@ -116,6 +116,7 @@ const DesktopWebView = forwardRef(
     const isUnmountingRef = useRef(false);
     const [resolvedPreloadJsUrl, setResolvedPreloadJsUrl] =
       useState(preloadJsUrl);
+    const [preloadJsUrlError, setPreloadJsUrlError] = useState(false);
 
     const [desktopLoadError, setDesktopLoadError] = useState(false);
     const [desktopLoadErrorCode, setDesktopLoadErrorCode] = useState<number>();
@@ -165,7 +166,7 @@ const DesktopWebView = forwardRef(
     }, [isDomReady]);
 
     useEffect(() => {
-      if (disableBridge || resolvedPreloadJsUrl) {
+      if (disableBridge || preloadJsUrlError || resolvedPreloadJsUrl) {
         return undefined;
       }
 
@@ -176,12 +177,16 @@ const DesktopWebView = forwardRef(
             setResolvedPreloadJsUrl(url);
           }
         })
-        .catch(() => undefined);
+        .catch(() => {
+          if (isMounted) {
+            setPreloadJsUrlError(true);
+          }
+        });
 
       return () => {
         isMounted = false;
       };
-    }, [disableBridge, resolvedPreloadJsUrl]);
+    }, [disableBridge, preloadJsUrlError, resolvedPreloadJsUrl]);
 
     // Register event listeners
     useEffect(() => {
@@ -527,6 +532,18 @@ const DesktopWebView = forwardRef(
     useEffect(() => {
       flushPendingScripts();
     }, [flushPendingScripts, isWebviewReady]);
+
+    if (preloadJsUrlError && !disableBridge) {
+      return (
+        <Stack flex={1} position="relative" bg="$bgApp">
+          <ErrorView
+            onRefresh={() => {
+              setPreloadJsUrlError(false);
+            }}
+          />
+        </Stack>
+      );
+    }
 
     if (!resolvedPreloadJsUrl && !disableBridge) {
       return null;

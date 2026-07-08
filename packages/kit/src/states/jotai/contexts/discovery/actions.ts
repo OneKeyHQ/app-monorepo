@@ -85,6 +85,7 @@ function loggerForEmptyData(tabs: IWebTab[], fnName: string) {
 // `Math.round((a + b) / 2)`, so a 1ms gap collapses to the neighbor and
 // produces duplicate timestamps that destabilize sort order.
 const TOP_POSITION_TIMESTAMP_GAP = 1000;
+const BROWSER_DATA_READY_WAITER_TIMEOUT_MS = 10_000;
 
 // Lowest timestamp among unpinned tabs; callers subtract a gap to sort above them.
 function getMinUnpinnedTimestamp(tabs: IWebTab[], excludeId?: string) {
@@ -325,56 +326,57 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     }
 
     let waiter = get(browserDataReadyWaiterAtom());
-    let shouldHydrate = false;
-    if (!waiter) {
-      let resolveReady: () => void = () => undefined;
-      const promise = new Promise<void>((resolve) => {
-        resolveReady = resolve;
-      });
-      waiter = {
-        promise,
-        resolve: resolveReady,
-        hydrating: true,
-      };
-      set(browserDataReadyWaiterAtom(), waiter);
-      shouldHydrate = true;
-    } else if (!waiter.hydrating) {
-      waiter = {
-        ...waiter,
-        hydrating: true,
-      };
-      set(browserDataReadyWaiterAtom(), waiter);
-      shouldHydrate = true;
+    if (
+      waiter &&
+      Date.now() - waiter.startedAt > BROWSER_DATA_READY_WAITER_TIMEOUT_MS
+    ) {
+      waiter.resolve();
+      set(browserDataReadyWaiterAtom(), null);
+      waiter = null;
     }
 
-    if (shouldHydrate) {
-      try {
-        const tabsData =
-          await backgroundApiProxy.simpleDb.browserTabs.getRawData();
-        if (get(browserDataReadyAtom())) {
-          return true;
-        }
-        const currentWaiter = get(browserDataReadyWaiterAtom());
-        if (currentWaiter !== waiter) {
-          waiter.resolve();
-          if (currentWaiter) {
-            await currentWaiter.promise;
-          }
-          return get(browserDataReadyAtom());
-        }
-        const tabs = tabsData?.tabs ?? [];
-        this.buildWebTabs.call(set, {
-          data: tabs,
-          options: { isInitFromStorage: true },
-        });
-        this.setBrowserDataReady.call(set);
-      } catch {
-        if (get(browserDataReadyWaiterAtom()) === waiter) {
-          set(browserDataReadyWaiterAtom(), null);
-          waiter.resolve();
-        }
-        return false;
+    if (waiter) {
+      await waiter.promise;
+      return get(browserDataReadyAtom());
+    }
+
+    let resolveReady: () => void = () => undefined;
+    const promise = new Promise<void>((resolve) => {
+      resolveReady = resolve;
+    });
+    waiter = {
+      promise,
+      resolve: resolveReady,
+      startedAt: Date.now(),
+    };
+    set(browserDataReadyWaiterAtom(), waiter);
+
+    try {
+      const tabsData =
+        await backgroundApiProxy.simpleDb.browserTabs.getRawData();
+      if (get(browserDataReadyAtom())) {
+        return true;
       }
+      const currentWaiter = get(browserDataReadyWaiterAtom());
+      if (currentWaiter !== waiter) {
+        waiter.resolve();
+        if (currentWaiter) {
+          await currentWaiter.promise;
+        }
+        return get(browserDataReadyAtom());
+      }
+      const tabs = tabsData?.tabs ?? [];
+      this.buildWebTabs.call(set, {
+        data: tabs,
+        options: { isInitFromStorage: true, persist: false },
+      });
+      this.setBrowserDataReady.call(set);
+    } catch {
+      if (get(browserDataReadyWaiterAtom()) === waiter) {
+        set(browserDataReadyWaiterAtom(), null);
+        waiter.resolve();
+      }
+      return false;
     }
 
     await waiter.promise;
@@ -391,7 +393,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           forceUpdate?: boolean;
           isInitFromStorage?: boolean;
           // Defaults to Debounced to preserve existing caller behavior.
-          persist?: EBrowserTabPersistMode;
+          persist?: EBrowserTabPersistMode | false;
         };
       },
     ) => {
@@ -418,6 +420,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
       set(webTabsMapAtom(), () => result.map);
       loggerForEmptyData(result.data, 'buildWebTabs->saveToSimpleDB');
+      if (options?.persist === false) {
+        return;
+      }
       if (options?.persist === EBrowserTabPersistMode.Immediate) {
         // Cancel any pending trailing debounced write so it cannot later
         // overwrite this authoritative snapshot, then persist immediately.

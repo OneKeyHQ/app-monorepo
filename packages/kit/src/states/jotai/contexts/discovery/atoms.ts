@@ -11,7 +11,7 @@ import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 type IBrowserDataReadyWaiter = {
   promise: Promise<void>;
   resolve: () => void;
-  hydrating?: boolean;
+  startedAt: number;
 };
 
 const {

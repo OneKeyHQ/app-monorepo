@@ -33,7 +33,10 @@ export function HandleRebuildBrowserData() {
     defaultLogger.discovery.browser.setTabsDataFunctionName(
       'setTabsInitializeLock-> true',
     );
-    buildWebTabs({ data: tabs, options: { isInitFromStorage: true } });
+    buildWebTabs({
+      data: tabs,
+      options: { isInitFromStorage: true, persist: false },
+    });
 
     // // Bookmarks
     // const bookmarks = bookmarksData?.data || [];

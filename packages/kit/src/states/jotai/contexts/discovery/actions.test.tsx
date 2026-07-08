@@ -242,7 +242,7 @@ function createWrapper({
   browserDataReadyWaiter?: {
     promise: Promise<void>;
     resolve: () => void;
-    hydrating?: boolean;
+    startedAt: number;
   } | null;
 } = {}) {
   const tabs = tabsValue.map((tab) => ({ ...tab }));
@@ -1240,7 +1240,7 @@ describe('useBrowserTabActions', () => {
     );
   });
 
-  it('recovers a stale desktop browser data waiter before opening a search result', async () => {
+  it('recovers a timed-out desktop browser data waiter before opening a search result', async () => {
     Object.assign(platformEnv, {
       isDesktop: true,
       isNative: false,
@@ -1281,6 +1281,7 @@ describe('useBrowserTabActions', () => {
           browserDataReadyWaiter: {
             promise: staleReady.promise,
             resolve: () => staleReady.resolve(),
+            startedAt: 0,
           },
         }),
       },
@@ -1427,6 +1428,51 @@ describe('useBrowserTabActions', () => {
     expect(secondResult).toBe(true);
     expect(result.current.browserDataReady).toBe(true);
     expect(mockGetBrowserTabsRawData).toHaveBeenCalledTimes(2);
+  });
+
+  it('hydrates stored browser tabs without persisting the stored snapshot', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+    mockGetBrowserTabsRawData.mockResolvedValueOnce({ tabs: tabsFixture });
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserTabActions().current;
+        const [browserDataReady] = useBrowserDataReadyAtom();
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          browserDataReady,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: [],
+          activeTabId: null,
+          browserDataReady: false,
+        }),
+      },
+    );
+
+    let hydrationResult = false;
+    await act(async () => {
+      hydrationResult = await result.current.actions.ensureBrowserDataReady();
+      await flushMicrotasks(5);
+    });
+
+    expect(hydrationResult).toBe(true);
+    expect(result.current.browserDataReady).toBe(true);
+    expect(result.current.tabs.map((tab) => tab.id)).toEqual([
+      'tab-1',
+      'tab-2',
+    ]);
+    expect(mockGetBrowserTabsRawData).toHaveBeenCalledTimes(1);
+    expect(mockSetBrowserTabsRawData).not.toHaveBeenCalled();
   });
 
   it('does not overwrite ready browser tabs with a stale stored snapshot when the desktop browser page mounts', async () => {
