@@ -546,19 +546,24 @@ const PositionRowDesktopTPSL = memo(
               </SizableText>
             </XStack>
           ) : (
-            <XStack alignItems="center" gap="$1" cursor="default">
+            <XStack
+              alignItems="center"
+              gap="$1"
+              cursor="default"
+              onPress={onSetTpsl}
+            >
               <IconButton
                 testID="perp-icon-btn"
                 variant="tertiary"
-                size="small"
+                size="medium"
                 icon="HighlightOutline"
-                iconSize="$3"
+                iconSize="$3.5"
                 onPress={onSetTpsl}
               />
               <SizableText
                 numberOfLines={1}
                 ellipsizeMode="tail"
-                size="$bodySm"
+                size="$bodySmMedium"
               >
                 {tpslInfo.tpsl}
               </SizableText>
@@ -836,7 +841,7 @@ const PositionRowMobilePnLAndROE = memo(
               id: ETranslations.perp_position_pnl_mobile,
             })}
           </SizableText>
-          <SizableText size="$bodyMdMedium" color={otherInfo.pnlColor}>
+          <SizableText size="$bodyLgMedium" color={otherInfo.pnlColor}>
             {`${otherInfo.pnlPlusOrMinus}${otherInfo.unrealizedPnl}`}
           </SizableText>
         </YStack>
@@ -846,7 +851,7 @@ const PositionRowMobilePnLAndROE = memo(
               id: ETranslations.perp_share_roe,
             })}
           </SizableText>
-          <SizableText size="$bodyMdMedium" color={otherInfo.pnlColor}>
+          <SizableText size="$bodyLgMedium" color={otherInfo.pnlColor}>
             {`${otherInfo.pnlPlusOrMinus}${otherInfo.roiPercent}%`}
           </SizableText>
         </YStack>
@@ -871,7 +876,7 @@ const PositionRowMobilePositionSize = memo(
     const intl = useIntl();
 
     return (
-      <YStack gap="$1" width={120} position="relative">
+      <YStack gap="$1" flex={1.35} position="relative">
         <XStack
           alignItems="center"
           gap="$1"
@@ -891,7 +896,7 @@ const PositionRowMobilePositionSize = memo(
           <Icon name="RepeatOutline" size="$3" color="$textSubdued" />
         </XStack>
         <XStack alignItems="center" gap="$1">
-          <SizableText size="$bodySmMedium">
+          <SizableText size="$bodyMdMedium">
             {isSizeViewChange
               ? `$${sizeInfo.sizeValue}`
               : sizeInfo.sizeAbsFormatted}
@@ -916,14 +921,14 @@ const PositionRowMobileMargin = memo(
     const intl = useIntl();
 
     return (
-      <YStack gap="$1" flex={1} alignItems="center" position="relative">
+      <YStack gap="$1" flex={0.65} alignItems="flex-start" position="relative">
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.perp_position_margin,
           })}
         </SizableText>
         <XStack alignItems="center" gap="$1">
-          <SizableText size="$bodySmMedium">
+          <SizableText size="$bodyMdMedium">
             {`${otherInfo.marginUsedFormatted}`}
           </SizableText>
           {isIsolatedMode ? (
@@ -949,13 +954,13 @@ const PositionRowMobileEntryPrice = memo(
     const intl = useIntl();
 
     return (
-      <YStack gap="$1" width={120} alignItems="flex-end" position="relative">
+      <YStack gap="$1" flex={1} alignItems="flex-end" position="relative">
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.perp_position_entry_price,
           })}
         </SizableText>
-        <SizableText size="$bodySmMedium">
+        <SizableText size="$bodyMdMedium">
           {priceInfo.entryPriceFormatted}
         </SizableText>
       </YStack>
@@ -974,7 +979,7 @@ const PositionRowMobileFunding = memo(
   }) => {
     const intl = useIntl();
     return (
-      <YStack gap="$1" width={120} position="relative">
+      <YStack gap="$1" flex={1.35} position="relative">
         <Popover
           title={intl.formatMessage({
             id: ETranslations.perp_position_funding_2,
@@ -1066,7 +1071,7 @@ const PositionRowMobileFunding = memo(
         />
 
         <SizableText
-          size="$bodySmMedium"
+          size="$bodyMdMedium"
           color={otherInfo.fundingSinceOpenColor}
         >
           {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}
@@ -1102,13 +1107,13 @@ const PositionRowMobileTPSL = memo(({ coin }: { coin: string }) => {
   }, [currentAssetOpenOrders]);
 
   return (
-    <YStack gap="$1" flex={1} alignItems="center" position="relative">
+    <YStack gap="$1" flex={0.65} alignItems="flex-start" position="relative">
       <SizableText size="$bodySm" color="$textSubdued">
         {intl.formatMessage({
           id: ETranslations.perp_position_tp_sl,
         })}
       </SizableText>
-      <SizableText size="$bodySmMedium" numberOfLines={1}>
+      <SizableText size="$bodyMdMedium" numberOfLines={1}>
         {tpslInfo.tpsl}
       </SizableText>
     </YStack>
@@ -1124,13 +1129,13 @@ const PositionRowMobileMarkPrice = memo(({ coin }: { coin: string }) => {
   });
 
   return (
-    <YStack gap="$1" flex={1} alignItems="center" position="relative">
+    <YStack gap="$1" flex={0.65} alignItems="flex-start" position="relative">
       <SizableText size="$bodySm" color="$textSubdued">
         {intl.formatMessage({
           id: ETranslations.perp_position_mark_price,
         })}
       </SizableText>
-      <SizableText size="$bodySmMedium" numberOfLines={1}>
+      <SizableText size="$bodyMdMedium" numberOfLines={1}>
         {midFormattedByDecimals || '--'}
       </SizableText>
     </YStack>
@@ -1142,13 +1147,13 @@ const PositionRowMobileLiqPrice = memo(
   ({ priceInfo }: { priceInfo: IPriceInfo }) => {
     const intl = useIntl();
     return (
-      <YStack gap="$1" width={120} alignItems="flex-end" position="relative">
+      <YStack gap="$1" flex={1} alignItems="flex-end" position="relative">
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.perp_position_liq_price,
           })}
         </SizableText>
-        <SizableText size="$bodySmMedium">
+        <SizableText size="$bodyMdMedium">
           {priceInfo.liquidationPriceFormatted}
         </SizableText>
       </YStack>

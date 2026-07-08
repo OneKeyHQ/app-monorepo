@@ -30,7 +30,10 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
-import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  numberFormat,
+  toBigIntHex,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IFeeAlgo,
@@ -131,7 +134,7 @@ const usePerpDeposit = (
           perpsAccount?.addressDetail?.normalizedAddress ||
           perpsAccount?.addressDetail?.address ||
           perpsAccount?.address,
-        perpsDeriveType: perpsDeriveType,
+        perpsDeriveType,
       };
     } catch {
       return {};
@@ -154,16 +157,19 @@ const usePerpDeposit = (
       skipToast?: boolean;
     }) => {
       if (!skipToast) {
+        const formattedAmount = numberFormat(fromAmount, {
+          formatter: 'balance',
+        });
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.feedback_transaction_submitted,
           }),
           message: intl.formatMessage(
             {
-              id: ETranslations.perp_toast_deposit_success_msg,
+              id: ETranslations.perp_toast_deposit_success_eta_one_minute__msg,
             },
             {
-              amount: fromAmount,
+              amount: formattedAmount,
               token: fromToken?.symbol,
             },
           ),
