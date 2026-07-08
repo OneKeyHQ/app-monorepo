@@ -196,6 +196,6 @@ When adding or changing a message:
 
 ## Verification
 
-- App-only bridge change: run the relevant TypeScript/lint command for touched files; before commit use `yarn lint:staged` and `yarn tsc:staged`.
+- App-only bridge change: run the relevant TypeScript/lint command for touched files; before commit use `yarn agent:check --profile commit`.
 - Chart repo change: run `npm run build` or `yarn build` from the chart repo root; run `npm run lint` or `yarn lint` when touching lint-sensitive code.
 - For local manual testing, enable "use local TradingView URL" in dev settings and run chart dev server on `localhost:5173` (`10.0.2.2:5173` for Android emulator).

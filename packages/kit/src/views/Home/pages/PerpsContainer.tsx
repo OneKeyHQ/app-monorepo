@@ -31,7 +31,6 @@ import {
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useNavigateToMarketTab } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
-import { PriceChangeBadge } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/PriceChangeBadge';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import {
   perpsPendingInfoPanelTabAtom,
@@ -91,6 +90,11 @@ const HOT_MARKETS_DESKTOP_GRID: React.CSSProperties = {
 const noop = () => undefined;
 type IPerpsTradeMode = 'perp' | 'spot';
 type IPerpsInfoPanelTab = 'Positions' | 'Balances';
+const VALUE_FORMATTER: INumberFormatProps['formatter'] = 'value';
+const VALUE_FORMATTER_OPTIONS: INumberFormatProps['formatterOptions'] = {
+  currency: '$',
+};
+const BALANCE_FORMATTER: INumberFormatProps['formatter'] = 'balance';
 
 function isTradableSpotHolding(holding: IPerpsHomeHolding) {
   return Boolean(
@@ -615,6 +619,9 @@ function PerpsEmptyRecommendSection() {
           $gtMd={{ display: 'flex' }}
           size="small"
           variant="tertiary"
+          color="$textSubdued"
+          iconAfter="ChevronRightSmallOutline"
+          iconProps={{ color: '$iconSubdued' }}
           testID={HomeTestIDs.popularViewMoreBtn}
           onPress={() =>
             navigateToMarketTab({
@@ -623,14 +630,8 @@ function PerpsEmptyRecommendSection() {
             })
           }
           cursor="pointer"
-          childrenAsText={false}
         >
-          <XStack alignItems="center" gap="$1.5">
-            <SizableText size="$bodySmMedium">
-              {intl.formatMessage({ id: ETranslations.global_view_more })}
-            </SizableText>
-            <Icon name="ChevronRightSmallOutline" size="$4" />
-          </XStack>
+          {intl.formatMessage({ id: ETranslations.global_view_more })}
         </Button>
       </XStack>
       <YStack display="none" $gtMd={{ display: 'flex' }}>
@@ -782,81 +783,98 @@ function PerpsEmptyRecommendSection() {
         ))}
       </YStack>
       <YStack display="flex" $gtMd={{ display: 'none' }}>
-        {displayTokens.map((token) => (
-          <Stack key={token.name}>
-            <XStack
-              hoverStyle={{ bg: '$bgHover' }}
-              pressStyle={{ bg: '$bgActive' }}
-              onPress={() => openPerp(token.name, 'perp', false)}
-              cursor="pointer"
-              role="button"
-              borderRadius="$3"
-              mx="$-3"
-              px="$3"
-              py="$3"
-              alignItems="center"
-              alignSelf="stretch"
-            >
-              <XStack flex={1} alignItems="center" gap="$3" minWidth={0}>
-                <Token
-                  size="md"
-                  borderRadius="$full"
-                  tokenImageUri={token.tokenImageUrl}
-                  fallbackIcon="CryptoCoinOutline"
-                />
-                <YStack flex={1} minWidth={0}>
-                  <XStack
-                    alignItems="center"
-                    gap="$1"
-                    minWidth={0}
-                    overflow="hidden"
+        {displayTokens.map((token) => {
+          const hasChange24hPercent =
+            token.change24hPercent !== undefined &&
+            token.change24hPercent !== null;
+          let change24hPercentColor = '$textSubdued';
+          if (hasChange24hPercent) {
+            change24hPercentColor =
+              token.change24hPercent >= 0 ? '$textSuccess' : '$textCritical';
+          }
+          return (
+            <Stack key={token.name}>
+              <XStack
+                hoverStyle={{ bg: '$bgHover' }}
+                pressStyle={{ bg: '$bgActive' }}
+                onPress={() => openPerp(token.name, 'perp', false)}
+                cursor="pointer"
+                role="button"
+                borderRadius="$3"
+                mx="$-3"
+                px="$3"
+                py="$3"
+                alignItems="center"
+                alignSelf="stretch"
+              >
+                <XStack flex={1} alignItems="center" gap="$3" minWidth={0}>
+                  <Token
+                    size="md"
+                    borderRadius="$full"
+                    tokenImageUri={token.tokenImageUrl}
+                    fallbackIcon="CryptoCoinOutline"
+                  />
+                  <YStack flex={1} minWidth={0}>
+                    <XStack
+                      alignItems="center"
+                      gap="$1"
+                      minWidth={0}
+                      overflow="hidden"
+                    >
+                      <SizableText
+                        size="$bodyLgMedium"
+                        numberOfLines={1}
+                        flexShrink={1}
+                        ellipsizeMode="tail"
+                        userSelect="none"
+                      >
+                        {token.displayName}
+                      </SizableText>
+                      <LeverageBadge leverage={token.maxLeverage} />
+                    </XStack>
+                    <XStack alignItems="center" gap="$1" minWidth={0}>
+                      {token.subtitle ? (
+                        <SubtitleText subtitle={token.subtitle} />
+                      ) : null}
+                      <NumberSizeableText
+                        size="$bodyMd"
+                        color="$textSubdued"
+                        numberOfLines={1}
+                        flexShrink={0}
+                        formatter="marketCap"
+                        formatterOptions={{ currency: '$' }}
+                        userSelect="none"
+                      >
+                        {token.volume24h ?? '0'}
+                      </NumberSizeableText>
+                    </XStack>
+                  </YStack>
+                </XStack>
+
+                <YStack alignItems="flex-end">
+                  <NumberSizeableText
+                    userSelect="none"
+                    flexShrink={1}
+                    numberOfLines={1}
+                    size="$bodyLgMedium"
+                    formatter="price"
+                    formatterOptions={{ currency: '$' }}
                   >
-                    <SizableText
-                      size="$bodyLgMedium"
-                      numberOfLines={1}
-                      flexShrink={1}
-                      ellipsizeMode="tail"
-                      userSelect="none"
-                    >
-                      {token.displayName}
-                    </SizableText>
-                    <LeverageBadge leverage={token.maxLeverage} />
-                  </XStack>
-                  <XStack alignItems="center" gap="$1" minWidth={0}>
-                    {token.subtitle ? (
-                      <SubtitleText subtitle={token.subtitle} />
-                    ) : null}
-                    <NumberSizeableText
-                      size="$bodyMd"
-                      color="$textSubdued"
-                      numberOfLines={1}
-                      flexShrink={0}
-                      formatter="marketCap"
-                      formatterOptions={{ currency: '$' }}
-                      userSelect="none"
-                    >
-                      {token.volume24h ?? '0'}
-                    </NumberSizeableText>
-                  </XStack>
+                    {token.markPrice ?? '-'}
+                  </NumberSizeableText>
+                  <NumberSizeableText
+                    size="$bodyMd"
+                    color={change24hPercentColor}
+                    formatter="priceChange"
+                    formatterOptions={{ showPlusMinusSigns: true }}
+                  >
+                    {token.change24hPercent ?? '-'}
+                  </NumberSizeableText>
                 </YStack>
               </XStack>
-
-              <XStack alignItems="center" gap="$2">
-                <NumberSizeableText
-                  userSelect="none"
-                  flexShrink={1}
-                  numberOfLines={1}
-                  size="$bodyLgMedium"
-                  formatter="price"
-                  formatterOptions={{ currency: '$' }}
-                >
-                  {token.markPrice ?? '0'}
-                </NumberSizeableText>
-                <PriceChangeBadge change={token.change24hPercent ?? 0} />
-              </XStack>
-            </XStack>
-          </Stack>
-        ))}
+            </Stack>
+          );
+        })}
         <XStack
           px="$0"
           pt="$2"
@@ -1341,13 +1359,14 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
         ? ETranslations.perp_trade_cross
         : ETranslations.perp_trade_isolated,
   });
-  // priceChange formatter is fixed at 2 decimals; PositionsRow shows ROE at 1.
   const roiPercent = new BigNumber(position.roi).times(100).abs().toFixed(1);
   const displayCoin = parseDexCoin(position.coin).displayName;
   const positionSizeUsd = new BigNumber(position.sizeCoin)
     .times(position.markPx)
     .abs()
     .toFixed();
+  const fundingAmount = new BigNumber(position.fundingUsd).abs().toFixed();
+  const hasLiquidationPrice = !new BigNumber(position.liqPx || '0').isZero();
 
   return (
     <YStack
@@ -1428,8 +1447,10 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
           <PerpsMetric
             labelId={ETranslations.perp_position_pnl_mobile}
             value={new BigNumber(position.pnlUsd).abs().toFixed()}
-            formatter="value"
-            formatterOptions={{ currency: position.pnlUsd < 0 ? '-$' : '+$' }}
+            formatter={VALUE_FORMATTER}
+            formatterOptions={{
+              currency: position.pnlUsd < 0 ? '-$' : '+$',
+            }}
             positive={position.pnlUsd >= 0}
             negative={position.pnlUsd < 0}
             emphasis
@@ -1450,15 +1471,14 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
               labelId={ETranslations.perp_position_position_size}
               labelExtra=" (USDC)"
               value={positionSizeUsd}
-              formatter="value"
-              formatterOptions={{ currency: '$' }}
+              formatter={BALANCE_FORMATTER}
               column="left"
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_margin}
               value={position.marginUsd}
-              formatter="value"
-              formatterOptions={{ currency: '$' }}
+              formatter={VALUE_FORMATTER}
+              formatterOptions={VALUE_FORMATTER_OPTIONS}
               column="center"
             />
             <PerpsMetric
@@ -1475,8 +1495,8 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
             {/* fundingUsd > 0 = paid -> red '-$' (mirrors PositionsRow) */}
             <PerpsMetric
               labelId={ETranslations.perp_position_funding_2}
-              value={new BigNumber(position.fundingUsd).abs().toFixed()}
-              formatter="value"
+              value={fundingAmount}
+              formatter={VALUE_FORMATTER}
               formatterOptions={{
                 currency: position.fundingUsd > 0 ? '-$' : '+$',
               }}
@@ -1493,9 +1513,11 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_liq_price}
-              value={position.liqPx || 'N/A'}
-              formatter={position.liqPx ? 'price' : undefined}
-              formatterOptions={position.liqPx ? { currency: '$' } : undefined}
+              value={hasLiquidationPrice ? position.liqPx || '0' : 'N/A'}
+              formatter={hasLiquidationPrice ? 'price' : undefined}
+              formatterOptions={
+                hasLiquidationPrice ? { currency: '$' } : undefined
+              }
               align="right"
               column="right"
             />
