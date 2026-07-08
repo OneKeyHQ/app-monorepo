@@ -171,6 +171,8 @@ export function FirmwareUpdateCheckList({
                     );
                   }
 
+                  const trackingInfo =
+                    await backgroundApiProxy.serviceFirmwareUpdate.getUpdateWorkflowTrackingInfo();
                   defaultLogger.update.firmware.firmwareUpdateResult({
                     deviceType: result?.deviceType,
                     transportType: hardwareTransportType,
@@ -179,6 +181,8 @@ export function FirmwareUpdateCheckList({
                     fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
                     toFirmwareType: updateFirmwareInfo?.toFirmwareType,
                     status: 'success',
+                    retryCount: trackingInfo.retryCount,
+                    durationMs: trackingInfo.durationMs,
                   });
 
                   const { fromFirmwareType, toFirmwareType } =
@@ -206,6 +210,8 @@ export function FirmwareUpdateCheckList({
                       error: err,
                     },
                   });
+                  const trackingInfo =
+                    await backgroundApiProxy.serviceFirmwareUpdate.getUpdateWorkflowTrackingInfo();
                   defaultLogger.update.firmware.firmwareUpdateResult({
                     deviceType: result?.deviceType,
                     transportType: hardwareTransportType,
@@ -216,6 +222,8 @@ export function FirmwareUpdateCheckList({
                     status: 'failed',
                     errorCode: err?.code,
                     errorMessage: err?.message,
+                    retryCount: trackingInfo.retryCount,
+                    durationMs: trackingInfo.durationMs,
                   });
                 } finally {
                   setWorkflowIsRunning(false);

@@ -83,6 +83,24 @@ export class FirmwareScene extends BaseScene {
     return params;
   }
 
+  /**
+   * Track each real update-task failure (before user retry), so attempt-level
+   * failure rate can be measured even when a later retry succeeds
+   */
+  @LogToServer()
+  @LogToLocal()
+  public firmwareUpdateFailedAttempt(params: {
+    deviceType: IDeviceType | undefined;
+    transportType: EHardwareTransportType | undefined;
+    updateFlow: 'v1' | 'v2';
+    firmwareVersions: IFirmwareVersions;
+    attempt: number;
+    errorCode?: string;
+    errorMessage?: string;
+  }) {
+    return params;
+  }
+
   @LogToServer()
   @LogToLocal()
   public firmwareUpdateResult(params: {
@@ -95,6 +113,8 @@ export class FirmwareScene extends BaseScene {
     status: 'success' | 'failed';
     errorCode?: string;
     errorMessage?: string;
+    retryCount?: number;
+    durationMs?: number;
   }) {
     return params;
   }
