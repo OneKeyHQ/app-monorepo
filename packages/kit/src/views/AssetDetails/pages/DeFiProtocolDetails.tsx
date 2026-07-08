@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { type RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -16,6 +16,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { DEFI_PORTFOLIO_DETAIL_POSITION_NAME_COLOR } from '@onekeyhq/kit/src/components/DeFi/defiPortfolioDetailStyleUtils';
 import { DeFiPositionHealthFactorRow } from '@onekeyhq/kit/src/components/DeFi/DeFiPositionHealthFactorRow';
+import { preloadProtocolLendingActionDialog } from '@onekeyhq/kit/src/components/DeFi/ProtocolLendingActionDialog';
 import {
   type IProtocolPositionProviderDisplayInfo,
   ProtocolPositionActionButton,
@@ -157,6 +158,14 @@ function DeFiProtocolDetails() {
       }),
     [intl, protocol],
   );
+  const shouldPreloadProtocolLendingActionDialog =
+    positions.some(isSectionedPosition);
+  useEffect(() => {
+    if (shouldPreloadProtocolLendingActionDialog) {
+      preloadProtocolLendingActionDialog();
+    }
+  }, [shouldPreloadProtocolLendingActionDialog]);
+
   const protocolDisplayInfo = useMemo(
     () =>
       buildProtocolDisplayInfo({
