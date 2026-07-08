@@ -359,6 +359,10 @@ function getReviewState(view) {
   );
 }
 
+function isHardBlockedMergeState(value) {
+  return String(value || '').toUpperCase() === 'DIRTY';
+}
+
 function getThreads(graphqlData) {
   const connection = getThreadConnection(graphqlData);
   return connection.nodes || [];
@@ -653,8 +657,7 @@ query($owner: String!, $repo: String!, $pr: Int!) {
     view.data.mergeStateStatus || '',
   ).toUpperCase();
   const hasDraft = Boolean(view.data.isDraft);
-  const hasMergeBlocked =
-    mergeStateStatus && !['CLEAN', 'HAS_HOOKS'].includes(mergeStateStatus);
+  const hasMergeBlocked = isHardBlockedMergeState(mergeStateStatus);
   const hasFailures = checksSummary.failed.length > 0;
   const hasPending = checksSummary.pending.length > 0;
   const hasGateFailure = checksSummary.gateFailed.length > 0;
@@ -745,7 +748,7 @@ function failureReasons(report) {
     if (
       report.remote.pr &&
       report.remote.pr.mergeStateStatus &&
-      !['CLEAN', 'HAS_HOOKS'].includes(report.remote.pr.mergeStateStatus)
+      isHardBlockedMergeState(report.remote.pr.mergeStateStatus)
     ) {
       reasons.push('pr-merge-state-blocked');
     }

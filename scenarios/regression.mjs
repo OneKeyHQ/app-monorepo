@@ -310,95 +310,153 @@ async function runDappColdStartDesktop(cdpUrl, flags) {
   );
   const beforeTabCount = await browserTabs.count().catch(() => 0);
   const consoleErrors = [];
-  const collectError = (text) => {
-    if (/error|failed|exception|webview/i.test(text)) {
-      consoleErrors.push(text.split('\n')[0].slice(0, 240));
+  const attachedErrorPages = new WeakSet();
+  const collectError = (source, text) => {
+    const message = String(text || '')
+      .split('\n')[0]
+      .slice(0, 240);
+    if (message) {
+      consoleErrors.push(`${source}: ${message}`);
     }
   };
-  page.on('console', (message) => {
-    if (message.type() === 'error') collectError(message.text());
-  });
-  page.on('pageerror', (error) => collectError(error.message || String(error)));
+  const attachErrorListeners = (targetPage, source) => {
+    if (!targetPage || attachedErrorPages.has(targetPage)) return;
+    attachedErrorPages.add(targetPage);
+    targetPage.on('console', (message) => {
+      if (message.type() === 'error') collectError(source, message.text());
+    });
+    targetPage.on('pageerror', (error) =>
+      collectError(source, error.message || String(error)),
+    );
+  };
+  const captureOutcome = async (label, action) => {
+    try {
+      return { pass: true, value: await action(), detail: '' };
+    } catch (error) {
+      return {
+        pass: false,
+        value: null,
+        detail: `${label}: ${error?.message || String(error)}`,
+      };
+    }
+  };
+
+  attachErrorListeners(page, 'main');
+  for (const context of browser.contexts()) {
+    context.on('page', (candidate) => {
+      if (candidate !== page) attachErrorListeners(candidate, 'webview');
+    });
+  }
 
   log(`opening DApp URL ${targetUrl}`);
   const openMethod = await openDappFromDesktopUi(page, targetUrl);
 
-  const tabCreated = await waitForCondition(
-    'browser tab creation',
-    async () => {
+  const tabCreated = await captureOutcome('browser tab creation', () =>
+    waitForCondition('browser tab creation', async () => {
       const count = await browserTabs.count().catch(() => 0);
       return count > beforeTabCount ? count : 0;
-    },
+    }),
   );
 
-  const activeInputValues = await waitForCondition(
-    'active browser URL bar',
-    async () => {
-      const values = await getVisibleInputValues(
-        page,
-        'explore-index-search-input',
-      );
-      return values.some((value) => urlMatchesHost(value, expectedHost))
-        ? values
-        : null;
-    },
-    20_000,
+  const activeInputValues = await captureOutcome('active browser URL bar', () =>
+    waitForCondition(
+      'active browser URL bar',
+      async () => {
+        const values = await getVisibleInputValues(
+          page,
+          'explore-index-search-input',
+        );
+        return values.some((value) => urlMatchesHost(value, expectedHost))
+          ? values
+          : null;
+      },
+      20_000,
+    ),
   );
 
-  const webviewPage = await waitForCondition(
+  const webviewPage = await captureOutcome(
     'matching Electron webview target',
-    async () => {
-      const matches = findMatchingWebviewPages(browser, page, expectedHost);
-      return matches[0] ?? null;
-    },
-    35_000,
+    () =>
+      waitForCondition(
+        'matching Electron webview target',
+        async () => {
+          const matches = findMatchingWebviewPages(browser, page, expectedHost);
+          if (matches[0]) attachErrorListeners(matches[0], 'webview');
+          return matches[0] ?? null;
+        },
+        35_000,
+      ),
   );
 
-  await webviewPage
-    .waitForLoadState('domcontentloaded', { timeout: 20_000 })
-    .catch(() => {});
-  const webviewSnapshot = await waitForCondition(
-    'webview document readiness',
-    async () => {
-      const snapshot = await webviewPage.evaluate(() => ({
-        href: globalThis.location.href,
-        title: globalThis.document.title,
-        readyState: globalThis.document.readyState,
-        textLength: globalThis.document.body?.innerText?.trim().length ?? 0,
-      }));
-      const hasContent =
-        snapshot.readyState !== 'loading' &&
-        (snapshot.title.length > 0 || snapshot.textLength > 0);
-      return hasContent ? snapshot : null;
-    },
-    20_000,
-  );
+  let webviewSnapshot = {
+    pass: false,
+    value: null,
+    detail: webviewPage.detail || 'matching Electron webview target failed',
+  };
+  if (webviewPage.pass) {
+    await webviewPage.value
+      .waitForLoadState('domcontentloaded', { timeout: 20_000 })
+      .catch(() => {});
+    webviewSnapshot = await captureOutcome('webview document readiness', () =>
+      waitForCondition(
+        'webview document readiness',
+        async () => {
+          const snapshot = await webviewPage.value.evaluate(() => ({
+            href: globalThis.location.href,
+            title: globalThis.document.title,
+            readyState: globalThis.document.readyState,
+            textLength: globalThis.document.body?.innerText?.trim().length ?? 0,
+          }));
+          const hasContent =
+            snapshot.readyState !== 'loading' &&
+            (snapshot.title.length > 0 || snapshot.textLength > 0);
+          return hasContent ? snapshot : null;
+        },
+        20_000,
+      ),
+    );
+  }
 
   const checks = [
     {
       name: 'browser tab was created',
-      pass: tabCreated > beforeTabCount,
-      detail: `${beforeTabCount} -> ${tabCreated} via ${openMethod}`,
+      pass: tabCreated.pass && tabCreated.value > beforeTabCount,
+      detail: tabCreated.pass
+        ? `${beforeTabCount} -> ${tabCreated.value} via ${openMethod}`
+        : tabCreated.detail,
     },
     {
       name: 'active URL bar points at target host',
-      pass: activeInputValues.some((value) =>
-        urlMatchesHost(value, expectedHost),
-      ),
-      detail: activeInputValues.join(', '),
+      pass:
+        activeInputValues.pass &&
+        activeInputValues.value.some((value) =>
+          urlMatchesHost(value, expectedHost),
+        ),
+      detail: activeInputValues.pass
+        ? activeInputValues.value.join(', ')
+        : activeInputValues.detail,
     },
     {
       name: 'real Electron webview target loaded target host',
-      pass: urlMatchesHost(webviewSnapshot.href, expectedHost),
-      detail: webviewSnapshot.href,
+      pass:
+        webviewSnapshot.pass &&
+        urlMatchesHost(webviewSnapshot.value.href, expectedHost),
+      detail: webviewSnapshot.pass
+        ? webviewSnapshot.value.href
+        : webviewSnapshot.detail,
     },
     {
       name: 'webview document has rendered content',
-      pass: webviewSnapshot.title.length > 0 || webviewSnapshot.textLength > 0,
-      detail: `title="${webviewSnapshot.title}" textLength=${webviewSnapshot.textLength}`,
+      pass:
+        webviewSnapshot.pass &&
+        (webviewSnapshot.value.title.length > 0 ||
+          webviewSnapshot.value.textLength > 0),
+      detail: webviewSnapshot.pass
+        ? `title="${webviewSnapshot.value.title}" textLength=${webviewSnapshot.value.textLength}`
+        : webviewSnapshot.detail,
     },
     {
-      name: 'main renderer console has no captured DApp/webview errors',
+      name: 'main and webview renderers have no captured DApp errors',
       pass: consoleErrors.length === 0,
       detail: consoleErrors.slice(0, 3).join(' | '),
     },

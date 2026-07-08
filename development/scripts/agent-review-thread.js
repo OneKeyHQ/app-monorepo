@@ -492,7 +492,7 @@ function main() {
     const thread = selectThread(threads, args.thread);
     if (!thread) {
       throw new Error(
-        `Thread "${args.thread}" was not found among active unresolved threads.`,
+        `Thread "${args.thread}" was not found among unresolved threads.`,
       );
     }
 
