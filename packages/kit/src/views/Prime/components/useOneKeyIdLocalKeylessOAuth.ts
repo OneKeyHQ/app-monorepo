@@ -143,6 +143,13 @@ export function useOneKeyIdLocalKeylessOAuth({
         // previously persisted keyless session stays intact and no cleanup
         // is needed here.
         await assertTokenMatchesLocalKeylessWallet({ accessToken });
+        // No OneKey ID account-conflict check is needed before persisting
+        // here (unlike checkKeylessWalletCreatedOnServer): both hosts of
+        // this hook guarantee no live KeylessOAuth-backed OneKey ID login
+        // exists at this point — PrimeLoginOAuthDialog only renders after
+        // showOneKeyIdLoginDialog logged out / cleared the OneKey ID state,
+        // and OneKeyIdLegacyOAuthBind runs only for LegacyEmailSupabase-
+        // sourced logins, whose session does not live in the keyless slot.
         await persistKeylessOAuthSession({ accessToken, refreshToken });
       }
 

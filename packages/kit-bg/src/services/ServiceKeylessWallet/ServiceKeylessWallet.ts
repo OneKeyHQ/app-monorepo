@@ -3040,17 +3040,101 @@ class ServiceKeylessWallet extends ServiceBase {
     if (!context) {
       return null;
     }
-    const activeAccessToken =
-      await this.getActiveKeylessOAuthAccessTokenMatchingLocalWallet({
-        keylessWallet: context.keylessWallet,
-      });
+    // Read the raw active token first (instead of the wallet-matching
+    // helper, which returns null both for "slot empty" and "slot holds
+    // another account's session") so a non-matching session can be detected
+    // BEFORE the legacy migration below overwrites the shared session slot.
+    const activeAccessToken = await this.getActiveKeylessOAuthAccessToken();
     if (activeAccessToken) {
-      return activeAccessToken;
+      const mismatchReason =
+        await this.validateKeylessAccessTokenMatchesLocalWallet({
+          token: activeAccessToken,
+          keylessWallet: context.keylessWallet,
+        });
+      if (!mismatchReason) {
+        return activeAccessToken;
+      }
+      const authSessionSource =
+        await this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource();
+      if (authSessionSource === EPrimeAuthSessionSource.KeylessOAuth) {
+        // The non-matching session backs the live OneKey ID login. Migrating
+        // the legacy blob would setSession() over it and silently destroy
+        // that login (its refresh token rotates on use, so it is
+        // unrecoverable) while the Prime atom keeps showing the old account.
+        // Return null instead: the caller routes to the explicit
+        // OneKeyIDLogin page, where the account-conflict dialog resolves the
+        // situation with user consent.
+        return null;
+      }
+      // Residual non-matching session that backs nothing (source is not
+      // KeylessOAuth): keep the pre-existing behavior — the legacy migration
+      // below may overwrite it.
     }
     return this.migrateLegacyKeylessOAuthSessionForLocalWallet({
       keylessWallet: context.keylessWallet,
       ownerId: context.ownerId,
     });
+  }
+
+  /**
+   * Detect whether persisting an incoming keyless OAuth session would
+   * replace the session backing the live OneKey ID login with a DIFFERENT
+   * account's session. There is a single shared keyless session slot; when
+   * authSessionSource === KeylessOAuth, whatever session sits in that slot
+   * IS the OneKey ID identity, so overwriting it with another user's session
+   * causes cross-account token confusion (stale Prime atom + wrong tokens).
+   * UI flows must call this BEFORE persistKeylessOAuthSession and resolve a
+   * conflict by explicitly logging OneKey ID out (never the keyless wallet:
+   * OneKey ID is recoverable by re-login, wallet assets are not).
+   */
+  @backgroundMethod()
+  async getIncomingKeylessOAuthSessionConflictInfo(params: {
+    incomingAccessToken: string;
+  }): Promise<{
+    hasConflict: boolean;
+    currentOneKeyIdEmail: string;
+  }> {
+    const noConflict = { hasConflict: false, currentOneKeyIdEmail: '' };
+    const authSessionSource =
+      await this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource();
+    if (authSessionSource !== EPrimeAuthSessionSource.KeylessOAuth) {
+      return noConflict;
+    }
+    const isOneKeyIdLoggedIn =
+      await this.backgroundApi.servicePrime.isLoggedIn();
+    if (!isOneKeyIdLoggedIn) {
+      return noConflict;
+    }
+    // Identity comparison only needs the JWT claims, so read the slot
+    // session directly (bg runtime owns token refreshes) instead of the
+    // validity-buffered getActiveKeylessOAuthAccessToken(): a slot session
+    // that merely needs a refresh still identifies its user.
+    const { client } = getKeylessSupabaseClient();
+    const sessionResult = await client.auth.getSession();
+    const slotUserId = sessionResult.data?.session?.user?.id || '';
+    const decodedIncomingToken = stringUtils.decodeJWT(
+      params.incomingAccessToken,
+    ) as ISupabaseJWTPayload | null;
+    const incomingUserId = decodedIncomingToken?.sub || '';
+    if (!incomingUserId) {
+      // Cannot identify the incoming token; downstream validation rejects
+      // malformed tokens anyway, so don't block on it here.
+      return noConflict;
+    }
+    if (slotUserId && slotUserId === incomingUserId) {
+      return noConflict;
+    }
+    // Either the slot holds a different user's session, or a
+    // KeylessOAuth-backed login is active but the slot identity is
+    // unreadable: treat both as a conflict. The conservative path only shows
+    // a dialog whose confirm logs OneKey ID out cleanly — it never risks
+    // silently clobbering a live login.
+    const localUserInfo =
+      await this.backgroundApi.servicePrime.getLocalUserInfo();
+    return {
+      hasConflict: true,
+      currentOneKeyIdEmail: localUserInfo?.displayEmail || '',
+    };
   }
 
   @backgroundMethod()

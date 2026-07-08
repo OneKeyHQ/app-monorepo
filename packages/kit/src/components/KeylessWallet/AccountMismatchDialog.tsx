@@ -4,6 +4,8 @@ import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConst
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { getDisplayEmailOrUnknown } from '../OneKeyAuth/oneKeyIdDisplayEmailUtils';
+
 import type { IntlShape } from 'react-intl';
 
 /**
@@ -76,6 +78,62 @@ export function showAppleIDMismatchDialog(params: { intl: IntlShape }): void {
       </YStack>
     ),
     showFooter: false,
+  });
+}
+
+// Prevent stacking multiple conflict dialogs if concurrent flows race to
+// persist a keyless session (mirrors the isPinReminderDialogShowing pattern).
+let isOneKeyIdSessionConflictDialogShowing = false;
+
+/**
+ * Shown when a validated keyless OAuth session about to be persisted belongs
+ * to a DIFFERENT account than the one backing the live OneKey ID login
+ * (single shared keyless session slot — persisting would silently destroy
+ * that login). Resolves true when the user confirms; the CALLER must then
+ * log OneKey ID out (recoverable by re-login) and continue — the keyless
+ * wallet itself is NEVER logged out or removed. Resolves false on cancel or
+ * dismiss; the caller must abort without persisting anything.
+ */
+export async function showKeylessOneKeyIdSessionConflictDialog(params: {
+  intl: IntlShape;
+  currentOneKeyIdEmail: string;
+}): Promise<boolean> {
+  const { intl, currentOneKeyIdEmail } = params;
+  if (isOneKeyIdSessionConflictDialogShowing) {
+    return false;
+  }
+  isOneKeyIdSessionConflictDialogShowing = true;
+  const displayEmail = getDisplayEmailOrUnknown({
+    intl,
+    displayEmail: currentOneKeyIdEmail,
+  });
+  return new Promise<boolean>((resolve) => {
+    let isSettled = false;
+    const settle = (value: boolean) => {
+      if (!isSettled) {
+        isSettled = true;
+        isOneKeyIdSessionConflictDialogShowing = false;
+        resolve(value);
+      }
+    };
+    Dialog.show({
+      icon: 'ErrorOutline',
+      title: intl.formatMessage({
+        id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
+      }),
+      // TODO: i18n
+      description: `You are signed in to OneKey ID as ${displayEmail}, but this Keyless wallet is linked to a different account. Continuing will log out of OneKey ID (you can log in again later); the Keyless wallet stays untouched.`,
+      showCancelButton: true,
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_continue,
+      }),
+      onCancelText: intl.formatMessage({
+        id: ETranslations.global_cancel,
+      }),
+      onConfirm: () => settle(true),
+      onCancel: () => settle(false),
+      onClose: () => settle(false),
+    });
   });
 }
 

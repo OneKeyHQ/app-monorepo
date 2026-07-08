@@ -49,7 +49,10 @@ import { showOneKeyIdLegacyOAuthBindDialog } from '../../views/Prime/components/
 import { getDisplayEmailOrUnknown } from '../OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 
-import { showKeylessWalletAccountMismatchError } from './AccountMismatchDialog';
+import {
+  showKeylessOneKeyIdSessionConflictDialog,
+  showKeylessWalletAccountMismatchError,
+} from './AccountMismatchDialog';
 import {
   getPromotedSameEmailAccountStatusAfterAutoRetryRateLimit,
   isKeylessSameEmailAutoRetryRateLimitError,
@@ -376,6 +379,36 @@ export function useKeylessWallet() {
       await checkLoginMatchedKeylessWallet();
       if (isKeylessIdentityVerifyMode) {
         if (refreshToken) {
+          // The fresh session matches the local keyless wallet, but it may
+          // still belong to a DIFFERENT account than the one backing the
+          // live OneKey ID login (single shared keyless session slot).
+          // Detect that BEFORE persisting; on conflict the user must
+          // explicitly confirm logging OneKey ID out (recoverable by
+          // re-login) — the keyless wallet itself is never logged out here.
+          const { hasConflict, currentOneKeyIdEmail } =
+            await backgroundApiProxy.serviceKeylessWallet.getIncomingKeylessOAuthSessionConflictInfo(
+              {
+                incomingAccessToken: token,
+              },
+            );
+          if (hasConflict) {
+            const confirmed = await showKeylessOneKeyIdSessionConflictDialog({
+              intl,
+              currentOneKeyIdEmail,
+            });
+            if (!confirmed) {
+              // Abort without persisting: the active OneKey ID session and
+              // its keyless slot stay fully intact.
+              throw new OneKeyLocalError({
+                message: 'OneKey ID account switch cancelled by user',
+                autoToast: false,
+              });
+            }
+            // Log out OneKey ID while preserving the keyless wallet and its
+            // local auth artifacts (bg resets the Prime persist atom + auth
+            // session source; the atom change syncs to the main runtime).
+            await logout({ preserveLocalKeylessAuth: true });
+          }
           // Persist the fresh OAuth session only AFTER it passed validation,
           // so a wrong-account session can never replace the active keyless
           // session. Downstream consumers (auto apiOAuthLogin below, PIN
@@ -476,6 +509,7 @@ export function useKeylessWallet() {
       handleKeylessOnboardingTimeout,
       intl,
       keylessSupabaseSignOut,
+      logout,
       navigation,
       persistKeylessOAuthSession,
     ],
