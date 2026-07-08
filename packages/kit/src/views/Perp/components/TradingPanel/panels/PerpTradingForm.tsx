@@ -3075,7 +3075,7 @@ function PerpTradingForm({
               <XStack justifyContent="space-between">
                 <SizableText size="$bodySm" color="$textSubdued">
                   {intl.formatMessage({
-                    id: ETranslations.perp_trade_account_overview_available,
+                    id: ETranslations.perp_trade_account_overview_avbl,
                   })}
                 </SizableText>
                 <XStack alignItems="center" gap="$1">
