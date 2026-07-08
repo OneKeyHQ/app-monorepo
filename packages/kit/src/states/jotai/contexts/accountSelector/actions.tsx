@@ -1924,42 +1924,46 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         return;
       }
 
-      const allHwWallets =
-        await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
-          filterHiddenWallet: false,
-          filterQrWallet: true,
-        });
+      // Best-effort cleanup: callers run it after the wallet is already
+      // created + committed; a throw must never fail that success path.
+      try {
+        const allHwWallets =
+          await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+            filterHiddenWallet: false,
+            filterQrWallet: true,
+          });
 
-      const willUpdateDeprecateMap: Record<string, boolean> = {};
+        const willUpdateDeprecateMap: Record<string, boolean> = {};
 
-      for (const walletWithDevice of Object.values(allHwWallets)) {
-        const wallet = walletWithDevice.wallet;
-        const device = walletWithDevice.device;
+        for (const walletWithDevice of Object.values(allHwWallets)) {
+          const wallet = walletWithDevice.wallet;
+          const device = walletWithDevice.device;
 
-        if (wallet?.id && device?.connectId) {
-          const isSameConnectId =
-            device.connectId === connectId || device.bleConnectId === connectId;
-          const isSameDevice = device.deviceId === deviceId;
+          if (wallet?.id && device?.connectId) {
+            const isSameConnectId =
+              device.connectId === connectId ||
+              device.bleConnectId === connectId;
+            const isSameDevice = device.deviceId === deviceId;
 
-          // only handle wallet with same connectId
-          if (isSameConnectId) {
-            // if connectId is same, deviceId is different, the wallet should be deprecated
-            // if connectId is same, deviceId is same, the wallet should be not deprecated
-            const newDeprecatedStatus = !isSameDevice;
-            willUpdateDeprecateMap[wallet.id] = newDeprecatedStatus;
+            // only handle wallet with same connectId
+            if (isSameConnectId) {
+              // if connectId is same, deviceId is different, the wallet should be deprecated
+              // if connectId is same, deviceId is same, the wallet should be not deprecated
+              const newDeprecatedStatus = !isSameDevice;
+              willUpdateDeprecateMap[wallet.id] = newDeprecatedStatus;
+            }
           }
         }
-      }
 
-      console.log('updateHwWalletsDeprecatedStatus >>>> ', {
-        willUpdateDeprecateMap,
-      });
-      const result =
-        await backgroundApiProxy.serviceAccount.updateWalletsDeprecatedState({
-          willUpdateDeprecateMap,
-        });
-      if (result && Object.keys(willUpdateDeprecateMap).length > 0) {
-        appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+        const result =
+          await backgroundApiProxy.serviceAccount.updateWalletsDeprecatedState({
+            willUpdateDeprecateMap,
+          });
+        if (result && Object.keys(willUpdateDeprecateMap).length > 0) {
+          appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+        }
+      } catch (error) {
+        console.error('updateHwWalletsDeprecatedStatus failed:', error);
       }
     },
   );
