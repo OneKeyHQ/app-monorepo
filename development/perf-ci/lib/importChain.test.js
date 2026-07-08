@@ -230,8 +230,7 @@ describe('createStaticImportChainReport', () => {
     const reactNativeWebEntry = 'node_modules/react-native-web/dist/index.js';
     const fastImageMock =
       'development/module-resolver/react-native-fast-image-mock/index.js';
-    const reactAriaFocusEntry =
-      'node_modules/@react-aria/focus/src/index.ts';
+    const reactAriaFocusEntry = 'node_modules/@react-aria/focus/src/index.ts';
 
     writeFile(
       repoRoot,
@@ -249,16 +248,8 @@ describe('createStaticImportChainReport', () => {
       JSON.stringify({ main: 'dist/index.js' }),
     );
     writeFile(repoRoot, reactNativeWebEntry, 'export const View = null;');
-    writeFile(
-      repoRoot,
-      fastImageMock,
-      'module.exports = { default: null };',
-    );
-    writeFile(
-      repoRoot,
-      reactAriaFocusEntry,
-      'export const FocusScope = null;',
-    );
+    writeFile(repoRoot, fastImageMock, 'module.exports = { default: null };');
+    writeFile(repoRoot, reactAriaFocusEntry, 'export const FocusScope = null;');
 
     const report = createStaticImportChainReport({
       repoRoot,

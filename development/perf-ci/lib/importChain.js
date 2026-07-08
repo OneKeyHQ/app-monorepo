@@ -365,10 +365,7 @@ function createWebResolveAliases(repoRoot) {
     ],
     [
       '@react-aria/interactions',
-      path.join(
-        repoRoot,
-        'node_modules/@react-aria/interactions/src/index.ts',
-      ),
+      path.join(repoRoot, 'node_modules/@react-aria/interactions/src/index.ts'),
     ],
     [
       '@react-aria/ssr',
@@ -390,17 +387,19 @@ function applyResolveAlias({ repoRoot, specifier, aliases }) {
   for (const alias of aliases) {
     const isMatch = alias.exact
       ? specifier === alias.request
-      : specifier === alias.request || specifier.startsWith(`${alias.request}/`);
-    if (!isMatch) continue;
-    if (alias.replacement === false) return { ignored: true };
+      : specifier === alias.request ||
+        specifier.startsWith(`${alias.request}/`);
+    if (isMatch) {
+      if (alias.replacement === false) return { ignored: true };
 
-    const suffix = alias.exact ? '' : specifier.slice(alias.request.length);
-    const target = `${alias.replacement}${suffix}`;
-    return {
-      specifier: path.isAbsolute(target)
-        ? toPosixPath(path.relative(repoRoot, target))
-        : toPosixPath(target),
-    };
+      const suffix = alias.exact ? '' : specifier.slice(alias.request.length);
+      const target = `${alias.replacement}${suffix}`;
+      return {
+        specifier: path.isAbsolute(target)
+          ? toPosixPath(path.relative(repoRoot, target))
+          : toPosixPath(target),
+      };
+    }
   }
   return null;
 }
@@ -443,7 +442,9 @@ function resolveSpecifier({
         extensions,
       );
     }
-    const normalizedAliasPath = toPosixPath(path.posix.normalize(aliasSpecifier));
+    const normalizedAliasPath = toPosixPath(
+      path.posix.normalize(aliasSpecifier),
+    );
     const aliasPathResolved = tryResolveCandidate(
       normalizedAliasPath,
       candidateSet,
