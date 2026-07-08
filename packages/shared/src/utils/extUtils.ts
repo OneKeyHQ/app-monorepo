@@ -23,6 +23,7 @@ export const EXT_HTML_FILES = {
 // Chrome extension popups can have a maximum height of 600px and maximum width of 800px
 export const UI_HTML_DEFAULT_MIN_WIDTH = 375;
 export const UI_HTML_DEFAULT_MIN_HEIGHT = 670;
+const EXTENSION_EXPAND_TAB_POPUP_CLOSE_DELAY_MS = 100;
 
 export type IOpenUrlRouteInfo = {
   routes?: string | string[];
@@ -234,6 +235,12 @@ async function openExpandTab(
   const tab = await openUrlInTab(url, { tabId: expandTabId });
   expandTabId = tab?.id;
   return tab;
+}
+
+export function closeExtensionPopupAfterExpandTabOpen() {
+  if (platformEnv.isExtensionUiPopup) {
+    setTimeout(globalThis.close, EXTENSION_EXPAND_TAB_POPUP_CLOSE_DELAY_MS);
+  }
 }
 
 async function resetSidePanelPath() {

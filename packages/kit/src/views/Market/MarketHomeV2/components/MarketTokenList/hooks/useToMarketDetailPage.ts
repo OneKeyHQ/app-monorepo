@@ -22,6 +22,7 @@ import {
   ETabRoutes,
   type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
+import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import type { IMarketToken as IMarketHomeToken } from '../MarketTokenData';
@@ -49,8 +50,6 @@ interface IUseToDetailPageOptions {
    */
   showFavoriteButton?: boolean;
 }
-
-const EXTENSION_POPUP_CLOSE_DELAY_MS = 100;
 
 export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const navigation =
@@ -129,13 +128,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           ...params,
           from: params.from || enterSource,
         });
-        if (platformEnv.isExtensionUiPopup) {
-          // Keep the popup alive long enough for caller-side follow-up timers,
-          // such as recent-search persistence, to run before the page closes.
-          setTimeout(() => {
-            globalThis.close();
-          }, EXTENSION_POPUP_CLOSE_DELAY_MS);
-        }
+        closeExtensionPopupAfterExpandTabOpen();
       } else if (options?.switchToMarketTabFirst) {
         preparePreviewTokenDetail(item);
 
