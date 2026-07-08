@@ -1822,6 +1822,13 @@ function DepositWithdrawContent({
     silentlyRefreshDepositTokenBalances,
   ]);
 
+  useEffect(() => {
+    if (!isMobile || selectedAction !== 'deposit') {
+      return;
+    }
+    void import('./DepositSelectTokenModal');
+  }, [isMobile, selectedAction]);
+
   const closeDesktopTokenSelectorPage = useCallback(() => {
     setDesktopDepositPage('form');
   }, []);
@@ -1931,17 +1938,37 @@ function DepositWithdrawContent({
     }
 
     if (isArbitrumUsdcToken) {
-      return intl.formatMessage({
+      return `${intl.formatMessage({
+        id: ETranslations.perp_deposit_eta_one_minute__desc,
+      })} ${intl.formatMessage({
         id: ETranslations.perp_deposit_estimate_direct_arbitrum__desc,
-      });
+      })}`;
     }
 
     return `${intl.formatMessage({
+      id: ETranslations.perp_deposit_eta_one_minute__desc,
+    })} ${intl.formatMessage({
       id: ETranslations.perp_deposit_estimate_defi__desc,
     })} ${intl.formatMessage({
       id: ETranslations.perp_deposit_estimate_route_refresh__desc,
     })}`;
   }, [isArbitrumUsdcToken, intl, selectedAction]);
+
+  const shouldShowDepositEta = useMemo(
+    () =>
+      selectedAction === 'deposit' &&
+      !isDepositQuoteLoading &&
+      !!amount &&
+      amountBN.gt(0) &&
+      depositToAmount.canDeposit,
+    [
+      amount,
+      amountBN,
+      depositToAmount.canDeposit,
+      isDepositQuoteLoading,
+      selectedAction,
+    ],
+  );
 
   const depositEstimateHintTrigger = useMemo(
     () => (
@@ -2189,20 +2216,34 @@ function DepositWithdrawContent({
             {isDepositQuoteLoading ? (
               <Skeleton h="$4" w="$20" borderRadius="$1" />
             ) : (
-              <SizableText
-                size="$bodyLgMedium"
-                color="$text"
-                textAlign="right"
-                numberOfLines={1}
-                flexShrink={1}
-              >
-                {numberFormat(depositToAmount.value, {
-                  formatter: 'value',
-                  formatterOptions: {
-                    currency: PERPS_CURRENCY_SYMBOL,
-                  },
-                })}
-              </SizableText>
+              <YStack alignItems="flex-end" flexShrink={1}>
+                <SizableText
+                  size="$bodyLgMedium"
+                  color="$text"
+                  textAlign="right"
+                  numberOfLines={1}
+                  flexShrink={1}
+                >
+                  {numberFormat(depositToAmount.value, {
+                    formatter: 'value',
+                    formatterOptions: {
+                      currency: PERPS_CURRENCY_SYMBOL,
+                    },
+                  })}
+                </SizableText>
+                {shouldShowDepositEta ? (
+                  <SizableText
+                    size="$bodyXs"
+                    color="$textSubdued"
+                    textAlign="right"
+                    numberOfLines={2}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.perp_deposit_eta_one_minute__desc,
+                    })}
+                  </SizableText>
+                ) : null}
+              </YStack>
             )}
           </XStack>
           <Stack h="$px" bg="$borderSubdued" my="$1.5" />
@@ -2386,7 +2427,7 @@ function DepositWithdrawContent({
     );
   }
 
-  const content = isDesktopDepositSelectTokenPage ? (
+  const selectTokenContent = (
     <YStack flex={1} minHeight={0} height="100%" pt="$1">
       <DepositTokenSelectionContent
         symbol={PERPS_CURRENCY_SYMBOL}
@@ -2397,7 +2438,9 @@ function DepositWithdrawContent({
         hasLoaded={hasLoadedDepositTokenBalances}
       />
     </YStack>
-  ) : (
+  );
+
+  const formContent = (
     <YStack
       flex={1}
       height="100%"
@@ -2572,6 +2615,25 @@ function DepositWithdrawContent({
         </YStack>
       ) : null}
     </YStack>
+  );
+
+  const content = isDesktopDepositSelectTokenPage ? (
+    <YStack flex={1} minHeight={0} height="100%" position="relative">
+      <YStack
+        flex={1}
+        minHeight={0}
+        height="100%"
+        opacity={0}
+        pointerEvents="none"
+      >
+        {formContent}
+      </YStack>
+      <YStack position="absolute" top={0} right={0} bottom={0} left={0}>
+        {selectTokenContent}
+      </YStack>
+    </YStack>
+  ) : (
+    formContent
   );
 
   return (

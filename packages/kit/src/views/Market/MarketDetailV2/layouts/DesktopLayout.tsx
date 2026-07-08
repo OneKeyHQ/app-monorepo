@@ -46,7 +46,7 @@ const MARKET_CHART_FULLSCREEN_STYLE = {
   left: 0,
   top: 0,
   right: 0,
-  bottom: 0,
+  bottom: platformEnv.isWeb ? 40 : 0,
 } as const;
 const IFRAME_WHEEL_EVENT_TYPE = 'wheelEvent' as const;
 
