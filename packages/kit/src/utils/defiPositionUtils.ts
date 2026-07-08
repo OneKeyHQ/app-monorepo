@@ -599,19 +599,6 @@ function positionHasBorrowed(position: IProtocolPositionItem): boolean {
   );
 }
 
-// The inline action for a section sits under the asset it acts on: Withdraw
-// with supplied balances, Repay with borrowed debt, Claim with rewards. Shared
-// by the desktop sectioned table and the mobile/detail per-asset rows so both
-// place the same button against the same asset.
-export function getSectionActionPlacement(
-  assetType: IProtocolPositionSectionAssetType,
-): 'balance' | 'rewards' | 'debt' | undefined {
-  if (assetType === 'rewards') return 'rewards';
-  if (assetType === 'supplied' || assetType === 'other') return 'balance';
-  if (assetType === 'borrowed') return 'debt';
-  return undefined;
-}
-
 // A position renders as "sectioned" (Supplied/Borrowed/Rewards blocks, each
 // asset getting its own action) when it's lending or carries debt; otherwise
 // it's a compact "unified" position with a single position-level action.
