@@ -92,7 +92,6 @@ function DeviceBasicInfo({
   const [currentWalletId] = useCurrentWalletIdAtom();
   const [deviceMetaStatic] = useDeviceMetaStaticAtom();
   const [deviceMetaState] = useDeviceMetaStateAtom();
-  const [walletWithDevice] = useWalletWithDeviceAtom();
   const [refreshSettled] = useRefreshSettledAtom();
 
   const isQrWallet = accountUtils.isQrWallet({ walletId: currentWalletId });
@@ -122,14 +121,10 @@ function DeviceBasicInfo({
     [],
   );
 
-  // Skeleton the header while meta resolves (both load windows). Once refresh
-  // settled with no device, fall through to a visible degraded header so
-  // orphan/error never sticks on an exit-less skeleton.
-  if (
-    !isQrWallet &&
-    !deviceMetaState.isReady &&
-    (!refreshSettled || Boolean(walletWithDevice?.device))
-  ) {
+  // Skeleton only while the first refresh is still in flight. Once settled,
+  // fall through to the real (possibly degraded) header so a missing
+  // featuresInfo / build error never sticks on an exit-less skeleton.
+  if (!isQrWallet && !deviceMetaState.isReady && !refreshSettled) {
     return <DeviceBasicInfoHeaderSkeleton avatarSize={avatarSize} />;
   }
 
