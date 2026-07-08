@@ -28,7 +28,7 @@ const webPreloadConfig: Record<string, IPreloadEntry> = {
       ETabRoutes.DeviceManagement,
       ETabRoutes.ReferFriends,
     ],
-    intervalMs: 1500,
+    intervalMs: 2000,
   },
   [EDevicePerformanceTier.medium]: {
     queue: [ETabRoutes.Swap, ETabRoutes.Market, ETabRoutes.Discovery],
@@ -36,9 +36,31 @@ const webPreloadConfig: Record<string, IPreloadEntry> = {
   },
 };
 
+// Ext popup/side panel hides the bottom tab bar, so Discovery/Perp/Device/
+// ReferFriends tabs are unreachable there — preloading them only mounts dead
+// screens in the popup runtime. Keep just Swap: it warms the SwapMainLand
+// chunk shared with the Trade modal, the one reachable swap surface.
+const extPopupPreloadConfig: Record<string, IPreloadEntry> = {
+  [EDevicePerformanceTier.high]: {
+    queue: [ETabRoutes.Swap],
+    intervalMs: 1500,
+  },
+  [EDevicePerformanceTier.medium]: {
+    queue: [ETabRoutes.Swap],
+    intervalMs: 2500,
+  },
+};
+
+function resolveWebPreloadConfig() {
+  if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+    return extPopupPreloadConfig;
+  }
+  return webPreloadConfig;
+}
+
 export const tabPreloadConfig = platformEnv.isNative
   ? nativePreloadConfig
-  : webPreloadConfig;
+  : resolveWebPreloadConfig();
 
 export const defaultPreloadEntry: IPreloadEntry = {
   queue: [],

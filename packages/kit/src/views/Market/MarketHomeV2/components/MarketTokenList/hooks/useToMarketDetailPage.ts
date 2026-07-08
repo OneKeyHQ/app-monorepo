@@ -4,11 +4,13 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   ESplitViewType,
   rootNavigationRef,
+  useMedia,
   useSplitViewType,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
-import { prewarmMarketTokenDetailPreviewImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
+import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
+import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { buildMarketTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -50,20 +52,17 @@ interface IUseToDetailPageOptions {
 
 const EXTENSION_POPUP_CLOSE_DELAY_MS = 100;
 
-function preloadMarketDetailV2Page() {
-  void import(/* webpackPrefetch: true */ '../../../../MarketDetailV2').catch(
-    () => undefined,
-  );
-}
-
 export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
   const tokenDetailActions = useTokenDetailActions();
   const splitViewType = useSplitViewType();
+  const media = useMedia();
+  const preloadLayout =
+    media.gtLg && !platformEnv.isNative ? 'desktop' : 'mobile';
 
   useEffect(() => {
-    preloadMarketDetailV2Page();
+    void preloadMarketDetailV2Page();
   }, []);
 
   const preparePreviewTokenDetail = useCallback(
@@ -87,7 +86,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         isNative: item.isNative,
       });
 
-      prewarmMarketTokenDetailPreviewImages(tokenDetailPreview);
+      prewarmMarketTokenImages(tokenDetailPreview);
       tokenDetailActions.current.prepareTokenDetailPreview(tokenDetailPreview);
     },
     [tokenDetailActions],
@@ -95,6 +94,11 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
   const toMarketDetailPage = useCallback(
     async (item: IMarketToken) => {
+      const marketDetailShellPreloadPromise = preloadMarketDetailV2Page({
+        includeBodyModules: true,
+        includeHeavyModules: true,
+        layout: preloadLayout,
+      });
       const shortCode = networkUtils.getNetworkShortCode({
         networkId: item.networkId,
       });
@@ -140,6 +144,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           : ETabRoutes.Market;
 
         if (platformEnv.isNative) {
+          await marketDetailShellPreloadPromise;
           // Navigate directly to the nested detail route to avoid briefly
           // revealing the Discovery root page before entering Market detail.
           rootNavigationRef.current?.navigate(ERootRoutes.Main, {
@@ -177,6 +182,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           );
         }
 
+        if (platformEnv.isNative) {
+          await marketDetailShellPreloadPromise;
+        }
         navigation.push(ETabMarketRoutes.MarketDetailV2, params);
       }
     },
@@ -186,6 +194,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       options?.switchToMarketTabFirst,
       options?.from,
       options?.showFavoriteButton,
+      preloadLayout,
       splitViewType,
     ],
   );

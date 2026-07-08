@@ -30,6 +30,8 @@ describe('calculateSpotHoldingPnl', () => {
 
   it('treats USDH as stable and suppresses its spot holdings pnl', () => {
     expect(isSpotHoldingStableCoin('USDH')).toBe(true);
+    expect(isSpotHoldingStableCoin('USDT0')).toBe(true);
+    expect(isSpotHoldingStableCoin('usdt0')).toBe(true);
     expect(
       calculateSpotHoldingPnl({
         total: '0.00405586',

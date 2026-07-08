@@ -9,16 +9,72 @@ export function useDebouncedValidation<T extends string>(
   validateFn: (value: T) => Promise<string | boolean>,
   delay = 300,
 ): IDebouncedValidation<T> {
+  const validateFnRef = useRef(validateFn);
+  const validateFnVersionRef = useRef(0);
+  if (validateFnRef.current !== validateFn) {
+    validateFnRef.current = validateFn;
+    validateFnVersionRef.current += 1;
+  }
+
   const currentValueRef = useRef<T>('' as T);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingResolveRef = useRef<((value: string | boolean) => void) | null>(
     null,
   );
   const validationVersionRef = useRef(0);
+  const activeValidationRunRef = useRef(0);
   // Track the last validation result so cancelled promises preserve error state
   const lastResultRef = useRef<string | boolean>(true);
 
+  const startValidation = useCallback(
+    (
+      value: T,
+      resolve: (value: string | boolean) => void,
+      validationVersion: number,
+    ) => {
+      activeValidationRunRef.current += 1;
+      const validationRun = activeValidationRunRef.current;
+
+      void (async () => {
+        let shouldValidate = true;
+        while (shouldValidate) {
+          shouldValidate = false;
+          const validateFnVersion = validateFnVersionRef.current;
+          let result: string | boolean;
+
+          try {
+            result = await validateFnRef.current(value);
+          } catch {
+            result = false;
+          }
+
+          if (
+            validationVersionRef.current !== validationVersion ||
+            currentValueRef.current !== value ||
+            pendingResolveRef.current !== resolve ||
+            activeValidationRunRef.current !== validationRun
+          ) {
+            return;
+          }
+
+          // Validator context changed while this async call was awaiting, so
+          // resolve the pending form validation with a fresh result instead.
+          if (validateFnVersionRef.current !== validateFnVersion) {
+            shouldValidate = true;
+          } else {
+            lastResultRef.current = result;
+            resolve(result);
+            pendingResolveRef.current = null;
+            return;
+          }
+        }
+      })();
+    },
+    [],
+  );
+
   const cancel = useCallback((result = lastResultRef.current) => {
+    activeValidationRunRef.current += 1;
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
@@ -30,9 +86,17 @@ export function useDebouncedValidation<T extends string>(
   }, []);
 
   useEffect(() => {
-    validationVersionRef.current += 1;
-    cancel(false);
-  }, [cancel, validateFn, delay]);
+    const pendingResolve = pendingResolveRef.current;
+    if (!pendingResolve || debounceTimerRef.current) {
+      return;
+    }
+
+    startValidation(
+      currentValueRef.current,
+      pendingResolve,
+      validationVersionRef.current,
+    );
+  }, [startValidation, validateFn]);
 
   // Clean up pending validation on unmount.
   useEffect(
@@ -55,34 +119,12 @@ export function useDebouncedValidation<T extends string>(
         cancel();
         pendingResolveRef.current = resolve;
 
-        debounceTimerRef.current = setTimeout(async () => {
+        debounceTimerRef.current = setTimeout(() => {
           debounceTimerRef.current = null;
-          try {
-            const result = await validateFn(value);
-            if (
-              validationVersionRef.current === validationVersion &&
-              currentValueRef.current === value &&
-              pendingResolveRef.current === resolve
-            ) {
-              lastResultRef.current = result;
-              resolve(result);
-              pendingResolveRef.current = null;
-            }
-          } catch {
-            // Resolve with false on error to prevent hanging validation
-            if (
-              validationVersionRef.current === validationVersion &&
-              currentValueRef.current === value &&
-              pendingResolveRef.current === resolve
-            ) {
-              lastResultRef.current = false;
-              resolve(false);
-              pendingResolveRef.current = null;
-            }
-          }
+          startValidation(value, resolve, validationVersion);
         }, delay);
       }),
-    [cancel, validateFn, delay],
+    [cancel, delay, startValidation],
   );
 
   return useMemo(() => ({ validate, cancel }), [validate, cancel]);

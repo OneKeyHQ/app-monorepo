@@ -44,7 +44,10 @@ import { PerpsTokenListSection } from './PerpsTokenListSection';
 import { useMarketBannerDetail } from './useMarketBannerDetail';
 
 import type { IMarketToken } from '../MarketHomeV2/components/MarketTokenList/MarketTokenData';
-import type { EModalMarketRoutes, IModalMarketParamList } from '../router';
+import type {
+  EModalMarketRoutes,
+  IModalMarketParamList,
+} from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
 
 type IMarketBannerDetailRouteParams = RouteProp<
