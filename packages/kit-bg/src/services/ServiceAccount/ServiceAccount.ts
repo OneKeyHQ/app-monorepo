@@ -648,10 +648,11 @@ class ServiceAccount extends ServiceBase {
     return wallet;
   }
 
-  async getAllWallets(
-    params: { refillWalletInfo?: boolean; excludeKeylessWallet?: boolean } = {},
-  ) {
-    const { excludeKeylessWallet = false } = params;
+  // getAllWallets intentionally includes keyless wallets. A keyless exclusion
+  // filter added in #9337 has been deliberately disabled since #9394 — do not
+  // re-add it here; hash-dedup paths use localDb.getWalletByHash's own
+  // excludeKeylessWallet instead.
+  async getAllWallets(params: { refillWalletInfo?: boolean } = {}) {
     let { wallets } = await localDb.getAllWallets();
     let allDevices: IDBDevice[] | undefined;
     if (params.refillWalletInfo) {
@@ -672,9 +673,6 @@ class ServiceAccount extends ServiceBase {
     await this.backgroundApi.serviceKeylessCloudSync.syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets(
       wallets,
     );
-    if (excludeKeylessWallet) {
-      wallets = wallets.filter((wallet) => !wallet.isKeyless);
-    }
     return { wallets, allDevices };
   }
 
@@ -730,7 +728,6 @@ class ServiceAccount extends ServiceBase {
 
     const { wallets, allDevices } = await this.getAllWallets({
       refillWalletInfo: true,
-      excludeKeylessWallet: true,
     });
 
     const filterQrWallet = params?.filterQrWallet ?? false;
@@ -6199,7 +6196,6 @@ class ServiceAccount extends ServiceBase {
 
         const { wallets } = await this.getAllWallets({
           refillWalletInfo: false,
-          excludeKeylessWallet: true,
         });
         const hdWallets = wallets.filter((wallet) =>
           accountUtils.isHdWallet({ walletId: wallet.id }),
@@ -6383,7 +6379,6 @@ class ServiceAccount extends ServiceBase {
 
     const { wallets } = await this.getAllWallets({
       refillWalletInfo: true,
-      excludeKeylessWallet: true,
     });
     const qrWallets = wallets.filter((wallet) =>
       accountUtils.isQrWallet({ walletId: wallet.id }),
@@ -6690,7 +6685,6 @@ class ServiceAccount extends ServiceBase {
     });
     const { wallets: allWallets } = await this.getAllWallets({
       refillWalletInfo: true,
-      excludeKeylessWallet: true,
     });
     const sameWalletsMap: {
       [walletHash: string]: IDBWallet[];
