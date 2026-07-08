@@ -48,10 +48,14 @@ export function useNavigateToMarketTab() {
           tab: targetTab ?? prev.tab,
           selectedSpotCategory:
             spotCategoryToSelect ?? prev.selectedSpotCategory,
-          spotCategoryToSelect,
+          spotCategoryToSelect:
+            targetTab === 'perps' ? undefined : spotCategoryToSelect,
           selectedPerpsCategory:
             perpsCategoryToSelect ?? prev.selectedPerpsCategory,
-          perpsCategoryToSelect,
+          perpsCategoryToSelect:
+            targetTab === 'trending' || targetTab === 'watchlist'
+              ? undefined
+              : perpsCategoryToSelect,
         }));
       }
 
