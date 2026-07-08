@@ -526,9 +526,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       },
     );
     return flow.catch((error) => {
-      // Only the prepare-phase escape (before progressInfo exists) emits here;
-      // once the loop owns progressInfo, forceExitFlowWhenErrorMatched emits, so
-      // gating on !progressInfo keeps ProcessingDialog to a single error event.
+      // Emit only for the prepare-phase escape; the loop's forceExit owns the rest.
       if (!this.isCreateFlowCancelled && !this.progressInfo) {
         appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
           totalCount: 0,

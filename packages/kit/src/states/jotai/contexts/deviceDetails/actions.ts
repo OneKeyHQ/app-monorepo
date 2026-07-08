@@ -141,8 +141,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
     const walletId = incomingWalletId ?? get(currentWalletIdAtom());
     if (!walletId) return;
 
-    // Device switched: reset header state so the skeleton re-engages instead of
-    // flashing the previous device's data (store is reused across navigations).
+    // Device switched: reset header state so the skeleton re-engages.
     if (walletId !== get(currentWalletIdAtom())) {
       set(currentWalletIdAtom(), walletId);
       set(walletWithDeviceStateAtom(), undefined);
@@ -158,8 +157,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
         });
 
       const data = r?.[walletId];
-      // Drop a superseded response: another refresh() may have switched to a
-      // different device while this fetch was in flight — don't clobber it.
+      // Drop a superseded response (device switched mid-flight).
       if (get(currentWalletIdAtom()) !== walletId) {
         return data;
       }
@@ -169,8 +167,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
       await this.updateDeviceMetaState.call(set);
       return data;
     } finally {
-      // Settled (data or failure) — the header can stop waiting, unless a newer
-      // refresh for another device has already taken over.
+      // Don't mark settled if a newer refresh already took over.
       if (get(currentWalletIdAtom()) === walletId) {
         set(refreshSettledAtom(), true);
       }
