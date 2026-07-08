@@ -8,7 +8,6 @@
 // } from '@expo-google-fonts/inter';
 // import { useFonts } from 'expo-font';
 import { useEffect } from 'react';
-import type { ComponentType } from 'react';
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -44,66 +43,22 @@ if (platformEnv.isRuntimeBrowser) {
 
 appGlobals.$Toast = Toast;
 
-const LAST_ACTIVITY_TRACKER_IMPORT_DELAY_MS = platformEnv.isWeb ? 6000 : 3000;
-const LastActivityTracker = LazyLoad(
-  () => import('../components/LastActivityTracker'),
-  LAST_ACTIVITY_TRACKER_IMPORT_DELAY_MS,
-);
+const KitProviderLazyContentBeforeLocale = LazyLoad(async () => {
+  const { KitProviderLazyContentBeforeLocale: Component } =
+    await import('./KitProviderLazyContent');
+  return { default: Component };
+}, 500);
 
-// Non-first-screen siblings — delayed to shorten the KitProvider sync-mount
-// critical path. The UX-visible behavior of each is deferred:
-//   - LastActivityTracker: analytics/activity refresh work is not needed for
-//       first paint; web import is pushed past the cold-budget window
-//   - PasswordVerify: only renders on user-triggered protected actions
-//   - StateActive: badge clear + AppState handler — a 300ms delay is not
-//       visible to the user on cold start
-//   - Hardware: SDK init happens only when a hardware wallet is active
-//   - WebViewWebEmbed: webembed webview is shown on demand via event bus
-//   - SyncHomeAccountToDapp: dapp account mirror, irrelevant until user
-//       opens a dapp tab
-const PasswordVerifyPromptMount = LazyLoad(
-  () => import('../components/Password/container/PasswordVerifyPromptMount'),
-  500,
-);
-const StateActiveContainer = LazyLoad(
-  () =>
-    import('./Container/StateActiveContainer').then((m) => ({
-      default: m.StateActiveContainer,
-    })) as unknown as Promise<{
-      default: ComponentType<Record<string, unknown>>;
-    }>,
-  300,
-);
-const HardwareServiceProvider = LazyLoad(
-  () =>
-    import('./HardwareServiceProvider').then((m) => ({
-      default: m.HardwareServiceProvider,
-    })) as unknown as Promise<{
-      default: ComponentType<Record<string, unknown>>;
-    }>,
-  500,
-);
-const WebViewWebEmbedProvider = LazyLoad(
-  () =>
-    import('./WebViewWebEmbedProvider').then((m) => ({
-      default: m.WebViewWebEmbedProvider,
-    })) as unknown as Promise<{
-      default: ComponentType<Record<string, unknown>>;
-    }>,
-  1500,
-);
-const SyncHomeAccountToDappAccountProvider = LazyLoad(
-  () =>
-    import('@onekeyhq/kit/src/views/Discovery/components/SyncDappAccountToHomeProvider').then(
-      (m) => ({
-        default: m.SyncHomeAccountToDappAccountProvider,
-      }),
-    ) as unknown as Promise<{
-      default: ComponentType<Record<string, unknown>>;
-    }>,
-  1500,
-);
+const KitProviderLazyContentAfterLocale = LazyLoad(async () => {
+  const { KitProviderLazyContentAfterLocale: Component } =
+    await import('./KitProviderLazyContent');
+  return { default: Component };
+}, 300);
 
+// Non-first-screen siblings are grouped into one lazy module to keep cold-start
+// script count low. KitProviderLazyContent preserves the previous mount delays:
+// PasswordVerify 500ms, StateActive 300ms, Hardware 500ms, WebView/SyncDapp
+// 1500ms, and LastActivity 3000ms.
 const flexStyle = { flex: 1 };
 
 // Relay navigation events from the background thread to the main thread.
@@ -171,13 +126,9 @@ export function KitProvider(props: any = {}) {
                 <SplashProvider>
                   <Container />
                 </SplashProvider>
-                <PasswordVerifyPromptMount />
-                <WebViewWebEmbedProvider />
-                <LastActivityTracker />
+                <KitProviderLazyContentBeforeLocale />
                 <SystemLocaleTracker />
-                <StateActiveContainer />
-                <SyncHomeAccountToDappAccountProvider />
-                <HardwareServiceProvider />
+                <KitProviderLazyContentAfterLocale />
                 <BackgroundNavigationRelay />
               </ThemeProvider>
             </GestureHandlerRootView>
