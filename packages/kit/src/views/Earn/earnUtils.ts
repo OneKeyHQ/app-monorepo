@@ -17,6 +17,7 @@ import {
   ETabRoutes,
   type ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
+import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
@@ -183,6 +184,21 @@ export async function safePushToEarnRoute(
     route === ETabEarnRoutes.EarnProtocolDetailsShare;
   if (shouldSwitchToEarnMode) {
     appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
+  }
+
+  if (
+    route === ETabEarnRoutes.EarnHome &&
+    (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel)
+  ) {
+    const { default: backgroundApiProxy } = await import(
+      '../../background/instance/backgroundApiProxy'
+    );
+    await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+      path: '/defi',
+      params,
+    });
+    closeExtensionPopupAfterExpandTabOpen();
+    return;
   }
 
   const targetTab = getEarnTargetTab();

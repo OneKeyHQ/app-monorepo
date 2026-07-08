@@ -6,17 +6,13 @@ import { Button } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
-import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 
 import { Recommended } from '../../../Earn/components/Recommended';
 import { safePushToEarnRoute } from '../../../Earn/earnUtils';
 import { RichBlock } from '../RichBlock';
 
 const HOME_EARN_FETCH_IDLE_TIMEOUT_MS = 1200;
-const shouldOpenEarnHomeInExtensionExpandTab =
-  platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel;
 
 function EarnListView({ isActive = true }: { isActive?: boolean }) {
   const navigation = useAppNavigation();
@@ -65,12 +61,6 @@ function EarnListView({ isActive = true }: { isActive?: boolean }) {
   }, [enableRecommendedFetch, isActive]);
 
   const handleViewMore = useCallback(() => {
-    if (shouldOpenEarnHomeInExtensionExpandTab) {
-      void backgroundApiProxy.serviceApp
-        .openExtensionExpandTab({ path: '/defi' })
-        .then(closeExtensionPopupAfterExpandTabOpen);
-      return;
-    }
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome);
   }, [navigation]);
 
