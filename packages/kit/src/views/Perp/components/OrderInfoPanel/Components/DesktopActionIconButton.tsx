@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo } from 'react';
 
 import { Icon, XStack } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
@@ -21,15 +21,6 @@ export const DesktopActionIconButton = memo(
     size = 'medium',
     onPress,
   }: IDesktopActionIconButtonProps) => {
-    const [isHovered, setIsHovered] = useState(false);
-    const [isPressed, setIsPressed] = useState(false);
-    let iconColor: '$iconActive' | '$icon' | '$iconSubdued' = '$iconSubdued';
-    if (isPressed) {
-      iconColor = '$iconActive';
-    } else if (isHovered) {
-      iconColor = '$icon';
-    }
-
     return (
       <XStack
         testID={testID}
@@ -40,18 +31,18 @@ export const DesktopActionIconButton = memo(
         justifyContent="center"
         cursor="pointer"
         bg="transparent"
+        group
         hoverStyle={{ bg: 'transparent' }}
         pressStyle={{ bg: 'transparent' }}
-        onHoverIn={() => setIsHovered(true)}
-        onHoverOut={() => {
-          setIsHovered(false);
-          setIsPressed(false);
-        }}
-        onPressIn={() => setIsPressed(true)}
-        onPressOut={() => setIsPressed(false)}
         onPress={onPress}
       >
-        <Icon name={icon} size={iconSize} color={iconColor} />
+        <Icon
+          name={icon}
+          size={iconSize}
+          color="$iconSubdued"
+          $group-hover={{ color: '$icon' }}
+          $group-press={{ color: '$iconActive' }}
+        />
       </XStack>
     );
   },

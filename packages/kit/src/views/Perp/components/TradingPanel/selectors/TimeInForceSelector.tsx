@@ -62,17 +62,25 @@ const TimeInForceSelector = memo<ITimeInForceSelectorProps>(
 
     const handleChange = useCallback(
       (nextValue: ITIF) => {
+        if (disabled) {
+          return;
+        }
         onChange(nextValue);
         setIsOpen(false);
       },
-      [onChange],
+      [disabled, onChange],
     );
 
     return (
       <Popover
         title={title}
-        open={isOpen}
-        onOpenChange={setIsOpen}
+        open={disabled ? false : isOpen}
+        onOpenChange={(nextOpen) => {
+          if (disabled) {
+            return;
+          }
+          setIsOpen(nextOpen);
+        }}
         placement="bottom-end"
         floatingPanelProps={{
           width: isMobile ? 260 : 360,
@@ -122,6 +130,9 @@ const TimeInForceSelector = memo<ITimeInForceSelectorProps>(
                   py="$2"
                   borderRadius="$2"
                   onPress={() => {
+                    if (disabled) {
+                      return;
+                    }
                     handleChange(item.value);
                     void closePopover();
                   }}
