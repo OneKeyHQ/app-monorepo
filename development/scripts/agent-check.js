@@ -363,6 +363,17 @@ function isHardBlockedMergeState(value) {
   return String(value || '').toUpperCase() === 'DIRTY';
 }
 
+function reviewDecisionFailureReason(value) {
+  const decision = String(value || '').toUpperCase();
+  if (decision === 'REVIEW_REQUIRED') {
+    return 'review-required';
+  }
+  if (decision === 'CHANGES_REQUESTED') {
+    return 'changes-requested';
+  }
+  return '';
+}
+
 function getThreads(graphqlData) {
   const connection = getThreadConnection(graphqlData);
   return connection.nodes || [];
@@ -658,6 +669,9 @@ query($owner: String!, $repo: String!, $pr: Int!) {
   ).toUpperCase();
   const hasDraft = Boolean(view.data.isDraft);
   const hasMergeBlocked = isHardBlockedMergeState(mergeStateStatus);
+  const hasBlockingReviewDecision = Boolean(
+    reviewDecisionFailureReason(view.data.reviewDecision),
+  );
   const hasFailures = checksSummary.failed.length > 0;
   const hasPending = checksSummary.pending.length > 0;
   const hasGateFailure = checksSummary.gateFailed.length > 0;
@@ -670,6 +684,7 @@ query($owner: String!, $repo: String!, $pr: Int!) {
     hasBlockingState ||
     hasDraft ||
     hasMergeBlocked ||
+    hasBlockingReviewDecision ||
     hasFailures ||
     hasPending ||
     hasGateFailure ||
@@ -751,6 +766,14 @@ function failureReasons(report) {
       isHardBlockedMergeState(report.remote.pr.mergeStateStatus)
     ) {
       reasons.push('pr-merge-state-blocked');
+    }
+    if (report.remote.pr) {
+      const reviewReason = reviewDecisionFailureReason(
+        report.remote.pr.reviewDecision,
+      );
+      if (reviewReason && !reasons.includes(reviewReason)) {
+        reasons.push(reviewReason);
+      }
     }
     if (report.remote.checks && report.remote.checks.counts.failed > 0) {
       reasons.push('ci-checks-failed');
