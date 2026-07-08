@@ -4,6 +4,14 @@ const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const {
+  fetchReviewThreads,
+  getThreads,
+  reviewThreadDataFlags,
+  rootComment,
+  threadComments,
+} = require('./agent-github-review');
+
 const SCHEMA_VERSION = 1;
 const VALID_PROFILES = new Set(['commit', 'pr', 'ci']);
 const RELEASE_READY_GATE = 'release-ready-merge-gate';
@@ -374,53 +382,8 @@ function reviewDecisionFailureReason(value) {
   return '';
 }
 
-function getThreads(graphqlData) {
-  const connection = getThreadConnection(graphqlData);
-  return connection.nodes || [];
-}
-
-function getThreadConnection(graphqlData) {
-  const payload =
-    graphqlData && graphqlData.data ? graphqlData.data : graphqlData;
-  return (
-    (payload &&
-      payload.repository &&
-      payload.repository.pullRequest &&
-      payload.repository.pullRequest.reviewThreads) || {
-      nodes: [],
-      pageInfo: { hasNextPage: false },
-    }
-  );
-}
-
-function reviewThreadDataFlags(graphqlData) {
-  const connection = getThreadConnection(graphqlData);
-  const nodes = connection.nodes || [];
-  const threadPageTruncated = Boolean(
-    connection.pageInfo && connection.pageInfo.hasNextPage,
-  );
-  const commentPageTruncated = nodes.some(
-    (thread) =>
-      thread.comments &&
-      thread.comments.pageInfo &&
-      thread.comments.pageInfo.hasPreviousPage,
-  );
-
-  return {
-    dataComplete: !threadPageTruncated && !commentPageTruncated,
-    threadPageTruncated,
-    commentPageTruncated,
-  };
-}
-
-function threadComments(thread) {
-  if (Array.isArray(thread.comments)) {
-    return thread.comments;
-  }
-  return (thread.comments && thread.comments.nodes) || [];
-}
-
 function compactThread(thread) {
+  const root = rootComment(thread);
   const latest = lastItem(threadComments(thread));
   const body = latest && latest.body ? latest.body.replace(/\s+/g, ' ') : '';
 
@@ -432,6 +395,15 @@ function compactThread(thread) {
     line: thread.line || null,
     startLine: thread.startLine || null,
     diffSide: thread.diffSide || '',
+    commentCount: threadComments(thread).length,
+    rootComment: root
+      ? {
+          id: root.id || '',
+          databaseId: root.databaseId || null,
+          author: root.author && root.author.login ? root.author.login : '',
+          createdAt: root.createdAt || '',
+        }
+      : null,
     latestComment: latest
       ? {
           id: latest.id || '',
@@ -560,55 +532,13 @@ function runRemoteChecks(logDir, explicitPr, required) {
     `repos/${owner}/${repo}/pulls/${prNumber}/comments`,
   ]);
 
-  const query = `
-query($owner: String!, $repo: String!, $pr: Int!) {
-  repository(owner: $owner, name: $repo) {
-    pullRequest(number: $pr) {
-      id
-      reviewThreads(first: 100) {
-        pageInfo {
-          hasNextPage
-        }
-        nodes {
-          id
-          isResolved
-          isOutdated
-          path
-          line
-          startLine
-          diffSide
-          comments(last: 20) {
-            pageInfo {
-              hasPreviousPage
-            }
-            nodes {
-              id
-              databaseId
-              body
-              author {
-                login
-              }
-              createdAt
-            }
-          }
-        }
-      }
-    }
-  }
-}`;
-
-  const threads = runJsonCommand(logDir, 'gh-review-threads', 'gh', [
-    'api',
-    'graphql',
-    '-f',
-    `query=${query}`,
-    '-f',
-    `owner=${owner}`,
-    '-f',
-    `repo=${repo}`,
-    '-F',
-    `pr=${prNumber}`,
-  ]);
+  const threads = fetchReviewThreads({
+    logDir,
+    owner,
+    repo,
+    prNumber,
+    runJsonCommand,
+  });
 
   if (!view.ok || !view.data) {
     throw new Error(
@@ -742,6 +672,7 @@ query($owner: String!, $repo: String!, $pr: Int!) {
       checks: checks.logPath,
       inlineComments: inlineComments.logPath,
       threads: threads.logPath,
+      threadPages: threads.logPaths || [],
     },
   };
 }

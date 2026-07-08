@@ -4,6 +4,13 @@ const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const {
+  fetchReviewThreads,
+  getThreads,
+  latestComment,
+  rootComment,
+} = require('./agent-github-review');
+
 function parseArgs(argv) {
   const args = {
     pr: '',
@@ -62,7 +69,7 @@ function usage() {
     'Notes:',
     '  For GitHub writes, --thread must be a GraphQL thread node id from --list.',
     '  Numeric indexes are accepted only with --dry-run.',
-    '  The command replies to the latest comment in the selected thread, then resolves the thread.',
+    '  The command replies to the root review comment in the selected thread, then resolves the thread.',
     '  Use --dry-run to validate selection without writing to GitHub.',
   ].join('\n');
 }
@@ -241,100 +248,6 @@ function detectRepo(logDir) {
   };
 }
 
-function getReviewThreads(logDir, owner, repo, prNumber) {
-  const query = `
-query($owner: String!, $repo: String!, $pr: Int!) {
-  repository(owner: $owner, name: $repo) {
-    pullRequest(number: $pr) {
-      id
-      reviewThreads(first: 100) {
-        pageInfo {
-          hasNextPage
-        }
-        nodes {
-          id
-          isResolved
-          isOutdated
-          path
-          line
-          startLine
-          diffSide
-          comments(last: 20) {
-            pageInfo {
-              hasPreviousPage
-            }
-            nodes {
-              id
-              databaseId
-              body
-              author {
-                login
-              }
-              createdAt
-            }
-          }
-        }
-      }
-    }
-  }
-}`;
-
-  const result = runJsonCommand(logDir, 'gh-review-threads', 'gh', [
-    'api',
-    'graphql',
-    '-f',
-    `query=${query}`,
-    '-f',
-    `owner=${owner}`,
-    '-f',
-    `repo=${repo}`,
-    '-F',
-    `pr=${prNumber}`,
-  ]);
-
-  if (!result.ok || !result.data) {
-    throw new Error(
-      `Unable to fetch review threads. See ${path.relative(
-        process.cwd(),
-        result.logPath,
-      )}`,
-    );
-  }
-
-  const payload =
-    result.data && result.data.data ? result.data.data : result.data;
-  const nodes =
-    payload.repository &&
-    payload.repository.pullRequest &&
-    payload.repository.pullRequest.reviewThreads &&
-    payload.repository.pullRequest.reviewThreads.nodes;
-
-  if (!Array.isArray(nodes)) {
-    throw new Error(`No review thread data found for PR #${prNumber}.`);
-  }
-
-  if (
-    payload.repository.pullRequest.reviewThreads.pageInfo &&
-    payload.repository.pullRequest.reviewThreads.pageInfo.hasNextPage
-  ) {
-    throw new Error(
-      'Review thread data is truncated. Increase pagination before resolving threads.',
-    );
-  }
-
-  return nodes.map((thread) => ({
-    ...thread,
-    comments: thread.comments.nodes,
-  }));
-}
-
-function latestComment(thread) {
-  if (!thread.comments || !thread.comments.length) {
-    return null;
-  }
-  return thread.comments[thread.comments.length - 1];
-}
-
 function commentPreview(comment) {
   const body = comment && comment.body ? comment.body.replace(/\s+/g, ' ') : '';
   return body.length > 120 ? `${body.slice(0, 117)}...` : body;
@@ -352,11 +265,12 @@ function printThreadList(threads) {
 
   unresolved.forEach((thread, index) => {
     const comment = latestComment(thread);
+    const root = rootComment(thread);
     const author = comment && comment.author ? comment.author.login : 'unknown';
     const line = thread.line || thread.startLine || '?';
     const flags = thread.isOutdated ? ' outdated' : '';
     console.log(
-      `[${index + 1}]${flags} ${thread.path}:${line} @${author} thread=${thread.id} comment=${comment ? comment.databaseId : 'unknown'}`,
+      `[${index + 1}]${flags} ${thread.path}:${line} @${author} thread=${thread.id} comment=${root ? root.databaseId : 'unknown'} latest=${comment ? comment.databaseId : 'unknown'}`,
     );
     console.log(`    ${commentPreview(comment)}`);
   });
@@ -467,7 +381,22 @@ function main() {
     report.prNumber = prNumber;
 
     const { owner, repo } = detectRepo(logDir);
-    const threads = getReviewThreads(logDir, owner, repo, prNumber);
+    const threadResult = fetchReviewThreads({
+      logDir,
+      owner,
+      repo,
+      prNumber,
+      runJsonCommand,
+    });
+    if (!threadResult.ok || !threadResult.data) {
+      throw new Error(
+        `Unable to fetch review threads. See ${path.relative(
+          process.cwd(),
+          threadResult.logPath,
+        )}`,
+      );
+    }
+    const threads = getThreads(threadResult.data);
 
     if (args.list) {
       printThreadList(threads);
@@ -497,15 +426,16 @@ function main() {
     }
 
     const comment = latestComment(thread);
-    if (!comment || !comment.databaseId) {
+    const root = rootComment(thread);
+    if (!root || !root.databaseId) {
       throw new Error(
-        `Thread "${thread.id}" has no latest comment to reply to.`,
+        `Thread "${thread.id}" has no root review comment to reply to.`,
       );
     }
 
     report.selectedThread = thread.id;
     console.log(
-      `Selected: ${thread.path}:${thread.line || thread.startLine || '?'} thread=${thread.id} comment=${comment.databaseId}`,
+      `Selected: ${thread.path}:${thread.line || thread.startLine || '?'} thread=${thread.id} comment=${root.databaseId} latest=${comment ? comment.databaseId : 'unknown'}`,
     );
     console.log(`Reply preview: ${reply.replace(/\s+/g, ' ').slice(0, 160)}`);
 
@@ -520,7 +450,7 @@ function main() {
       owner,
       repo,
       prNumber,
-      comment.databaseId,
+      root.databaseId,
       reply,
     );
     if (!replyResult.ok) {
