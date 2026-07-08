@@ -65,6 +65,43 @@ import type { ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
+function hasPositivePerpsDepositTokenAmount(tokenAmount?: string) {
+  if (!tokenAmount) {
+    return false;
+  }
+  const amountBN = new BigNumber(tokenAmount);
+  return !amountBN.isNaN() && amountBN.gt(0);
+}
+
+function shouldRefreshPerpsDepositQuote({
+  selectedAction,
+  isArbitrumUsdcToken,
+  canQuoteDepositAmount,
+  isQuoteLoading,
+  tokenAmount,
+  quoteToAmount,
+}: {
+  selectedAction: 'deposit' | 'withdraw';
+  isArbitrumUsdcToken: boolean;
+  canQuoteDepositAmount: boolean;
+  isQuoteLoading: boolean;
+  tokenAmount: string;
+  quoteToAmount?: string;
+}) {
+  if (
+    selectedAction !== 'deposit' ||
+    isArbitrumUsdcToken ||
+    !canQuoteDepositAmount ||
+    isQuoteLoading ||
+    !hasPositivePerpsDepositTokenAmount(tokenAmount)
+  ) {
+    return false;
+  }
+
+  const quoteAmountBN = new BigNumber(quoteToAmount || '0');
+  return quoteAmountBN.isNaN() || quoteAmountBN.lte(0);
+}
+
 export const usePerpDepositOrder = ({
   accountId,
   indexedAccountId,
@@ -1220,20 +1257,16 @@ const usePerpDeposit = (
   }, [perpDepositQuote?.result?.allowanceResult, intl, shouldSignEveryTime]);
 
   const checkRefreshQuote = useMemo(() => {
-    if (
-      selectedAction === 'deposit' &&
-      checkFromTokenFiatValue &&
-      !perpDepositQuoteLoading &&
-      !isArbitrumUsdcToken
-    ) {
-      const quoteAmount = perpDepositQuote?.result?.toAmount;
-      const quoteAmountBN = new BigNumber(quoteAmount || '0');
-      if (quoteAmountBN.isNaN() || quoteAmountBN.lte(0)) {
-        return true;
-      }
-    }
-    return false;
+    return shouldRefreshPerpsDepositQuote({
+      selectedAction,
+      isArbitrumUsdcToken,
+      canQuoteDepositAmount: !!checkFromTokenFiatValue,
+      isQuoteLoading: perpDepositQuoteLoading,
+      tokenAmount: amount,
+      quoteToAmount: perpDepositQuote?.result?.toAmount,
+    });
   }, [
+    amount,
     perpDepositQuoteLoading,
     selectedAction,
     checkFromTokenFiatValue,

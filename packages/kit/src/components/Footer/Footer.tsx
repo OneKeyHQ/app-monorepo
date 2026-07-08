@@ -23,34 +23,17 @@ import { FooterNavigation } from './components/FooterNavigation';
 const PERP_TELEGRAM_URL = 'https://t.me/OneKeyPerps';
 
 const LazyPerpFooterRefreshButton = lazy(async () => {
-  const [{ PerpsProviderMirror }, { PerpRefreshButton }] = await Promise.all([
-    import('../../views/Perp/PerpsProviderMirror'),
-    import('../PerpRefreshButton'),
-  ]);
+  const { PerpFooterRefreshButtonLazyImpl } =
+    await import('./PerpFooterLazyContent');
   return {
-    default: function PerpFooterRefreshButtonLazyImpl() {
-      return (
-        <PerpsProviderMirror>
-          <PerpRefreshButton />
-        </PerpsProviderMirror>
-      );
-    },
+    default: PerpFooterRefreshButtonLazyImpl,
   };
 });
 
 const LazyPerpFooterTicker = lazy(async () => {
-  const [{ PerpsProviderMirror }, { PerpFooterTicker }] = await Promise.all([
-    import('../../views/Perp/PerpsProviderMirror'),
-    import('../../views/Perp/components/FooterTicker/PerpFooterTicker'),
-  ]);
+  const { PerpFooterTickerLazyImpl } = await import('./PerpFooterLazyContent');
   return {
-    default: function PerpFooterTickerLazyImpl() {
-      return (
-        <PerpsProviderMirror>
-          <PerpFooterTicker />
-        </PerpsProviderMirror>
-      );
-    },
+    default: PerpFooterTickerLazyImpl,
   };
 });
 

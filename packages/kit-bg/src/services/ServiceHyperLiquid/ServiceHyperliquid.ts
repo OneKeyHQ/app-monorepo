@@ -622,6 +622,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       return {
         ...prev,
         tokens: tokensMap,
+        depositTokenListSource: 'serverConfig',
       };
     });
   }
