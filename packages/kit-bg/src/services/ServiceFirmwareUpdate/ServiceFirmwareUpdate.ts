@@ -87,9 +87,10 @@ import type {
 import type {
   AllFirmwareRelease,
   CoreApi,
-  DeviceSuccess,
   Success as CoreSuccess,
+  DeviceSuccess,
   DeviceUploadResourceParams,
+  FirmwareUpdateV4Params,
   IDeviceType,
   IVersionArray,
 } from '@onekeyfe/hd-core';
@@ -367,6 +368,28 @@ class ServiceFirmwareUpdate extends ServiceBase {
     return undefined;
   }
 
+  async shouldSkipAppFirmwareUpdateCheck() {
+    if (!SKIP_APP_FIRMWARE_UPDATE_CHECK) {
+      return false;
+    }
+
+    const debugForceUpdateKeys = [
+      'forceUpdateFirmware',
+      'forceUpdateOnceFirmware',
+      'forceUpdateBle',
+      'forceUpdateOnceBle',
+      'forceUpdateBootloader',
+      'forceUpdateOnceBootloader',
+    ] as const;
+    const debugForceUpdateValues = await Promise.all(
+      debugForceUpdateKeys.map((key) =>
+        this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(key),
+      ),
+    );
+
+    return !debugForceUpdateValues.some((value) => value === true);
+  }
+
   @backgroundMethod()
   @toastIfError()
   async checkAllFirmwareRelease({
@@ -380,7 +403,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     skipCancel?: boolean;
     baseReleaseInfoCache?: AllFirmwareRelease;
   }): Promise<ICheckAllFirmwareReleaseResult> {
-    if (SKIP_APP_FIRMWARE_UPDATE_CHECK) {
+    if (await this.shouldSkipAppFirmwareUpdateCheck()) {
       const features = baseReleaseInfoCache?.features as IOneKeyDeviceFeatures | undefined;
       const deviceType = features
         ? await deviceUtils.getDeviceTypeFromFeatures({ features })
@@ -1013,7 +1036,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     payload: IFirmwareReleasePayload,
     saveUpdateInfo = true,
   ): Promise<IFirmwareUpdateInfo> {
-    if (SKIP_APP_FIRMWARE_UPDATE_CHECK) {
+    if (await this.shouldSkipAppFirmwareUpdateCheck()) {
       return {
         connectId: payload.connectId,
         hasUpgrade: false,
@@ -1086,7 +1109,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async setBleFirmwareUpdateInfo(
     payload: IBleFirmwareReleasePayload,
   ): Promise<IBleFirmwareUpdateInfo> {
-    if (SKIP_APP_FIRMWARE_UPDATE_CHECK) {
+    if (await this.shouldSkipAppFirmwareUpdateCheck()) {
       return {
         connectId: payload.connectId,
         hasUpgrade: false,
@@ -1748,7 +1771,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
           await this.cancelUpdateWorkflowIfExit();
 
           const deviceType = params?.releaseResult?.deviceType;
-          if (deviceType !== EDeviceType.Pro) {
+          if (
+            deviceType !== EDeviceType.Pro &&
+            deviceType !== EDeviceType.Pro2
+          ) {
             throw new OneKeyLocalError(
               'Do not support update firmware for this device',
             );
@@ -2033,9 +2059,61 @@ class ServiceFirmwareUpdate extends ServiceBase {
         : undefined,
       firmwareType: updateInfos.firmware?.toFirmwareType,
     };
+    if (releaseResult.deviceType === EDeviceType.Pro2) {
+      return this.createRunTaskWithRetry({
+        fn: async () => this.updatingFirmwareV4(updateParams),
+      }) as Promise<IFirmwareUpdateResult>;
+    }
     return this.createRunTaskWithRetry({
       fn: async () => this.updatingFirmwareV3(updateParams),
     }) as Promise<IFirmwareUpdateResult>;
+  }
+
+  async updatingFirmwareV4(
+    params: IFirmwareUpdateV3VersionParams,
+  ): Promise<DeviceSuccess> {
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: params.connectId,
+    });
+
+    return this.withFirmwareUpdateEvents(async () => {
+      const { connectId } = params;
+      await firmwareUpdateStepInfoAtom.set({
+        step: EFirmwareUpdateSteps.installing,
+        payload: {
+          installingTarget: {} as any,
+        },
+      });
+
+      try {
+        const currentTransportType =
+          await this.backgroundApi.serviceSetting.getHardwareTransportType();
+        const updateParams: FirmwareUpdateV4Params = {
+          platform: platformEnv.symbol ?? 'web',
+          firmwareType: params.firmwareType,
+        };
+        const updateResult = await convertDeviceResponse(async () =>
+          hardwareSDK.firmwareUpdateV4(
+            deviceUtils.getUpdatingConnectId({
+              connectId,
+              currentTransportType,
+            }),
+            updateParams,
+          ),
+        );
+
+        await firmwareUpdateResultVerifyAtom.set({
+          finalBleVersion: updateResult?.bleVersion || '',
+          finalFirmwareVersion: updateResult?.firmwareVersion || '',
+          finalBootloaderVersion: updateResult?.bootloaderVersion || '',
+        });
+
+        return { message: 'success', ...updateResult };
+      } catch (error) {
+        console.log('updatingFirmwareV4 error: ', error);
+        throw error;
+      }
+    });
   }
 
   async updatingFirmwareV3(

@@ -652,6 +652,9 @@ async function shouldUseV2FirmwareUpdateFlow({
 
   const { getDeviceBootloaderVersion } = await CoreSDKLoader();
   const deviceType = getDeviceType(features);
+  if (deviceType === EDeviceType.Pro2) {
+    return true;
+  }
   if (deviceType !== EDeviceType.Pro) {
     return false;
   }
