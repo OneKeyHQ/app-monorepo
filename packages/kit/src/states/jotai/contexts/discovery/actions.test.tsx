@@ -29,6 +29,7 @@ import {
   browserDataReadyWaiterAtom,
   displayHomePageAtom,
   useActiveTabIdAtom,
+  useBrowserDataReadyAtom,
   useDisplayHomePageAtom,
   useWebTabsAtom,
   webTabsAtom,
@@ -1307,6 +1308,125 @@ describe('useBrowserTabActions', () => {
         isActive: true,
       }),
     );
+  });
+
+  it('does not let an in-flight ensure hydration overwrite tabs after browser data becomes ready', async () => {
+    const activeDappTab: IWebTab = {
+      id: 'dapp-tab',
+      url: 'https://app.uniswap.org',
+      title: 'Uniswap',
+      isActive: true,
+      timestamp: 10,
+    };
+    const staleRead = createDeferred<{ tabs: IWebTab[] }>();
+    mockGetBrowserTabsRawData.mockReturnValueOnce(staleRead.promise);
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserTabActions().current;
+        const [activeTabId] = useActiveTabIdAtom();
+        const [webTabs] = useWebTabsAtom();
+
+        return {
+          actions,
+          activeTabId,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: tabsFixture,
+          activeTabId: 'tab-1',
+          browserDataReady: false,
+        }),
+      },
+    );
+
+    let hydrationResultPromise: Promise<boolean> | undefined;
+    await act(async () => {
+      hydrationResultPromise = result.current.actions.ensureBrowserDataReady();
+      await flushMicrotasks(2);
+    });
+    expect(mockGetBrowserTabsRawData).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      result.current.actions.setBrowserDataReady();
+      result.current.actions.addWebTab(activeDappTab);
+      await flushMicrotasks(5);
+    });
+    const persistCallsAfterDappOpen =
+      mockSetBrowserTabsRawData.mock.calls.length;
+
+    let hydrationResult = false;
+    await act(async () => {
+      staleRead.resolve({ tabs: tabsFixture });
+      hydrationResult = Boolean(await hydrationResultPromise);
+      await flushMicrotasks(10);
+    });
+
+    expect(hydrationResult).toBe(true);
+    expect(mockSetBrowserTabsRawData).toHaveBeenCalledTimes(
+      persistCallsAfterDappOpen,
+    );
+    expect(result.current.activeTabId).toBe(activeDappTab.id);
+    expect(result.current.tabs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: activeDappTab.id,
+          url: activeDappTab.url,
+          isActive: true,
+        }),
+      ]),
+    );
+  });
+
+  it('keeps browser data hydration retryable when the stored tabs read fails', async () => {
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isNativeAndroid: false,
+      isNativeIOS: false,
+    });
+    mockGetBrowserTabsRawData
+      .mockRejectedValueOnce(new Error('read failed'))
+      .mockResolvedValueOnce({ tabs: [] });
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserTabActions().current;
+        const [browserDataReady] = useBrowserDataReadyAtom();
+
+        return {
+          actions,
+          browserDataReady,
+        };
+      },
+      {
+        wrapper: createWrapper({
+          tabs: [],
+          activeTabId: null,
+          browserDataReady: false,
+        }),
+      },
+    );
+
+    let firstResult = true;
+    await act(async () => {
+      firstResult = await result.current.actions.ensureBrowserDataReady();
+      await flushMicrotasks(5);
+    });
+
+    expect(firstResult).toBe(false);
+    expect(result.current.browserDataReady).toBe(false);
+    expect(mockGetBrowserTabsRawData).toHaveBeenCalledTimes(1);
+
+    let secondResult = false;
+    await act(async () => {
+      secondResult = await result.current.actions.ensureBrowserDataReady();
+      await flushMicrotasks(5);
+    });
+
+    expect(secondResult).toBe(true);
+    expect(result.current.browserDataReady).toBe(true);
+    expect(mockGetBrowserTabsRawData).toHaveBeenCalledTimes(2);
   });
 
   it('does not overwrite ready browser tabs with a stale stored snapshot when the desktop browser page mounts', async () => {

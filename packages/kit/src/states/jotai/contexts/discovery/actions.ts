@@ -317,11 +317,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
   ensureBrowserDataReady = contextAtomMethod(async (get, set) => {
     if (!platformEnv.isNative && !platformEnv.isDesktop) {
-      return;
+      return true;
     }
 
     if (get(browserDataReadyAtom())) {
-      return;
+      return true;
     }
 
     let waiter = get(browserDataReadyWaiterAtom());
@@ -351,19 +351,34 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       try {
         const tabsData =
           await backgroundApiProxy.simpleDb.browserTabs.getRawData();
+        if (get(browserDataReadyAtom())) {
+          return true;
+        }
+        const currentWaiter = get(browserDataReadyWaiterAtom());
+        if (currentWaiter !== waiter) {
+          waiter.resolve();
+          if (currentWaiter) {
+            await currentWaiter.promise;
+          }
+          return get(browserDataReadyAtom());
+        }
         const tabs = tabsData?.tabs ?? [];
         this.buildWebTabs.call(set, {
           data: tabs,
           options: { isInitFromStorage: true },
         });
-      } catch {
-        // Keep browser usable even if stored tab hydration fails.
-      } finally {
         this.setBrowserDataReady.call(set);
+      } catch {
+        if (get(browserDataReadyWaiterAtom()) === waiter) {
+          set(browserDataReadyWaiterAtom(), null);
+          waiter.resolve();
+        }
+        return false;
       }
     }
 
     await waiter.promise;
+    return get(browserDataReadyAtom());
   });
 
   buildWebTabs = contextAtomMethod(
@@ -1142,7 +1157,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           return openUrlInApp(validatedUrl);
         }
 
-        await this.ensureBrowserDataReady.call(set);
+        const isBrowserDataReady = await this.ensureBrowserDataReady.call(set);
+        if (!isBrowserDataReady) {
+          return false;
+        }
 
         const tab = this.getWebTabById.call(set, id ?? '');
         const tabId = tab?.id;
@@ -1292,7 +1310,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const isNewWindow = !useCurrentWindow;
 
       const openDApp = async () => {
-        await this.ensureBrowserDataReady.call(set);
+        const isBrowserDataReady = await this.ensureBrowserDataReady.call(set);
+        if (!isBrowserDataReady) {
+          return false;
+        }
 
         if (!useCurrentWindow) {
           const disabledAddedNewTab = get(disabledAddedNewTabAtom());
@@ -1614,6 +1635,7 @@ export function useBrowserTabActions() {
   const setDisplayHomePage = actions.setDisplayHomePage.use();
   const setBrowserDataReady = actions.setBrowserDataReady.use();
   const isBrowserDataReady = actions.isBrowserDataReady.use();
+  const ensureBrowserDataReady = actions.ensureBrowserDataReady.use();
   const reOpenLastClosedTab = actions.reOpenLastClosedTab.use();
   const setSiteMode = actions.setSiteMode.use();
   return useRef({
@@ -1632,6 +1654,7 @@ export function useBrowserTabActions() {
     setDisplayHomePage,
     setBrowserDataReady,
     isBrowserDataReady,
+    ensureBrowserDataReady,
     reOpenLastClosedTab,
     setSiteMode,
   });
