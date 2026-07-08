@@ -168,7 +168,7 @@ const usePerpDeposit = (
           perpsAccount?.addressDetail?.normalizedAddress ||
           perpsAccount?.addressDetail?.address ||
           perpsAccount?.address,
-        perpsDeriveType: perpsDeriveType,
+        perpsDeriveType,
       };
     } catch {
       return {};
@@ -191,16 +191,17 @@ const usePerpDeposit = (
       skipToast?: boolean;
     }) => {
       if (!skipToast) {
+        const formattedAmount = new BigNumber(fromAmount).toFixed();
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.feedback_transaction_submitted,
           }),
           message: intl.formatMessage(
             {
-              id: ETranslations.perp_toast_deposit_success_msg,
+              id: ETranslations.perp_toast_deposit_success_eta_one_minute__msg,
             },
             {
-              amount: fromAmount,
+              amount: formattedAmount,
               token: fromToken?.symbol,
             },
           ),
