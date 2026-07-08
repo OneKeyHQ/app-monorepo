@@ -556,7 +556,6 @@ const PositionRowDesktopTPSL = memo(
                 testID="perp-icon-btn"
                 icon="HighlightOutline"
                 iconSize="$3.5"
-                onPress={onSetTpsl}
               />
             </XStack>
           )}
