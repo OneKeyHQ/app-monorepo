@@ -103,6 +103,99 @@ const PERP_DESKTOP_DEPOSIT_SELECT_TOKEN_LIST_HEIGHT = 430;
 const PERP_NATIVE_DEPOSIT_WITHDRAW_ESTIMATED_CONTENT_HEIGHT = 300;
 const LIFI_FALLBACK_LOGO = require('@onekeyhq/kit/assets/perps/lifi-logo.png');
 
+function hasPositivePerpsDepositTokenAmount(tokenAmount?: string) {
+  if (!tokenAmount) {
+    return false;
+  }
+  const amountBN = new BigNumber(tokenAmount);
+  return !amountBN.isNaN() && amountBN.gt(0);
+}
+
+function shouldWaitForPerpsDepositQuoteDebounce({
+  selectedAction,
+  isArbitrumUsdcToken,
+  canQuoteDepositAmount,
+  tokenAmount,
+  debouncedTokenAmount,
+}: {
+  selectedAction: IPerpsDepositWithdrawActionType;
+  isArbitrumUsdcToken: boolean;
+  canQuoteDepositAmount: boolean;
+  tokenAmount: string;
+  debouncedTokenAmount: string;
+}) {
+  return (
+    selectedAction === 'deposit' &&
+    !isArbitrumUsdcToken &&
+    canQuoteDepositAmount &&
+    hasPositivePerpsDepositTokenAmount(tokenAmount) &&
+    tokenAmount !== debouncedTokenAmount
+  );
+}
+
+function getPerpsDepositMinAmountTextColor(
+  selectedAction: IPerpsDepositWithdrawActionType,
+) {
+  return selectedAction === 'deposit' ? '$textCritical' : '$textSubdued';
+}
+
+export function shouldUsePerpsDepositLiveWalletTokens({
+  atomOwnerKey,
+  routeOwnerKey,
+  depositTokenListSource,
+}: {
+  atomOwnerKey?: string;
+  routeOwnerKey?: string;
+  depositTokenListSource?: 'serverConfig' | 'walletBalance';
+}) {
+  return (
+    Boolean(routeOwnerKey) &&
+    atomOwnerKey === routeOwnerKey &&
+    depositTokenListSource === 'walletBalance'
+  );
+}
+
+export function mergePerpsDepositTokensPreservingOrder({
+  currentTokens,
+  nextTokens,
+}: {
+  currentTokens: IPerpsDepositToken[];
+  nextTokens: IPerpsDepositToken[];
+}) {
+  if (currentTokens.length === 0) {
+    return nextTokens;
+  }
+
+  const usedNextTokenIndexes = new Set<number>();
+  const mergedTokens = currentTokens.reduce<IPerpsDepositToken[]>(
+    (memo, currentToken) => {
+      const nextTokenIndex = nextTokens.findIndex((nextToken, index) => {
+        if (usedNextTokenIndexes.has(index)) {
+          return false;
+        }
+        return equalTokenNoCaseSensitive({
+          token1: currentToken,
+          token2: nextToken,
+        });
+      });
+
+      if (nextTokenIndex === -1) {
+        return memo;
+      }
+
+      usedNextTokenIndexes.add(nextTokenIndex);
+      memo.push(nextTokens[nextTokenIndex]);
+      return memo;
+    },
+    [],
+  );
+
+  const appendedTokens = nextTokens.filter(
+    (_, index) => !usedNextTokenIndexes.has(index),
+  );
+  return [...mergedTokens, ...appendedTokens];
+}
+
 interface IDepositWithdrawParams {
   actionType: IPerpsDepositWithdrawActionType;
 }
@@ -487,6 +580,8 @@ function DepositWithdrawContent({
   const [depositTokensWithPrice, setDepositTokensWithPrice] = useState<
     IPerpsDepositToken[]
   >([]);
+  const depositTokensWithPriceRef = useRef<IPerpsDepositToken[]>([]);
+  depositTokensWithPriceRef.current = depositTokensWithPrice;
   const [hasLoadedDepositTokenBalances, setHasLoadedDepositTokenBalances] =
     useState(false);
   const [nativeTokenConfigs, setNativeTokenConfigs] = useState<
@@ -573,13 +668,21 @@ function DepositWithdrawContent({
     async ({
       depositTokens,
       requestKey,
+      preserveCurrentOrder,
     }: {
       depositTokens: IPerpsDepositToken[];
       requestKey: string;
+      preserveCurrentOrder?: boolean;
     }) => {
+      const tokensToSync = preserveCurrentOrder
+        ? mergePerpsDepositTokensPreservingOrder({
+            currentTokens: depositTokensWithPriceRef.current,
+            nextTokens: depositTokens,
+          })
+        : depositTokens;
       const nativeTokenNetworkIds = Array.from(
         new Set(
-          depositTokens
+          tokensToSync
             .filter((token) => token.isNative)
             .map((token) => token.networkId),
         ),
@@ -597,7 +700,7 @@ function DepositWithdrawContent({
         return false;
       }
       setNativeTokenConfigs(nativeTokenConfigsRes);
-      setDepositTokensWithPrice(depositTokens);
+      setDepositTokensWithPrice(tokensToSync);
       setHasLoadedDepositTokenBalances(true);
       return true;
     },
@@ -634,6 +737,7 @@ function DepositWithdrawContent({
         const didSync = await syncDepositTokenBalances({
           depositTokens,
           requestKey,
+          preserveCurrentOrder: depositTokensWithPriceRef.current.length > 0,
         });
         if (!didSync) {
           return [];
@@ -672,6 +776,55 @@ function DepositWithdrawContent({
     },
   );
 
+  const silentlyRefreshDepositTokenBalances = useCallback(async () => {
+    const requestKey = depositTokenRequestKey;
+    if (
+      !selectedAccount.accountId ||
+      !selectedAccount.accountAddress ||
+      !checkAccountSupport
+    ) {
+      return;
+    }
+
+    try {
+      const {
+        isStale,
+        ownerKey,
+        tokens: depositTokens,
+      } = await backgroundApiProxy.serviceWebviewPerp.fetchPerpsDepositTokensFromWalletTokenList(
+        {
+          accountId: selectedAccount.accountId,
+          indexedAccountId: selectedAccount.indexedAccountId ?? undefined,
+          forceRefresh: true,
+        },
+      );
+      if (isStale || depositTokenRequestKeyRef.current !== requestKey) {
+        return;
+      }
+      depositTokenListOwnerKeyRef.current = ownerKey;
+      await syncDepositTokenBalances({
+        depositTokens,
+        requestKey,
+        preserveCurrentOrder: true,
+      });
+    } catch (error) {
+      if (depositTokenRequestKeyRef.current !== requestKey) {
+        return;
+      }
+      console.error(
+        '[DepositWithdrawModal] Failed to silently refresh tokens balance:',
+        error,
+      );
+    }
+  }, [
+    selectedAccount.accountId,
+    selectedAccount.accountAddress,
+    selectedAccount.indexedAccountId,
+    depositTokenRequestKey,
+    checkAccountSupport,
+    syncDepositTokenBalances,
+  ]);
+
   useEffect(() => {
     if (
       !checkAccountSupport ||
@@ -687,6 +840,7 @@ function DepositWithdrawContent({
     void syncDepositTokenBalances({
       depositTokens: cachedDepositTokens,
       requestKey: depositTokenRequestKeyRef.current,
+      preserveCurrentOrder: depositTokensWithPriceRef.current.length > 0,
     });
   }, [
     cachedDepositTokens,
@@ -989,7 +1143,7 @@ function DepositWithdrawContent({
     currentPerpsDepositSelectedToken?.symbol,
   ]);
 
-  const depositQuoteAmountDebounced = useDebounce(tokenAmount || '0', 800);
+  const depositQuoteAmountDebounced = useDebounce(tokenAmount, 800);
   const shouldEnableDepositQuote =
     selectedAction === 'deposit' && checkAccountSupport;
   const selectedActionForDepositQuote: IPerpsDepositWithdrawActionType =
@@ -1017,14 +1171,19 @@ function DepositWithdrawContent({
 
   const isDepositQuotePendingDebounce = useMemo(
     () =>
-      shouldEnableDepositQuote &&
-      !isArbitrumUsdcToken &&
-      checkFromTokenFiatValue.value &&
-      tokenAmount !== depositQuoteAmountDebounced,
+      shouldWaitForPerpsDepositQuoteDebounce({
+        selectedAction: selectedActionForDepositQuote,
+        isArbitrumUsdcToken,
+        canQuoteDepositAmount:
+          shouldEnableDepositQuote && checkFromTokenFiatValue.value,
+        tokenAmount,
+        debouncedTokenAmount: depositQuoteAmountDebounced,
+      }),
     [
       checkFromTokenFiatValue.value,
       depositQuoteAmountDebounced,
       isArbitrumUsdcToken,
+      selectedActionForDepositQuote,
       shouldEnableDepositQuote,
       tokenAmount,
     ],
@@ -1317,14 +1476,20 @@ function DepositWithdrawContent({
 
   const leftContent = useMemo(() => {
     return selectedAction === 'deposit' ? (
-      <SizableText size="$bodyLgMedium" color="$textSubdued">
+      <SizableText
+        size="$bodyLgMedium"
+        color={getPerpsDepositMinAmountTextColor(selectedAction)}
+      >
         {intl.formatMessage(
           { id: ETranslations.perp_size_least },
           { amount: `$${MIN_DEPOSIT_AMOUNT}` },
         )}
       </SizableText>
     ) : (
-      <SizableText size="$bodyLgMedium" color="$textSubdued">
+      <SizableText
+        size="$bodyLgMedium"
+        color={getPerpsDepositMinAmountTextColor(selectedAction)}
+      >
         {intl.formatMessage(
           { id: ETranslations.perp_size_least },
           { amount: `${MIN_WITHDRAW_AMOUNT} USDC` },
@@ -1636,9 +1801,11 @@ function DepositWithdrawContent({
   const openTokenSelectorPage = useCallback(() => {
     if (!checkAccountSupport || balanceLoading) return;
     void dismissKeyboardWithDelay();
+    void silentlyRefreshDepositTokenBalances();
     if (isMobile) {
       perpModalNavigation.push(EModalPerpRoutes.MobileDepositSelectToken, {
         depositTokensWithPrice,
+        depositTokenListOwnerKey: depositTokenListOwnerKeyRef.current,
         hasLoadedDepositTokenBalances,
         symbol: PERPS_CURRENCY_SYMBOL,
       });
@@ -1652,6 +1819,7 @@ function DepositWithdrawContent({
     hasLoadedDepositTokenBalances,
     isMobile,
     perpModalNavigation,
+    silentlyRefreshDepositTokenBalances,
   ]);
 
   const closeDesktopTokenSelectorPage = useCallback(() => {
@@ -2323,7 +2491,7 @@ function DepositWithdrawContent({
                 extraContent={
                   <Stack h="$6" justifyContent="center" alignItems="center">
                     {amountInputErrorMessage ? (
-                      <SizableText size="$bodySm" color="$red10">
+                      <SizableText size="$bodySm" color="$textCritical">
                         {amountInputErrorMessage}
                       </SizableText>
                     ) : null}
@@ -2389,7 +2557,7 @@ function DepositWithdrawContent({
                       {perpsNetworkInfo?.name ?? 'Arbitrum'}
                     </SizableText>
                     {errorMessage ? (
-                      <SizableText size="$bodySm" color="$red10">
+                      <SizableText size="$bodySm" color="$textCritical">
                         {errorMessage}
                       </SizableText>
                     ) : null}
