@@ -58,6 +58,7 @@ import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 import {
   activeTabIdAtom,
   browserDataReadyAtom,
+  browserDataReadyWaiterAtom,
   contextAtomMethod,
   disabledAddedNewTabAtom,
   displayHomePageAtom,
@@ -84,6 +85,7 @@ function loggerForEmptyData(tabs: IWebTab[], fnName: string) {
 // `Math.round((a + b) / 2)`, so a 1ms gap collapses to the neighbor and
 // produces duplicate timestamps that destabilize sort order.
 const TOP_POSITION_TIMESTAMP_GAP = 1000;
+const BROWSER_DATA_READY_WAITER_TIMEOUT_MS = 10_000;
 
 // Lowest timestamp among unpinned tabs; callers subtract a gap to sort above them.
 function getMinUnpinnedTimestamp(tabs: IWebTab[], excludeId?: string) {
@@ -303,8 +305,93 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     set(displayHomePageAtom(), payload);
   });
 
-  setBrowserDataReady = contextAtomMethod((_, set) => {
+  setBrowserDataReady = contextAtomMethod((get, set) => {
+    const waiter = get(browserDataReadyWaiterAtom());
     set(browserDataReadyAtom(), true);
+    if (waiter) {
+      waiter.resolve();
+      set(browserDataReadyWaiterAtom(), null);
+    }
+  });
+
+  isBrowserDataReady = contextAtomMethod((get) => get(browserDataReadyAtom()));
+
+  ensureBrowserDataReady = contextAtomMethod(async (get, set) => {
+    if (!platformEnv.isNative && !platformEnv.isDesktop) {
+      return true;
+    }
+
+    if (get(browserDataReadyAtom())) {
+      return true;
+    }
+
+    let waiter = get(browserDataReadyWaiterAtom());
+    if (
+      waiter &&
+      Date.now() - waiter.startedAt > BROWSER_DATA_READY_WAITER_TIMEOUT_MS
+    ) {
+      waiter.resolve();
+      set(browserDataReadyWaiterAtom(), null);
+      waiter = null;
+    }
+
+    if (waiter) {
+      await waiter.promise;
+      return get(browserDataReadyAtom());
+    }
+
+    let resolveReady: () => void = () => undefined;
+    const promise = new Promise<void>((resolve) => {
+      resolveReady = resolve;
+    });
+    waiter = {
+      promise,
+      resolve: resolveReady,
+      startedAt: Date.now(),
+    };
+    set(browserDataReadyWaiterAtom(), waiter);
+
+    try {
+      const tabsData =
+        await backgroundApiProxy.simpleDb.browserTabs.getRawData();
+      if (get(browserDataReadyAtom())) {
+        return true;
+      }
+      const currentWaiter = get(browserDataReadyWaiterAtom());
+      if (currentWaiter !== waiter) {
+        waiter.resolve();
+        if (currentWaiter) {
+          await currentWaiter.promise;
+        }
+        return get(browserDataReadyAtom());
+      }
+      const tabs = tabsData?.tabs ?? [];
+      this.buildWebTabs.call(set, {
+        data: tabs,
+        options: { isInitFromStorage: true, persist: false },
+      });
+      this.setBrowserDataReady.call(set);
+    } catch {
+      if (get(browserDataReadyAtom())) {
+        return true;
+      }
+      const currentWaiter = get(browserDataReadyWaiterAtom());
+      if (currentWaiter !== waiter) {
+        waiter.resolve();
+        if (currentWaiter) {
+          await currentWaiter.promise;
+        }
+        return get(browserDataReadyAtom());
+      }
+      this.buildWebTabs.call(set, {
+        data: [],
+        options: { isInitFromStorage: true, persist: false },
+      });
+      this.setBrowserDataReady.call(set);
+    }
+
+    await waiter.promise;
+    return get(browserDataReadyAtom());
   });
 
   buildWebTabs = contextAtomMethod(
@@ -317,7 +404,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           forceUpdate?: boolean;
           isInitFromStorage?: boolean;
           // Defaults to Debounced to preserve existing caller behavior.
-          persist?: EBrowserTabPersistMode;
+          persist?: EBrowserTabPersistMode | false;
         };
       },
     ) => {
@@ -344,6 +431,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
       set(webTabsMapAtom(), () => result.map);
       loggerForEmptyData(result.data, 'buildWebTabs->saveToSimpleDB');
+      if (options?.persist === false) {
+        return;
+      }
       if (options?.persist === EBrowserTabPersistMode.Immediate) {
         // Cancel any pending trailing debounced write so it cannot later
         // overwrite this authoritative snapshot, then persist immediately.
@@ -410,7 +500,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     const shouldUpdateActiveState = tabs.some(
       (t) => Boolean(t.isActive) !== (t.id === nextActiveTabId),
     );
-
     if (currentTabId !== nextActiveTabId || shouldUpdateActiveState) {
       if (currentTabId !== nextActiveTabId) {
         this.pauseDappInteraction.call(set, currentTabId);
@@ -1084,6 +1173,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           return openUrlInApp(validatedUrl);
         }
 
+        const isBrowserDataReady = await this.ensureBrowserDataReady.call(set);
+        if (!isBrowserDataReady) {
+          return false;
+        }
+
         const tab = this.getWebTabById.call(set, id ?? '');
         const tabId = tab?.id;
 
@@ -1098,7 +1192,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         if (shouldOpenInHomeTab) {
           isNewTab = false;
         }
-
         const bookmarks = await this.getBookmarkData.call(set);
         const isBookmark = bookmarks?.some((item) =>
           item.url.includes(validatedUrl),
@@ -1144,7 +1237,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             tabId,
           });
         }
-
         return true;
       }
       return false;
@@ -1234,6 +1326,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const isNewWindow = !useCurrentWindow;
 
       const openDApp = async () => {
+        const isBrowserDataReady = await this.ensureBrowserDataReady.call(set);
+        if (!isBrowserDataReady) {
+          return false;
+        }
+
         if (!useCurrentWindow) {
           const disabledAddedNewTab = get(disabledAddedNewTabAtom());
           if (disabledAddedNewTab) {
@@ -1263,7 +1360,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         const targetTab = platformEnv.isDesktop
           ? ETabRoutes.MultiTabBrowser
           : ETabRoutes.Discovery;
-
         if (platformEnv.isDesktop) {
           // Desktop renders the previous active web tab immediately after
           // switching to MultiTabBrowser. Create and activate the destination
@@ -1554,6 +1650,8 @@ export function useBrowserTabActions() {
   const setPinnedTab = actions.setPinnedTab.use();
   const setDisplayHomePage = actions.setDisplayHomePage.use();
   const setBrowserDataReady = actions.setBrowserDataReady.use();
+  const isBrowserDataReady = actions.isBrowserDataReady.use();
+  const ensureBrowserDataReady = actions.ensureBrowserDataReady.use();
   const reOpenLastClosedTab = actions.reOpenLastClosedTab.use();
   const setSiteMode = actions.setSiteMode.use();
   return useRef({
@@ -1571,6 +1669,8 @@ export function useBrowserTabActions() {
     setPinnedTab,
     setDisplayHomePage,
     setBrowserDataReady,
+    isBrowserDataReady,
+    ensureBrowserDataReady,
     reOpenLastClosedTab,
     setSiteMode,
   });
