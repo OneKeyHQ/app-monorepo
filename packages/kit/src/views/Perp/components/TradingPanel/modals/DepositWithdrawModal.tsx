@@ -99,6 +99,7 @@ const DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID =
   'perp-deposit-withdraw-accessory-view';
 const PERP_DESKTOP_DEPOSIT_WITHDRAW_DIALOG_HEIGHT = 560;
 const PERP_DESKTOP_DEPOSIT_AMOUNT_INPUT_BLOCK_HEIGHT = 220;
+const PERP_ANDROID_DEPOSIT_AMOUNT_INPUT_BLOCK_HEIGHT = 176;
 const PERP_DESKTOP_DEPOSIT_SELECT_TOKEN_LIST_HEIGHT = 430;
 const PERP_NATIVE_DEPOSIT_WITHDRAW_ESTIMATED_CONTENT_HEIGHT = 300;
 const LIFI_FALLBACK_LOGO = require('@onekeyhq/kit/assets/perps/lifi-logo.png');
@@ -222,6 +223,16 @@ const PERPS_KEYPAD_KEY_INTERACTIVE_STYLE = {
 
 // Perps is USD-denominated; always show dollar sign regardless of system fiat setting
 const PERPS_CURRENCY_SYMBOL = '$';
+
+function getDepositWithdrawAmountInputMinHeight(isMobile?: boolean) {
+  if (!isMobile) {
+    return PERP_DESKTOP_DEPOSIT_AMOUNT_INPUT_BLOCK_HEIGHT;
+  }
+  if (platformEnv.isNativeAndroid) {
+    return PERP_ANDROID_DEPOSIT_AMOUNT_INPUT_BLOCK_HEIGHT;
+  }
+  return undefined;
+}
 
 function getDepositWithdrawTitle(
   actionType: IPerpsDepositWithdrawActionType,
@@ -2415,6 +2426,10 @@ function DepositWithdrawContent({
     selectedAction === 'deposit' &&
     !isMobile &&
     desktopDepositPage === 'selectToken';
+  const amountInputMinHeight = getDepositWithdrawAmountInputMinHeight(isMobile);
+  const depositAmountInputKey = platformEnv.isNativeAndroid
+    ? `deposit-${currentDepositTokenIdentity ?? 'default'}`
+    : `deposit-${currentDepositTokenIdentity ?? 'default'}-${depositInputUnit}`;
 
   let desktopDialogHeader: ReactNode = null;
   if (!isMobile && hideDesktopTitle) {
@@ -2489,15 +2504,11 @@ function DepositWithdrawContent({
               pb={isMobile ? '$2' : '$6'}
             >
               <SendAutoSizeAmountInput
-                key={`deposit-${currentDepositTokenIdentity ?? 'default'}-${depositInputUnit}`}
+                key={depositAmountInputKey}
                 ref={amountInputRef}
                 value={amount}
                 onChange={handleAmountChange}
-                minHeight={
-                  isMobile
-                    ? undefined
-                    : PERP_DESKTOP_DEPOSIT_AMOUNT_INPUT_BLOCK_HEIGHT
-                }
+                minHeight={amountInputMinHeight}
                 justifyContent="center"
                 inlineTextAlignMode={!isMobile ? 'center' : 'auto'}
                 tokenSymbol={
@@ -2578,11 +2589,7 @@ function DepositWithdrawContent({
                 ref={amountInputRef}
                 value={amount}
                 onChange={handleAmountChange}
-                minHeight={
-                  isMobile
-                    ? undefined
-                    : PERP_DESKTOP_DEPOSIT_AMOUNT_INPUT_BLOCK_HEIGHT
-                }
+                minHeight={amountInputMinHeight}
                 justifyContent="center"
                 inlineTextAlignMode={!isMobile ? 'center' : 'auto'}
                 tokenSymbol={USDC_TOKEN_INFO.symbol}
