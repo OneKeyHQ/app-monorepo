@@ -89,7 +89,16 @@ function PrimeLoginEmailDialogV2(props: {
         await timerUtils.wait(550);
         const dialog = Dialog.show({
           onCancel,
-          onClose: onCancel,
+          onClose: async (extra) => {
+            // dialog.close({ flag: 'loginSuccess' }) means the dialog was
+            // closed programmatically after a successful login; skip the
+            // cancel handler so the outer login promise is not rejected
+            // with PrimeLoginDialogCancelError before onLoginSuccess runs.
+            if (extra?.flag === 'loginSuccess') {
+              return;
+            }
+            await onCancel?.();
+          },
           renderContent: (
             <PrimeLoginEmailCodeDialogV2
               sendCode={sendCode}
@@ -111,7 +120,7 @@ function PrimeLoginEmailDialogV2(props: {
                   });
                   isOneKeyIdLoginCommitted = true;
                   showOneKeyIdLoginSuccessToast(intl);
-                  await dialog.close();
+                  await dialog.close({ flag: 'loginSuccess' });
                   isDialogClosed = true;
                   await onLoginSuccess?.();
                   await showOneKeyIdLegacyOAuthBindDialogAfterLegacyEmailOtpLogin();
