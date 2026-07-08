@@ -9,6 +9,15 @@ argument-hint: "<PR number or URL> [polling interval]"
 
 Monitor a pull request's CI checks and review comments. Auto-fix CI failures, address inline review comments, reply to reviewers, and resolve threads.
 
+For a one-shot, low-context PR status summary, use:
+
+```bash
+yarn agent:check --profile ci --pr <PR_NUMBER>
+```
+
+Use this monitor workflow only when the user wants polling, automatic fixes, or
+review-thread replies.
+
 ## Usage
 
 ```

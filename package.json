@@ -81,6 +81,7 @@
     "clean:cache": "yarn workspaces foreach -A run clean:build",
     "patch:fix": "node development/patch-fix.js",
     "reinstall": "yarn clean && yarn install",
+    "agent:check": "node development/scripts/agent-check.js",
     "_tsc": "node ./development/lint/ts",
     "_lint": "node ./development/lint/eslint",
     "_electron": "node ./development/lint/electron",

@@ -86,7 +86,11 @@ Never violate this dependency order:
 - Base branch is `x`; never work directly on `x`.
 - Commit format: `type: short description`.
 - Do not add Co-Authored-By, Generated with, or tool attribution lines.
-- Before commit: `yarn lint:staged` and `yarn tsc:staged`.
+- Before commit: `yarn agent:check --profile commit`.
+- Before PR readiness checks: `yarn agent:check --profile pr`.
+- For remote-only CI/review status: `yarn agent:check --profile ci --pr <number>`.
+- Use lower-level lint/typecheck/GitHub commands only when debugging a failed
+  `agent:check` step; detailed logs are under `node_modules/.cache/agent-checks`.
 - Use targeted tests when possible; run `yarn test` when risk or scope requires it.
 
 Common commands:
@@ -97,8 +101,9 @@ yarn app:web
 yarn app:ext
 yarn app:ios
 yarn app:android
-yarn lint:staged
-yarn tsc:staged
+yarn agent:check --profile commit
+yarn agent:check --profile pr
+yarn agent:check --profile ci --pr <number>
 yarn test
 ```
 
