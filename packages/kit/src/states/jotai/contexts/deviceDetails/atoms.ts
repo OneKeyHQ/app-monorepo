@@ -51,7 +51,7 @@ export type IDeviceMetaStatic = {
   addWallpaperTitleId?: ETranslations;
 };
 
-const emptyMetaStatic: IDeviceMetaStatic = {
+export const emptyMetaStatic: IDeviceMetaStatic = {
   deviceName: undefined,
   deviceType: undefined,
   firmwareType: undefined,
@@ -76,7 +76,7 @@ export type IDeviceMetaState = {
   isReady: boolean;
 };
 
-const emptyMetaState: IDeviceMetaState = {
+export const emptyMetaState: IDeviceMetaState = {
   isVerified: false,
   passphraseEnabled: false,
   pinOnAppEnabled: false,

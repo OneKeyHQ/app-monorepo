@@ -13,6 +13,8 @@ import {
   currentWalletIdAtom,
   deviceMetaStateAtom,
   deviceMetaStaticAtom,
+  emptyMetaState,
+  emptyMetaStatic,
   refreshSettledAtom,
   walletWithDeviceStateAtom,
 } from './atoms';
@@ -138,6 +140,16 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
   refresh = contextAtomMethod(async (get, set, incomingWalletId?: string) => {
     const walletId = incomingWalletId ?? get(currentWalletIdAtom());
     if (!walletId) return;
+
+    // Device switched: reset header state so the skeleton re-engages instead of
+    // flashing the previous device's data (store is reused across navigations).
+    if (walletId !== get(currentWalletIdAtom())) {
+      set(currentWalletIdAtom(), walletId);
+      set(walletWithDeviceStateAtom(), undefined);
+      set(deviceMetaStaticAtom(), emptyMetaStatic);
+      set(deviceMetaStateAtom(), emptyMetaState);
+      set(refreshSettledAtom(), false);
+    }
 
     try {
       const r =
