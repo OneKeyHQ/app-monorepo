@@ -565,6 +565,30 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     ).not.toHaveBeenCalled();
   });
 
+  test('keeps the blob and stays retryable when the refresh gets a non-OK response with an unparseable body', async () => {
+    const { service, serviceAny } = createService();
+    mockLegacyRefreshTokenFallback(serviceAny);
+    // e.g. a corporate proxy / Cloudflare bot-challenge 403 with an HTML
+    // body — not a GoTrue verdict on the token, so the blob must survive.
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => {
+        throw new SyntaxError('Unexpected token < in JSON');
+      },
+    } as any);
+
+    await expect(
+      service.tryMigrateLocalExistingKeylessBackendShareToV2(),
+    ).resolves.toMatchObject({
+      skipped: true,
+      reason: 'network_unavailable',
+    });
+
+    expect(migrationPersist.byWalletId[WALLET_ID]).toBeUndefined();
+    expect(serviceAny.removeLegacyKeylessOAuthTokens).not.toHaveBeenCalled();
+  });
+
   test('removes the legacy refresh token blob when the refresh is definitively rejected (invalid_grant)', async () => {
     const { service, serviceAny } = createService();
     mockLegacyRefreshTokenFallback(serviceAny);

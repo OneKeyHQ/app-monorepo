@@ -589,6 +589,9 @@ const BaseDevSettingsSection = () => {
   const handleLegacyOneKeyIdEmailLogin = useCallback(() => {
     void loginOneKeyIdWithLegacyEmail({
       toOneKeyIdPageOnLoginSuccess: true,
+      // A dev tool must never wipe the shared keyless session slot — it may
+      // hold the wallet's only local credential.
+      preserveLocalKeylessAuth: true,
     });
   }, [loginOneKeyIdWithLegacyEmail]);
 

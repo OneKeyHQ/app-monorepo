@@ -106,6 +106,15 @@ const KEYLESS_TOKEN_VALID_BUFFER_MS = timerUtils.getTimeDurationMs({
   minute: 5,
 });
 
+// GoTrue codes that definitively mean the refresh token is invalid, revoked,
+// or already rotated elsewhere — the only verdicts that justify deleting the
+// legacy encrypted refresh-token blob.
+const GOTRUE_DEFINITIVE_REFRESH_TOKEN_REJECTION_CODES = new Set([
+  'invalid_grant',
+  'refresh_token_not_found',
+  'refresh_token_already_used',
+]);
+
 type IKeylessBackendShareCanonicalFormat = 'v1' | 'v2';
 
 type IKeylessBackendShareMeta = {
@@ -1172,11 +1181,38 @@ class ServiceKeylessWallet extends ServiceBase {
   // decrypts the blob with the already-cached password (never an interactive
   // prompt) and exchanges it directly over HTTP, so the refreshed session is
   // used in-memory only and is NEVER written to the global Supabase client.
-  // Transient failures (fetch throw / 5xx / 408 / 429 / json-parse) become
+  // Transient failures (fetch throw / 5xx / 408 / 429 / json-parse / any
+  // non-OK response without a parseable GoTrue rejection body) become
   // `KeylessPassiveMigrationNetworkError` so the migration loop rolls back
-  // the 24h throttle. A definitive rejection (e.g. invalid_grant on a
+  // the 24h throttle. Only a definitive rejection (e.g. invalid_grant on a
   // revoked / expired refresh token) or a blob that no longer decrypts
   // removes the dead blob and fails the attempt normally (throttle consumed).
+  // Decide whether a non-OK GoTrue refresh response DEFINITIVELY rejects the
+  // refresh token (only then is it safe to delete the encrypted blob), as
+  // opposed to an intermediary error page (corporate proxy / Cloudflare bot
+  // challenge / CDN HTML) that must be treated as transient. Older GoTrue
+  // returns `{ error, error_description }`, newer versions
+  // `{ code, error_code, msg }` — accept the union. An unparseable (non-JSON)
+  // body is never a GoTrue verdict. Note: reading the body consumes it.
+  private async isDefinitiveGoTrueRefreshTokenRejection(
+    response: Response,
+  ): Promise<boolean> {
+    let body: { error?: unknown; error_code?: unknown } | undefined;
+    try {
+      body = (await response.json()) as {
+        error?: unknown;
+        error_code?: unknown;
+      };
+    } catch {
+      return false;
+    }
+    return [body?.error, body?.error_code].some(
+      (code) =>
+        typeof code === 'string' &&
+        GOTRUE_DEFINITIVE_REFRESH_TOKEN_REJECTION_CODES.has(code),
+    );
+  }
+
   private async refreshLegacyAccessTokenForKeylessBackendShareV2MigrationPassive(params: {
     ownerId: string;
     password: string;
@@ -1238,12 +1274,18 @@ class ServiceKeylessWallet extends ServiceBase {
       throw new KeylessPassiveMigrationNetworkError();
     }
     if (!response.ok) {
-      // Any other 4xx (400 invalid_grant / 401 / 403) means the refresh
-      // token was definitively rejected (revoked / expired / already rotated
-      // elsewhere). The blob is dead and would fail on every retry, so drop
-      // it and let the attempt fail normally (throttle consumed).
-      await this.removeLegacyKeylessOAuthTokens({ ownerId });
-      return null;
+      if (await this.isDefinitiveGoTrueRefreshTokenRejection(response)) {
+        // GoTrue definitively rejected the refresh token (revoked / expired /
+        // already rotated elsewhere). The blob is dead and would fail on
+        // every retry, so drop it and let the attempt fail normally
+        // (throttle consumed).
+        await this.removeLegacyKeylessOAuthTokens({ ownerId });
+        return null;
+      }
+      // Any other non-OK response (proxy / CDN challenge page, unparseable
+      // body) is not a GoTrue verdict on the token — keep the blob and treat
+      // it as transient so the 24h throttle is not consumed.
+      throw new KeylessPassiveMigrationNetworkError();
     }
 
     let refreshResult: { access_token?: string; refresh_token?: string };
@@ -2906,13 +2948,19 @@ class ServiceKeylessWallet extends ServiceBase {
       return null;
     }
     if (!response.ok) {
-      // Any other 4xx (400 invalid_grant / 401 / 403) means the refresh
-      // token was definitively rejected (revoked / expired / already rotated
-      // elsewhere). The blob is dead and would fail on every retry — drop it
-      // so prepareOneKeyIdLoginWithLocalKeyless stops steering to
-      // ContinueWithKeyless (passcode prompt + doomed exchange) and routes
-      // to a fresh OAuth login instead. Mirrors the passive migration path.
-      await this.removeLegacyKeylessOAuthTokens({ ownerId });
+      if (await this.isDefinitiveGoTrueRefreshTokenRejection(response)) {
+        // GoTrue definitively rejected the refresh token (revoked / expired /
+        // already rotated elsewhere). The blob is dead and would fail on
+        // every retry — drop it so prepareOneKeyIdLoginWithLocalKeyless stops
+        // steering to ContinueWithKeyless (passcode prompt + doomed exchange)
+        // and routes to a fresh OAuth login instead. Mirrors the passive
+        // migration path.
+        await this.removeLegacyKeylessOAuthTokens({ ownerId });
+        return null;
+      }
+      // Any other non-OK response (proxy / CDN challenge page, unparseable
+      // body) is not a GoTrue verdict on the token — keep the blob and treat
+      // it like the transient branch above.
       return null;
     }
 
