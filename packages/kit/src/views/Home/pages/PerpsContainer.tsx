@@ -32,6 +32,7 @@ import {
 import { useNavigateToMarketTab } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
+import { getTradingButtonStyleValues } from '@onekeyhq/kit/src/views/Perp/utils/styleUtils';
 import {
   perpsPendingInfoPanelTabAtom,
   spotActiveAssetAtom,
@@ -922,6 +923,7 @@ function PerpsDepositButton({
   const intl = useIntl();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const ensureHomePerpsAccount = useEnsureHomePerpsAccount();
+  const buttonStyles = getTradingButtonStyleValues('long', isDepositDisabled);
 
   const handleDeposit = useCallback(async () => {
     if (!canDeposit || isDepositDisabled) {
@@ -948,19 +950,23 @@ function PerpsDepositButton({
       testID={testID}
       size="small"
       variant="primary"
-      bg="$brand8"
+      bg="$bgAccent"
       minHeight={32}
-      color="$textOnColor"
+      color={buttonStyles.textColor}
       cursor={isDepositDisabled ? 'default' : 'pointer'}
       disabled={isDepositDisabled}
-      hoverStyle={{ bg: '$brand9' }}
-      pressStyle={{ bg: '$brand10' }}
+      hoverStyle={{ bg: '$bgAccentHover' }}
+      pressStyle={{ bg: '$bgAccentActive' }}
       onPress={() => void handleDeposit()}
       childrenAsText={false}
     >
       <XStack alignItems="center" gap="$2">
-        <Icon name="AlignBottomOutline" size="$4" color="$iconOnColor" />
-        <SizableText size="$bodyMdMedium" color="$textOnColor">
+        <Icon
+          name="AlignBottomOutline"
+          size="$4"
+          color={buttonStyles.textColor}
+        />
+        <SizableText size="$bodyMdMedium" color={buttonStyles.textColor}>
           {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
         </SizableText>
       </XStack>
