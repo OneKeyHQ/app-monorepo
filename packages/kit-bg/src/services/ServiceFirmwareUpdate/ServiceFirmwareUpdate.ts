@@ -1371,6 +1371,79 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   updateTasks: Record<number | string, IUpdateFirmwareTaskFn> = {};
 
+  // Per-workflow analytics context (OK-57543): only one update workflow runs
+  // at a time, reset on each workflow start
+  updateWorkflowTracking:
+    | {
+        updateFlow: 'v1' | 'v2';
+        releaseResult: ICheckAllFirmwareReleaseResult;
+        startedAt: number;
+        failedAttemptCount: number;
+      }
+    | undefined;
+
+  resetUpdateWorkflowTracking({
+    updateFlow,
+    releaseResult,
+  }: {
+    updateFlow: 'v1' | 'v2';
+    releaseResult: ICheckAllFirmwareReleaseResult;
+  }) {
+    this.updateWorkflowTracking = {
+      updateFlow,
+      releaseResult,
+      startedAt: Date.now(),
+      failedAttemptCount: 0,
+    };
+  }
+
+  @backgroundMethod()
+  async getUpdateWorkflowTrackingInfo(): Promise<{
+    retryCount: number | undefined;
+    durationMs: number | undefined;
+  }> {
+    const tracking = this.updateWorkflowTracking;
+    return {
+      retryCount: tracking?.failedAttemptCount,
+      durationMs: tracking ? Date.now() - tracking.startedAt : undefined,
+    };
+  }
+
+  async trackUpdateTaskFailedAttempt(error: unknown) {
+    // Never let analytics break the update/retry flow
+    try {
+      const tracking = this.updateWorkflowTracking;
+      if (!tracking) {
+        return;
+      }
+      // User exit is not a real update failure
+      if (
+        error instanceof FirmwareUpdateExit ||
+        error instanceof FirmwareUpdateTasksClear
+      ) {
+        return;
+      }
+      tracking.failedAttemptCount += 1;
+      const err = toPlainErrorObject(error as any);
+      const hardwareTransportType =
+        await this.backgroundApi.serviceSetting.getHardwareTransportType();
+      defaultLogger.update.firmware.firmwareUpdateFailedAttempt({
+        deviceType: tracking.releaseResult.deviceType,
+        transportType: hardwareTransportType,
+        updateFlow: tracking.updateFlow,
+        firmwareVersions: parseFirmwareVersions(tracking.releaseResult),
+        attempt: tracking.failedAttemptCount,
+        errorCode: err?.code,
+        errorMessage: err?.message,
+      });
+    } catch (loggingError) {
+      serviceHardwareUtils.hardwareLog(
+        'trackUpdateTaskFailedAttempt logging ERROR',
+        loggingError,
+      );
+    }
+  }
+
   updateTasksAdd({
     fn,
     reject,
@@ -1479,6 +1552,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async startUpdateWorkflow(params: IUpdateFirmwareWorkflowParams) {
+    this.resetUpdateWorkflowTracking({
+      updateFlow: 'v1',
+      releaseResult: params.releaseResult,
+    });
     const dbDevice = await localDb.getDeviceByQuery({
       connectId: params.releaseResult.originalConnectId, // TODO remove connectId check
     });
@@ -1672,6 +1749,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     try {
       const hardwareTransportType =
         await this.backgroundApi.serviceSetting.getHardwareTransportType();
+      const trackingInfo = await this.getUpdateWorkflowTrackingInfo();
 
       defaultLogger.update.firmware.firmwareUpdateResult({
         deviceType: params.releaseResult.deviceType,
@@ -1681,6 +1759,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
         fromFirmwareType,
         toFirmwareType,
         status: 'success',
+        retryCount: trackingInfo.retryCount,
+        durationMs: trackingInfo.durationMs,
       });
     } catch (loggingError) {
       serviceHardwareUtils.hardwareLog(
@@ -1721,6 +1801,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     try {
       const hardwareTransportType =
         await this.backgroundApi.serviceSetting.getHardwareTransportType();
+      const trackingInfo = await this.getUpdateWorkflowTrackingInfo();
 
       defaultLogger.update.firmware.firmwareUpdateResult({
         deviceType: params.releaseResult.deviceType,
@@ -1732,6 +1813,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
         status: 'failed',
         errorCode: err?.code,
         errorMessage: err?.message,
+        retryCount: trackingInfo.retryCount,
+        durationMs: trackingInfo.durationMs,
       });
     } catch (loggingError) {
       serviceHardwareUtils.hardwareLog(
@@ -1847,6 +1930,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async startUpdateWorkflowV2(
     params: IUpdateFirmwareWorkflowParams,
   ): Promise<IStartUpdateWorkflowV2Result> {
+    this.resetUpdateWorkflowTracking({
+      updateFlow: 'v2',
+      releaseResult: params.releaseResult,
+    });
     await firmwareUpdateWorkflowRunningAtom.set(true);
 
     void (async () => {
@@ -1959,6 +2046,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
     } catch (error) {
       //
       serviceHardwareUtils.hardwareLog('startUpdateWorkflow ERROR', error);
+
+      // OK-57543: track each real failed attempt (retry may succeed later)
+      await this.trackUpdateTaskFailedAttempt(error);
+
       // never reject here, we should use retry
       // await servicePromise.rejectCallback({ id, error });
       await firmwareUpdateRetryAtom.set({
