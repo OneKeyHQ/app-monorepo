@@ -583,6 +583,7 @@ export interface IAppEventBusPayload {
       | ETranslations.global_earn;
     openUrl?: boolean;
     shouldConsumePendingUrl?: boolean;
+    showWebPage?: boolean;
     switchType?: 'default' | 'tap' | 'swipe';
   };
   [EAppEventBusNames.SwitchEarnMode]: {
