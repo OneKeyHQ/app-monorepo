@@ -69,6 +69,7 @@ import {
   isUserRejectedErrorMessage,
   useProtocolPositionActionSubmit,
 } from './ProtocolPositionActionDialog';
+import { getProtocolProviderDisplayName } from './protocolProviderDisplayUtils';
 
 // Withdraw/Repay only — the portfolio dialog is exit-side (Supply/Borrow stay on
 // the full manage page).
@@ -1238,8 +1239,10 @@ function ProtocolLendingActionBorrowContent({
     }
     const protocolLogoURI =
       source.providerLogoURI ?? protocolInfo?.providerDetail.logoURI;
-    const protocolLabel = earnUtils.getEarnProviderName({
-      providerName: source.providerDisplayName ?? provider,
+    const protocolLabel = getProtocolProviderDisplayName({
+      provider,
+      providerDisplayName: source.providerDisplayName,
+      providerDetailName: protocolInfo?.providerDetail.name,
     });
     if (actionType === 'repay') {
       await handleBorrowRepay({
@@ -1308,6 +1311,7 @@ function ProtocolLendingActionBorrowContent({
     networkId,
     onSuccess,
     protocolInfo?.providerDetail.logoURI,
+    protocolInfo?.providerDetail.name,
     protocolInfo?.stakeTag,
     reserveAddress,
     source,
