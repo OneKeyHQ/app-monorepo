@@ -85,7 +85,7 @@ function HeaderRight({
     <HeaderButtonGroup {...style}>
       <HeaderIconButton
         testID={NotificationsTestIDs.markAllReadBtn}
-        icon="CheckRadioOutline"
+        icon="BroomOutline"
         title={markAllReadTitle}
         onPress={onMarkAllReadPress}
       />
@@ -565,7 +565,7 @@ export function NotificationListView({
       glassBarItem(
         <HeaderIconButton
           testID={NotificationsTestIDs.markAllReadBtn}
-          icon="CheckRadioOutline"
+          icon="BroomOutline"
           title={markAllReadTitle}
           onPress={handleMarkAllReadPress}
         />,
