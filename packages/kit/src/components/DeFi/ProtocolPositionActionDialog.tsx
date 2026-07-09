@@ -54,6 +54,7 @@ import {
   showDeFiActionTxConfirmDialog,
 } from './DeFiActionTxConfirmResult';
 import { resolveProtocolLendingDefiFillableAmountState } from './protocolLendingActionUtils';
+import { shouldShowProtocolPositionActionInlineSubmitError } from './protocolPositionActionErrorUtils';
 import {
   ProtocolValueCell,
   isProtocolAssetValueUnavailable,
@@ -752,11 +753,9 @@ type IProtocolPositionActionSubmitParams = {
   isMaxAmount?: boolean;
   // Position holds rewards — drives the "Remove & Claim rewards" tx label.
   hasRewards?: boolean;
-  // When provided and returning true at failure time, the hook skips its
-  // error Toast — the caller renders the error inline instead. A callback
-  // (not a boolean) so the dialog can fall back to the Toast for errors
-  // thrown after it has already closed (e.g. tx-confirm init failures).
-  isErrorToastSuppressed?: () => boolean;
+  // When provided and returning true for a specific failure, the hook skips
+  // its error Toast because the caller renders that error inline instead.
+  isErrorToastSuppressed?: (error: unknown) => boolean;
   onBeforeNavigateConfirm?: () => void | Promise<void>;
   onSettleResult?: (result: {
     status: IDeFiActionTxConfirmDialogResult;
@@ -1045,7 +1044,7 @@ function useProtocolPositionActionSubmit({
         }
       } catch (error) {
         if (!isUserRejectedErrorMessage({ error, intl })) {
-          if (isErrorToastSuppressed?.()) {
+          if (isErrorToastSuppressed?.(error)) {
             errorToastUtils.toastIfErrorDisable(error);
           } else {
             showProtocolPositionActionErrorToast(error);
@@ -1873,7 +1872,8 @@ function ProtocolPositionActionDialogContent({
     const releaseSubmitGuardOnceWithError = (error: Error) => {
       if (
         !submitGuardReleased &&
-        !isUserRejectedErrorMessage({ error, intl })
+        !isUserRejectedErrorMessage({ error, intl }) &&
+        shouldShowProtocolPositionActionInlineSubmitError(error)
       ) {
         setSubmitError(getErrorMessage(error));
       }
@@ -1887,7 +1887,8 @@ function ProtocolPositionActionDialogContent({
         percent: isPercentAction ? actionPercent : undefined,
         amount: useManualAmountInput ? amount : undefined,
         isMaxAmount: useManualAmountInput ? isMaxAmount : undefined,
-        isErrorToastSuppressed: () => true,
+        isErrorToastSuppressed:
+          shouldShowProtocolPositionActionInlineSubmitError,
         onSettleResult: ({ status }) => {
           releaseSubmitGuardOnce();
           void closeRef.current?.();
@@ -1899,7 +1900,10 @@ function ProtocolPositionActionDialogContent({
         onConfirmCancel: releaseSubmitGuardOnce,
       });
     } catch (error) {
-      if (!isUserRejectedErrorMessage({ error, intl })) {
+      if (
+        !isUserRejectedErrorMessage({ error, intl }) &&
+        shouldShowProtocolPositionActionInlineSubmitError(error)
+      ) {
         setSubmitError(getErrorMessage(error));
       }
       releaseSubmitGuardOnce();

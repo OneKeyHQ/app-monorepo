@@ -70,6 +70,7 @@ import {
   isUserRejectedErrorMessage,
   useProtocolPositionActionSubmit,
 } from './ProtocolPositionActionDialog';
+import { shouldShowProtocolPositionActionInlineSubmitError } from './protocolPositionActionErrorUtils';
 import { getProtocolProviderDisplayName } from './protocolProviderDisplayUtils';
 
 // Withdraw/Repay only — the portfolio dialog is exit-side (Supply/Borrow stay on
@@ -755,7 +756,8 @@ function ProtocolLendingActionDefiContent({
     const releaseSubmitGuardOnceWithError = (error: unknown) => {
       if (
         !submitGuardReleased &&
-        !isUserRejectedErrorMessage({ error, intl })
+        !isUserRejectedErrorMessage({ error, intl }) &&
+        shouldShowProtocolPositionActionInlineSubmitError(error)
       ) {
         setSubmitError(getErrorMessage(error));
       }
@@ -767,7 +769,8 @@ function ProtocolLendingActionDefiContent({
         selectedAssets: [selectedAsset],
         amount,
         isMaxAmount,
-        isErrorToastSuppressed: () => true,
+        isErrorToastSuppressed:
+          shouldShowProtocolPositionActionInlineSubmitError,
         onSettleResult: ({ status }) => {
           releaseSubmitGuardOnce();
           void closeRef.current?.();
@@ -779,7 +782,10 @@ function ProtocolLendingActionDefiContent({
         onConfirmCancel: releaseSubmitGuardOnce,
       });
     } catch (error) {
-      if (!isUserRejectedErrorMessage({ error, intl })) {
+      if (
+        !isUserRejectedErrorMessage({ error, intl }) &&
+        shouldShowProtocolPositionActionInlineSubmitError(error)
+      ) {
         setSubmitError(getErrorMessage(error));
       }
       releaseSubmitGuardOnce();
@@ -1286,7 +1292,8 @@ function ProtocolLendingActionBorrowContent({
     const releaseSubmitGuardOnceWithError = (error: unknown) => {
       if (
         !submitGuardReleased &&
-        !isUserRejectedErrorMessage({ error, intl })
+        !isUserRejectedErrorMessage({ error, intl }) &&
+        shouldShowProtocolPositionActionInlineSubmitError(error)
       ) {
         setSubmitError(getErrorMessage(error));
       }
@@ -1424,7 +1431,10 @@ function ProtocolLendingActionBorrowContent({
       }
       await submitBorrowTx();
     } catch (error) {
-      if (!isUserRejectedErrorMessage({ error, intl })) {
+      if (
+        !isUserRejectedErrorMessage({ error, intl }) &&
+        shouldShowProtocolPositionActionInlineSubmitError(error)
+      ) {
         setSubmitError(getErrorMessage(error));
       }
       releaseSubmitGuard();
