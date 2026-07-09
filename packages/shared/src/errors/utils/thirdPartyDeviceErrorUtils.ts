@@ -118,6 +118,9 @@ export function convertThirdPartyDeviceError(
     case ThirdPartyHwErrorCode.PinCancelled:
       return new ThirdPartyErrors.ThirdPartyPinCancelled(props);
 
+    case ThirdPartyErrors.THIRD_PARTY_HW_PIN_MISMATCH_CODE:
+      return new ThirdPartyErrors.ThirdPartyPinMismatch(props);
+
     case ThirdPartyHwErrorCode.PassphraseStateMismatch:
       return new ThirdPartyErrors.ThirdPartyPassphraseStateMismatch(props);
 

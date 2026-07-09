@@ -11,9 +11,11 @@ Linting, documentation, and general code quality standards for OneKey.
 ## Lint Commands
 
 ```bash
-# Pre-commit (fast, only staged files)
-yarn lint:staged
-yarn tsc:staged
+# Agent pre-commit gate (fast, only staged files)
+yarn agent:check --profile commit
+
+# Agent PR readiness gate (local staged checks + GitHub CI/review summary)
+yarn agent:check --profile pr
 
 # CI only (full project check)
 yarn lint        # Comprehensive: TypeScript, ESLint, folder structure, i18n
@@ -21,17 +23,15 @@ yarn lint:only   # Quick: oxlint only
 yarn tsc:only    # Full type check
 ```
 
-**Note:** `yarn lint` is for CI only. For pre-commit, always use `yarn lint:staged`.
+**Note:** `yarn lint` is for CI only. For agent workflows, always use
+`yarn agent:check` first; use lower-level commands only when debugging the log
+path reported by `agent:check`.
 
 ## Pre-Commit Workflow
 
 For fast pre-commit validation:
 ```bash
-# Lint only modified files (recommended)
-yarn lint:staged
-
-# Or with type check
-yarn lint:staged && yarn tsc:staged
+yarn agent:check --profile commit
 ```
 
 ## Common Lint Fixes
@@ -164,8 +164,7 @@ echo "yourword" >> development/spellCheckerSkipWords.txt
 ## Checklist
 
 ### Pre-commit
-- [ ] `yarn lint:staged` passes
-- [ ] `yarn tsc:staged` passes
+- [ ] `yarn agent:check --profile commit` passes
 
 ### Code Quality
 - [ ] All comments are in English

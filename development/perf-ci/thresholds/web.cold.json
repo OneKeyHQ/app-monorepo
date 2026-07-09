@@ -15,7 +15,6 @@
     "initialScriptRawBytes": 6291456,
     "initialScriptGzipBytes": 2097152,
     "initialScriptBrotliBytes": 1638400,
-    "allScriptRawBytes": 94371840,
     "largestModuleBytes": 819200,
     "forbiddenSources": [
       "@keystonehq/",

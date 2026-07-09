@@ -72,6 +72,7 @@ export function LightweightChart({
   showLastValue,
   showLastPointMarker,
   showTimeScale,
+  useTimeScaleTickMarkWithoutUnit,
   pulseLastPoint,
   onHover,
 }: ILightweightChartProps) {
@@ -107,6 +108,7 @@ export function LightweightChart({
     showLastValue,
     showLastPointMarker,
     showTimeScale,
+    useTimeScaleTickMarkWithoutUnit,
   });
 
   useEffect(() => {
@@ -133,6 +135,7 @@ export function LightweightChart({
           chartConfig.priceScaleMargins,
           chartConfig.showTimeScale,
           chartConfig.priceScaleEntireTextOnly,
+          chartConfig.useTimeScaleTickMarkWithoutUnit,
         );
         const gridOptions = {
           vertLines: { visible: false },

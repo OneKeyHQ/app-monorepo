@@ -1,9 +1,9 @@
-import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { ensureWebembedApiProxyAvailable } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import type { IAdaSdk, IEnsureSDKReady } from './types';
 
 const getCardanoApi = async () =>
-  Promise.resolve(appGlobals.$webembedApiProxy.chainAdaLegacy);
+  Promise.resolve(ensureWebembedApiProxyAvailable().chainAdaLegacy);
 
 const ensureSDKReady: IEnsureSDKReady = async () => Promise.resolve(true);
 
