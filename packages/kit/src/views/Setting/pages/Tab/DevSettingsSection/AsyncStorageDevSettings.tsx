@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   Button,
@@ -18,12 +18,15 @@ const DEBUG_KEY = '$$test_async_storage_size_key';
 const CONCURRENT_TEST_KEY_PREFIX = '$$test_async_storage_concurrent/';
 const CONCURRENT_TEST_ROUNDS = 25;
 
-function buildMainKey(round: number) {
-  return `${CONCURRENT_TEST_KEY_PREFIX}main/${round}`;
+// runId namespaces every key so two overlapping runs (e.g. the dialog closed
+// mid-run then reopened as a fresh component instance) operate on disjoint
+// keyspaces and can never delete or read back each other's data.
+function buildMainKey(runId: string, round: number) {
+  return `${CONCURRENT_TEST_KEY_PREFIX}${runId}/main/${round}`;
 }
 
-function buildBgKey(round: number) {
-  return `${CONCURRENT_TEST_KEY_PREFIX}bg/${round}`;
+function buildBgKey(runId: string, round: number) {
+  return `${CONCURRENT_TEST_KEY_PREFIX}${runId}/bg/${round}`;
 }
 
 // Value encodes its own key + origin so a stale-manifest clobber (dropped key)
@@ -75,6 +78,16 @@ export function AsyncStorageDevSettings() {
   const [concurrentResult, setConcurrentResult] = useState<string | undefined>(
     undefined,
   );
+  // Tracks whether this component instance is still mounted, so a run that
+  // outlives its dialog does not push results/toasts onto (or resurrect) a
+  // torn-down instance.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Concurrently drive main-origin writes (forwarded to bg on iOS dual-runtime)
   // and bg-origin writes (executed bg-local) against the shared AsyncStorage,
@@ -84,16 +97,21 @@ export function AsyncStorageDevSettings() {
     setIsRunningConcurrent(true);
     setConcurrentResult(undefined);
 
+    // Unique per-run namespace (plain app code, so Date.now/Math.random are
+    // fine) so concurrent/overlapping runs never share keys.
+    const runId = `${Date.now().toString(36)}-${Math.random()
+      .toString(36)
+      .slice(2)}`;
     const forwardingActive = Boolean(
       platformEnv.isNativeIOS &&
       platformEnv.isNativeMainThread &&
       platformEnv.enableNativeBackgroundThread,
     );
     const mainKeys = Array.from({ length: CONCURRENT_TEST_ROUNDS }, (_, i) =>
-      buildMainKey(i),
+      buildMainKey(runId, i),
     );
     const bgKeys = Array.from({ length: CONCURRENT_TEST_ROUNDS }, (_, i) =>
-      buildBgKey(i),
+      buildBgKey(runId, i),
     );
     const allKeys = [...mainKeys, ...bgKeys];
 
@@ -111,8 +129,8 @@ export function AsyncStorageDevSettings() {
       //    stale-manifest clobber would drop the other runtime's keys.
       const writeTasks: Promise<unknown>[] = [];
       for (let round = 0; round < CONCURRENT_TEST_ROUNDS; round += 1) {
-        const mainKey = buildMainKey(round);
-        const bgKey = buildBgKey(round);
+        const mainKey = buildMainKey(runId, round);
+        const bgKey = buildBgKey(runId, round);
         // main-origin: on iOS dual-runtime this setItem is forwarded to bg.
         writeTasks.push(
           appStorage.setItem(mainKey, buildExpectedValue(mainKey, 'main')),
@@ -174,22 +192,30 @@ export function AsyncStorageDevSettings() {
         ? 'dual-runtime forwarding ON'
         : 'forwarding OFF (single-runtime/non-iOS — trivial pass)';
 
-      if (missing.length === 0 && mismatch === 0 && writeFailures === 0) {
-        const message = `PASS ${intact}/${total} (main ${CONCURRENT_TEST_ROUNDS} + bg ${CONCURRENT_TEST_ROUNDS}) · ${forwardingNote}`;
+      const passed =
+        missing.length === 0 && mismatch === 0 && writeFailures === 0;
+      const sample = missing.slice(0, 5).join(', ');
+      const message = passed
+        ? `PASS ${intact}/${total} (main ${CONCURRENT_TEST_ROUNDS} + bg ${CONCURRENT_TEST_ROUNDS}) · ${forwardingNote}`
+        : `FAIL intact ${intact}/${total} · missing ${missing.length} · mismatch ${mismatch} · writeFail ${writeFailures}${
+            sample ? ` · e.g. ${sample}` : ''
+          } · ${forwardingNote}`;
+      // Ignore the outcome if this instance was unmounted mid-run: a stale run
+      // must not surface UI for (or over) a newer instance.
+      if (isMountedRef.current) {
         setConcurrentResult(message);
-        Toast.success({ title: 'Concurrent write test PASS', message });
-      } else {
-        const sample = missing.slice(0, 5).join(', ');
-        const message = `FAIL intact ${intact}/${total} · missing ${missing.length} · mismatch ${mismatch} · writeFail ${writeFailures}${
-          sample ? ` · e.g. ${sample}` : ''
-        } · ${forwardingNote}`;
-        setConcurrentResult(message);
-        Toast.error({ title: 'Concurrent write test FAIL', message });
+        if (passed) {
+          Toast.success({ title: 'Concurrent write test PASS', message });
+        } else {
+          Toast.error({ title: 'Concurrent write test FAIL', message });
+        }
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      setConcurrentResult(`ERROR: ${message}`);
-      Toast.error({ title: 'Concurrent write test error', message });
+      if (isMountedRef.current) {
+        setConcurrentResult(`ERROR: ${message}`);
+        Toast.error({ title: 'Concurrent write test error', message });
+      }
     } finally {
       // Best-effort cleanup so repeated runs start clean. Use the bg-direct
       // remove (same reason as the clean-slate above): teardown must converge
@@ -201,7 +227,9 @@ export function AsyncStorageDevSettings() {
       } catch {
         // ignore cleanup failure
       }
-      setIsRunningConcurrent(false);
+      if (isMountedRef.current) {
+        setIsRunningConcurrent(false);
+      }
     }
   }, []);
 
