@@ -1492,3 +1492,6 @@ retryably
 
 # @mysten/sui 2.x package name
 mysten
+
+# OpenType tabular-figures feature tag
+tnum

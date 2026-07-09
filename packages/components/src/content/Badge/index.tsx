@@ -8,8 +8,10 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { XStack } from '../../primitives/Stack';
+import { TABULAR_NUMS, getFontVariantStyle } from '../../utils/tabularNums';
 
 import type { IXStackProps } from '../../primitives';
+import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 
 export type IBadgeType =
   | 'success'
@@ -60,7 +62,7 @@ const BadgeFrame = styled(XStack, {
   } as const,
 });
 
-const BadgeText = styled(SizableText, {
+const BadgeTextStyled = styled(SizableText, {
   name: 'BadgeText',
   allowFontScaling: false,
   numberOfLines: 1,
@@ -93,6 +95,20 @@ const BadgeText = styled(SizableText, {
     },
   } as const,
 });
+
+// Badge.Text is styled from raw tamagui text, so it bypasses the SizableText
+// wrapper's app-wide tabular default. Re-apply it here so badge digits
+// (countdowns, rates, counts) stay equal-width on native. On web the injected
+// body rule already covers it, so getFontVariantStyle returns undefined there.
+function BadgeText({ style, ...props }: GetProps<typeof BadgeTextStyled>) {
+  const variantStyle = getFontVariantStyle(TABULAR_NUMS);
+  return (
+    <BadgeTextStyled
+      {...props}
+      style={variantStyle ? [variantStyle, style] : style}
+    />
+  );
+}
 
 export type IBadgeProps = IXStackProps & {
   badgeType?: IBadgeType;

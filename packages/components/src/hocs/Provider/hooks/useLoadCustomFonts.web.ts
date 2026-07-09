@@ -16,6 +16,18 @@ const monoFonts = {
 
 let loadPromise: Promise<void> | null = null;
 
+// App-wide tabular figures (see utils/tabularNums.ts). SizableText already
+// defaults this, but text rendered outside the wrapper (raw tamagui Text,
+// Badge.Text, portals) inherits it from body via this rule on web.
+let numericStyleInjected = false;
+function injectGlobalNumericStyle() {
+  if (numericStyleInjected) return;
+  numericStyleInjected = true;
+  const style = document.createElement('style');
+  style.textContent = 'body{font-variant-numeric:tabular-nums}';
+  document.head.appendChild(style);
+}
+
 function loadRoobertFonts() {
   if (!loadPromise) {
     loadPromise = (async () => {
@@ -35,6 +47,7 @@ export default function useLoadCustomFonts(): [boolean, Error | null] {
   const [rError, setRError] = useState<Error | null>(null);
 
   useEffect(() => {
+    injectGlobalNumericStyle();
     loadRoobertFonts()
       .then(() => setRLoaded(true))
       .catch((err) =>

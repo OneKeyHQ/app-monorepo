@@ -586,6 +586,7 @@ function SegmentSliderComponent({
       fontSize: 12,
       lineHeight: '16px',
       fontWeight: 600,
+      fontVariantNumeric: 'tabular-nums',
       opacity: 0,
       transition: 'opacity 150ms ease',
       pointerEvents: 'none',
