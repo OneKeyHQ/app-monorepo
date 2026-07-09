@@ -234,13 +234,13 @@ export const TradingViewNativeChartControls = memo(
     }, [isFullscreen, onFullscreenChange]);
 
     const handleSettingsPress = useCallback(() => {
-      if (isDesktopLayout && onOpenChartSettings) {
+      if (onOpenChartSettings) {
         onOpenChartSettings();
         return;
       }
 
       showChartSettingsDialog();
-    }, [isDesktopLayout, onOpenChartSettings, showChartSettingsDialog]);
+    }, [onOpenChartSettings, showChartSettingsDialog]);
 
     const chartTypeControl = useMemo(() => {
       if (showChartTypeSelect) {
