@@ -213,9 +213,21 @@ export function SwapPanel({
           </XStack>
           {hasPnl ? (
             <XStack gap="$1" alignItems="center">
-              <SizableText size="$bodySmMedium" color={pnlColor}>
-                {`${pnlPrefix}$${unrealizedBN.abs().toFixed(2)}`}
-              </SizableText>
+              <XStack alignItems="center">
+                {pnlPrefix ? (
+                  <SizableText size="$bodySmMedium" color={pnlColor}>
+                    {pnlPrefix}
+                  </SizableText>
+                ) : null}
+                <Currency
+                  size="$bodySmMedium"
+                  color={pnlColor}
+                  formatter="value"
+                  sourceCurrency={USD_CURRENCY_ID}
+                >
+                  {unrealizedBN.abs().toFixed()}
+                </Currency>
+              </XStack>
               <SizableText size="$bodySm" color={pnlColor}>
                 {`(${pnl?.unrealizedPnlPercent ?? '0'}%)`}
               </SizableText>
