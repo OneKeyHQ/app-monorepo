@@ -1,4 +1,5 @@
 import { OneKeyLocalError } from '../../errors';
+import appStorage from '../appStorage';
 
 /**
  * Origin-shared IndexedDB store for NON-EXTRACTABLE WebCrypto AES-GCM keys.
@@ -129,6 +130,59 @@ export function defaultRandomBytes(length: number): Uint8Array {
   return bytes;
 }
 
+// Best-effort request to mark this origin's storage persistent, so the
+// IndexedDB database holding non-extractable device keys is excluded from
+// storage-pressure eviction — losing a key makes everything sealed with it
+// unrecoverable (e.g. the Supabase session: user must re-OAuth). Placed in
+// the shared DB-open path so EVERY consumer of the device-key store
+// (SupabaseStorage sealed sessions, kit-bg local secret envelope) triggers
+// it uniformly on web, extension and desktop. Fire-and-forget by design:
+// there is no fallback action to take on denial; extension origins already
+// hold `unlimitedStorage` (origin-level policy covering IndexedDB quota AND
+// eviction) and Electron grants by default, where this is a harmless no-op.
+// Safari's ITP 7-day script-storage deletion is a separate mechanism this
+// does NOT exempt.
+//
+// Prompt hygiene: `persist()` is NOT always silent — Firefox shows a
+// user-visible permission prompt. To avoid nagging:
+// - `persisted()` is checked first: once granted, every later launch
+//   short-circuits silently and no prompt can ever appear again;
+// - a persisted app-storage flag limits the actual `persist()` call to
+//   AT MOST ONCE per install — if the user dismisses/denies the Firefox
+//   prompt we never re-ask on subsequent launches (Chrome/Safari decide
+//   silently, so the flag costs nothing there);
+// - a module-level promise memoizes per JS runtime, and the whole flow is
+//   never awaited by callers, so a pending prompt cannot block key reads.
+const PERSISTENT_STORAGE_REQUESTED_FLAG_KEY =
+  'global_indexedDbCryptoKeyStorePersistentStorageRequested';
+let persistentStorageRequestPromise: Promise<void> | undefined;
+function requestPersistentStorageBestEffort() {
+  if (persistentStorageRequestPromise) {
+    return;
+  }
+  persistentStorageRequestPromise = (async () => {
+    const storageManager = globalThis?.navigator?.storage;
+    if (typeof storageManager?.persist !== 'function') {
+      // API unavailable in this runtime (e.g. React Native) — nothing to do.
+      return;
+    }
+    if (await storageManager.persisted?.()) {
+      return;
+    }
+    const alreadyAsked = await appStorage.getItem(
+      PERSISTENT_STORAGE_REQUESTED_FLAG_KEY,
+    );
+    if (alreadyAsked) {
+      return;
+    }
+    // Mark before asking so concurrent runtimes / crashes cannot double-ask.
+    await appStorage.setItem(PERSISTENT_STORAGE_REQUESTED_FLAG_KEY, 'true');
+    await storageManager.persist();
+  })().catch(() => {
+    // best-effort only — never let this surface into key-store operations
+  });
+}
+
 async function openCryptoKeyDb({
   dbName,
   indexedDBInstance,
@@ -136,6 +190,7 @@ async function openCryptoKeyDb({
   dbName: string;
   indexedDBInstance?: IDBFactory | null;
 }): Promise<IDBDatabase> {
+  requestPersistentStorageBestEffort();
   const indexedDB = getIndexedDBInstance(indexedDBInstance);
   const request = indexedDB.open(dbName, DB_VERSION);
   request.onupgradeneeded = () => {
