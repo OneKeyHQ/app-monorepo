@@ -13,6 +13,8 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { loadPerpsDepositWithdrawModal } from '../utils/preloadPerpsDepositWithdrawModal';
+
 type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
 
 export function useShowDepositWithdrawModal() {
@@ -44,7 +46,7 @@ export function useShowDepositWithdrawModal() {
       }
       if (gtMd) {
         const { showDepositWithdrawDialog } =
-          await import('../components/TradingPanel/modals/DepositWithdrawModal');
+          await loadPerpsDepositWithdrawModal();
         await showDepositWithdrawDialog(
           {
             actionType,
@@ -53,7 +55,6 @@ export function useShowDepositWithdrawModal() {
           intl,
         );
       } else {
-        await import('../components/TradingPanel/modals/DepositWithdrawModal');
         navigation.pushModal(EModalRoutes.PerpModal, {
           screen: EModalPerpRoutes.MobileDepositWithdrawModal,
           params: { actionType },
