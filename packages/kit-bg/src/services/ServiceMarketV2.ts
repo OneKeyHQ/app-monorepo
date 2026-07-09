@@ -59,6 +59,7 @@ type IMarketTokenListRequestParams = {
   minLiquidity?: number;
   maxLiquidity?: number;
   type?: string;
+  category?: string;
   timeFrame?: string;
 };
 
@@ -149,6 +150,7 @@ class ServiceMarketV2 extends ServiceBase {
     minLiquidity,
     maxLiquidity,
     type,
+    category,
     timeFrame,
   }: INormalizedMarketTokenListRequestParams) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
@@ -166,6 +168,7 @@ class ServiceMarketV2 extends ServiceBase {
         minLiquidity,
         maxLiquidity,
         type,
+        category,
         timeFrame,
         currency: 'usd',
       },
@@ -282,6 +285,7 @@ class ServiceMarketV2 extends ServiceBase {
       minLiquidity,
       maxLiquidity,
       type,
+      category,
       timeFrame,
     }: IMarketTokenListRequestParams,
     options?: IFetchMarketTokenListOptions,
@@ -295,6 +299,7 @@ class ServiceMarketV2 extends ServiceBase {
       minLiquidity,
       maxLiquidity,
       type,
+      category,
       timeFrame,
     });
     if (options?.forceRemote) {

@@ -61,6 +61,7 @@ const useMarketHomeLayoutProps = () => {
   const {
     formattedMinLiquidity,
     spotCategories: apiSpotCategories,
+    stockCategories: apiStockCategories,
     isLoading: isMarketBasicConfigLoading,
   } = useMarketBasicConfig();
   const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
@@ -132,6 +133,15 @@ const useMarketHomeLayoutProps = () => {
       },
     ];
   }, [apiSpotCategories, intl]);
+
+  const stockCategories: IMarketCategoryItem[] = useMemo(
+    () =>
+      apiStockCategories.map((category) => ({
+        id: category.category,
+        name: category.name,
+      })),
+    [apiStockCategories],
+  );
 
   const spotCategoryToRestore = spotCategoryToSelect ?? selectedSpotCategory;
   const shouldWaitForSpotCategoryReady = Boolean(
@@ -237,6 +247,7 @@ const useMarketHomeLayoutProps = () => {
         onLiquidityFilterChange: setLiquidityFilter,
         selectedCategory,
         categories,
+        stockCategories,
         onCategoryChange: setSelectedCategory,
       },
       selectedNetworkId: effectiveSelectedNetworkId,
@@ -251,6 +262,7 @@ const useMarketHomeLayoutProps = () => {
       handleTabChange,
       selectedCategory,
       categories,
+      stockCategories,
     ],
   );
 
