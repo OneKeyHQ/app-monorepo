@@ -270,6 +270,7 @@ function TxHistoryListContainer(
     async () => {
       fetchRequestIdRef.current += 1;
       const requestId = fetchRequestIdRef.current;
+      clearPendingTokenRefreshAfterTokensDone();
       const isManualRefreshForThisRun = isManualRefresh.current;
       const forceHistoryRefreshForThisRun =
         isManualRefreshForThisRun || forceHistoryRefresh.current;
@@ -387,7 +388,6 @@ function TxHistoryListContainer(
         });
         updateHistoryData(r.txs);
 
-        clearPendingTokenRefreshAfterTokensDone();
         const tokenRefreshPlan = buildTokenRefreshPlanAfterHistory({
           accounts: r.accountsWithChangedTxs,
           lastTokensTabState: getTokensTabLastState(),
