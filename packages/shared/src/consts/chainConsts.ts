@@ -10,6 +10,10 @@ export const BTC_FIND_ADDRESS_MAX_INDEX = 2 ** 31 - 1;
 // (offline / never fetched) so the input validation stays consistent.
 export const BTC_FIND_ADDRESS_FALLBACK_MAX_SCANNED_INDEX = 20;
 
+// btc find-address feature: max claimed relPaths attached to history
+// list/detail requests (server enforces the same cap per request)
+export const BTC_FIND_ADDRESS_HISTORY_MAX_PATHS = 50;
+
 // Tron constants live in shared/consts so the eager main bundle does not
 // have to reach into @onekeyhq/core/src/chains/ (forbidden in the main
 // bundle under the three-bundle rules). All entries are pure data with no

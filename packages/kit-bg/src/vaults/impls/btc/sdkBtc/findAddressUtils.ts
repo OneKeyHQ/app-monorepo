@@ -1,7 +1,32 @@
+import { BTC_FIND_ADDRESS_HISTORY_MAX_PATHS } from '@onekeyhq/shared/src/consts/chainConsts';
+
 import type { IUtxoInfo } from '../../../types';
 
 export function buildUtxoKey(utxo: IUtxoInfo): string {
   return `${utxo.txid}:${utxo.vout}`;
+}
+
+// claimed relPaths are always "0/<index>" (receive branch only), anything
+// else in the map is stale data and must never reach the server
+const FIND_ADDRESS_REL_PATH_REGEX = /^0\/\d+$/;
+
+// build the `findAddressPaths` param attached to history list/detail
+// requests so the server can merge claimed (find-address) addresses into
+// the xpub-derived address set. Sorted ascending and capped so the value
+// is deterministic (stable server-side cache key) and bounded.
+export function buildFindAddressPathsParam({
+  findAddresses,
+}: {
+  findAddresses: Record<string, string> | undefined;
+}): string | undefined {
+  const relPaths = Object.keys(findAddresses || {})
+    .filter((relPath) => FIND_ADDRESS_REL_PATH_REGEX.test(relPath))
+    .toSorted((a, b) => Number(a.split('/')[1]) - Number(b.split('/')[1]))
+    .slice(0, BTC_FIND_ADDRESS_HISTORY_MAX_PATHS);
+  if (!relPaths.length) {
+    return undefined;
+  }
+  return relPaths.join(',');
 }
 
 // merge claimed (find-address) relPath entries into an address→path map

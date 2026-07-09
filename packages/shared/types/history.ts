@@ -308,6 +308,10 @@ export interface IServerFetchAccountHistoryDetailParams {
   txid: string;
   accountAddress?: string;
   xpub?: string;
+  // btc find-address feature: comma-joined claimed relPaths ("0/100,0/205"),
+  // the server derives them from the xpub and merges them into the
+  // account's address set before computing direction/amounts
+  findAddressPaths?: string;
 }
 
 export interface IChangedPendingTxInfo {

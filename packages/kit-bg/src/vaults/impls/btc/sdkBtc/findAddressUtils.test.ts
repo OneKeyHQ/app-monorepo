@@ -1,6 +1,9 @@
+import { BTC_FIND_ADDRESS_HISTORY_MAX_PATHS } from '@onekeyhq/shared/src/consts/chainConsts';
+
 import {
   appendClaimedAddressPaths,
   buildBtcSendUtxoPool,
+  buildFindAddressPathsParam,
   mergeClaimedUtxos,
 } from './findAddressUtils';
 
@@ -100,6 +103,54 @@ describe('appendClaimedAddressPaths', () => {
         findAddresses: undefined,
       }),
     ).toEqual({});
+  });
+});
+
+describe('buildFindAddressPathsParam', () => {
+  test('returns undefined when no claimed addresses exist', () => {
+    expect(
+      buildFindAddressPathsParam({ findAddresses: undefined }),
+    ).toBeUndefined();
+    expect(buildFindAddressPathsParam({ findAddresses: {} })).toBeUndefined();
+  });
+
+  test('joins relPaths sorted by numeric index', () => {
+    expect(
+      buildFindAddressPathsParam({
+        findAddresses: {
+          '0/100': 'bc1q-a',
+          '0/21': 'bc1q-b',
+          '0/3000': 'bc1q-c',
+        },
+      }),
+    ).toBe('0/21,0/100,0/3000');
+  });
+
+  test('drops malformed relPaths and returns undefined if none remain', () => {
+    expect(
+      buildFindAddressPathsParam({
+        findAddresses: { '1/5': 'bc1q-x', 'abc': 'bc1q-y', '0/12x': 'bc1q-z' },
+      }),
+    ).toBeUndefined();
+    expect(
+      buildFindAddressPathsParam({
+        findAddresses: { '1/5': 'bc1q-x', '0/100': 'bc1q-a' },
+      }),
+    ).toBe('0/100');
+  });
+
+  test('caps the list keeping the lowest indexes', () => {
+    const findAddresses: Record<string, string> = {};
+    for (let i = 0; i < BTC_FIND_ADDRESS_HISTORY_MAX_PATHS + 1; i += 1) {
+      findAddresses[`0/${i + 21}`] = `bc1q-${i}`;
+    }
+    const result = buildFindAddressPathsParam({ findAddresses });
+    const paths = result?.split(',') ?? [];
+    expect(paths).toHaveLength(BTC_FIND_ADDRESS_HISTORY_MAX_PATHS);
+    expect(paths[0]).toBe('0/21');
+    expect(paths[paths.length - 1]).toBe(
+      `0/${BTC_FIND_ADDRESS_HISTORY_MAX_PATHS + 20}`,
+    );
   });
 });
 

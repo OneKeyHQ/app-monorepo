@@ -104,7 +104,11 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { ClientBtc } from './sdkBtc/ClientBtc';
-import { buildBtcSendUtxoPool, buildUtxoKey } from './sdkBtc/findAddressUtils';
+import {
+  buildBtcSendUtxoPool,
+  buildFindAddressPathsParam,
+  buildUtxoKey,
+} from './sdkBtc/findAddressUtils';
 
 import type { IDBUtxoAccount } from '../../../dbs/local/types';
 import type { IKeyringMap } from '../../base/VaultBase';
@@ -1351,6 +1355,29 @@ export default class VaultBtc extends VaultBase {
     const withCheckInscription =
       checkInscriptionProtectionEnabled && inscriptionProtection;
     return this._collectUTXOsInfoByApiWithCache(withCheckInscription);
+  }
+
+  // btc find-address feature: claimed off-gap addresses are outside the
+  // server xpub gap scan, attach their relPaths to history list/detail
+  // requests so the server merges them into the account's address set
+  // (direction/amount/dedupe are all computed server-side).
+  override async buildFetchHistoryListParams(_params: {
+    accountId: string;
+    networkId: string;
+    accountAddress: string;
+  }): Promise<{ findAddressPaths?: string }> {
+    try {
+      const dbAccount = (await this.backgroundApi.serviceAccount.getDBAccount({
+        accountId: this.accountId,
+      })) as IDBUtxoAccount;
+      const findAddressPaths = buildFindAddressPathsParam({
+        findAddresses: dbAccount.findAddresses,
+      });
+      return findAddressPaths ? { findAddressPaths } : {};
+    } catch {
+      // never let a DB read failure break history fetching
+      return {};
+    }
   }
 
   // btc find-address feature: claimed off-gap addresses are never returned
