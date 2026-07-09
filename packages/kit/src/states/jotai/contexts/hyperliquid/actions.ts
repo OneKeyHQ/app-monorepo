@@ -26,6 +26,7 @@ import {
   tradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { PERPS_FILTERED_LEDGER_TYPES } from '@onekeyhq/shared/src/consts/perp';
 import {
   PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
@@ -141,14 +142,36 @@ type IChStateLite = {
 };
 
 type IChPositionLite = HL.IPerpsAssetPosition;
+type IAccountModeAbstraction = 'unifiedAccount' | 'portfolioMargin';
 
 const MAX_LEDGER_UPDATES = 200;
+const ACCOUNT_MODE_USER_WALLET_TIMEOUT_MS = platformEnv.isNative
+  ? 60_000
+  : 15_000;
 const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
 const TWAP_MIN_ORDER_NOTIONAL = Number(SCALE_ORDER_MIN_NOTIONAL);
 const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
 const TWAP_SLICE_FILLS_MAX_COUNT = 2000;
 let lastL2BookColdCacheWriteAt = 0;
+
+const setAbstractionWithUserWalletTimeout = makeTimeoutPromise<
+  void,
+  {
+    abstraction: IAccountModeAbstraction;
+    userAccountId: string;
+    userAddress: string;
+  }
+>({
+  asyncFunc: (params) =>
+    backgroundApiProxy.serviceHyperliquidExchange.setAbstractionWithUserWallet(
+      params,
+    ),
+  timeout: ACCOUNT_MODE_USER_WALLET_TIMEOUT_MS,
+  timeoutRejectError: new OneKeyLocalError(
+    'Wallet did not respond. Please reconnect your wallet and try again.',
+  ),
+});
 
 type ITwapHistoryLoadResult =
   | {
@@ -3079,18 +3102,16 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       params: {
         userAccountId: string;
         userAddress: string;
-        abstraction: 'unifiedAccount' | 'portfolioMargin';
+        abstraction: IAccountModeAbstraction;
       },
     ): Promise<void> => {
       return withToast({
         asyncFn: async () => {
-          await backgroundApiProxy.serviceHyperliquidExchange.setAbstractionWithUserWallet(
-            {
-              userAccountId: params.userAccountId,
-              userAddress: params.userAddress,
-              abstraction: params.abstraction,
-            },
-          );
+          await setAbstractionWithUserWalletTimeout({
+            userAccountId: params.userAccountId,
+            userAddress: params.userAddress,
+            abstraction: params.abstraction,
+          });
           await backgroundApiProxy.serviceHyperliquid.refreshUserAbstractionMode(
             params.userAddress as HL.IHex,
             params.abstraction,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEqual, isNil } from 'lodash';
@@ -146,6 +146,7 @@ const usePerpDeposit = (
   const intl = useIntl();
 
   const [perpDepositQuoteLoading, setPerpDepositQuoteLoading] = useState(false);
+  const quoteRequestIdRef = useRef(0);
   const [, setPerpDepositOrder] = usePerpsDepositOrderAtom();
   const getPerpsDepositTargetScope = useCallback(async () => {
     if (!indexedAccountId && !selectedAccountId) {
@@ -305,7 +306,28 @@ const usePerpDeposit = (
     return result?.accountId ?? '';
   }, [result?.accountId]);
 
+  const getNextQuoteRequestId = useCallback(() => {
+    quoteRequestIdRef.current += 1;
+    return quoteRequestIdRef.current;
+  }, []);
+
+  const isActiveQuoteRequest = useCallback((requestId: number) => {
+    return quoteRequestIdRef.current === requestId;
+  }, []);
+
+  const resetPerpDepositQuote = useCallback(
+    (requestId?: number) => {
+      if (requestId !== undefined && !isActiveQuoteRequest(requestId)) {
+        return;
+      }
+      setPerpDepositQuoteLoading(false);
+      setPerpDepositQuote(undefined);
+    },
+    [isActiveQuoteRequest],
+  );
+
   const perpDepositQuoteAction = useCallback(async () => {
+    const requestId = getNextQuoteRequestId();
     const amountBN = new BigNumber(amount ?? '0');
     if (
       selectedAction !== 'deposit' ||
@@ -314,8 +336,7 @@ const usePerpDeposit = (
       !checkFromTokenFiatValue
     ) {
       await backgroundApiProxy.serviceSwap.cancelFetchPerpDepositQuote();
-      setPerpDepositQuoteLoading(false);
-      setPerpDepositQuote(undefined);
+      resetPerpDepositQuote(requestId);
       return;
     }
     try {
@@ -334,29 +355,34 @@ const usePerpDeposit = (
             userAddress: result.fromUserAddress,
             receivingAddress: result.perpReceiverAddress,
           });
-        if (quoteRes) {
-          setPerpDepositQuote(quoteRes);
+        if (!isActiveQuoteRequest(requestId)) {
+          return;
         }
+        setPerpDepositQuote(quoteRes);
         setPerpDepositQuoteLoading(false);
       } else {
         await backgroundApiProxy.serviceSwap.cancelFetchPerpDepositQuote();
-        setPerpDepositQuoteLoading(false);
-        setPerpDepositQuote(undefined);
+        resetPerpDepositQuote(requestId);
       }
     } catch (e: any) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const cause = e?.cause || e?.data?.cause;
+      if (!isActiveQuoteRequest(requestId)) {
+        return;
+      }
+      resetPerpDepositQuote(requestId);
       if (cause !== ESwapFetchCancelCause.SWAP_PERP_DEPOSIT_QUOTE_CANCEL) {
-        setPerpDepositQuoteLoading(false);
-        setPerpDepositQuote(undefined);
         throw e;
       }
     }
   }, [
     amount,
+    getNextQuoteRequestId,
+    isActiveQuoteRequest,
     selectedAction,
     isArbitrumUsdcToken,
     checkFromTokenFiatValue,
+    resetPerpDepositQuote,
     result?.fromUserAddress,
     result?.perpReceiverAddress,
     token,
@@ -364,13 +390,18 @@ const usePerpDeposit = (
 
   useEffect(() => {
     if (isAvailableBalance) {
+      const requestId = getNextQuoteRequestId();
       void backgroundApiProxy.serviceSwap.cancelFetchPerpDepositQuote();
-      setPerpDepositQuoteLoading(false);
-      setPerpDepositQuote(undefined);
+      resetPerpDepositQuote(requestId);
     } else {
       void perpDepositQuoteAction();
     }
-  }, [perpDepositQuoteAction, isAvailableBalance]);
+  }, [
+    getNextQuoteRequestId,
+    perpDepositQuoteAction,
+    isAvailableBalance,
+    resetPerpDepositQuote,
+  ]);
 
   const buildQuoteRes = useCallback(
     async (buildSwapResponse: IPerpDepositQuoteResponse) => {
