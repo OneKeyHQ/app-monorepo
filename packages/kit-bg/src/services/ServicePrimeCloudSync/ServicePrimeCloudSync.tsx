@@ -24,7 +24,6 @@ import {
   ECustomCloudSyncError,
   EOneKeyErrorClassNames,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -1869,17 +1868,12 @@ class ServicePrimeCloudSync extends ServiceBase {
       return false;
     }
     if (password) {
-      try {
-        await this.backgroundApi.serviceKeylessCloudSync.repairKeylessSyncCredentialIfNeeded(
-          {
-            password,
-            throwOnLocalSecretEnvelopeUnavailable: true,
-          },
-        );
-      } catch (error) {
-        errorToastUtils.showLocalSecretEnvelopeErrorDialogIfNeeded(error);
-        throw error;
-      }
+      await this.backgroundApi.serviceKeylessCloudSync.repairKeylessSyncCredentialIfNeeded(
+        {
+          password,
+          throwOnLocalSecretEnvelopeUnavailable: true,
+        },
+      );
     }
     const syncCredential = await this.getSyncCredentialSafe();
     if (!syncCredential) {
