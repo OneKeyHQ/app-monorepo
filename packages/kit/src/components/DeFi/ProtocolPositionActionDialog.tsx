@@ -8,6 +8,7 @@ import {
   Button,
   Checkbox,
   Dialog,
+  Input,
   SizableText,
   Stack,
   XStack,
@@ -27,6 +28,7 @@ import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes'
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   buildDeFiActionBps,
   resolveDeFiActionTxAmount,
@@ -50,6 +52,12 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { showDeFiActionTxConfirmDialog } from './DeFiActionTxConfirmResult';
 import { resolveProtocolLendingDefiFillableAmountState } from './protocolLendingActionUtils';
+import {
+  getProtocolPositionActionPercentInputMaxLength,
+  resolveProtocolPositionActionPercentInput,
+  resolveProtocolPositionActionPercentKeyPress,
+  resolveProtocolPositionActionPercentValue,
+} from './protocolPositionActionPercentUtils';
 import {
   ProtocolValueCell,
   isProtocolAssetValueUnavailable,
@@ -1168,40 +1176,89 @@ function ProtocolPositionActionPercentHero({
   currencySymbol: string;
   priceUnavailableLabel: string;
 }) {
+  const shouldReplaceZeroInput = percentText === '0';
+  const shouldCompleteHundredInput = percentText === '10';
+  const maxLength =
+    platformEnv.isNativeIOS &&
+    (shouldReplaceZeroInput || shouldCompleteHundredInput)
+      ? percentText.length
+      : getProtocolPositionActionPercentInputMaxLength(percentText);
+  const handleKeyPress = (event: { nativeEvent: { key?: string } }) => {
+    if (!shouldReplaceZeroInput && !shouldCompleteHundredInput) return;
+    const { key } = event.nativeEvent;
+    const nextValue = resolveProtocolPositionActionPercentKeyPress({
+      currentValue: percentText,
+      key,
+    });
+    if (nextValue !== undefined) {
+      onChangePercentText(nextValue);
+    }
+  };
+
   return (
-    <SendAutoSizeAmountInput
+    <YStack
       minHeight={DEFI_ACTION_HERO_MIN_HEIGHT}
       justifyContent="center"
-      maxFontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
-      value={percentText}
-      onChange={onChangePercentText}
-      tokenSymbol="%"
-      inputProps={{ keyboardType: 'number-pad', onFocus }}
-      extraContent={
-        <XStack
-          alignItems="center"
-          justifyContent="center"
-          gap="$1"
-          minWidth={0}
+      alignItems="center"
+      gap="$2"
+    >
+      <XStack alignItems="center" justifyContent="center" gap="$1">
+        <Input
+          testID="defi-position-action-percent-input"
+          value={percentText}
+          onChangeText={onChangePercentText}
+          keyboardType="number-pad"
+          maxLength={maxLength}
+          onFocus={onFocus}
+          onKeyPress={handleKeyPress}
+          autoCorrect={false}
+          spellCheck={false}
+          autoComplete="off"
+          textContentType="none"
+          unstyled
+          borderWidth={0}
+          bg="transparent"
+          p="$0"
+          h={Math.ceil(MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE * 1.4)}
+          size="large"
+          fontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
+          fontWeight="500"
+          textAlign="right"
+          placeholder="0"
+          placeholderTextColor="$textDisabled"
+          containerProps={{
+            width: 96,
+            borderWidth: 0,
+            bg: 'transparent',
+          }}
+        />
+        <SizableText
+          fontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
+          lineHeight={Math.ceil(MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE * 1.4)}
+          fontWeight="500"
+          color="$text"
         >
-          <SizableText size="$headingLg" color="$textSubdued">
-            ≈
-          </SizableText>
-          <ProtocolValueCell
-            value={value}
-            currencySymbol={currencySymbol}
-            priceUnavailableLabel={priceUnavailableLabel}
-            isUnavailable={isUnavailable}
-            showPriceUnavailableTooltip={showPriceUnavailableTooltip}
-            size="$headingLg"
-            color="$textSubdued"
-            textAlign="center"
-            numberOfLines={1}
-            fontVariant={['tabular-nums']}
-          />
-        </XStack>
-      }
-    />
+          %
+        </SizableText>
+      </XStack>
+      <XStack alignItems="center" justifyContent="center" gap="$1" minWidth={0}>
+        <SizableText size="$headingLg" color="$textSubdued">
+          ≈
+        </SizableText>
+        <ProtocolValueCell
+          value={value}
+          currencySymbol={currencySymbol}
+          priceUnavailableLabel={priceUnavailableLabel}
+          isUnavailable={isUnavailable}
+          showPriceUnavailableTooltip={showPriceUnavailableTooltip}
+          size="$headingLg"
+          color="$textSubdued"
+          textAlign="center"
+          numberOfLines={1}
+          fontVariant={['tabular-nums']}
+        />
+      </XStack>
+    </YStack>
   );
 }
 
@@ -1504,9 +1561,8 @@ function ProtocolPositionActionDialogContent({
   const [actionPercentText, setActionPercentText] = useState(
     String(DEFAULT_ACTION_PERCENT),
   );
-  const actionPercent = /^(0|[1-9]\d{0,2})$/.test(actionPercentText)
-    ? Math.min(100, Number(actionPercentText))
-    : 0;
+  const actionPercent =
+    resolveProtocolPositionActionPercentValue(actionPercentText);
   // Manual single-token entry (withdraw / repay). `amount` is human-decimal;
   // `isMaxAmount` flags a full close so submit sends bps=10000 instead.
   //
@@ -1722,12 +1778,12 @@ function ProtocolPositionActionDialogContent({
   const currentSelectedAsset = selectedAssets[0];
 
   const handleActionPercentChange = (next: string) => {
-    // Integers 0..100 only, no leading zeros; allow empty while editing.
-    // Reject other keystrokes outright (same convention as the token-amount
-    // input's validateAmountInput gate).
-    if (next !== '' && !/^(0|[1-9]\d{0,2})$/.test(next)) return;
-    if (next !== '' && Number(next) > 100) return;
-    setActionPercentText(next);
+    setActionPercentText((currentValue) =>
+      resolveProtocolPositionActionPercentInput({
+        currentValue,
+        nextValue: next,
+      }),
+    );
   };
 
   const handleAmountChange = (next: string) => {
@@ -1752,19 +1808,7 @@ function ProtocolPositionActionDialogContent({
     }
   };
 
-  // The percent hero prefills 100% as an untouched default; first focus clears
-  // it, mirroring the amount hero's Max-prefill clear. A percent the user set
-  // deliberately (typed, or picked from the preset row) is never cleared.
-  const isPercentPristineRef = useRef(true);
-  const handlePercentInputFocus = () => {
-    if (isPercentPristineRef.current) {
-      isPercentPristineRef.current = false;
-      setActionPercentText('');
-    }
-  };
-
   const handlePercentPresetChange = (presetPercent: number) => {
-    isPercentPristineRef.current = false;
     setActionPercentText(String(presetPercent));
   };
 
@@ -1942,7 +1986,6 @@ function ProtocolPositionActionDialogContent({
         <ProtocolPositionActionPercentHero
           percentText={actionPercentText}
           onChangePercentText={handleActionPercentChange}
-          onFocus={handlePercentInputFocus}
           value={outputValueState.value}
           isUnavailable={outputValueState.isUnavailable}
           showPriceUnavailableTooltip={
