@@ -4,11 +4,13 @@ import type { ComponentProps, ReactElement } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Stack } from '@onekeyhq/components/src/primitives';
+import {
+  TABULAR_NUMS,
+  getFontVariantStyle,
+} from '@onekeyhq/components/src/utils/tabularNums';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { Badge } from '../Badge';
-
-const fontVariant: ['tabular-nums'] = ['tabular-nums'];
 
 export type INetworkStatusBadgeProps = {
   connected: boolean;
@@ -89,8 +91,7 @@ export function NetworkStatusBadge({
         <Badge.Text
           flex={1}
           size="$bodySmMedium"
-          fontFamily="$monoRegular"
-          fontVariant={fontVariant}
+          style={getFontVariantStyle(TABULAR_NUMS)}
           minWidth={40}
           textAlign="right"
         >

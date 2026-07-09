@@ -9,6 +9,7 @@ import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils
 
 import { SizableText } from '../../primitives/SizeableText';
 import { getFontSize, getFontToken } from '../../utils/getFontSize';
+import { TABULAR_NUMS } from '../../utils/tabularNums';
 
 import type { ISizableTextProps } from '../../primitives';
 
@@ -47,6 +48,10 @@ export function NumberSizeableText({
   minWidth,
   maxWidth,
   width,
+  // This component only ever renders formatter-produced numerals, so equal-width
+  // digits are the right default — ticking values stop jittering and column
+  // digits align. Callers can still override per-site.
+  fontVariant = TABULAR_NUMS,
   ...props
 }: INumberSizeableTextProps) {
   const layoutProps = {
@@ -124,24 +129,34 @@ export function NumberSizeableText({
   if (hideValue) {
     if (formatter === 'balance' && formatterOptions?.tokenSymbol) {
       return (
-        <SizableText {...props} {...layoutProps}>
+        <SizableText fontVariant={fontVariant} {...props} {...layoutProps}>
           **** {formatterOptions.tokenSymbol}
         </SizableText>
       );
     }
     return (
-      <SizableText {...props} {...layoutProps}>
+      <SizableText fontVariant={fontVariant} {...props} {...layoutProps}>
         ****
       </SizableText>
     );
   }
 
   return typeof result === 'string' ? (
-    <SizableText {...props} {...layoutProps} {...contentStyle}>
+    <SizableText
+      fontVariant={fontVariant}
+      {...props}
+      {...layoutProps}
+      {...contentStyle}
+    >
       {result}
     </SizableText>
   ) : (
-    <SizableText {...props} {...layoutProps} {...contentStyle}>
+    <SizableText
+      fontVariant={fontVariant}
+      {...props}
+      {...layoutProps}
+      {...contentStyle}
+    >
       {/* eslint-disable no-nested-ternary */}
       {result.map((r, index) =>
         typeof r === 'string' ? (
@@ -155,7 +170,12 @@ export function NumberSizeableText({
             {r}
           </SizableText>
         ) : 'type' in r && r.type === 'decimal' ? (
-          <SizableText key={index} {...props} {...mergedDecimalTextStyle}>
+          <SizableText
+            key={index}
+            fontVariant={fontVariant}
+            {...props}
+            {...mergedDecimalTextStyle}
+          >
             {r.value}
           </SizableText>
         ) : (
