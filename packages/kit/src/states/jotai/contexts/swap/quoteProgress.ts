@@ -284,7 +284,7 @@ export function selectSwapCurrentQuote({
         selectBestQuote(
           // eslint-disable-next-line @typescript-eslint/no-use-before-define
           actionableQuotes,
-        ) ?? (shouldDeferNonActionableQuote ? undefined : manualQuote)
+        ) ?? manualQuote
       );
     }
 

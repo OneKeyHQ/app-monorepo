@@ -477,4 +477,31 @@ describe('swap quote progress', () => {
 
     expect(selectedQuote).toBe(actionableQuote);
   });
+
+  it('keeps a manually selected non-actionable provider while the event is still waiting', () => {
+    const manualErrorQuote = buildQuote({
+      eventId: 'event-1',
+      provider: 'manual-min-amount-provider',
+      toAmount: '0',
+      errorMessage: '最低金额要求 100.020304 USDC',
+    });
+
+    const selectedQuote = selectSwapCurrentQuote({
+      currentEventSortedQuotes: [manualErrorQuote],
+      selectionIntent: {
+        type: 'manual-provider',
+        info: manualErrorQuote.info,
+      },
+      quoteEventTotalCount: {
+        eventId: 'event-1',
+        count: 2,
+        totalQuoteCountReceived: true,
+      },
+      currentEventProviderKeys: [buildSwapQuoteProviderKey(manualErrorQuote)],
+      quoteEventCompleted: false,
+      deferNonActionableQuoteUntilEventSettled: true,
+    });
+
+    expect(selectedQuote).toBe(manualErrorQuote);
+  });
 });
