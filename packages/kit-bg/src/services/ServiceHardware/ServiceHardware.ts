@@ -23,6 +23,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
+  checkBLEPermissions,
+  checkBLEState,
+} from '@onekeyhq/shared/src/hardware/blePermissions';
+import {
   CoreSDKLoader,
   getHardwareSDKInstance,
   resetHardwareSDKInstance,
@@ -2346,6 +2350,55 @@ class ServiceHardware extends ServiceBase {
     return state.forceTransportType;
   }
 
+  private shouldPrecheckNativeBleForHardwareCall({
+    hardwareCallContext,
+  }: {
+    hardwareCallContext: EHardwareCallContext;
+  }) {
+    return (
+      platformEnv.isNativeAndroid &&
+      hardwareCallContext === EHardwareCallContext.USER_INTERACTION
+    );
+  }
+
+  private async ensureNativeBleReadyForHardwareCall({
+    connectId,
+    hardwareCallContext,
+  }: {
+    connectId: string;
+    hardwareCallContext: EHardwareCallContext;
+  }) {
+    if (!this.shouldPrecheckNativeBleForHardwareCall({ hardwareCallContext })) {
+      return;
+    }
+
+    const hasBlePermission = !!(await checkBLEPermissions());
+    if (!hasBlePermission) {
+      appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
+        uiRequestType: EHardwareUiStateAction.LOCATION_PERMISSION,
+      });
+      throw new deviceErrors.NeedBluetoothPermissions({
+        payload: {
+          connectId,
+          inBluetoothCommunication: true,
+        },
+      });
+    }
+
+    const isBluetoothOn = !!(await checkBLEState());
+    if (!isBluetoothOn) {
+      appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
+        uiRequestType: EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+      });
+      throw new deviceErrors.NeedBluetoothTurnedOn({
+        payload: {
+          connectId,
+          inBluetoothCommunication: true,
+        },
+      });
+    }
+  }
+
   @backgroundMethod()
   async getCurrentTransportType() {
     return this.connectionManager.getCurrentTransportType();
@@ -2485,6 +2538,11 @@ class ServiceHardware extends ServiceBase {
     if (!connectId) {
       throw new OneKeyLocalError('connectId is required');
     }
+
+    await this.ensureNativeBleReadyForHardwareCall({
+      connectId,
+      hardwareCallContext,
+    });
 
     // Try to get device from DB first. Keep the default OneKey vendor filter:
     // broadening it would pull shipped Ledger devices into the third-party

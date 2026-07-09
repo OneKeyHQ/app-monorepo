@@ -31,6 +31,7 @@ import { PrimeTestIDs } from '@onekeyhq/kit/src/views/Prime/testIDs';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -634,28 +635,49 @@ function AppDataSection() {
     if (manualSyncingRef.current) return;
     manualSyncingRef.current = true;
     try {
-      await backgroundApiProxy.servicePassword.promptPasswordVerify();
+      const { password } =
+        await backgroundApiProxy.servicePassword.promptPasswordVerify();
       await backgroundApiProxy.serviceApp.showDialogLoading({
         title: intl.formatMessage({
           id: ETranslations.global_syncing,
         }),
       });
-      await backgroundApiProxy.servicePrimeCloudSync.syncNowKeyless({
-        callerName: 'Manual Cloud Sync Keyless',
-        noDebounceUpload: true,
-        forceSync: true,
+      let syncSuccess = false;
+      try {
+        syncSuccess =
+          await backgroundApiProxy.servicePrimeCloudSync.syncNowKeyless({
+            callerName: 'Manual Cloud Sync Keyless',
+            noDebounceUpload: true,
+            forceSync: true,
+            password,
+          });
+      } finally {
+        await timerUtils.wait(1000);
+        await backgroundApiProxy.serviceApp.hideDialogLoading();
+      }
+      if (!syncSuccess) {
+        void backgroundApiProxy.serviceApp.showToast({
+          method: 'error',
+          title: intl.formatMessage({
+            id: ETranslations.global_sync_error,
+          }),
+        });
+        return;
+      }
+      void backgroundApiProxy.serviceApp.showToast({
+        method: 'success',
+        title: intl.formatMessage({
+          id: ETranslations.global_sync_successfully,
+        }),
       });
+    } catch (error) {
+      if (errorToastUtils.showLocalSecretEnvelopeErrorDialogIfNeeded(error)) {
+        return;
+      }
+      throw error;
     } finally {
       manualSyncingRef.current = false;
-      await timerUtils.wait(1000);
-      await backgroundApiProxy.serviceApp.hideDialogLoading();
     }
-    void backgroundApiProxy.serviceApp.showToast({
-      method: 'success',
-      title: intl.formatMessage({
-        id: ETranslations.global_sync_successfully,
-      }),
-    });
   }, [config.isCloudSyncEnabledKeyless, intl]);
 
   const handleOpenCloudSyncDebugPage = useCallback(() => {

@@ -24,6 +24,7 @@ import {
   ECustomCloudSyncError,
   EOneKeyErrorClassNames,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -1856,14 +1857,29 @@ class ServicePrimeCloudSync extends ServiceBase {
     callerName = 'Manual Cloud Sync Keyless',
     noDebounceUpload = true,
     forceSync,
+    password,
   }: {
     callerName?: string;
     noDebounceUpload?: boolean;
     forceSync?: boolean;
+    password?: string;
   } = {}): Promise<boolean> {
     const { isCloudSyncEnabledKeyless } = await primeCloudSyncPersistAtom.get();
     if (!isCloudSyncEnabledKeyless) {
       return false;
+    }
+    if (password) {
+      try {
+        await this.backgroundApi.serviceKeylessCloudSync.repairKeylessSyncCredentialIfNeeded(
+          {
+            password,
+            throwOnLocalSecretEnvelopeUnavailable: true,
+          },
+        );
+      } catch (error) {
+        errorToastUtils.showLocalSecretEnvelopeErrorDialogIfNeeded(error);
+        throw error;
+      }
     }
     const syncCredential = await this.getSyncCredentialSafe();
     if (!syncCredential) {
@@ -1871,6 +1887,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     }
     await this.initLocalSyncItemsDB({
       syncCredential,
+      password,
     });
     await this.startServerSyncFlow({
       callerName,

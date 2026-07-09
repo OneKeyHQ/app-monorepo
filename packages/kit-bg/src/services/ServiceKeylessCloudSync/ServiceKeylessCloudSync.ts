@@ -7,7 +7,11 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import {
+  LocalSecretEnvelopeUnavailable,
+  OneKeyError,
+} from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -550,8 +554,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
   async repairKeylessSyncCredentialIfNeeded({
     password,
+    throwOnLocalSecretEnvelopeUnavailable,
   }: {
     password: string;
+    throwOnLocalSecretEnvelopeUnavailable?: boolean;
   }): Promise<void> {
     await this.repairCredentialMutex.runExclusive(async () => {
       const walletId = await this.getCurrentCloudSyncKeylessWalletId();
@@ -594,6 +600,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
           '[ServiceKeylessCloudSync] Failed to repair credential:',
           error,
         );
+        if (
+          throwOnLocalSecretEnvelopeUnavailable &&
+          error instanceof LocalSecretEnvelopeUnavailable
+        ) {
+          throw error;
+        }
       }
     });
   }
@@ -726,6 +738,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
         await this.setCloudSyncEnabledKeyless(true);
       } else {
         await this.setCloudSyncEnabledKeyless(false);
+      }
+      if (enabled && !silentEnable && !forceEnable) {
+        errorToastUtils.showLocalSecretEnvelopeErrorDialogIfNeeded(error);
       }
       throw error;
     } finally {
@@ -865,7 +880,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
       await this.backgroundApi.servicePassword.promptPasswordVerify();
 
     // Ensure credential exists before proceeding (auto-repair if missing)
-    await this.repairKeylessSyncCredentialIfNeeded({ password });
+    await this.repairKeylessSyncCredentialIfNeeded({
+      password,
+      throwOnLocalSecretEnvelopeUnavailable: !silentEnable,
+    });
 
     const keylessCredential = await this.getKeylessCloudSyncCredential();
     if (!keylessCredential) {

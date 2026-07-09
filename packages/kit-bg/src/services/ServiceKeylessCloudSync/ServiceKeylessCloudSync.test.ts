@@ -1,3 +1,5 @@
+import { LocalSecretEnvelopeUnavailable } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import systemTimeUtils, {
   ECloudSyncDataTimeSource,
 } from '@onekeyhq/shared/src/utils/systemTimeUtils';
@@ -35,6 +37,85 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
 describe('ServiceKeylessCloudSync', () => {
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  test('toggle keyless sync surfaces local secret envelope recovery dialog', async () => {
+    const service = new ServiceKeylessCloudSync({
+      backgroundApi: {
+        servicePrime: {
+          apiFetchPrimeUserInfo: jest.fn(),
+        },
+      },
+    });
+    const error = new LocalSecretEnvelopeUnavailable();
+    const showDialog = jest
+      .spyOn(errorToastUtils, 'showLocalSecretEnvelopeErrorDialogIfNeeded')
+      .mockReturnValue(true);
+
+    jest.spyOn(service, 'prepareCloudSyncKeyless').mockRejectedValue(error);
+    jest.spyOn(service, 'setCloudSyncEnabledKeyless').mockResolvedValue(false);
+
+    await expect(
+      service.toggleCloudSyncKeyless({
+        enabled: true,
+      }),
+    ).rejects.toBe(error);
+
+    expect(showDialog).toHaveBeenCalledWith(error);
+    expect(service.setCloudSyncEnabledKeyless).toHaveBeenCalledWith(false);
+  });
+
+  test('silent keyless sync enable does not surface local secret envelope recovery dialog', async () => {
+    const service = new ServiceKeylessCloudSync({
+      backgroundApi: {
+        servicePrime: {
+          apiFetchPrimeUserInfo: jest.fn(),
+        },
+      },
+    });
+    const error = new LocalSecretEnvelopeUnavailable();
+    const showDialog = jest
+      .spyOn(errorToastUtils, 'showLocalSecretEnvelopeErrorDialogIfNeeded')
+      .mockReturnValue(true);
+
+    jest.spyOn(service, 'prepareCloudSyncKeyless').mockRejectedValue(error);
+    jest.spyOn(service, 'setCloudSyncEnabledKeyless').mockResolvedValue(true);
+
+    await expect(
+      service.toggleCloudSyncKeyless({
+        enabled: true,
+        silentEnable: true,
+        forceEnable: true,
+      }),
+    ).rejects.toBe(error);
+
+    expect(showDialog).not.toHaveBeenCalled();
+    expect(service.setCloudSyncEnabledKeyless).toHaveBeenCalledWith(true);
+  });
+
+  test('prepare keyless sync does not swallow local secret envelope repair errors', async () => {
+    const service = new ServiceKeylessCloudSync({
+      backgroundApi: {
+        servicePassword: {
+          promptPasswordVerify: jest.fn(async () => ({ password: 'pwd' })),
+        },
+      },
+    });
+    const error = new LocalSecretEnvelopeUnavailable();
+    const repair = jest
+      .spyOn(service, 'repairKeylessSyncCredentialIfNeeded')
+      .mockRejectedValue(error);
+
+    jest.spyOn(service, 'getKeylessWallet').mockResolvedValue({
+      id: 'hd-keyless-wallet-id',
+    } as Awaited<ReturnType<ServiceKeylessCloudSync['getKeylessWallet']>>);
+
+    await expect(service.prepareCloudSyncKeyless()).rejects.toBe(error);
+
+    expect(repair).toHaveBeenCalledWith({
+      password: 'pwd',
+      throwOnLocalSecretEnvelopeUnavailable: true,
+    });
   });
 
   test('silent keyless sync enable replays scene sync items', async () => {
