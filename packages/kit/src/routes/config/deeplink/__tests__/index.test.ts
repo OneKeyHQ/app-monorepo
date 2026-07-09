@@ -1,3 +1,11 @@
+import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import {
+  ERootRoutes,
+  ETabRoutes,
+  ETabSwapRoutes,
+} from '@onekeyhq/shared/src/routes';
+
 import { handleDeepLinkUrl } from '..';
 import {
   handleReferralLandingUrl,
@@ -24,7 +32,7 @@ jest.mock('../../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceDevSetting: {
-      getDevSetting: jest.fn(),
+      getDevSetting: jest.fn(async () => ({ settings: {} })),
     },
     walletConnect: {
       connectToDapp: jest.fn(),
@@ -48,6 +56,12 @@ jest.mock('../../../../views/WebView/utils/webViewNavigation', () => ({
   openWebView: jest.fn(),
 }));
 
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  perpsCommonConfigPersistAtom: {
+    get: jest.fn(),
+  },
+}));
+
 jest.mock('../referralLandingLink', () => ({
   handleReferralLandingUrl: jest.fn(async () => false),
   isValidReferralCode: jest.fn(
@@ -64,6 +78,10 @@ const mockedHandleReferralLandingUrl =
 const mockedNavigateToReferralLanding =
   navigateToReferralLanding as jest.MockedFunction<
     typeof navigateToReferralLanding
+  >;
+const mockedPerpsCommonConfigGet =
+  perpsCommonConfigPersistAtom.get as jest.MockedFunction<
+    typeof perpsCommonConfigPersistAtom.get
   >;
 
 async function flushAsyncTasks() {
@@ -115,5 +133,113 @@ describe('handleDeepLinkUrl', () => {
     await flushAsyncTasks();
 
     expect(mockedNavigateToReferralLanding).not.toHaveBeenCalled();
+  });
+});
+
+describe('stocks / perps universal links', () => {
+  const navigate = jest.fn();
+  const switchTab = jest.fn();
+  const originalRootAppNavigation = appGlobals.$rootAppNavigation;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    appGlobals.$rootAppNavigation = {
+      navigate,
+      switchTab,
+    } as unknown as typeof appGlobals.$rootAppNavigation;
+    mockedPerpsCommonConfigGet.mockResolvedValue({
+      perpConfigCommon: {},
+      perpConfigLoaded: true,
+    });
+  });
+
+  afterEach(() => {
+    appGlobals.$rootAppNavigation = originalRootAppNavigation;
+  });
+
+  it.each([
+    'https://stocks.onekey.so/',
+    'https://stocks.onekeytest.com/any/path',
+    'https://app.onekey.so/swap?tab=stock',
+    'https://app.onekeytest.com/swap/?tab=STOCK',
+  ])('routes stock universal link to the Swap stock tab: %s', async (url) => {
+    handleDeepLinkUrl({ url });
+    await flushAsyncTasks();
+
+    expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+      screen: ETabRoutes.Swap,
+      params: {
+        screen: ETabSwapRoutes.TabSwap,
+        params: {
+          tab: 'stock',
+        },
+      },
+    });
+    expect(switchTab).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'https://perps.onekey.so/',
+    'https://perps.onekeytest.com/some/path',
+    'https://app.onekey.so/perps',
+    'https://app.onekeytest.com/perps/',
+  ])('routes perps universal link to the native Perps tab: %s', async (url) => {
+    handleDeepLinkUrl({ url });
+    await flushAsyncTasks();
+
+    expect(switchTab).toHaveBeenCalledWith(ETabRoutes.Perp);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('routes perps universal link to the web Perps tab when usePerpWeb is on', async () => {
+    mockedPerpsCommonConfigGet.mockResolvedValue({
+      perpConfigCommon: { usePerpWeb: true },
+      perpConfigLoaded: true,
+    });
+
+    handleDeepLinkUrl({ url: 'https://perps.onekey.so/?web=1' });
+    await flushAsyncTasks();
+
+    expect(switchTab).toHaveBeenCalledWith(ETabRoutes.WebviewPerpTrade);
+  });
+
+  it('skips perps navigation when the loaded config disables perps', async () => {
+    mockedPerpsCommonConfigGet.mockResolvedValue({
+      perpConfigCommon: { disablePerp: true },
+      perpConfigLoaded: true,
+    });
+
+    handleDeepLinkUrl({ url: 'https://perps.onekeytest.com/?disabled=1' });
+    await flushAsyncTasks();
+
+    expect(switchTab).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('still opens perps while the remote config has not loaded', async () => {
+    mockedPerpsCommonConfigGet.mockResolvedValue({
+      perpConfigCommon: { disablePerp: true },
+      perpConfigLoaded: false,
+    });
+
+    handleDeepLinkUrl({ url: 'https://perps.onekey.so/?loading=1' });
+    await flushAsyncTasks();
+
+    expect(switchTab).toHaveBeenCalledWith(ETabRoutes.Perp);
+  });
+
+  it.each([
+    'https://app.onekey.so/swap',
+    'https://app.onekey.so/swap?tab=bridge',
+    'https://app.onekey.so/settings',
+    'https://evil.example/swap?tab=stock',
+    'https://stocks.evil.example/',
+    'http://stocks.onekey.so/',
+  ])('ignores non stocks/perps universal link: %s', async (url) => {
+    handleDeepLinkUrl({ url });
+    await flushAsyncTasks();
+
+    expect(navigate).not.toHaveBeenCalled();
+    expect(switchTab).not.toHaveBeenCalled();
   });
 });

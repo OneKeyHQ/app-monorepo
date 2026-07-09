@@ -2,12 +2,17 @@ import * as Linking from 'expo-linking';
 import { isString } from 'lodash';
 
 import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/app/app';
+import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import type { IEOneKeyDeepLinkParams } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import {
   EOneKeyDeepLinkPath,
   ONEKEY_APP_DEEP_LINK,
   ONEKEY_APP_DEEP_LINK_NAME,
+  ONEKEY_PERPS_APP_LINK_HOST,
+  ONEKEY_PERPS_TEST_APP_LINK_HOST,
+  ONEKEY_STOCKS_APP_LINK_HOST,
+  ONEKEY_STOCKS_TEST_APP_LINK_HOST,
   ONEKEY_UNIVERSAL_LINK_HOST,
   ONEKEY_UNIVERSAL_TEST_LINK_HOST,
   WALLET_CONNECT_DEEP_LINK,
@@ -17,11 +22,14 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
+  ERootRoutes,
   ETabReferFriendsRoutes,
   ETabRoutes,
+  ETabSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
@@ -110,6 +118,109 @@ async function handleReferralLandingAppDeepLink({
     page: page ?? '',
     fromDeepLink: true,
   });
+  return true;
+}
+
+type IOneKeyAppLinkTarget = { type: 'stocks' } | { type: 'perps' };
+
+const ONEKEY_WEB_APP_UNIVERSAL_LINK_HOSTS = new Set<string>([
+  ONEKEY_UNIVERSAL_LINK_HOST,
+  ONEKEY_UNIVERSAL_TEST_LINK_HOST,
+]);
+const ONEKEY_STOCKS_APP_LINK_HOSTS = new Set<string>([
+  ONEKEY_STOCKS_APP_LINK_HOST,
+  ONEKEY_STOCKS_TEST_APP_LINK_HOST,
+]);
+const ONEKEY_PERPS_APP_LINK_HOSTS = new Set<string>([
+  ONEKEY_PERPS_APP_LINK_HOST,
+  ONEKEY_PERPS_TEST_APP_LINK_HOST,
+]);
+
+// expo-linking returns "swap" while the jest URL polyfill returns "/swap".
+function normalizeAppLinkPath(path?: string | null) {
+  return path?.replace(/^\/+|\/+$/gu, '').toLowerCase() ?? '';
+}
+
+function parseOneKeyAppLinkTarget({
+  hostname,
+  path,
+  queryParams,
+  scheme,
+}: Linking.ParsedURL): IOneKeyAppLinkTarget | undefined {
+  if (scheme !== 'https' || !hostname) {
+    return undefined;
+  }
+  const host = hostname.toLowerCase();
+  if (ONEKEY_STOCKS_APP_LINK_HOSTS.has(host)) {
+    return { type: 'stocks' };
+  }
+  if (ONEKEY_PERPS_APP_LINK_HOSTS.has(host)) {
+    return { type: 'perps' };
+  }
+  if (!ONEKEY_WEB_APP_UNIVERSAL_LINK_HOSTS.has(host)) {
+    return undefined;
+  }
+  const normalizedPath = normalizeAppLinkPath(path);
+  if (
+    normalizedPath === 'swap' &&
+    getStringQueryParam(queryParams?.tab)?.toLowerCase() ===
+      ESwapTabSwitchType.STOCK
+  ) {
+    return { type: 'stocks' };
+  }
+  if (normalizedPath === 'perps') {
+    return { type: 'perps' };
+  }
+  return undefined;
+}
+
+async function getPerpsAppLinkTabRoute() {
+  const { perpConfigCommon, perpConfigLoaded } =
+    await perpsCommonConfigPersistAtom.get();
+  // Mirrors usePerpTabConfig: the persisted disablePerp default only takes
+  // effect after the remote config has actually loaded.
+  if ((perpConfigLoaded ?? false) && perpConfigCommon?.disablePerp) {
+    return undefined;
+  }
+  return perpConfigCommon?.usePerpWeb
+    ? ETabRoutes.WebviewPerpTrade
+    : ETabRoutes.Perp;
+}
+
+async function processOneKeyAppUniversalLink(
+  params: IProcessDeepLinkParams,
+  times = 0,
+): Promise<boolean> {
+  const target = parseOneKeyAppLinkTarget(params.parsedUrl);
+  if (!target) {
+    return false;
+  }
+  if (times > 10) {
+    return true;
+  }
+  const navigation = appGlobals.$rootAppNavigation;
+  if (!navigation) {
+    setTimeout(() => {
+      void processOneKeyAppUniversalLink(params, times + 1);
+    }, 1500);
+    return true;
+  }
+  if (target.type === 'stocks') {
+    navigation.navigate(ERootRoutes.Main, {
+      screen: ETabRoutes.Swap,
+      params: {
+        screen: ETabSwapRoutes.TabSwap,
+        params: {
+          tab: ESwapTabSwitchType.STOCK,
+        },
+      },
+    });
+    return true;
+  }
+  const perpsTabRoute = await getPerpsAppLinkTabRoute();
+  if (perpsTabRoute) {
+    navigation.switchTab(perpsTabRoute);
+  }
   return true;
 }
 
@@ -341,6 +452,9 @@ const processDeepLinkUrl = memoizee(
         });
       }
       if (await handleReferralLandingAppDeepLink({ url, parsedUrl })) {
+        return;
+      }
+      if (await processOneKeyAppUniversalLink({ url, parsedUrl })) {
         return;
       }
       await processDeepLinkUrlAccount({ url, parsedUrl });

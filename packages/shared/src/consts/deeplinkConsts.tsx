@@ -53,6 +53,11 @@ export type IEOneKeyDeepLinkParams = {
 export const ONEKEY_UNIVERSAL_LINK_HOST = 'app.onekey.so';
 export const ONEKEY_UNIVERSAL_TEST_LINK_HOST = 'app.onekeytest.com';
 
+export const ONEKEY_STOCKS_APP_LINK_HOST = 'stocks.onekey.so';
+export const ONEKEY_STOCKS_TEST_APP_LINK_HOST = 'stocks.onekeytest.com';
+export const ONEKEY_PERPS_APP_LINK_HOST = 'perps.onekey.so';
+export const ONEKEY_PERPS_TEST_APP_LINK_HOST = 'perps.onekeytest.com';
+
 export const WalletConnectUniversalLinkPath = 'wc/connect/wc';
 export const WalletConnectUniversalLinkPathSchema = `/wc/connect/wc`; // do not add ? at the end (which meaning optional)
 // use /wc/connect but not /wc/connect/wc, the last /wc will be added by WalletConnect SDK
