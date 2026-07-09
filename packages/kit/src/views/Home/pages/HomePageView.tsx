@@ -24,6 +24,10 @@ import {
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
+import {
+  ENABLE_IMMERSIVE_GLASS_HEADER,
+  IMMERSIVE_GLASS_TOP_OFFSET,
+} from '@onekeyhq/kit/src/components/ImmersiveGlassHeader';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
@@ -101,7 +105,7 @@ const networksSupportBulkRevokeApproval =
 // re-measures via onLayout; this only minimizes first-frame content shift, so
 // tune against a real device if a first-frame jump appears.
 let NATIVE_HOME_HEADER_HEIGHT: number | undefined;
-if (platformEnv.isNativeIOS) {
+if (ENABLE_IMMERSIVE_GLASS_HEADER) {
   NATIVE_HOME_HEADER_HEIGHT = 522;
 } else if (platformEnv.isNative) {
   NATIVE_HOME_HEADER_HEIGHT = 312;
@@ -684,7 +688,7 @@ export function HomePageView({
   // top padding. Re-measured via handleTabPageLayout; the initial value only
   // minimizes first-frame shift.
   const [tabPageHeight, setTabPageHeight] = useState(
-    platformEnv.isNativeIOS ? 118 : 92,
+    ENABLE_IMMERSIVE_GLASS_HEADER ? 118 : 92,
   );
   const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
     const height = e.nativeEvent.layout.height - 20;
@@ -749,7 +753,7 @@ export function HomePageView({
         // (Liquid Glass immersive layout). Returning null keeps the library's
         // tabBar slot empty (measured height 0); tab switching stays available
         // via horizontal swipe, or by scrolling the header back into view.
-        if (platformEnv.isNativeIOS) {
+        if (ENABLE_IMMERSIVE_GLASS_HEADER) {
           return null;
         }
         return buildTabBar(tabBarProps);
@@ -798,13 +802,13 @@ export function HomePageView({
         // so the collapsible header starts at the very top (behind the glass
         // bar). This top padding pushes its first visible row below the bar;
         // scrolling then slides the content up UNDER the translucent bar.
-        pt={platformEnv.isNativeIOS ? tabPageHeight : undefined}
+        pt={ENABLE_IMMERSIVE_GLASS_HEADER ? tabPageHeight : undefined}
       >
         {/* iOS: the wallet connection row (account + network) is relocated from
             the fixed nav bar into the collapsible header so it scrolls away with
             the page — only the search row stays fixed. Home scene only; the
             url-account page keeps its own header. */}
-        {platformEnv.isNativeIOS &&
+        {ENABLE_IMMERSIVE_GLASS_HEADER &&
         sceneName === EAccountSelectorSceneName.home ? (
           <>
             <HomeWalletConnectionRow
@@ -822,7 +826,7 @@ export function HomePageView({
         {/* iOS: the non-sticky TabBar lives here so it scrolls away with the
             header. `headerProps` is only present when invoked by Tabs.Container;
             the not-backed-up path calls renderHeader() with no tabs. */}
-        {platformEnv.isNativeIOS && headerProps ? (
+        {ENABLE_IMMERSIVE_GLASS_HEADER && headerProps ? (
           <>
             <Stack bg="$bgApp">{buildTabBar(headerProps)}</Stack>
             {/* Headless: bridges the focused tab's scroll offset out to the
@@ -950,12 +954,12 @@ export function HomePageView({
         // header, so the header estimate grows and the separate tabBar slot
         // collapses to 0 (see NATIVE_HOME_HEADER_HEIGHT).
         headerHeight={NATIVE_HOME_HEADER_HEIGHT}
-        tabBarHeight={platformEnv.isNativeIOS ? 0 : undefined}
+        tabBarHeight={ENABLE_IMMERSIVE_GLASS_HEADER ? 0 : undefined}
         // iOS glass pass-through: clear the library's default white
         // topContainer background so the collapsible header's top-padding strip
         // (behind the translucent bar) shows the app background, not white.
         headerContainerStyle={
-          platformEnv.isNativeIOS
+          ENABLE_IMMERSIVE_GLASS_HEADER
             ? { backgroundColor: 'transparent' }
             : undefined
         }
@@ -1178,7 +1182,7 @@ export function HomePageView({
       content = (
         <NoWalletContent
           tabBarHeight={tabBarHeight}
-          topInset={platformEnv.isNativeIOS ? tabPageHeight : 0}
+          topInset={ENABLE_IMMERSIVE_GLASS_HEADER ? tabPageHeight : 0}
         />
       );
     }
@@ -1192,7 +1196,7 @@ export function HomePageView({
     // under the glass bar); other native platforms reserve the bar height; web
     // renders the header inline.
     let nativeTopSlot: React.ReactNode = null;
-    if (!platformEnv.isNativeIOS) {
+    if (!ENABLE_IMMERSIVE_GLASS_HEADER) {
       nativeTopSlot = platformEnv.isNative ? (
         <Stack h={tabPageHeight} />
       ) : (
@@ -1207,7 +1211,7 @@ export function HomePageView({
             {/* Alerts: iOS renders these inside the collapsible header
                 (renderHeader) so they don't sit behind the glass bar; other
                 platforms keep them pinned below the fixed nav bar. */}
-            {platformEnv.isNativeIOS ? null : (
+            {ENABLE_IMMERSIVE_GLASS_HEADER ? null : (
               <Stack {...homePageContentMaxWidthSx}>
                 <HomeAlerts />
               </Stack>
@@ -1216,7 +1220,7 @@ export function HomePageView({
             {platformEnv.isNative ? (
               <YStack
                 position="absolute"
-                top={-20}
+                top={-IMMERSIVE_GLASS_TOP_OFFSET}
                 left={0}
                 pt="$5"
                 width="100%"
@@ -1225,9 +1229,9 @@ export function HomePageView({
                 // progressive BlurView frost (HomeHeaderGlassOverlay) so home
                 // content scrolls visibly beneath it. Android keeps the solid
                 // background (tab bar still pinned).
-                {...(platformEnv.isNativeIOS ? {} : { bg: '$bgApp' })}
+                {...(ENABLE_IMMERSIVE_GLASS_HEADER ? {} : { bg: '$bgApp' })}
               >
-                {platformEnv.isNativeIOS ? (
+                {ENABLE_IMMERSIVE_GLASS_HEADER ? (
                   <HomeHeaderGlassOverlay scrollY={headerGlassScrollY} />
                 ) : null}
                 <TabPageHeader
