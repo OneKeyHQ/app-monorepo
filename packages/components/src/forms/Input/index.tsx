@@ -305,21 +305,6 @@ function BaseInput(
     }
     return secureTextEntry;
   }, [allowSecureTextEye, secureEntryState, secureTextEntry]);
-  const shouldUseCssTextSecurity =
-    platformEnv.isDesktopMac && platformEnv.isDev && usedSecureTextEntry;
-  const inputComponentStyle = useMemo(() => {
-    if (!shouldUseCssTextSecurity) {
-      return InputComponentStyle;
-    }
-    const currentStyle = (InputComponentStyle as { style?: unknown } | null)
-      ?.style;
-    return {
-      ...InputComponentStyle,
-      // Avoid macOS Secure Input in desktop dev so remote-control tools can
-      // keep driving the app while the password field is focused.
-      style: [currentStyle, { WebkitTextSecurity: 'disc' }].filter(Boolean),
-    } as IStackStyle;
-  }, [InputComponentStyle, shouldUseCssTextSecurity]);
 
   const addOns = useMemo<IInputAddOnProps[] | undefined>(() => {
     const allAddOns = [...(addOnsInProps ?? [])];
@@ -521,11 +506,9 @@ function BaseInput(
           onFocus={handleFocus as any}
           selectTextOnFocus={selectTextOnFocus}
           editable={editable}
-          secureTextEntry={
-            shouldUseCssTextSecurity ? false : usedSecureTextEntry
-          }
+          secureTextEntry={usedSecureTextEntry}
           {...readOnlyStyle}
-          {...inputComponentStyle}
+          {...InputComponentStyle}
           {...props}
           onPaste={platformEnv.isNative ? onPaste : undefined}
           onChangeText={
