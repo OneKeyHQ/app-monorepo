@@ -164,6 +164,7 @@ export type IFirmwareUpdateDevSettings = {
   shouldUpdateFromWeb: boolean;
   allIsUpToDate: boolean;
   usePreReleaseConfig: boolean;
+  forceUpdateResource: boolean;
   forceUpdateResEvenSameVersion: boolean;
   forceUpdateFirmware: boolean;
   forceUpdateOnceFirmware: boolean;
@@ -190,6 +191,7 @@ export const {
     shouldUpdateFromWeb: false,
     allIsUpToDate: false,
     usePreReleaseConfig: false,
+    forceUpdateResource: false,
     forceUpdateResEvenSameVersion: false,
     forceUpdateFirmware: false,
     forceUpdateOnceFirmware: false,

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -39,11 +39,82 @@ import type {
 } from '@onekeyhq/shared/types/device';
 
 import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
+import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
 import { FirmwareUpdateTestIDs } from '../testIDs';
 
 import { FirmwareUpdateIntroduction } from './FirmwareUpdateIntroduction';
 import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
 import { FirmwareVersionProgressText } from './FirmwareVersionProgressBar';
+
+type IProtocolV2FirmwareComponentDisplay = {
+  target?: string;
+  version?: number[];
+  url?: string;
+  resourceManifest?: {
+    packages?: Array<{
+      name?: string;
+      path?: string;
+      version?: number[];
+    }>;
+  };
+};
+
+function formatVersion(version: string | number[] | undefined) {
+  if (Array.isArray(version)) {
+    return version.join('.');
+  }
+  return version ?? '';
+}
+
+function isPro2SafeOSFirmwareUpdate(
+  result: ICheckAllFirmwareReleaseResult | undefined,
+) {
+  return (
+    result?.deviceType === EDeviceType.Pro2 &&
+    result?.updateInfos?.firmware?.hasUpgrade === true
+  );
+}
+
+function FirmwareVersionOnlyProgressText({
+  fromVersion = '',
+  toVersion = '',
+  active,
+}: {
+  fromVersion?: string;
+  toVersion?: string;
+  active: boolean;
+}) {
+  const { versionValid, unknownMessage } = useFirmwareVersionValid();
+  const textColor = active ? '$text' : '$textSubdued';
+  const versionTextProps = {
+    size: '$bodyLgMedium',
+    minWidth: 0,
+    flexShrink: 1,
+    numberOfLines: 1,
+  } as const;
+  const fromVersionText = versionValid(fromVersion)
+    ? fromVersion
+    : unknownMessage;
+  const toVersionText = toVersion?.length > 0 ? toVersion : unknownMessage;
+
+  return (
+    <XStack
+      alignItems="center"
+      gap="$1.5"
+      minWidth={0}
+      flexShrink={1}
+      flexWrap="wrap"
+    >
+      <SizableText {...versionTextProps} color={textColor}>
+        {fromVersionText}
+      </SizableText>
+      <Icon name="ArrowRightSolid" size="$4" color={textColor} flexShrink={0} />
+      <SizableText {...versionTextProps} color={textColor}>
+        {toVersionText}
+      </SizableText>
+    </XStack>
+  );
+}
 
 function ChangeLogMarkdown({
   changelog,
@@ -73,9 +144,11 @@ function ChangeLogSection({
   title,
   updateInfo,
   accordionValue,
+  versionOnly,
 }: {
   title: string;
   accordionValue: string;
+  versionOnly?: boolean;
   updateInfo:
     | IFirmwareUpdateInfo
     | IBleFirmwareUpdateInfo
@@ -125,14 +198,22 @@ function ChangeLogSection({
               >
                 {title}
               </SizableText>
-              <FirmwareVersionProgressText
-                fromVersion={updateInfo?.fromVersion}
-                fromFirmwareType={updateInfo?.fromFirmwareType}
-                toVersion={updateInfo?.toVersion}
-                toFirmwareType={updateInfo?.toFirmwareType}
-                githubReleaseUrl={updateInfo?.githubReleaseUrl}
-                active={open}
-              />
+              {versionOnly ? (
+                <FirmwareVersionOnlyProgressText
+                  fromVersion={updateInfo?.fromVersion}
+                  toVersion={updateInfo?.toVersion}
+                  active={open}
+                />
+              ) : (
+                <FirmwareVersionProgressText
+                  fromVersion={updateInfo?.fromVersion}
+                  fromFirmwareType={updateInfo?.fromFirmwareType}
+                  toVersion={updateInfo?.toVersion}
+                  toFirmwareType={updateInfo?.toFirmwareType}
+                  githubReleaseUrl={updateInfo?.githubReleaseUrl}
+                  active={open}
+                />
+              )}
             </XStack>
             <Stack
               animation="quick"
@@ -167,6 +248,79 @@ function ChangeLogSection({
   );
 }
 
+function FirmwareUpdateDebugPayloadSection({
+  result,
+}: {
+  result: ICheckAllFirmwareReleaseResult | undefined;
+}) {
+  const release = result?.updateInfos?.firmware?.releasePayload?.release;
+  const components = release?.components as
+    | Record<string, IProtocolV2FirmwareComponentDisplay>
+    | undefined;
+
+  const componentEntries = useMemo(() => {
+    if (!components) return [];
+    const orderedKeys = [
+      ...(release?.installOrder ?? []),
+      ...Object.keys(components).filter(
+        (key) => !release?.installOrder?.includes(key),
+      ),
+    ];
+    return orderedKeys
+      .map((key) => [key, components[key]] as const)
+      .filter(([, component]) => Boolean(component));
+  }, [components, release?.installOrder]);
+
+  if (componentEntries.length === 0) {
+    return null;
+  }
+
+  return (
+    <Stack
+      mx="$5"
+      mt="$2"
+      mb="$3"
+      py="$3"
+      borderTopWidth={1}
+      borderColor="$borderSubdued"
+    >
+      <SizableText size="$bodyMdMedium" color="$textSubdued" mb="$2">
+        Debug update payload
+      </SizableText>
+      <Stack gap="$2">
+        {componentEntries.map(([key, component]) => {
+          const packageNames = component.resourceManifest?.packages
+            ?.map((pkg) => pkg.name || pkg.path)
+            .filter(Boolean)
+            .join(', ');
+          const version = formatVersion(component.version);
+          return (
+            <XStack key={key} gap="$2" alignItems="center" minWidth={0}>
+              <SizableText size="$bodyMd" color="$text" flex={1} minWidth={0}>
+                {key}
+              </SizableText>
+              {packageNames ? (
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  flex={1}
+                  minWidth={0}
+                  numberOfLines={1}
+                >
+                  {packageNames}
+                </SizableText>
+              ) : null}
+              <SizableText size="$bodySm" color="$textSubdued" flexShrink={0}>
+                {[component.target, version].filter(Boolean).join(' / ')}
+              </SizableText>
+            </XStack>
+          );
+        })}
+      </Stack>
+    </Stack>
+  );
+}
+
 export function FirmwareChangeLogContentView({
   result,
   ...rest
@@ -180,6 +334,7 @@ export function FirmwareChangeLogContentView({
     if (result?.updateInfos?.ble?.hasUpgrade) return 'ble';
     return undefined;
   }, [result?.updateInfos]);
+  const isPro2SafeOSUpdate = isPro2SafeOSFirmwareUpdate(result);
 
   return (
     <Stack {...rest}>
@@ -192,19 +347,24 @@ export function FirmwareChangeLogContentView({
       >
         {result?.updateInfos?.firmware?.hasUpgrade ? (
           <ChangeLogSection
-            title={intl.formatMessage({ id: ETranslations.global_firmware })}
+            title={
+              isPro2SafeOSUpdate
+                ? 'SafeOS'
+                : intl.formatMessage({ id: ETranslations.global_firmware })
+            }
             updateInfo={result?.updateInfos?.firmware}
             accordionValue="firmware"
+            versionOnly={isPro2SafeOSUpdate}
           />
         ) : null}
-        {result?.updateInfos?.bootloader?.hasUpgrade ? (
+        {result?.updateInfos?.bootloader?.hasUpgrade && !isPro2SafeOSUpdate ? (
           <ChangeLogSection
             title={intl.formatMessage({ id: ETranslations.global_bootloader })}
             updateInfo={result?.updateInfos?.bootloader}
             accordionValue="bootloader"
           />
         ) : null}
-        {result?.updateInfos?.ble?.hasUpgrade ? (
+        {result?.updateInfos?.ble?.hasUpgrade && !isPro2SafeOSUpdate ? (
           <ChangeLogSection
             title={intl.formatMessage({ id: ETranslations.global_bluetooth })}
             updateInfo={result?.updateInfos?.ble}
@@ -212,6 +372,9 @@ export function FirmwareChangeLogContentView({
           />
         ) : null}
       </Accordion>
+      {isPro2SafeOSUpdate ? (
+        <FirmwareUpdateDebugPayloadSection result={result} />
+      ) : null}
     </Stack>
   );
 }

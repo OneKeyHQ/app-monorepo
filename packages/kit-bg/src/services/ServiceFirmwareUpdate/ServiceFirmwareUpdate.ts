@@ -31,7 +31,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -380,6 +379,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
       'forceUpdateOnceBle',
       'forceUpdateBootloader',
       'forceUpdateOnceBootloader',
+      'forceUpdateResource',
+      'forceUpdateResEvenSameVersion',
     ] as const;
     const debugForceUpdateValues = await Promise.all(
       debugForceUpdateKeys.map((key) =>
@@ -388,6 +389,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
     );
 
     return !debugForceUpdateValues.some((value) => value === true);
+  }
+
+  async getForceUpdateResourceDevSetting() {
+    return (
+      (await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'forceUpdateResource',
+      )) === true
+    );
   }
 
   @backgroundMethod()
@@ -404,7 +413,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
     baseReleaseInfoCache?: AllFirmwareRelease;
   }): Promise<ICheckAllFirmwareReleaseResult> {
     if (await this.shouldSkipAppFirmwareUpdateCheck()) {
-      const features = baseReleaseInfoCache?.features as IOneKeyDeviceFeatures | undefined;
+      const features = baseReleaseInfoCache?.features as
+        | IOneKeyDeviceFeatures
+        | undefined;
       const deviceType = features
         ? await deviceUtils.getDeviceTypeFromFeatures({ features })
         : undefined;
@@ -499,9 +510,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await this.checkDeviceIsBootloaderMode({
         connectId: originalConnectId,
         allowEmptyConnectId: true,
-        featuresCache: releaseInfoCache?.features as IOneKeyDeviceFeatures | undefined,
+        featuresCache: releaseInfoCache?.features as
+          | IOneKeyDeviceFeatures
+          | undefined,
       });
-    let features: IOneKeyDeviceFeatures = initialFeatures as IOneKeyDeviceFeatures;
+    let features: IOneKeyDeviceFeatures =
+      initialFeatures as IOneKeyDeviceFeatures;
 
     // use originalConnectId getFeatures() make sure sdk throw DeviceNotFound if connected device not matched with originalConnectId
     if (isBootloaderMode || !features) {
@@ -968,9 +982,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'forceUpdateOnceBootloader',
       );
+    const mockUpdateResource = await this.getForceUpdateResourceDevSetting();
     if (
       firmwareType === 'firmware' &&
-      (mockUpdateFirmware || mockUpdateOnceFirmware)
+      (mockUpdateFirmware || mockUpdateOnceFirmware || mockUpdateResource)
     ) {
       hasUpgrade = true;
     }
@@ -1363,10 +1378,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       // const forcedUpdateRes = enable && updateDeviceRes;
       // const version = settings.deviceUpdates?.[connectId][firmwareType]?.version;
 
-      const forceUpdateResEvenIfSameVersion =
-        await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-          'forceUpdateResEvenSameVersion',
-        );
+      const forceUpdateResource = await this.getForceUpdateResourceDevSetting();
       const versionArr = version.split('.').map((v) => parseInt(v, 10)); // TODO move to utils
       await firmwareUpdateStepInfoAtom.set({
         step: EFirmwareUpdateSteps.installing,
@@ -1388,8 +1400,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
           {
             updateType: firmwareType as any,
             // update res is always enabled when firmware version changed
-            // forcedUpdateRes for TEST only, means always update res even if firmware version is same (re-flash the same firmware)
-            forcedUpdateRes: forceUpdateResEvenIfSameVersion === true,
+            // forcedUpdateRes for TEST only, means always update resource even if resource manifest matched.
+            forcedUpdateRes: forceUpdateResource,
             version: versionArr,
             platform: platformEnv.symbol ?? 'web',
             firmwareType: updateInfo.toFirmwareType,
@@ -2088,9 +2100,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
       try {
         const currentTransportType =
           await this.backgroundApi.serviceSetting.getHardwareTransportType();
+        const forceUpdateResource =
+          await this.getForceUpdateResourceDevSetting();
         const updateParams: FirmwareUpdateV4Params = {
           platform: platformEnv.symbol ?? 'web',
           firmwareType: params.firmwareType,
+          forcedUpdateRes: forceUpdateResource,
         };
         const updateResult = await convertDeviceResponse(async () =>
           hardwareSDK.firmwareUpdateV4(
@@ -2316,13 +2331,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
     }
   }
 
-  async validateDeviceBattery(params: IUpdateFirmwareWorkflowParams) {
+  async validateDeviceBattery(_params: IUpdateFirmwareWorkflowParams) {
     // USB connected, skip battery check
     if (!platformEnv.isNative) {
       return;
     }
-
-    const { features: deviceFeatures } = params.releaseResult;
 
     let batteryLevel: number | undefined = undefined;
 
