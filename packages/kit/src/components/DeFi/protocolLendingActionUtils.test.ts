@@ -3,9 +3,28 @@ import {
   resolveProtocolLendingDefiFillableAmountState,
   resolveProtocolLendingRemainingDebtState,
   resolveProtocolLendingRepayAmountState,
+  resolveProtocolLendingWithdrawAmountState,
 } from './protocolLendingActionUtils';
 
 describe('protocolLendingActionUtils', () => {
+  it('marks withdraw amount above the supplied balance as insufficient', () => {
+    const state = resolveProtocolLendingWithdrawAmountState({
+      amount: '10.0001',
+      referenceBalance: '10',
+    });
+
+    expect(state.isAmountInsufficient).toBe(true);
+  });
+
+  it('does not mark exact withdraw max as insufficient', () => {
+    const state = resolveProtocolLendingWithdrawAmountState({
+      amount: '10',
+      referenceBalance: '10',
+    });
+
+    expect(state.isAmountInsufficient).toBe(false);
+  });
+
   it('uses server maxRepayBalance for repay max before wallet balance resolves', () => {
     const state = resolveProtocolLendingRepayAmountState({
       amount: '2',
