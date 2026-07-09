@@ -43,6 +43,7 @@ export interface ILightweightChartConfig {
   showLastValue?: boolean;
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
+  useTimeScaleTickMarkWithoutUnit?: boolean;
 }
 
 export interface ILightweightChartProps {
@@ -68,6 +69,7 @@ export interface ILightweightChartProps {
   showLastValue?: boolean;
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
+  useTimeScaleTickMarkWithoutUnit?: boolean;
   // When true, overlays an animated "breathing" dot on the last data point to
   // signal the chart is live. Web/desktop only; toggling it does not recreate
   // the chart.
