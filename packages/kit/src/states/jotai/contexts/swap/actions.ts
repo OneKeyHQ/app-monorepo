@@ -913,6 +913,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               set(swapQuoteEventTotalCountAtom(), {
                 eventId,
                 count: totalQuoteCount,
+                totalQuoteCountReceived: true,
               });
               const isZeroProviderQuoteEvent = hasSwapZeroProviderQuoteEvent({
                 quoteEventTotalCount: {
@@ -951,6 +952,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   ? {
                       eventId: quoteResultEventId,
                       count: quoteResultData.data.length,
+                      totalQuoteCountReceived: false,
                     }
                   : quoteEventTotalCount;
               if (shouldSeedStockQuoteEventFromResult && quoteResultEventId) {
