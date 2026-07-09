@@ -1480,12 +1480,8 @@ function BaseMoreActionContent() {
   return (
     <YStack flex={1}>
       <ScrollView overflow="scroll" flex={1}>
-        {isDeferredContentReady && !platformEnv.isWebDappMode ? (
-          <UpdateReminders />
-        ) : null}
-        {isDeferredContentReady && !platformEnv.isWebDappMode ? (
-          <MoreActionOneKeyId />
-        ) : null}
+        {platformEnv.isWebDappMode ? null : <UpdateReminders />}
+        {platformEnv.isWebDappMode ? null : <MoreActionOneKeyId />}
         {isDeferredContentReady && !isDesktopMode ? <MoreActionDevice /> : null}
         <MoreActionDivider />
         <MoreActionGeneralGrid />
@@ -1546,12 +1542,8 @@ function MoreActionContent({
     <MoreActionProvider>
       <YStack minHeight={600} {...containerStyle}>
         <MoreActionContentHeader />
-        {isDeferredContentReady && !platformEnv.isWebDappMode ? (
-          <UpdateReminders />
-        ) : null}
-        {isDeferredContentReady && !platformEnv.isWebDappMode ? (
-          <MoreActionOneKeyId />
-        ) : null}
+        {platformEnv.isWebDappMode ? null : <UpdateReminders />}
+        {platformEnv.isWebDappMode ? null : <MoreActionOneKeyId />}
         {isDeferredContentReady && !isDesktopMode ? <MoreActionDevice /> : null}
         <MoreActionDivider />
         <MoreActionGeneralGrid />
