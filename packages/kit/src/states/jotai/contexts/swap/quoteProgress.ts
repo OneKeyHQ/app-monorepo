@@ -257,11 +257,14 @@ export function selectSwapCurrentQuote({
   const actionableQuotes = currentEventSortedQuotes.filter(
     isSwapQuoteActionable,
   );
+  const isWaitingForAuthoritativeTotalCount =
+    quoteEventTotalCount.totalQuoteCountReceived === false;
+  const isWaitingForMoreProviders =
+    quoteEventTotalCount.count > currentEventProviderKeys.length;
   const shouldDeferNonActionableQuote =
     deferNonActionableQuoteUntilEventSettled &&
     !quoteEventCompleted &&
-    (!quoteEventTotalCount.totalQuoteCountReceived ||
-      quoteEventTotalCount.count > currentEventProviderKeys.length) &&
+    (isWaitingForAuthoritativeTotalCount || isWaitingForMoreProviders) &&
     actionableQuotes.length === 0;
 
   if (selectionIntent?.type === 'manual-provider') {

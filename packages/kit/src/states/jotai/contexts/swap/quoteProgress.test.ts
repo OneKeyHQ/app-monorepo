@@ -377,13 +377,36 @@ describe('swap quote progress', () => {
 
     const selectedQuote = selectSwapCurrentQuote({
       currentEventSortedQuotes: [errorQuote],
-      quoteEventTotalCount: { eventId: 'event-1', count: 1 },
+      quoteEventTotalCount: {
+        eventId: 'event-1',
+        count: 1,
+        totalQuoteCountReceived: false,
+      },
       currentEventProviderKeys: [buildSwapQuoteProviderKey(errorQuote)],
       quoteEventCompleted: false,
       deferNonActionableQuoteUntilEventSettled: true,
     });
 
     expect(selectedQuote).toBeUndefined();
+  });
+
+  it('does not defer non-actionable quotes when no quote event is active', () => {
+    const errorQuote = buildQuote({
+      eventId: 'previous-event',
+      provider: 'min-amount-provider',
+      toAmount: '0',
+      errorMessage: '最低金额要求 100.020304 USDC',
+    });
+
+    const selectedQuote = selectSwapCurrentQuote({
+      currentEventSortedQuotes: [errorQuote],
+      quoteEventTotalCount: { count: 0 },
+      currentEventProviderKeys: [],
+      quoteEventCompleted: false,
+      deferNonActionableQuoteUntilEventSettled: true,
+    });
+
+    expect(selectedQuote).toBe(errorQuote);
   });
 
   it('shows a non-actionable provider error after authoritative total count says no providers are pending', () => {
