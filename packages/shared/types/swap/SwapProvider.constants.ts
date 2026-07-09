@@ -442,6 +442,32 @@ export const swapDefaultSetTokens: Record<
         'https://uni.onekey-asset.com/static/chain/arbitrum.png',
     },
   },
+  'evm--4663': {
+    fromToken: {
+      'networkId': 'evm--4663',
+      'contractAddress': '',
+      'name': 'Ethereum',
+      'symbol': 'ETH',
+      'decimals': 18,
+      'logoURI':
+        'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address--1721282106924.png',
+      'isNative': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/robinhood.png',
+    },
+    toToken: {
+      'networkId': 'evm--4663',
+      'contractAddress': '0x5fc5360d0400a0fd4f2af552add042d716f1d168',
+      'name': 'Global Dollar',
+      'symbol': 'USDG',
+      'decimals': 6,
+      'logoURI':
+        'https://uni.onekey-asset.com/server-service-indexer/evm--4663/tokens/address-0x5fc5360d0400a0fd4f2af552add042d716f1d168.png',
+      'isNative': false,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/robinhood.png',
+    },
+  },
   'evm--8453': {
     fromToken: {
       'networkId': 'evm--8453',
