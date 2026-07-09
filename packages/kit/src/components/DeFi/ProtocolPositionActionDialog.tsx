@@ -768,6 +768,8 @@ type IProtocolPositionActionSubmitParams = {
     status: IDeFiActionTxConfirmDialogResult;
     data: ISendTxOnSuccessData[];
   }) => boolean | void | Promise<boolean | void>;
+  onConfirmFail?: (error: Error) => void;
+  onConfirmCancel?: () => void;
 };
 
 function buildDeFiActionExtraParams({
@@ -833,6 +835,8 @@ function useProtocolPositionActionSubmit({
       isErrorToastSuppressed,
       onBeforeNavigateConfirm,
       onSettleResult,
+      onConfirmFail,
+      onConfirmCancel,
     }: IProtocolPositionActionSubmitParams) => {
       if (selectedAssets.length === 0) {
         throw new OneKeyLocalError(
@@ -1065,7 +1069,9 @@ function useProtocolPositionActionSubmit({
               if (isTxConfirmInitializing) {
                 txConfirmInitError = error;
               }
+              onConfirmFail?.(error);
             },
+            onCancel: onConfirmCancel,
           });
         } finally {
           isTxConfirmInitializing = false;
@@ -1562,6 +1568,7 @@ function ProtocolPositionActionDialogContent({
   const action = actionOverride ?? initialAction;
   const closeRef = useRef<(() => void | Promise<void>) | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [isRefreshingAction, setIsRefreshingAction] = useState(false);
   // Percent as typed text so the hero is directly editable. Invalid or empty
   // text zeroes the preview and disables confirm (buildDeFiActionBps returns
@@ -1786,6 +1793,11 @@ function ProtocolPositionActionDialogContent({
   const receiveLabel = isPercentAction ? resultLabel : sourceLabel;
   const currentSelectedAsset = selectedAssets[0];
 
+  const releaseSubmitGuard = useCallback(() => {
+    submittingRef.current = false;
+    setSubmitting(false);
+  }, []);
+
   const handleActionPercentChange = (next: string) => {
     // Integers 0..100 only, no leading zeros; allow empty while editing.
     // Reject other keystrokes outright (same convention as the token-amount
@@ -1930,10 +1942,28 @@ function ProtocolPositionActionDialogContent({
     // We own the close timing now: keep the dialog mounted through the confirm
     // hop and let the settle callback decide close-vs-stay after the tx lands.
     preventClose();
-    if (selectedAssets.length === 0 || submitting) return;
+    if (selectedAssets.length === 0 || submittingRef.current) return;
     closeRef.current = close;
     setSubmitError(undefined);
+    submittingRef.current = true;
     setSubmitting(true);
+    let submitGuardReleased = false;
+    const releaseSubmitGuardOnce = () => {
+      if (submitGuardReleased) {
+        return;
+      }
+      submitGuardReleased = true;
+      releaseSubmitGuard();
+    };
+    const releaseSubmitGuardOnceWithError = (error: Error) => {
+      if (
+        !submitGuardReleased &&
+        !isUserRejectedErrorMessage({ error, intl })
+      ) {
+        setSubmitError(getErrorMessage(error));
+      }
+      releaseSubmitGuardOnce();
+    };
     // Claim & co. have no amount to preserve and nothing left to act on after
     // settle. Withdraw / repay / remove use the shared settle rule below.
     const usesNavigationRule =
@@ -1952,6 +1982,7 @@ function ProtocolPositionActionDialogContent({
         // render inline instead of the hook's toast.
         isErrorToastSuppressed: () => true,
         onSettleResult: async ({ status }) => {
+          releaseSubmitGuardOnce();
           if (!usesNavigationRule) {
             void closeRef.current?.();
             return;
@@ -1966,13 +1997,14 @@ function ProtocolPositionActionDialogContent({
           await handleStayRefresh();
           return false;
         },
+        onConfirmFail: releaseSubmitGuardOnceWithError,
+        onConfirmCancel: releaseSubmitGuardOnce,
       });
     } catch (error) {
       if (!isUserRejectedErrorMessage({ error, intl })) {
         setSubmitError(getErrorMessage(error));
       }
-    } finally {
-      setSubmitting(false);
+      releaseSubmitGuardOnce();
     }
   };
 

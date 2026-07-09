@@ -562,9 +562,11 @@ describe('useUniversalBorrowRepay settle plumbing', () => {
   async function runRepayAndSettle({
     sheetStatus,
     onSettleResult = jest.fn(),
+    includeOnSettleResult = true,
   }: {
     sheetStatus: EOnChainHistoryTxStatus | undefined;
     onSettleResult?: jest.Mock;
+    includeOnSettleResult?: boolean;
   }) {
     (showDeFiActionTxConfirmDialog as jest.Mock).mockResolvedValueOnce(
       sheetStatus,
@@ -585,7 +587,11 @@ describe('useUniversalBorrowRepay settle plumbing', () => {
       useUniversalBorrowRepay({ networkId: 'evm--1', accountId: 'acc-1' }),
     );
     await act(async () => {
-      await result.current({ ...REPAY_PARAMS, onSuccess, onSettleResult });
+      await result.current({
+        ...REPAY_PARAMS,
+        onSuccess,
+        ...(includeOnSettleResult ? { onSettleResult } : {}),
+      });
     });
     await act(async () => {
       await confirmOptions?.onSuccess(TX_DATA as ISendTxOnSuccessData[]);
@@ -624,6 +630,16 @@ describe('useUniversalBorrowRepay settle plumbing', () => {
       data: expect.anything(),
     });
     expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it('preserves legacy onSuccess when final-status polling exhausts without onSettleResult', async () => {
+    const { onSuccess, onSettleResult } = await runRepayAndSettle({
+      sheetStatus: undefined,
+      includeOnSettleResult: false,
+    });
+
+    expect(onSettleResult).not.toHaveBeenCalled();
+    expect(onSuccess).toHaveBeenCalledTimes(1);
   });
 
   it('skips onSuccess when onSettleResult vetoes with false after a Success settle', async () => {

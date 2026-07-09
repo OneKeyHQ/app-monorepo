@@ -555,6 +555,7 @@ function ProtocolLendingActionDefiContent({
   const activeAction = actionOverride ?? source.action;
   const closeRef = useRef<(() => void | Promise<void>) | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [isRefreshingAction, setIsRefreshingAction] = useState(false);
 
   const assets = useMemo(
@@ -732,6 +733,11 @@ function ProtocolLendingActionDefiContent({
     resetAmountForAsset(assets[index]);
   };
 
+  const releaseSubmitGuard = useCallback(() => {
+    submittingRef.current = false;
+    setSubmitting(false);
+  }, []);
+
   const handleStayRefresh = async () => {
     // Without an opener refresh callback there is no fresh data to show —
     // fall back to today's behavior and return to the page.
@@ -769,10 +775,28 @@ function ProtocolLendingActionDefiContent({
     // We own the close timing now: keep the dialog mounted through the confirm
     // hop and let the settle callback decide close-vs-stay after the tx lands.
     preventClose();
-    if (!selectedAsset || submitting) return;
+    if (!selectedAsset || submittingRef.current) return;
     closeRef.current = close;
     setSubmitError(undefined);
+    submittingRef.current = true;
     setSubmitting(true);
+    let submitGuardReleased = false;
+    const releaseSubmitGuardOnce = () => {
+      if (submitGuardReleased) {
+        return;
+      }
+      submitGuardReleased = true;
+      releaseSubmitGuard();
+    };
+    const releaseSubmitGuardOnceWithError = (error: Error) => {
+      if (
+        !submitGuardReleased &&
+        !isUserRejectedErrorMessage({ error, intl })
+      ) {
+        setSubmitError(getErrorMessage(error));
+      }
+      releaseSubmitGuardOnce();
+    };
     try {
       await submitProtocolPositionAction({
         action: activeAction,
@@ -783,6 +807,7 @@ function ProtocolLendingActionDefiContent({
         // render inline instead of the hook's toast.
         isErrorToastSuppressed: () => true,
         onSettleResult: async ({ status }) => {
+          releaseSubmitGuardOnce();
           const navigationDecision = resolvePostActionNavigation({
             txStatus: status,
           });
@@ -793,13 +818,14 @@ function ProtocolLendingActionDefiContent({
           await handleStayRefresh();
           return false;
         },
+        onConfirmFail: releaseSubmitGuardOnceWithError,
+        onConfirmCancel: releaseSubmitGuardOnce,
       });
     } catch (error) {
       if (!isUserRejectedErrorMessage({ error, intl })) {
         setSubmitError(getErrorMessage(error));
       }
-    } finally {
-      setSubmitting(false);
+      releaseSubmitGuardOnce();
     }
   };
 
@@ -1053,8 +1079,8 @@ function ProtocolLendingActionBorrowContent({
   const submittedStepKindRef = useRef<
     ReturnType<typeof resolveLendingStepState>['kind'] | undefined
   >(undefined);
-  // An approve was initiated this session — the only thing it controls is the
-  // "Step 2 of 2" suffix once needsApproval flips off.
+  // Allowance became ready in this approve session — the only thing it controls
+  // is the "Step 2 of 2" suffix once needsApproval flips off.
   const [approveSessionActive, setApproveSessionActive] = useState(false);
   // Dedupes the step-2 auto-advance: set once step 2 auto-fires, reset on each
   // new approve so a re-approve (e.g. amount raised past the allowance) re-arms.
@@ -1548,12 +1574,12 @@ function ProtocolLendingActionBorrowContent({
     // We own the close timing: the dialog stays mounted through the confirm
     // hop and the settle callback decides close-vs-stay after the tx lands.
     preventClose();
-    if (submitting) return;
+    if (submittingRef.current) return;
     if (needsApproval) {
-      // New approve session: re-arm the auto-advance so step 2 fires once,
-      // automatically, after this approve confirms and the allowance lands.
+      // Re-arm the auto-advance for a fresh approve. The session itself is
+      // marked active only after the allowance lands, so cancel cannot expose
+      // or auto-fire step 2.
       autoSubmittedRef.current = false;
-      setApproveSessionActive(true);
       await runGuardedStep(onApprove);
       return;
     }

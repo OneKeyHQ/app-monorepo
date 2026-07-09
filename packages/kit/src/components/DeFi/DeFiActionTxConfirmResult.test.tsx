@@ -157,7 +157,7 @@ describe('showDeFiActionTxConfirmDialog', () => {
     expect(mockDialogShow.mock.results[0].value.close).toHaveBeenCalledTimes(1);
   });
 
-  it('resolves the UI caller when pending sheet is dismissed and refreshes after later success', async () => {
+  it('resolves the UI caller and aborts polling when pending sheet is dismissed', async () => {
     const txStatus = createDeferred<IDeFiActionTxConfirmDialogResult>();
     mockWaitForTxFinalStatus.mockReturnValueOnce(txStatus.promise);
 
@@ -180,6 +180,10 @@ describe('showDeFiActionTxConfirmDialog', () => {
     });
 
     expect(mockDialogShow.mock.results[0].value.close).toHaveBeenCalledTimes(1);
+    const [{ signal }] = mockWaitForTxFinalStatus.mock.calls[0] as [
+      { signal?: AbortSignal },
+    ];
+    expect(signal?.aborted).toBe(true);
 
     await expect(resultPromise).resolves.toBeUndefined();
     expect(mockRefreshAccountDeFiPositionsAfterAction).not.toHaveBeenCalled();
@@ -188,12 +192,8 @@ describe('showDeFiActionTxConfirmDialog', () => {
       txStatus.resolve(EOnChainHistoryTxStatus.Success);
     });
 
-    await waitFor(() => {
-      expect(mockRefreshAccountDeFiPositionsAfterAction).toHaveBeenCalledWith({
-        accountId: 'acc-1',
-        networkId: 'evm--1',
-      });
-    });
+    await flushMicrotasks();
+    expect(mockRefreshAccountDeFiPositionsAfterAction).not.toHaveBeenCalled();
   });
 
   it('does not auto-close failed result sheet', async () => {

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { Dialog } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import PreSwapConfirmResult from '@onekeyhq/kit/src/views/Swap/components/PreSwapConfirmResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
@@ -130,14 +129,15 @@ export function showDeFiActionTxConfirmDialog({
   if (!accountId || !txid) {
     return Promise.resolve(undefined);
   }
+  const controller = new AbortController();
   const finalStatusPromise = waitForTxFinalStatus({
     accountId,
     networkId,
     txid,
+    signal: controller.signal,
   }).catch(() => undefined);
   let latestResult: IDeFiActionTxConfirmDialogResult;
   let uiSettled = false;
-  let dismissedBeforeFinal = false;
   let resolveUiResult:
     | ((result: IDeFiActionTxConfirmDialogResult) => void)
     | undefined;
@@ -157,23 +157,18 @@ export function showDeFiActionTxConfirmDialog({
       return;
     }
     uiSettled = true;
-    dismissedBeforeFinal =
-      source === 'user' && result === undefined && latestResult === undefined;
+    if (source === 'user') {
+      controller.abort();
+    }
     resolveUiResult?.(result);
   };
   void finalStatusPromise.then((result) => {
+    if (controller.signal.aborted) {
+      return;
+    }
     latestResult = result;
     if (!uiSettled) {
       finish({ result, source: 'status' });
-      return;
-    }
-    if (dismissedBeforeFinal && result === EOnChainHistoryTxStatus.Success) {
-      void backgroundApiProxy.serviceDeFi.refreshAccountDeFiPositionsAfterAction(
-        {
-          accountId,
-          networkId,
-        },
-      );
     }
   });
   const dialogRef: { current?: ReturnType<typeof Dialog.show> } = {};
