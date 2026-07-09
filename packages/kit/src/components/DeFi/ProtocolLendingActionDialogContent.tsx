@@ -69,6 +69,7 @@ import {
   isUserRejectedErrorMessage,
   useProtocolPositionActionSubmit,
 } from './ProtocolPositionActionDialog';
+import { getProtocolProviderDisplayName } from './protocolProviderDisplayUtils';
 
 // Withdraw/Repay only — the portfolio dialog is exit-side (Supply/Borrow stay on
 // the full manage page).
@@ -1238,8 +1239,10 @@ function ProtocolLendingActionBorrowContent({
     }
     const protocolLogoURI =
       source.providerLogoURI ?? protocolInfo?.providerDetail.logoURI;
-    const protocolLabel = earnUtils.getEarnProviderName({
-      providerName: source.providerDisplayName ?? provider,
+    const protocolLabel = getProtocolProviderDisplayName({
+      provider,
+      providerDisplayName: source.providerDisplayName,
+      providerDetailName: protocolInfo?.providerDetail.name,
     });
     if (actionType === 'repay') {
       await handleBorrowRepay({
@@ -1308,6 +1311,7 @@ function ProtocolLendingActionBorrowContent({
     networkId,
     onSuccess,
     protocolInfo?.providerDetail.logoURI,
+    protocolInfo?.providerDetail.name,
     protocolInfo?.stakeTag,
     reserveAddress,
     source,
@@ -1322,6 +1326,11 @@ function ProtocolLendingActionBorrowContent({
       currentAllowance: protocolInfo?.approve?.allowance,
       amountValue: amount,
       onSubmit: submitBorrowTx,
+      onBeforeNavigateConfirm: () => {
+        if (isBorrowDialogClosedRef.current) return;
+        isBorrowDialogClosedRef.current = true;
+        void closeRef.current?.();
+      },
     });
 
   const handleFooterConfirm = async ({
@@ -1333,9 +1342,8 @@ function ProtocolLendingActionBorrowContent({
   }) => {
     closeRef.current = close;
     isBorrowDialogClosedRef.current = false;
-    // We own the close timing: onBeforeNavigate closes right before the
-    // tx-confirm page opens, and the approve hop keeps the dialog open until
-    // it auto-submits.
+    // We own the close timing: approval and business confirms both close this
+    // dialog right before tx-confirm opens, so the old dialog never overlays it.
     preventClose();
     if (submitting) return;
     setSubmitting(true);
