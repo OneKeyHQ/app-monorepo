@@ -101,8 +101,7 @@ export function buildPerpsDepositTokensFromWalletTokenResponses({
   responses,
   networkLogoURIByNetworkId,
 }: IBuildPerpsDepositTokensFromWalletTokenResponsesParams): IPerpsDepositToken[] {
-  const indexedTokens: Array<{ index: number; token: IPerpsDepositToken }> = [];
-  let index = 0;
+  const tokens: IPerpsDepositToken[] = [];
 
   for (const response of responses) {
     for (const walletToken of response.tokens.data) {
@@ -117,13 +116,19 @@ export function buildPerpsDepositTokensFromWalletTokenResponses({
           : undefined,
       });
       if (token) {
-        indexedTokens.push({ index, token });
+        tokens.push(token);
       }
-      index += 1;
     }
   }
 
-  return indexedTokens
+  return sortPerpsDepositTokensByFiatValue(tokens);
+}
+
+export function sortPerpsDepositTokensByFiatValue(
+  tokens: IPerpsDepositToken[],
+) {
+  return tokens
+    .map((token, index) => ({ index, token }))
     .toSorted((a, b) => {
       const valueCompare = new BigNumber(b.token.fiatValue ?? '0').comparedTo(
         new BigNumber(a.token.fiatValue ?? '0'),
@@ -162,6 +167,29 @@ function findMatchedPerpsDepositToken({
   );
 }
 
+function getHighestPositiveFiatValuePerpsDepositToken(
+  tokens: IPerpsDepositToken[],
+) {
+  let matchedToken: IPerpsDepositToken | undefined;
+  let matchedValue = new BigNumber(0);
+
+  for (const token of tokens) {
+    if (token.fiatValue !== undefined) {
+      const fiatValue = new BigNumber(token.fiatValue);
+      if (
+        fiatValue.isFinite() &&
+        fiatValue.gt(0) &&
+        (!matchedToken || fiatValue.gt(matchedValue))
+      ) {
+        matchedToken = token;
+        matchedValue = fiatValue;
+      }
+    }
+  }
+
+  return matchedToken;
+}
+
 export function getDefaultPerpsDepositToken({
   tokens,
   defaultTokens,
@@ -169,6 +197,12 @@ export function getDefaultPerpsDepositToken({
   tokens: IPerpsDepositToken[];
   defaultTokens?: IPerpsDepositToken[];
 }) {
+  const highestFiatValueToken =
+    getHighestPositiveFiatValuePerpsDepositToken(tokens);
+  if (highestFiatValueToken) {
+    return highestFiatValueToken;
+  }
+
   const markedDefaultToken = tokens.find((token) => token.isDefault);
   if (markedDefaultToken) {
     return markedDefaultToken;
@@ -205,8 +239,16 @@ export function resolvePerpsDepositSelectedToken({
     tokens,
     targetToken: currentToken,
   });
-  if (matchedCurrentToken) {
+  const highestFiatValueToken =
+    getHighestPositiveFiatValuePerpsDepositToken(tokens);
+  if (
+    matchedCurrentToken &&
+    (!highestFiatValueToken || currentToken?.fiatValue !== undefined)
+  ) {
     return matchedCurrentToken;
+  }
+  if (highestFiatValueToken) {
+    return highestFiatValueToken;
   }
 
   return getDefaultPerpsDepositToken({ tokens, defaultTokens });
