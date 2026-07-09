@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -171,6 +171,26 @@ export function FeaturedCarousel({
   const isJumpingJs = jumpIndices !== null;
 
   const heightSpring = useHeightSpring({ progress, measuredHeights });
+
+  // Web-only: cancel the browser's native drag-ghost on the media. RN-web's
+  // View doesn't forward onDragStart and the Image (expo-image) chain doesn't
+  // forward `draggable` to the underlying <img>, so we suppress the bubbled
+  // dragstart once on the shared media container — it covers every slide and
+  // both the image and video branches. The addEventListener guard makes this a
+  // no-op on native.
+  const mediaContainerRef = useRef<unknown>(null);
+  useEffect(() => {
+    const node = mediaContainerRef.current as {
+      addEventListener?: HTMLElement['addEventListener'];
+      removeEventListener?: HTMLElement['removeEventListener'];
+    } | null;
+    if (!node || typeof node.addEventListener !== 'function') {
+      return undefined;
+    }
+    const preventDrag = (event: Event) => event.preventDefault();
+    node.addEventListener('dragstart', preventDrag);
+    return () => node.removeEventListener?.('dragstart', preventDrag);
+  }, []);
 
   const onContainerLayout = useCallback((e: LayoutChangeEvent) => {
     const w = e.nativeEvent.layout.width;
@@ -359,11 +379,70 @@ export function FeaturedCarousel({
     });
   }
 
+  // Prev / next arrows for quick feature switching (desktop-friendly). Each
+  // arrow sits over a black edge gradient so it stays legible on bright media,
+  // and is shown only when there's a slide to move to. pointerEvents="box-none"
+  // keeps the swipe gesture live everywhere except the button itself.
+  const renderArrow = (dir: 'prev' | 'next') => {
+    const isPrev = dir === 'prev';
+    const canMove = isPrev
+      ? activeIndex > 0
+      : activeIndex < features.length - 1;
+    if (!canMove) return null;
+    return (
+      <Stack
+        position="absolute"
+        top={0}
+        bottom={0}
+        left={isPrev ? 0 : undefined}
+        right={isPrev ? undefined : 0}
+        pl={isPrev ? '$3' : undefined}
+        pr={isPrev ? undefined : '$3'}
+        justifyContent="center"
+        pointerEvents="box-none"
+      >
+        <LinearGradient
+          pointerEvents="none"
+          position="absolute"
+          top={0}
+          bottom={0}
+          left={isPrev ? 0 : undefined}
+          right={isPrev ? undefined : 0}
+          width={72}
+          colors={
+            isPrev
+              ? ['rgba(0,0,0,0.5)', 'transparent']
+              : ['transparent', 'rgba(0,0,0,0.5)']
+          }
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+        />
+        <IconButton
+          testID={
+            isPrev
+              ? AppUpdateTestIDs.featuredCarouselPrevBtn
+              : AppUpdateTestIDs.featuredCarouselNextBtn
+          }
+          icon={isPrev ? 'ChevronLeftOutline' : 'ChevronRightOutline'}
+          variant="tertiary"
+          size="medium"
+          iconProps={{ color: '$whiteA12' }}
+          onPress={() => jumpTo(activeIndex + (isPrev ? -1 : 1))}
+        />
+      </Stack>
+    );
+  };
+
   return (
     <Animated.View onLayout={onContainerLayout} style={totalHeightStyle}>
       {/* Media region: fixed height, slides absolutely positioned */}
       <GestureDetector gesture={panGesture}>
-        <Stack height={MEDIA_HEIGHT} position="relative" overflow="hidden">
+        <Stack
+          ref={mediaContainerRef as any}
+          height={MEDIA_HEIGHT}
+          position="relative"
+          overflow="hidden"
+        >
           {renderSlides('media', (feature, i) => (
             <FeaturedMedia
               feature={feature}
@@ -409,6 +488,8 @@ export function FeaturedCarousel({
               iconProps={{ color: '$whiteA10' }}
             />
           ) : null}
+          {renderArrow('prev')}
+          {renderArrow('next')}
           <FeaturedIndicator
             count={features.length}
             progress={progress}
