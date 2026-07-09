@@ -52,11 +52,11 @@ import { useSpotMetaMaps } from '../../hooks/useSpotMetaMaps';
 import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
 import { FavoriteButton } from '../TokenSelector/PerpTokenSelectorRow';
 
+// Medium-weight (500) data values — the heading tokens' 600 reads too heavy
+// for a dense stat strip of tabular digits, while plain 400 gets lost against
+// the subdued labels at this size.
 const TICKER_BAR_STAT_VALUE_TEXT_PROPS = {
-  size: '$headingXs',
-  fontFamily: '$monoRegular',
-  textTransform: 'none',
-  letterSpacing: 0,
+  size: '$bodySmMedium',
 } as const;
 
 const TICKER_BAR_STAT_LABEL_VALUE_GAP = 5;
@@ -176,8 +176,8 @@ const TickerBarMarkPriceView = memo(
             renderTrigger={
               <SizableText
                 size="$headingMd"
+                fontWeight="500"
                 cursor="help"
-                fontVariant={['tabular-nums']}
                 lineHeight={20}
               >
                 {formattedMarkPrice}
@@ -203,9 +203,9 @@ function TickerBarMarkPrice() {
   const assetCtx = useTickerBarPerpAssetCtx();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const isSpot = tradingMode === 'spot';
-  const formattedMarkPrice = isSpot
-    ? formatLocalizedNumberString(spotAssetCtx?.ctx?.markPrice || '')
-    : assetCtx?.ctx?.markPrice || '';
+  const formattedMarkPrice = formatLocalizedNumberString(
+    (isSpot ? spotAssetCtx?.ctx?.markPrice : assetCtx?.ctx?.markPrice) || '',
+  );
   const isLoading = useTickerBarIsLoading();
   useEffect(() => {
     if (!isLoading && formattedMarkPrice) {
@@ -326,10 +326,7 @@ const TickerBarOraclePriceView = memo(
             placement="top"
           />
           <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-            <SizableText
-              {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
-              fontVariant={['tabular-nums']}
-            >
+            <SizableText {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}>
               {formattedOraclePrice}
             </SizableText>
           </SkeletonContainer>
@@ -342,7 +339,9 @@ TickerBarOraclePriceView.displayName = 'TickerBarOraclePriceView';
 
 function TickerBarOraclePrice() {
   const assetCtx = useTickerBarPerpAssetCtx();
-  const formattedOraclePrice = assetCtx?.ctx?.oraclePrice || '';
+  const formattedOraclePrice = formatLocalizedNumberString(
+    assetCtx?.ctx?.oraclePrice || '',
+  );
   const isLoading = useTickerBarIsLoading();
 
   return (
@@ -371,10 +370,7 @@ const TickerBar24hVolumeView = memo(
             })}
           </SizableText>
           <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-            <SizableText
-              {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
-              fontVariant={['tabular-nums']}
-            >
+            <SizableText {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}>
               ${formattedVolume24h}
             </SizableText>
           </SkeletonContainer>
@@ -444,10 +440,7 @@ const TickerBarOpenInterestView = memo(
             placement="top"
           />
           <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-            <SizableText
-              {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
-              fontVariant={['tabular-nums']}
-            >
+            <SizableText {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}>
               ${formattedOpenInterest}
             </SizableText>
           </SkeletonContainer>
@@ -496,10 +489,7 @@ const TickerBarMarketCapView = memo(
             })}
           </SizableText>
           <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-            <SizableText
-              {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
-              fontVariant={['tabular-nums']}
-            >
+            <SizableText {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}>
               {formattedMarketCap === '--'
                 ? formattedMarketCap
                 : `$${formattedMarketCap}`}
@@ -555,6 +545,7 @@ const TickerBarSpotContractView = memo(
             <XStack gap="$1" alignItems="center">
               <SizableText
                 {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
+                fontFamily="$monoRegular"
                 color="$text"
                 numberOfLines={1}
               >
@@ -616,11 +607,7 @@ function TickerBarFundingRateCountdown() {
       position="bottom-right"
       offsetX={10}
     >
-      <SizableText
-        {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
-        color="$text"
-        fontVariant={['tabular-nums']}
-      >
+      <SizableText {...TICKER_BAR_STAT_VALUE_TEXT_PROPS} color="$text">
         {countdown}
       </SizableText>
     </DebugRenderTracker>
@@ -666,7 +653,6 @@ const TickerBarFundingRateView = memo(
                   <XStack alignItems="baseline" gap="$2">
                     <DashText
                       {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
-                      fontVariant={['tabular-nums']}
                       color={fundingRate >= 0 ? '$green11' : '$red11'}
                       dashThickness={0.5}
                       dashSpacing={0}
@@ -684,22 +670,12 @@ const TickerBarFundingRateView = memo(
                         justifyContent="space-between"
                         alignItems="center"
                       >
-                        <SizableText
-                          size="$headingXs"
-                          fontFamily="$monoRegular"
-                          fontVariant={['tabular-nums']}
-                          color="$textSubdued"
-                        >
+                        <SizableText size="$bodySm" color="$textSubdued">
                           {intl.formatMessage({
                             id: ETranslations.perps_fee_rate_projection,
                           })}
                         </SizableText>
-                        <SizableText
-                          size="$headingXs"
-                          fontFamily="$monoRegular"
-                          fontVariant={['tabular-nums']}
-                          color="$textSubdued"
-                        >
+                        <SizableText size="$bodySm" color="$textSubdued">
                           {intl.formatMessage({
                             id: ETranslations.perp_position_funding,
                           })}
@@ -711,28 +687,17 @@ const TickerBarFundingRateView = memo(
                           alignItems="center"
                         >
                           <XStack gap="$1" alignItems="center">
-                            <SizableText
-                              size="$headingXs"
-                              fontFamily="$monoRegular"
-                              fontVariant={['tabular-nums']}
-                            >
+                            <SizableText size="$bodySm">
                               {intl.formatMessage({
                                 id: ETranslations.perps_hourly,
                               })}
                             </SizableText>
-                            <SizableText
-                              size="$headingXs"
-                              fontFamily="$monoRegular"
-                              fontVariant={['tabular-nums']}
-                              color="$textSubdued"
-                            >
+                            <SizableText size="$bodySm" color="$textSubdued">
                               ({countdown})
                             </SizableText>
                           </XStack>
                           <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
+                            size="$bodySm"
                             color={fundingRate >= 0 ? '$green11' : '$red11'}
                           >
                             {hourlyFundingRate}%
@@ -742,19 +707,13 @@ const TickerBarFundingRateView = memo(
                           justifyContent="space-between"
                           alignItems="center"
                         >
-                          <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
-                          >
+                          <SizableText size="$bodySm">
                             {intl.formatMessage({
                               id: ETranslations.earn_daily,
                             })}
                           </SizableText>
                           <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
+                            size="$bodySm"
                             color={fundingRate >= 0 ? '$green11' : '$red11'}
                           >
                             {dailyFundingRate}%
@@ -764,19 +723,13 @@ const TickerBarFundingRateView = memo(
                           justifyContent="space-between"
                           alignItems="center"
                         >
-                          <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
-                          >
+                          <SizableText size="$bodySm">
                             {intl.formatMessage({
                               id: ETranslations.earn_weekly,
                             })}
                           </SizableText>
                           <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
+                            size="$bodySm"
                             color={fundingRate >= 0 ? '$green11' : '$red11'}
                           >
                             {weeklyFundingRate}%
@@ -786,19 +739,13 @@ const TickerBarFundingRateView = memo(
                           justifyContent="space-between"
                           alignItems="center"
                         >
-                          <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
-                          >
+                          <SizableText size="$bodySm">
                             {intl.formatMessage({
                               id: ETranslations.earn_monthly,
                             })}
                           </SizableText>
                           <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
+                            size="$bodySm"
                             color={fundingRate >= 0 ? '$green11' : '$red11'}
                           >
                             {monthlyFundingRate}%
@@ -808,19 +755,13 @@ const TickerBarFundingRateView = memo(
                           justifyContent="space-between"
                           alignItems="center"
                         >
-                          <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
-                          >
+                          <SizableText size="$bodySm">
                             {intl.formatMessage({
                               id: ETranslations.earn_annually,
                             })}
                           </SizableText>
                           <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
+                            size="$bodySm"
                             color={fundingRate >= 0 ? '$green11' : '$red11'}
                           >
                             {annualizedFundingRate}%
@@ -830,11 +771,7 @@ const TickerBarFundingRateView = memo(
                     </YStack>
                     <Divider />
                     <YStack gap="$2" justifyContent="space-between">
-                      <SizableText
-                        size="$headingXs"
-                        fontVariant={['tabular-nums']}
-                        color="$textSubdued"
-                      >
+                      <SizableText size="$bodySm" color="$textSubdued">
                         {intl.formatMessage({
                           id: ETranslations.perp_trades_history_direction,
                         })}
@@ -875,7 +812,7 @@ const TickerBarFundingRateView = memo(
                     </YStack>
                     <Divider />
                     <YStack gap="$2">
-                      <SizableText size="$headingXs" color="$textSubdued">
+                      <SizableText size="$bodySm" color="$textSubdued">
                         {intl.formatMessage({
                           id: ETranslations.perp_funding_rate_tip0,
                         })}

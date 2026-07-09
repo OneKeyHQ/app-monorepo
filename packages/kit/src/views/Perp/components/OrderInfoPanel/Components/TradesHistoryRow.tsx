@@ -19,7 +19,10 @@ import { useSpotPairDisplayMapAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  formatLocalizedNumberString,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getSpotTokenDisplayName,
   getValidPriceDecimals,
@@ -138,7 +141,9 @@ const TradesHistoryRow = memo(
       const decimals = getValidPriceDecimals(price);
       const priceBN = new BigNumber(price);
       const sizeBN = new BigNumber(size);
-      const priceFormatted = priceBN.toFixed(decimals);
+      const priceFormatted = formatLocalizedNumberString(
+        priceBN.toFixed(decimals),
+      );
       const feeFormatted = numberFormat(fee, formatter);
 
       const tradeValue = priceBN.times(sizeBN).toFixed();
