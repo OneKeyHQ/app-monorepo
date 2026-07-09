@@ -2288,42 +2288,101 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         return;
       }
 
-      const allHwWallets =
-        await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
-          filterHiddenWallet: false,
-          filterQrWallet: true,
-        });
+      // Best-effort cleanup: callers run it after the wallet is already
+      // created + committed; a throw must never fail that success path.
+      try {
+        const allHwWallets =
+          await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+            filterHiddenWallet: false,
+            filterQrWallet: true,
+          });
 
-      const willUpdateDeprecateMap: Record<string, boolean> = {};
+        const willUpdateDeprecateMap: Record<string, boolean> = {};
 
-      for (const walletWithDevice of Object.values(allHwWallets)) {
-        const wallet = walletWithDevice.wallet;
-        const device = walletWithDevice.device;
+        for (const walletWithDevice of Object.values(allHwWallets)) {
+          const wallet = walletWithDevice.wallet;
+          const device = walletWithDevice.device;
 
-        if (wallet?.id && device?.connectId) {
-          const isSameConnectId =
-            device.connectId === connectId || device.bleConnectId === connectId;
-          const isSameDevice = device.deviceId === deviceId;
+          if (wallet?.id && device?.connectId) {
+            const isSameConnectId =
+              device.connectId === connectId ||
+              device.bleConnectId === connectId;
+            const isSameDevice = device.deviceId === deviceId;
 
-          // only handle wallet with same connectId
-          if (isSameConnectId) {
-            // if connectId is same, deviceId is different, the wallet should be deprecated
-            // if connectId is same, deviceId is same, the wallet should be not deprecated
-            const newDeprecatedStatus = !isSameDevice;
-            willUpdateDeprecateMap[wallet.id] = newDeprecatedStatus;
+            // only handle wallet with same connectId
+            if (isSameConnectId) {
+              // if connectId is same, deviceId is different, the wallet should be deprecated
+              // if connectId is same, deviceId is same, the wallet should be not deprecated
+              const newDeprecatedStatus = !isSameDevice;
+              willUpdateDeprecateMap[wallet.id] = newDeprecatedStatus;
+            }
           }
         }
+
+        const result =
+          await backgroundApiProxy.serviceAccount.updateWalletsDeprecatedState({
+            willUpdateDeprecateMap,
+          });
+        if (result && Object.keys(willUpdateDeprecateMap).length > 0) {
+          appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+        }
+      } catch (error) {
+        console.error('updateHwWalletsDeprecatedStatus failed:', error);
+      }
+    },
+  );
+
+  // Trezor-only dedup — intentionally NOT sharing the OneKey path above.
+  updateTrezorWalletsDeprecatedStatus = contextAtomMethod(
+    async (
+      get,
+      set,
+      { connectId, deviceId }: { connectId: string; deviceId: string },
+    ) => {
+      if (!connectId || !deviceId) {
+        return;
       }
 
-      console.log('updateHwWalletsDeprecatedStatus >>>> ', {
-        willUpdateDeprecateMap,
-      });
-      const result =
-        await backgroundApiProxy.serviceAccount.updateWalletsDeprecatedState({
-          willUpdateDeprecateMap,
-        });
-      if (result && Object.keys(willUpdateDeprecateMap).length > 0) {
-        appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+      // Best-effort cleanup: runs after the wallet is already created +
+      // committed; a throw must never fail that success path.
+      try {
+        const allHwWallets =
+          await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+            filterHiddenWallet: false,
+            filterQrWallet: true,
+          });
+
+        const willUpdateDeprecateMap: Record<string, boolean> = {};
+
+        for (const walletWithDevice of Object.values(allHwWallets)) {
+          const wallet = walletWithDevice.wallet;
+          const device = walletWithDevice.device;
+          if (wallet?.id && device?.connectId) {
+            // A Trezor device is reachable by any of its transport ids — match
+            // the same key set the connection-status light uses.
+            const walletConnectIds = [
+              device.connectId,
+              device.usbConnectId,
+              device.bleConnectId,
+            ].filter(Boolean);
+            if (walletConnectIds.includes(connectId)) {
+              // Same physical device but a different device_id (e.g. after a
+              // reset) → the stored wallet is stale, mark it deprecated.
+              const isSameDevice = device.deviceId === deviceId;
+              willUpdateDeprecateMap[wallet.id] = !isSameDevice;
+            }
+          }
+        }
+
+        const result =
+          await backgroundApiProxy.serviceAccount.updateWalletsDeprecatedState({
+            willUpdateDeprecateMap,
+          });
+        if (result && Object.keys(willUpdateDeprecateMap).length > 0) {
+          appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+        }
+      } catch (error) {
+        console.error('updateTrezorWalletsDeprecatedStatus failed:', error);
       }
     },
   );
@@ -3682,6 +3741,8 @@ export function useAccountSelectorActions() {
   const waitForAutoSelectUnlock = actions.waitForAutoSelectUnlock.use();
   const updateHwWalletsDeprecatedStatus =
     actions.updateHwWalletsDeprecatedStatus.use();
+  const updateTrezorWalletsDeprecatedStatus =
+    actions.updateTrezorWalletsDeprecatedStatus.use();
   const autoSelectNetworkOfOthersWalletAccount =
     actions.autoSelectNetworkOfOthersWalletAccount.use();
   const syncFromScene = actions.syncFromScene.use();
@@ -3720,6 +3781,7 @@ export function useAccountSelectorActions() {
     createQrWallet,
     createTonImportedWallet,
     updateHwWalletsDeprecatedStatus,
+    updateTrezorWalletsDeprecatedStatus,
     autoSelectNextAccount,
     waitForAutoSelectUnlock,
     autoSelectNetworkOfOthersWalletAccount,
