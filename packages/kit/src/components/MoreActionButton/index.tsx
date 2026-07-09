@@ -48,7 +48,7 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
-import { useHomeTokenListSnapshotFetcher } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
+import { useHomeTokenListSnapshotFetcher } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/useHomeTokenListSnapshot';
 import { deferHeavyWorkUntilUIIdle } from '@onekeyhq/kit/src/utils/deferHeavyWork';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import {
@@ -135,6 +135,7 @@ function MoreActionProvider({ children }: PropsWithChildren) {
 
 const ONE_KEY_ID_ROW_PRESS_STYLE = { opacity: 0.7 } as const;
 const ONE_KEY_ID_ROW_HOVER_STYLE = { opacity: 0.88 } as const;
+const MORE_ACTION_ANDROID_DEFER_DELAY_MS = 250;
 
 function MoreActionContentHeaderItem({ onPress, ...props }: IIconButtonProps) {
   const { closePopover } = usePopoverContext();
@@ -1446,17 +1447,20 @@ function MoreActionDevice() {
 }
 
 function useIsMoreActionDeferredContentReady() {
-  const [ready, setReady] = useState(!platformEnv.isNative);
+  const shouldDeferContent = platformEnv.isNativeAndroid;
+  const [ready, setReady] = useState(!shouldDeferContent);
 
   useEffect(() => {
-    if (!platformEnv.isNative) {
-      setReady(true);
+    if (!shouldDeferContent) {
       return undefined;
     }
 
     let isMounted = true;
     setReady(false);
-    void deferHeavyWorkUntilUIIdle({ minFrames: 2 }).then(() => {
+    void deferHeavyWorkUntilUIIdle({
+      minFrames: 2,
+      interactionDelayMs: MORE_ACTION_ANDROID_DEFER_DELAY_MS,
+    }).then(() => {
       if (isMounted) {
         setReady(true);
       }
@@ -1465,7 +1469,7 @@ function useIsMoreActionDeferredContentReady() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [shouldDeferContent]);
 
   return ready;
 }

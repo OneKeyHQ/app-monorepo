@@ -25,24 +25,26 @@ async function nextFrames(frames: number) {
   }
 }
 
-function runAfterInteractions(): Promise<void> {
+function runAfterInteractions(delayMs = 0): Promise<void> {
   if (!platformEnv.isNative) {
     return Promise.resolve();
   }
-  return timerUtils.setTimeoutPromised(undefined, 250);
+  return timerUtils.setTimeoutPromised(undefined, delayMs);
 }
 
 export async function deferHeavyWorkUntilUIIdle({
   minFrames = 2,
   includeInteractions = true,
+  interactionDelayMs = 0,
 }: {
   minFrames?: number;
   includeInteractions?: boolean;
+  interactionDelayMs?: number;
 } = {}) {
   // Ensure at least one/two frames get a chance to paint before heavy work.
   await nextFrames(minFrames);
   if (includeInteractions) {
-    await runAfterInteractions();
+    await runAfterInteractions(interactionDelayMs);
   }
   // One more frame to let post-interaction layout flush.
   await nextFrames(1);
