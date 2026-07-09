@@ -13,6 +13,7 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
+  perpsCommonConfigPersistAtom,
   useActiveAccountValueAtom,
   useAppIsLockedAtom,
   useCurrencyPersistAtom,
@@ -21,6 +22,7 @@ import {
 import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -66,6 +68,7 @@ import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useActiveAccount } from '../states/jotai/contexts/accountSelector';
+import { hasDeFiSupportedEnabledNetwork } from '../views/Home/hooks/homeWalletTabSupportUtils';
 
 import {
   type ITrayActiveAccountScope,
@@ -338,6 +341,73 @@ async function getTrayActiveAccountScope({
   return { accountIds: Array.from(accountIds) };
 }
 
+// Perps (Hyperliquid) equity is part of the All-Networks home total
+// (HomeOverviewContainer adds `perpsNetWorthUsd`), so the tray must include
+// it too or the two totals drift apart. Mirrors the home gating
+// (usePerpTabConfig + buildHomeWalletTabSupport all-networks branch) and
+// reads the simpleDb-cached portfolio snapshot — no forced network call.
+async function getTrayPerpsNetWorthUsd({
+  accountId,
+  indexedAccountId,
+}: {
+  accountId: string | undefined;
+  indexedAccountId: string | undefined;
+}): Promise<string> {
+  if (!accountId && !indexedAccountId) return '0';
+  try {
+    const { perpConfigCommon, perpConfigLoaded } =
+      await perpsCommonConfigPersistAtom.get();
+    const perpDisabled =
+      (perpConfigLoaded ?? false) ? !!perpConfigCommon?.disablePerp : false;
+    if (perpDisabled) return '0';
+
+    const [allNetworksState, { networks }, deFiEnabledNetworksMap] =
+      await Promise.all([
+        backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
+        backgroundApiProxy.serviceNetwork.getAllNetworks({
+          excludeTestNetwork: true,
+          excludeAllNetworkItem: true,
+        }),
+        backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap(),
+      ]);
+    if (
+      !hasDeFiSupportedEnabledNetwork({
+        allNetworks: networks,
+        allNetworksState,
+        deFiEnabledNetworksMap,
+      })
+    ) {
+      return '0';
+    }
+
+    const deriveType =
+      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId: PERPS_NETWORK_ID,
+      });
+    if (!deriveType) return '0';
+
+    // Accounts without a perps-network address (e.g. non-EVM Others
+    // accounts) throw here — that simply means no perps equity.
+    const account = await backgroundApiProxy.serviceAccount.getNetworkAccount({
+      accountId: indexedAccountId ? undefined : accountId,
+      indexedAccountId,
+      deriveType,
+      networkId: PERPS_NETWORK_ID,
+    });
+    const address =
+      account?.addressDetail?.normalizedAddress || account?.address || '';
+    if (!address) return '0';
+
+    const snapshot =
+      await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
+        { address },
+      );
+    return snapshot?.netWorthUsd ?? '0';
+  } catch {
+    return '0';
+  }
+}
+
 type ITrayEnabledNetworkScope = {
   enabledNetworkIds: string[];
   enabledNetworksCompatibleWithWalletId: Array<{ id: string }>;
@@ -559,8 +629,10 @@ export function useTrayDataProvider() {
         trayData.wallet = buildTrayWalletInfo(currentWallet, 'Wallet');
       }
 
-      // Tray is always cross-network (spec non-goal #1) — pass the
-      // All-Networks id unconditionally, regardless of main window selection.
+      // Tray is always cross-network (spec non-goal #1): it tracks the
+      // All-Networks home total (enabled-set tokens + DeFi + perps) no matter
+      // which network the main window has selected — pass the All-Networks id
+      // unconditionally.
       const accountValue = activeAccountValueRef.current;
       if (accountValue && currentWallet) {
         try {
@@ -609,14 +681,24 @@ export function useTrayDataProvider() {
             );
           }
 
+          const perpsNetWorthUsd = await getTrayPerpsNetWorthUsd({
+            accountId: accountRef.current?.id,
+            indexedAccountId: indexedAccountRef.current?.id,
+          });
+
           const total =
             calculateAccountTotalValue({
               tokensValue: tokensInTarget,
               deFiNetWorth,
             }) ?? '0';
+          const totalWithPerps = new BigNumber(total).plus(
+            new BigNumber(perpsNetWorthUsd || '0').times(
+              new BigNumber(usdToTargetFactor || 1),
+            ),
+          );
 
           trayData.totalBalance = {
-            amount: new BigNumber(total).toFixed(2),
+            amount: totalWithPerps.toFixed(2),
             currency: displayCurrency,
             symbol: displaySymbol,
             change24h: composeTrayAccountChange24h(),
