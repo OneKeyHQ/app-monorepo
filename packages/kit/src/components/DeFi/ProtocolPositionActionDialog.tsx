@@ -10,6 +10,7 @@ import {
   Dialog,
   Input,
   Keyboard,
+  Page,
   ScrollView,
   SizableText,
   Stack,
@@ -1586,6 +1587,7 @@ function ProtocolPositionActionDialogContent({
   hasDebts,
   rewardAssets,
   onSuccess,
+  renderMode = 'dialog',
 }: {
   accountId: string;
   networkId: string;
@@ -1596,6 +1598,7 @@ function ProtocolPositionActionDialogContent({
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
   ) => void | Promise<void>;
+  renderMode?: 'dialog' | 'page';
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -2169,6 +2172,106 @@ function ProtocolPositionActionDialogContent({
     showLiquidationWarning ||
     Boolean(inlineErrorMessage) ||
     showTransactionCountNotice;
+  const bodyNode = (
+    <YStack gap="$5">
+      {selectable ? assetSelector : null}
+      {actionBody}
+    </YStack>
+  );
+  const feedbackNode = showFeedbackRegion ? (
+    <YStack gap="$3">
+      {showLiquidationWarning ? (
+        <Alert
+          type="warning"
+          icon="InfoCircleOutline"
+          description={intl.formatMessage({
+            id: ETranslations.defi_liquidation_withdraw_desc,
+          })}
+        />
+      ) : null}
+
+      {inlineErrorMessage ? (
+        <Alert
+          type="critical"
+          icon="ErrorOutline"
+          title={intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          })}
+          description={inlineErrorMessage}
+        />
+      ) : null}
+
+      {showTransactionCountNotice ? (
+        // Each selected asset builds its own transaction (approvals discovered
+        // at build time may add more), so hardware-wallet users know how many
+        // confirmations to expect. Count shown is the business-tx floor.
+        <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
+          {intl.formatMessage(
+            { id: ETranslations.address_risk_check_txs__msg },
+            { count: selectedAssets.length },
+          )}
+        </SizableText>
+      ) : null}
+    </YStack>
+  ) : null;
+  const contentNode = (
+    <>
+      <ScrollView
+        maxHeight={bodyMaxHeight}
+        mx="$-5"
+        px="$5"
+        nestedScrollEnabled
+      >
+        {bodyNode}
+      </ScrollView>
+
+      {feedbackNode ? (
+        <ScrollView
+          maxHeight={feedbackMaxHeight}
+          mx="$-5"
+          px="$5"
+          nestedScrollEnabled
+        >
+          {feedbackNode}
+        </ScrollView>
+      ) : null}
+    </>
+  );
+  const confirmButtonProps = {
+    disabled: isConfirmDisabled || submitting,
+    loading: submitting || isRepayWalletBalancePending,
+  };
+
+  if (renderMode === 'page') {
+    return (
+      <>
+        <Page.Header title={actionLabel} />
+        <Page.Body>
+          <ScrollView flex={1} nestedScrollEnabled>
+            <YStack p="$5" gap="$5">
+              {bodyNode}
+              {feedbackNode}
+            </YStack>
+          </ScrollView>
+        </Page.Body>
+        <Page.Footer>
+          <YStack bg="$bgApp">
+            <Page.FooterActions
+              onConfirmText={actionLabel}
+              onConfirm={(close) => {
+                void handleConfirm({
+                  close,
+                  preventClose: () => undefined,
+                });
+              }}
+              confirmButtonProps={confirmButtonProps}
+            />
+            <ProtocolPositionActionKeyboardDismissFooter />
+          </YStack>
+        </Page.Footer>
+      </>
+    );
+  }
 
   return (
     <YStack gap="$5">
@@ -2176,75 +2279,14 @@ function ProtocolPositionActionDialogContent({
         <Dialog.Title>{actionLabel}</Dialog.Title>
       </Dialog.Header>
 
-      <ScrollView
-        maxHeight={bodyMaxHeight}
-        mx="$-5"
-        px="$5"
-        nestedScrollEnabled
-      >
-        <YStack gap="$5">
-          {selectable ? assetSelector : null}
-          {actionBody}
-        </YStack>
-      </ScrollView>
-
-      {showFeedbackRegion ? (
-        <ScrollView
-          maxHeight={feedbackMaxHeight}
-          mx="$-5"
-          px="$5"
-          nestedScrollEnabled
-        >
-          <YStack gap="$3">
-            {showLiquidationWarning ? (
-              <Alert
-                type="warning"
-                icon="InfoCircleOutline"
-                description={intl.formatMessage({
-                  id: ETranslations.defi_liquidation_withdraw_desc,
-                })}
-              />
-            ) : null}
-
-            {inlineErrorMessage ? (
-              <Alert
-                type="critical"
-                icon="ErrorOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.global_an_error_occurred,
-                })}
-                description={inlineErrorMessage}
-              />
-            ) : null}
-
-            {showTransactionCountNotice ? (
-              // Each selected asset builds its own transaction (approvals discovered
-              // at build time may add more), so hardware-wallet users know how many
-              // confirmations to expect. Count shown is the business-tx floor.
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                textAlign="center"
-              >
-                {intl.formatMessage(
-                  { id: ETranslations.address_risk_check_txs__msg },
-                  { count: selectedAssets.length },
-                )}
-              </SizableText>
-            ) : null}
-          </YStack>
-        </ScrollView>
-      ) : null}
+      {contentNode}
 
       <Dialog.Footer
         showCancelButton={false}
         showConfirmButton
         onConfirmText={actionLabel}
         onConfirm={handleConfirm}
-        confirmButtonProps={{
-          disabled: isConfirmDisabled || submitting,
-          loading: submitting || isRepayWalletBalancePending,
-        }}
+        confirmButtonProps={confirmButtonProps}
         extraContent={<ProtocolPositionActionKeyboardDismissFooter />}
       />
     </YStack>
@@ -2296,6 +2338,7 @@ export {
   isUserRejectedErrorMessage,
   ProtocolPositionActionAmountInput,
   ProtocolPositionActionAnchor,
+  ProtocolPositionActionDialogContent,
   showProtocolPositionActionDialog,
   useProtocolPositionActionSubmit,
   type IProtocolPositionActionSuccessParams,

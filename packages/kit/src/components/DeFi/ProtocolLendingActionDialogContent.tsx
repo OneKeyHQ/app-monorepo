@@ -9,6 +9,7 @@ import {
   Dialog,
   Icon,
   Keyboard,
+  Page,
   Popover,
   ScrollView,
   SizableText,
@@ -463,10 +464,12 @@ function LendingActionAlerts({
   showLiquidationWarning,
   errorMessage,
   checkAmountAlerts = [],
+  riskOfLiquidationAlert,
 }: {
   showLiquidationWarning: boolean;
   errorMessage?: string;
   checkAmountAlerts?: ICheckAmountAlert[];
+  riskOfLiquidationAlert?: boolean;
 }) {
   const intl = useIntl();
   const liquidationWarningText = intl.formatMessage({
@@ -475,6 +478,9 @@ function LendingActionAlerts({
   const visibleCheckAmountAlerts = checkAmountAlerts.filter((alert) => {
     if (!showLiquidationWarning) {
       return true;
+    }
+    if (riskOfLiquidationAlert && checkAmountAlerts.length === 1) {
+      return false;
     }
     return ![alert.title?.text, alert.text?.text, alert.description?.text].some(
       (text) => text?.trim() === liquidationWarningText.trim(),
@@ -544,6 +550,7 @@ function ProtocolLendingActionDefiContent({
   source,
   hasDebts,
   onSuccess,
+  renderMode = 'dialog',
 }: {
   accountId: string;
   networkId: string;
@@ -553,6 +560,7 @@ function ProtocolLendingActionDefiContent({
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
   ) => void | Promise<void>;
+  renderMode?: 'dialog' | 'page';
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -859,6 +867,109 @@ function ProtocolLendingActionDefiContent({
   const inlineErrorMessage = submitError ?? repayWalletBalanceError;
   const showFeedbackRegion =
     (Boolean(hasDebts) && isWithdraw) || Boolean(inlineErrorMessage);
+  const bodyNode = (
+    <YStack gap="$5">
+      {selectedAsset && selectedItem ? (
+        <>
+          <LendingAssetSelectorRow
+            item={selectedItem}
+            items={selectorItems}
+            selectable={selectable}
+            onSelect={handleSelectAsset}
+            columnHeaderLabel={columnHeaderLabel}
+          />
+          <ProtocolPositionActionAmountInput
+            amount={amount}
+            onChangeAmount={handleAmountChange}
+            onSelectPercent={handleSelectPercent}
+            selectedPercent={selectedAmountPercent}
+            symbol={selectedAsset.symbol}
+            tokenLogoUrl={selectedAsset.asset.meta?.logoUrl}
+            availableAmount={availableAmount}
+            fiatValue={amountFiatValue}
+            currencySymbol={currencySymbol}
+            isInsufficient={isAmountInsufficient}
+            availableLabel={availableLabel}
+            maxLabel={maxLabel}
+            insufficientLabel={insufficientLabel}
+            onFocus={handleAmountInputFocus}
+          />
+        </>
+      ) : (
+        <YStack py="$6" alignItems="center">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.global_select_crypto,
+            })}
+          </SizableText>
+        </YStack>
+      )}
+    </YStack>
+  );
+  const feedbackNode = showFeedbackRegion ? (
+    <LendingActionAlerts
+      showLiquidationWarning={Boolean(hasDebts) && isWithdraw}
+      errorMessage={inlineErrorMessage}
+    />
+  ) : null;
+  const contentNode = (
+    <>
+      <ScrollView
+        maxHeight={bodyMaxHeight}
+        mx="$-5"
+        px="$5"
+        nestedScrollEnabled
+      >
+        {bodyNode}
+      </ScrollView>
+
+      {feedbackNode ? (
+        <ScrollView
+          maxHeight={feedbackMaxHeight}
+          mx="$-5"
+          px="$5"
+          nestedScrollEnabled
+        >
+          {feedbackNode}
+        </ScrollView>
+      ) : null}
+    </>
+  );
+  const confirmButtonProps = {
+    disabled: isConfirmDisabled || submitting,
+    loading: submitting || isRepayWalletBalancePending,
+  };
+
+  if (renderMode === 'page') {
+    return (
+      <>
+        <Page.Header title={actionLabel} />
+        <Page.Body>
+          <ScrollView flex={1} nestedScrollEnabled>
+            <YStack p="$5" gap="$5">
+              {bodyNode}
+              {feedbackNode}
+            </YStack>
+          </ScrollView>
+        </Page.Body>
+        <Page.Footer>
+          <YStack bg="$bgApp">
+            <Page.FooterActions
+              onConfirmText={actionLabel}
+              onConfirm={(close) => {
+                void handleConfirm({
+                  close,
+                  preventClose: () => undefined,
+                });
+              }}
+              confirmButtonProps={confirmButtonProps}
+            />
+            <ProtocolPositionActionKeyboardDismissFooter />
+          </YStack>
+        </Page.Footer>
+      </>
+    );
+  }
 
   return (
     <YStack gap="$5">
@@ -866,74 +977,14 @@ function ProtocolLendingActionDefiContent({
         <Dialog.Title>{actionLabel}</Dialog.Title>
       </Dialog.Header>
 
-      <ScrollView
-        maxHeight={bodyMaxHeight}
-        mx="$-5"
-        px="$5"
-        nestedScrollEnabled
-      >
-        <YStack gap="$5">
-          {selectedAsset && selectedItem ? (
-            <>
-              <LendingAssetSelectorRow
-                item={selectedItem}
-                items={selectorItems}
-                selectable={selectable}
-                onSelect={handleSelectAsset}
-                columnHeaderLabel={columnHeaderLabel}
-              />
-              <ProtocolPositionActionAmountInput
-                amount={amount}
-                onChangeAmount={handleAmountChange}
-                onSelectPercent={handleSelectPercent}
-                selectedPercent={selectedAmountPercent}
-                symbol={selectedAsset.symbol}
-                tokenLogoUrl={selectedAsset.asset.meta?.logoUrl}
-                availableAmount={availableAmount}
-                fiatValue={amountFiatValue}
-                currencySymbol={currencySymbol}
-                isInsufficient={isAmountInsufficient}
-                availableLabel={availableLabel}
-                maxLabel={maxLabel}
-                insufficientLabel={insufficientLabel}
-                onFocus={handleAmountInputFocus}
-              />
-            </>
-          ) : (
-            <YStack py="$6" alignItems="center">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.global_select_crypto,
-                })}
-              </SizableText>
-            </YStack>
-          )}
-        </YStack>
-      </ScrollView>
-
-      {showFeedbackRegion ? (
-        <ScrollView
-          maxHeight={feedbackMaxHeight}
-          mx="$-5"
-          px="$5"
-          nestedScrollEnabled
-        >
-          <LendingActionAlerts
-            showLiquidationWarning={Boolean(hasDebts) && isWithdraw}
-            errorMessage={inlineErrorMessage}
-          />
-        </ScrollView>
-      ) : null}
+      {contentNode}
 
       <Dialog.Footer
         showCancelButton={false}
         showConfirmButton
         onConfirmText={actionLabel}
         onConfirm={handleConfirm}
-        confirmButtonProps={{
-          disabled: isConfirmDisabled || submitting,
-          loading: submitting || isRepayWalletBalancePending,
-        }}
+        confirmButtonProps={confirmButtonProps}
         extraContent={<ProtocolPositionActionKeyboardDismissFooter />}
       />
     </YStack>
@@ -947,6 +998,7 @@ function ProtocolLendingActionBorrowContent({
   source,
   hasDebts,
   onSuccess,
+  renderMode = 'dialog',
 }: {
   accountId: string;
   networkId: string;
@@ -956,6 +1008,7 @@ function ProtocolLendingActionBorrowContent({
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
   ) => void | Promise<void>;
+  renderMode?: 'dialog' | 'page';
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -1626,6 +1679,219 @@ function ProtocolLendingActionBorrowContent({
     ((Boolean(hasDebts) && isWithdraw) ||
       Boolean(inlineErrorMessage) ||
       checkAmountAlerts.length > 0);
+  const bodyNode = (
+    <YStack gap="$5">
+      {isInitialLoading ? (
+        <YStack gap="$5">
+          {source.selectable ? (
+            <Skeleton height="$11" width="100%" borderRadius="$3" />
+          ) : null}
+          <Skeleton
+            height={BORROW_HERO_SKELETON_HEIGHT}
+            width="100%"
+            borderRadius="$3"
+          />
+          <Skeleton height="$11" width="100%" borderRadius="$3" />
+          <XStack gap="$2">
+            {LENDING_PERCENT_PRESETS.map((preset) => (
+              <Skeleton key={preset} flex={1} height="$9" borderRadius="$2" />
+            ))}
+          </XStack>
+        </YStack>
+      ) : null}
+      {!isInitialLoading && isEmpty ? (
+        <YStack py="$6" alignItems="center">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.global_select_crypto })}
+          </SizableText>
+        </YStack>
+      ) : null}
+      {!isInitialLoading && !isEmpty ? (
+        <>
+          {selectable ? (
+            <LendingAssetSelectorRow
+              item={selectedItem}
+              items={selectorItems}
+              selectable={selectable}
+              onSelect={handleSelectAsset}
+              columnHeaderLabel={columnHeaderLabel}
+            />
+          ) : null}
+          <ProtocolPositionActionAmountInput
+            amount={amount}
+            onChangeAmount={handleAmountChange}
+            onSelectPercent={handleSelectPercent}
+            selectedPercent={selectedAmountPercent}
+            symbol={effectiveSymbol}
+            tokenLogoUrl={effectiveLogo}
+            availableAmount={referenceBalance}
+            fiatValue={amountFiatValue}
+            currencySymbol={currencySymbol}
+            isInsufficient={isAmountInsufficient}
+            availableLabel={availableLabel}
+            maxLabel={maxLabel}
+            insufficientLabel={insufficientLabel}
+            onFocus={handleAmountInputFocus}
+            secondaryLabel={walletBalanceLabel}
+            secondaryAmount={walletBalanceText}
+          />
+          {healthFactor ? (
+            <YStack gap="$1">
+              <ProtocolPositionActionAnchor
+                label={intl.formatMessage({
+                  id: ETranslations.defi_health_factor,
+                })}
+                iconNode={null}
+                valueNode={
+                  <XStack alignItems="center" gap="$2" flexShrink={0}>
+                    <Stack opacity={healthFactor.latest ? 0.5 : 1}>
+                      <EarnText
+                        text={healthFactor.current?.title}
+                        size="$bodyMdMedium"
+                      />
+                    </Stack>
+                    {healthFactor.latest ? (
+                      <>
+                        <Icon
+                          name="ArrowRightSolid"
+                          size="$4"
+                          color="$iconDisabled"
+                        />
+                        <EarnText
+                          text={healthFactor.latest?.title}
+                          size="$bodyMdMedium"
+                        />
+                      </>
+                    ) : null}
+                  </XStack>
+                }
+              />
+              {remainingDebtChange ? (
+                <RemainingDebtChangeRow
+                  label={availableLabel}
+                  currentDebt={remainingDebtChange.currentDebt}
+                  remainingDebt={remainingDebtChange.remainingDebt}
+                  symbol={effectiveSymbol}
+                />
+              ) : null}
+              <XStack justifyContent="flex-end">
+                <EarnText
+                  text={
+                    actionResult.transactionConfirmation?.liquidationAt
+                      ?.description ?? {
+                      text: intl.formatMessage({
+                        id: ETranslations.defi_liquidation_at_less_than_1_00,
+                      }),
+                    }
+                  }
+                  size="$bodySm"
+                  color="$textSubdued"
+                />
+              </XStack>
+            </YStack>
+          ) : null}
+          {shouldShowHealthFactorSkeleton ? (
+            <YStack gap="$1">
+              <ProtocolPositionActionAnchor
+                label={intl.formatMessage({
+                  id: ETranslations.defi_health_factor,
+                })}
+                iconNode={null}
+                valueNode={
+                  <Skeleton height="$4" width="$16" borderRadius="$1" />
+                }
+              />
+              {remainingDebtChange ? (
+                <RemainingDebtChangeRow
+                  label={availableLabel}
+                  currentDebt={remainingDebtChange.currentDebt}
+                  remainingDebt={remainingDebtChange.remainingDebt}
+                  symbol={effectiveSymbol}
+                />
+              ) : null}
+              <XStack justifyContent="flex-end">
+                <Skeleton height="$4" width="$24" borderRadius="$1" />
+              </XStack>
+            </YStack>
+          ) : null}
+        </>
+      ) : null}
+    </YStack>
+  );
+  const feedbackNode = showFeedbackRegion ? (
+    <LendingActionAlerts
+      showLiquidationWarning={Boolean(hasDebts) && isWithdraw}
+      errorMessage={inlineErrorMessage}
+      checkAmountAlerts={checkAmountAlerts}
+      riskOfLiquidationAlert={actionResult.riskOfLiquidationAlert}
+    />
+  ) : null;
+  const contentNode = (
+    <>
+      <ScrollView
+        maxHeight={bodyMaxHeight}
+        mx="$-5"
+        px="$5"
+        nestedScrollEnabled
+      >
+        {bodyNode}
+      </ScrollView>
+
+      {feedbackNode ? (
+        <ScrollView
+          maxHeight={feedbackMaxHeight}
+          mx="$-5"
+          px="$5"
+          nestedScrollEnabled
+        >
+          {feedbackNode}
+        </ScrollView>
+      ) : null}
+    </>
+  );
+  const onConfirmText = needsApproval
+    ? intl.formatMessage({ id: ETranslations.global_approve })
+    : actionLabel;
+  const confirmButtonProps = {
+    disabled: confirmDisabled,
+    loading:
+      approveLoading ||
+      actionResult.checkAmountLoading ||
+      submitting ||
+      isBorrowDataLoading ||
+      isRepayWalletBalancePending,
+  };
+
+  if (renderMode === 'page') {
+    return (
+      <>
+        <Page.Header title={actionLabel} />
+        <Page.Body>
+          <ScrollView flex={1} nestedScrollEnabled>
+            <YStack p="$5" gap="$5">
+              {bodyNode}
+              {feedbackNode}
+            </YStack>
+          </ScrollView>
+        </Page.Body>
+        <Page.Footer>
+          <YStack bg="$bgApp">
+            <Page.FooterActions
+              onConfirmText={onConfirmText}
+              onConfirm={(close) => {
+                void handleFooterConfirm({
+                  close,
+                  preventClose: () => undefined,
+                });
+              }}
+              confirmButtonProps={confirmButtonProps}
+            />
+            <ProtocolPositionActionKeyboardDismissFooter />
+          </YStack>
+        </Page.Footer>
+      </>
+    );
+  }
 
   return (
     <YStack gap="$5">
@@ -1633,234 +1899,65 @@ function ProtocolLendingActionBorrowContent({
         <Dialog.Title>{actionLabel}</Dialog.Title>
       </Dialog.Header>
 
-      <ScrollView
-        maxHeight={bodyMaxHeight}
-        mx="$-5"
-        px="$5"
-        nestedScrollEnabled
-      >
-        <YStack gap="$5">
-          {isInitialLoading ? (
-            <YStack gap="$5">
-              {source.selectable ? (
-                <Skeleton height="$11" width="100%" borderRadius="$3" />
-              ) : null}
-              <Skeleton
-                height={BORROW_HERO_SKELETON_HEIGHT}
-                width="100%"
-                borderRadius="$3"
-              />
-              <Skeleton height="$11" width="100%" borderRadius="$3" />
-              <XStack gap="$2">
-                {LENDING_PERCENT_PRESETS.map((preset) => (
-                  <Skeleton
-                    key={preset}
-                    flex={1}
-                    height="$9"
-                    borderRadius="$2"
-                  />
-                ))}
-              </XStack>
-            </YStack>
-          ) : null}
-          {!isInitialLoading && isEmpty ? (
-            <YStack py="$6" alignItems="center">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({ id: ETranslations.global_select_crypto })}
-              </SizableText>
-            </YStack>
-          ) : null}
-          {!isInitialLoading && !isEmpty ? (
-            <>
-              {selectable ? (
-                <LendingAssetSelectorRow
-                  item={selectedItem}
-                  items={selectorItems}
-                  selectable={selectable}
-                  onSelect={handleSelectAsset}
-                  columnHeaderLabel={columnHeaderLabel}
-                />
-              ) : null}
-              <ProtocolPositionActionAmountInput
-                amount={amount}
-                onChangeAmount={handleAmountChange}
-                onSelectPercent={handleSelectPercent}
-                selectedPercent={selectedAmountPercent}
-                symbol={effectiveSymbol}
-                tokenLogoUrl={effectiveLogo}
-                availableAmount={referenceBalance}
-                fiatValue={amountFiatValue}
-                currencySymbol={currencySymbol}
-                isInsufficient={isAmountInsufficient}
-                availableLabel={availableLabel}
-                maxLabel={maxLabel}
-                insufficientLabel={insufficientLabel}
-                onFocus={handleAmountInputFocus}
-                secondaryLabel={walletBalanceLabel}
-                secondaryAmount={walletBalanceText}
-              />
-              {healthFactor ? (
-                <YStack gap="$1">
-                  <ProtocolPositionActionAnchor
-                    label={intl.formatMessage({
-                      id: ETranslations.defi_health_factor,
-                    })}
-                    iconNode={null}
-                    valueNode={
-                      <XStack alignItems="center" gap="$2" flexShrink={0}>
-                        <Stack opacity={healthFactor.latest ? 0.5 : 1}>
-                          <EarnText
-                            text={healthFactor.current?.title}
-                            size="$bodyMdMedium"
-                          />
-                        </Stack>
-                        {healthFactor.latest ? (
-                          <>
-                            <Icon
-                              name="ArrowRightSolid"
-                              size="$4"
-                              color="$iconDisabled"
-                            />
-                            <EarnText
-                              text={healthFactor.latest?.title}
-                              size="$bodyMdMedium"
-                            />
-                          </>
-                        ) : null}
-                      </XStack>
-                    }
-                  />
-                  {remainingDebtChange ? (
-                    <RemainingDebtChangeRow
-                      label={availableLabel}
-                      currentDebt={remainingDebtChange.currentDebt}
-                      remainingDebt={remainingDebtChange.remainingDebt}
-                      symbol={effectiveSymbol}
-                    />
-                  ) : null}
-                  <XStack justifyContent="flex-end">
-                    <EarnText
-                      text={
-                        actionResult.transactionConfirmation?.liquidationAt
-                          ?.description ?? {
-                          text: intl.formatMessage({
-                            id: ETranslations.defi_liquidation_at_less_than_1_00,
-                          }),
-                        }
-                      }
-                      size="$bodySm"
-                      color="$textSubdued"
-                    />
-                  </XStack>
-                </YStack>
-              ) : null}
-              {/* Health factor arrives on the (separate) simulate stream after the
-              amount is set — reserve its exact height with a skeleton so the
-              dialog doesn't grow when it lands. Reuses the same anchor + label
-              so the row height matches the loaded state byte-for-byte. */}
-              {shouldShowHealthFactorSkeleton ? (
-                <YStack gap="$1">
-                  <ProtocolPositionActionAnchor
-                    label={intl.formatMessage({
-                      id: ETranslations.defi_health_factor,
-                    })}
-                    iconNode={null}
-                    valueNode={
-                      <Skeleton height="$4" width="$16" borderRadius="$1" />
-                    }
-                  />
-                  {remainingDebtChange ? (
-                    <RemainingDebtChangeRow
-                      label={availableLabel}
-                      currentDebt={remainingDebtChange.currentDebt}
-                      remainingDebt={remainingDebtChange.remainingDebt}
-                      symbol={effectiveSymbol}
-                    />
-                  ) : null}
-                  <XStack justifyContent="flex-end">
-                    <Skeleton height="$4" width="$24" borderRadius="$1" />
-                  </XStack>
-                </YStack>
-              ) : null}
-            </>
-          ) : null}
-        </YStack>
-      </ScrollView>
-
-      {showFeedbackRegion ? (
-        <ScrollView
-          maxHeight={feedbackMaxHeight}
-          mx="$-5"
-          px="$5"
-          nestedScrollEnabled
-        >
-          <LendingActionAlerts
-            showLiquidationWarning={Boolean(hasDebts) && isWithdraw}
-            errorMessage={inlineErrorMessage}
-            checkAmountAlerts={checkAmountAlerts}
-          />
-        </ScrollView>
-      ) : null}
+      {contentNode}
       <Dialog.Footer
         showCancelButton={false}
         showConfirmButton
-        onConfirmText={
-          needsApproval
-            ? intl.formatMessage({ id: ETranslations.global_approve })
-            : actionLabel
-        }
+        onConfirmText={onConfirmText}
         onConfirm={handleFooterConfirm}
-        confirmButtonProps={{
-          disabled: confirmDisabled,
-          loading:
-            approveLoading ||
-            actionResult.checkAmountLoading ||
-            submitting ||
-            isBorrowDataLoading ||
-            isRepayWalletBalancePending,
-        }}
+        confirmButtonProps={confirmButtonProps}
         extraContent={<ProtocolPositionActionKeyboardDismissFooter />}
       />
     </YStack>
   );
 }
 
-function showProtocolLendingActionDialog({
+function ProtocolLendingActionContent({
   accountId,
   networkId,
   actionType,
   source,
   hasDebts,
-  dialog,
   onSuccess,
+  renderMode = 'dialog',
+}: Omit<IShowProtocolLendingActionDialogParams, 'dialog'> & {
+  renderMode?: 'dialog' | 'page';
+}) {
+  return source.type === 'borrow' ? (
+    <ProtocolLendingActionBorrowContent
+      accountId={accountId}
+      networkId={networkId}
+      actionType={actionType}
+      source={source}
+      hasDebts={hasDebts}
+      onSuccess={onSuccess}
+      renderMode={renderMode}
+    />
+  ) : (
+    <ProtocolLendingActionDefiContent
+      accountId={accountId}
+      networkId={networkId}
+      actionType={actionType}
+      source={source}
+      hasDebts={hasDebts}
+      onSuccess={onSuccess}
+      renderMode={renderMode}
+    />
+  );
+}
+
+function showProtocolLendingActionDialog({
+  dialog,
+  ...params
 }: IShowProtocolLendingActionDialogParams) {
   const DialogInstance = dialog ?? Dialog;
   DialogInstance.show({
     showFooter: false,
-    renderContent:
-      source.type === 'borrow' ? (
-        <ProtocolLendingActionBorrowContent
-          accountId={accountId}
-          networkId={networkId}
-          actionType={actionType}
-          source={source}
-          hasDebts={hasDebts}
-          onSuccess={onSuccess}
-        />
-      ) : (
-        <ProtocolLendingActionDefiContent
-          accountId={accountId}
-          networkId={networkId}
-          actionType={actionType}
-          source={source}
-          hasDebts={hasDebts}
-          onSuccess={onSuccess}
-        />
-      ),
+    renderContent: <ProtocolLendingActionContent {...params} />,
   });
 }
 
-export { showProtocolLendingActionDialog };
+export { ProtocolLendingActionContent, showProtocolLendingActionDialog };
 export type {
   IProtocolLendingActionSource,
   IProtocolLendingActionType,
