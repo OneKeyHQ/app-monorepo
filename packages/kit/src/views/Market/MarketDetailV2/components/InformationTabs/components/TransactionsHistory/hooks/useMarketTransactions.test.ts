@@ -98,6 +98,14 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
+function getMockMarketService() {
+  return jest.requireMock(
+    '@onekeyhq/kit/src/background/instance/backgroundApiProxy',
+  ).default.serviceMarketV2 as {
+    fetchMarketTokenTransactions: jest.Mock;
+  };
+}
+
 function getMockPlatformEnv() {
   return jest.requireMock('@onekeyhq/shared/src/platformEnv').default as {
     isNative: boolean;
@@ -113,6 +121,7 @@ describe('useMarketTransactions', () => {
     mockFetchTransactions.mockReset();
     mockUsePromiseResult.mockReset();
     mockThrottledTransactionsUpdates.length = 0;
+    getMockMarketService().fetchMarketTokenTransactions.mockReset();
 
     mockUsePromiseResult.mockReturnValue({
       result: {
@@ -354,7 +363,7 @@ describe('useMarketTransactions', () => {
     expect(result.current.transactions).toEqual([]);
   });
 
-  it('caps web transaction cache at 50 entries', () => {
+  it('caps web transaction cache at 50 entries', async () => {
     mockUsePromiseResult.mockReturnValue({
       result: {
         list: Array.from({ length: 55 }, (_, index) =>
@@ -384,6 +393,7 @@ describe('useMarketTransactions', () => {
     });
 
     expect(result.current.transactions).toHaveLength(50);
+    expect(result.current.hasMore).toBe(false);
 
     act(() => {
       result.current.addNewTransactions([createMockTransaction('live-1', 100)]);
@@ -393,6 +403,77 @@ describe('useMarketTransactions', () => {
 
     expect(pendingTransactions).toHaveLength(50);
     expect(pendingTransactions?.[0]?.hash).toBe('live-1');
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+
+    expect(
+      getMockMarketService().fetchMarketTokenTransactions,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('fills the market transaction cache to 50 and then stops pagination', async () => {
+    mockUsePromiseResult.mockReturnValue({
+      result: {
+        list: Array.from({ length: 45 }, (_, index) =>
+          createMockTransaction(`base-${index + 1}`, 100 - index),
+        ),
+        cursor: 'cursor-1',
+      },
+      isLoading: false,
+      run: mockFetchTransactions,
+    });
+    getMockMarketService().fetchMarketTokenTransactions.mockResolvedValue({
+      list: Array.from({ length: 20 }, (_, index) =>
+        createMockTransaction(`older-${index + 1}`, -index),
+      ),
+      cursor: 'cursor-2',
+    });
+
+    const { result } = renderHook(() =>
+      useMarketTransactions({
+        tokenAddress: '0xabc',
+        networkId: 'evm--1',
+        normalMode: false,
+        enableRealtimePause: true,
+      }),
+    );
+
+    const throttledUpdate = mockThrottledTransactionsUpdates[0];
+
+    expect(throttledUpdate).toBeDefined();
+
+    act(() => {
+      throttledUpdate.flush();
+    });
+
+    expect(result.current.transactions).toHaveLength(45);
+    expect(result.current.hasMore).toBe(true);
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+
+    expect(
+      getMockMarketService().fetchMarketTokenTransactions,
+    ).toHaveBeenCalledTimes(1);
+    expect(throttledUpdate.getPendingTransactions()).toHaveLength(50);
+
+    act(() => {
+      throttledUpdate.flush();
+    });
+
+    expect(result.current.transactions).toHaveLength(50);
+    expect(result.current.hasMore).toBe(false);
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+
+    expect(
+      getMockMarketService().fetchMarketTokenTransactions,
+    ).toHaveBeenCalledTimes(1);
   });
 
   it('queues the native render slice for live transaction inserts', () => {

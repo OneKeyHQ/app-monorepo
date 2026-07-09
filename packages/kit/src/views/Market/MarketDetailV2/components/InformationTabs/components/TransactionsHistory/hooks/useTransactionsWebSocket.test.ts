@@ -4,6 +4,8 @@
 
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
+import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
+
 import { useTransactionsWebSocket } from './useTransactionsWebSocket';
 
 const globalMockBag = globalThis as typeof globalThis & {
@@ -151,7 +153,7 @@ describe('useTransactionsWebSocket', () => {
     });
   });
 
-  it('batches matching transaction updates for one second and clears the tracker count once', async () => {
+  it('batches matching transaction updates for one second and clears the tracker count per message', async () => {
     const onNewTransactions = jest.fn();
     renderHook(() =>
       useTransactionsWebSocket({
@@ -227,14 +229,14 @@ describe('useTransactionsWebSocket', () => {
     });
 
     expect(onNewTransactions).not.toHaveBeenCalled();
-    expect(globalMockBag.__txWsSvc?.clearDataCount).not.toHaveBeenCalled();
+    expect(globalMockBag.__txWsSvc?.clearDataCount).toHaveBeenCalledTimes(2);
 
     act(() => {
       jest.advanceTimersByTime(999);
     });
 
     expect(onNewTransactions).not.toHaveBeenCalled();
-    expect(globalMockBag.__txWsSvc?.clearDataCount).not.toHaveBeenCalled();
+    expect(globalMockBag.__txWsSvc?.clearDataCount).toHaveBeenCalledTimes(2);
 
     act(() => {
       jest.advanceTimersByTime(1);
@@ -243,7 +245,7 @@ describe('useTransactionsWebSocket', () => {
     expect(globalMockBag.__txWsMarkSubscriptionActivity).toHaveBeenCalledTimes(
       2,
     );
-    expect(globalMockBag.__txWsSvc?.clearDataCount).toHaveBeenCalledTimes(1);
+    expect(globalMockBag.__txWsSvc?.clearDataCount).toHaveBeenCalledTimes(2);
     expect(globalMockBag.__txWsSvc?.clearDataCount).toHaveBeenCalledWith({
       address: '0xabc',
       type: 'tokenTxs',
@@ -347,7 +349,7 @@ describe('useTransactionsWebSocket', () => {
     });
 
     expect(onNewTransactions).not.toHaveBeenCalled();
-    expect(globalMockBag.__txWsSvc?.clearDataCount).not.toHaveBeenCalled();
+    expect(globalMockBag.__txWsSvc?.clearDataCount).toHaveBeenCalledTimes(1);
     expect(result.current.pendingTransactionsCount).toBe(1);
 
     act(() => {
@@ -363,6 +365,123 @@ describe('useTransactionsWebSocket', () => {
       }),
     ]);
     expect(result.current.pendingTransactionsCount).toBe(0);
+  });
+
+  it('limits pending batches only when maxPendingTransactions is provided', async () => {
+    const onNewTransactions = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ isPaused }: { isPaused: boolean }) =>
+        useTransactionsWebSocket({
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          currency: 'usd',
+          isPaused,
+          maxPendingTransactions: 2,
+          onNewTransactions,
+        }),
+      {
+        initialProps: {
+          isPaused: true,
+        },
+      },
+    );
+
+    await waitFor(() => {
+      expect(globalMockBag.__txWsEventBus?.on).toHaveBeenCalled();
+    });
+
+    const marketUpdateHandler = getMarketUpdateHandler();
+    expect(marketUpdateHandler).toBeDefined();
+
+    jest.useFakeTimers();
+
+    act(() => {
+      marketUpdateHandler?.({
+        channel: 'tokenTxs',
+        data: {
+          txHash: '0xtx1',
+          blockUnixTime: 1,
+        },
+      });
+      marketUpdateHandler?.({
+        channel: 'tokenTxs',
+        data: {
+          txHash: '0xtx2',
+          blockUnixTime: 2,
+        },
+      });
+      marketUpdateHandler?.({
+        channel: 'tokenTxs',
+        data: {
+          txHash: '0xtx3',
+          blockUnixTime: 3,
+        },
+      });
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(globalMockBag.__txWsSvc?.clearDataCount).toHaveBeenCalledTimes(3);
+    expect(result.current.pendingTransactionsCount).toBe(2);
+    expect(result.current.hasPendingTransactionsOverflow).toBe(true);
+
+    act(() => {
+      rerender({ isPaused: false });
+    });
+
+    expect(onNewTransactions).toHaveBeenCalledTimes(1);
+    const cappedTransactions = onNewTransactions.mock.calls[0][0] as
+      | IMarketTokenTransaction[]
+      | undefined;
+    expect(cappedTransactions?.map((tx) => tx.hash)).toEqual([
+      '0xtx3',
+      '0xtx2',
+    ]);
+    expect(result.current.pendingTransactionsCount).toBe(0);
+  });
+
+  it('does not limit pending batches by default', async () => {
+    const onNewTransactions = jest.fn();
+    renderHook(() =>
+      useTransactionsWebSocket({
+        networkId: 'evm--1',
+        tokenAddress: '0xabc',
+        currency: 'usd',
+        onNewTransactions,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(globalMockBag.__txWsEventBus?.on).toHaveBeenCalled();
+    });
+
+    const marketUpdateHandler = getMarketUpdateHandler();
+    expect(marketUpdateHandler).toBeDefined();
+
+    jest.useFakeTimers();
+
+    act(() => {
+      for (let i = 1; i <= 55; i += 1) {
+        marketUpdateHandler?.({
+          channel: 'tokenTxs',
+          data: {
+            txHash: `0xtx${i}`,
+            blockUnixTime: i,
+          },
+        });
+      }
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(globalMockBag.__txWsSvc?.clearDataCount).toHaveBeenCalledTimes(55);
+    expect(onNewTransactions).toHaveBeenCalledTimes(1);
+    const uncappedTransactions = onNewTransactions.mock.calls[0][0] as
+      | IMarketTokenTransaction[]
+      | undefined;
+    expect(uncappedTransactions).toHaveLength(55);
+    expect(uncappedTransactions?.slice(0, 2).map((tx) => tx.hash)).toEqual([
+      '0xtx55',
+      '0xtx54',
+    ]);
   });
 
   it('drops pending transaction batches on unmount', async () => {
@@ -410,7 +529,7 @@ describe('useTransactionsWebSocket', () => {
     expect(globalMockBag.__txWsMarkSubscriptionActivity).toHaveBeenCalledTimes(
       1,
     );
-    expect(globalMockBag.__txWsSvc?.clearDataCount).not.toHaveBeenCalled();
+    expect(globalMockBag.__txWsSvc?.clearDataCount).toHaveBeenCalledTimes(1);
     expect(onNewTransactions).not.toHaveBeenCalled();
   });
 

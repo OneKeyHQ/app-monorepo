@@ -9,6 +9,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  MARKET_DETAIL_MAX_TRANSACTIONS,
   appendBufferedTransaction,
   mergeUniqueTransactions,
 } from './transactionBufferUtils';
@@ -21,7 +22,18 @@ interface IUseMarketTransactionsProps {
 }
 
 const DEFAULT_PAGE_SIZE = 20;
-const MAX_CACHED_TRANSACTIONS = 50;
+
+function canLoadMoreWithinCacheLimit({
+  cursor,
+  transactions,
+}: {
+  cursor: string | undefined;
+  transactions: IMarketTokenTransaction[];
+}) {
+  return (
+    Boolean(cursor) && transactions.length < MARKET_DETAIL_MAX_TRANSACTIONS
+  );
+}
 
 export function useMarketTransactions({
   tokenAddress,
@@ -50,7 +62,24 @@ export function useMarketTransactions({
   const cursorRef = useRef<string | undefined>(undefined);
   const getVisibleTransactions = useCallback(
     (transactions: IMarketTokenTransaction[]) =>
-      transactions.slice(0, MAX_CACHED_TRANSACTIONS),
+      transactions.slice(0, MARKET_DETAIL_MAX_TRANSACTIONS),
+    [],
+  );
+  const updatePaginationState = useCallback(
+    ({
+      cursor,
+      transactions,
+    }: {
+      cursor: string | undefined;
+      transactions: IMarketTokenTransaction[];
+    }) => {
+      const nextHasMore = canLoadMoreWithinCacheLimit({
+        cursor,
+        transactions,
+      });
+      cursorRef.current = nextHasMore ? cursor : undefined;
+      setHasMore(nextHasMore);
+    },
     [],
   );
   const setAccumulatedTransactionsImmediately = useCallback(
@@ -58,8 +87,12 @@ export function useMarketTransactions({
       const current = getVisibleTransactions(transactions);
       setAccumulatedTransactions(current);
       accumulatedTransactionsRef.current = current;
+      updatePaginationState({
+        cursor: cursorRef.current,
+        transactions: current,
+      });
     },
-    [getVisibleTransactions],
+    [getVisibleTransactions, updatePaginationState],
   );
   const throttleSetAccumulatedTransactions = useThrottledCallback(
     setAccumulatedTransactionsImmediately,
@@ -182,8 +215,6 @@ export function useMarketTransactions({
       return;
     }
 
-    cursorRef.current = transactionsData?.cursor;
-
     const prev = accumulatedTransactionsRef.current;
     const uniqueTransactions = mergeUniqueTransactions([
       ...newTransactions,
@@ -191,15 +222,17 @@ export function useMarketTransactions({
     ]);
     const currentTransactions = getVisibleTransactions(uniqueTransactions);
     accumulatedTransactionsRef.current = currentTransactions;
+    updatePaginationState({
+      cursor: transactionsData?.cursor,
+      transactions: currentTransactions,
+    });
 
     throttleSetAccumulatedTransactions(currentTransactions);
-
-    // Update hasMore based on response
-    setHasMore(Boolean(transactionsData?.cursor));
   }, [
     getVisibleTransactions,
     throttleSetAccumulatedTransactions,
     transactionsData,
+    updatePaginationState,
   ]);
 
   const loadMore = useCallback(async (): Promise<void> => {
@@ -207,6 +240,17 @@ export function useMarketTransactions({
       return;
     }
     if (!hasMore || isLoadingMore || isRefreshing) {
+      return;
+    }
+
+    if (
+      accumulatedTransactionsRef.current.length >=
+      MARKET_DETAIL_MAX_TRANSACTIONS
+    ) {
+      updatePaginationState({
+        cursor: undefined,
+        transactions: accumulatedTransactionsRef.current,
+      });
       return;
     }
 
@@ -234,7 +278,6 @@ export function useMarketTransactions({
       }
 
       loadTimesRef.current += 1;
-      cursorRef.current = response.cursor;
       const prev = accumulatedTransactionsRef.current;
       const uniqueTransactions = mergeUniqueTransactions([
         ...prev,
@@ -243,9 +286,11 @@ export function useMarketTransactions({
       const currentTransactions = getVisibleTransactions(uniqueTransactions);
 
       accumulatedTransactionsRef.current = currentTransactions;
+      updatePaginationState({
+        cursor: response.cursor,
+        transactions: currentTransactions,
+      });
       throttleSetAccumulatedTransactions(currentTransactions);
-
-      setHasMore(Boolean(response.cursor));
     } catch (error) {
       console.error('Failed to load more transactions:', error);
     } finally {
@@ -259,6 +304,7 @@ export function useMarketTransactions({
     networkId,
     getVisibleTransactions,
     throttleSetAccumulatedTransactions,
+    updatePaginationState,
   ]);
 
   const onRefresh = useCallback(async () => {
@@ -302,9 +348,17 @@ export function useMarketTransactions({
       const currentTransactions = getVisibleTransactions(updatedTransactions);
 
       accumulatedTransactionsRef.current = currentTransactions;
+      updatePaginationState({
+        cursor: cursorRef.current,
+        transactions: currentTransactions,
+      });
       throttleSetAccumulatedTransactions(currentTransactions);
     },
-    [getVisibleTransactions, throttleSetAccumulatedTransactions],
+    [
+      getVisibleTransactions,
+      throttleSetAccumulatedTransactions,
+      updatePaginationState,
+    ],
   );
 
   const hasTransactions = accumulatedTransactions.length > 0;

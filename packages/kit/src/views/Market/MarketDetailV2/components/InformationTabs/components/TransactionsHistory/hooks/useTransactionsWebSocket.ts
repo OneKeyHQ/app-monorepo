@@ -12,10 +12,7 @@ import {
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
-import {
-  MAX_BUFFERED_TRANSACTIONS,
-  mergeUniqueTransactions,
-} from './transactionBufferUtils';
+import { mergeUniqueTransactions } from './transactionBufferUtils';
 
 interface IUseTransactionsWebSocketProps {
   networkId: string;
@@ -23,6 +20,7 @@ interface IUseTransactionsWebSocketProps {
   enabled?: boolean;
   currency?: string;
   isPaused?: boolean;
+  maxPendingTransactions?: number;
   onNewTransactions?: (transactions: IMarketTokenTransaction[]) => void;
   onSubscriptionRestored?: () => void;
 }
@@ -37,7 +35,6 @@ interface IMarketWSDataUpdatePayload {
 }
 
 const TRANSACTIONS_BATCH_INTERVAL_MS = 1000;
-const MAX_BATCHED_TRANSACTIONS = MAX_BUFFERED_TRANSACTIONS;
 
 interface IUseTransactionsWebSocketResult {
   pendingTransactionsCount: number;
@@ -112,6 +109,7 @@ export function useTransactionsWebSocket({
   enabled = true,
   currency = 'usd',
   isPaused = false,
+  maxPendingTransactions,
   onNewTransactions,
   onSubscriptionRestored,
 }: IUseTransactionsWebSocketProps): IUseTransactionsWebSocketResult {
@@ -228,10 +226,9 @@ export function useTransactionsWebSocket({
       pendingTransactionsRef.current = [];
       hasPendingTransactionsOverflowRef.current = false;
       syncPendingTransactionState();
-      clearDataCount();
       onNewTransactionsRef.current?.(transactions);
     },
-    [clearDataCount, syncPendingTransactionState],
+    [syncPendingTransactionState],
   );
 
   const flushPendingTransactions = useCallback((): void => {
@@ -282,24 +279,31 @@ export function useTransactionsWebSocket({
       }
 
       markSubscriptionActivity();
+      clearDataCount();
 
       const mergedTransactions = mergeUniqueTransactions([
         mapTransactionUpdate(transactionData),
         ...pendingTransactionsRef.current,
       ]);
-      pendingTransactionsRef.current = mergedTransactions.slice(
-        0,
-        MAX_BATCHED_TRANSACTIONS,
-      );
-      if (mergedTransactions.length > MAX_BATCHED_TRANSACTIONS) {
+      const nextPendingTransactions =
+        typeof maxPendingTransactions === 'number'
+          ? mergedTransactions.slice(0, maxPendingTransactions)
+          : mergedTransactions;
+      pendingTransactionsRef.current = nextPendingTransactions;
+      if (
+        typeof maxPendingTransactions === 'number' &&
+        mergedTransactions.length > maxPendingTransactions
+      ) {
         hasPendingTransactionsOverflowRef.current = true;
       }
       schedulePendingTransactionBatchFlush();
     },
     [
+      clearDataCount,
       markSubscriptionActivity,
       tokenAddress,
       networkId,
+      maxPendingTransactions,
       schedulePendingTransactionBatchFlush,
     ],
   );

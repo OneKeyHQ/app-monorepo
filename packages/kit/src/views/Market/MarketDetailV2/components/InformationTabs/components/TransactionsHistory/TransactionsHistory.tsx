@@ -26,6 +26,7 @@ import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import { TransactionsRelativeTimeProvider } from './components/TransactionRelativeTime';
 import { TransactionsSkeleton } from './components/TransactionsSkeleton';
+import { MARKET_DETAIL_MAX_TRANSACTIONS } from './hooks/transactionBufferUtils';
 import { useMarketTransactions } from './hooks/useMarketTransactions';
 import { useTransactionsWebSocket } from './hooks/useTransactionsWebSocket';
 import { TransactionItemNormal } from './layout/TransactionItemNormal/TransactionItemNormal';
@@ -145,6 +146,7 @@ export function TransactionsHistoryBase({
     tokenAddress,
     enabled: !normalMode && isVisible,
     isPaused: isRealtimePaused,
+    maxPendingTransactions: MARKET_DETAIL_MAX_TRANSACTIONS,
     onNewTransactions: addNewTransactions,
   });
 

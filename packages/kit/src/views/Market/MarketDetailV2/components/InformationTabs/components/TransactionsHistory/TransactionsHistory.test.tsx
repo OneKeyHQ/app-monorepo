@@ -199,6 +199,7 @@ describe('TransactionsHistory', () => {
         tokenAddress: '0xabc',
         enabled: true,
         isPaused: false,
+        maxPendingTransactions: 50,
         onNewTransactions: mockAddNewTransactions,
       }),
     );
