@@ -53,6 +53,7 @@ import type {
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
 import {
+  type ISwapQuoteEventTotalCount,
   type ISwapQuoteSelectionIntent,
   buildSwapQuoteProviderKey,
   selectSwapCurrentQuote,
@@ -322,7 +323,7 @@ export const {
 export const {
   atom: swapQuoteEventTotalCountAtom,
   use: useSwapQuoteEventTotalCountAtom,
-} = contextAtom<{ eventId?: string; count: number }>({
+} = contextAtom<ISwapQuoteEventTotalCount>({
   count: 0,
 });
 

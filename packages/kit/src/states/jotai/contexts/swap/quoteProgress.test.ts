@@ -118,6 +118,32 @@ describe('swap quote progress', () => {
     ).toBe(false);
   });
 
+  it('keeps seeded Stock quote events fetching before total quote count arrives', () => {
+    expect(
+      isSwapQuoteEventFetching({
+        quoteEventTotalCount: {
+          eventId: 'event-1',
+          count: 1,
+          totalQuoteCountReceived: false,
+        },
+        currentEventReceivedCount: 1,
+        quoteEventCompleted: false,
+      }),
+    ).toBe(true);
+
+    expect(
+      isSwapQuoteEventFetching({
+        quoteEventTotalCount: {
+          eventId: 'event-1',
+          count: 1,
+          totalQuoteCountReceived: false,
+        },
+        currentEventReceivedCount: 1,
+        quoteEventCompleted: true,
+      }),
+    ).toBe(false);
+  });
+
   it('keeps a zero-provider quote event fetching until the event completes', () => {
     expect(
       isSwapQuoteEventFetching({
@@ -328,13 +354,59 @@ describe('swap quote progress', () => {
 
     const selectedQuote = selectSwapCurrentQuote({
       currentEventSortedQuotes: [errorQuote],
-      quoteEventTotalCount: { eventId: 'event-1', count: 2 },
+      quoteEventTotalCount: {
+        eventId: 'event-1',
+        count: 2,
+        totalQuoteCountReceived: true,
+      },
       currentEventProviderKeys: [buildSwapQuoteProviderKey(errorQuote)],
       quoteEventCompleted: false,
       deferNonActionableQuoteUntilEventSettled: true,
     });
 
     expect(selectedQuote).toBeUndefined();
+  });
+
+  it('defers seeded Stock provider errors before total quote count arrives', () => {
+    const errorQuote = buildQuote({
+      eventId: 'event-1',
+      provider: 'min-amount-provider',
+      toAmount: '0',
+      errorMessage: '最低金额要求 100.020304 USDC',
+    });
+
+    const selectedQuote = selectSwapCurrentQuote({
+      currentEventSortedQuotes: [errorQuote],
+      quoteEventTotalCount: { eventId: 'event-1', count: 1 },
+      currentEventProviderKeys: [buildSwapQuoteProviderKey(errorQuote)],
+      quoteEventCompleted: false,
+      deferNonActionableQuoteUntilEventSettled: true,
+    });
+
+    expect(selectedQuote).toBeUndefined();
+  });
+
+  it('shows a non-actionable provider error after authoritative total count says no providers are pending', () => {
+    const errorQuote = buildQuote({
+      eventId: 'event-1',
+      provider: 'min-amount-provider',
+      toAmount: '0',
+      errorMessage: '最低金额要求 100.020304 USDC',
+    });
+
+    const selectedQuote = selectSwapCurrentQuote({
+      currentEventSortedQuotes: [errorQuote],
+      quoteEventTotalCount: {
+        eventId: 'event-1',
+        count: 1,
+        totalQuoteCountReceived: true,
+      },
+      currentEventProviderKeys: [buildSwapQuoteProviderKey(errorQuote)],
+      quoteEventCompleted: false,
+      deferNonActionableQuoteUntilEventSettled: true,
+    });
+
+    expect(selectedQuote).toBe(errorQuote);
   });
 
   it('shows a non-actionable provider error after the quote event settles without an actionable quote', () => {

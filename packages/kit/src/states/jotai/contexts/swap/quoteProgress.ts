@@ -38,9 +38,10 @@ type ISwapQuoteProgressState = {
   previousQuote?: IFetchQuoteResult;
 };
 
-type ISwapQuoteEventTotalCount = {
+export type ISwapQuoteEventTotalCount = {
   count: number;
   eventId?: string;
+  totalQuoteCountReceived?: boolean;
 };
 
 type ISwapQuoteEventStateInput = {
@@ -120,6 +121,10 @@ export function isSwapQuoteEventFetching({
   currentEventReceivedCount,
   quoteEventCompleted,
 }: ISwapQuoteEventFetchingInput) {
+  if (quoteEventTotalCount.totalQuoteCountReceived === false) {
+    return !quoteEventCompleted;
+  }
+
   const hasReceivedTotal =
     quoteEventTotalCount.count > 0 || Boolean(quoteEventTotalCount.eventId);
   return (
@@ -255,7 +260,8 @@ export function selectSwapCurrentQuote({
   const shouldDeferNonActionableQuote =
     deferNonActionableQuoteUntilEventSettled &&
     !quoteEventCompleted &&
-    quoteEventTotalCount.count > currentEventProviderKeys.length &&
+    (!quoteEventTotalCount.totalQuoteCountReceived ||
+      quoteEventTotalCount.count > currentEventProviderKeys.length) &&
     actionableQuotes.length === 0;
 
   if (selectionIntent?.type === 'manual-provider') {
