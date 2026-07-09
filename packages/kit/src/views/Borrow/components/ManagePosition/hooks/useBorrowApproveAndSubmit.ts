@@ -22,6 +22,7 @@ export function useBorrowApproveAndSubmit({
   onSubmit,
   autoSubmitAfterApprove = true,
   onAllowanceReady,
+  onBeforeNavigateConfirm,
 }: {
   approveTarget?: IManagePositionProps['approveTarget'];
   currentAllowance?: string;
@@ -33,6 +34,7 @@ export function useBorrowApproveAndSubmit({
   // Manual mode: the approve settled and the allowance covers the amount —
   // the caller flips its UI to step 2 instead of this hook submitting.
   onAllowanceReady?: () => void;
+  onBeforeNavigateConfirm?: () => void | Promise<void>;
 }): {
   needsApproval: boolean;
   approveLoading: boolean;
@@ -257,6 +259,7 @@ export function useBorrowApproveAndSubmit({
         networkId: approveTarget.networkId,
       });
 
+      await onBeforeNavigateConfirm?.();
       await navigationToTxConfirm({
         approvesInfo: [
           {
@@ -357,6 +360,7 @@ export function useBorrowApproveAndSubmit({
     isCurrentApproveRequest,
     navigationToTxConfirm,
     onAllowanceReady,
+    onBeforeNavigateConfirm,
     onSubmit,
     trackAllowance,
     updateAllowance,

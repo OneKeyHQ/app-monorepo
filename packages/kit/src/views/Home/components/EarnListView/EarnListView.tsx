@@ -10,6 +10,10 @@ import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
 
 import { Recommended } from '../../../Earn/components/Recommended';
 import { safePushToEarnRoute } from '../../../Earn/earnUtils';
+import {
+  openExtensionEarnHomeInExpandTab,
+  shouldOpenEarnHomeInExtensionExpandTab,
+} from '../../../Earn/openExtensionEarnHomeInExpandTab';
 import { RichBlock } from '../RichBlock';
 
 const HOME_EARN_FETCH_IDLE_TIMEOUT_MS = 1200;
@@ -61,6 +65,10 @@ function EarnListView({ isActive = true }: { isActive?: boolean }) {
   }, [enableRecommendedFetch, isActive]);
 
   const handleViewMore = useCallback(() => {
+    if (shouldOpenEarnHomeInExtensionExpandTab) {
+      void openExtensionEarnHomeInExpandTab();
+      return;
+    }
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome);
   }, [navigation]);
 

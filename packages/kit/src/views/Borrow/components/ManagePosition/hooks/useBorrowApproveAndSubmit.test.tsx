@@ -89,6 +89,9 @@ const allowanceMock = (globalThis as any).__allowanceMock as {
   trackAllowance: jest.Mock;
   updateAllowance: jest.Mock;
 };
+const backgroundMock = (globalThis as any).__approveBackgroundMock as {
+  serviceAccount: { getAccount: jest.Mock };
+};
 
 const APPROVE_TARGET = {
   accountId: 'acc-1',
@@ -112,7 +115,15 @@ describe('useBorrowApproveAndSubmit manual mode', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     allowanceMock.allowanceState.current = '0';
-    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+    allowanceMock.fetchAllowanceResponse.mockReset();
+    allowanceMock.trackAllowance.mockClear();
+    allowanceMock.updateAllowance.mockClear();
+    backgroundMock.serviceAccount.getAccount
+      .mockReset()
+      .mockResolvedValue({ address: '0xowner' });
+    signatureConfirmMock.navigationToTxConfirm
+      .mockReset()
+      .mockResolvedValue(undefined);
   });
 
   it('skips the pre-flight allowance fetch and navigates straight to approve', async () => {
@@ -267,5 +278,86 @@ describe('useBorrowApproveAndSubmit manual mode', () => {
 
     expect(Toast.warning).not.toHaveBeenCalled();
     jest.useRealTimers();
+  });
+
+  it('runs the before-confirm hook before opening the approve confirm', async () => {
+    const callOrder: string[] = [];
+    const onBeforeNavigateConfirm = jest.fn(() => {
+      callOrder.push('beforeConfirm');
+    });
+    const onSubmit = jest.fn().mockResolvedValue(undefined);
+
+    allowanceMock.fetchAllowanceResponse.mockImplementation(async () => {
+      callOrder.push('fetchAllowance');
+      return { allowanceParsed: '0' };
+    });
+    backgroundMock.serviceAccount.getAccount.mockImplementation(async () => {
+      callOrder.push('getAccount');
+      return { address: '0xowner' };
+    });
+    signatureConfirmMock.navigationToTxConfirm.mockImplementation(async () => {
+      callOrder.push('txConfirm');
+    });
+
+    const { result } = renderHook(() =>
+      useBorrowApproveAndSubmit({
+        approveTarget: APPROVE_TARGET,
+        currentAllowance: '0',
+        amountValue: '5',
+        onSubmit,
+        onBeforeNavigateConfirm,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+
+    expect(onBeforeNavigateConfirm).toHaveBeenCalledTimes(1);
+    expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approvesInfo: [
+          expect.objectContaining({
+            amount: '5',
+            owner: '0xowner',
+            spender: '0xspender',
+          }),
+        ],
+      }),
+    );
+    expect(callOrder).toEqual([
+      'fetchAllowance',
+      'getAccount',
+      'beforeConfirm',
+      'txConfirm',
+    ]);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('does not run the before-confirm hook when allowance is already enough', async () => {
+    const onBeforeNavigateConfirm = jest.fn();
+    const onSubmit = jest.fn().mockResolvedValue(undefined);
+    allowanceMock.allowanceState.current = '10';
+    allowanceMock.fetchAllowanceResponse.mockResolvedValue({
+      allowanceParsed: '10',
+    });
+
+    const { result } = renderHook(() =>
+      useBorrowApproveAndSubmit({
+        approveTarget: APPROVE_TARGET,
+        currentAllowance: '10',
+        amountValue: '5',
+        onSubmit,
+        onBeforeNavigateConfirm,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+
+    expect(onBeforeNavigateConfirm).not.toHaveBeenCalled();
+    expect(signatureConfirmMock.navigationToTxConfirm).not.toHaveBeenCalled();
+    expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 });

@@ -28,7 +28,7 @@ import { useUniversalBorrowAction } from '@onekeyhq/kit/src/views/Borrow/compone
 import {
   useUniversalBorrowRepay,
   useUniversalBorrowWithdraw,
-} from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks';
+} from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowWithdrawRepayHooks';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { useManagePage } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
@@ -74,6 +74,7 @@ import {
   isUserRejectedErrorMessage,
   useProtocolPositionActionSubmit,
 } from './ProtocolPositionActionDialog';
+import { getProtocolProviderDisplayName } from './protocolProviderDisplayUtils';
 
 import type { IDeFiActionTxConfirmDialogResult } from './DeFiActionTxConfirmResult';
 
@@ -1410,8 +1411,10 @@ function ProtocolLendingActionBorrowContent({
     }
     const protocolLogoURI =
       source.providerLogoURI ?? protocolInfo?.providerDetail.logoURI;
-    const protocolLabel = earnUtils.getEarnProviderName({
-      providerName: source.providerDisplayName ?? provider,
+    const protocolLabel = getProtocolProviderDisplayName({
+      provider,
+      providerDisplayName: source.providerDisplayName,
+      providerDetailName: protocolInfo?.providerDetail.name,
     });
     const onSettleResult = async ({
       status,
@@ -1500,6 +1503,7 @@ function ProtocolLendingActionBorrowContent({
     networkId,
     onSuccess,
     protocolInfo?.providerDetail.logoURI,
+    protocolInfo?.providerDetail.name,
     protocolInfo?.stakeTag,
     releaseSubmitGuard,
     reserveAddress,
