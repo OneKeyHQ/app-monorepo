@@ -325,20 +325,22 @@ class ServiceAccountSelector extends ServiceBase {
         console.error(e);
       }
 
-      if (deriveType) {
-        if ((indexedAccountId && wallet) || othersWalletAccountId) {
-          try {
-            const r = await serviceAccount.getNetworkAccount({
-              indexedAccountId,
-              accountId: othersWalletAccountId,
-              deriveType,
-              networkId,
-            });
-            account = r;
-          } catch (e) {
-            // account may not compatible with network
-            console.error(e);
-          }
+      const canQueryIndexedNetworkAccount = Boolean(
+        deriveType && indexedAccountId && wallet,
+      );
+      const canQueryOthersNetworkAccount = Boolean(othersWalletAccountId);
+      if (canQueryIndexedNetworkAccount || canQueryOthersNetworkAccount) {
+        try {
+          const r = await serviceAccount.getNetworkAccount({
+            indexedAccountId,
+            accountId: othersWalletAccountId,
+            deriveType: deriveType || 'default',
+            networkId,
+          });
+          account = r;
+        } catch (e) {
+          // account may not compatible with network
+          console.error(e);
         }
       }
 
@@ -359,7 +361,7 @@ class ServiceAccountSelector extends ServiceBase {
       networkId && networkUtils.isAllNetwork({ networkId }),
     );
 
-    if (dbAccountId && !isAllNetwork) {
+    if (dbAccountId && (!isAllNetwork || othersWalletAccountId)) {
       try {
         const r = await serviceAccount.getDBAccount({
           accountId: dbAccountId,
@@ -520,7 +522,7 @@ class ServiceAccountSelector extends ServiceBase {
 
     const selectedAccountFixed: IAccountSelectorSelectedAccount = {
       othersWalletAccountId: isOthersWallet
-        ? activeAccount?.account?.id
+        ? activeAccount?.account?.id || activeAccount?.dbAccount?.id
         : undefined,
       indexedAccountId: activeAccount?.indexedAccount?.id,
       deriveType: activeAccount?.deriveType,
