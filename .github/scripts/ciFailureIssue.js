@@ -2,7 +2,7 @@ const DEFAULT_CONSTRAINTS = [
   'Do not relax CI rules, budgets, thresholds, or test assertions unless the issue proves they are wrong.',
   'Prefer a focused code fix over broad ignores, retries, sleeps, or workflow-only masking.',
   'Keep generated diagnostics and raw reports intact so future runs remain comparable.',
-  'Validate with the listed focused command, then run yarn lint:staged and yarn tsc:staged for changed TypeScript files.',
+  'Validate with the listed focused command, then run yarn agent:check --profile commit for changed TypeScript files.',
 ];
 
 const RUNTIME_NOTES = {
@@ -29,8 +29,7 @@ const ciFailureConfigs = {
     commands: [
       'yarn install --immutable',
       'yarn lint',
-      'yarn lint:staged',
-      'yarn tsc:staged',
+      'yarn agent:check --profile commit',
     ],
     constraints: [
       'Do not weaken lint scripts, folder rules, i18n checks, package-version checks, or font checks.',
@@ -54,8 +53,7 @@ const ciFailureConfigs = {
     commands: [
       'yarn install --immutable',
       'NODE_OPTIONS=--max_old_space_size=8192 npx eslint . --ext .ts,.tsx --max-warnings 0',
-      'yarn lint:staged',
-      'yarn tsc:staged',
+      'yarn agent:check --profile commit',
     ],
     constraints: [
       'Do not add global ESLint ignores or blanket eslint-disable comments.',
@@ -80,8 +78,7 @@ const ciFailureConfigs = {
       'yarn install --immutable',
       'FAILED_SHARD=1',
       `yarn test --coverage --shard="\${FAILED_SHARD}/3" --coverageDirectory="coverage/shard-\${FAILED_SHARD}" --coverageReporters=text --coverageReporters=lcov --coverageReporters=json-summary --coverageReporters=json --coverageThreshold={}`,
-      'yarn lint:staged',
-      'yarn tsc:staged',
+      'yarn agent:check --profile commit',
     ],
     constraints: [
       'Do not delete or weaken assertions to make the shard pass.',
@@ -107,8 +104,7 @@ const ciFailureConfigs = {
       'yarn install --immutable',
       `BASE_REF="\${GITHUB_BASE_REF:-x}"`,
       `npx tsx development/scripts/minimum-release-age/run.ts diff "origin/\${BASE_REF}"`,
-      'yarn lint:staged',
-      'yarn tsc:staged',
+      'yarn agent:check --profile commit',
     ],
     constraints: [
       'Do not disable blockOnFailure or lower minimumReleaseAge.days.',
@@ -159,8 +155,7 @@ const ciFailureConfigs = {
       'yarn install --immutable',
       'cd apps/mobile',
       'yarn harness:test:android',
-      'yarn lint:staged',
-      'yarn tsc:staged',
+      'yarn agent:check --profile commit',
     ],
     constraints: [
       'Do not skip harness tests, reduce assertions, or hide crashes with retries before identifying the failure boundary.',

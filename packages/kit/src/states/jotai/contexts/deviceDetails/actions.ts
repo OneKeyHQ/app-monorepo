@@ -13,6 +13,9 @@ import {
   currentWalletIdAtom,
   deviceMetaStateAtom,
   deviceMetaStaticAtom,
+  emptyMetaState,
+  emptyMetaStatic,
+  refreshSettledAtom,
   walletWithDeviceStateAtom,
 } from './atoms';
 
@@ -113,41 +116,69 @@ async function buildDeviceMetaState(
     autoShutDownDelayMs,
     language,
     hapticFeedback,
+    isReady: true,
   };
 }
 
 class DeviceDetailsActions extends ContextJotaiActionsBase {
-  updateDeviceMetaStatic = contextAtomMethod(async (get, set) => {
-    const data = get(walletWithDeviceStateAtom());
-    const metaStatic = await buildDeviceMetaStatic(data);
-    if (metaStatic) {
-      set(deviceMetaStaticAtom(), metaStatic);
-    }
-  });
+  updateDeviceMetaStatic = contextAtomMethod(
+    async (get, set, walletId?: string) => {
+      const data = get(walletWithDeviceStateAtom());
+      const metaStatic = await buildDeviceMetaStatic(data);
+      // Superseded by a newer device switch during the await — drop this write.
+      if (walletId && get(currentWalletIdAtom()) !== walletId) return;
+      if (metaStatic) {
+        set(deviceMetaStaticAtom(), metaStatic);
+      }
+    },
+  );
 
-  updateDeviceMetaState = contextAtomMethod(async (get, set) => {
-    const data = get(walletWithDeviceStateAtom());
-    const metaState = await buildDeviceMetaState(data);
-    if (metaState) {
-      set(deviceMetaStateAtom(), metaState);
-    }
-  });
+  updateDeviceMetaState = contextAtomMethod(
+    async (get, set, walletId?: string) => {
+      const data = get(walletWithDeviceStateAtom());
+      const metaState = await buildDeviceMetaState(data);
+      if (walletId && get(currentWalletIdAtom()) !== walletId) return;
+      if (metaState) {
+        set(deviceMetaStateAtom(), metaState);
+      }
+    },
+  );
 
   refresh = contextAtomMethod(async (get, set, incomingWalletId?: string) => {
     const walletId = incomingWalletId ?? get(currentWalletIdAtom());
     if (!walletId) return;
 
-    const r =
-      await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
-        filterHiddenWallet: true,
-      });
+    // Device switched: reset header state so the skeleton re-engages.
+    if (walletId !== get(currentWalletIdAtom())) {
+      set(currentWalletIdAtom(), walletId);
+      set(walletWithDeviceStateAtom(), undefined);
+      set(deviceMetaStaticAtom(), emptyMetaStatic);
+      set(deviceMetaStateAtom(), emptyMetaState);
+      set(refreshSettledAtom(), false);
+    }
 
-    const data = r?.[walletId];
-    set(currentWalletIdAtom(), walletId);
-    set(walletWithDeviceStateAtom(), data);
-    await this.updateDeviceMetaStatic.call(set);
-    await this.updateDeviceMetaState.call(set);
-    return data;
+    try {
+      const r =
+        await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+          filterHiddenWallet: true,
+        });
+
+      const data = r?.[walletId];
+      // Drop a superseded response (device switched mid-flight).
+      if (get(currentWalletIdAtom()) !== walletId) {
+        return data;
+      }
+      set(currentWalletIdAtom(), walletId);
+      set(walletWithDeviceStateAtom(), data);
+      await this.updateDeviceMetaStatic.call(set, walletId);
+      await this.updateDeviceMetaState.call(set, walletId);
+      return data;
+    } finally {
+      // Don't mark settled if a newer refresh already took over.
+      if (get(currentWalletIdAtom()) === walletId) {
+        set(refreshSettledAtom(), true);
+      }
+    }
   });
 
   getCurrentWalletId = contextAtomMethod(async (get) => {

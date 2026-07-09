@@ -267,7 +267,7 @@ describe('depositTokenListUtils', () => {
     );
   });
 
-  it('groups tokens by network and picks Arbitrum USDC as the default token', () => {
+  it('uses highest positive fiat value before the legacy Arbitrum USDC fallback', () => {
     const eth = makeToken({
       networkId: 'evm--1',
       address: '',
@@ -298,10 +298,240 @@ describe('depositTokenListUtils', () => {
       'evm--1': [expect.objectContaining({ symbol: 'ETH' })],
       [PERPS_NETWORK_ID]: [expect.objectContaining({ symbol: 'USDC' })],
     });
-    expect(getDefaultPerpsDepositToken(depositTokens)).toEqual(
+    expect(getDefaultPerpsDepositToken({ tokens: depositTokens })).toEqual(
       expect.objectContaining({
-        networkId: PERPS_NETWORK_ID,
-        contractAddress: USDC_TOKEN_INFO.address.toLowerCase(),
+        networkId: 'evm--1',
+        symbol: 'ETH',
+        fiatValue: '100',
+      }),
+    );
+  });
+
+  it('falls back to token isDefault when wallet values have no positive fiat leader', () => {
+    const arbUsdc = {
+      networkId: PERPS_NETWORK_ID,
+      contractAddress: USDC_TOKEN_INFO.address,
+      name: USDC_TOKEN_INFO.name,
+      symbol: 'USDC',
+      decimals: USDC_TOKEN_INFO.decimals,
+      networkLogoURI: '',
+      fiatValue: '0',
+    };
+    const arbEth = {
+      networkId: PERPS_NETWORK_ID,
+      contractAddress: '',
+      name: 'Ethereum',
+      symbol: 'ETH',
+      decimals: 18,
+      networkLogoURI: '',
+      fiatValue: '0',
+      isNative: true,
+      isDefault: true,
+    };
+
+    expect(
+      getDefaultPerpsDepositToken({
+        tokens: [arbUsdc, arbEth],
+      }),
+    ).toEqual(expect.objectContaining({ symbol: 'ETH' }));
+  });
+
+  it('uses server default tokens before the legacy Arbitrum USDC fallback', () => {
+    const bnb = makeToken({
+      networkId: 'evm--56',
+      address: '',
+      symbol: 'BNB',
+      isNative: true,
+    });
+    const arbUsdc = makeToken({
+      networkId: PERPS_NETWORK_ID,
+      address: USDC_TOKEN_INFO.address,
+      symbol: 'USDC',
+      decimals: USDC_TOKEN_INFO.decimals,
+      name: USDC_TOKEN_INFO.name,
+    });
+    const depositTokens = buildPerpsDepositTokensFromWalletTokenResponses({
+      responses: [
+        makeResponse({
+          tokens: [arbUsdc, bnb],
+          tokenMap: {
+            [arbUsdc.$key]: makeFiat({ fiatValue: '50', price: 1 }),
+            [bnb.$key]: makeFiat({
+              balanceParsed: '1.2',
+              fiatValue: '720',
+              price: 600,
+            }),
+          },
+        }),
+      ],
+      networkLogoURIByNetworkId: {},
+    });
+
+    expect(
+      resolvePerpsDepositSelectedToken({
+        tokens: depositTokens,
+        defaultTokens: [
+          {
+            networkId: 'evm--56',
+            contractAddress: '',
+            name: 'BNB',
+            symbol: 'BNB',
+            decimals: 18,
+            networkLogoURI: '',
+            isNative: true,
+            isDefault: true,
+          },
+        ],
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        networkId: 'evm--56',
+        symbol: 'BNB',
+        balanceParsed: '1.2',
+      }),
+    );
+  });
+
+  it('uses token isDefault before external default token hints', () => {
+    const bnb = {
+      networkId: 'evm--56',
+      contractAddress: '',
+      name: 'BNB',
+      symbol: 'BNB',
+      decimals: 18,
+      networkLogoURI: '',
+      isNative: true,
+      isDefault: true,
+    };
+    const tron = {
+      networkId: 'tron--0x2b6653dc',
+      contractAddress: '',
+      name: 'TRON',
+      symbol: 'TRX',
+      decimals: 6,
+      networkLogoURI: '',
+      isNative: true,
+    };
+
+    expect(
+      getDefaultPerpsDepositToken({
+        tokens: [bnb, tron],
+        defaultTokens: [tron],
+      }),
+    ).toEqual(expect.objectContaining({ symbol: 'BNB' }));
+  });
+
+  it('replaces a server-config default current token when refreshed wallet values have a positive leader', () => {
+    const trx = makeToken({
+      networkId: 'tron--0x2b6653dc',
+      address: '',
+      symbol: 'TRX',
+      isNative: true,
+    });
+    const eth = makeToken({
+      networkId: 'evm--1',
+      address: '',
+      symbol: 'ETH',
+      isNative: true,
+    });
+    const depositTokens = buildPerpsDepositTokensFromWalletTokenResponses({
+      responses: [
+        makeResponse({
+          tokens: [trx, eth],
+          tokenMap: {
+            [trx.$key]: makeFiat({
+              balanceParsed: '1.7597',
+              fiatValue: '0.5',
+              price: 0.284,
+            }),
+            [eth.$key]: makeFiat({
+              balanceParsed: '0.2',
+              fiatValue: '300',
+              price: 1500,
+            }),
+          },
+        }),
+      ],
+      networkLogoURIByNetworkId: {},
+    });
+
+    expect(
+      resolvePerpsDepositSelectedToken({
+        tokens: depositTokens,
+        currentToken: {
+          networkId: 'tron--0x2b6653dc',
+          contractAddress: '',
+          name: 'TRON',
+          symbol: 'TRX',
+          decimals: 6,
+          networkLogoURI: '',
+          isNative: true,
+          isDefault: true,
+        },
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        networkId: 'evm--1',
+        symbol: 'ETH',
+        fiatValue: '300',
+      }),
+    );
+  });
+
+  it('keeps a refreshed current token selection even when another token has a higher fiat value', () => {
+    const trx = makeToken({
+      networkId: 'tron--0x2b6653dc',
+      address: '',
+      symbol: 'TRX',
+      isNative: true,
+    });
+    const eth = makeToken({
+      networkId: 'evm--1',
+      address: '',
+      symbol: 'ETH',
+      isNative: true,
+    });
+    const depositTokens = buildPerpsDepositTokensFromWalletTokenResponses({
+      responses: [
+        makeResponse({
+          tokens: [trx, eth],
+          tokenMap: {
+            [trx.$key]: makeFiat({
+              balanceParsed: '1.7597',
+              fiatValue: '0.5',
+              price: 0.284,
+            }),
+            [eth.$key]: makeFiat({
+              balanceParsed: '0.2',
+              fiatValue: '300',
+              price: 1500,
+            }),
+          },
+        }),
+      ],
+      networkLogoURIByNetworkId: {},
+    });
+
+    expect(
+      resolvePerpsDepositSelectedToken({
+        tokens: depositTokens,
+        currentToken: {
+          networkId: 'tron--0x2b6653dc',
+          contractAddress: '',
+          name: 'TRON',
+          symbol: 'TRX',
+          decimals: 6,
+          networkLogoURI: '',
+          isNative: true,
+          balanceParsed: '1.7597',
+          fiatValue: '0.5',
+        },
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        networkId: 'tron--0x2b6653dc',
+        symbol: 'TRX',
+        fiatValue: '0.5',
       }),
     );
   });
