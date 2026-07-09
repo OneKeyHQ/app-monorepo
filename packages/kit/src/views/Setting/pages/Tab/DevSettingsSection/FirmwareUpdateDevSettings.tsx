@@ -67,9 +67,13 @@ function HardwareConfigUrlDevButtons() {
   const [devSetting, setDevSetting] = useFirmwareUpdateDevSettingsPersistAtom();
   const updateHardwareConfigUrl = useCallback(
     async (hardwareConfigUrl: string) => {
-      setDevSetting((o) => ({ ...o, hardwareConfigUrl }));
+      setDevSetting((o) => ({
+        ...o,
+        hardwareConfigUrl,
+        usePreReleaseConfig: false,
+      }));
       await backgroundApiProxy.serviceDevSetting.updateFirmwareUpdateDevSettings(
-        { hardwareConfigUrl },
+        { hardwareConfigUrl, usePreReleaseConfig: false },
       );
       await backgroundApiProxy.serviceHardware.resetHardwareSDK();
     },
@@ -105,7 +109,22 @@ function HardwareConfigUrlDevButtons() {
 }
 
 export function FirmwareUpdateDevSettings() {
-  const [devSetting] = useFirmwareUpdateDevSettingsPersistAtom();
+  const [devSetting, setDevSetting] = useFirmwareUpdateDevSettingsPersistAtom();
+  const handlePreReleaseConfigChange = useCallback(
+    async (usePreReleaseConfig: boolean) => {
+      const values = usePreReleaseConfig
+        ? { usePreReleaseConfig, hardwareConfigUrl: '' }
+        : { usePreReleaseConfig };
+      if (usePreReleaseConfig) {
+        setDevSetting((o) => ({ ...o, hardwareConfigUrl: '' }));
+      }
+      await backgroundApiProxy.serviceDevSetting.updateFirmwareUpdateDevSettings(
+        values,
+      );
+      await backgroundApiProxy.serviceHardware.resetHardwareSDK();
+    },
+    [setDevSetting],
+  );
 
   return (
     <YStack>
@@ -148,6 +167,7 @@ export function FirmwareUpdateDevSettings() {
       <FirmwareUpdateSectionFieldItem
         name="usePreReleaseConfig"
         title="Use pre-release config"
+        onValueChange={handlePreReleaseConfigChange}
       >
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>

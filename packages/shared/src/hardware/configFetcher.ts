@@ -16,6 +16,11 @@ type IFirmwareUpdateDevSettingsPersisted = {
   hardwareConfigUrl?: string;
 };
 
+type IHardwareConfigSource = {
+  url: string;
+  isCustomSource: boolean;
+};
+
 function parseFirmwareUpdateDevSettings(
   raw: string | null | undefined,
 ): IFirmwareUpdateDevSettingsPersisted | undefined {
@@ -53,13 +58,25 @@ async function getFirmwareUpdateDevSettingsFromStorage() {
   );
 }
 
-async function getHardwareConfigUrl(originalUrl: string) {
+async function getHardwareConfigSource(
+  originalUrl: string,
+): Promise<IHardwareConfigSource> {
   const devSettings = await getFirmwareUpdateDevSettingsFromStorage();
-  return (
-    devSettings?.hardwareConfigUrl ||
-    process.env.HARDWARE_SDK_CONFIG_SRC ||
-    originalUrl
-  );
+  const customUrl =
+    devSettings?.hardwareConfigUrl?.trim() ||
+    process.env.HARDWARE_SDK_CONFIG_SRC?.trim();
+
+  if (customUrl) {
+    return {
+      url: customUrl,
+      isCustomSource: true,
+    };
+  }
+
+  return {
+    url: originalUrl,
+    isCustomSource: false,
+  };
 }
 
 async function resolveHardwareConfigUrl(url: string) {
@@ -68,11 +85,21 @@ async function resolveHardwareConfigUrl(url: string) {
     return sourceUrl.toString();
   }
 
-  const targetUrl = new URL(await getHardwareConfigUrl(sourceUrl.toString()));
-  if (!targetUrl.pathname || targetUrl.pathname === '/') {
+  const { url: hardwareConfigUrl, isCustomSource } =
+    await getHardwareConfigSource(sourceUrl.toString());
+  if (!isCustomSource) {
+    return sourceUrl.toString();
+  }
+
+  const targetUrl = new URL(hardwareConfigUrl);
+  if (targetUrl.pathname === '/') {
     targetUrl.pathname = sourceUrl.pathname;
   }
-  targetUrl.search = sourceUrl.search;
+  sourceUrl.searchParams.forEach((value, key) => {
+    if (!targetUrl.searchParams.has(key)) {
+      targetUrl.searchParams.set(key, value);
+    }
+  });
   return targetUrl.toString();
 }
 
@@ -106,15 +133,21 @@ async function getConfigFetcherAxios(): Promise<AxiosInstance> {
 export async function createConfigFetcher(): Promise<
   ((url: string) => Promise<RemoteConfigResponse | null>) | undefined
 > {
-  // Only create configFetcher for platforms that support IP Table
-  // Otherwise return undefined to let SDK use its default fetching logic
+  const initialConfigSource = await getHardwareConfigSource(
+    'https://data.onekey.so/config.json',
+  );
+
+  // Always use configFetcher for an explicit dev config source, even on
+  // platforms that do not support IP Table.
   try {
     const { isSupportIpTablePlatform } = await import('../utils/ipTableUtils');
-    if (!isSupportIpTablePlatform()) {
+    if (!initialConfigSource.isCustomSource && !isSupportIpTablePlatform()) {
       return undefined;
     }
   } catch {
-    return undefined;
+    if (!initialConfigSource.isCustomSource) {
+      return undefined;
+    }
   }
 
   return async (url: string) => {
