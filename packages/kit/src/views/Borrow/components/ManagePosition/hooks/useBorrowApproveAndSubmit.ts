@@ -20,11 +20,13 @@ export function useBorrowApproveAndSubmit({
   currentAllowance,
   amountValue,
   onSubmit,
+  onBeforeNavigateConfirm,
 }: {
   approveTarget?: IManagePositionProps['approveTarget'];
   currentAllowance?: string;
   amountValue: string;
   onSubmit: () => Promise<void>;
+  onBeforeNavigateConfirm?: () => void | Promise<void>;
 }): {
   needsApproval: boolean;
   approveLoading: boolean;
@@ -228,6 +230,7 @@ export function useBorrowApproveAndSubmit({
         networkId: approveTarget.networkId,
       });
 
+      await onBeforeNavigateConfirm?.();
       await navigationToTxConfirm({
         approvesInfo: [
           {
@@ -314,6 +317,7 @@ export function useBorrowApproveAndSubmit({
     intl,
     isCurrentApproveRequest,
     navigationToTxConfirm,
+    onBeforeNavigateConfirm,
     onSubmit,
     trackAllowance,
     waitForAllowanceAfterApprove,
