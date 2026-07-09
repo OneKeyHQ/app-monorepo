@@ -4,6 +4,7 @@ import {
   findSupportedBorrowMarket,
   resolveLendingStepState,
   resolvePostActionNavigation,
+  resolveProtocolLendingBorrowConfirmDisabled,
   resolveProtocolLendingDefiFillableAmountState,
   resolveProtocolLendingRemainingDebtState,
   resolveProtocolLendingRepayAmountState,
@@ -142,6 +143,40 @@ describe('protocolLendingActionUtils', () => {
     expect(state).toEqual({
       currentDebt: '10',
       remainingDebt: '0',
+    });
+  });
+
+  describe('resolveProtocolLendingBorrowConfirmDisabled', () => {
+    const baseParams = {
+      isBorrowDataLoading: false,
+      isRepayWalletBalancePending: false,
+      isRepayWalletBalanceReady: true,
+      isWithdraw: false,
+      hasBorrowLoadError: false,
+      isAmountPositive: true,
+      isAmountInsufficient: false,
+      isCheckAmountMessageError: false,
+      checkAmountResult: true,
+      checkAmountLoading: false,
+    };
+
+    it('blocks borrow repay when the wallet balance response has no usable balance', () => {
+      expect(
+        resolveProtocolLendingBorrowConfirmDisabled({
+          ...baseParams,
+          isRepayWalletBalanceReady: false,
+        }),
+      ).toBe(true);
+    });
+
+    it('does not require repay wallet balance readiness for withdraw', () => {
+      expect(
+        resolveProtocolLendingBorrowConfirmDisabled({
+          ...baseParams,
+          isWithdraw: true,
+          isRepayWalletBalanceReady: false,
+        }),
+      ).toBe(false);
     });
   });
 });

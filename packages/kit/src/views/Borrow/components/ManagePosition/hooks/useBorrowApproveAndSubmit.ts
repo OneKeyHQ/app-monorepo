@@ -118,6 +118,7 @@ export function useBorrowApproveAndSubmit({
       allowanceAbortRef.current?.abort();
       allowanceAbortRef.current = undefined;
       setApproving(false);
+      setWaitingAllowance(false);
     }
   }, [approveSnapshotKey, onSubmit]);
 
@@ -137,6 +138,7 @@ export function useBorrowApproveAndSubmit({
   useEffect(
     () => () => {
       allowanceAbortRef.current?.abort();
+      allowanceAbortRef.current = undefined;
     },
     [],
   );
@@ -166,6 +168,9 @@ export function useBorrowApproveAndSubmit({
         }
         try {
           const allowanceInfo = await fetchAllowanceResponse();
+          if (signal?.aborted) {
+            return false;
+          }
           const allowanceBN = new BigNumber(
             allowanceInfo.allowanceParsed || '0',
           );
@@ -285,6 +290,13 @@ export function useBorrowApproveAndSubmit({
           allowanceAbortRef.current = abortController;
           setWaitingAllowance(true);
           void (async () => {
+            const isCurrentAllowancePoll = () =>
+              !abortController.signal.aborted &&
+              allowanceAbortRef.current === abortController &&
+              isCurrentApproveRequest({
+                snapshotKey: requestSnapshotKey,
+                submit: requestOnSubmit,
+              });
             try {
               const allowanceReady = await waitForAllowanceAfterApprove({
                 requiredAmount: amountValue,
@@ -309,12 +321,7 @@ export function useBorrowApproveAndSubmit({
                 }
                 return;
               }
-              if (
-                !isCurrentApproveRequest({
-                  snapshotKey: requestSnapshotKey,
-                  submit: requestOnSubmit,
-                })
-              ) {
+              if (!isCurrentAllowancePoll()) {
                 return;
               }
               lastPollTimedOutRef.current = false;
@@ -333,8 +340,11 @@ export function useBorrowApproveAndSubmit({
                       }),
               });
             } finally {
-              setWaitingAllowance(false);
-              setApproving(false);
+              if (isCurrentAllowancePoll()) {
+                allowanceAbortRef.current = undefined;
+                setWaitingAllowance(false);
+                setApproving(false);
+              }
             }
           })();
         },

@@ -58,6 +58,7 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import {
   resolveLendingStepState,
   resolvePostActionNavigation,
+  resolveProtocolLendingBorrowConfirmDisabled,
   resolveProtocolLendingDefiFillableAmountState,
   resolveProtocolLendingRemainingDebtState,
   resolveProtocolLendingRepayAmountState,
@@ -1225,6 +1226,13 @@ function ProtocolLendingActionBorrowContent({
     (repayWalletBalanceLoading ||
       repayWalletBalanceState === undefined ||
       repayTokenAddress === undefined);
+  const repayWalletBalanceBN =
+    !isWithdraw && repayWalletBalance !== undefined
+      ? new BigNumber(repayWalletBalance)
+      : undefined;
+  const isRepayWalletBalanceReady =
+    isWithdraw ||
+    Boolean(repayWalletBalanceBN?.isFinite() && repayWalletBalanceBN.gte(0));
   const isBorrowDataLoading =
     manageLoading || (source.selectable && Boolean(assetsLoading));
   const hasBorrowLoadError = Boolean(assetsError || repayWalletBalanceError);
@@ -1674,15 +1682,18 @@ function ProtocolLendingActionBorrowContent({
     debtAmount: isWithdraw ? undefined : repayAllTargetAmount,
   });
   const healthFactor = actionResult.transactionConfirmation?.healthFactor;
-  const confirmDisabled =
-    isBorrowDataLoading ||
-    isRepayWalletBalancePending ||
-    hasBorrowLoadError ||
-    !isAmountPositive ||
-    isAmountInsufficient ||
-    actionResult.isCheckAmountMessageError ||
-    actionResult.checkAmountResult === false ||
-    actionResult.checkAmountLoading;
+  const confirmDisabled = resolveProtocolLendingBorrowConfirmDisabled({
+    isBorrowDataLoading,
+    isRepayWalletBalancePending,
+    isRepayWalletBalanceReady,
+    isWithdraw,
+    hasBorrowLoadError,
+    isAmountPositive,
+    isAmountInsufficient,
+    isCheckAmountMessageError: actionResult.isCheckAmountMessageError,
+    checkAmountResult: actionResult.checkAmountResult,
+    checkAmountLoading: actionResult.checkAmountLoading,
+  });
   const shouldShowHealthFactorSkeleton =
     !healthFactor && isAmountPositive && !actionResult.transactionConfirmation;
   // Belt-and-suspenders: a selectable Aave entry whose asset fetch AND protocol

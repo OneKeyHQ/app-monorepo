@@ -158,6 +158,42 @@ export function resolveProtocolLendingRemainingDebtState({
   };
 }
 
+export function resolveProtocolLendingBorrowConfirmDisabled({
+  isBorrowDataLoading,
+  isRepayWalletBalancePending,
+  isRepayWalletBalanceReady,
+  isWithdraw,
+  hasBorrowLoadError,
+  isAmountPositive,
+  isAmountInsufficient,
+  isCheckAmountMessageError,
+  checkAmountResult,
+  checkAmountLoading,
+}: {
+  isBorrowDataLoading: boolean;
+  isRepayWalletBalancePending: boolean;
+  isRepayWalletBalanceReady: boolean;
+  isWithdraw: boolean;
+  hasBorrowLoadError: boolean;
+  isAmountPositive: boolean;
+  isAmountInsufficient: boolean;
+  isCheckAmountMessageError: boolean;
+  checkAmountResult: boolean | undefined;
+  checkAmountLoading: boolean;
+}) {
+  return (
+    isBorrowDataLoading ||
+    isRepayWalletBalancePending ||
+    (!isWithdraw && !isRepayWalletBalanceReady) ||
+    hasBorrowLoadError ||
+    !isAmountPositive ||
+    isAmountInsufficient ||
+    isCheckAmountMessageError ||
+    checkAmountResult === false ||
+    checkAmountLoading
+  );
+}
+
 // The server's /earn/v1/borrow/markets list is the per-environment source of
 // truth for which (provider, network, market) combos the borrow stack
 // supports. Fail-closed by design: no markets (still loading, fetch failed,

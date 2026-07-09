@@ -111,6 +111,16 @@ type IApproveConfirmOptions = {
   onSuccess: (data: Array<{ decodedTx: { txid: string } }>) => void;
 };
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  return { promise, resolve, reject };
+}
+
 describe('useBorrowApproveAndSubmit manual mode', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -278,6 +288,69 @@ describe('useBorrowApproveAndSubmit manual mode', () => {
 
     expect(Toast.warning).not.toHaveBeenCalled();
     jest.useRealTimers();
+  });
+
+  it('does not let an aborted stale poll update allowance or clear a newer wait', async () => {
+    const firstPoll = createDeferred<{ allowanceParsed: string }>();
+    const secondPoll = createDeferred<{ allowanceParsed: string }>();
+    allowanceMock.fetchAllowanceResponse
+      .mockImplementationOnce(() => firstPoll.promise)
+      .mockImplementationOnce(() => secondPoll.promise);
+
+    const onSubmit = jest.fn().mockResolvedValue(undefined);
+    const { result, rerender, unmount } = renderHook(
+      ({ amountValue }: { amountValue: string }) =>
+        useBorrowApproveAndSubmit({
+          approveTarget: APPROVE_TARGET,
+          currentAllowance: '0',
+          amountValue,
+          onSubmit,
+          autoSubmitAfterApprove: false,
+        }),
+      { initialProps: { amountValue: '5' } },
+    );
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    const firstConfirmOptions = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[0][0] as IApproveConfirmOptions;
+    await act(async () => {
+      firstConfirmOptions.onSuccess(TX_SUCCESS_DATA);
+      await Promise.resolve();
+    });
+    expect(result.current.waitingAllowance).toBe(true);
+
+    await act(async () => {
+      rerender({ amountValue: '6' });
+    });
+    expect(result.current.waitingAllowance).toBe(false);
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    const secondConfirmOptions = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[1][0] as IApproveConfirmOptions;
+    await act(async () => {
+      secondConfirmOptions.onSuccess([{ decodedTx: { txid: '0xapprove-2' } }]);
+      await Promise.resolve();
+    });
+    expect(result.current.waitingAllowance).toBe(true);
+
+    await act(async () => {
+      firstPoll.resolve({ allowanceParsed: '5' });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(allowanceMock.updateAllowance).not.toHaveBeenCalledWith('5');
+    expect(result.current.waitingAllowance).toBe(true);
+
+    unmount();
+    await act(async () => {
+      secondPoll.resolve({ allowanceParsed: '6' });
+      await Promise.resolve();
+    });
   });
 
   it('runs the before-confirm hook before opening the approve confirm', async () => {
