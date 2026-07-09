@@ -18,6 +18,18 @@ describe('SWR cache keys', () => {
       }),
     ).toBe('marketHomeTokenList:v1::v24hUSD:desc:20:5000:trending:2');
     expect(
+      swrKeys.marketHomeTokenList({
+        networkId: '',
+        sortBy: 'v24hUSD',
+        sortType: 'desc',
+        pageSize: 20,
+        minLiquidity: 5000,
+        type: 'stocks',
+        category: 'tech',
+        timeFrame: '2',
+      }),
+    ).toBe('marketHomeTokenList:v1::v24hUSD:desc:20:5000:stocks:2:tech');
+    expect(
       swrKeys.swapStockTokenDetail({
         tokenScope: 'evm--1:0xstock',
       }),
