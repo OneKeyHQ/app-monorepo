@@ -31,17 +31,20 @@ export function shouldShowPerpsDepositTokenSkeleton({
   checkAccountSupport,
   hasLoadedDepositTokenBalances,
   depositTokensWithPriceLength,
+  hasDisplayDepositToken,
 }: {
   selectedAction: 'deposit' | 'withdraw';
   checkAccountSupport: boolean;
   hasLoadedDepositTokenBalances: boolean;
   depositTokensWithPriceLength: number;
+  hasDisplayDepositToken: boolean;
 }) {
   return (
     selectedAction === 'deposit' &&
     checkAccountSupport &&
     !hasLoadedDepositTokenBalances &&
-    depositTokensWithPriceLength === 0
+    depositTokensWithPriceLength === 0 &&
+    !hasDisplayDepositToken
   );
 }
 

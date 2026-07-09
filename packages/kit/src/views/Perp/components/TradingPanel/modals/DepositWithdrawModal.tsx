@@ -1785,6 +1785,7 @@ function DepositWithdrawContent({
       checkAccountSupport,
       hasLoadedDepositTokenBalances,
       depositTokensWithPriceLength: depositTokensWithPrice.length,
+      hasDisplayDepositToken: Boolean(resolvedCurrentPerpsDepositSelectedToken),
     });
     if (shouldShowTokenSkeleton) {
       return (

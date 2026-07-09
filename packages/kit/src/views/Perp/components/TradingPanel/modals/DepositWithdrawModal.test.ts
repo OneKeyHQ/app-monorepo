@@ -120,6 +120,7 @@ describe('shouldShowPerpsDepositTokenSkeleton', () => {
         checkAccountSupport: true,
         hasLoadedDepositTokenBalances: false,
         depositTokensWithPriceLength: 0,
+        hasDisplayDepositToken: false,
       }),
     ).toBe(true);
   });
@@ -131,6 +132,19 @@ describe('shouldShowPerpsDepositTokenSkeleton', () => {
         checkAccountSupport: true,
         hasLoadedDepositTokenBalances: false,
         depositTokensWithPriceLength: 1,
+        hasDisplayDepositToken: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not show skeleton when a selected token can already be rendered', () => {
+    expect(
+      shouldShowPerpsDepositTokenSkeleton({
+        selectedAction: 'deposit',
+        checkAccountSupport: true,
+        hasLoadedDepositTokenBalances: false,
+        depositTokensWithPriceLength: 0,
+        hasDisplayDepositToken: true,
       }),
     ).toBe(false);
   });
@@ -142,6 +156,7 @@ describe('shouldShowPerpsDepositTokenSkeleton', () => {
         checkAccountSupport: true,
         hasLoadedDepositTokenBalances: false,
         depositTokensWithPriceLength: 0,
+        hasDisplayDepositToken: false,
       }),
     ).toBe(false);
     expect(
@@ -150,6 +165,7 @@ describe('shouldShowPerpsDepositTokenSkeleton', () => {
         checkAccountSupport: false,
         hasLoadedDepositTokenBalances: false,
         depositTokensWithPriceLength: 0,
+        hasDisplayDepositToken: false,
       }),
     ).toBe(false);
   });
