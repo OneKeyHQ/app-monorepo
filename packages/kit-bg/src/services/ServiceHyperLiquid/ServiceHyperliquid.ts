@@ -144,6 +144,7 @@ import {
   spotTokenFavoritesPersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
+import { resolvePerpsDepositSelectedToken } from '../ServiceWebviewPerp/utils/depositTokenListUtils';
 
 import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import hyperLiquidCache from './hyperLiquidCache';
@@ -152,6 +153,7 @@ import {
   invalidateUserAbstractionRawCache,
 } from './userAbstractionCache';
 import { shouldPreserveConfirmedUserAbstractionMode } from './userAbstractionMode';
+import { buildDepositConfigFromTokensByNetwork } from './utils/depositConfigUtils';
 
 import type ServiceHyperliquidCache from './ServiceHyperliquidCache';
 import type { IPerpsActiveAssetCtxSnapshotCacheHydration } from './ServiceHyperliquidCache';
@@ -182,6 +184,7 @@ import type { IHyperliquidMaxBuilderFee } from '../ServiceWebviewPerp';
 import type {
   IPerpServerConfigResponse,
   IPerpServerDepositConfig,
+  IPerpServerDepositTokensByNetworkConfig,
 } from '../ServiceWebviewPerp/ServiceWebviewPerp';
 
 type ILoadTradesHistoryOptions = {
@@ -599,12 +602,51 @@ export default class ServiceHyperliquid extends ServiceBase {
       });
   }
 
-  async parseDepositConfig(depositConfig?: IPerpServerDepositConfig[]) {
-    if (isNil(depositConfig)) {
+  async parseDepositConfig({
+    depositTokenConfig,
+    depositTokensByNetwork,
+  }: {
+    depositTokenConfig?: IPerpServerDepositConfig[];
+    depositTokensByNetwork?: IPerpServerDepositTokensByNetworkConfig;
+  }) {
+    if (!isNil(depositTokensByNetwork)) {
+      const { networks, tokensMap, defaultTokens } =
+        await buildDepositConfigFromTokensByNetwork({
+          tokensByNetwork: depositTokensByNetwork,
+          getNetworkSafe: ({ networkId }) =>
+            this.backgroundApi.serviceNetwork.getNetworkSafe({ networkId }),
+        });
+
+      await perpsDepositNetworksAtom.set((prev): IPerpsDepositNetworksAtom => {
+        return {
+          ...prev,
+          networks,
+        };
+      });
+      await perpsDepositTokensAtom.set((prev): IPerpsDepositTokensAtom => {
+        const tokens = Object.values(tokensMap).flat();
+        const selectedToken = resolvePerpsDepositSelectedToken({
+          tokens,
+          currentToken: prev.currentPerpsDepositSelectedToken,
+          defaultTokens,
+        });
+        return {
+          ...prev,
+          tokens: tokensMap,
+          defaultTokens,
+          currentPerpsDepositSelectedToken: selectedToken,
+          depositTokenListSource: 'serverConfig',
+        };
+      });
       return;
     }
-    const networks = depositConfig.map((item) => item.network);
-    const tokens = depositConfig.flatMap((item) => item.tokens);
+
+    if (isNil(depositTokenConfig)) {
+      return;
+    }
+    const networks = depositTokenConfig.map((item) => item.network);
+    const tokens = depositTokenConfig.flatMap((item) => item.tokens);
+    const defaultTokens = tokens.filter((token) => token.isDefault);
     await perpsDepositNetworksAtom.set((prev): IPerpsDepositNetworksAtom => {
       return {
         ...prev,
@@ -619,9 +661,16 @@ export default class ServiceHyperliquid extends ServiceBase {
       tokensMap[network.networkId] = networkTokens;
     });
     await perpsDepositTokensAtom.set((prev): IPerpsDepositTokensAtom => {
+      const selectedToken = resolvePerpsDepositSelectedToken({
+        tokens,
+        currentToken: prev.currentPerpsDepositSelectedToken,
+        defaultTokens,
+      });
       return {
         ...prev,
         tokens: tokensMap,
+        defaultTokens,
+        currentPerpsDepositSelectedToken: selectedToken,
         depositTokenListSource: 'serverConfig',
       };
     });
@@ -637,6 +686,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       commonConfig,
       bannerConfig,
       depositTokenConfig,
+      depositTokensByNetwork,
       hyperLiquidErrorLocales,
       tokenSearchAliases,
       tokenSelectorTabs,
@@ -699,7 +749,10 @@ export default class ServiceHyperliquid extends ServiceBase {
         return newVal;
       },
     );
-    await this.parseDepositConfig(depositTokenConfig);
+    await this.parseDepositConfig({
+      depositTokenConfig,
+      depositTokensByNetwork,
+    });
     await this.backgroundApi.simpleDb.perp.setPerpData(
       (prev): ISimpleDbPerpData => {
         const newConfig: ISimpleDbPerpData = {
@@ -792,6 +845,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         commonConfig: resData?.data?.commonConfig ?? {},
         bannerConfig: resData?.data?.bannerConfig,
         depositTokenConfig: resData?.data?.depositTokenConfig,
+        depositTokensByNetwork: resData?.data?.depositTokensByNetwork,
         hyperLiquidErrorLocales: resData?.data?.hyperLiquidErrorLocales,
         tokenSearchAliases: resData?.data?.tokenSearchAliases,
         tokenSelectorTabs: resData?.data?.tokenSelectorTabs,
