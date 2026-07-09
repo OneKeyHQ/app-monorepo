@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Divider,
-  NumberSizeableText,
   SizableText,
   Spinner,
   Stack,
@@ -18,13 +17,14 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
-import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   ESwapProJumpTokenDirection,
   useSwapProJumpTokenAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -96,7 +96,6 @@ export function SwapPanel({
   const intl = useIntl();
   const media = useMedia();
   const { bottom } = useSafeAreaInsets();
-  const currencyInfo = useCurrency();
   const navigation = useAppNavigation();
   const myPositionInfo = useMemo(() => {
     const positionInfo = portfolioData?.find((item) =>
@@ -112,7 +111,10 @@ export function SwapPanel({
     }
     const tokenPriceBN = new BigNumber(positionInfo?.tokenPrice || '0');
     const amountBN = new BigNumber(positionInfo?.amount || '0');
-    const valueBN = tokenPriceBN.multipliedBy(amountBN);
+    const totalPriceBN = new BigNumber(positionInfo?.totalPrice || NaN);
+    const valueBN = totalPriceBN.isFinite()
+      ? totalPriceBN
+      : tokenPriceBN.multipliedBy(amountBN);
     const isZero = amountBN.eq(0);
     const formattedValue = isZero ? '0.00' : valueBN.toFixed();
     const formattedAmount = isZero ? '0.00' : amountBN.toFixed();
@@ -192,19 +194,21 @@ export function SwapPanel({
               })}
             </SizableText>
             {myPositionInfo.isZero ? (
-              <SizableText size="$bodySmMedium">
-                {currencyInfo.symbol}0.00
-              </SizableText>
-            ) : (
-              <NumberSizeableText
+              <Currency
                 size="$bodySmMedium"
                 formatter="value"
-                formatterOptions={{
-                  currency: currencyInfo.symbol,
-                }}
+                sourceCurrency={USD_CURRENCY_ID}
+              >
+                0.00
+              </Currency>
+            ) : (
+              <Currency
+                size="$bodySmMedium"
+                formatter="value"
+                sourceCurrency={USD_CURRENCY_ID}
               >
                 {myPositionInfo.formattedValue}
-              </NumberSizeableText>
+              </Currency>
             )}
           </XStack>
           {hasPnl ? (
