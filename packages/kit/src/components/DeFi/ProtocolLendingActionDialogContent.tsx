@@ -8,6 +8,7 @@ import {
   ButtonFrame,
   Dialog,
   Icon,
+  Keyboard,
   Popover,
   SizableText,
   Skeleton,
@@ -63,6 +64,7 @@ import {
   type IProtocolPositionActionSuccessParams,
   ProtocolPositionActionAmountInput,
   ProtocolPositionActionAnchor,
+  ProtocolPositionActionKeyboardDismissFooter,
   clampAmountDecimals,
   getActionLabel,
   getErrorMessage,
@@ -718,6 +720,7 @@ function ProtocolLendingActionDefiContent({
       return;
     }
     setSubmitError(undefined);
+    await Keyboard.dismissWithDelay(80);
     // Keep the dialog open while the server builds the tx (button shows
     // loading); close it right before any signing/tx-confirm modal opens so the
     // old dialog doesn't stack above the confirm page.
@@ -838,6 +841,7 @@ function ProtocolLendingActionDefiContent({
           disabled: isConfirmDisabled,
           loading: isRepayWalletBalancePending,
         }}
+        extraContent={<ProtocolPositionActionKeyboardDismissFooter />}
       />
     </YStack>
   );
@@ -1349,6 +1353,7 @@ function ProtocolLendingActionBorrowContent({
     setSubmitting(true);
     setSubmitError(undefined);
     try {
+      await Keyboard.dismissWithDelay(80);
       if (needsApproval) {
         await onApprove();
         return;
@@ -1640,6 +1645,7 @@ function ProtocolLendingActionBorrowContent({
             isBorrowDataLoading ||
             isRepayWalletBalancePending,
         }}
+        extraContent={<ProtocolPositionActionKeyboardDismissFooter />}
       />
     </YStack>
   );

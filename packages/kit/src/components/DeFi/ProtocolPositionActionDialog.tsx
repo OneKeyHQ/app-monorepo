@@ -9,10 +9,12 @@ import {
   Checkbox,
   Dialog,
   Input,
+  Keyboard,
   SizableText,
   Stack,
   XStack,
   YStack,
+  useIsKeyboardShown,
 } from '@onekeyhq/components';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -87,6 +89,32 @@ const resolveActionTxAmount = resolveDeFiActionTxAmount as (params: {
   amount?: string;
   isMaxAmount?: boolean;
 }) => { amount?: string; bps?: string };
+
+export function ProtocolPositionActionKeyboardDismissFooter() {
+  const intl = useIntl();
+  const isKeyboardShown = useIsKeyboardShown();
+
+  if (!platformEnv.isNativeIOS || !isKeyboardShown) return null;
+
+  return (
+    <XStack
+      p="$2.5"
+      px="$5"
+      justifyContent="flex-end"
+      bg="$bgSubdued"
+      borderTopWidth="$px"
+      borderTopColor="$borderSubduedLight"
+    >
+      <Button
+        variant="tertiary"
+        testID="defi-action-keyboard-done-btn"
+        onPress={Keyboard.dismiss}
+      >
+        {intl.formatMessage({ id: ETranslations.global_done })}
+      </Button>
+    </XStack>
+  );
+}
 
 function normalizeActionPercent(percent?: number) {
   if (!Number.isFinite(percent)) return DEFAULT_ACTION_PERCENT;
@@ -1878,6 +1906,7 @@ function ProtocolPositionActionDialogContent({
     }
 
     setSubmitError(undefined);
+    await Keyboard.dismissWithDelay(80);
     // Keep the action dialog open while the server builds the transaction so
     // the button can show loading. Close it immediately before opening any
     // signing/tx-confirm modal, otherwise the old dialog stays stacked above
@@ -2106,6 +2135,7 @@ function ProtocolPositionActionDialogContent({
           disabled: isConfirmDisabled,
           loading: isRepayWalletBalancePending,
         }}
+        extraContent={<ProtocolPositionActionKeyboardDismissFooter />}
       />
     </YStack>
   );
