@@ -191,16 +191,16 @@ describe('stocks / perps universal links', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
-  it.each([
-    'https://swap.onekey.so/',
-    'https://swap.onekeytest.com/any/path',
-  ])('routes swap universal link to the Swap tab home: %s', async (url) => {
-    handleDeepLinkUrl({ url });
-    await flushAsyncTasks();
+  it.each(['https://swap.onekey.so/', 'https://swap.onekeytest.com/any/path'])(
+    'routes swap universal link to the Swap tab home: %s',
+    async (url) => {
+      handleDeepLinkUrl({ url });
+      await flushAsyncTasks();
 
-    expect(switchTab).toHaveBeenCalledWith(ETabRoutes.Swap);
-    expect(navigate).not.toHaveBeenCalled();
-  });
+      expect(switchTab).toHaveBeenCalledWith(ETabRoutes.Swap);
+      expect(navigate).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     'https://app.onekey.so/market',
