@@ -51,11 +51,6 @@ const URL_PAYLOAD_MODES = new Set<number>([
   ENotificationPushMessageMode.openInDapp,
 ]);
 
-// Cap the visible features. The UI / spec is designed for 1-3; an oversized
-// list would flood the indicator and leave force-update users stuck in an
-// unwieldy blocker.
-const MAX_FEATURED_ITEMS = 3;
-
 function optionalTrimmedString(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
@@ -157,8 +152,7 @@ export function normalizeFeaturedChangelog(
 
   const features = src.features
     .map((f) => normalizeFeaturedItem(f))
-    .filter((f): f is IFeaturedItem => f !== undefined)
-    .slice(0, MAX_FEATURED_ITEMS);
+    .filter((f): f is IFeaturedItem => f !== undefined);
 
   if (features.length === 0) return undefined;
 
