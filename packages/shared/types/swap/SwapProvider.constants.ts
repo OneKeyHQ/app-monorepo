@@ -792,8 +792,8 @@ export const swapDefaultSetTokens: Record<
     fromToken: {
       'networkId': 'ton--mainnet',
       'contractAddress': '',
-      'name': 'Toncoin',
-      'symbol': 'TON',
+      'name': 'Gram',
+      'symbol': 'GRAM',
       'decimals': 9,
       'logoURI':
         'https://uni.onekey-asset.com/server-service-onchain/ton--mainnet/tokens/native.png',
