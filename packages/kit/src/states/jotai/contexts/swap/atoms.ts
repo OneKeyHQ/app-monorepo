@@ -384,6 +384,7 @@ export const {
   const swapTypeSwitch = get(swapTypeSwitchAtom());
   const selectionIntent = get(swapManualSelectQuoteProvidersAtom());
   const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
+  const quoteEventCompleted = get(swapQuoteEventCompletedAtom());
   const currentEventProviderKeys = get(swapQuoteCurrentEventProviderKeysAtom());
   const recommendedSortedList = sortSwapQuotes(list, {
     sort: ESwapProviderSort.RECOMMENDED,
@@ -404,6 +405,9 @@ export const {
     selectionIntent: selectionIntent ?? undefined,
     quoteEventTotalCount,
     currentEventProviderKeys,
+    quoteEventCompleted,
+    deferNonActionableQuoteUntilEventSettled:
+      swapTypeSwitch === ESwapTabSwitchType.STOCK,
   });
 });
 

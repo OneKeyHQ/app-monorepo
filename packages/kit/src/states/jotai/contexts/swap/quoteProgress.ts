@@ -62,6 +62,8 @@ type ISwapCurrentQuoteInput = {
   selectionIntent?: ISwapQuoteSelectionIntent;
   quoteEventTotalCount: ISwapQuoteEventTotalCount;
   currentEventProviderKeys: string[];
+  quoteEventCompleted?: boolean;
+  deferNonActionableQuoteUntilEventSettled?: boolean;
 };
 
 type ISwapPreviousQuoteInput = {
@@ -244,7 +246,18 @@ export function selectSwapCurrentQuote({
   selectionIntent,
   quoteEventTotalCount,
   currentEventProviderKeys,
+  quoteEventCompleted = false,
+  deferNonActionableQuoteUntilEventSettled = false,
 }: ISwapCurrentQuoteInput) {
+  const actionableQuotes = currentEventSortedQuotes.filter(
+    isSwapQuoteActionable,
+  );
+  const shouldDeferNonActionableQuote =
+    deferNonActionableQuoteUntilEventSettled &&
+    !quoteEventCompleted &&
+    quoteEventTotalCount.count > currentEventProviderKeys.length &&
+    actionableQuotes.length === 0;
+
   if (selectionIntent?.type === 'manual-provider') {
     const manualQuote = currentEventSortedQuotes.find(
       (quote) =>
@@ -261,8 +274,8 @@ export function selectSwapCurrentQuote({
       return (
         selectBestQuote(
           // eslint-disable-next-line @typescript-eslint/no-use-before-define
-          currentEventSortedQuotes.filter(isSwapQuoteActionable),
-        ) ?? manualQuote
+          actionableQuotes,
+        ) ?? (shouldDeferNonActionableQuote ? undefined : manualQuote)
       );
     }
 
@@ -272,6 +285,10 @@ export function selectSwapCurrentQuote({
     ) {
       return undefined;
     }
+  }
+
+  if (shouldDeferNonActionableQuote) {
+    return undefined;
   }
 
   return selectBestQuote(currentEventSortedQuotes);
