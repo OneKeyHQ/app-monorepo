@@ -489,23 +489,63 @@ export interface IMarketBasicConfigData {
   homeTab?: IMarketBasicConfigHomeTab[];
   perpsCategories?: IMarketPerpsCategory[];
   spotCategories?: IMarketSpotCategory[];
+  stockCategories?: IMarketStockCategory[];
 }
+
+export type IMarketBasicConfigHomeTabType =
+  | 'watchlist'
+  | 'trending'
+  | 'stocks'
+  | (string & {});
 
 export interface IMarketBasicConfigHomeTab {
-  type: string;
+  type: IMarketBasicConfigHomeTabType;
   name: string;
   icon?: string;
 }
+
+export type IMarketSpotCategoryType = 'trending' | 'stocks' | (string & {});
 
 export interface IMarketSpotCategory {
-  type: string;
+  type: IMarketSpotCategoryType;
   name: string;
   icon?: string;
 }
 
+export type IMarketStockCategoryId =
+  | 'all'
+  | 'cons-tech'
+  | 'ai-chip'
+  | 'index'
+  | 'crypto'
+  | 'bio'
+  | 'energy'
+  | 'aero-def'
+  | 'materials'
+  | 'cn'
+  | (string & {});
+
+export interface IMarketStockCategory {
+  category: IMarketStockCategoryId;
+  name: string;
+  tokenCount: number;
+}
+
+export type IMarketPerpsCategoryId =
+  | 'hot'
+  | 'newList'
+  | 'crypto'
+  | 'stocks'
+  | 'metals'
+  | 'indices'
+  | 'commodities'
+  | 'pre-ipo'
+  | 'forex'
+  | (string & {});
+
 export interface IMarketPerpsCategory {
-  /** Unique category identifier, e.g. "crypto", "stock", "commodity" */
-  categoryId: string;
+  /** Unique category identifier from market basic config. */
+  categoryId: IMarketPerpsCategoryId;
   /** Localized display name, e.g. "Crypto", "Stocks" */
   name: string;
 }
