@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   IconButton,
+  PROPORTIONAL_NUMS,
   Skeleton,
   XStack,
   YStack,
@@ -951,6 +952,9 @@ function HomeOverviewContainer() {
                 fontSize={48}
                 lineHeight={48}
                 fontWeight={500}
+                // Large hero balance reads better with the font's natural
+                // proportional figures than equal-width tabular ones.
+                fontVariant={PROPORTIONAL_NUMS}
                 {...numberFormatter}
               >
                 {renderedBalanceStringDisplay ?? '0'}

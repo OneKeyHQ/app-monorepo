@@ -1460,12 +1460,7 @@ const PerpTickerChangeLeaf = memo(
 
     if (!hasChange24hPercent) {
       return (
-        <SizableText
-          fontSize={10}
-          fontFamily="$monoRegular"
-          color="$textSubdued"
-          alignSelf="center"
-        >
+        <SizableText fontSize={10} color="$textSubdued" alignSelf="center">
           --
         </SizableText>
       );
@@ -1473,8 +1468,6 @@ const PerpTickerChangeLeaf = memo(
     return (
       <NumberSizeableText
         style={{ fontSize: 10 }}
-        fontFamily="$monoRegular"
-        fontVariant={['tabular-nums']}
         alignSelf="center"
         color={change24hPercent < 0 ? '$red11' : '$green11'}
         formatter="priceChange"

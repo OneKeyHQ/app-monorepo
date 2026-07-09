@@ -76,7 +76,6 @@ import {
 // Page.Container is now layout="full" so the scroll container fills the
 // viewport, and visual max-width is enforced one level down per content block.
 const DEFI_CONTAINER_CONTENT_MAX_WIDTH = 1140;
-const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 const PROTOCOL_NAV_PENDING_TARGET_TIMEOUT_MS = 5000;
 
 function scrollToAnchor(
@@ -710,11 +709,7 @@ function DeFiContainer() {
                 // approximate a typical "$XX,XXX.XX" measurement.
                 <Skeleton.HeadingXl w={120} />
               ) : (
-                <SizableText
-                  size="$headingXl"
-                  color="$textSubdued"
-                  fontVariant={TABULAR_NUMS}
-                >
+                <SizableText size="$headingXl" color="$textSubdued">
                   {formatPortfolioTotal(
                     portfolioStats.total,
                     currencySymbol,

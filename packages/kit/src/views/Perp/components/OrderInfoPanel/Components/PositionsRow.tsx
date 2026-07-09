@@ -24,7 +24,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  formatLocalizedNumberString,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getValidPriceDecimals,
   parseDexCoin,
@@ -100,7 +103,9 @@ function MarkPrice({ coin }: { coin: string }) {
     () => (
       <DebugRenderTracker position="bottom-right" name="MarkPrice" offsetY={10}>
         <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-          {midFormattedByDecimals}
+          {midFormattedByDecimals
+            ? formatLocalizedNumberString(midFormattedByDecimals)
+            : midFormattedByDecimals}
         </SizableText>
       </DebugRenderTracker>
     ),
@@ -249,7 +254,9 @@ const PositionRowDesktopMarkPrice = memo(
           offsetY={10}
         >
           <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-            {midFormattedByDecimals}
+            {midFormattedByDecimals
+              ? formatLocalizedNumberString(midFormattedByDecimals)
+              : midFormattedByDecimals}
           </SizableText>
         </DebugRenderTracker>
       </XStack>
@@ -507,7 +514,12 @@ const PositionRowDesktopTPSL = memo(
         showOrder = true;
       }
 
-      return { tpsl: `${tpPrice}/${slPrice}`, showOrder };
+      return {
+        tpsl: `${formatLocalizedNumberString(
+          tpPrice,
+        )}/${formatLocalizedNumberString(slPrice)}`,
+        showOrder,
+      };
     }, [currentAssetOpenOrders]);
 
     return (
@@ -1088,7 +1100,11 @@ const PositionRowMobileTPSL = memo(({ coin }: { coin: string }) => {
       }
     });
 
-    return { tpsl: `${tpPrice}/${slPrice}` };
+    return {
+      tpsl: `${formatLocalizedNumberString(
+        tpPrice,
+      )}/${formatLocalizedNumberString(slPrice)}`,
+    };
   }, [currentAssetOpenOrders]);
 
   return (
@@ -1121,7 +1137,7 @@ const PositionRowMobileMarkPrice = memo(({ coin }: { coin: string }) => {
         })}
       </SizableText>
       <SizableText size="$bodySmMedium" numberOfLines={1}>
-        {midFormattedByDecimals || '--'}
+        {formatLocalizedNumberString(midFormattedByDecimals || '--')}
       </SizableText>
     </YStack>
   );
@@ -1364,10 +1380,10 @@ const PositionRow = memo(
       const entryPrice = new BigNumber(pos.entryPx || '0').toFixed(decimals);
 
       const liquidationPrice = new BigNumber(pos.liquidationPx || '0');
-      const entryPriceFormatted = entryPrice;
-      const liquidationPriceFormatted = liquidationPrice.isZero()
-        ? 'N/A'
-        : liquidationPrice.toFixed(decimals);
+      const entryPriceFormatted = formatLocalizedNumberString(entryPrice);
+      const liquidationPriceFormatted = formatLocalizedNumberString(
+        liquidationPrice.isZero() ? 'N/A' : liquidationPrice.toFixed(decimals),
+      );
 
       return {
         entryPriceFormatted,

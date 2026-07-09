@@ -24,8 +24,6 @@ import {
 // The Supplied segment uses "Positions" in the first header cell to align with
 // the unified table; Borrowed and Rewards keep their semantic labels.
 
-const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
-
 type IProtocolSectionedPositionTableProps = {
   position: ILocalizedProtocolPositionItem;
   currencySymbol: string;
@@ -146,7 +144,6 @@ const ProtocolSectionedPositionTable = memo(
                     size="$bodyMdMedium"
                     textAlign="right"
                     numberOfLines={1}
-                    fontVariant={TABULAR_NUMS}
                   />
                 </Stack>
               </XStack>

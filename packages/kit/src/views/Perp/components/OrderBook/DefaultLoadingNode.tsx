@@ -32,22 +32,10 @@ function MobileVerticalEmptyRow({
       alignItems="center"
       justifyContent="space-between"
     >
-      <SizableText
-        fontSize={11}
-        lineHeight={14}
-        fontFamily="$monoRegular"
-        fontVariant={['tabular-nums']}
-        color={priceColor}
-      >
+      <SizableText fontSize={11} lineHeight={14} color={priceColor}>
         --
       </SizableText>
-      <SizableText
-        fontSize={11}
-        lineHeight={14}
-        fontFamily="$monoRegular"
-        fontVariant={['tabular-nums']}
-        color="$textSubdued"
-      >
+      <SizableText fontSize={11} lineHeight={14} color="$textSubdued">
         --
       </SizableText>
     </XStack>
@@ -58,42 +46,18 @@ function MobileHorizontalEmptyRow() {
   return (
     <XStack h={MOBILE_HORIZONTAL_ROW_HEIGHT} gap="$1" alignItems="center">
       <XStack flex={1} px="$1" justifyContent="space-between">
-        <SizableText
-          fontSize={12}
-          lineHeight={16}
-          fontFamily="$monoRegular"
-          fontVariant={['tabular-nums']}
-          color="$textSubdued"
-        >
+        <SizableText fontSize={12} lineHeight={16} color="$textSubdued">
           --
         </SizableText>
-        <SizableText
-          fontSize={12}
-          lineHeight={16}
-          fontFamily="$monoRegular"
-          fontVariant={['tabular-nums']}
-          color="$green11"
-        >
+        <SizableText fontSize={12} lineHeight={16} color="$green11">
           --
         </SizableText>
       </XStack>
       <XStack flex={1} px="$1" justifyContent="space-between">
-        <SizableText
-          fontSize={12}
-          lineHeight={16}
-          fontFamily="$monoRegular"
-          fontVariant={['tabular-nums']}
-          color="$red11"
-        >
+        <SizableText fontSize={12} lineHeight={16} color="$red11">
           --
         </SizableText>
-        <SizableText
-          fontSize={12}
-          lineHeight={16}
-          fontFamily="$monoRegular"
-          fontVariant={['tabular-nums']}
-          color="$textSubdued"
-        >
+        <SizableText fontSize={12} lineHeight={16} color="$textSubdued">
           --
         </SizableText>
       </XStack>
@@ -200,19 +164,11 @@ export function DefaultLoadingNode({
               fontSize={20}
               lineHeight={24}
               fontWeight="600"
-              fontFamily="$monoRegular"
-              fontVariant={['tabular-nums']}
               color="$text"
             >
               {midPriceDisplay}
             </SizableText>
-            <SizableText
-              fontSize={10}
-              lineHeight={14}
-              fontFamily="$monoRegular"
-              fontVariant={['tabular-nums']}
-              color="$textSubdued"
-            >
+            <SizableText fontSize={10} lineHeight={14} color="$textSubdued">
               --
             </SizableText>
           </YStack>

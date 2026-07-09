@@ -11,8 +11,6 @@ import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/a
 
 import { formatPortfolioTotal } from './formatPortfolioTotal';
 
-const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
-
 export type IProtocolHeaderRowProps = {
   name: string;
   logo?: string;
@@ -84,7 +82,6 @@ function ProtocolHeaderRow({
         minWidth={120}
         maxWidth={168}
         color="$text"
-        fontVariant={TABULAR_NUMS}
       >
         {formattedNetWorth}
       </SizableText>
