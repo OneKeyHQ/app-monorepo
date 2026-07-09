@@ -322,7 +322,11 @@ export function useUniversalBorrowRepayWithCollateral({
           | undefined;
 
         if (!collateralReserveAddress) {
-          throw new OneKeyLocalError('collateralReserveAddress is required');
+          throw new OneKeyLocalError(
+            intl.formatMessage({
+              id: ETranslations.borrow_repay_with_collateral_unavailable__msg,
+            }),
+          );
         }
 
         if (needsSetupLut) {

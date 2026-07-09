@@ -26,6 +26,7 @@ interface IPreSwapConfirmResultProps {
   fromToken?: ISwapToken;
   supportUrl?: string;
   onConfirm?: () => void;
+  confirmButtonTextId?: ETranslations;
 }
 
 const PreSwapConfirmResult = ({
@@ -33,6 +34,7 @@ const PreSwapConfirmResult = ({
   fromToken,
   supportUrl,
   onConfirm,
+  confirmButtonTextId,
 }: IPreSwapConfirmResultProps) => {
   const [explorerUrl, setExplorerUrl] = useState<string>('');
   const intl = useIntl();
@@ -175,9 +177,10 @@ const PreSwapConfirmResult = ({
         >
           {intl.formatMessage({
             id:
-              lastStep.status === ESwapStepStatus.FAILED
+              confirmButtonTextId ??
+              (lastStep.status === ESwapStepStatus.FAILED
                 ? ETranslations.global_retry
-                : ETranslations.global_done,
+                : ETranslations.global_done),
           })}
         </Button>
       </XStack>

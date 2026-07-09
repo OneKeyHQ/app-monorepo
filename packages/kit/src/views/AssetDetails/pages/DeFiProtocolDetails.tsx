@@ -200,24 +200,28 @@ function DeFiProtocolDetails() {
         >
           <XStack alignItems="center" gap="$3" flex={1} minWidth={0}>
             <Token
-              size="xl"
+              size="lg"
               tokenImageUri={protocolDisplayInfo.protocolLogo}
               showNetworkIcon
               networkId={protocol.networkId}
             />
             <YStack flex={1} minWidth={0}>
-              <SizableText size="$heading2xl" numberOfLines={1}>
-                {protocolDisplayInfo.protocolName}
-              </SizableText>
               <NumberSizeableTextWrapper
                 hideValue
-                size="$bodyLgMedium"
+                size="$headingXl"
                 formatter="value"
                 formatterOptions={{ currency: settings.currencyInfo.symbol }}
-                color="$textSubdued"
+                color="$text"
               >
                 {protocolDisplayInfo.netWorth}
               </NumberSizeableTextWrapper>
+              <SizableText
+                size="$bodyMdMedium"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {protocolDisplayInfo.protocolName}
+              </SizableText>
             </YStack>
           </XStack>
           {protocolDisplayInfo.protocolUrl ? (

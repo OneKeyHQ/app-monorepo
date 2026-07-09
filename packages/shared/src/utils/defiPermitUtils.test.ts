@@ -169,6 +169,19 @@ describe('defiPermitUtils.validateLidoWithdrawPermitTypedData', () => {
     ).toThrow('Invalid DeFi permit verifyingContract');
   });
 
+  it('rejects unexpected permit domain verifyingContract', () => {
+    expect(() =>
+      defiPermitUtils.validateLidoWithdrawPermitTypedData({
+        message: buildLidoPermitTypedData({
+          verifyingContract: EthereumStETHWithdrawalQueue,
+        }),
+        accountAddress,
+        networkId: getNetworkIdsMap().eth,
+        selectedAsset: { tokenAddress: '' },
+      }),
+    ).toThrow('Invalid DeFi permit verifyingContract');
+  });
+
   it('validates optional permit token against stETH when selected asset tokenAddress is empty', () => {
     expect(() =>
       defiPermitUtils.validateLidoWithdrawPermitTypedData({
@@ -205,5 +218,26 @@ describe('defiPermitUtils.validateLidoWithdrawPermitTypedData', () => {
         selectedAsset: { tokenAddress: '' },
       }),
     ).toThrow('Invalid DeFi permit token');
+  });
+
+  it('classifies local permit validation errors', () => {
+    let thrownError: unknown;
+    try {
+      defiPermitUtils.validateLidoWithdrawPermitTypedData({
+        message: buildLidoPermitTypedData({
+          verifyingContract: EthereumStETHWithdrawalQueue,
+        }),
+        accountAddress,
+        networkId: getNetworkIdsMap().eth,
+        selectedAsset: { tokenAddress: '' },
+      });
+    } catch (error) {
+      thrownError = error;
+    }
+
+    expect(defiPermitUtils.isDeFiPermitValidationError(thrownError)).toBe(true);
+    expect(
+      defiPermitUtils.isDeFiPermitValidationError(new Error('other')),
+    ).toBe(false);
   });
 });

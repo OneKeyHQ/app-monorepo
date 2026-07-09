@@ -2,12 +2,20 @@ import { useCallback } from 'react';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { showDeFiActionTxConfirmDialog } from '@onekeyhq/kit/src/components/DeFi/DeFiActionTxConfirmResult';
+import {
+  type IDeFiActionTxConfirmDialogResult,
+  showDeFiActionTxConfirmDialog,
+} from '@onekeyhq/kit/src/components/DeFi/DeFiActionTxConfirmResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import { EEarnLabels, type IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
+
+export type IBorrowSettleResult = {
+  status: IDeFiActionTxConfirmDialogResult;
+  data: ISendTxOnSuccessData[];
+};
 
 export type IBorrowBuildTxParams = {
   amount: string;
@@ -22,9 +30,21 @@ export type IBorrowBuildTxParams = {
   routeKey?: string;
   stakingInfo?: IStakingInfo;
   onSetupLutReadyForRepay?: () => void;
+  // Awaited right before navigationToTxConfirm so dialog callers can close
+  // themselves at navigation time instead of before the build request.
   onBeforeNavigate?: () => void | Promise<void>;
+  // Fires after the tx-status observer resolves (Success / Failed / undefined
+  // when the receipt poll exhausts), before the legacy onSuccess. Only the
+  // sheet paths (Withdraw / Repay labels) ever call it. Non-Success statuses
+  // short-circuit onSuccess for dialog callers that own post-action recovery.
+  // Legacy callers without this callback keep the old behavior: only explicit
+  // Failed skips onSuccess.
+  onSettleResult?: (
+    result: IBorrowSettleResult,
+  ) => boolean | void | Promise<boolean | void>;
   onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
   onFail?: IModalSendParamList['SendConfirm']['onFail'];
+  onCancel?: IModalSendParamList['SendConfirm']['onCancel'];
 };
 
 export function parseBorrowEncodedTx(tx: string): IEncodedTx {
@@ -72,6 +92,7 @@ export const handleBorrowSuccess = async ({
   networkId,
   accountId,
   stakingInfo,
+  onSettleResult,
   onSuccess,
 }: {
   data: ISendTxOnSuccessData[];
@@ -79,6 +100,9 @@ export const handleBorrowSuccess = async ({
   networkId: string;
   accountId?: string;
   stakingInfo?: IStakingInfo;
+  onSettleResult?: (
+    result: IBorrowSettleResult,
+  ) => boolean | void | Promise<boolean | void>;
   onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
 }) => {
   const latestTxId =
@@ -110,7 +134,18 @@ export const handleBorrowSuccess = async ({
       networkId,
       data,
     });
-    if (finalStatus === EOnChainHistoryTxStatus.Failed) {
+    if (onSettleResult) {
+      const shouldContinueSuccess = await onSettleResult({
+        status: finalStatus,
+        data,
+      });
+      if (shouldContinueSuccess === false) {
+        return;
+      }
+      if (finalStatus !== EOnChainHistoryTxStatus.Success) {
+        return;
+      }
+    } else if (finalStatus === EOnChainHistoryTxStatus.Failed) {
       return;
     }
   }
@@ -138,8 +173,10 @@ export function useUniversalBorrowWithdraw({
       withdrawAll,
       stakingInfo,
       onBeforeNavigate,
+      onSettleResult,
       onSuccess,
       onFail,
+      onCancel,
     }: IBorrowBuildTxParams) => {
       const resp =
         await backgroundApiProxy.serviceStaking.borrowBuildWithdrawTransaction({
@@ -169,10 +206,12 @@ export function useUniversalBorrowWithdraw({
             networkId,
             accountId,
             stakingInfo: stakingInfoWithOrderId,
+            onSettleResult,
             onSuccess,
           });
         },
         onFail,
+        onCancel,
       });
     },
     [accountId, networkId, navigationToTxConfirm],
@@ -200,8 +239,10 @@ export function useUniversalBorrowRepay({
       repayAll,
       stakingInfo,
       onBeforeNavigate,
+      onSettleResult,
       onSuccess,
       onFail,
+      onCancel,
     }: IBorrowBuildTxParams) => {
       const resp =
         await backgroundApiProxy.serviceStaking.borrowBuildRepayTransaction({
@@ -231,10 +272,12 @@ export function useUniversalBorrowRepay({
             networkId,
             accountId,
             stakingInfo: stakingInfoWithOrderId,
+            onSettleResult,
             onSuccess,
           });
         },
         onFail,
+        onCancel,
       });
     },
     [accountId, networkId, navigationToTxConfirm],

@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { useInPageDialog } from '@onekeyhq/components';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
@@ -48,8 +49,14 @@ import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
-import { showDeFiActionTxConfirmDialog } from './DeFiActionTxConfirmResult';
-import { resolveProtocolLendingDefiFillableAmountState } from './protocolLendingActionUtils';
+import {
+  type IDeFiActionTxConfirmDialogResult,
+  showDeFiActionTxConfirmDialog,
+} from './DeFiActionTxConfirmResult';
+import {
+  resolvePostActionNavigation,
+  resolveProtocolLendingDefiFillableAmountState,
+} from './protocolLendingActionUtils';
 import {
   ProtocolValueCell,
   isProtocolAssetValueUnavailable,
@@ -754,6 +761,15 @@ type IProtocolPositionActionSubmitParams = {
   // thrown after it has already closed (e.g. tx-confirm init failures).
   isErrorToastSuppressed?: () => boolean;
   onBeforeNavigateConfirm?: () => void | Promise<void>;
+  // Fires after the tx-status observer resolves (Success / Failed / undefined
+  // when the receipt poll exhausts), before the hook-level onSuccess refresh.
+  // Dialog callers use it to run the post-action navigation rule.
+  onSettleResult?: (result: {
+    status: IDeFiActionTxConfirmDialogResult;
+    data: ISendTxOnSuccessData[];
+  }) => boolean | void | Promise<boolean | void>;
+  onConfirmFail?: (error: Error) => void;
+  onConfirmCancel?: () => void;
 };
 
 function buildDeFiActionExtraParams({
@@ -818,9 +834,16 @@ function useProtocolPositionActionSubmit({
       hasRewards,
       isErrorToastSuppressed,
       onBeforeNavigateConfirm,
+      onSettleResult,
+      onConfirmFail,
+      onConfirmCancel,
     }: IProtocolPositionActionSubmitParams) => {
       if (selectedAssets.length === 0) {
-        throw new OneKeyLocalError('DeFi action asset is missing');
+        throw new OneKeyLocalError(
+          intl.formatMessage({
+            id: ETranslations.defi_action_unavailable__msg,
+          }),
+        );
       }
 
       // The wire action for build-transaction; `action.action` keeps the
@@ -839,7 +862,11 @@ function useProtocolPositionActionSubmit({
         isMaxAmount,
       });
       if (percentageAction && !amountForApi && !bps) {
-        throw new OneKeyLocalError('Invalid DeFi action amount');
+        throw new OneKeyLocalError(
+          intl.formatMessage({
+            id: ETranslations.defi_action_invalid_amount__msg,
+          }),
+        );
       }
 
       // Lido withdraw goes through the permit two-step flow, and its build API
@@ -886,18 +913,36 @@ function useProtocolPositionActionSubmit({
 
           if (isLidoWithdraw) {
             if (!resp.permit) {
-              throw new OneKeyLocalError('DeFi permit response is missing');
+              throw new OneKeyLocalError(
+                intl.formatMessage({
+                  id: ETranslations.defi_action_unavailable__msg,
+                }),
+              );
             }
             const account = await backgroundApiProxy.serviceAccount.getAccount({
               accountId,
               networkId,
             });
-            defiPermitUtils.validateLidoWithdrawPermitTypedData({
-              message: resp.permit.message,
-              accountAddress: account.address,
-              networkId,
-              selectedAsset,
-            });
+            try {
+              defiPermitUtils.validateLidoWithdrawPermitTypedData({
+                message: resp.permit.message,
+                accountAddress: account.address,
+                networkId,
+                selectedAsset,
+              });
+            } catch (error) {
+              if (defiPermitUtils.isDeFiPermitValidationError(error)) {
+                defaultLogger.staking.page.permitSignError({
+                  error: getErrorMessage(error),
+                });
+                throw new OneKeyLocalError(
+                  intl.formatMessage({
+                    id: ETranslations.defi_action_unavailable__msg,
+                  }),
+                );
+              }
+              throw error;
+            }
             const unsignedMessage =
               typeof resp.permit.message === 'string'
                 ? resp.permit.message
@@ -930,7 +975,11 @@ function useProtocolPositionActionSubmit({
           }
 
           if (!resp.tx) {
-            throw new OneKeyLocalError('DeFi transaction is missing');
+            throw new OneKeyLocalError(
+              intl.formatMessage({
+                id: ETranslations.defi_action_unavailable__msg,
+              }),
+            );
           }
           const orderId = resp.orderId || generateUUID();
 
@@ -997,13 +1046,20 @@ function useProtocolPositionActionSubmit({
                 data,
                 orderIdsByBusinessTxIndex,
               }).catch(logDeFiActionEarnOrderError);
-              // Block on the confirming sheet until the tx settles, then run
+              // Block on the tx-status observer until the tx settles, then run
               // the caller's refresh so the position reflects the result.
               const finalStatus = await showDeFiActionTxConfirmDialog({
                 accountId,
                 networkId,
                 data,
               });
+              const shouldContinueSuccess = await onSettleResult?.({
+                status: finalStatus,
+                data,
+              });
+              if (shouldContinueSuccess === false) {
+                return;
+              }
               if (finalStatus !== EOnChainHistoryTxStatus.Success) {
                 return;
               }
@@ -1013,7 +1069,9 @@ function useProtocolPositionActionSubmit({
               if (isTxConfirmInitializing) {
                 txConfirmInitError = error;
               }
+              onConfirmFail?.(error);
             },
+            onCancel: onConfirmCancel,
           });
         } finally {
           isTxConfirmInitializing = false;
@@ -1471,11 +1529,12 @@ function ProtocolPositionActionAmountInput({
 function ProtocolPositionActionDialogContent({
   accountId,
   networkId,
-  action,
+  action: initialAction,
   hasRewards,
   hasDebts,
   rewardAssets,
   onSuccess,
+  refreshAction,
 }: {
   accountId: string;
   networkId: string;
@@ -1486,6 +1545,9 @@ function ProtocolPositionActionDialogContent({
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
   ) => void | Promise<void>;
+  refreshAction?: (
+    staleAction: IResolvedDeFiPositionAction,
+  ) => Promise<IResolvedDeFiPositionAction | undefined>;
 }) {
   const intl = useIntl();
   const submitProtocolPositionAction = useProtocolPositionActionSubmit({
@@ -1498,6 +1560,16 @@ function ProtocolPositionActionDialogContent({
       currencyInfo: { symbol: currencySymbol },
     },
   ] = useSettingsPersistAtom();
+  // A stay-refresh swaps in the re-resolved action; `action` keeps its name
+  // so the body below needs no further changes.
+  const [actionOverride, setActionOverride] = useState<
+    IResolvedDeFiPositionAction | undefined
+  >(undefined);
+  const action = actionOverride ?? initialAction;
+  const closeRef = useRef<(() => void | Promise<void>) | undefined>(undefined);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const [isRefreshingAction, setIsRefreshingAction] = useState(false);
   // Percent as typed text so the hero is directly editable. Invalid or empty
   // text zeroes the preview and disables confirm (buildDeFiActionBps returns
   // undefined outside integer 1..100) while keeping the field editable.
@@ -1721,6 +1793,11 @@ function ProtocolPositionActionDialogContent({
   const receiveLabel = isPercentAction ? resultLabel : sourceLabel;
   const currentSelectedAsset = selectedAssets[0];
 
+  const releaseSubmitGuard = useCallback(() => {
+    submittingRef.current = false;
+    setSubmitting(false);
+  }, []);
+
   const handleActionPercentChange = (next: string) => {
     // Integers 0..100 only, no leading zeros; allow empty while editing.
     // Reject other keystrokes outright (same convention as the token-amount
@@ -1821,6 +1898,40 @@ function ProtocolPositionActionDialogContent({
     });
   };
 
+  const handleStayRefresh = async () => {
+    // Without an opener refresh callback there is no fresh data to show —
+    // fall back to today's behavior and return to the page.
+    if (!refreshAction) {
+      void closeRef.current?.();
+      return;
+    }
+    setIsRefreshingAction(true);
+    try {
+      const fresh = await refreshAction(action);
+      if (!fresh || fresh.assets.length === 0) {
+        void closeRef.current?.();
+        return;
+      }
+      setActionOverride(fresh);
+      // Selection indexes are positional — re-derive them from the fresh list.
+      setSelectedAssetIndexes(fresh.assets[0] ? [0] : []);
+      setActionPercentText(String(DEFAULT_ACTION_PERCENT));
+      setAmount(
+        isWithdrawAction
+          ? clampAmountDecimals(
+              fresh.assets[0]?.amount ?? '',
+              fresh.assets[0]?.asset.meta?.decimals,
+            )
+          : '',
+      );
+      setIsMaxAmount(isWithdrawAction);
+    } catch {
+      void closeRef.current?.();
+    } finally {
+      setIsRefreshingAction(false);
+    }
+  };
+
   const handleConfirm = async ({
     close,
     preventClose,
@@ -1828,17 +1939,37 @@ function ProtocolPositionActionDialogContent({
     close?: () => void | Promise<void>;
     preventClose: () => void;
   }) => {
-    if (selectedAssets.length === 0) {
-      preventClose();
-      return;
-    }
-
+    // We own the close timing now: keep the dialog mounted through the confirm
+    // hop and let the settle callback decide close-vs-stay after the tx lands.
+    preventClose();
+    if (selectedAssets.length === 0 || submittingRef.current) return;
+    closeRef.current = close;
     setSubmitError(undefined);
-    // Keep the action dialog open while the server builds the transaction so
-    // the button can show loading. Close it immediately before opening any
-    // signing/tx-confirm modal, otherwise the old dialog stays stacked above
-    // the confirm page until the async submit finishes.
-    let isActionDialogClosed = false;
+    submittingRef.current = true;
+    setSubmitting(true);
+    let submitGuardReleased = false;
+    const releaseSubmitGuardOnce = () => {
+      if (submitGuardReleased) {
+        return;
+      }
+      submitGuardReleased = true;
+      releaseSubmitGuard();
+    };
+    const releaseSubmitGuardOnceWithError = (error: Error) => {
+      if (
+        !submitGuardReleased &&
+        !isUserRejectedErrorMessage({ error, intl })
+      ) {
+        setSubmitError(getErrorMessage(error));
+      }
+      releaseSubmitGuardOnce();
+    };
+    // Claim & co. have no amount to preserve and nothing left to act on after
+    // settle. Withdraw / repay / remove use the shared settle rule below.
+    const usesNavigationRule =
+      action.action === EDeFiPositionAction.Withdraw ||
+      action.action === EDeFiPositionAction.Repay ||
+      action.action === EDeFiPositionAction.RemoveLiquidity;
     try {
       await submitProtocolPositionAction({
         action,
@@ -1847,24 +1978,33 @@ function ProtocolPositionActionDialogContent({
         percent: isPercentAction ? actionPercent : undefined,
         amount: useManualAmountInput ? amount : undefined,
         isMaxAmount: useManualAmountInput ? isMaxAmount : undefined,
-        // Errors raised while the dialog is still open render inline below;
-        // once it has closed, the hook's Toast is the only visible surface.
-        isErrorToastSuppressed: () => !isActionDialogClosed,
-        onBeforeNavigateConfirm: async () => {
-          if (isActionDialogClosed) return;
-          isActionDialogClosed = true;
-          await close?.();
+        // The dialog never closes before navigation now, so errors always
+        // render inline instead of the hook's toast.
+        isErrorToastSuppressed: () => true,
+        onSettleResult: async ({ status }) => {
+          releaseSubmitGuardOnce();
+          if (!usesNavigationRule) {
+            void closeRef.current?.();
+            return;
+          }
+          const navigationDecision = resolvePostActionNavigation({
+            txStatus: status,
+          });
+          if (navigationDecision === 'closeToPage') {
+            void closeRef.current?.();
+            return;
+          }
+          await handleStayRefresh();
+          return false;
         },
+        onConfirmFail: releaseSubmitGuardOnceWithError,
+        onConfirmCancel: releaseSubmitGuardOnce,
       });
     } catch (error) {
-      if (
-        !isActionDialogClosed &&
-        !isUserRejectedErrorMessage({ error, intl })
-      ) {
+      if (!isUserRejectedErrorMessage({ error, intl })) {
         setSubmitError(getErrorMessage(error));
       }
-      // Keep the dialog open so the user can retry instead of auto-closing.
-      preventClose();
+      releaseSubmitGuardOnce();
     }
   };
 
@@ -2054,14 +2194,24 @@ function ProtocolPositionActionDialogContent({
         </SizableText>
       ) : null}
 
+      {isLidoProtocol(action.protocolId) &&
+      action.action === EDeFiPositionAction.Withdraw ? (
+        <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
+          {intl.formatMessage({
+            id: ETranslations.defi_lending_permit_sign__hint,
+          })}
+        </SizableText>
+      ) : null}
+
       <Dialog.Footer
         showCancelButton={false}
         showConfirmButton
         onConfirmText={actionLabel}
         onConfirm={handleConfirm}
         confirmButtonProps={{
-          disabled: isConfirmDisabled,
-          loading: isRepayWalletBalancePending,
+          disabled: isConfirmDisabled || isRefreshingAction,
+          loading:
+            submitting || isRefreshingAction || isRepayWalletBalancePending,
         }}
       />
     </YStack>
@@ -2076,6 +2226,8 @@ function showProtocolPositionActionDialog({
   hasDebts,
   rewardAssets,
   onSuccess,
+  refreshAction,
+  dialog,
 }: {
   accountId: string;
   networkId: string;
@@ -2086,8 +2238,13 @@ function showProtocolPositionActionDialog({
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
   ) => void | Promise<void>;
+  refreshAction?: (
+    staleAction: IResolvedDeFiPositionAction,
+  ) => Promise<IResolvedDeFiPositionAction | undefined>;
+  dialog?: ReturnType<typeof useInPageDialog>;
 }) {
-  Dialog.show({
+  const DialogInstance = dialog ?? Dialog;
+  DialogInstance.show({
     showFooter: false,
     renderContent: (
       <ProtocolPositionActionDialogContent
@@ -2098,6 +2255,7 @@ function showProtocolPositionActionDialog({
         hasDebts={hasDebts}
         rewardAssets={rewardAssets}
         onSuccess={onSuccess}
+        refreshAction={refreshAction}
       />
     ),
   });

@@ -134,5 +134,14 @@ export function useTrackTokenAllowance({
     setTrackTxId(txid);
     setLoading(true);
   }, []);
-  return { allowance, trackAllowance, loading, fetchAllowanceResponse };
+  const updateAllowance = useCallback((value: string) => {
+    setAllowance(value);
+  }, []);
+  return {
+    allowance,
+    trackAllowance,
+    updateAllowance,
+    loading,
+    fetchAllowanceResponse,
+  };
 }

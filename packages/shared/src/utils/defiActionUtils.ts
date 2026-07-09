@@ -192,7 +192,7 @@ function isPoolAddressRequired({
   }
 
   if (action === EDeFiPositionAction.ClaimWithdrawal) {
-    return ['polygon_staking', 'ethena'].includes(normalizedProtocolId);
+    return ['polygon_staking', 'ethena', 'lido'].includes(normalizedProtocolId);
   }
 
   if (action === EDeFiPositionAction.Repay) {
