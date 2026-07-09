@@ -49,6 +49,60 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 
+jest.mock('@onekeyhq/core/src/secret', () => {
+  type ISecretParams = {
+    data: Buffer | Uint8Array | string;
+    password: string;
+  };
+
+  class TestSecretCiphertextError extends Error {
+    constructor() {
+      super('Invalid test ciphertext');
+      this.name = 'TestSecretCiphertextError';
+    }
+  }
+
+  return {
+    encryptAsync: jest.fn(async ({ data, password }: ISecretParams) => {
+      const rawBuffer =
+        typeof data === 'string'
+          ? Buffer.from(data, 'utf8')
+          : Buffer.from(data);
+
+      return Buffer.from(
+        JSON.stringify({
+          password,
+          data: rawBuffer.toString('base64'),
+        }),
+        'utf8',
+      );
+    }),
+    decryptAsync: jest.fn(async ({ data, password }: ISecretParams) => {
+      const envelopeBuffer =
+        typeof data === 'string' ? Buffer.from(data, 'hex') : Buffer.from(data);
+      let envelope: {
+        password?: unknown;
+        data?: unknown;
+      };
+
+      try {
+        envelope = JSON.parse(envelopeBuffer.toString('utf8')) as {
+          password?: unknown;
+          data?: unknown;
+        };
+      } catch {
+        throw new TestSecretCiphertextError();
+      }
+
+      if (envelope.password !== password || typeof envelope.data !== 'string') {
+        throw new TestSecretCiphertextError();
+      }
+
+      return Buffer.from(envelope.data, 'base64');
+    }),
+  };
+});
+
 function createMockUser(id: string): IE2EESocketUserInfo {
   return {
     id,
@@ -279,7 +333,7 @@ describe('TransferReceiverAdapter', () => {
       expiresAt: '2026-04-06T07:05:00.000Z',
       pairingPayload: {
         roomId: 'ABCDE-FGHIJ',
-        transferType: EPrimeTransferDataType.keylessWallet,
+        transferType: EPrimeTransferDataType.allWallet,
         serverType: EPrimeTransferServerType.OFFICIAL,
         websocketEndpoint: 'wss://transfer.onekeytest.com',
         uri: expect.stringContaining('code='),

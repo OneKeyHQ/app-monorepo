@@ -16,11 +16,35 @@ duplicate quote/review/build/history/status ownership in isolated surfaces.
 ## Surfaces
 
 - Swap page and Swap Pro own the standard token-to-token interaction.
+- Home Token and wallet actions can launch or prefill Swap, but they remain
+  entry surfaces. After the Swap route opens and quote starts, Swap owns
+  selected-token, quote, review, build, and history state.
+- Send insufficient-balance and similar wallet flows can route into Swap with
+  imported source/target tokens. Treat those params as handoff inputs, not as
+  long-term state owners.
 - Market speed-swap starts from market token detail, then builds a Swap execution payload.
 - Swap K-line/chart is data and display, not execution. Keep chart data fallback separate from quote/build state.
 - Review/Confirm owns the frozen transaction summary and approval/setup state.
 - History/detail owns pending rows, provider status, progress text, and fallback price data.
 - Cross-module handoffs can prefill Swap state, but must not become the source of truth after quote starts.
+
+## Entry Ownership Matrix
+
+Use this before deciding which file owns an entry bug.
+
+| Entry | Source owner | Swap owner after mount | Common validation |
+| --- | --- | --- | --- |
+| Wallet Home action | `WalletActionSwap` | route init, selected network, quote/review/build/history | Home -> Swap first frame, All Networks/single network, disabled swap action |
+| Home Token row action | `TokenActionsView` | imported token pair, unsupported-token fallback, Bridge default when applicable | BTC native, unsupported ordinary Swap, imported token icons and derive type |
+| Swap page/direct route | `SwapPageContainer` / `SwapMainLandModal` | tab state, selected tokens, account mirror, quote state | direct `/swap?tab=...`, modal reopen, route-param reset |
+| Send insufficient-balance route | Send source surface | imported token and amount, quote readiness, no-wallet warning | Send -> Swap with wallet disconnected and unsupported account states |
+| Earn/Staking funding route | `useHandleSwap` / Earn source | `ESwapSource.EARN`, imported `from/to` tokens, Swap execution | Earn -> Swap prefill, then quote/review owns execution |
+| Market speed-swap | Market detail swap panel | execution payload, build/send/history | Market token context and presets, then Swap payload proof |
+| Native/mobile Limit or K-line | mobile host/dialog owner plus Swap hooks | native-specific Limit focus and dialog/page variant | iOS/Android dialog, bottom sheet, keyboard/safe area, K-line variant |
+
+The entry source owns only prefill, analytics source, and host navigation. Once
+the Swap route is mounted and quote starts, debug selected-token atoms, quote
+progress, review snapshot, build/send, pending, and status in the Swap spine.
 
 ## Selection And Account Resolution
 
@@ -115,3 +139,19 @@ Use this when a new channel appears:
 6. Does it share Swap infrastructure but need different history or listener
    semantics? Add a channel-state contract before reusing ordinary Swap lists
    or status polling.
+
+## Framework / State Machine / Hook Pass
+
+Use this pass before patching broad Swap issues:
+
+1. Framework: identify the entry surface (`Swap`, `Wallet Home`, `Home Token`,
+   `Send`, `Market`, `Earn`, `Buy`), route/modal host, provider mirrors, and
+   package boundary.
+2. State machine: trace visible tab type, internal execution type, route params,
+   selected-token atoms, cold-start snapshot, quote progress, review snapshot,
+   build/send result, local history, status listener, and replay/repair.
+3. Hooks: only after the first two passes, pick the hook or component boundary
+   that owns the wrong transition or side effect.
+
+This prevents Home Token or Send handoff regressions from being mistaken for
+ordinary Swap page UI bugs.

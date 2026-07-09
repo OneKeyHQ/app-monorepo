@@ -2,14 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Stack,
-  XStack,
-  YStack,
-  useMedia,
-  useSafeAreaInsets,
-} from '@onekeyhq/components';
+import { Button, Stack, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { appUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -41,10 +34,10 @@ function FeaturedFooter({
   const navigation = useAppNavigation();
   const intl = useIntl();
   const { md } = useMedia();
-  const { bottom } = useSafeAreaInsets();
-  // 20 = "$5" default. Use the system safe-area inset when larger so the
-  // footer clears the iOS home indicator on bottom-sheet dialogs.
-  const paddingBottom = Math.max(bottom, 20);
+  // The Dialog frame now applies the bottom safe-area inset itself (the outer
+  // Animated.View in Dialog/index.tsx pads by max(keyboardHeight, safeBottom)),
+  // so the footer must only carry its own design padding ("$5") — adding the
+  // inset here again would double-stack and push the buttons up (OK-…).
 
   const handleViewChangelog = useCallback(async () => {
     await closeDialog();
@@ -69,12 +62,7 @@ function FeaturedFooter({
 
   if (md) {
     return (
-      <YStack
-        px="$5"
-        gap="$4"
-        paddingBottom={paddingBottom + 20}
-        onLayout={onLayout}
-      >
+      <YStack px="$5" gap="$4" pb="$5" onLayout={onLayout}>
         <Button
           testID={AppUpdateTestIDs.featuredFooterCtaBtn}
           size="large"
@@ -100,7 +88,7 @@ function FeaturedFooter({
   return (
     <XStack
       px="$5"
-      paddingBottom={paddingBottom}
+      pb="$5"
       justifyContent="space-between"
       alignItems="center"
       onLayout={onLayout}

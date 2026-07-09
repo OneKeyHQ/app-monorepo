@@ -2,7 +2,11 @@ import { memo, useCallback, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { EPageType, IStackProps } from '@onekeyhq/components';
+import type {
+  EPageType,
+  IPageNavigationProp,
+  IStackProps,
+} from '@onekeyhq/components';
 import {
   SegmentControl,
   SizableText,
@@ -10,39 +14,65 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
-import { ScrollableFilterBar } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  ScrollableFilterBar,
+  useScrollableFilterBar,
+} from '@onekeyhq/kit/src/components/ScrollableFilterBar';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import {
   useSwapActions,
   useSwapSelectFromTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { ITabSwapParamList } from '@onekeyhq/shared/src/routes';
 import {
   ESwapDirectionType,
+  type ESwapSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import {
+  getSwapAnalyticsCategoryFromSwapType,
+  getSwapAnalyticsEnterFrom,
+} from '../../utils/swapStockAnalytics';
+import { getVisibleSwapTabSwitchType } from '../../utils/swapTypeUtils';
 
 import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
 
 type ICustomTabItemProps = IStackProps & {
+  itemId: ESwapTabSwitchType;
   isSelected?: boolean;
   compact?: boolean;
   onPress?: IStackProps['onPress'];
 };
 
+function getRouteTabParamFromSwapType(type: ESwapTabSwitchType) {
+  const visibleType = getVisibleSwapTabSwitchType(type) ?? type;
+  if (visibleType === ESwapTabSwitchType.STOCK) {
+    return 'stock';
+  }
+  if (visibleType === ESwapTabSwitchType.LIMIT) {
+    return 'limit';
+  }
+  return 'swap';
+}
+
 function CustomTabItem({
+  itemId,
   children,
   isSelected,
   compact,
   onPress,
   ...rest
 }: ICustomTabItemProps) {
+  const { handleItemLayout } = useScrollableFilterBar();
   return (
     <Stack
       py="$1"
@@ -56,7 +86,7 @@ function CustomTabItem({
       }}
       {...(isSelected
         ? {
-            bg: '$bgSubdued',
+            bg: '$bgStrong',
           }
         : {
             hoverStyle: {
@@ -66,8 +96,11 @@ function CustomTabItem({
               bg: '$bgActive',
             },
           })}
-      onPress={onPress}
       {...rest}
+      onPress={onPress}
+      onLayout={(event) => {
+        handleItemLayout(itemId, event);
+      }}
     >
       <SizableText
         size="$headingMd"
@@ -89,7 +122,11 @@ interface ISwapHeaderContainerProps {
   /** Hide right action buttons (settings/history) - used when they're shown elsewhere in desktop layout */
   hideRightActions?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
+  enterFrom?: ESwapSource;
 }
+
+const DESKTOP_TRADE_TAB_ITEM_WIDTH = 144;
+const DESKTOP_TRADE_TAB_GROUP_WIDTH = DESKTOP_TRADE_TAB_ITEM_WIDTH * 3;
 
 const SwapHeaderContainer = ({
   pageType,
@@ -97,9 +134,11 @@ const SwapHeaderContainer = ({
   showSwapPro,
   hideRightActions,
   marketPresetSettings,
+  enterFrom,
 }: ISwapHeaderContainerProps) => {
   const intl = useIntl();
   const { gtLg } = useMedia();
+  const navigation = useAppNavigation<IPageNavigationProp<ITabSwapParamList>>();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const { swapTypeSwitchAction } = useSwapActions().current;
   const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
@@ -136,6 +175,17 @@ const SwapHeaderContainer = ({
     [updateSelectedAccountNetwork],
   );
 
+  const syncRouteTabParam = useCallback(
+    (type: ESwapTabSwitchType) => {
+      if (pageType === 'modal') {
+        return;
+      }
+      const tab = getRouteTabParamFromSwapType(type);
+      navigation.setParams({ tab });
+    },
+    [navigation, pageType],
+  );
+
   const handleSwapTypeChange = useCallback(
     async (value: string | number) => {
       const newType =
@@ -144,8 +194,25 @@ const SwapHeaderContainer = ({
           : (value as ESwapTabSwitchType);
       if (swapTypeSwitch === newType) return;
 
-      if (newType === ESwapTabSwitchType.LIMIT) {
-        void swapTypeSwitchAction(ESwapTabSwitchType.LIMIT, networkId);
+      defaultLogger.swap.tradeCategorySwitch.tradeCategorySwitch({
+        fromCategory: getSwapAnalyticsCategoryFromSwapType(swapTypeSwitch),
+        toCategory: getSwapAnalyticsCategoryFromSwapType(newType),
+        enterFrom: getSwapAnalyticsEnterFrom(enterFrom),
+      });
+
+      if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
+        syncRouteTabParam(newType);
+        await swapTypeSwitchAction(newType, networkId);
+        return;
+      }
+
+      syncRouteTabParam(newType);
+
+      if (
+        newType === ESwapTabSwitchType.LIMIT ||
+        newType === ESwapTabSwitchType.STOCK
+      ) {
+        void swapTypeSwitchAction(newType, networkId);
       } else {
         if (fromToken?.networkId && fromToken?.networkId !== networkId) {
           await updateSelectedAccountNetworkAction(fromToken?.networkId);
@@ -156,23 +223,35 @@ const SwapHeaderContainer = ({
     [
       swapTypeSwitch,
       swapTypeSwitchAction,
+      syncRouteTabParam,
       networkId,
       fromToken?.networkId,
       updateSelectedAccountNetworkAction,
+      enterFrom,
     ],
   );
 
   // Desktop layout (gtLg and not modal): use SegmentControl
   const showDesktopLayout =
-    gtLg && pageType !== 'modal' && !platformEnv.isNative;
+    gtLg &&
+    pageType !== 'modal' &&
+    !platformEnv.isNative &&
+    !platformEnv.isExtensionUiSidePanel;
   const swapBridgeLabel = `${intl.formatMessage({
     id: ETranslations.swap_page_swap,
   })} & ${intl.formatMessage({ id: ETranslations.swap_page_bridge })}`;
+  const stockLabel = intl.formatMessage({
+    id: ETranslations.perps_token_selector_stocks,
+  });
 
   const segmentOptions = [
     {
       label: swapBridgeLabel,
       value: ESwapTabSwitchType.SWAP,
+    },
+    {
+      label: stockLabel,
+      value: ESwapTabSwitchType.STOCK,
     },
     {
       label: intl.formatMessage({
@@ -188,12 +267,16 @@ const SwapHeaderContainer = ({
     return (
       <XStack justifyContent="center" px="$5">
         <SegmentControl
+          width={DESKTOP_TRADE_TAB_GROUP_WIDTH}
+          fullWidth
           value={swapTypeSwitch}
           options={segmentOptions.map((opt) => ({
             ...opt,
             label: (
               <SizableText
                 size="$headingSm"
+                textAlign="center"
+                numberOfLines={1}
                 color={swapTypeSwitch === opt.value ? '$text' : '$textSubdued'}
               >
                 {opt.label}
@@ -208,8 +291,10 @@ const SwapHeaderContainer = ({
           h="auto"
           segmentControlItemStyleProps={{
             py: '$2',
-            px: '$7',
+            px: '$0',
             borderRadius: '$full',
+            alignItems: 'center',
+            justifyContent: 'center',
             '$platform-web': {
               boxShadow: 'none',
             },
@@ -219,33 +304,40 @@ const SwapHeaderContainer = ({
     );
   }
 
-  const isNativeLayout = platformEnv.isNative;
+  const isCompactLayout = !showDesktopLayout;
+  const useDesktopModalHeaderActions =
+    pageType === 'modal' &&
+    gtLg &&
+    !platformEnv.isNative &&
+    !platformEnv.isExtensionUiSidePanel;
   const tabs = (
     <>
       <CustomTabItem
-        compact={isNativeLayout}
+        itemId={ESwapTabSwitchType.SWAP}
+        compact={isCompactLayout}
         isSelected={swapTypeSwitch === ESwapTabSwitchType.SWAP}
-        onPress={async () => {
-          if (swapTypeSwitch !== ESwapTabSwitchType.SWAP) {
-            if (fromToken?.networkId && fromToken?.networkId !== networkId) {
-              await updateSelectedAccountNetworkAction(fromToken?.networkId);
-            }
-            void swapTypeSwitchAction(
-              ESwapTabSwitchType.SWAP,
-              fromToken?.networkId || networkId,
-            );
-          }
+        onPress={() => {
+          void handleSwapTypeChange(ESwapTabSwitchType.SWAP);
         }}
       >
         {swapBridgeLabel}
       </CustomTabItem>
       <CustomTabItem
-        compact={isNativeLayout}
+        itemId={ESwapTabSwitchType.STOCK}
+        compact={isCompactLayout}
+        isSelected={swapTypeSwitch === ESwapTabSwitchType.STOCK}
+        onPress={() => {
+          void handleSwapTypeChange(ESwapTabSwitchType.STOCK);
+        }}
+      >
+        {stockLabel}
+      </CustomTabItem>
+      <CustomTabItem
+        itemId={ESwapTabSwitchType.LIMIT}
+        compact={isCompactLayout}
         isSelected={swapTypeSwitch === ESwapTabSwitchType.LIMIT}
         onPress={() => {
-          if (swapTypeSwitch !== ESwapTabSwitchType.LIMIT) {
-            void swapTypeSwitchAction(ESwapTabSwitchType.LIMIT, networkId);
-          }
+          void handleSwapTypeChange(ESwapTabSwitchType.LIMIT);
         }}
       >
         {intl.formatMessage({
@@ -257,32 +349,34 @@ const SwapHeaderContainer = ({
     </>
   );
 
-  if (isNativeLayout) {
-    return (
-      <XStack alignItems="center" gap="$2" px="$5" py="$1">
-        <Stack flex={1}>
-          <ScrollableFilterBar itemGap="$1.5" itemPr="$5">
-            {tabs}
-          </ScrollableFilterBar>
-        </Stack>
-        {!hideRightActions ? (
-          <SwapHeaderRightActionContainer
-            pageType={pageType}
-            marketPresetSettings={marketPresetSettings}
-            compact
-          />
-        ) : null}
-      </XStack>
-    );
-  }
-
   return (
-    <XStack justifyContent="space-between" px="$5" py="$1">
-      <XStack gap="$3">{tabs}</XStack>
+    <XStack
+      alignItems="center"
+      gap="$2"
+      px="$5"
+      py="$1"
+      // iOS: fixed 56pt height (== Wallet header Row 1) so this header centers
+      // its content at the same top+28 line as Wallet (see SwapMainLand
+      // contentTopPadding=$0). Android keeps its intrinsic height unchanged.
+      // zIndex lifts the header (and its glass capsule's shadow) above the
+      // sibling content below it (e.g. the Pro panel), which otherwise paints
+      // over and clips the glass shadow.
+      {...(platformEnv.isNativeIOS && { height: 56, zIndex: 1 })}
+    >
+      <Stack flex={1} minWidth={0}>
+        <ScrollableFilterBar
+          selectedItemId={swapTypeSwitch}
+          itemGap="$1.5"
+          itemPr="$5"
+        >
+          {tabs}
+        </ScrollableFilterBar>
+      </Stack>
       {!hideRightActions ? (
         <SwapHeaderRightActionContainer
           pageType={pageType}
           marketPresetSettings={marketPresetSettings}
+          compact={isCompactLayout && !useDesktopModalHeaderActions}
         />
       ) : null}
     </XStack>

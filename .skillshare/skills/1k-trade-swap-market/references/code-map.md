@@ -34,6 +34,66 @@ Important anchors:
 - `useSwapTokenList`
 - token key builders and native-token handling utilities
 
+## Cold Start, Readiness, And Alert Guards
+
+- `packages/kit/src/views/Swap/hooks/useSwapGlobal.ts`
+- `packages/kit/src/views/Swap/hooks/useSwapTokens.ts`
+- `packages/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils.ts`
+- `packages/kit/src/views/Swap/utils/swapNoWalletWarningGuard.ts`
+- `packages/kit/src/states/jotai/contexts/swap/atoms.ts`
+- `packages/shared/src/consts/jotaiConsts.ts`
+- `packages/kit-bg/src/states/jotai/utils/index.ts`
+
+Important anchors:
+
+- `swapSelectedTokensColdStartContextAtom`
+- `buildSwapSelectedTokensColdStartContext`
+- `shouldHandleSwapColdStartHomeAccountUpdate`
+- `shouldAllowSwapNoConnectWalletWarning`
+- `shouldShowSwapAccountUnsupportedAlert`
+
+Use these paths for first-frame defaults, unsupported-network entry, no-wallet
+warning, disconnected-wallet, app-restart, and route-param one-shot bugs. Keep
+cached display state separate from quote/build readiness.
+
+## Cross-Surface Swap Entrypoints
+
+- `packages/kit/src/views/Home/components/WalletActions/WalletActionSwap.tsx`
+- `packages/kit/src/components/TokenListView/TokenActionsView.tsx`
+- `packages/kit/src/views/Send/pages/SendAmountInput/SendAmountInputContainer.tsx`
+- `packages/kit/src/views/Receive/pages/ReceiveSelector.tsx`
+- `packages/kit/src/views/Staking/hooks/useHandleSwap.ts`
+- `packages/kit/src/views/Staking/components/TradeOrBuy.tsx`
+- `packages/kit/src/views/Staking/components/ProtocolDetails/EarnSwapRoute.tsx`
+- `packages/kit/src/views/Market/components/tradeHook.tsx`
+- `packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/ActionButton.tsx`
+- `packages/kit/src/views/Swap/pages/modal/SwapMainLandModal.tsx`
+- `packages/kit/src/views/Swap/hooks/useSwapGlobal.ts`
+
+Important anchors:
+
+- `EModalSwapRoutes.SwapMainLand`
+- `ESwapSource.WALLET_HOME`, `ESwapSource.WALLET_HOME_TOKEN_LIST`,
+  `ESwapSource.WALLET_TAB`, `ESwapSource.MARKET`, and `ESwapSource.EARN`
+- `importFromToken`, `importToToken`, `importNetworkId`,
+  `swapTabSwitchType`
+
+Use these paths when a bug starts from Home Token, Send, Receive, Market,
+Earn, or Buy but lands in Swap. The source surface owns the handoff params;
+Swap owns quote, review, build, send, and history once the route is mounted.
+
+Entry-specific anchors:
+
+- Wallet Home action opens `SwapMainLand` with `importNetworkId` and
+  `ESwapSource.WALLET_HOME`; it does not own token selection after route mount.
+- Home Token action builds `importFromToken`, can omit BTC native token for
+  unsupported ordinary Swap, can set a Bridge default `importToToken`, and
+  passes `importDeriveType`.
+- Earn/Staking funding uses `useHandleSwap` with `ESwapSource.EARN`; DeFi owns
+  source context and Swap owns quote/review/build/send after handoff.
+- `SwapMainLandModal` wraps the modal in the swap account selector mirror and
+  forwards only `swapInitParams`; route params are not long-term state.
+
 ## Quote Progress And Provider Selection
 
 - `packages/kit/src/states/jotai/contexts/swap/quoteProgress.ts`
@@ -81,6 +141,7 @@ Important anchors:
 - `fetchPrivateSendOrderDetailHistoryItem`
 - `maybeOpenPrivateSendHistoryDetail`
 - `isSwapHistoryProtocolExcluded`
+- `swapHistoryIdentity`
 - `ServiceHistory.batchUpdateLocalHistoryTxs`
 - chain-specific `Vault.buildDecodedTx`
 - channel-specific progress and detail display helpers
@@ -94,6 +155,10 @@ When display depends on decoded actions or `decodedTx.extraInfo`, inspect the
 chain-specific decode path as well as swap-history repair. On-chain history
 replacement should not erase locally decoded channel metadata before detail
 rendering has a richer replacement source.
+
+For disconnected-wallet display, Stock pending counts, and order-backed
+channels, treat visibility filters, local row retention, txid/order id choice,
+and detail-route fallback as separate decisions.
 
 ## Market Speed-Swap
 
@@ -118,8 +183,8 @@ the execution payload is built.
 
 - `packages/kit/src/views/Swap/pages/modal/SwapKLineContent.tsx`
 - `packages/kit/src/views/Swap/pages/modal/swapKLineTokenUtils.ts`
-- `packages/kit/src/components/TradingView/TradingViewV2/hooks/useTradingViewV2.ts`
-- `packages/kit/src/components/TradingView/TradingViewV2/messageHandlers/klineDataHandler.ts`
+- `packages/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/hooks/useTradingViewV2.ts`
+- `packages/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/messageHandlers/klineDataHandler.ts`
 - `packages/kit-bg/src/services/ServiceMarketV2.ts`
 
 Important anchors:

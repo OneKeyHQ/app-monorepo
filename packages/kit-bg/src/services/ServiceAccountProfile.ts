@@ -43,6 +43,7 @@ import {
   currencyPersistAtom,
 } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
+import { mergeClaimedUtxos } from '../vaults/impls/btc/sdkBtc/findAddressUtils';
 
 import ServiceBase from './ServiceBase';
 
@@ -219,7 +220,7 @@ class ServiceAccountProfile extends ServiceBase {
       ]);
       xpub = x;
       accountAddress = a;
-    } else {
+    } else if (!params.queryByAddressOnly) {
       xpub = await this.backgroundApi.serviceAccount.getAccountXpub({
         accountId,
         networkId,
@@ -1075,18 +1076,33 @@ class ServiceAccountProfile extends ServiceBase {
       });
     } else {
       const current = await activeAccountValueAtom.get();
-      const mergedAtomValue =
+      let baseValue: Record<string, string> = {};
+      if (
         current?.accountId === accountId &&
         typeof current.value === 'object' &&
         current.value !== null
-          ? {
-              ...current.value,
-              ...usdValueMap,
-            }
-          : usdValueMap;
+      ) {
+        baseValue = current.value;
+      } else {
+        // Partial (single-network) write for an account the atom doesn't
+        // currently hold — e.g. an account switch while home is on a
+        // single-chain view, or a cold start outside All Networks. Replacing
+        // the atom with the one-network map would make cross-network
+        // consumers (menu-bar tray, account selector active row) sum a single
+        // network — and read $0 when that network is disabled in the
+        // All-Networks enabled set. Seed the base from the persisted
+        // per-network values instead; the fresh entries overlay their keys.
+        const persisted = await this.getAllNetworkAccountsValueByAccountId({
+          accountId,
+        });
+        baseValue = persisted.value ?? {};
+      }
       await activeAccountValueAtom.set({
         accountId,
-        value: mergedAtomValue,
+        value: {
+          ...baseValue,
+          ...usdValueMap,
+        },
         currency: 'usd',
       });
     }
@@ -1637,9 +1653,13 @@ class ServiceAccountProfile extends ServiceBase {
   public async getAccountUtxos({
     accountId,
     networkId,
+    includeClaimedAddresses,
   }: {
     accountId: string;
     networkId: string;
+    // btc find-address feature: opt-in display of claimed off-gap UTXOs,
+    // they are never included by default
+    includeClaimedAddresses?: boolean;
   }) {
     const vault = await vaultFactory.getVault({
       networkId,
@@ -1651,9 +1671,16 @@ class ServiceAccountProfile extends ServiceBase {
         'CoinControl is not supported for this network',
       );
     }
-    const { utxoList } = await (vault as BTCVault)._collectUTXOsInfoByApi();
+    const btcVault = vault as BTCVault;
+    const { utxoList } = await btcVault._collectUTXOsInfoByApi();
 
-    return utxoList;
+    if (!includeClaimedAddresses) {
+      return utxoList;
+    }
+
+    const { utxoList: claimedUtxos } =
+      await btcVault._collectClaimedUtxosInfo();
+    return mergeClaimedUtxos({ poolUtxos: utxoList, claimedUtxos });
   }
 
   // Get wallet type

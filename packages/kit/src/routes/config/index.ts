@@ -215,7 +215,7 @@ const TAB_TITLE_TRANSLATION_MAP: Record<ETabRoutes, ETranslations | null> = {
   [ETabRoutes.Market]: ETranslations.global_market,
   [ETabRoutes.Discovery]: ETranslations.global_discover,
   [ETabRoutes.Earn]: ETranslations.global_earn,
-  [ETabRoutes.Swap]: ETranslations.global_swap,
+  [ETabRoutes.Swap]: ETranslations.global_trade,
   [ETabRoutes.Perp]: ETranslations.global_perp,
   [ETabRoutes.WebviewPerpTrade]: ETranslations.global_perp,
   [ETabRoutes.MultiTabBrowser]: ETranslations.global_browser,

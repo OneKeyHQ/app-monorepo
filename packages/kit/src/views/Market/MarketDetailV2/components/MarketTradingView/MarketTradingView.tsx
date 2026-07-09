@@ -1,11 +1,27 @@
-import { memo, useCallback } from 'react';
+import { type ReactNode, memo, useCallback } from 'react';
 
-import { TradingViewV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
-import type { ITradingViewPriceUpdateData } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
+import {
+  TRADING_VIEW_DISABLED_FEATURES,
+  TradingViewV2,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
+import type {
+  ITradingViewDisabledFeature,
+  ITradingViewPriceUpdateData,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
 import { MarketTestIDs } from '../../../testIDs';
 import { useNetworkAccountAddress } from '../InformationTabs/hooks/useNetworkAccountAddress';
+
+const MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES: readonly ITradingViewDisabledFeature[] =
+  [
+    TRADING_VIEW_DISABLED_FEATURES.TIMEFRAME_SELECTOR,
+    TRADING_VIEW_DISABLED_FEATURES.TIME_SCALE,
+    TRADING_VIEW_DISABLED_FEATURES.SETTINGS,
+    TRADING_VIEW_DISABLED_FEATURES.FULLSCREEN,
+    TRADING_VIEW_DISABLED_FEATURES.LAYOUT_TOGGLE,
+    TRADING_VIEW_DISABLED_FEATURES.DRAWING_TOOLBAR,
+  ];
 
 function normalizeChartRealtimePrice(
   price: ITradingViewPriceUpdateData['price'],
@@ -57,7 +73,7 @@ function isChartPriceUpdateForCurrentToken({
     : !updateTokenAddress;
 }
 
-interface IMarketTradingViewProps {
+export interface IMarketTradingViewProps {
   tokenAddress: string;
   networkId: string;
   tokenSymbol?: string;
@@ -66,8 +82,18 @@ interface IMarketTradingViewProps {
   isNative?: boolean;
   dataSource: 'websocket' | 'polling';
   pageWidth?: number;
+  nativeChartTypeControlMode?: 'toggle' | 'select';
+  nativeIndicatorControlMode?: 'dialog' | 'popover';
+  nativeIntervalControlMode?: 'dialog' | 'popover';
+  nativePriceMarketCapControlMode?: 'settings' | 'select';
+  nativeControlsLayoutMode?: 'mobile' | 'desktop';
+  isNativeChartFullscreen?: boolean;
+  showNativeIndicatorQuickBar?: boolean;
   onTouchScroll?: (deltaY: number) => void;
+  onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
+  onNativeIndicatorQuickBarChange?: (quickBar: ReactNode | null) => void;
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
+  onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
 }
 
 export const MarketTradingView = memo(
@@ -78,8 +104,18 @@ export const MarketTradingView = memo(
     decimal = 8,
     dataSource,
     pageWidth,
+    nativeChartTypeControlMode,
+    nativeIndicatorControlMode,
+    nativeIntervalControlMode,
+    nativePriceMarketCapControlMode,
+    nativeControlsLayoutMode,
+    isNativeChartFullscreen,
+    showNativeIndicatorQuickBar,
     onTouchScroll,
+    onNativeChartFullscreenChange,
+    onNativeIndicatorQuickBarChange,
     onIndicatorsDialogOpenChange,
+    onInteractionOverlayOpenChange,
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
     const tokenDetailActions = useTokenDetailActions();
@@ -127,7 +163,19 @@ export const MarketTradingView = memo(
         w={pageWidth}
         onTouchScroll={onTouchScroll}
         onIndicatorsDialogOpenChange={onIndicatorsDialogOpenChange}
+        onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
         onPriceUpdate={handlePriceUpdate}
+        disabledFeatures={MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES}
+        enableNativeChartControls
+        nativeChartTypeControlMode={nativeChartTypeControlMode}
+        nativeIndicatorControlMode={nativeIndicatorControlMode}
+        nativeIntervalControlMode={nativeIntervalControlMode}
+        nativePriceMarketCapControlMode={nativePriceMarketCapControlMode}
+        nativeControlsLayoutMode={nativeControlsLayoutMode}
+        isNativeChartFullscreen={isNativeChartFullscreen}
+        showNativeIndicatorQuickBar={showNativeIndicatorQuickBar}
+        onNativeChartFullscreenChange={onNativeChartFullscreenChange}
+        onNativeIndicatorQuickBarChange={onNativeIndicatorQuickBarChange}
       />
     );
   },

@@ -3,11 +3,11 @@ import type {
   IPbkdf2DispatchBackend,
   IPbkdf2KdfParams,
 } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
-import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { InvalidMnemonic, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ensureWebembedApiProxyAvailable } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { BaseBip32KeyDeriver, ED25519Bip32KeyDeriver } from './bip32';
@@ -64,7 +64,6 @@ export * from './bip39';
 export * from './botWallet';
 export * from './curves';
 export * from './encryptors/aes256';
-export * from './encryptors/rsa';
 
 export * from '@onekeyhq/shared/src/appCrypto/modules/hash';
 export * from './ton-mnemonic';
@@ -743,7 +742,7 @@ async function clearPbkdf2CacheAsync(): Promise<void> {
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
-    await appGlobals.$webembedApiProxy.secret.clearPbkdf2Cache();
+    await ensureWebembedApiProxyAvailable().secret.clearPbkdf2Cache();
   }
 }
 
@@ -766,9 +765,11 @@ async function clearHdCredentialDecryptCache({
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
-    await appGlobals.$webembedApiProxy.secret.clearHdCredentialDecryptCache({
-      hdCredentialCacheScopeId,
-    });
+    await ensureWebembedApiProxyAvailable().secret.clearHdCredentialDecryptCache(
+      {
+        hdCredentialCacheScopeId,
+      },
+    );
   }
 }
 
@@ -1404,9 +1405,10 @@ async function batchGetPublicKeys(
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
-    const keys = await appGlobals.$webembedApiProxy.secret.batchGetPublicKeys(
-      getBatchGetPublicKeysSerializableParams(params),
-    );
+    const keys =
+      await ensureWebembedApiProxyAvailable().secret.batchGetPublicKeys(
+        getBatchGetPublicKeysSerializableParams(params),
+      );
     return keys.map((key) => ({
       path: key.path,
       parentFingerPrint: Buffer.from(key.parentFingerPrint, 'hex'),
@@ -1602,7 +1604,9 @@ async function mnemonicFromEntropyAsync(
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
-    return appGlobals.$webembedApiProxy.secret.mnemonicFromEntropyAsync(params);
+    return ensureWebembedApiProxyAvailable().secret.mnemonicFromEntropyAsync(
+      params,
+    );
   }
   return Promise.resolve(
     mnemonicFromEntropy(params.hdCredential, params.password, {
@@ -1630,7 +1634,7 @@ async function seedFromHdCredentialAsync(
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
     const hex =
-      await appGlobals.$webembedApiProxy.secret.seedFromHdCredentialAsync(
+      await ensureWebembedApiProxyAvailable().secret.seedFromHdCredentialAsync(
         params,
       );
     return Buffer.from(hex, 'hex');
@@ -1663,12 +1667,13 @@ async function mnemonicToSeedAsync(
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
     const { kdfBackend, mnemonic, passphrase } = params;
-    const hex = await appGlobals.$webembedApiProxy.secret.mnemonicToSeedAsync({
-      kdfBackend,
-      mnemonic,
-      passphrase,
-      useWebembedApi,
-    });
+    const hex =
+      await ensureWebembedApiProxyAvailable().secret.mnemonicToSeedAsync({
+        kdfBackend,
+        mnemonic,
+        passphrase,
+        useWebembedApi,
+      });
     return Buffer.from(hex, 'hex');
   }
   const validateStart = perfTrace ? perfTraceNowMs() : 0;
@@ -1714,7 +1719,7 @@ async function generateRootFingerprintHexAsync(
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
-    return appGlobals.$webembedApiProxy.secret.generateRootFingerprintHexAsync(
+    return ensureWebembedApiProxyAvailable().secret.generateRootFingerprintHexAsync(
       params,
     );
   }

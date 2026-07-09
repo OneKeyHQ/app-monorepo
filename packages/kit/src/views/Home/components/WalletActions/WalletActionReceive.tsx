@@ -8,11 +8,8 @@ import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWal
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  useAllTokenListAtom,
-  useAllTokenListMapAtom,
-  useTokenListStateAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useTokenListStateAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
 import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -58,8 +55,11 @@ function WalletActionReceive({
     },
   } = useActiveAccount({ num: 0 });
 
-  const [allTokens] = useAllTokenListAtom();
-  const [map] = useAllTokenListMapAtom();
+  const {
+    tokens: allTokens,
+    keys: allTokensKeys,
+    map,
+  } = useHomeTokenListSnapshot();
   const [tokenListState] = useTokenListStateAtom();
   const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
     {
@@ -83,8 +83,8 @@ function WalletActionReceive({
     walletId: wallet?.id ?? '',
     indexedAccountId: indexedAccount?.id ?? '',
     tokens: {
-      data: allTokens.tokens,
-      keys: allTokens.keys,
+      data: allTokens,
+      keys: allTokensKeys,
       map,
     },
     tokenListState,

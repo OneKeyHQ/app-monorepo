@@ -13,11 +13,16 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  HISTORY_CONSTS,
+  SEND_TX_SERVER_ERROR_CODES,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   OneKeyLocalError,
   PendingQueueTooLong,
+  ReplaceTxNonceConsumedError,
 } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   GasAccountSubmitCancelledError,
   MAX_GAS_ACCOUNT_RETRY_ATTEMPTS,
@@ -31,6 +36,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
@@ -629,6 +636,30 @@ class ServiceSend extends ServiceBase {
     const effectiveGasAccountSubmitId =
       isMultiTxs || isPrivateSend ? undefined : gasAccountSubmitId;
 
+    // Replace (speed up / cancel) txs reuse the original pending tx's nonce.
+    // Re-validate that nonce against the on-chain nonce at the last moment
+    // before signing: if the original tx was already confirmed/replaced, abort
+    // and clean up the stale local pending tx instead of broadcasting a doomed
+    // tx (which the backend rejects with code 40024).
+    if (replaceTxInfo && !isMultiTxs) {
+      const replaceTargetNonce = unsignedTxs[0]?.nonce;
+      if (!isNil(replaceTargetNonce)) {
+        const { consumed } = await this.precheckReplaceTxNonceConsumed({
+          accountId,
+          networkId,
+          targetNonce: replaceTargetNonce,
+          useDefaultRpc,
+        });
+        if (consumed) {
+          await this.cleanupStaleReplaceTxAndThrow({
+            accountId,
+            networkId,
+            replaceHistoryId: replaceTxInfo.replaceHistoryId,
+          });
+        }
+      }
+    }
+
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       let unsignedTx = unsignedTxs[i];
@@ -641,24 +672,46 @@ class ServiceSend extends ServiceBase {
         if (isMultiTxs && i > 0) {
           unsignedTx = await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
         }
-        const signedTx = signOnly
-          ? await this.signTransaction({
-              unsignedTx,
+        const buildSignedTx = () =>
+          signOnly
+            ? this.signTransaction({
+                unsignedTx,
+                accountId,
+                networkId,
+                signOnly: true,
+              })
+            : this.signAndSendTransaction({
+                unsignedTx,
+                networkId,
+                accountId,
+                signOnly: false,
+                tronResourceRentalInfo,
+                gasAccountUiState: effectiveGasAccountUiState,
+                gasAccountSubmitId: effectiveGasAccountSubmitId,
+                isPrivateSend,
+                useDefaultRpc,
+              });
+        let signedTx: Awaited<ReturnType<typeof buildSignedTx>>;
+        try {
+          signedTx = await buildSignedTx();
+        } catch (error) {
+          // Safety net for the residual race between the pre-broadcast nonce
+          // check and the actual broadcast: the backend rejected the replace
+          // because the nonce is already used. Clean up the stale pending tx and
+          // surface a friendly message instead of the raw backend error.
+          if (
+            replaceTxInfo &&
+            (this.isReplaceTxNonceAlreadyUsedServerError(error) ||
+              this.isReplaceTxNonceAlreadyUsedRpcError(error))
+          ) {
+            await this.cleanupStaleReplaceTxAndThrow({
               accountId,
               networkId,
-              signOnly: true,
-            })
-          : await this.signAndSendTransaction({
-              unsignedTx,
-              networkId,
-              accountId,
-              signOnly: false,
-              tronResourceRentalInfo,
-              gasAccountUiState: effectiveGasAccountUiState,
-              gasAccountSubmitId: effectiveGasAccountSubmitId,
-              isPrivateSend,
-              useDefaultRpc,
+              replaceHistoryId: replaceTxInfo.replaceHistoryId,
             });
+          }
+          throw error;
+        }
         const decodedTx = await this.buildDecodedTx({
           networkId,
           accountId,
@@ -709,14 +762,19 @@ class ServiceSend extends ServiceBase {
           feeInfo: feeInfo?.feeInfo,
           approveInfo: unsignedTx.approveInfo,
         };
+        const hasDeFiActionInfo = Boolean(
+          (unsignedTx.payload as { defiActionInfo?: unknown } | undefined)
+            ?.defiActionInfo,
+        );
 
         // For batch approve+swap/staking: only return the swap/staking tx result
-        // For bulk send (multiple transfer txs): return all results
+        // For bulk send and DeFi portfolio action batches: return all business tx results
         if (
           !isMultiTxs ||
           unsignedTx.swapInfo ||
           unsignedTx.stakingInfo ||
-          unsignedTx.transfersInfo
+          unsignedTx.transfersInfo ||
+          hasDeFiActionInfo
         ) {
           result.push(data);
         }
@@ -804,6 +862,216 @@ class ServiceSend extends ServiceBase {
     }
 
     return nextNonce;
+  }
+
+  // Re-validate a replace (speed up / cancel) tx's reused nonce against the
+  // current on-chain nonce. Returns consumed=true when the target nonce has
+  // already been used on-chain (original tx confirmed/replaced), meaning the
+  // replacement would be rejected (backend code 40024, or a custom RPC node's
+  // `nonce too low`).
+  //
+  // The nonce MUST be read from the same source the broadcast will use: when a
+  // custom RPC is enabled for a built-in network (and the user has not opted
+  // into the default RPC for this send), the tx is broadcast directly to that
+  // node, whose nonce view can diverge from the wallet API. Reading the wallet
+  // API nonce in that case could let the precheck pass while the node rejects
+  // the broadcast with a raw error the backend-40024 catch does not recognize,
+  // leaving the stale local pending uncleaned. Pass `useDefaultRpc` through so
+  // the precheck mirrors the broadcast's RPC choice.
+  //
+  // Fail-open: any error (or non-nonce chain) returns consumed=false so a flaky
+  // pre-check never blocks a legitimate replace; the backend 40024 is the safety
+  // net. NEVER overwrite the nonce here — doing so would turn a replace into a
+  // brand-new transaction.
+  @backgroundMethod()
+  public async precheckReplaceTxNonceConsumed({
+    accountId,
+    networkId,
+    targetNonce,
+    useDefaultRpc,
+  }: {
+    accountId: string;
+    networkId: string;
+    targetNonce: number;
+    useDefaultRpc?: boolean;
+  }): Promise<{ consumed: boolean; onChainNextNonce?: number }> {
+    try {
+      if (isNil(targetNonce)) {
+        return { consumed: false };
+      }
+      const { nonceRequired } =
+        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+      if (!nonceRequired) {
+        return { consumed: false };
+      }
+      const onChainNextNonce = await this.fetchReplaceTxOnChainNextNonce({
+        accountId,
+        networkId,
+        useDefaultRpc,
+      });
+      if (isNil(onChainNextNonce)) {
+        return { consumed: false };
+      }
+      return {
+        consumed: new BigNumber(targetNonce).lt(onChainNextNonce),
+        onChainNextNonce,
+      };
+    } catch {
+      return { consumed: false };
+    }
+  }
+
+  // Read the on-chain nonce for the replace-tx precheck. This precheck needs the
+  // CONFIRMED (latest) on-chain transaction count, NOT a "next usable" nonce:
+  // the replace tx reuses the original pending tx's nonce, so it is only truly
+  // consumed once the chain has confirmed that nonce.
+  //
+  // Source selection:
+  // - Custom RPC enabled on a built-in network (and not bypassed via
+  //   `useDefaultRpc`) -> read from that node so the precheck and the
+  //   broadcast share one nonce view.
+  // - Backend non-indexed networks (backendIndex === false) -> the wallet API
+  //   has no index for these chains and proxies the node with the `pending`
+  //   block tag, which counts the very pending tx being replaced (off-by-one).
+  //   That made the precheck report a still-pending nonce as consumed and
+  //   wrongly drop the pending tx (OK-57049), so the wallet API must NOT be
+  //   used. And unless the broadcast itself goes to the custom RPC (first
+  //   case), there is no trustworthy latest-nonce source either: the custom
+  //   node is disabled, or the user explicitly bypassed it via `useDefaultRpc`
+  //   because it is unusable — a lagging/forked bypassed node could misreport
+  //   a still-replaceable pending as consumed and get it wrongly cleaned up.
+  //   Skip the precheck explicitly (fail-open — broadcast-time backend 40024 /
+  //   node `nonce too low` remains the safety net).
+  // - Otherwise (backend-indexed networks) -> wallet API, whose indexed nonce
+  //   reflects the confirmed count.
+  //
+  // Custom-RPC / network detection is defensive: only a positively
+  // backend-indexed network may use the wallet API. If the index status cannot
+  // be resolved, fail-open instead of risking the non-indexed wallet API's
+  // pending-inclusive nonce false positive.
+  private async fetchReplaceTxOnChainNextNonce({
+    accountId,
+    networkId,
+    useDefaultRpc,
+  }: {
+    accountId: string;
+    networkId: string;
+    useDefaultRpc?: boolean;
+  }): Promise<number | undefined> {
+    let customRpcEnabled = false;
+    try {
+      const customRpcInfo =
+        await this.backgroundApi.serviceCustomRpc.getCustomRpcForNetwork(
+          networkId,
+        );
+      customRpcEnabled = Boolean(customRpcInfo?.rpc && customRpcInfo?.enabled);
+    } catch {
+      customRpcEnabled = false;
+    }
+    const broadcastViaCustomRpc = customRpcEnabled && !useDefaultRpc;
+
+    if (!broadcastViaCustomRpc) {
+      try {
+        const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({
+          networkId,
+        });
+        if (network?.backendIndex === true) {
+          const { nonce } =
+            await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+              networkId,
+              accountId,
+              withNonce: true,
+            });
+          return isNil(nonce) ? undefined : nonce;
+        }
+
+        // Reaching here means the broadcast does NOT go through the custom RPC
+        // (disabled, or bypassed via `useDefaultRpc`), and the network is not
+        // positively known to be backend-indexed. For non-indexed networks the
+        // wallet API's pending-inclusive nonce is exactly the OK-57049 false
+        // positive; if the index status is missing or failed to load, choose
+        // the same fail-open path and leave cleanup to broadcast-time 40024 /
+        // node `nonce too low`.
+        return undefined;
+      } catch {
+        return undefined;
+      }
+    }
+
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
+    const resp = await vault.fetchAccountDetailsByRpc({
+      accountId,
+      networkId,
+      accountAddress,
+      withNonce: true,
+    });
+    const rpcNonce = resp?.data?.data?.nonce;
+    return isNil(rpcNonce) ? undefined : rpcNonce;
+  }
+
+  isReplaceTxNonceAlreadyUsedServerError(error: unknown): boolean {
+    const e = error as { className?: string; code?: number } | undefined;
+    return (
+      e?.className === EOneKeyErrorClassNames.OneKeyServerApiError &&
+      e?.code === SEND_TX_SERVER_ERROR_CODES.NONCE_ALREADY_USED
+    );
+  }
+
+  // Custom-RPC counterpart to isReplaceTxNonceAlreadyUsedServerError. When a tx
+  // is broadcast directly to a custom RPC node (built-in network with custom
+  // RPC enabled), an already-consumed replace nonce surfaces as a raw JSON-RPC
+  // error (`nonce too low`) rather than the backend 40024. Treat ONLY genuine
+  // nonce-consumed messages as the cleanup trigger.
+  //
+  // Deliberately excludes `replacement transaction underpriced`: that means the
+  // original tx is STILL pending and only the replacement fee was too low, so
+  // the local pending must NOT be cleaned up.
+  isReplaceTxNonceAlreadyUsedRpcError(error: unknown): boolean {
+    const message = (
+      (error as { message?: string } | undefined)?.message ?? ''
+    ).toLowerCase();
+    if (!message) {
+      return false;
+    }
+    return (
+      message.includes('nonce too low') ||
+      message.includes('nonce is too low') ||
+      message.includes('oldnonce')
+    );
+  }
+
+  buildReplaceTxNonceConsumedError() {
+    return new ReplaceTxNonceConsumedError({
+      message: appLocale.intl.formatMessage({
+        id: ETranslations.global_nonce_error_lower,
+      }),
+    });
+  }
+
+  // Drop the stale local pending tx (its nonce was already consumed on-chain)
+  // and throw the friendly, localized replace-nonce-consumed error. Always
+  // throws — shared by the pre-broadcast nonce check and the backend-40024
+  // safety net so both paths clean up and surface the same message.
+  private async cleanupStaleReplaceTxAndThrow({
+    accountId,
+    networkId,
+    replaceHistoryId,
+  }: {
+    accountId: string;
+    networkId: string;
+    replaceHistoryId?: string;
+  }): Promise<never> {
+    await this.backgroundApi.serviceHistory.resolveStalePendingReplaceTx({
+      accountId,
+      networkId,
+      replaceHistoryId,
+    });
+    throw this.buildReplaceTxNonceConsumedError();
   }
 
   @backgroundMethod()

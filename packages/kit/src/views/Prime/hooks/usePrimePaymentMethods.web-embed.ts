@@ -1,11 +1,13 @@
 /* oxlint-disable import-js/order */
-import { useCallback, useMemo, useSyncExternalStore } from 'react';
-
-// load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
+// IMPORTANT: keep Stripe as an eager top-level import before RevenueCat.
+// RevenueCat checks for a preloaded Stripe.js runtime; if this is moved to a
+// lazy import for startup performance, RevenueCat may inject
+// https://js.stripe.com/v3 itself and Prime checkout can break.
 // eslint-disable-next-line import-js/order
 import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
 
-import { LogLevel, Purchases } from '@revenuecat/purchases-js';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
+
 import { BigNumber } from 'bignumber.js';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -13,6 +15,7 @@ import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import purchaseSdkUtils from '../purchasesSdk/purchaseSdkUtils';
+import { loadPurchasesSdkWeb } from '../purchasesSdk/purchasesSdkWebLoader';
 
 import primePaymentUtils from './primePaymentUtils';
 
@@ -22,11 +25,6 @@ import type {
   IUsePrimePayment,
 } from './usePrimePaymentTypes';
 import type { CustomerInfo, PurchaseParams } from '@revenuecat/purchases-js';
-
-if (process.env.NODE_ENV !== 'production') {
-  console.log('Purchases.setLogLevel Verbose');
-  Purchases.setLogLevel(LogLevel.Verbose);
-}
 
 function getWebEmbedSearchParamsString() {
   if (typeof globalThis.location === 'undefined') {
@@ -111,6 +109,8 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     // TODO VPN required
     // await Purchases.setProxyURL('https://api.rc-backup.com/');
 
+    const { Purchases } = await loadPurchasesSdkWeb();
+
     // TODO how to configure another userId when user login with another account
     // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
 
@@ -121,6 +121,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
   const getCustomerInfo = useCallback(async () => {
     await initSdk();
+    const { Purchases } = await loadPurchasesSdkWeb();
 
     const customerInfo: CustomerInfo =
       await Purchases.getSharedInstance().getCustomerInfo();
@@ -142,6 +143,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
   const getPackagesWeb = useCallback(async () => {
     await initSdk();
+    const { Purchases } = await loadPurchasesSdkWeb();
 
     if (!isReady) {
       throw new OneKeyLocalError('PrimeAuth Not ready');
@@ -217,6 +219,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       });
 
       await initSdk();
+      const { Purchases } = await loadPurchasesSdkWeb();
 
       console.log('purchasePackageWeb77632723>>>>>> initSdk done');
 

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,6 +16,7 @@ import {
 import type {
   IIllustrationName,
   IKeyOfIcons,
+  ILottieViewProps,
   ISizableTextProps,
 } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
@@ -24,16 +25,28 @@ import { LayoutHeaderLanguageSelector } from '@onekeyhq/kit/src/views/Onboarding
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-const LOTTIE_SOURCE = {
-  light: require('@onekeyhq/kit/assets/animations/_mov_refer.json'),
-  dark: require('@onekeyhq/kit/assets/animations/_mov_refer_dark.json'),
-};
 const LOTTIE_ASPECT_RATIO = 786 / 446;
+
+function resolveLottieModule(module: unknown): ILottieViewProps['source'] {
+  const lottieModule = module as { default?: ILottieViewProps['source'] };
+  return lottieModule.default ?? module;
+}
+
+async function loadReferralLottieSource(themeVariant: 'light' | 'dark') {
+  return themeVariant === 'dark'
+    ? resolveLottieModule(
+        await import('@onekeyhq/kit/assets/animations/_mov_refer_dark.json'),
+      )
+    : resolveLottieModule(
+        await import('@onekeyhq/kit/assets/animations/_mov_refer.json'),
+      );
+}
 
 const VARIANT_COPY = {
   perps: {
     heroTitleId: ETranslations.referral_web_landing_title_perps,
-    heroSubtitleId: ETranslations.referral_web_landing_subtitle_perps,
+    heroSubtitleId:
+      ETranslations.referral_web_landing_perps_trading_cashback__title,
     step3TitleId: ETranslations.referral_web_landing_step3_perps_title,
     step3CtaId: ETranslations.referral_web_landing_step3_perps_cta,
     step3Illustration: 'BlockPercentage' satisfies IIllustrationName,
@@ -88,6 +101,14 @@ const PERPS_BENEFITS: {
     titleId: ETranslations.referral_web_landing_perps_self_custody__title,
     descriptionId: ETranslations.referral_web_landing_perps_self_custody__desc,
   },
+];
+
+const PERPS_MOBILE_HIGHLIGHTS: ETranslations[] = [
+  ETranslations.referral_web_landing_perps_mobile_all_asset__title,
+  ETranslations.referral_web_landing_perps_mobile_backed__title,
+  ETranslations.referral_web_landing_perps_mobile_wallet_native__title,
+  ETranslations.referral_web_landing_perps_mobile_global_markets__title,
+  ETranslations.referral_web_landing_perps_mobile_self_custody__title,
 ];
 
 const buildAccentChunks = (
@@ -167,8 +188,25 @@ function StepCard({
 
 function ReferralLottieAnimation() {
   const themeVariant = useThemeVariant();
-  const lottieSource =
-    LOTTIE_SOURCE[themeVariant === 'dark' ? 'dark' : 'light'];
+  const [lottieSource, setLottieSource] = useState<
+    ILottieViewProps['source'] | null
+  >(null);
+  const lottieThemeVariant = themeVariant === 'dark' ? 'dark' : 'light';
+
+  useEffect(() => {
+    let cancelled = false;
+    setLottieSource(null);
+    void loadReferralLottieSource(lottieThemeVariant).then((source) => {
+      if (cancelled) {
+        return;
+      }
+      setLottieSource(source);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [lottieThemeVariant]);
+
   return (
     <Stack
       width="100%"
@@ -177,15 +215,17 @@ function ReferralLottieAnimation() {
       alignSelf="flex-start"
       $md={{ alignSelf: 'center' }}
     >
-      <LottieView
-        source={lottieSource}
-        autoplay={false}
-        loop={false}
-        initialSegment={[30, 30]}
-        resizeMode="contain"
-        width="100%"
-        height="100%"
-      />
+      {lottieSource ? (
+        <LottieView
+          source={lottieSource}
+          autoplay={false}
+          loop={false}
+          initialSegment={[30, 30]}
+          resizeMode="contain"
+          width="100%"
+          height="100%"
+        />
+      ) : null}
     </Stack>
   );
 }
@@ -458,6 +498,33 @@ function Step3Trade({
   );
 }
 
+function PerpsMobileHighlights() {
+  const intl = useIntl();
+  return (
+    <XStack
+      gap="$2"
+      rowGap="$1.5"
+      flexWrap="wrap"
+      justifyContent="center"
+      px="$0.5"
+      $gtMd={{ display: 'none' }}
+    >
+      {PERPS_MOBILE_HIGHLIGHTS.map((titleId) => (
+        <XStack key={titleId} alignItems="center" gap="$1">
+          <Icon
+            name="Checkmark1SmallOutline"
+            size="$3.5"
+            color="$iconSuccess"
+          />
+          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            {intl.formatMessage({ id: titleId })}
+          </SizableText>
+        </XStack>
+      ))}
+    </XStack>
+  );
+}
+
 function PerpsBenefitIcon({ name }: { name: IKeyOfIcons }) {
   return (
     <Stack
@@ -605,6 +672,7 @@ export function ReferralWebLanding({
         >
           <ReferralHero variant={variant} discount={inviteeDiscount} />
           <YStack gap="$5" $gtMd={{ flexBasis: 0, flexGrow: 55, pt: '$16' }}>
+            {variant === 'perps' ? <PerpsMobileHighlights /> : null}
             <Step1Download
               onDownload={onDownload}
               onScrollToBind={onScrollToBind}

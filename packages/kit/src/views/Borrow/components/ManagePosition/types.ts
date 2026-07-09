@@ -17,6 +17,13 @@ export type IBorrowActionType = 'supply' | 'withdraw' | 'borrow' | 'repay';
 
 export type ITokenSelectorMode = 'navigation' | 'popover' | 'disabled';
 
+export type IManagePositionApproveTarget = {
+  accountId: string;
+  networkId: string;
+  spenderAddress: string;
+  token: IToken;
+};
+
 // ============================================================================
 // Confirm Params
 // ============================================================================
@@ -43,6 +50,7 @@ export interface IManagePositionProps {
   // Token info
   balance: string;
   maxBalance?: string;
+  repayAllBalance?: string;
   tokenSymbol?: string;
   tokenImageUri?: string;
   decimals?: number;
@@ -60,6 +68,10 @@ export interface IManagePositionProps {
   selectableAssets?: IBorrowAsset[];
   selectableAssetsLoading?: boolean;
   onTokenSelect?: (item: IBorrowAsset) => void;
+
+  // Optional token approval gate before submit.
+  approveTarget?: IManagePositionApproveTarget;
+  currentAllowance?: string;
 
   // Callbacks
   onConfirm?: (params: IManagePositionConfirmParams) => Promise<void>;
@@ -112,6 +124,8 @@ export interface IManagePositionState {
   // Action-specific flags
   isWithdrawAll: boolean;
   isRepayAll: boolean;
+  shouldApprove: boolean;
+  approveLoading: boolean;
 
   // Token selection
   tokenSelectorMode: ITokenSelectorMode;
@@ -138,6 +152,7 @@ export interface IManagePositionActions {
   onTokenSelect?: (item: IBorrowAsset) => void;
   handleOpenTokenSelector: () => void;
   onSubmit: () => Promise<void>;
+  onApprove?: () => Promise<void>;
 }
 
 // ============================================================================

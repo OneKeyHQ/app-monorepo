@@ -12,12 +12,16 @@ import {
   useNavigationBuilder,
 } from '@react-navigation/core';
 import { StackView } from '@react-navigation/stack';
-import _ from 'lodash';
+import findLastIndex from 'lodash/findLastIndex';
 import { useWindowDimensions } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
@@ -108,10 +112,19 @@ const modalStyleGtMd = {
   willChange: 'opacity, transform',
 };
 
-const modalStyleMd = {
-  transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
-  willChange: 'transform',
-};
+// The ext standalone window is itself a freshly-opened popup hosting a single
+// dapp-approval modal — replaying the slide-up enter transition inside it
+// doubles the perceived motion, so the modal renders in place instead.
+const disableModalAnimation = platformEnv.isExtensionUiStandaloneWindow;
+
+const modalStyleMd = disableModalAnimation
+  ? {
+      willChange: 'transform',
+    }
+  : {
+      transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
+      willChange: 'transform',
+    };
 
 const routeStyleFirst = {
   transform: [{ translateX: 0 }],
@@ -182,6 +195,16 @@ function WebModalNavigator({
 
   useBackHandler(handleBackPress, true, false);
 
+  // Let SplashProvider know the modal chunk is on screen: the ext standalone
+  // window keeps its splash up until this fires, so the Home tab never
+  // flashes through while the lazy-loaded modal navigator is fetched.
+  useEffect(() => {
+    if (platformEnv.isExtensionUiStandaloneWindow) {
+      (globalThis as any).$$onekeyExtModalNavigatorMounted = true;
+      appEventBus.emit(EAppEventBusNames.ModalNavigatorMounted, undefined);
+    }
+  }, []);
+
   const handleBackdropClick = useThrottledCallback(() => {
     if (descriptor.options.dismissOnOverlayPress === false) {
       return;
@@ -197,7 +220,7 @@ function WebModalNavigator({
   const currentRouteIndex = useMemo(
     () =>
       Math.max(
-        _.findLastIndex(
+        findLastIndex(
           rootNavigation?.getState?.()?.routes,
           (rootRoute) =>
             state.routes.findIndex(
@@ -321,7 +344,7 @@ function WebModalNavigator({
       if (media.gtMd) {
         el.style.opacity = '0';
         el.style.transform = disableEnterScaleAnimation ? '' : 'scale(0.95)';
-      } else {
+      } else if (!disableModalAnimation) {
         el.style.transform = `translateY(${screenHeight}px)`;
       }
     }
@@ -486,7 +509,7 @@ function WebModalNavigator({
               onPress={platformEnv.isNative ? stopPropagation : undefined}
               onPressIn={platformEnv.isNative ? undefined : onPagePressIn}
               testID="APP-Modal-Screen"
-              className="app-region-no-drag"
+              className="app-region-no-drag onekey-modal-screen"
               bg="$bgApp"
               overflow="hidden"
               width="100%"

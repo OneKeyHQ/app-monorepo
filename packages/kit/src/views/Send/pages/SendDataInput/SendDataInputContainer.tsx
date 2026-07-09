@@ -6,11 +6,7 @@ import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type {
-  IFormMode,
-  IPageNavigationProp,
-  IReValidateMode,
-} from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Alert,
   Form,
@@ -19,9 +15,13 @@ import {
   TextArea,
   Toast,
   XStack,
-  useForm,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  type IFormMode,
+  type IReValidateMode,
+  useForm,
+} from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
@@ -67,10 +67,8 @@ import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import {
-  getAccountIdOnNetwork,
-  parseOnChainAmount,
-} from '../../../ScanQrCode/hooks/useParseQRCode';
+import { getAccountIdOnNetwork } from '../../../ScanQrCode/utils/getAccountIdOnNetwork';
+import { parseOnChainAmount } from '../../../ScanQrCode/utils/parseOnChainAmount';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
 import RecipientQuickSelect from './RecipientQuickSelect';
@@ -816,6 +814,8 @@ function SendDataInputContainer() {
         import(
           /* webpackPrefetch: true */ '@onekeyhq/kit/src/views/ScanQrCode/pages/ScanQrCodeModal'
         ),
+        // TODO(6.7.0): Remove this legacy SendModal confirmation prefetch.
+        // Active confirmation flows use SignatureConfirmModal -> TxConfirm.
         import(
           /* webpackPrefetch: true */ '@onekeyhq/kit/src/views/Send/pages/SendConfirm/SendConfirmContainer'
         ),

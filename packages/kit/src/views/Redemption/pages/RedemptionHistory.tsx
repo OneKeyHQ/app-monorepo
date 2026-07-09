@@ -2,12 +2,20 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Badge, Empty, Page, Spinner, YStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Empty,
+  IconButton,
+  Page,
+  Spinner,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { RedemptionTestIDs } from '@onekeyhq/kit/src/views/Redemption/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EBtcRewardStatus } from '@onekeyhq/shared/src/referralCode/type';
@@ -109,6 +117,9 @@ function RedemptionHistoryContent() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const statusConfigs = useMemo(() => getBtcRewardStatusConfig(intl), [intl]);
+  const recoverTitle = intl.formatMessage({
+    id: ETranslations.redemption_btc_recover_title,
+  });
 
   const { isLoggedIn } = useOneKeyAuth();
 
@@ -161,6 +172,23 @@ function RedemptionHistoryContent() {
     [navigation],
   );
 
+  const handleRecoverPress = useCallback(() => {
+    navigation.push(EModalReferFriendsRoutes.BtcRewardRecover);
+  }, [navigation]);
+
+  const renderHeaderRight = useCallback(
+    () => (
+      <IconButton
+        testID={RedemptionTestIDs.btcRewardRecoverEntryBtn}
+        title={recoverTitle}
+        variant="tertiary"
+        icon="RefreshCcwOutline"
+        onPress={handleRecoverPress}
+      />
+    ),
+    [handleRecoverPress, recoverTitle],
+  );
+
   const isLoading = isBtcLoading || (isLoggedIn && isLegacyLoading);
 
   const renderContent = () => {
@@ -183,6 +211,11 @@ function RedemptionHistoryContent() {
             description={intl.formatMessage({
               id: ETranslations.redemption_no_redemptions_message,
             })}
+            buttonProps={{
+              testID: RedemptionTestIDs.btcRewardRecoverEmptyBtn,
+              children: recoverTitle,
+              onPress: handleRecoverPress,
+            }}
           />
         </YStack>
       );
@@ -212,6 +245,7 @@ function RedemptionHistoryContent() {
         title={intl.formatMessage({
           id: ETranslations.redemption_history_title,
         })}
+        headerRight={renderHeaderRight}
       />
       <Page.Body>{renderContent()}</Page.Body>
     </Page>

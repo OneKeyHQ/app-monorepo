@@ -8,7 +8,6 @@ import {
   DebugRenderTracker,
   Divider,
   IconButton,
-  NumberSizeableText,
   ScrollView,
   SizableText,
   SkeletonContainer,
@@ -16,7 +15,6 @@ import {
   XStack,
   YStack,
   useClipboard,
-  useMedia,
 } from '@onekeyhq/components';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsAllAssetCtxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
@@ -38,6 +36,7 @@ import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
   formatLocalizedNumberString,
+  numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatAssetCtx,
@@ -175,7 +174,12 @@ const TickerBarMarkPriceView = memo(
           <Tooltip
             placement="top"
             renderTrigger={
-              <SizableText size="$headingXl" cursor="help">
+              <SizableText
+                size="$headingMd"
+                cursor="help"
+                fontVariant={['tabular-nums']}
+                lineHeight={20}
+              >
                 {formattedMarkPrice}
               </SizableText>
             }
@@ -224,56 +228,64 @@ function TickerBarMarkPrice() {
   );
 }
 
-const TickerBarChange24hPercentView = memo(
+const TickerBarChange24hView = memo(
   ({
-    change24hPercent,
+    changeDisplay,
     isLoading,
-    gtMd,
   }: {
-    change24hPercent: number;
+    changeDisplay: string;
     isLoading: boolean;
-    gtMd: boolean;
   }) => (
     <DebugRenderTracker
-      name="TickerBarChange24hPercent"
+      name="TickerBarChange24h"
       position="bottom-right"
       offsetY={10}
     >
-      <SkeletonContainer isLoading={isLoading} width={50} height={16}>
-        <NumberSizeableText
-          size={gtMd ? '$headingXs' : '$bodySmMedium'}
-          fontSize={gtMd ? undefined : 10}
-          mt={gtMd ? undefined : '$-2'}
-          color={change24hPercent >= 0 ? '$green11' : '$red11'}
-          formatter="priceChange"
-          formatterOptions={{
-            showPlusMinusSigns: true,
-          }}
+      <SkeletonContainer isLoading={isLoading} width={120} height={16}>
+        <SizableText
+          size="$bodyXs"
+          textTransform="none"
+          fontWeight="500"
+          letterSpacing={0.2}
+          lineHeight={12}
+          color={changeDisplay.trim().startsWith('-') ? '$red11' : '$green11'}
         >
-          {change24hPercent}
-        </NumberSizeableText>
+          {changeDisplay}
+        </SizableText>
       </SkeletonContainer>
     </DebugRenderTracker>
   ),
 );
-TickerBarChange24hPercentView.displayName = 'TickerBarChange24hPercentView';
+TickerBarChange24hView.displayName = 'TickerBarChange24hView';
 
-export function TickerBarChange24hPercent() {
-  const { gtMd } = useMedia();
+export function TickerBarChange24h() {
   const [tradingMode] = useTradingModeAtom();
   const assetCtx = useTickerBarPerpAssetCtx();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
-  const change24hPercent =
-    tradingMode === 'spot'
-      ? spotAssetCtx?.ctx?.change24hPercent || 0
-      : assetCtx?.ctx?.change24hPercent || 0;
+  const displayCtx = tradingMode === 'spot' ? spotAssetCtx?.ctx : assetCtx?.ctx;
+  const changeDisplay = useMemo(() => {
+    const changeValue = displayCtx?.change24h || '0';
+    const signedChangeValue =
+      changeValue.startsWith('-') || changeValue === '0'
+        ? changeValue
+        : `+${changeValue}`;
+    const percentText = numberFormat(
+      String(displayCtx?.change24hPercent || 0),
+      {
+        formatter: 'priceChange',
+        formatterOptions: {
+          showPlusMinusSigns: true,
+        },
+      },
+    );
+    return `${signedChangeValue} (${percentText})`;
+  }, [displayCtx?.change24h, displayCtx?.change24hPercent]);
   const isLoading = useTickerBarIsLoading();
 
   return (
-    <TickerBarChange24hPercentView
-      change24hPercent={change24hPercent}
+    <TickerBarChange24hView
+      changeDisplay={changeDisplay}
       isLoading={isLoading}
-      gtMd={gtMd}
     />
   );
 }
@@ -647,11 +659,11 @@ const TickerBarFundingRateView = memo(
             })}
           </SizableText>
           <SkeletonContainer isLoading={isLoading} width={120} height={16}>
-            <XStack alignItems="center" gap="$2">
+            <XStack alignItems="baseline" gap="$2">
               <Tooltip
                 hovering
                 renderTrigger={
-                  <XStack alignItems="center" gap="$2">
+                  <XStack alignItems="baseline" gap="$2">
                     <DashText
                       {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
                       fontVariant={['tabular-nums']}
@@ -923,8 +935,8 @@ function PerpTickerBarDesktop() {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [tradingMode] = useTradingModeAtom();
   const isSpot = tradingMode === 'spot';
-  const marketDataGap = useMemo(() => (isSpot ? '$6' : '$8'), [isSpot]);
-  const priceSectionWidth = useMemo(() => (isSpot ? 168 : 140), [isSpot]);
+  const marketDataGap = useMemo(() => (isSpot ? '$6' : '$6'), [isSpot]);
+  const priceSectionWidth = useMemo(() => (isSpot ? 168 : 96), [isSpot]);
   const content = (
     <XStack
       bg="$bgApp"
@@ -935,10 +947,10 @@ function PerpTickerBarDesktop() {
       pr="$3"
       alignItems="center"
       justifyContent="flex-start"
-      gap="$6"
+      gap="$5"
       h={PERP_LAYOUT_CONFIG.desktop.tickerBarHeight}
     >
-      <XStack gap="$4" alignItems="center" minWidth={0} flexShrink={1}>
+      <XStack gap="$3" alignItems="center" minWidth={0} flexShrink={1}>
         <XStack gap="$2" alignItems="center" minWidth={0} flexShrink={1}>
           <FavoriteButton
             coin={activeTradeInstrument.coin}
@@ -948,17 +960,15 @@ function PerpTickerBarDesktop() {
           <PerpTokenSelector />
         </XStack>
 
-        <XStack
-          alignItems="center"
-          minWidth={priceSectionWidth}
+        <YStack
+          alignItems="flex-start"
           width={priceSectionWidth}
-          gap="$1.5"
           flexShrink={0}
           cursor="default"
         >
           <TickerBarMarkPrice />
-          <TickerBarChange24hPercent />
-        </XStack>
+          <TickerBarChange24h />
+        </YStack>
       </XStack>
 
       {/* Right: Market Data */}
@@ -974,10 +984,10 @@ function PerpTickerBarDesktop() {
         }}
       >
         {isSpot ? null : <TickerBarOraclePrice />}
+        {isSpot ? null : <TickerBarFundingRate />}
         <TickerBar24hVolume />
         {isSpot ? <TickerBarMarketCap /> : <TickerBarOpenInterest />}
         {isSpot ? <TickerBarSpotContract /> : null}
-        {isSpot ? null : <TickerBarFundingRate />}
       </ScrollView>
     </XStack>
   );

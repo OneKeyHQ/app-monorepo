@@ -8,7 +8,7 @@ import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
-import type { IPageScreenProps, IYStackProps } from '@onekeyhq/components';
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -29,7 +29,6 @@ import {
   usePopoverContext,
   useThemeName,
 } from '@onekeyhq/components';
-import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -93,10 +92,13 @@ import {
   sortDevicesData,
 } from '../utils';
 
+import { ConnectionIndicator } from './ConnectionIndicator';
+
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ReactVideoSource } from 'react-native-video';
 
 const LedgerConnectionFlow = lazy(() => import('./ConnectionFlowLedger'));
+const TrezorConnectionFlow = lazy(() => import('./ConnectionFlowTrezor'));
 
 enum EConnectionStatus {
   init = 'init',
@@ -392,84 +394,6 @@ function useDeviceConnection({
   );
 }
 
-function ConnectionIndicatorCard({ children }: { children: React.ReactNode }) {
-  return (
-    <YStack
-      borderRadius={10}
-      borderCurve="continuous"
-      $platform-web={{
-        boxShadow: '0 1px 1px 0 rgba(0, 0, 0, 0.20)',
-      }}
-      // $platform-android={{ elevation: 0.1 }}
-      $platform-ios={{
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 0.5 },
-        shadowOpacity: 0.2,
-        shadowRadius: 0.5,
-      }}
-      bg="$bg"
-    >
-      {children}
-    </YStack>
-  );
-}
-
-function ConnectionIndicatorAnimation({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <YStack
-      h={320}
-      alignItems="center"
-      justifyContent="center"
-      overflow="hidden"
-    >
-      {children}
-    </YStack>
-  );
-}
-
-function ConnectionIndicatorContent({
-  children,
-  ...rest
-}: {
-  children: React.ReactNode;
-} & IYStackProps) {
-  return (
-    <YStack
-      px="$5"
-      py="$4"
-      borderWidth={0}
-      borderTopWidth={StyleSheet.hairlineWidth}
-      borderTopColor="$borderSubdued"
-      $platform-web={{
-        borderStyle: 'dashed',
-      }}
-      {...rest}
-    >
-      {children}
-    </YStack>
-  );
-}
-
-function ConnectionIndicatorTitle({ children }: { children: React.ReactNode }) {
-  return <SizableText size="$bodyMdMedium">{children}</SizableText>;
-}
-
-function ConnectionIndicatorFooter({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <YStack pt="$5" pb="$2" gap="$2">
-      {children}
-    </YStack>
-  );
-}
-
 function TroubleShootingButton({ type: _type }: { type: 'usb' | 'bluetooth' }) {
   const [showHelper, setShowHelper] = useState(false);
   const intl = useIntl();
@@ -536,46 +460,6 @@ function TroubleShootingButton({ type: _type }: { type: 'usb' | 'bluetooth' }) {
     </>
   );
 }
-
-function ConnectionIndicatorRoot({ children }: { children: React.ReactNode }) {
-  return (
-    <YStack
-      $platform-web={{
-        boxShadow:
-          '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
-      }}
-      $theme-dark={{
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: '$neutral3',
-        bg: '$neutral4',
-      }}
-      $platform-native={{
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: '$neutral4',
-      }}
-      overflow="hidden"
-      borderRadius={10}
-      borderCurve="continuous"
-      bg="$bgSubdued"
-      animation="quick"
-      animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-      enterStyle={{
-        opacity: 0,
-        x: 24,
-      }}
-    >
-      {children}
-    </YStack>
-  );
-}
-
-export const ConnectionIndicator = Object.assign(ConnectionIndicatorRoot, {
-  Animation: ConnectionIndicatorAnimation,
-  Card: ConnectionIndicatorCard,
-  Content: ConnectionIndicatorContent,
-  Title: ConnectionIndicatorTitle,
-  Footer: ConnectionIndicatorFooter,
-});
 
 function BluetoothCard({
   onConnect,
@@ -1263,7 +1147,10 @@ function ConnectYourDevicePage({
       const connectId = item.device.connectId ?? '';
       try {
         // For third-party devices, skip CheckAndUpdate and go directly to FinalizeWalletSetup
-        if (item.vendor === EHardwareVendor.ledger) {
+        if (
+          item.vendor === EHardwareVendor.ledger ||
+          item.vendor === EHardwareVendor.trezor
+        ) {
           navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
             deviceData: {
               ...item,
@@ -1322,6 +1209,65 @@ function ConnectYourDevicePage({
     [navigation],
   );
 
+  let content = (
+    <>
+      <XStack alignItems="center" gap="$4">
+        {tabOptions.length > 1 ? (
+          <SegmentControl
+            fullWidth
+            value={tabValue}
+            onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
+            options={tabOptions}
+          />
+        ) : null}
+        {isSupportedQRCode ? (
+          <YStack ml="auto">
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.global_advanced,
+              })}
+              renderTrigger={
+                <IconButton
+                  testID={OnboardingTestIDs.connectYourDeviceAdvancedMenuBtn}
+                  variant="tertiary"
+                  icon="DotHorOutline"
+                />
+              }
+              renderContent={
+                <QRWalletConnect
+                  navigateToCreateQRWallet={navigateToCreateQRWallet}
+                />
+              }
+            />
+          </YStack>
+        ) : null}
+      </XStack>
+      {tabValue === EConnectDeviceChannel.usbOrBle ? (
+        <USBOrBLEConnectionIndicator
+          tabValue={tabValue}
+          deviceTypeItems={deviceTypeItems}
+          connectDevice={connectDevice}
+          vendor={vendor}
+        />
+      ) : null}
+      {tabValue === EConnectDeviceChannel.bluetooth ? (
+        <BluetoothConnectionIndicator
+          tabValue={tabValue}
+          deviceTypeItems={deviceTypeItems}
+          connectDevice={connectDevice}
+          vendor={vendor}
+        />
+      ) : null}
+    </>
+  );
+
+  if (vendor === EHardwareVendor.ledger) {
+    content = <LedgerConnectionFlow />;
+  }
+  if (vendor === EHardwareVendor.trezor) {
+    content = <TrezorConnectionFlow />;
+  }
+
   return (
     <OnboardingPage
       headerTitle={intl.formatMessage({
@@ -1332,61 +1278,7 @@ function ConnectYourDevicePage({
       narrow
       contentContainerProps={{ gap: '$5' }}
     >
-      {vendor === EHardwareVendor.ledger ? (
-        <LedgerConnectionFlow />
-      ) : (
-        <>
-          <XStack alignItems="center" gap="$4">
-            {tabOptions.length > 1 ? (
-              <SegmentControl
-                fullWidth
-                value={tabValue}
-                onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
-                options={tabOptions}
-              />
-            ) : null}
-            {isSupportedQRCode ? (
-              <YStack ml="auto">
-                <Popover
-                  title={intl.formatMessage({
-                    id: ETranslations.global_advanced,
-                  })}
-                  renderTrigger={
-                    <IconButton
-                      testID={
-                        OnboardingTestIDs.connectYourDeviceAdvancedMenuBtn
-                      }
-                      variant="tertiary"
-                      icon="DotHorOutline"
-                    />
-                  }
-                  renderContent={
-                    <QRWalletConnect
-                      navigateToCreateQRWallet={navigateToCreateQRWallet}
-                    />
-                  }
-                />
-              </YStack>
-            ) : null}
-          </XStack>
-          {tabValue === EConnectDeviceChannel.usbOrBle ? (
-            <USBOrBLEConnectionIndicator
-              tabValue={tabValue}
-              deviceTypeItems={deviceTypeItems}
-              connectDevice={connectDevice}
-              vendor={vendor}
-            />
-          ) : null}
-          {tabValue === EConnectDeviceChannel.bluetooth ? (
-            <BluetoothConnectionIndicator
-              tabValue={tabValue}
-              deviceTypeItems={deviceTypeItems}
-              connectDevice={connectDevice}
-              vendor={vendor}
-            />
-          ) : null}
-        </>
-      )}
+      {content}
     </OnboardingPage>
   );
 }

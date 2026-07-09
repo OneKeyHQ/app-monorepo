@@ -1,3 +1,7 @@
+import path from 'path';
+
+import { InjectManifest } from '@aaroon/workbox-rspack-plugin';
+import { rspack } from '@rspack/core';
 import { merge } from 'webpack-merge';
 
 import { nodeEnv } from './constant';
@@ -5,7 +9,16 @@ import { createBaseConfig } from './rspack.base.config';
 import { createDevelopmentConfig } from './rspack.development.config';
 import { createProductionConfig } from './rspack.prod.config';
 
-import type { RspackOptions } from '@rspack/core';
+import type { RspackOptions, RspackPluginInstance } from '@rspack/core';
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { WebAppVersionManifestPlugin } =
+  require('../plugins/WebAppVersionManifestPlugin') as {
+    WebAppVersionManifestPlugin: new (options: {
+      RawSource: typeof rspack.sources.RawSource;
+      processAssetsStage: number;
+    }) => RspackPluginInstance;
+  };
 
 interface IWebConfigOptions {
   basePath: string;
@@ -24,6 +37,45 @@ export function createWebConfig({
         output: {
           crossOriginLoading: 'anonymous',
         },
+        plugins: (platform === 'web'
+          ? [
+              // (C1) SRI — native rspack plugin (NOT webpack-subresource-integrity,
+              //   which is incompatible with rspack's Rust pipeline).
+              //   htmlPlugin:'html-webpack-plugin' is REQUIRED because the base
+              //   config uses the JS html-webpack-plugin, not native HtmlRspackPlugin.
+              //   MUST come BEFORE InjectManifest so the SW precache manifest
+              //   hashes the SRI-final assets.
+              new rspack.SubresourceIntegrityPlugin({
+                hashFuncNames: ['sha384'],
+                htmlPlugin: 'html-webpack-plugin',
+                enabled: 'auto',
+              }),
+              new WebAppVersionManifestPlugin({
+                RawSource: rspack.sources.RawSource,
+                processAssetsStage:
+                  rspack.Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE,
+              }),
+              // (C2) PWA service worker — rspack-native workbox InjectManifest
+              //   port. apps/web/index.js registers it from the stable root path
+              //   so one SW can discover and preload future app versions.
+              //   Precache NOTHING (`exclude: [/./]` matches every manifest URL
+              //   -> empty precache). This is a large SPA (~800+ chunks) and
+              //   InjectManifest's default precaches every emitted asset, making
+              //   the SW `install` an ATOMIC all-or-nothing fetch of every file —
+              //   one failed/blocked/throttled request leaves the SW stuck
+              //   "trying to install" forever (observed in prod/test: #2500+
+              //   installs with ERR_CONNECTION_CLOSED bursts). Every asset is
+              //   already covered by service-worker.js (versioned HTML cache for
+              //   navigations, CacheFirst scripts/styles, CacheFirst images/fonts),
+              //   so a full precache adds fragility with no benefit. Mirrors the
+              //   webpack web config.
+              new InjectManifest({
+                swSrc: path.join(basePath, 'src/service-worker.js'),
+                swDest: 'service-worker.js',
+                exclude: [/./],
+              }),
+            ]
+          : []) as unknown as RspackPluginInstance[],
       });
     case 'development':
     default:

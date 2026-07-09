@@ -74,6 +74,9 @@ export interface IDevSettings {
   customApiEndpoints?: IApiEndpointConfig[];
   // show performance monitor
   showPerformanceMonitor?: boolean;
+  // show performance monitor, replacing legacy showPerformanceMonitor which
+  // was default-on in older dev builds.
+  showPerformanceMonitorV2?: boolean;
   // use local trading view URL for development
   useLocalTradingViewUrl?: boolean;
   showPerpsRenderStats?: boolean;
@@ -109,6 +112,8 @@ export interface IDevSettings {
   // Force react-native-fast-pbkdf2 instead of the default quick-crypto backend
   // for native PBKDF2 calls (debug only).
   useFastPbkdf2NativeBackend?: boolean;
+  // Enable Slow 4G throttling on platforms with a supported backend.
+  networkThrottleEnabled?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -117,6 +122,16 @@ export type IDevSettingsPersistAtom = {
   enabled: boolean;
   settings?: IDevSettings;
 };
+
+export function getDevSettingsNetworkThrottleEnabled(
+  devSettings: IDevSettingsPersistAtom,
+  defaultEnabled: boolean,
+) {
+  if (!devSettings.enabled) {
+    return false;
+  }
+  return devSettings.settings?.networkThrottleEnabled ?? defaultEnabled;
+}
 export const {
   target: devSettingsPersistAtom,
   use: useDevSettingsPersistAtom,
@@ -138,7 +153,8 @@ export const {
       enableBotWalletFeature: false,
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
-      showPerformanceMonitor: true,
+      showPerformanceMonitor: false,
+      showPerformanceMonitorV2: false,
       autoNavigation: {
         enabled: false,
         selectedTab: ETabRoutes.Home,
@@ -147,9 +163,10 @@ export const {
       mockTradingViewKLineEmptyEnabled: false,
       mockTradingViewKLineEmptyIntervals: ['1m'],
       showMarketHomeWsDebug: false,
+      networkThrottleEnabled: !!platformEnv.isDesktop || !!platformEnv.isNative,
       allowLocalhostUrlInDAppBrowser: false,
-      // Linux Desktop use Bridge，avoiding WebUSB permission problem
-      usbCommunicationMode: platformEnv.isDesktopLinux ? 'bridge' : 'webusb',
+      // Linux Desktop uses WebUSB; host udev rules are requested when needed.
+      usbCommunicationMode: 'webusb',
       disableIpTableInProd: false, // IP Table enabled by default
       forceIpTableStrict: false, // Strict mode: disabled by default
       useFastPbkdf2NativeBackend: false,
@@ -177,8 +194,19 @@ export type IFirmwareUpdateDevSettings = {
   showDeviceDebugLogs: boolean;
   showAutoCheckHardwareUpdatesToast: boolean;
   forceUpdateBtcOnlyUniversalFirmware: boolean;
+  pro2ForceUpdateTargets: IPro2FirmwareUpdateTarget[];
+  pro2ForceUpdateOnceTargets: IPro2FirmwareUpdateTarget[];
 };
 export type IFirmwareUpdateDevSettingsKeys = keyof IFirmwareUpdateDevSettings;
+export type IPro2FirmwareUpdateTarget =
+  | 'boot'
+  | 'app_v1'
+  | 'app_v2'
+  | 'resource'
+  | 'se01'
+  | 'se02'
+  | 'se03'
+  | 'se04';
 export const {
   target: firmwareUpdateDevSettingsPersistAtom,
   use: useFirmwareUpdateDevSettingsPersistAtom,
@@ -205,6 +233,8 @@ export const {
     showDeviceDebugLogs: false,
     showAutoCheckHardwareUpdatesToast: false,
     forceUpdateBtcOnlyUniversalFirmware: false,
+    pro2ForceUpdateTargets: [],
+    pro2ForceUpdateOnceTargets: [],
   },
 });
 

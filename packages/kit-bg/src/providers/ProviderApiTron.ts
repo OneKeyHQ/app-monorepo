@@ -1,7 +1,7 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { isNil } from 'lodash';
-import { TronWeb } from 'tronweb';
+import { TronWeb, utils as tronWebUtils } from 'tronweb';
 
 import {
   backgroundClass,
@@ -190,7 +190,25 @@ class ProviderApiTron extends ProviderApiBase {
     transaction: any,
   ): Promise<Types.SignedTransaction> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    console.log('tron_signTransaction', request, transaction);
+
+    // Guard against what-you-see-is-not-what-you-sign spoofing: a DApp may keep
+    // the raw_data_hex/txID of one contract (e.g. unlimited approval) while
+    // rewriting the raw_data JSON to look like a harmless TRX transfer. The
+    // confirm UI renders from raw_data, but the signature is computed over txID,
+    // so a mismatch lets the user approve something different from what they see.
+    // txCheck re-serializes raw_data and verifies it matches raw_data_hex/txID
+    // (the bytes actually signed). Reject before any confirm UI is shown.
+    let isTxConsistent = false;
+    try {
+      isTxConsistent = tronWebUtils.transaction.txCheck(transaction);
+    } catch {
+      isTxConsistent = false;
+    }
+    if (!isTxConsistent) {
+      throw web3Errors.rpc.invalidParams(
+        'Tron transaction raw_data does not match raw_data_hex/txID',
+      );
+    }
 
     const { accountInfo: { networkId, accountId } = {} } = (
       await this.getAccountsInfo(request)
@@ -204,8 +222,6 @@ class ProviderApiTron extends ProviderApiBase {
         networkId: networkId ?? '',
         signOnly: true,
       });
-
-    console.log('tron_signTransaction DONE', result, request, transaction);
 
     return JSON.parse(result.rawTx) as Types.SignedTransaction;
   }

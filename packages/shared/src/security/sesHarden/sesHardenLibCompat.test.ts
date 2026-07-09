@@ -1,0 +1,481 @@
+// Verifies how specific third-party libraries behave under a real SES
+// `lockdown()`. `lockdown()` irreversibly freezes the realm's intrinsics, so
+// every scenario runs in its own child node process.
+//
+// The app ships `overrideTaming: 'severe'` (web/desktop L2). It is the PRIMARY
+// fix for the "override mistake": 'severe' enables override for all of
+// Object.prototype, so libraries that assign `constructor` onto a plain object
+// at init (axios, decimal.js) work even when loaded AFTER lockdown. These tests
+// prove three things:
+//   1. Those libraries DO throw under the SES default 'moderate' — i.e.
+//      'severe' is load-bearing, not incidental.
+//   2. The shipped 'severe' config fixes them without any warm-up.
+//   3. The startup warm-up stays limited to dependencies that are already
+//      needed before lockdown.
+import { execFileSync } from 'node:child_process';
+
+import { getSesLockdownOptions } from '.';
+
+// The exact options the app ships for web/desktop L2 (overrideTaming 'severe').
+const SHIPPED_OPTIONS = getSesLockdownOptions('L2');
+// The SES default; used only to prove the override mistake still exists there,
+// so that 'severe' is demonstrably required.
+const MODERATE_OPTIONS = {
+  ...SHIPPED_OPTIONS,
+  overrideTaming: 'moderate' as const,
+};
+
+function runUnderLockdown(
+  snippet: string,
+  options: typeof SHIPPED_OPTIONS = SHIPPED_OPTIONS,
+): string {
+  const source = `
+const opts = JSON.parse(process.argv[1]);
+${snippet}
+`;
+  return execFileSync(
+    process.execPath,
+    ['-e', source, JSON.stringify(options)],
+    {
+      encoding: 'utf8',
+    },
+  );
+}
+
+test('shipped web/desktop L2 lockdown uses overrideTaming "severe"', () => {
+  expect(SHIPPED_OPTIONS?.overrideTaming).toBe('severe');
+});
+
+// --- The override mistake: proof that 'severe' is load-bearing -------------
+// Under the SES default 'moderate', these libraries throw when loaded after
+// lockdown. This is exactly why the app overrides the default to 'severe'.
+
+test('decimal.js throws the override-mistake error under overrideTaming "moderate"', () => {
+  // decimal.js `clone()` does `Decimal.prototype.constructor = Decimal` where
+  // `Decimal.prototype` is a plain object literal (prototype chain goes straight
+  // to the frozen Object.prototype), so module init fails.
+  const out = runUnderLockdown(
+    `
+require('ses');
+lockdown(opts);
+try {
+  const Decimal = require('decimal.js');
+  process.stdout.write('OK:' + new Decimal(1.5).toString());
+} catch (e) {
+  process.stdout.write('ERR:' + e.message);
+}
+`,
+    MODERATE_OPTIONS,
+  );
+  expect(out).toContain('ERR:');
+  expect(out).toContain("Cannot assign to read only property 'constructor'");
+});
+
+test('axios throws the override-mistake error under overrideTaming "moderate"', () => {
+  // axios runs a "reserved names hotfix" at module init: reduceDescriptors()
+  // assigns `constructor` onto a fresh `{}` whose prototype is the frozen
+  // Object.prototype. 'moderate' does not enable override for `constructor`, so
+  // the strict-mode assignment throws. In production axios is pulled in lazily
+  // by @ton/ton, so it initializes AFTER lockdown.
+  const out = runUnderLockdown(
+    `
+require('ses');
+lockdown(opts);
+try {
+  const axios = require('axios');
+  process.stdout.write('OK:' + typeof axios.AxiosHeaders);
+} catch (e) {
+  process.stdout.write('ERR:' + e.message);
+}
+`,
+    MODERATE_OPTIONS,
+  );
+  expect(out).toContain('ERR:');
+  expect(out).toContain("Cannot assign to read only property 'constructor'");
+});
+
+test('axios browser build (the production culprit path) also throws under "moderate"', () => {
+  // The reported error came from axios/dist/browser/axios.cjs (web bundle); pin
+  // that exact path so a future axios bump that moves the hotfix is caught.
+  const out = runUnderLockdown(
+    `
+require('ses');
+lockdown(opts);
+try {
+  require('axios/dist/browser/axios.cjs');
+  process.stdout.write('OK');
+} catch (e) {
+  process.stdout.write('ERR:' + e.message);
+}
+`,
+    MODERATE_OPTIONS,
+  );
+  expect(out).toContain('ERR:');
+  expect(out).toContain("Cannot assign to read only property 'constructor'");
+});
+
+// --- The shipped fix: 'severe' handles the offenders post-lockdown ---------
+// No warm-up needed here; this is what actually protects production.
+
+test('decimal.js works AFTER lockdown under the shipped "severe" config', () => {
+  const out = runUnderLockdown(`
+require('ses');
+lockdown(opts);
+try {
+  const Decimal = require('decimal.js');
+  process.stdout.write('OK:' + new Decimal(1.5).toString());
+} catch (e) {
+  process.stdout.write('ERR:' + e.message);
+}
+`);
+  expect(out).toBe('OK:1.5');
+});
+
+test('axios (browser build) works AFTER lockdown under the shipped "severe" config', () => {
+  const out = runUnderLockdown(`
+require('ses');
+lockdown(opts);
+try {
+  const axios = require('axios/dist/browser/axios.cjs');
+  const headers = new axios.AxiosHeaders({ foo: 'bar' });
+  process.stdout.write('OK:' + headers.get('foo'));
+} catch (e) {
+  process.stdout.write('ERR:' + e.message);
+}
+`);
+  expect(out).toBe('OK:bar');
+});
+
+// --- Startup warm-up stays narrow -------------------------------------------
+// The runtime warm-up (defaultWarmUpBeforeLockdown) loads only dependencies
+// that are already needed by the startup graph. Optional offenders are covered
+// by the shipped 'severe' mode instead of being pulled into Web cold start.
+
+test('decimal.js works without startup warm-up under the shipped "severe" mode', () => {
+  const out = runUnderLockdown(
+    `
+require('ses');
+lockdown(opts);
+try {
+  const Decimal = require('decimal.js');
+  const d1 = new Decimal(1.5);
+  const Decimal2 = require('decimal.js');
+  const d2 = new Decimal2(2.5);
+  process.stdout.write('OK:' + d1.toString() + ',' + d2.toString());
+} catch (e) {
+  process.stdout.write('ERR:' + e.message);
+}
+`,
+    SHIPPED_OPTIONS,
+  );
+  expect(out).toBe('OK:1.5,2.5');
+});
+
+test('axios warmed up BEFORE lockdown works even under "moderate" (defense in depth)', () => {
+  // Loading axios before lockdown lets the reduceDescriptors() assignment land
+  // while Object.prototype is still mutable; afterwards the cached module is
+  // reused and never re-runs the hotfix.
+  const out = runUnderLockdown(
+    `
+require('axios'); // warm-up: the reserved-names hotfix runs before the freeze
+require('ses');
+lockdown(opts);
+try {
+  const axios = require('axios'); // cached module, same AxiosHeaders
+  const headers = new axios.AxiosHeaders({ foo: 'bar' });
+  process.stdout.write('OK:' + headers.get('foo'));
+} catch (e) {
+  process.stdout.write('ERR:' + e.message);
+}
+`,
+    MODERATE_OPTIONS,
+  );
+  expect(out).toBe('OK:bar');
+});
+
+// --- Reown AppKit UI / Lit: Symbol.metadata must be warmed up --------------
+// @reown/appkit-ui imports Lit at module init. Lit seeds Symbol.metadata for
+// decorator metadata support, but the Symbol constructor is already frozen
+// after lockdown. The runtime warm-up seeds Symbol.metadata before lockdown so
+// AppKit UI can still be lazy-loaded by the WalletConnect flow.
+
+test('@reown/appkit-ui throws when lazy-loaded AFTER lockdown without Symbol.metadata warm-up', () => {
+  const out = runUnderLockdown(`
+(async () => {
+  // Keep this test focused on SES metadata. If package export conditions pick
+  // Lit's browser build, importing Lit also needs the web-component base class.
+  globalThis.HTMLElement ??= class HTMLElement {};
+  require('ses');
+  lockdown(opts);
+  try {
+    await import('@reown/appkit-ui');
+    process.stdout.write('OK');
+  } catch (e) {
+    process.stdout.write('ERR:' + e.message);
+  }
+})();
+`);
+  expect(out).toContain(
+    'ERR:Cannot add property metadata, object is not extensible',
+  );
+});
+
+test('@reown/appkit-ui works AFTER lockdown when Symbol.metadata is warmed up', () => {
+  const out = runUnderLockdown(`
+(async () => {
+  // Keep this test focused on SES metadata. If package export conditions pick
+  // Lit's browser build, importing Lit also needs the web-component base class.
+  globalThis.HTMLElement ??= class HTMLElement {};
+  require('ses');
+  Symbol.metadata ??= Symbol('metadata');
+  lockdown(opts);
+  try {
+    await import('@reown/appkit-ui');
+    process.stdout.write('OK:' + Boolean(Symbol.metadata));
+  } catch (e) {
+    process.stdout.write('ERR:' + e.message);
+  }
+})();
+`);
+  expect(out).toContain('OK:true');
+  expect(out).not.toContain('ERR:');
+});
+
+test('@lit/reactive-element throws when lazy-loaded AFTER lockdown without Symbol.metadata warm-up', () => {
+  const out = runUnderLockdown(`
+(async () => {
+  // Keep this test focused on SES metadata. If package export conditions pick
+  // Lit's browser build, importing Lit also needs the web-component base class.
+  globalThis.HTMLElement ??= class HTMLElement {};
+  require('ses');
+  lockdown(opts);
+  try {
+    await import('@lit/reactive-element');
+    process.stdout.write('OK');
+  } catch (e) {
+    process.stdout.write('ERR:' + e.message);
+  }
+})();
+`);
+  expect(out).toContain(
+    'ERR:Cannot add property metadata, object is not extensible',
+  );
+});
+
+test('@lit/reactive-element works AFTER lockdown when Symbol.metadata is warmed up', () => {
+  const out = runUnderLockdown(`
+(async () => {
+  // Keep this test focused on SES metadata. If package export conditions pick
+  // Lit's browser build, importing Lit also needs the web-component base class.
+  globalThis.HTMLElement ??= class HTMLElement {};
+  require('ses');
+  Symbol.metadata ??= Symbol('metadata');
+  lockdown(opts);
+  try {
+    await import('@lit/reactive-element');
+    process.stdout.write('OK:' + Boolean(Symbol.metadata));
+  } catch (e) {
+    process.stdout.write('ERR:' + e.message);
+  }
+})();
+`);
+  expect(out).toContain('OK:true');
+  expect(out).not.toContain('ERR:');
+});
+
+// --- js-conflux-sdk: the jsbi shim must be self-contained (patch-package) ----
+// Unlike axios/decimal.js (the "override mistake", fixed by 'severe'), the CFX
+// jsbi shim originally did `module.exports = BigInt`, so it added its
+// operations (BigInt, leftShift, ...) as OWN properties directly onto the
+// native BigInt intrinsic. And because that export WAS the BigInt intrinsic,
+// CONST.js' `JSBI.prototype.toJSON = ...` (jsbi.js never writes toJSON itself)
+// also landed on BigInt.prototype. lockdown() REMOVES the own operations as
+// "unpermitted intrinsics" (and freezes BigInt.prototype), so warm-up cannot
+// save it (load order is irrelevant) and 'severe' does not apply.
+// patches/js-conflux-sdk+2.3.0.patch makes the shim a self-contained module
+// object with its OWN prototype, so both the operations and CONST.js' toJSON
+// live off the BigInt intrinsic entirely and survive lockdown. Before the
+// patch, requiring CONST.js after lockdown threw "JSBI.BigInt is not a
+// function".
+
+test('js-conflux-sdk jsbi shim works AFTER lockdown and never pollutes the BigInt intrinsic', () => {
+  const out = runUnderLockdown(`
+require('ses');
+lockdown(opts);
+try {
+  const JSBI = require('js-conflux-sdk/src/util/jsbi');
+  require('js-conflux-sdk/src/CONST.js'); // evaluates JSBI.leftShift(JSBI.BigInt(1), ...)
+  // The shim's operations live on the module object itself, never on the
+  // frozen BigInt intrinsic (so lockdown has nothing to strip).
+  const works =
+    typeof JSBI.BigInt === 'function' &&
+    JSBI.leftShift(JSBI.BigInt(1), JSBI.BigInt(8)).toString() === '256' &&
+    // CONST.js' \`JSBI.prototype.toJSON = ...\` succeeded post-lockdown: it
+    // landed on the shim's OWN (unfrozen) prototype, not a frozen intrinsic.
+    typeof JSBI.prototype.toJSON === 'function';
+  const intrinsicUntouched =
+    typeof BigInt.leftShift === 'undefined' &&
+    typeof BigInt.BigInt === 'undefined' &&
+    // ...and crucially never reached the native BigInt intrinsic, so the
+    // intrinsic keeps no toJSON either (lockdown has nothing to strip).
+    typeof BigInt.prototype.toJSON === 'undefined';
+  process.stdout.write('OK:' + works + ',' + intrinsicUntouched);
+} catch (e) {
+  process.stdout.write('ERR:' + e.message);
+}
+`);
+  expect(out).toBe('OK:true,true');
+});
+
+// --- @alephium/web3: no BigInt.prototype mutation --------------------------
+// Versions before v3 installed BigInt.prototype.toJSON at module init. v3
+// removed that global side effect, which keeps the package compatible with SES
+// and avoids custom properties on native BigInt intrinsics in every runtime.
+
+test('@alephium/web3 package entry does not install BigInt.prototype.toJSON before lockdown', () => {
+  const out = runUnderLockdown(`
+try {
+  const alephium = require('@alephium/web3');
+  const works =
+    typeof alephium.NodeProvider === 'function' &&
+    typeof alephium.isValidAddress === 'function';
+  const intrinsicUntouched =
+    typeof BigInt.toJSON === 'undefined' &&
+    typeof BigInt.prototype.toJSON === 'undefined';
+  process.stdout.write('OK:' + works + ',' + intrinsicUntouched);
+} catch (e) {
+  process.stdout.write('ERR:' + e.message);
+}
+`);
+  expect(out).toBe('OK:true,true');
+});
+
+test('@alephium/web3 works AFTER lockdown through the package entry and never pollutes BigInt intrinsics', () => {
+  const out = runUnderLockdown(`
+require('ses');
+lockdown(opts);
+try {
+  const alephium = require('@alephium/web3');
+  const works =
+    typeof alephium.NodeProvider === 'function' &&
+    typeof alephium.isValidAddress === 'function';
+  const intrinsicUntouched =
+    typeof BigInt.toJSON === 'undefined' &&
+    typeof BigInt.prototype.toJSON === 'undefined';
+  process.stdout.write('OK:' + works + ',' + intrinsicUntouched);
+} catch (e) {
+  process.stdout.write('ERR:' + e.message);
+}
+`);
+  expect(out).toBe('OK:true,true');
+});
+
+test('@alephium/web3 ESM entry works AFTER lockdown and never pollutes BigInt intrinsics', () => {
+  const out = runUnderLockdown(`
+(async () => {
+  require('ses');
+  lockdown(opts);
+  try {
+    const alephium = await import('@alephium/web3');
+    const works =
+      typeof alephium.NodeProvider === 'function' &&
+      typeof alephium.isValidAddress === 'function';
+    const intrinsicUntouched =
+      typeof BigInt.toJSON === 'undefined' &&
+      typeof BigInt.prototype.toJSON === 'undefined';
+    process.stdout.write('OK:' + works + ',' + intrinsicUntouched);
+  } catch (e) {
+    process.stdout.write('ERR:' + e.message);
+  }
+})();
+`);
+  expect(out).toBe('OK:true,true');
+});
+
+// --- bn.js / elliptic: NOT offenders (work fine post-lockdown) -------------
+
+test('bn.js works even when loaded AFTER lockdown (not an offender)', () => {
+  // bn.js' inline inherits() builds prototypes via `new TempCtor()` whose chain
+  // keeps a writable own `constructor` at each level, so assigning it succeeds
+  // even with a frozen Object.prototype. `toRed('k256')` exercises that chain.
+  const out = runUnderLockdown(`
+require('ses');
+lockdown(opts);
+try {
+  const BN = require('bn.js');
+  const reduced = new BN(255).toRed(BN.red('k256'));
+  process.stdout.write('OK:' + reduced.fromRed().toString());
+} catch (e) {
+  process.stdout.write('ERR:' + e.message);
+}
+`);
+  expect(out).toBe('OK:255');
+});
+
+test('elliptic secp256k1 + ed25519 work even when loaded AFTER lockdown (Tron/Solana curve path is not the offender)', () => {
+  const out = runUnderLockdown(`
+require('ses');
+lockdown(opts);
+try {
+  const elliptic = require('elliptic');
+  const ec = new elliptic.ec('secp256k1');
+  const pub = ec.keyFromPrivate('11'.repeat(32)).getPublic().encodeCompressed('hex');
+  // eslint-disable-next-line no-new
+  new elliptic.eddsa('ed25519');
+  process.stdout.write('OK:' + (pub.length === 66 ? 'compressed' : pub.length));
+} catch (e) {
+  process.stdout.write('ERR:' + e.message);
+}
+`);
+  expect(out).toBe('OK:compressed');
+});
+
+// --- inversify / Ledger Device Management Kit under lockdown ----------------
+// The Ledger DMK (@ledgerhq/device-management-kit + signer/connector kits) uses
+// `inversify`, whose `@inversifyjs/reflect-metadata-utils` chokepoint stored DI
+// metadata on the global `Reflect` intrinsic via `reflect-metadata`. lockdown()
+// freezes Reflect, so DMK init crashed with "Cannot define property decorate,
+// object is not extensible". Two consumer-side patches fix it WITHOUT touching
+// ses:
+//   1. patches/@inversifyjs+reflect-metadata-utils+*.patch — keep DI metadata in
+//      a module-local WeakMap instead of the global Reflect.
+//   2. patches/reflect-metadata+*.patch — its (now unused) global install is a
+//      best-effort no-op when Reflect is frozen, so the leftover side-effect
+//      `import 'reflect-metadata'` in inversify no longer throws.
+// This proves a real inversify container resolves an @inject dependency AFTER
+// lockdown, and that the global Reflect was never relied upon (stays frozen,
+// Reflect.getMetadata absent).
+
+test('inversify resolves an @inject dependency AFTER lockdown (Ledger DMK path) without touching Reflect', () => {
+  const out = runUnderLockdown(`
+require('ses');
+lockdown(opts);
+try {
+  const { Container, injectable, inject } = require('inversify');
+  class Engine { go() { return 'vroom'; } }
+  injectable()(Engine);
+  class Car {
+    constructor(engine) { this.engine = engine; }
+    drive() { return this.engine.go(); }
+  }
+  inject(Engine)(Car, undefined, 0);
+  injectable()(Car);
+  const container = new Container();
+  container.bind(Engine).toSelf();
+  container.bind(Car).toSelf();
+  const car = container.get(Car);
+  const ok =
+    car instanceof Car &&
+    car.engine instanceof Engine &&
+    car.drive() === 'vroom' &&
+    // DI metadata lives in a module-local WeakMap; the global Reflect is never
+    // mutated, so it stays frozen and never gains a getMetadata method.
+    Object.isFrozen(Reflect) === true &&
+    typeof Reflect.getMetadata === 'undefined';
+  process.stdout.write('OK:' + ok);
+} catch (e) {
+  process.stdout.write('ERR:' + e.message);
+}
+`);
+  expect(out).toBe('OK:true');
+});

@@ -9,6 +9,8 @@ import v8 from 'v8';
 
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
 import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
+import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble';
+import { initTrezorBleSupport } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
 import {
   BrowserWindow,
   Menu,
@@ -39,6 +41,7 @@ import {
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
@@ -54,6 +57,10 @@ import {
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
+import {
+  applyDesktopNetworkThrottleToKnownSessions,
+  applyDesktopNetworkThrottleToWebContents,
+} from './libs/networkThrottle';
 // Side-effect import: registers synchronous IPC handler for renderer MMKV access
 // eslint-disable-next-line import-js/order
 import './libs/react-native-mmkv-desktop-main';
@@ -61,6 +68,7 @@ import { registerInfoHandlers } from './libs/registerInfoHandlers';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import { getBackgroundColor } from './libs/utils';
+import { shouldGrantMainWindowDevicePermission } from './libs/webUsbDeviceSelection';
 // Logger initialization (file rotation, sanitization, rate limiting)
 import './logger';
 import initProcess from './process';
@@ -78,7 +86,61 @@ import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLoc
 import { destroyTrayManager, initTrayManager } from './tray/TrayManager';
 import { destroyTrayWindow, getTrayWindow } from './tray/trayWindow';
 
-initSentry();
+import type { IpcMainLike } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
+
+// cspell:ignore pkexec
+// Main-process (sender) side of the DESKTOP_API_CALL IPC boundary: normalize
+// errors/results so Electron's structured clone never throws "An object could
+// not be cloned" (notably for execFile/pkexec errors on Linux/flatpak). The
+// `.message` is preserved verbatim so the renderer-side counterpart,
+// `unwrapElectronIpcError` (packages/shared/src/errors/utils/electronIpcError.ts),
+// can still recover any `{ message, code, data }` payload encoded in it.
+function makeIpcSafeError(error: unknown, fallbackMessage: string): Error {
+  if (error instanceof Error) {
+    const safeError = new Error(error.message || fallbackMessage);
+    safeError.name = error.name || 'Error';
+    safeError.stack = error.stack;
+    return safeError;
+  }
+
+  if (typeof error === 'string' && error) {
+    return new Error(error);
+  }
+
+  return new Error(fallbackMessage);
+}
+
+// cspell:ignore pkexec
+// Main-process (sender) side of the DESKTOP_API_CALL IPC boundary: normalize
+// errors/results so Electron's structured clone never throws "An object could
+// not be cloned" (notably for execFile/pkexec errors on Linux/flatpak). The
+// `.message` is preserved verbatim so the renderer-side counterpart,
+// `unwrapElectronIpcError` (packages/shared/src/errors/utils/electronIpcError.ts),
+// can still recover any `{ message, code, data }` payload encoded in it.
+function makeIpcSafeResult(result: unknown): unknown {
+  try {
+    structuredClone(result);
+    return result;
+  } catch (error) {
+    try {
+      return JSON.parse(JSON.stringify(result)) as unknown;
+    } catch {
+      throw makeIpcSafeError(error, 'DESKTOP_API_CALL returned unsafe result');
+    }
+  }
+}
+
+// Perf: defer Sentry init off the synchronous module-init path. `@sentry/electron`
+// is external (~5MB); requiring + initializing it on the next tick keeps the
+// require()/parse out of the cold-start eval window.
+//
+// Use process.nextTick (not setImmediate): it fires before any timer/IO callback,
+// so Sentry's global error handlers are installed at the earliest possible point
+// after synchronous eval — and always before the first window (created in
+// app.whenReady()). This minimizes the window in which an early async error would
+// go unreported. (Synchronous top-level errors during app.js eval remain
+// pre-Sentry by construction; native crashes are still covered out-of-band.)
+process.nextTick(initSentry);
 
 const isPerfCiMode = process.env.PERF_CI_MODE === '1';
 const isDesktopE2EMode = process.env.DESKTOP_E2E_MODE === 'true';
@@ -719,6 +781,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     icon: path.join(appStaticResourcesPath, 'images/icons/512x512.png'),
     ...savedWinBounds,
   });
+  applyDesktopNetworkThrottleToWebContents(browserWindow.webContents);
 
   const getSafelyBrowserWindow = () => {
     if (browserWindow && !browserWindow.isDestroyed()) {
@@ -1125,13 +1188,22 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
           `DESKTOP_API_CALL: disallowed method "${method}"`,
         );
       }
-      const result: unknown = await desktopApi.callDesktopApiMethod({
-        type: 'DESKTOP_API_IPC_MESSAGE',
-        module: module as any,
-        method,
-        params,
-      });
-      return result;
+      try {
+        const result: unknown = await desktopApi.callDesktopApiMethod({
+          type: 'DESKTOP_API_IPC_MESSAGE',
+          module: module as any,
+          method,
+          params,
+        });
+        return makeIpcSafeResult(result);
+      } catch (error) {
+        logger.error('[DESKTOP_API_CALL] handler failed', {
+          module,
+          method,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw makeIpcSafeError(error, 'DESKTOP_API_CALL failed');
+      }
     },
   );
 
@@ -1184,6 +1256,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   const overlaySession = session.fromPartition(
     DESKTOP_WEBVIEW_OVERLAY_PARTITION,
   );
+  void applyDesktopNetworkThrottleToKnownSessions();
   // Overlay loads arbitrary external https pages from deeplinks /
   // notifications; the renderer's media-permission whitelist already
   // denies getUserMedia at the react-native-webview layer, but the
@@ -1201,6 +1274,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   // Prevents clicking on links to open new Windows
   app.removeAllListeners('web-contents-created');
   app.on('web-contents-created', (event, contents) => {
+    applyDesktopNetworkThrottleToWebContents(contents);
     if (contents.getType() === 'webview') {
       const isOverlayWebview = contents.session === overlaySession;
       if (isOverlayWebview) {
@@ -1262,15 +1336,11 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   // WebUSB permission handlers - Enable WebUSB support for hardware wallet connections
 
   browserWindow.webContents.session.setDevicePermissionHandler((details) => {
-    if (details.deviceType === 'usb') {
-      return true;
-    }
-    if (details.deviceType === 'hid') {
-      // WebHID has no protected-class blocklist (unlike WebUSB), so tighten
-      // to Ledger vendorId only.
-      return details.device?.vendorId === 0x2c_97;
-    }
-    return false;
+    // WebHID has no protected-class blocklist (unlike WebUSB), so tighten HID
+    // to Ledger vendorId only. USB is scoped to the trusted main window session;
+    // arbitrary dapp webviews use the separate persist:onekey deny-by-default
+    // session below.
+    return shouldGrantMainWindowDevicePermission(details);
   });
 
   // `session` here is the persistent defaultSession, which OUTLIVES the
@@ -1316,6 +1386,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     'clipboard-sanitized-write',
   ]);
   const webviewSession = session.fromPartition('persist:onekey');
+  void applyDesktopNetworkThrottleToKnownSessions();
   webviewSession.setPermissionRequestHandler(
     (webContents, permission, callback, details) => {
       const requestingUrl = details.requestingUrl || '';
@@ -1578,6 +1649,57 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   ];
   nobleBleChannels.forEach((channel) => ipcMain.removeHandler(channel));
   void initNobleBleSupport(browserWindow.webContents);
+
+  // Third-party BLE wiring — exposed to the renderer as the vendor-neutral
+  // `window.desktopApi.thirdPartyBle`. Today it's backed by the SDK's
+  // `initTrezorBleSupport`, whose IPC channels live in their own
+  // namespace ($onekey-trezor-ble-*) so they coexist with OneKey's
+  // own `nobleBle` without colliding. When we add other 3rd-party BLE
+  // vendors, they should plug into the same `thirdPartyBle` surface
+  // rather than each adding a parallel object.
+  Object.values(TREZOR_BLE_CHANNELS).forEach((channel) =>
+    ipcMain.removeHandler(channel),
+  );
+  // The SDK registers its BLE IPC handlers ignoring `event.sender`. DApp
+  // webviews share the same preload (`desktopApi.thirdPartyBle`) and could
+  // otherwise drive BLE scan/connect/write. Gate every channel to the main
+  // window renderer, matching the DESKTOP_API_CALL sender check.
+  const trezorBleSenderGatedIpcMain: IpcMainLike = {
+    handle: (channel, listener) => {
+      ipcMain.handle(channel, (event, ...args) => {
+        if (event.sender.id !== browserWindow.webContents.id) {
+          logger.warn(
+            '[TrezorBLE] Rejected IPC from non-main renderer',
+            channel,
+            event.sender.id,
+          );
+          throw new OneKeyLocalError(
+            'Trezor BLE IPC is only allowed from the main window',
+          );
+        }
+        return listener(event, ...args);
+      });
+    },
+    removeHandler: (channel) => ipcMain.removeHandler(channel),
+  };
+  initTrezorBleSupport(browserWindow.webContents, {
+    ipcMain: trezorBleSenderGatedIpcMain,
+    logger: (entry) => {
+      const message = `[hwk:${entry.scope}] ${entry.event}`;
+      // THP debug payloads can carry handshake packets / pairing credentials /
+      // static keys — redact before anything reaches the on-disk file log.
+      const data = sanitizeTrezorThpModuleLogData(entry.data) ?? '';
+      if (entry.level === 'error') {
+        logger.error(message, data);
+        return;
+      }
+      if (entry.level === 'warn') {
+        logger.warn(message, data);
+        return;
+      }
+      logger.info(message, data);
+    },
+  });
 
   return browserWindow;
 }

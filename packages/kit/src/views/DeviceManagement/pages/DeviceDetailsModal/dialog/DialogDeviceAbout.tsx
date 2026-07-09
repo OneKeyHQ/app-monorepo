@@ -14,9 +14,12 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 const VERSION_PLACEHOLDER = '--';
 
@@ -110,60 +113,99 @@ function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
         return defaultDeviceInfo;
       }
 
-      const profile = await backgroundApiProxy.serviceHardware
-        .getDeviceInfo({
-          connectId: device.connectId,
-          params: {
-            scope: 'versions',
-          },
-          silentMode: true,
-        })
-        .catch(() => undefined);
+      const vendorProfile = getVendorProfile(
+        device.vendor ?? EHardwareVendor.onekey,
+      );
+      const deviceProfile = vendorProfile.isThirdParty
+        ? undefined
+        : await backgroundApiProxy.serviceHardware
+            .getDeviceInfo({
+              connectId: device.connectId,
+              params: {
+                scope: 'versions',
+              },
+              silentMode: true,
+            })
+            .catch(() => undefined);
 
-      const versions = profile
-        ? deviceUtils.getDeviceVersionFromProfile({ deviceInfo: profile })
-        : await deviceUtils.getDeviceVersion({
-            device,
-            features: device.featuresInfo,
-          });
-
-      const model =
-        deviceUtils.buildDeviceLabelFromProfile({
-          deviceInfo: profile,
-          buildModelName: true,
-        }) ??
-        (await deviceUtils.buildDeviceLabel({
+      let versions;
+      if (vendorProfile.isThirdParty) {
+        versions = thirdPartyDeviceUtils.getDeviceVersion({
+          device,
           features: device.featuresInfo,
-          buildModelName: true,
-        }));
+        });
+      } else if (deviceProfile) {
+        versions = deviceUtils.getDeviceVersionFromProfile({
+          deviceInfo: deviceProfile,
+        });
+      } else {
+        versions = await deviceUtils.getDeviceVersion({
+          device,
+          features: device.featuresInfo,
+        });
+      }
 
-      const firmwareTypeLabel = profile
-        ? deviceUtils.getFirmwareTypeLabelByFirmwareType({
-            firmwareType: profile.firmwareType,
-            displayFormat: 'withSpace',
+      const features = device.featuresInfo as typeof device.featuresInfo & {
+        internal_model?: string;
+        model?: string;
+      };
+      const model = vendorProfile.isThirdParty
+        ? thirdPartyDeviceUtils.getDeviceModelName({
+            device,
+            features,
+            defaultDeviceName: vendorProfile.defaultDeviceName,
           })
-        : await deviceUtils.getFirmwareTypeLabel({
+        : (deviceUtils.buildDeviceLabelFromProfile({
+            deviceInfo: deviceProfile,
+            buildModelName: true,
+          }) ??
+          (await deviceUtils.buildDeviceLabel({
+            features: device.featuresInfo,
+            buildModelName: true,
+          })));
+
+      let firmwareTypeLabel;
+      if (vendorProfile.isThirdParty) {
+        firmwareTypeLabel = deviceUtils.getFirmwareTypeLabelByFirmwareType({
+          firmwareType: thirdPartyDeviceUtils.getFirmwareType({
             features: device?.featuresInfo,
-            displayFormat: 'withSpace',
-          });
+          }),
+          displayFormat: 'withSpace',
+        });
+      } else if (deviceProfile) {
+        firmwareTypeLabel = deviceUtils.getFirmwareTypeLabelByFirmwareType({
+          firmwareType: deviceProfile.firmwareType,
+          displayFormat: 'withSpace',
+        });
+      } else {
+        firmwareTypeLabel = await deviceUtils.getFirmwareTypeLabel({
+          features: device?.featuresInfo,
+          displayFormat: 'withSpace',
+        });
+      }
       const firmwareVersion = `${firmwareTypeLabel}${getDisplayVersion(
         versions?.firmwareVersion,
       )}`;
-      const deviceType = profile?.deviceType ?? device.deviceType;
+      const deviceType = deviceProfile?.deviceType ?? device.deviceType;
 
       return {
         model: model ?? VERSION_PLACEHOLDER,
         bleName:
-          deviceUtils.buildDeviceBleNameFromProfile({ deviceInfo: profile }) ??
+          deviceUtils.buildDeviceBleNameFromProfile({
+            deviceInfo: deviceProfile,
+          }) ??
           deviceUtils.buildDeviceBleName({ features: device.featuresInfo }) ??
           VERSION_PLACEHOLDER,
         bleVersion: getDisplayVersion(versions?.bleVersion),
         bootloaderVersion: getDisplayVersion(versions?.bootloaderVersion),
         firmwareVersion,
         serialNumber:
-          deviceUtils.getDeviceSerialNoFromProfile(profile) ??
-          deviceUtils.getDeviceSerialNoFromFeatures(device.featuresInfo) ??
-          VERSION_PLACEHOLDER,
+          (vendorProfile.isThirdParty
+            ? thirdPartyDeviceUtils.getSerialNo(device.featuresInfo)
+            : (deviceUtils.getDeviceSerialNoFromProfile(deviceProfile) ??
+              deviceUtils.getDeviceSerialNoFromFeatures(
+                device.featuresInfo,
+              ))) ?? VERSION_PLACEHOLDER,
         certifications: [
           EDeviceType.Pro,
           EDeviceType.Classic1s,

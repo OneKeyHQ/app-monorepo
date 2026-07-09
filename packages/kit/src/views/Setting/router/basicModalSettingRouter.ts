@@ -55,6 +55,11 @@ const FirmwareUpdateDevSettings = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/FirmwareUpdateDevSettings'),
 );
+const FirmwareUpdatePro2DevSettings = LazyLoadPage(async () => {
+  const { PageFirmwareUpdatePro2DevSettings } =
+    await import('@onekeyhq/kit/src/views/Setting/pages/FirmwareUpdateDevSettings');
+  return { default: PageFirmwareUpdatePro2DevSettings };
+});
 
 const V4MigrationDevSettings = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/V4MigrationDevSettings'),
@@ -63,6 +68,11 @@ const V4MigrationDevSettings = LazyLoadPage(
 const PageDevUnitTests = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/DevUnitTests/PageDevUnitTests'),
+);
+
+const DevSesHardenRuntimeCheck = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/DevSesHardenRuntimeCheck'),
 );
 
 const DesktopApiProxyTestDevSettings = LazyLoadPage(
@@ -98,6 +108,11 @@ const KeylessWalletGallery = LazyLoadPage(
 const StorageGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/StorageGallery'),
+);
+
+const LocalSecretEnvelopeSelfTest = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/LocalSecretEnvelopeSelfTest'),
 );
 
 const ExportCustomNetworkConfig = LazyLoadPage(
@@ -229,6 +244,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
     component: FirmwareUpdateDevSettings,
   },
   {
+    name: EModalSettingRoutes.SettingDevPro2FirmwareUpdateModal,
+    component: FirmwareUpdatePro2DevSettings,
+  },
+  {
     name: EModalSettingRoutes.SettingDevAppUpdateModal,
     component: DevAppUpdateModalSettingModal,
   },
@@ -239,6 +258,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevUnitTestsModal,
     component: PageDevUnitTests,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevSesHardenRuntimeCheckModal,
+    component: DevSesHardenRuntimeCheck,
   },
   {
     name: EModalSettingRoutes.SettingDevDesktopApiProxyTestModal,
@@ -267,6 +290,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevStorageGalleryModal,
     component: StorageGallery,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevLocalSecretEnvelopeSelfTestModal,
+    component: LocalSecretEnvelopeSelfTest,
   },
   {
     name: EModalSettingRoutes.SettingExportCustomNetworkConfig,

@@ -24,7 +24,10 @@ import type {
   ISpotUniverse,
   IWsActiveAssetCtx,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
-import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
+import {
+  EHyperLiquidAbstractionMode,
+  ETriggerOrderType,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 import type {
   IPerpTokenSortDirection,
   IPerpTokenSortField,
@@ -1202,8 +1205,38 @@ type ISpotBalanceValueItem = {
 
 const HYPERLIQUID_SPOT_STABLE_COINS = new Set(['USDC', 'USDT', 'USDB', 'USDH']);
 
-const isHyperliquidSpotStableCoin = (coin: string) =>
-  HYPERLIQUID_SPOT_STABLE_COINS.has(coin.toUpperCase());
+const isHyperliquidSpotStableCoin = (coin: string) => {
+  const normalizedCoin = getSpotTokenDisplayName(coin.toUpperCase());
+  return HYPERLIQUID_SPOT_STABLE_COINS.has(normalizedCoin.toUpperCase());
+};
+
+function calculateHyperliquidSpotHoldingPnl({
+  total,
+  entryNtl,
+  priceUsd,
+  isStable,
+}: {
+  total: string;
+  entryNtl?: string;
+  priceUsd?: string;
+  isStable: boolean;
+}): string | undefined {
+  const totalBN = new BigNumber(total);
+  const entryNtlBN = new BigNumber(entryNtl || '0');
+  const priceUsdBN = new BigNumber(priceUsd || '0');
+
+  if (
+    isStable ||
+    !priceUsd ||
+    !totalBN.isFinite() ||
+    !entryNtlBN.isFinite() ||
+    !priceUsdBN.isFinite()
+  ) {
+    return undefined;
+  }
+
+  return totalBN.multipliedBy(priceUsdBN).minus(entryNtlBN).toFixed();
+}
 
 function calculateSpotBalancesTotalUsd({
   balances,
@@ -1593,6 +1626,17 @@ export function parseSignatureToRSV(signatureHex: string): {
 
 export function normalizePerpsAccountAddress(address?: string | null) {
   return address?.toLowerCase() ?? null;
+}
+
+// Accepted modes — enable-trading force-switches only accounts outside this set.
+// PORTFOLIO_MARGIN must stay, or PM accounts get force-reverted to unified.
+export function isHyperLiquidAbstractionModeEnabled(
+  mode: EHyperLiquidAbstractionMode | string | undefined,
+): boolean {
+  return (
+    mode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
+    mode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN
+  );
 }
 
 // Parse coin with dex prefix, e.g., "xyz:NVDA" -> { displayName: "NVDA", dexLabel: "xyz" }
@@ -2089,6 +2133,7 @@ export {
   getSpotMarketCapValue,
   compareSpotMarketCapValues,
   isHyperliquidSpotStableCoin,
+  calculateHyperliquidSpotHoldingPnl,
   calculateSpotBalancesTotalUsd,
   getValidSpotPriceDecimals,
   formatSpotPriceToValid,
@@ -2151,6 +2196,7 @@ export default {
   getSpotMarketCapValue,
   compareSpotMarketCapValues,
   isHyperliquidSpotStableCoin,
+  calculateHyperliquidSpotHoldingPnl,
   calculateSpotBalancesTotalUsd,
   formatSpotAssetCtx,
   formatSpotPriceEntry,

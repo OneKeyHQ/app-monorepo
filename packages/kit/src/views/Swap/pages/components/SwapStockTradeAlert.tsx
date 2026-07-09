@@ -1,0 +1,332 @@
+import { memo, useEffect, useMemo, useRef } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import { Alert, YStack } from '@onekeyhq/components';
+import {
+  useSwapFromTokenAmountAtom,
+  useSwapQuoteEventErrorAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  StockMarketStatusAlert,
+  getStockMarketClosedDescription,
+  resolveStockMarketStatusCase,
+} from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
+import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
+import type {
+  IFetchQuoteResult,
+  ISwapAlertState,
+} from '@onekeyhq/shared/types/swap/types';
+import { ESwapAlertLevel } from '@onekeyhq/shared/types/swap/types';
+
+import {
+  ESwapStockChannelStage,
+  type IUseSwapStockChannelReturn,
+} from '../../hooks/useSwapStockChannel';
+import { SwapTestIDs } from '../../testIDs';
+import { getStockTradeAlertAnalyticsPayload } from '../../utils/swapStockAnalytics';
+import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
+
+import SwapAlertContainer from './SwapAlertContainer';
+import {
+  getStockErrorAlertLevel,
+  getStockTradeAlertType,
+  isCurrentStockQuoteEventError,
+  isSameAlertMessage,
+} from './SwapStockTradeAlertUtils';
+
+type IStockTradeAlerts = {
+  states: ISwapAlertState[];
+  quoteId: string;
+};
+
+type ISwapStockTradeAlertProps = {
+  alerts: IStockTradeAlerts;
+  quoteEventFetching: boolean;
+  quoteLoading: boolean;
+  quoteResult?: IFetchQuoteResult;
+  stockChannel: IUseSwapStockChannelReturn;
+};
+
+function useStockQuoteAlert({
+  quoteResult,
+  stockChannel,
+}: {
+  quoteResult?: IFetchQuoteResult;
+  stockChannel: IUseSwapStockChannelReturn;
+}) {
+  const intl = useIntl();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const notAvailableInRegionMessage = intl.formatMessage({
+    id: ETranslations.trade_stock_not_available_in_region,
+  });
+
+  return useMemo<ISwapAlertState | undefined>(() => {
+    const tradeControl = getStockQuoteTradeControl({
+      quoteResult,
+      fromTokenAmount: fromTokenAmount.value,
+      fromTokenSymbol: stockChannel.fromToken?.symbol,
+      intl,
+    });
+    if (tradeControl) {
+      return {
+        message: tradeControl.message,
+        alertLevel:
+          tradeControl.reason === 'error'
+            ? getStockErrorAlertLevel({
+                message: tradeControl.message,
+                notAvailableInRegionMessage,
+              })
+            : ESwapAlertLevel.WARNING,
+      };
+    }
+
+    return undefined;
+  }, [
+    fromTokenAmount.value,
+    intl,
+    notAvailableInRegionMessage,
+    quoteResult,
+    stockChannel.fromToken?.symbol,
+  ]);
+}
+
+function BasicSwapStockTradeAlert({
+  alerts,
+  quoteEventFetching,
+  quoteLoading,
+  quoteResult,
+  stockChannel,
+}: ISwapStockTradeAlertProps) {
+  const intl = useIntl();
+  const [quoteEventError] = useSwapQuoteEventErrorAtom();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  // The same underlying may have a Perps (contract) equivalent we can hand off
+  // to while the stock market is closed. `stockPerpsInfo.hlTicker` from the
+  // token detail tells us, and drives the "with Perps" cases (1 & 4).
+  const hlTicker = stockChannel.stockPerpsInfo?.hlTicker;
+  const hasPerps = Boolean(hlTicker);
+  // Attribute the perps handoff to the Trade tab for analytics.
+  const { navigateToPerps } = usePerpsNavigation(EPerpPageEnterSource.Trade);
+  const stockAlertShownKeysRef = useRef(new Set<string>());
+  const stockQuoteAlert = useStockQuoteAlert({ quoteResult, stockChannel });
+  const notAvailableInRegionMessage = intl.formatMessage({
+    id: ETranslations.trade_stock_not_available_in_region,
+  });
+
+  const currentStockQuoteEventError = useMemo(
+    () =>
+      isCurrentStockQuoteEventError({
+        fromToken: stockChannel.fromToken,
+        fromTokenAmount: fromTokenAmount.value,
+        quoteEventError,
+        toToken: stockChannel.toToken,
+      }),
+    [
+      fromTokenAmount.value,
+      quoteEventError,
+      stockChannel.fromToken,
+      stockChannel.toToken,
+    ],
+  );
+
+  const isStockMarketClosed =
+    stockChannel.channelStage === ESwapStockChannelStage.MarketClosed ||
+    Boolean(
+      quoteEventError?.isStock &&
+      quoteEventError.isMarketOpen === false &&
+      currentStockQuoteEventError,
+    );
+
+  const stockEventAlert = useMemo<ISwapAlertState | undefined>(() => {
+    if (
+      !quoteEventError?.isStock ||
+      !currentStockQuoteEventError ||
+      !quoteEventError.message ||
+      isStockMarketClosed
+    ) {
+      return undefined;
+    }
+    return {
+      message: quoteEventError.message,
+      alertLevel: getStockErrorAlertLevel({
+        message: quoteEventError.message,
+        notAvailableInRegionMessage,
+      }),
+    };
+  }, [
+    currentStockQuoteEventError,
+    isStockMarketClosed,
+    notAvailableInRegionMessage,
+    quoteEventError?.isStock,
+    quoteEventError?.message,
+  ]);
+
+  const shouldShowSwapAlerts =
+    alerts.states.length > 0 &&
+    !quoteLoading &&
+    !quoteEventFetching &&
+    alerts.quoteId === (quoteResult?.quoteId ?? '');
+  const stockPrimaryAlert = stockQuoteAlert ?? stockEventAlert;
+  const stockTradeDisabled =
+    isStockMarketClosed ||
+    stockChannel.channelStage === ESwapStockChannelStage.MarketUnavailable ||
+    stockChannel.channelStage === ESwapStockChannelStage.MissingPayToken ||
+    Boolean(stockQuoteAlert || stockEventAlert);
+
+  const swapAlerts = useMemo(() => {
+    if (!shouldShowSwapAlerts) {
+      return [];
+    }
+    return alerts.states.filter(
+      (item) => !isSameAlertMessage(item.message, stockPrimaryAlert?.message),
+    );
+  }, [alerts.states, shouldShowSwapAlerts, stockPrimaryAlert?.message]);
+
+  const mergedQuoteAlerts = useMemo(() => {
+    if (stockPrimaryAlert) {
+      return [stockPrimaryAlert, ...swapAlerts];
+    }
+    return swapAlerts;
+  }, [stockPrimaryAlert, swapAlerts]);
+
+  const stockAlertForLog = useMemo(() => {
+    if (isStockMarketClosed) {
+      return {
+        alertType: getStockTradeAlertType({ isMarketClosed: true }),
+        alertLevel: ESwapAlertLevel.WARNING,
+      };
+    }
+    if (
+      stockChannel.channelStage === ESwapStockChannelStage.MarketUnavailable
+    ) {
+      return {
+        alertType: getStockTradeAlertType({
+          message: stockChannel.stockMarketStatus?.reason ?? undefined,
+          notAvailableInRegionMessage,
+        }),
+        alertLevel: ESwapAlertLevel.WARNING,
+        message: stockChannel.stockMarketStatus?.reason ?? undefined,
+      };
+    }
+    if (stockChannel.channelStage === ESwapStockChannelStage.MissingPayToken) {
+      return {
+        alertType: getStockTradeAlertType({ notAvailableInRegionMessage }),
+        alertLevel: ESwapAlertLevel.WARNING,
+      };
+    }
+    if (stockPrimaryAlert) {
+      return {
+        alertType: getStockTradeAlertType({
+          message: stockPrimaryAlert.message,
+          notAvailableInRegionMessage,
+        }),
+        alertLevel: stockPrimaryAlert.alertLevel,
+        message: stockPrimaryAlert.message,
+      };
+    }
+    return undefined;
+  }, [
+    isStockMarketClosed,
+    notAvailableInRegionMessage,
+    stockChannel.channelStage,
+    stockChannel.stockMarketStatus?.reason,
+    stockPrimaryAlert,
+  ]);
+
+  useEffect(() => {
+    if (!stockAlertForLog) {
+      return;
+    }
+    const alertKey = [
+      stockAlertForLog.alertType,
+      stockAlertForLog.alertLevel,
+      stockAlertForLog.message,
+      stockChannel.tradeSide,
+      stockChannel.currentStockToken?.networkId,
+      stockChannel.currentStockToken?.contractAddress,
+      stockChannel.currentStockToken?.symbol,
+    ].join('|');
+    if (stockAlertShownKeysRef.current.has(alertKey)) {
+      return;
+    }
+    stockAlertShownKeysRef.current.add(alertKey);
+    defaultLogger.swap.stockTradeAlert.stockTradeAlertShown(
+      getStockTradeAlertAnalyticsPayload({
+        alertType: stockAlertForLog.alertType,
+        alertLevel: stockAlertForLog.alertLevel,
+        tradeDisabled: stockTradeDisabled,
+        tradeSide: stockChannel.tradeSide,
+        stockToken: stockChannel.currentStockToken,
+      }),
+    );
+  }, [
+    stockAlertForLog,
+    stockChannel.currentStockToken,
+    stockChannel.tradeSide,
+    stockTradeDisabled,
+  ]);
+
+  if (isStockMarketClosed) {
+    // Backend returns a localized countdown string (the first line of
+    // stock.description); its presence means "we know the next open time".
+    const closedTimeText = getStockMarketClosedDescription(
+      stockChannel.stockMarketStatus?.reason,
+    );
+    const statusCase = resolveStockMarketStatusCase({
+      isOpen: false,
+      hasOpenTime: Boolean(closedTimeText),
+      hasPerps,
+    });
+    return (
+      <StockMarketStatusAlert
+        testID={SwapTestIDs.stockTradeStatusAlert}
+        statusCase={statusCase}
+        timeText={closedTimeText}
+        onTradePerps={hlTicker ? () => navigateToPerps(hlTicker) : undefined}
+      />
+    );
+  }
+
+  if (stockChannel.channelStage === ESwapStockChannelStage.MarketUnavailable) {
+    return (
+      <Alert
+        testID={SwapTestIDs.stockTradeStatusAlert}
+        type="warning"
+        icon="InfoCircleOutline"
+        title={intl.formatMessage({
+          id: ETranslations.swap_page_alert_no_provider_supports_trade,
+        })}
+        description={stockChannel.stockMarketStatus?.reason ?? undefined}
+      />
+    );
+  }
+
+  if (stockChannel.channelStage === ESwapStockChannelStage.MissingPayToken) {
+    return (
+      <Alert
+        testID={SwapTestIDs.stockTradeStatusAlert}
+        type="warning"
+        icon="InfoCircleOutline"
+        title={intl.formatMessage({
+          id: ETranslations.swap_page_alert_no_provider_supports_trade,
+        })}
+      />
+    );
+  }
+
+  if (!mergedQuoteAlerts.length) {
+    return null;
+  }
+
+  return (
+    <YStack testID={SwapTestIDs.stockTradeStatusAlert}>
+      <SwapAlertContainer alerts={mergedQuoteAlerts} />
+    </YStack>
+  );
+}
+
+export const SwapStockTradeAlert = memo(BasicSwapStockTradeAlert);

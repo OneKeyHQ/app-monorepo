@@ -1,6 +1,7 @@
 // import type only here to avoid cycle-deps error
 
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAsyncStorageWriteRequest } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
 
 import type { LocalDbBase } from '../dbs/local/LocalDbBase';
 import type { SimpleDb } from '../dbs/simple/base/SimpleDb';
@@ -12,6 +13,7 @@ import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceAccountProfile from '../services/ServiceAccountProfile';
 import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
+import type ServiceAddressRiskCheck from '../services/ServiceAddressRiskCheck';
 import type ServiceAllNetwork from '../services/ServiceAllNetwork';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceAppCleanup from '../services/ServiceAppCleanup';
@@ -82,7 +84,9 @@ import type ServiceSignatureConfirm from '../services/ServiceSignatureConfirm';
 import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
+import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 import type ServiceToken from '../services/ServiceToken';
+import type ServiceTokenViewModel from '../services/ServiceTokenViewModel';
 import type ServiceTransaction from '../services/ServiceTransaction';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
@@ -129,6 +133,7 @@ export interface IBackgroundApiBridge {
     payload: IAppEventBusPayload[T],
     originNodeId?: string,
   ): Promise<boolean>;
+  writeAsyncStorage(request: IAsyncStorageWriteRequest): Promise<void>;
 
   // **** webview bridge
   bridge: JsBridgeBase | null;
@@ -138,7 +143,10 @@ export interface IBackgroundApiBridge {
   bridgeReceiveHandler: IJsBridgeReceiveHandler;
 
   // **** dapp provider api
-  providers: Record<IInjectedProviderNames, ProviderApiBase>;
+  // Only $private is eagerly present; per-chain providers are loaded lazily via
+  // getProviderApi(scope) so their chain SDKs stay out of the startup bundle.
+  providers: Partial<Record<IInjectedProviderNames, ProviderApiBase>>;
+  getProviderApi(scope: IInjectedProviderNames): Promise<ProviderApiBase>;
   sendForProvider(providerName: IInjectedProviderNamesStrings): any;
   handleProviderMethods<T>(
     payload: IJsBridgeMessagePayload,
@@ -158,6 +166,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceWebviewPerp: ServiceWebviewPerp;
   serviceDevSetting: ServiceDevSetting;
   serviceSetting: ServiceSetting;
+  serviceAddressRiskCheck: ServiceAddressRiskCheck;
   serviceApp: ServiceApp;
   serviceSend: ServiceSend;
   serviceSwap: ServiceSwap;
@@ -168,6 +177,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceBatchCreateAccount: ServiceBatchCreateAccount;
   serviceAllNetwork: ServiceAllNetwork;
   serviceToken: ServiceToken;
+  serviceTokenViewModel: ServiceTokenViewModel;
   serviceNFT: ServiceNFT;
   serviceAppCleanup: ServiceAppCleanup;
   serviceHistory: ServiceHistory;
@@ -191,6 +201,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceFreshAddress: ServiceFreshAddress;
   serviceHardware: ServiceHardware;
   serviceHardwareUI: ServiceHardwareUI;
+  serviceThirdPartyHardware: ServiceThirdPartyHardware;
   serviceFirmwareUpdate: ServiceFirmwareUpdate;
   serviceLightning: ServiceLightning;
   serviceOnboarding: ServiceOnboarding;

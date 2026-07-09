@@ -17,14 +17,14 @@ import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWid
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useMarketBasicConfig } from '../../hooks/useMarketBasicConfig';
 import { MarketBannerList } from '../components/MarketBanner';
 import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketListColumnHeader } from '../components/MarketListColumnHeader';
-import { MobileMarketPerpsFlatList } from '../components/MarketPerpsList';
-import { MARKET_PERPS_DEFAULT_CATEGORY_ID } from '../components/MarketPerpsList/constants';
+import { useSyncedMarketPerpsCategory } from '../components/MarketPerpsList/hooks/useSyncedMarketPerpsCategory';
 import { MarketPerpsCategorySelector } from '../components/MarketPerpsList/MarketPerpsCategorySelector';
+import { MobileMarketPerpsFlatList } from '../components/MarketPerpsList/MobileMarketPerpsFlatList';
 import { useIsWatchlistTokenCacheReady } from '../components/MarketTokenList/hooks/useMarketWatchlistTokenList';
+import { MarketStockCategorySelector } from '../components/MarketTokenList/MarketStockCategorySelector';
 import {
   type IWatchlistFilterType,
   MarketWatchlistCategorySelector,
@@ -35,9 +35,14 @@ import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/
 import { isMarketStockCategoryById } from '../utils';
 
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
+import {
+  getDefaultMarketStockCategoryId,
+  getMarketStockCategoryRequestParam,
+} from './marketStockCategoryUtils';
 
 import type {
   ILiquidityFilter,
+  IMarketCategoryItem,
   IMarketFilterBarProps,
   IMarketHomeTabValue,
 } from '../types';
@@ -68,6 +73,9 @@ interface ITabBarDynamicContext {
   onEditWatchlist: () => void;
   getSpotCategoryIdByTabName: (tabName: string) => string | undefined;
   stockDataCategoryMap: Record<string, boolean>;
+  stockCategories: IMarketCategoryItem[];
+  selectedStockCategoryId: string;
+  onSelectStockCategory: (categoryId: string) => void;
   perpsCategories: { tabId: string; name: string }[];
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
@@ -75,14 +83,14 @@ interface ITabBarDynamicContext {
 }
 
 const TabBarDynamicContext = createContext<ITabBarDynamicContext | null>(null);
+const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
 
 interface IMarketHomeTabBarProps extends TabBarProps<string> {
   watchlistTabName: string;
   perpsTabName: string;
 }
 
-const MARKET_ANDROID_SECONDARY_HEADER_HEIGHT = 76;
-const MARKET_ANDROID_COLUMN_HEADER_HEIGHT = 30;
+const MARKET_MOBILE_SECONDARY_HEADER_HEIGHT = 74;
 const MARKET_TAB_CHANGE_TARGET_GUARD_MS = platformEnv.isNativeIOS ? 1000 : 350;
 const MARKET_TAB_SYNC_JUMP_DEFER_MS = platformEnv.isNativeIOS ? 180 : 0;
 const MARKET_TAB_USER_DRAG_ACCEPT_MS = platformEnv.isNativeIOS ? 700 : 350;
@@ -118,33 +126,15 @@ function MarketHomeTabBar({
   const showSpotFilterBar = Boolean(
     currentSpotCategoryId && !currentSpotCategoryHasStockData,
   );
+  const showStockCategorySelector = Boolean(
+    currentSpotCategoryId &&
+    isMarketStockCategoryById(
+      ctx.filterBarProps.categories,
+      currentSpotCategoryId,
+    ) &&
+    ctx.stockCategories.length > 0,
+  );
   const showPerpsSubHeader = currentFocusedTabName === perpsTabName;
-  const fixedSecondaryHeaderHeight = useMemo(() => {
-    if (!platformEnv.isNativeAndroid) {
-      return undefined;
-    }
-
-    if (showWatchlistSubHeader && ctx.isWatchlistEmpty) {
-      return 0;
-    }
-
-    if (showSpotSubHeader && !showSpotFilterBar) {
-      return MARKET_ANDROID_COLUMN_HEADER_HEIGHT;
-    }
-
-    if (showPerpsSubHeader && ctx.perpsCategories.length === 0) {
-      return MARKET_ANDROID_COLUMN_HEADER_HEIGHT;
-    }
-
-    return MARKET_ANDROID_SECONDARY_HEADER_HEIGHT;
-  }, [
-    ctx.perpsCategories.length,
-    ctx.isWatchlistEmpty,
-    showSpotFilterBar,
-    showPerpsSubHeader,
-    showSpotSubHeader,
-    showWatchlistSubHeader,
-  ]);
 
   const renderWatchlistSubHeaderContent = useCallback(
     () => (
@@ -157,7 +147,7 @@ function MarketHomeTabBar({
               containerStyle={{
                 px: '$5',
                 pt: '$3',
-                pb: '$2',
+                pb: '$1',
               }}
             />
           </XStack>
@@ -193,10 +183,29 @@ function MarketHomeTabBar({
             onTimeRangeChange={ctx.filterBarProps.onTimeRangeChange}
           />
         ) : null}
+        {showStockCategorySelector ? (
+          <MarketStockCategorySelector
+            categories={ctx.stockCategories}
+            selectedCategoryId={ctx.selectedStockCategoryId}
+            onSelectCategory={ctx.onSelectStockCategory}
+            containerStyle={{
+              px: '$5',
+              pt: '$3',
+              pb: '$1',
+            }}
+          />
+        ) : null}
         <MarketListColumnHeader />
       </>
     ),
-    [ctx.filterBarProps, showSpotFilterBar],
+    [
+      ctx.filterBarProps,
+      ctx.onSelectStockCategory,
+      ctx.selectedStockCategoryId,
+      ctx.stockCategories,
+      showSpotFilterBar,
+      showStockCategorySelector,
+    ],
   );
 
   const renderPerpsSubHeaderContent = useCallback(
@@ -209,7 +218,7 @@ function MarketHomeTabBar({
           containerStyle={{
             px: '$5',
             pt: '$3',
-            pb: '$2',
+            pb: '$1',
           }}
         />
         <MarketListColumnHeader />
@@ -228,7 +237,7 @@ function MarketHomeTabBar({
         />
       </YStack>
       <YStack
-        height={fixedSecondaryHeaderHeight}
+        height={MARKET_MOBILE_SECONDARY_HEADER_HEIGHT}
         overflow={platformEnv.isNativeAndroid ? 'hidden' : undefined}
         position="relative"
       >
@@ -241,6 +250,8 @@ function MarketHomeTabBar({
               ? 'relative'
               : 'absolute'
           }
+          height="100%"
+          justifyContent="flex-end"
           top={0}
           left={0}
           right={0}
@@ -251,6 +262,8 @@ function MarketHomeTabBar({
         <YStack
           display={showSpotSubHeader ? 'flex' : 'none'}
           position={showSpotSubHeader ? 'relative' : 'absolute'}
+          height="100%"
+          justifyContent="flex-end"
           top={0}
           left={0}
           right={0}
@@ -262,6 +275,8 @@ function MarketHomeTabBar({
         <YStack
           display={showPerpsSubHeader ? 'flex' : 'none'}
           position={showPerpsSubHeader ? 'relative' : 'absolute'}
+          height="100%"
+          justifyContent="flex-end"
           top={0}
           left={0}
           right={0}
@@ -310,6 +325,29 @@ function MobileLayoutComponent({
   // Watchlist category filter state
   const [watchlistFilter, setWatchlistFilter] =
     useState<IWatchlistFilterType>('all');
+  const stockCategories =
+    filterBarProps.stockCategories ?? EMPTY_MARKET_STOCK_CATEGORIES;
+  const [selectedStockCategoryId, setSelectedStockCategoryId] = useState(
+    getDefaultMarketStockCategoryId(stockCategories),
+  );
+  useEffect(() => {
+    if (stockCategories.length === 0) {
+      if (selectedStockCategoryId !== 'all') {
+        setSelectedStockCategoryId('all');
+      }
+      return;
+    }
+
+    if (
+      !stockCategories.some(
+        (category) => category.id === selectedStockCategoryId,
+      )
+    ) {
+      setSelectedStockCategoryId(
+        getDefaultMarketStockCategoryId(stockCategories),
+      );
+    }
+  }, [selectedStockCategoryId, stockCategories]);
   const [stockDataCategoryMap, setStockDataCategoryMap] = useState<
     Record<string, boolean>
   >({});
@@ -328,37 +366,8 @@ function MobileLayoutComponent({
     [],
   );
 
-  // Perps category state (lifted from MobileMarketPerpsFlatList)
-  const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
-
-  const perpsCategories = useMemo(
-    () =>
-      rawPerpsCategories.map((c) => ({
-        tabId: c.categoryId,
-        name: c.name,
-      })),
-    [rawPerpsCategories],
-  );
-
-  const initialCategoryId = useMemo(
-    () => perpsCategories[0]?.tabId ?? MARKET_PERPS_DEFAULT_CATEGORY_ID,
-    [perpsCategories],
-  );
-  const [selectedCategoryId, setSelectedCategoryId] =
-    useState(initialCategoryId);
-
-  useEffect(() => {
-    const shouldSyncSelectedCategory =
-      !selectedCategoryId ||
-      (perpsCategories.length > 0 &&
-        !perpsCategories.some(
-          (category) => category.tabId === selectedCategoryId,
-        ));
-
-    if (shouldSyncSelectedCategory && initialCategoryId) {
-      setSelectedCategoryId(initialCategoryId);
-    }
-  }, [initialCategoryId, perpsCategories, selectedCategoryId]);
+  const { perpsCategories, selectedCategoryId, handleSelectCategory } =
+    useSyncedMarketPerpsCategory();
 
   const expectedTabChangeTargetRef = useRef<string | undefined>(undefined);
   const expectedTabChangeTargetStartedAtRef = useRef(0);
@@ -707,9 +716,12 @@ function MobileLayoutComponent({
       onEditWatchlist: openMarketWatchlistEditDialog,
       getSpotCategoryIdByTabName,
       stockDataCategoryMap,
+      stockCategories,
+      selectedStockCategoryId,
+      onSelectStockCategory: setSelectedStockCategoryId,
       perpsCategories,
       selectedCategoryId,
-      onSelectCategory: setSelectedCategoryId,
+      onSelectCategory: handleSelectCategory,
       activeTabName,
     }),
     [
@@ -720,8 +732,11 @@ function MobileLayoutComponent({
       openMarketWatchlistEditDialog,
       getSpotCategoryIdByTabName,
       stockDataCategoryMap,
+      stockCategories,
+      selectedStockCategoryId,
       perpsCategories,
       selectedCategoryId,
+      handleSelectCategory,
       activeTabName,
     ],
   );
@@ -739,6 +754,14 @@ function MobileLayoutComponent({
         <MobileMarketTokenFlatList
           networkId={selectedNetworkId}
           selectedCategory={item.categoryId}
+          stockCategory={
+            isMarketStockCategoryById(
+              filterBarProps.categories,
+              item.categoryId,
+            )
+              ? getMarketStockCategoryRequestParam(selectedStockCategoryId)
+              : undefined
+          }
           timeRange={filterBarProps.timeRange}
           listContainerProps={listContainerProps}
           onStockDataChange={handleStockDataChange}

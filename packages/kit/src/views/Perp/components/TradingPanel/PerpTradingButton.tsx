@@ -5,17 +5,9 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { IButtonProps } from '@onekeyhq/components';
-import {
-  Button,
-  SizableText,
-  Toast,
-  XStack,
-  YStack,
-  resetToRoute,
-} from '@onekeyhq/components';
+import { Button, SizableText, Toast, resetToRoute } from '@onekeyhq/components';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -23,7 +15,6 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsCommonConfigPersistAtom,
-  usePerpsShouldShowEnableTradingButtonAtom,
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -37,13 +28,12 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 
-import { useEnableTradingWithDepositFallback } from '../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpsMarketDataFreshness } from '../../hooks/usePerpsMarketDataFreshness';
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
 import { shouldBlockPerpsTradingForMarketData } from '../../utils/perpsMarketDataFreshness';
-import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
+import { getTradingButtonStyleValues } from '../../utils/styleUtils';
 
 const sharedButtonProps = {
   size: 'medium',
@@ -87,14 +77,11 @@ export function PerpTradingButton({
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
-  const [shouldShowEnableTradingButton] =
-    usePerpsShouldShowEnableTradingButtonAtom();
   const [tradingMode] = useTradingModeAtom();
   const midPriceRef = useRef<string | undefined>(undefined);
   const marketDataFreshness = usePerpsMarketDataFreshness();
   const shouldBlockForMarketData =
     shouldBlockPerpsTradingForMarketData(marketDataFreshness);
-  const themeVariant = useThemeVariant();
   const isSpot = tradingMode === 'spot';
 
   const handleConnectWallet = useCallback(async () => {
@@ -120,8 +107,8 @@ export function PerpTradingButton({
     perpsAccountLoading.enableTradingLoading,
     perpsAccountLoading.selectAccountLoading,
   ]);
-  const enableTrading = useEnableTradingWithDepositFallback();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal();
 
   const handleDepositFromToast = useCallback(() => {
     void showDepositWithdrawModal('deposit');
@@ -141,6 +128,7 @@ export function PerpTradingButton({
           testID={PerpTestIDs.MarginToastDepositButton}
           size="small"
           variant="primary"
+          disabled={isDepositDisabled}
           onPress={handleDepositFromToast}
         >
           {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
@@ -149,12 +137,11 @@ export function PerpTradingButton({
       actionsAlign: 'left',
       toastId: `perp-no-enough-margin-${isSpot ? 'spot' : 'perp'}`,
     });
-  }, [handleDepositFromToast, intl, isSpot]);
+  }, [handleDepositFromToast, intl, isDepositDisabled, isSpot]);
 
   const buttonDisabled = useMemo(() => {
     return (
       !computedSize.gt(0) ||
-      !perpsAccountStatus.canTrade ||
       isSubmitting ||
       isAccountLoading ||
       isMinimumOrderNotMet ||
@@ -192,46 +179,27 @@ export function PerpTradingButton({
 
   const isLong = useMemo(() => formData.side === 'long', [formData.side]);
   const buttonStyles = useMemo(() => {
-    const colors = PERP_TRADE_BUTTON_COLORS;
-    const getBgColor = () => {
-      if (isAccountLoading) return undefined;
-
-      return themeVariant === 'light'
-        ? colors.light[isLong ? 'long' : 'short']
-        : colors.dark[isLong ? 'long' : 'short'];
-    };
-
-    const getHoverBgColor = () => {
-      if (isAccountLoading) return undefined;
-      return themeVariant === 'light'
-        ? colors.light[isLong ? 'longHover' : 'shortHover']
-        : colors.dark[isLong ? 'longHover' : 'shortHover'];
-    };
-
-    const getPressBgColor = () => {
-      if (isAccountLoading) return undefined;
-      return themeVariant === 'light'
-        ? colors.light[isLong ? 'longPress' : 'shortPress']
-        : colors.dark[isLong ? 'longPress' : 'shortPress'];
-    };
+    const styles = getTradingButtonStyleValues(isLong ? 'long' : 'short');
 
     return {
-      bg: getBgColor(),
-      hoverBg: getHoverBgColor(),
-      pressBg: getPressBgColor(),
-      textColor: '$textOnColor',
+      bg: isAccountLoading ? undefined : styles.bg,
+      hoverBg: isAccountLoading ? undefined : styles.hoverBg,
+      pressBg: isAccountLoading ? undefined : styles.pressBg,
+      textColor: styles.textColor,
     };
-  }, [isAccountLoading, isLong, themeVariant]);
+  }, [isAccountLoading, isLong]);
 
-  const createAddressButtonRender = useCallback((props: IButtonProps) => {
-    return (
+  const createAddressButtonRender = useCallback(
+    (props: IButtonProps) => (
       <Button
         testID="perp-create-address-btn"
         {...sharedButtonProps}
+        variant="primary"
         {...props}
       />
-    );
-  }, []);
+    ),
+    [],
+  );
 
   const getTpslErrorMessage = useCallback(
     (type: 'TP' | 'SL', direction: 'higher' | 'lower') => ({
@@ -380,48 +348,6 @@ export function PerpTradingButton({
           id: ETranslations.global_connect_wallet,
         })}
       </Button>
-    );
-  }
-
-  if (shouldShowEnableTradingButton) {
-    return (
-      <YStack
-        gap="$3"
-        h={126}
-        justifyContent="flex-end"
-        flex={1}
-        pointerEvents="box-none"
-      >
-        <XStack
-          gap="$3"
-          p="$3"
-          borderRadius="$3"
-          bg="$bgSubdued"
-          pointerEvents="box-none"
-        >
-          <SizableText size="$bodySm" color="$text" pointerEvents="box-none">
-            {intl.formatMessage({
-              id: ETranslations.perp_enable_trading_desc,
-            })}
-          </SizableText>
-        </XStack>
-        <Button
-          {...sharedButtonProps}
-          testID={PerpTestIDs.EnableTradingButton}
-          variant="primary"
-          disabled={isAccountLoading}
-          onPress={async () => {
-            await enableTrading();
-          }}
-          childrenAsText={false}
-        >
-          <SizableText size="$bodyMdMedium" color="$textInverse">
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_button_enable_trading,
-            })}
-          </SizableText>
-        </Button>
-      </YStack>
     );
   }
 

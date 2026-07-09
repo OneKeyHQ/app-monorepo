@@ -31,6 +31,7 @@ import {
   buildBackgroundThreadJotaiStateBatchKey,
   buildBackgroundThreadJotaiStateKey,
   buildBackgroundThreadResponseKey,
+  buildSafeBackgroundThreadErrorData,
   buildWebEmbedBridgeRequestKey,
   parseBackgroundThreadCallId,
   parseBackgroundThreadMainCapabilitiesPayload,
@@ -146,6 +147,7 @@ function buildErrorPayload(error: unknown) {
     requestId?: unknown;
     httpStatusCode?: unknown;
     constructorName?: unknown;
+    data?: unknown;
     payload?: unknown;
   };
   const errorPayload: {
@@ -159,6 +161,7 @@ function buildErrorPayload(error: unknown) {
     requestId?: string;
     httpStatusCode?: number;
     constructorName?: string;
+    data?: unknown;
     payload?: unknown;
   } = {
     name: runtimeError?.name || 'BackgroundThreadError',
@@ -190,6 +193,10 @@ function buildErrorPayload(error: unknown) {
   }
   if (typeof runtimeError?.constructorName === 'string') {
     errorPayload.constructorName = runtimeError.constructorName;
+  }
+  const safeData = buildSafeBackgroundThreadErrorData(runtimeError?.data);
+  if (safeData) {
+    errorPayload.data = safeData;
   }
   if (runtimeError?.payload !== undefined) {
     errorPayload.payload = runtimeError.payload;

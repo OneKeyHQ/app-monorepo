@@ -12,6 +12,16 @@ interface ITradingViewWithVersionProps extends ITradingViewProps {
   onPanesCountChange?: (count: number) => void;
   disabledFeatures?: readonly ITradingViewDisabledFeature[];
   storageNamespace?: string;
+  enableNativeChartControls?: boolean;
+  enableNativeIntervalSelector?: boolean;
+  nativeChartTypeControlMode?: 'toggle' | 'select';
+  nativeIndicatorControlMode?: 'dialog' | 'popover';
+  nativeIntervalControlMode?: 'dialog' | 'popover';
+  nativePriceMarketCapControlMode?: 'settings' | 'select';
+  nativeControlsLayoutMode?: 'mobile' | 'desktop';
+  isNativeChartFullscreen?: boolean;
+  showNativeIndicatorQuickBar?: boolean;
+  onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
 }
 
 export function TradingView({
@@ -21,6 +31,16 @@ export function TradingView({
   onPanesCountChange,
   disabledFeatures,
   storageNamespace,
+  enableNativeChartControls,
+  enableNativeIntervalSelector,
+  nativeChartTypeControlMode,
+  nativeIndicatorControlMode,
+  nativeIntervalControlMode,
+  nativePriceMarketCapControlMode,
+  nativeControlsLayoutMode,
+  isNativeChartFullscreen,
+  showNativeIndicatorQuickBar,
+  onNativeChartFullscreenChange,
   ...props
 }: ITradingViewWithVersionProps & WebViewProps) {
   if (version === 'v2') {
@@ -32,6 +52,16 @@ export function TradingView({
         onPanesCountChange={onPanesCountChange}
         disabledFeatures={disabledFeatures}
         storageNamespace={storageNamespace}
+        enableNativeChartControls={enableNativeChartControls}
+        enableNativeIntervalSelector={enableNativeIntervalSelector}
+        nativeChartTypeControlMode={nativeChartTypeControlMode}
+        nativeIndicatorControlMode={nativeIndicatorControlMode}
+        nativeIntervalControlMode={nativeIntervalControlMode}
+        nativePriceMarketCapControlMode={nativePriceMarketCapControlMode}
+        nativeControlsLayoutMode={nativeControlsLayoutMode}
+        isNativeChartFullscreen={isNativeChartFullscreen}
+        showNativeIndicatorQuickBar={showNativeIndicatorQuickBar}
+        onNativeChartFullscreenChange={onNativeChartFullscreenChange}
       />
     );
   }

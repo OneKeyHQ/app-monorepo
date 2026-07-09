@@ -1,7 +1,3 @@
-import {
-  reactNativeTracingIntegration,
-  reactNavigationIntegration,
-} from '@sentry/react-native';
 import wordLists from 'bip39/src/wordlists/english.json';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -10,6 +6,9 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
 
 import type { BrowserOptions, Stacktrace } from '@sentry/browser';
+
+export { navigationIntegration } from './navigationIntegration';
+
 // Check for common private key formats
 const PRIVATE_KEY_PATTERNS = [
   /^0x[a-fA-F0-9]{64}$/, // Ethereum private key (hex with 0x prefix)
@@ -26,10 +25,6 @@ const checkPrivateKey = (text: string): boolean => {
 };
 
 const lazyLoadWordSet = memoizee(() => new Set(wordLists));
-
-export const navigationIntegration = reactNavigationIntegration({
-  enableTimeToInitialDisplay: true,
-});
 
 // Minimum consecutive mnemonic words to trigger redaction (12-word mnemonic could partially leak)
 const MIN_MNEMONIC_SEQUENCE_LENGTH = 3;
@@ -142,6 +137,9 @@ const sanitizeStacktrace = (stacktrace?: Stacktrace): void => {
 
 export const SENTRY_IPC = 'sentry-ipc://';
 
+export const buildSentryReleaseName = () =>
+  `${process.env.VERSION ?? ''} (${process.env.BUILD_NUMBER ?? ''})`;
+
 const FILTERED_ERROR_TYPES = new Set([
   'AxiosError',
   'HTTPClientError',
@@ -216,8 +214,14 @@ export const buildBasicOptions = ({
   ({
     enabled: true,
     maxBreadcrumbs: 100,
-    tracesSampleRate: 0.1,
-    profilesSampleRate: 0.1,
+    // Performance tracing/profiling disabled: in the long-lived renderer the
+    // browser/idle-span tracing leaks unboundedly (heap snapshots show ~300K
+    // retained SentryNonRecordingSpan pinning React fibers; renderer RSS climbs
+    // ~240MB/h with no plateau). Error reporting + breadcrumbs are unaffected.
+    // The tracing integrations are also removed from buildIntegrations below;
+    // zeroing the sample rate alone does NOT stop span creation.
+    tracesSampleRate: 0,
+    profilesSampleRate: 0,
     beforeSend: (event) => {
       if (Array.isArray(event.exception?.values)) {
         for (let index = 0; index < event.exception.values.length; index += 1) {
@@ -260,15 +264,24 @@ export const buildBasicOptions = ({
     },
   }) as BrowserOptions;
 
-export const buildSentryOptions = (Sentry: typeof import('@sentry/react')) => ({
+type ISentryTransportBuilder = Pick<
+  typeof import('@sentry/react'),
+  'makeBrowserOfflineTransport' | 'makeFetchTransport'
+>;
+
+type ISentryIntegrationsBuilder = Pick<
+  typeof import('@sentry/react'),
+  'breadcrumbsIntegration'
+>;
+
+export const buildSentryOptions = (Sentry: ISentryTransportBuilder) => ({
   transport: Sentry.makeBrowserOfflineTransport(Sentry.makeFetchTransport),
 });
 
-export const buildIntegrations = (Sentry: typeof import('@sentry/react')) => [
-  navigationIntegration,
-  reactNativeTracingIntegration(),
-  Sentry.browserProfilingIntegration(),
-  Sentry.browserTracingIntegration(),
+export const buildIntegrations = (Sentry: ISentryIntegrationsBuilder) => [
+  // Performance-tracing integrations intentionally removed — they create a span
+  // per navigation/interaction that leaks in the long-lived renderer (see the
+  // tracesSampleRate note above). Only error reporting + breadcrumbs remain.
   Sentry.breadcrumbsIntegration({
     console: false,
     dom: true,

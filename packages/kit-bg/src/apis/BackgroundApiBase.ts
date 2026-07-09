@@ -22,8 +22,22 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { getBackgroundThreadSharedStore } from '@onekeyhq/shared/src/modules3rdParty/react-native-background-thread/sharedStore';
+import {
+  LogLevel,
+  NativeLogger,
+} from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import performance from '@onekeyhq/shared/src/performance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  IAsyncStorageWriteForwarderRequestStatus,
+  IAsyncStorageWriteRequest,
+} from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
+import {
+  buildAsyncStorageWriteForwarderStatusKey,
+  parseAsyncStorageWriteForwarderRequestStatus,
+  serializeAsyncStorageWriteForwarderRequestStatus,
+} from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
 import {
   ensurePromiseObject,
   ensureSerializable,
@@ -32,7 +46,10 @@ import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection'
 
 import { updateInterceptorRequestHelper } from '../init/updateInterceptorRequestHelper';
 import { updateInterceptorRequestHelperWithIpTable } from '../init/updateInterceptorRequestHelperWithIpTable';
-import { createBackgroundProviders } from '../providers/backgroundProviders';
+import {
+  createBackgroundProviders,
+  providerApiLoaders,
+} from '../providers/backgroundProviders';
 import { settingsPersistAtom } from '../states/jotai/atoms';
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 import { jotaiInit } from '../states/jotai/jotaiInit';
@@ -102,6 +119,65 @@ function summarizeSetAtomValuePayload(value: unknown) {
   return valueType;
 }
 
+const ASYNC_STORAGE_FORWARDER_BG_LOG_PREFIX = '[AsyncStorageForwarder][BG]';
+const ASYNC_STORAGE_FORWARDER_COMPLETED_REQUEST_LIMIT = 512;
+
+function stringifyAsyncStorageForwarderBgLogValue(value: unknown) {
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    return JSON.stringify({
+      stringifyError: (error as Error)?.message || 'unknown',
+    });
+  }
+}
+
+function asyncStorageForwarderBgLog(label: string, value?: unknown) {
+  try {
+    const valueText =
+      value === undefined
+        ? ''
+        : ` ${stringifyAsyncStorageForwarderBgLogValue(value)}`;
+    NativeLogger.write(
+      LogLevel.Info,
+      `${ASYNC_STORAGE_FORWARDER_BG_LOG_PREFIX} ${label}${valueText}`,
+    );
+  } catch {
+    /* noop */
+  }
+}
+
+function getAsyncStorageWriteRequestSummary(
+  request: IAsyncStorageWriteRequest,
+) {
+  const { requestId } = request;
+  switch (request.method) {
+    case 'clear':
+      return { method: request.method, requestId };
+    case 'multiRemove':
+      return {
+        method: request.method,
+        requestId,
+        keyCount: request.args[0].length,
+      };
+    case 'multiSet':
+    case 'multiMerge':
+      return {
+        method: request.method,
+        requestId,
+        pairCount: request.args[0].length,
+      };
+    default: {
+      const unsupportedRequest: never = request;
+      return { method: String(unsupportedRequest) };
+    }
+  }
+}
+
+function getAsyncStorageForwarderSharedStore() {
+  return getBackgroundThreadSharedStore();
+}
+
 @backgroundClass()
 class BackgroundApiBase implements IBackgroundApiBridge {
   private static readonly PENDING_BRIDGE_MESSAGE_TTL_MS = 10_000;
@@ -116,6 +192,73 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   }> = [];
 
   private isFlushingPendingInjectedBridgeMessages = false;
+
+  private asyncStorageWriteRequestsInFlight = new Map<string, Promise<void>>();
+
+  private completedAsyncStorageWriteRequestIds: string[] = [];
+
+  private completedAsyncStorageWriteRequestIdSet = new Set<string>();
+
+  private rememberCompletedAsyncStorageWriteRequest(requestId: string) {
+    if (this.completedAsyncStorageWriteRequestIdSet.has(requestId)) {
+      return;
+    }
+    this.completedAsyncStorageWriteRequestIdSet.add(requestId);
+    this.completedAsyncStorageWriteRequestIds.push(requestId);
+    while (
+      this.completedAsyncStorageWriteRequestIds.length >
+      ASYNC_STORAGE_FORWARDER_COMPLETED_REQUEST_LIMIT
+    ) {
+      const expiredRequestId =
+        this.completedAsyncStorageWriteRequestIds.shift();
+      if (expiredRequestId) {
+        this.completedAsyncStorageWriteRequestIdSet.delete(expiredRequestId);
+      }
+    }
+  }
+
+  private async runAsyncStorageWriteOnce(
+    requestId: string,
+    write: () => Promise<void>,
+  ) {
+    if (this.completedAsyncStorageWriteRequestIdSet.has(requestId)) {
+      return;
+    }
+
+    const existingRequest =
+      this.asyncStorageWriteRequestsInFlight.get(requestId);
+    if (existingRequest) {
+      await existingRequest;
+      return;
+    }
+
+    const promise = write()
+      .then(() => {
+        this.rememberCompletedAsyncStorageWriteRequest(requestId);
+      })
+      .finally(() => {
+        this.asyncStorageWriteRequestsInFlight.delete(requestId);
+      });
+    this.asyncStorageWriteRequestsInFlight.set(requestId, promise);
+    await promise;
+  }
+
+  private getAsyncStorageWriteForwarderStatus(requestId: string) {
+    return parseAsyncStorageWriteForwarderRequestStatus(
+      getAsyncStorageForwarderSharedStore()?.get(
+        buildAsyncStorageWriteForwarderStatusKey(requestId),
+      ),
+    );
+  }
+
+  private setAsyncStorageWriteForwarderStatus(
+    status: IAsyncStorageWriteForwarderRequestStatus,
+  ) {
+    getAsyncStorageForwarderSharedStore()?.set(
+      buildAsyncStorageWriteForwarderStatusKey(status.requestId),
+      serializeAsyncStorageWriteForwarderRequestStatus(status),
+    );
+  }
 
   private getNativeBackgroundThreadBridgeRelay() {
     const runtimeGlobal = globalThis as typeof globalThis & {
@@ -317,6 +460,74 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     return Promise.resolve(true);
   }
 
+  @backgroundMethod()
+  async writeAsyncStorage(request: IAsyncStorageWriteRequest): Promise<void> {
+    const startedAt = Date.now();
+    const summary = getAsyncStorageWriteRequestSummary(request);
+    try {
+      if (
+        this.getAsyncStorageWriteForwarderStatus(request.requestId)?.status ===
+        'committed'
+      ) {
+        return;
+      }
+      await this.runAsyncStorageWriteOnce(request.requestId, async () => {
+        const pendingStatus = this.getAsyncStorageWriteForwarderStatus(
+          request.requestId,
+        );
+        if (pendingStatus?.status === 'committed') {
+          return;
+        }
+        if (pendingStatus) {
+          this.setAsyncStorageWriteForwarderStatus({
+            ...pendingStatus,
+            status: 'executing',
+            ts: Date.now(),
+          });
+        }
+
+        const { default: appStorage } =
+          await import('@onekeyhq/shared/src/storage/appStorage');
+
+        switch (request.method) {
+          case 'clear':
+            await appStorage.clear();
+            break;
+          case 'multiSet':
+            await appStorage.multiSet(request.args[0]);
+            break;
+          case 'multiRemove':
+            await appStorage.multiRemove(request.args[0]);
+            break;
+          case 'multiMerge':
+            await appStorage.multiMerge(request.args[0]);
+            break;
+          default: {
+            const unsupportedRequest: never = request;
+            throw new OneKeyLocalError(
+              `Unsupported AsyncStorage write request: ${String(unsupportedRequest)}`,
+            );
+          }
+        }
+
+        if (pendingStatus) {
+          this.setAsyncStorageWriteForwarderStatus({
+            ...pendingStatus,
+            status: 'committed',
+            ts: Date.now(),
+          });
+        }
+      });
+    } catch (error) {
+      asyncStorageForwarderBgLog('write-error', {
+        ...summary,
+        durationMs: Date.now() - startedAt,
+        errorMessage: (error as Error)?.message || 'unknown',
+      });
+      throw error;
+    }
+  }
+
   cycleDepsCheck() {
     //
   }
@@ -327,10 +538,53 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   bridgeExtBg: JsBridgeExtBackground | null = null;
 
-  providers: Record<IInjectedProviderNames, ProviderApiBase> =
+  // Only $private is eager here; per-chain providers are loaded lazily on first
+  // use via getProviderApi() so their heavy chain SDKs stay out of the initial
+  // (web) / startup (native) bundle graph.
+  providers: Partial<Record<IInjectedProviderNames, ProviderApiBase>> =
     createBackgroundProviders({
       backgroundApi: this,
     });
+
+  // In-flight loader cache: dedupes concurrent loads of the same provider so two
+  // simultaneous dapp messages can't construct two ProviderApi instances.
+  private providerApiLoadingCache: Partial<
+    Record<IInjectedProviderNames, Promise<ProviderApiBase>>
+  > = {};
+
+  async getProviderApi(
+    scope: IInjectedProviderNames,
+  ): Promise<ProviderApiBase> {
+    const existing = this.providers[scope];
+    if (existing) {
+      return existing;
+    }
+    let loading = this.providerApiLoadingCache[scope];
+    if (!loading) {
+      const loader = providerApiLoaders[scope];
+      if (!loader) {
+        throw new OneKeyLocalError(
+          `[${scope as string}] ProviderApi loader is not found.`,
+        );
+      }
+      loading = loader()
+        .then((module) => {
+          const ProviderApiClass = module.default;
+          const instance = new ProviderApiClass({ backgroundApi: this });
+          this.providers[scope] = instance;
+          return instance;
+        })
+        .catch((error) => {
+          // Drop the rejected promise so a transient load failure (e.g. a
+          // failed webpack chunk request on web) doesn't permanently poison
+          // the cache and leave the provider unavailable for the session.
+          delete this.providerApiLoadingCache[scope];
+          throw error;
+        });
+      this.providerApiLoadingCache[scope] = loading;
+    }
+    return loading;
+  }
 
   // @ts-ignore
   _persistorUnsubscribe: () => void;
@@ -374,13 +628,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const isKeylessPrivateMethod = isProviderApiPrivateKeylessMethod(
       payloadData?.method,
     );
-    const provider: ProviderApiBase | null =
-      this.providers[scope as IInjectedProviderNames];
-    if (!provider) {
-      throw new OneKeyLocalError(
-        `[${scope as string}] ProviderApi instance is not found.`,
-      );
-    }
+    const provider: ProviderApiBase = await this.getProviderApi(
+      scope as IInjectedProviderNames,
+    );
     if (
       scope === IInjectedProviderNames.$private &&
       ((isKeylessPrivateMethod &&

@@ -21,10 +21,8 @@ import type {
 } from '@onekeyhq/shared/types/externalWallet.types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import {
-  useAccountSelectorActions,
-  useSelectedAccount,
-} from '../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorLazyAction } from '../../states/jotai/contexts/accountSelector/actionsLazy';
+import { useSelectedAccount } from '../../states/jotai/contexts/accountSelector/atoms';
 
 import keylessWebPendingLoginCache from './keylessWebPendingLoginCache';
 
@@ -44,7 +42,7 @@ export function useConnectExternalWallet() {
     useOnboardingConnectWalletLoadingAtom();
   const [localLoading, setLocalLoading] = useState(false);
   const intl = useIntl();
-  const actions = useAccountSelectorActions();
+  const callAccountSelectorAction = useAccountSelectorLazyAction();
   const { selectedAccount } = useSelectedAccount({ num: 0 });
 
   const loading = jotaiLoading || localLoading;
@@ -181,12 +179,15 @@ export function useConnectExternalWallet() {
           account,
           networkId: account.createAtNetwork || selectedAccount.networkId,
         });
-        await actions.current.updateSelectedAccountForSingletonAccount({
-          num: 0,
-          networkId: usedNetworkId,
-          walletId: WALLET_TYPE_EXTERNAL,
-          othersWalletAccountId: account.id,
-        });
+        await callAccountSelectorAction(
+          'updateSelectedAccountForSingletonAccount',
+          {
+            num: 0,
+            networkId: usedNetworkId,
+            walletId: WALLET_TYPE_EXTERNAL,
+            othersWalletAccountId: account.id,
+          },
+        );
         // Atomically drop OnboardingModal (the wallet-add sub-page sits
         // inside it) in one reset dispatch. Avoids the popStack() animated
         // dismiss that causes the iOS RNSScreenStack window=NIL retry storm,
@@ -227,7 +228,7 @@ export function useConnectExternalWallet() {
       }
     },
     [
-      actions,
+      callAccountSelectorAction,
       hideLoading,
       intl,
       selectedAccount.networkId,

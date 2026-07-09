@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   defaultWalletActionsConfig,
@@ -54,12 +53,6 @@ export function useWalletActionConfig() {
             case 'send':
               return !settings.disabledSendAction;
             case 'swap':
-              if (
-                platformEnv.isExtensionUiPopup ||
-                platformEnv.isExtensionUiSidePanel
-              ) {
-                return true;
-              }
               return !settings.disabledSwapAction;
             default:
               return true;

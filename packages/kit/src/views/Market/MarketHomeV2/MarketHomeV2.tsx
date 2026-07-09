@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Page, useMedia } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -8,6 +10,7 @@ import {
   useMarketSelectedTabAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -24,6 +27,9 @@ import { useMarketBasicConfig } from '../hooks';
 import { useMarketHomePageEnterAnalytics } from '../hooks/useMarketEnterAnalytics';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
+import { preloadMarketHomeTokenListSeed } from '../utils/marketHomeTokenListSeed';
+import { markMarketPerf } from '../utils/marketPerf';
+import { useMarketRenderCommitProbe } from '../utils/marketReactPerf';
 
 import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
@@ -32,6 +38,9 @@ import { isMarketStockCategory } from './utils';
 
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketCategoryItem } from './types';
+
+markMarketPerf('market-home-module-eval');
+preloadMarketHomeTokenListSeed();
 
 function useRefreshWatchListV2OnFocus(isFocused: boolean) {
   const actions = useWatchListV2Actions();
@@ -44,24 +53,35 @@ function useRefreshWatchListV2OnFocus(isFocused: boolean) {
 }
 
 const useMarketHomeLayoutProps = () => {
+  markMarketPerf('market-home-layout-props-render');
+  const intl = useIntl();
   const { md } = useMedia();
 
   // Load market basic config using the new hook
   const {
     formattedMinLiquidity,
     spotCategories: apiSpotCategories,
+    stockCategories: apiStockCategories,
     isLoading: isMarketBasicConfigLoading,
   } = useMarketBasicConfig();
   const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
-  const [{ spotCategoryToSelect }, setMarketSelectedTab] =
-    useMarketSelectedTabAtom();
+  const effectiveSelectedNetworkId =
+    platformEnv.isWeb && !selectedNetworkId
+      ? getNetworkIdsMap().onekeyall
+      : selectedNetworkId;
+  const [
+    { tab: selectedMarketTab, selectedSpotCategory, spotCategoryToSelect },
+    setMarketSelectedTab,
+  ] = useMarketSelectedTabAtom();
 
   // Track market entry analytics
   useMarketHomePageEnterAnalytics();
 
   // Market analytics hooks
   const { handleTabChange } = useTabAnalytics();
-  const { handleNetworkChange } = useNetworkAnalytics(selectedNetworkId);
+  const { handleNetworkChange } = useNetworkAnalytics(
+    effectiveSelectedNetworkId,
+  );
 
   // Initialize with "All Networks" as default (only when not yet initialized)
   useEffect(() => {
@@ -69,6 +89,7 @@ const useMarketHomeLayoutProps = () => {
     if (!selectedNetworkId) {
       // Default to "All Networks"
       const allNetworkId = getNetworkIdsMap().onekeyall;
+      markMarketPerf('market-home-selected-network-init', { allNetworkId });
       setSelectedNetworkId(allNetworkId);
     }
   }, [selectedNetworkId, setSelectedNetworkId]);
@@ -85,7 +106,9 @@ const useMarketHomeLayoutProps = () => {
   }, [formattedMinLiquidity, liquidityFilter.min]);
   const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('1h');
 
-  const [selectedCategory, setSelectedCategory] = useState('trending');
+  const [selectedCategory, setSelectedCategory] = useState(
+    selectedSpotCategory || 'trending',
+  );
 
   const categories: IMarketCategoryItem[] = useMemo(() => {
     if (apiSpotCategories.length > 0) {
@@ -104,10 +127,69 @@ const useMarketHomeLayoutProps = () => {
 
     // Fallback before API responds
     return [
-      { id: 'trending', name: 'Trending' },
-      { id: 'x_mentioned', name: 'X Mentioned' },
+      {
+        id: 'trending',
+        name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
+      },
     ];
-  }, [apiSpotCategories]);
+  }, [apiSpotCategories, intl]);
+
+  const stockCategories: IMarketCategoryItem[] = useMemo(
+    () =>
+      apiStockCategories.map((category) => ({
+        id: category.category,
+        name: category.name,
+      })),
+    [apiStockCategories],
+  );
+
+  const spotCategoryToRestore = spotCategoryToSelect ?? selectedSpotCategory;
+  const shouldWaitForSpotCategoryReady = Boolean(
+    selectedMarketTab === 'trending' &&
+    spotCategoryToRestore &&
+    spotCategoryToRestore !== 'trending' &&
+    isMarketBasicConfigLoading !== false &&
+    !apiSpotCategories.some((item) => item.type === spotCategoryToRestore),
+  );
+
+  useEffect(() => {
+    if (!selectedSpotCategory || spotCategoryToSelect) {
+      return;
+    }
+
+    const hasSelectedCategory = categories.some(
+      (item) => item.id === selectedSpotCategory,
+    );
+    if (hasSelectedCategory) {
+      if (selectedCategory !== selectedSpotCategory) {
+        setSelectedCategory(selectedSpotCategory);
+      }
+      return;
+    }
+
+    if (isMarketBasicConfigLoading === false) {
+      const nextSelectedCategory = categories[0]?.id ?? 'trending';
+      if (selectedCategory !== nextSelectedCategory) {
+        setSelectedCategory(nextSelectedCategory);
+      }
+      setMarketSelectedTab((prev) => {
+        if (prev.selectedSpotCategory !== selectedSpotCategory) {
+          return prev;
+        }
+        return {
+          ...prev,
+          selectedSpotCategory: undefined,
+        };
+      });
+    }
+  }, [
+    categories,
+    isMarketBasicConfigLoading,
+    selectedCategory,
+    selectedSpotCategory,
+    setMarketSelectedTab,
+    spotCategoryToSelect,
+  ]);
 
   useEffect(() => {
     if (!spotCategoryToSelect) {
@@ -124,6 +206,10 @@ const useMarketHomeLayoutProps = () => {
 
       setMarketSelectedTab((prev) => ({
         ...prev,
+        selectedSpotCategory:
+          prev.selectedSpotCategory === spotCategoryToSelect
+            ? undefined
+            : prev.selectedSpotCategory,
         spotCategoryToSelect: undefined,
       }));
       return;
@@ -133,6 +219,7 @@ const useMarketHomeLayoutProps = () => {
     setMarketSelectedTab((prev) => ({
       ...prev,
       tab: 'trending',
+      selectedSpotCategory: spotCategoryToSelect,
       spotCategoryToSelect: undefined,
     }));
   }, [
@@ -152,7 +239,7 @@ const useMarketHomeLayoutProps = () => {
   const layoutProps = useMemo(
     () => ({
       filterBarProps: {
-        selectedNetworkId,
+        selectedNetworkId: effectiveSelectedNetworkId,
         timeRange,
         liquidityFilter,
         onNetworkIdChange: handleNetworkIdChange,
@@ -160,20 +247,22 @@ const useMarketHomeLayoutProps = () => {
         onLiquidityFilterChange: setLiquidityFilter,
         selectedCategory,
         categories,
+        stockCategories,
         onCategoryChange: setSelectedCategory,
       },
-      selectedNetworkId,
+      selectedNetworkId: effectiveSelectedNetworkId,
       liquidityFilter,
       onTabChange: handleTabChange,
     }),
     [
-      selectedNetworkId,
+      effectiveSelectedNetworkId,
       timeRange,
       liquidityFilter,
       handleNetworkIdChange,
       handleTabChange,
       selectedCategory,
       categories,
+      stockCategories,
     ],
   );
 
@@ -181,18 +270,28 @@ const useMarketHomeLayoutProps = () => {
     () => ({
       md,
       layoutProps,
+      shouldWaitForSpotCategoryReady,
     }),
-    [md, layoutProps],
+    [md, layoutProps, shouldWaitForSpotCategoryReady],
   );
 };
 
 function BaseMarketHomeLayout() {
-  const { md, layoutProps } = useMarketHomeLayoutProps();
+  markMarketPerf('market-home-base-layout-render');
+  useMarketRenderCommitProbe('MarketHome.BaseLayout');
+  const { md, layoutProps, shouldWaitForSpotCategoryReady } =
+    useMarketHomeLayoutProps();
   const isFocused = useRouteIsFocused();
   useRefreshWatchListV2OnFocus(isFocused);
 
+  if (shouldWaitForSpotCategoryReady) {
+    return (
+      <LazyPageContainer eager={platformEnv.isWeb}>{null}</LazyPageContainer>
+    );
+  }
+
   return (
-    <LazyPageContainer>
+    <LazyPageContainer eager={platformEnv.isWeb}>
       {md || platformEnv.isNative ? (
         <MobileLayout {...layoutProps} />
       ) : (
@@ -217,6 +316,8 @@ function BaseMarketHome() {
 }
 
 export function MarketHomeV2() {
+  markMarketPerf('market-home-render');
+  useMarketRenderCommitProbe('MarketHomeV2');
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('MarketHomeV2 render');
   }
@@ -227,6 +328,7 @@ export function MarketHomeV2() {
         sceneUrl: '',
       }}
       enabledNum={[0]}
+      waitForStorageReady={!platformEnv.isWeb}
     >
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
@@ -246,8 +348,12 @@ function BaseMarketHomeWithProvider({
   tabsRef?: React.RefObject<ITabContainerRef | null>;
   nestedPager?: boolean;
 }) {
-  const { layoutProps } = useMarketHomeLayoutProps();
+  const { layoutProps, shouldWaitForSpotCategoryReady } =
+    useMarketHomeLayoutProps();
   useRefreshWatchListV2OnFocus(isFocused);
+  if (shouldWaitForSpotCategoryReady) {
+    return null;
+  }
   // In nested outer pagers (Discovery: Market/Earn/Browser), keep Market mounted
   // and let Freeze control inactive-page performance. Unmounting here causes
   // visible flashes when the outer pager finishes settling.
@@ -280,6 +386,7 @@ export function MarketHomeWithProvider({
         sceneUrl: '',
       }}
       enabledNum={[0]}
+      waitForStorageReady={!platformEnv.isWeb}
     >
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}

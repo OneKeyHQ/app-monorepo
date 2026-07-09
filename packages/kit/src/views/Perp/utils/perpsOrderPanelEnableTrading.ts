@@ -76,10 +76,13 @@ export function getPerpsOrderPanelEnableTradingModeByAccount({
   const isHardwareAccount = accountUtils.isHwAccount({
     accountId: resolvedAccountId,
   });
+  const shouldUseOrderPanelEnableTradingDialog =
+    isHardwareAccount || !isSoftwareAccount;
 
   return {
     canAutoEnableInOrderPanel: isSoftwareAccount,
-    requiresEnableTradingDialogInOrderPanel: isHardwareAccount,
+    requiresEnableTradingDialogInOrderPanel:
+      shouldUseOrderPanelEnableTradingDialog,
     requiresExplicitEnableTrading: !isSoftwareAccount,
   };
 }

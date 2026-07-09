@@ -1,6 +1,6 @@
 ---
 name: 1k-defi-module-integration
-description: App-side OneKey DeFi guide for Earn, Borrow, Staking, vaults, lending, protocol integrations, ABI-backed operations, native/provider-backed operations, pending transactions, history, route handoffs, risk display, and DeFi regression review.
+description: App-side OneKey DeFi guide for Earn, native Discovery-hosted Earn, Borrow, Staking, DeFi Portfolio actions, vaults, lending, protocol integrations, ABI-backed operations, native/provider-backed operations, pending transactions, history, route handoffs, risk display, and DeFi regression review.
 ---
 
 # DeFi Module Integration
@@ -17,6 +17,27 @@ The canonical DeFi App path is:
 
 Most requirements are not "add a protocol" only. They are route, data, operation, pending, and platform integration requirements.
 
+For DeFi portfolio one-click actions such as withdraw, claim, claimWithdrawal, or removeLiquidity, read [portfolio-actions-guide.md](references/portfolio-actions-guide.md) before changing action visibility, build-transaction payloads, or post-action refresh.
+
+## Evidence-Driven Intake
+
+When an Earn/DeFi task comes from Jira, Slack, a review thread, or a local todo
+ledger, treat the title as a routing clue only. Before changing code, verify the
+current source-of-truth packet:
+
+- Jira issue text, latest comments, priority/status, and attachments when an
+  issue key exists.
+- Slack thread or DM context when it contains late corrections, screenshots,
+  videos, QA notes, or owner decisions.
+- Current client branch and the closest existing Earn/Borrow/Staking/DeFi flow
+  in this repo.
+- Server branch/ref/commit when supported-protocols, build-transaction,
+  portfolio position, status, or DTO semantics are part of the behavior.
+
+If source evidence conflicts, stop and name the conflict before picking a fix
+shape. Use `1k-earn-bugfix` only as historical risk input; this skill remains
+the App implementation owner for Earn/DeFi flow changes.
+
 ## Scenario Router
 
 Classify the change first:
@@ -28,6 +49,7 @@ Classify the change first:
 5. Native/provider-backed operation where App delegates protocol details to a provider or chain-specific service.
 6. Swap-assisted operation such as funding, wrap, repay-with-collateral, or Trade/Buy handoff.
 7. Regression/review of routing, pending refresh, history, or platform layout.
+8. DeFi Portfolio one-click action support on existing portfolio positions.
 
 If the scenario is unclear, map its operation contract before choosing UI structure.
 
@@ -36,9 +58,13 @@ If the scenario is unclear, map its operation contract before choosing UI struct
 1. Read [app-architecture.md](references/app-architecture.md) to place the feature in the App flow.
 2. Use [code-map.md](references/code-map.md) to find stable anchors.
 3. Define the operation contract in [operation-flow.md](references/operation-flow.md): operation type, parameters, setup tx, business tx, status, risk, and refresh.
-4. Define route, state, pending, and platform ownership in [state-and-routing.md](references/state-and-routing.md).
-5. Run [checklists.md](references/checklists.md), including ABI/native readiness drills when adding a protocol integration.
-6. Validate on the route and platform that own the behavior.
+4. For DeFi Portfolio actions, read [portfolio-actions-guide.md](references/portfolio-actions-guide.md) and verify the portfolio, supported-action, and build-transaction contracts separately.
+5. Define route, state, pending, and platform ownership in [state-and-routing.md](references/state-and-routing.md).
+6. Identify the closest valid repo pattern before inventing a new hook, state
+   owner, operation adapter, or protocol abstraction. Reuse the shell only when
+   provider, network, account, token, route, and operation semantics match.
+7. Run [checklists.md](references/checklists.md), including ABI/native readiness drills when adding a protocol integration.
+8. Validate on the route and platform that own the behavior.
 
 ## Reference Map
 
@@ -47,6 +73,7 @@ If the scenario is unclear, map its operation contract before choosing UI struct
 | Understand Earn/Borrow/Staking flow | [app-architecture.md](references/app-architecture.md) |
 | Find current repo anchors | [code-map.md](references/code-map.md) |
 | Define operation and transaction contracts | [operation-flow.md](references/operation-flow.md) |
+| DeFi Portfolio one-click action contracts | [portfolio-actions-guide.md](references/portfolio-actions-guide.md) |
 | Route, state, pending, history, and platform ownership | [state-and-routing.md](references/state-and-routing.md) |
 | Prevent common integration failures | [checklists.md](references/checklists.md) |
 
@@ -57,6 +84,10 @@ Use these drills to judge whether the skill can guide fast protocol integration:
 - ABI-backed protocol: can you identify network/account, contract address, read params, write params, approval/permit needs, tx labels, pending tags, refresh scope, and history semantics without a one-off template?
 - Native/provider-backed protocol: can you identify provider capability, native token handling, setup/business sequence, unsupported states, account derive requirements, and completion polling?
 - New L2/protocol module: can you decide whether it belongs under Earn/Borrow, a new DeFi surface, a Discovery-hosted flow, or a Trade handoff based on operation semantics?
+- DeFi Portfolio action: can you match the visible position row to `/wallet/v1/portfolio/positions`, `/earn/v1/defi/supported-protocols`, and `/earn/v1/defi/build-transaction` without dropping grouped source metadata?
+- Earn entry: can you route Home Earn card, desktop/web Earn tab, native
+  Discovery-hosted Earn, share/deep link, AssetDetails DeFi action, and
+  Swap-assisted funding to the right owner without treating them as one route?
 
 If a drill cannot be completed from the references, improve the abstraction before implementing.
 
@@ -69,6 +100,12 @@ If a drill cannot be completed from the references, improve the abstraction befo
 - Do not call native crash or freeze bugs fixed from state reasoning alone; capture the Android/iOS log, Sentry event, or JS/native boundary that proves the failing operation path.
 - Do not hand-edit generated locale files; use `/1k-i18n`.
 - Do not broaden shared Staking/Borrow utilities without existing-protocol regression reasoning.
+- Do not hide a DeFi Portfolio position only because its protocol has no supported action.
+- Do not create a new abstraction, hook, or state owner until the closest
+  existing repo pattern and its semantic mismatch have been named.
+- Do not let one oversized hook own route sync, data loading, operation state,
+  listener refresh, pending/history, and view model. Split stateful business
+  logic by stable responsibility when that clarifies ownership.
 
 ## Related Skills
 

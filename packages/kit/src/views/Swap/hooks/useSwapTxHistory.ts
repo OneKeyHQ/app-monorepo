@@ -1,12 +1,15 @@
 import { useCallback } from 'react';
 
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
 import {
   EProtocolOfExchange,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
+  ISwapToken,
+  ISwapTokenBase,
   ISwapTxHistory,
   ISwapTxInfo,
 } from '@onekeyhq/shared/types/swap/types';
@@ -18,6 +21,35 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '../../../states/jotai/contexts/swap';
+import { buildSwapHistoryIdentity } from '../utils/swapHistoryIdentity';
+
+function buildSwapHistoryToken({
+  buildToken,
+  selectedToken,
+}: {
+  buildToken?: ISwapTokenBase;
+  selectedToken: ISwapToken;
+}): ISwapToken {
+  if (
+    !buildToken ||
+    !equalTokenNoCaseSensitive({
+      token1: buildToken,
+      token2: selectedToken,
+    })
+  ) {
+    return selectedToken;
+  }
+
+  return {
+    ...selectedToken,
+    price: buildToken.price ?? selectedToken.price,
+    currency: buildToken.currency ?? selectedToken.currency,
+    fiatValue: buildToken.fiatValue ?? selectedToken.fiatValue,
+    name: selectedToken.name ?? buildToken.name,
+    logoURI: selectedToken.logoURI ?? buildToken.logoURI,
+    isNative: selectedToken.isNative ?? buildToken.isNative,
+  };
+}
 
 export function useSwapTxHistoryActions() {
   const [swapNetworks] = useSwapNetworksAtom();
@@ -41,18 +73,28 @@ export function useSwapTxHistoryActions() {
         swapTxInfo &&
         (swapTxInfo.protocol === EProtocolOfExchange.SWAP ||
           swapTxInfo.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+          swapTxInfo.protocol === EProtocolOfExchange.STOCK ||
           swapTxInfo.swapBuildResData.result.isWrapped)
       ) {
-        const useOrderId = Boolean(
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          swapTxInfo.swapBuildResData.ctx?.cowSwapOrderId ||
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          swapTxInfo.swapBuildResData.ctx?.oneInchFusionOrderHash,
-        );
+        const { orderId, serviceOrderId, useOrderId } =
+          buildSwapHistoryIdentity({
+            buildRes: swapTxInfo.swapBuildResData,
+            protocol: swapTxInfo.protocol,
+            txId,
+          });
+        const fromToken = buildSwapHistoryToken({
+          buildToken: swapTxInfo.swapBuildResData.result?.fromTokenInfo,
+          selectedToken: swapTxInfo.sender.token,
+        });
+        const toToken = buildSwapHistoryToken({
+          buildToken: swapTxInfo.swapBuildResData.result?.toTokenInfo,
+          selectedToken: swapTxInfo.receiver.token,
+        });
         const swapHistoryItem: ISwapTxHistory = {
           protocol: swapTxInfo.protocol,
           status: ESwapTxHistoryStatus.PENDING,
           currency: settingsAtom.currencyInfo?.symbol,
+          currencyId: settingsAtom.currencyInfo?.id,
           accountInfo: {
             sender: {
               accountId: swapTxInfo.sender.accountInfo?.accountId,
@@ -66,13 +108,13 @@ export function useSwapTxHistoryActions() {
           baseInfo: {
             toAmount: swapTxInfo.receiver.amount,
             fromAmount: swapTxInfo.sender.amount,
-            fromToken: swapTxInfo.sender.token,
-            toToken: swapTxInfo.receiver.token,
+            fromToken,
+            toToken,
             fromNetwork: swapNetworks.find(
-              (item) => item?.networkId === swapTxInfo.sender.token.networkId,
+              (item) => item?.networkId === fromToken.networkId,
             ),
             toNetwork: swapNetworks.find(
-              (item) => item?.networkId === swapTxInfo.receiver.token.networkId,
+              (item) => item?.networkId === toToken.networkId,
             ),
           },
           txInfo: {
@@ -80,12 +122,7 @@ export function useSwapTxHistoryActions() {
             useOrderId,
             gasFeeFiatValue,
             gasFeeInNative,
-            orderId:
-              swapTxInfo.swapBuildResData.swftOrder?.orderId ??
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              swapTxInfo.swapBuildResData.ctx?.cowSwapOrderId ??
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              swapTxInfo.swapBuildResData.ctx?.oneInchFusionOrderHash,
+            orderId,
             sender: swapTxInfo.accountAddress,
             receiver: swapTxInfo.receivingAddress,
           },
@@ -102,9 +139,7 @@ export function useSwapTxHistoryActions() {
             protocolFee: swapTxInfo.swapBuildResData.result?.fee?.protocolFees,
             otherFeeInfos:
               swapTxInfo.swapBuildResData.result?.fee?.otherFeeInfos ?? [],
-            orderId:
-              swapTxInfo.swapBuildResData.orderId ??
-              swapTxInfo.swapBuildResData.result?.quoteId,
+            orderId: serviceOrderId,
             supportUrl: swapTxInfo.swapBuildResData.result?.supportUrl,
             orderSupportUrl:
               swapTxInfo.swapBuildResData.result?.orderSupportUrl,
@@ -124,7 +159,11 @@ export function useSwapTxHistoryActions() {
         }
       }
     },
-    [settingsAtom.currencyInfo.symbol, swapNetworks],
+    [
+      settingsAtom.currencyInfo.id,
+      settingsAtom.currencyInfo.symbol,
+      swapNetworks,
+    ],
   );
 
   const swapAgainUseHistoryItem = useCallback(

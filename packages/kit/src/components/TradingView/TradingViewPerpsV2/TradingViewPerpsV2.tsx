@@ -1,17 +1,17 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { LottieView, Stack, useTheme } from '@onekeyhq/components';
-import type { IStackStyle } from '@onekeyhq/components';
+import type { IDialogInstance, IStackStyle } from '@onekeyhq/components';
 import TradingViewChartLoadingAnimation from '@onekeyhq/kit/assets/animations/swap_order_pending.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  useActiveTradeInstrumentAtom,
   useHyperliquidActions,
-  useTradingFormEnvAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import {
-  EActionType,
-  withToast,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils';
+import { showSetTpslDialog } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/SetTpslModal';
+import { showLimitOrderDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/panels/LimitOrderForm';
 import { usePerpsCandlesWebviewMountedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -30,6 +30,7 @@ import { useChartLines, useTradeUpdates } from './hooks';
 import { usePerpsTradingViewMessageHandler } from './messageHandlers';
 
 import type {
+  ITVChartOrderIntentPayload,
   ITVOrderCancelPayload,
   ITVOrderDraftCreatePayload,
   ITVOrderPriceUpdatePayload,
@@ -54,6 +55,7 @@ interface IBaseTradingViewPerpsV2Props {
   onLoadEnd?: () => void;
   onTradeUpdate?: (trade: ITradeEvent) => void;
   onTouchScroll?: (deltaY: number) => void;
+  onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
 }
 
 export type ITradingViewPerpsV2Props = IBaseTradingViewPerpsV2Props &
@@ -276,6 +278,7 @@ export function TradingViewPerpsV2(
     onLoadEnd,
     onTradeUpdate,
     onTouchScroll,
+    onInteractionOverlayOpenChange,
     webviewKey,
     ...stackStyle
   } = props;
@@ -285,9 +288,18 @@ export function TradingViewPerpsV2(
   const themeColors = useTheme();
   const tradingViewBackgroundColor = themeColors.bgApp.val;
   const actions = useHyperliquidActions();
+  const intl = useIntl();
   const { restoreNonce } = useNetworkRestore();
 
-  const [{ szDecimals }] = useTradingFormEnvAtom();
+  // szDecimals comes from the active instrument's universe — the same scoped
+  // atom that drives `symbol`, so coin and precision update together (no chart-
+  // symbol divergence) and reactively once meta loads. getSymbolMeta(symbol)
+  // can't resolve spot, whose coin is a plain base name (OK-56902/56903).
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const szDecimals =
+    activeTradeInstrument.mode === 'spot'
+      ? activeTradeInstrument.universe?.baseSzDecimals
+      : activeTradeInstrument.universe?.szDecimals;
   const _webviewKey = useMemo(() => {
     return `${theme}-${webviewKey || ''}${
       reloadOnSymbolChange ? `-${symbol}` : ''
@@ -300,6 +312,15 @@ export function TradingViewPerpsV2(
     useState<string | null>(null);
   const hasPerpsReadyRef = useRef(false);
   const lastHandledRestoreNonceRef = useRef(0);
+  const chartOrderDialogRef = useRef<IDialogInstance | null>(null);
+
+  const closeChartOrderDialog = useCallback(() => {
+    const dialog = chartOrderDialogRef.current;
+    chartOrderDialogRef.current = null;
+    if (dialog?.isExist()) {
+      void dialog.close();
+    }
+  }, []);
 
   const isChartLinesReady = chartLinesReadyWebviewKey === _webviewKey;
   const isChartContentReady = chartContentReadyWebviewKey === _webviewKey;
@@ -320,8 +341,19 @@ export function TradingViewPerpsV2(
     setMounted({ mounted: true });
     return () => {
       setMounted({ mounted: false });
+      closeChartOrderDialog();
     };
-  }, [setMounted]);
+  }, [closeChartOrderDialog, setMounted]);
+
+  const latestSymbolRef = useRef(symbol);
+  latestSymbolRef.current = symbol;
+  const prevSymbolRef = useRef(symbol);
+  useEffect(() => {
+    if (prevSymbolRef.current !== symbol) {
+      closeChartOrderDialog();
+      prevSymbolRef.current = symbol;
+    }
+  }, [closeChartOrderDialog, symbol]);
 
   const { handleNavigation } = useNavigationHandler();
 
@@ -477,28 +509,61 @@ export function TradingViewPerpsV2(
   );
 
   const onOrderDraftCreate = useCallback(
-    async (payload: ITVOrderDraftCreatePayload) => {
+    (_payload: ITVOrderDraftCreatePayload) => {
+      // No-op kept for version skew: an old chart still emitting the legacy
+      // method must not place an order (placement moved to onChartOrderIntent).
+    },
+    [],
+  );
+
+  const onChartOrderIntent = useCallback(
+    async (payload: ITVChartOrderIntentPayload) => {
       if (!enablePerpsTradingUi) return;
 
+      // Fire-and-forget handler: self-own errors to avoid unhandled rejections.
       try {
-        await actions.current.ensureTradingEnabled();
-        await withToast({
-          asyncFn: () =>
-            backgroundApiProxy.serviceHyperliquidExchange.placeLimitOrderByCoin(
-              {
-                coin: payload.symbol,
-                isBuy: payload.side === 'buy',
-                size: payload.quantity,
-                price: payload.price,
-              },
-            ),
-          actionType: EActionType.PLACE_ORDER,
-        });
-      } catch {
-        // intentional: withToast owns the user-facing error message
+        if (payload.intent === 'limitEntry') {
+          const isCurrentSymbolIntent =
+            payload.symbol === latestSymbolRef.current;
+          if (!isCurrentSymbolIntent) return;
+          closeChartOrderDialog();
+          chartOrderDialogRef.current = showLimitOrderDialog({
+            symbol: payload.symbol,
+            price: payload.price,
+            displayPair: isCurrentSymbolIntent ? displayPair : undefined,
+            displayCoin: isCurrentSymbolIntent ? displayCoin : undefined,
+            intl,
+          });
+          return;
+        }
+        if (payload.intent === 'positionTpSl') {
+          const meta =
+            await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+              coin: payload.symbol,
+            });
+          if (!meta) return;
+          if (payload.symbol !== latestSymbolRef.current) return;
+          closeChartOrderDialog();
+          chartOrderDialogRef.current = showSetTpslDialog({
+            coin: payload.symbol,
+            szDecimals: meta.universe?.szDecimals ?? 0,
+            assetId: meta.assetId,
+            presetTriggerPrice: payload.price,
+            presetTpsl: payload.tpsl,
+            intl,
+          });
+        }
+      } catch (error) {
+        console.error('[TradingViewPerpsV2] onChartOrderIntent failed:', error);
       }
     },
-    [actions, enablePerpsTradingUi],
+    [
+      closeChartOrderDialog,
+      displayCoin,
+      displayPair,
+      enablePerpsTradingUi,
+      intl,
+    ],
   );
 
   const onOrderPriceUpdate = useCallback(
@@ -549,13 +614,15 @@ export function TradingViewPerpsV2(
     onOrderCancel,
     onOrderDraftCreate,
     onOrderPriceUpdate,
+    onChartOrderIntent,
     onTouchScroll,
+    onInteractionOverlayOpenChange,
   });
 
   // Chart lines management (liquidation, position, orders)
   useChartLines({
     symbol,
-    szDecimals: szDecimals ?? 3,
+    szDecimals: szDecimals ?? 2,
     userAddress,
     webRef,
     isReady: isChartLinesReady,
@@ -586,6 +653,7 @@ export function TradingViewPerpsV2(
         containerStyle={tradingViewWebViewStyleProps.containerStyle}
         style={tradingViewWebViewStyleProps.style}
         customReceiveHandler={customReceiveHandler}
+        skipBackgroundBridge
         onWebViewRef={onWebViewRef}
         onLoadEnd={onLoadEnd}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}

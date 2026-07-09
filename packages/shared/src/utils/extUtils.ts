@@ -23,6 +23,7 @@ export const EXT_HTML_FILES = {
 // Chrome extension popups can have a maximum height of 600px and maximum width of 800px
 export const UI_HTML_DEFAULT_MIN_WIDTH = 375;
 export const UI_HTML_DEFAULT_MIN_HEIGHT = 670;
+const EXTENSION_EXPAND_TAB_POPUP_CLOSE_DELAY_MS = 100;
 
 export type IOpenUrlRouteInfo = {
   routes?: string | string[];
@@ -146,6 +147,10 @@ async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
 export enum EPassKeyWindowType {
   unlock = 'unlock',
   create = 'create',
+  // Dev-only: open the passkey page in an idle mode (no create/unlock op, no
+  // auto-close) so its SES runtime-check message handler stays registered and
+  // the window keeps responding to ext-passkey runtime checks.
+  devSesCheck = 'devSesCheck',
 }
 export enum EPassKeyWindowFrom {
   popup = 'popup',
@@ -168,6 +173,35 @@ async function openPassKeyWindow(type: EPassKeyWindowType) {
     height: 1, // height including title bar, so should add 50px more
     width: 1,
     // check useAutoRedirectToRoute()
+    url,
+    top,
+    left,
+  });
+}
+
+// Dev-only helper: open the passkey page in idle mode for the SES runtime
+// check. It uses a dedicated EPassKeyWindowType.devSesCheck so the renderer
+// does NOT run create/unlock and does NOT auto-close, while the SES
+// runtime-check message handler (installed on page load in ui-passkey.tsx)
+// stays registered and reachable. The window is opened at a small but visible
+// size so the user can see and close it manually.
+async function openPassKeyWindowForDevCheck() {
+  const url = buildExtRouteUrl(EXT_HTML_FILES.uiPassKey, {
+    params: {
+      type: EPassKeyWindowType.devSesCheck,
+      // Use `popup` so closeWindow() (which only closes on `sidebar`) never
+      // auto-closes this idle dev window.
+      from: EPassKeyWindowFrom.popup,
+    },
+  });
+  const { top, left } = await getWindowPosition();
+  return chrome.windows.create({
+    focused: true,
+    type: 'popup',
+    // Small but visible size so the user can see and close it manually
+    // (the real passkey window is intentionally 1x1 px).
+    height: 200,
+    width: 360,
     url,
     top,
     left,
@@ -201,6 +235,12 @@ async function openExpandTab(
   const tab = await openUrlInTab(url, { tabId: expandTabId });
   expandTabId = tab?.id;
   return tab;
+}
+
+export function closeExtensionPopupAfterExpandTabOpen() {
+  if (platformEnv.isExtensionUiPopup) {
+    setTimeout(globalThis.close, EXTENSION_EXPAND_TAB_POPUP_CLOSE_DELAY_MS);
+  }
 }
 
 async function resetSidePanelPath() {
@@ -271,9 +311,21 @@ function focusExistWindow({
 }: {
   windowId: number | undefined | null;
 }) {
-  if (windowId) {
-    void chrome.windows.update(windowId, { focused: true });
+  if (!windowId) {
+    return;
   }
+  chrome.windows.get(windowId, (win) => {
+    // Reading lastError keeps Chrome from logging "Unchecked
+    // runtime.lastError" when the window was already closed by the user.
+    if (chrome.runtime.lastError || !win) {
+      return;
+    }
+    void chrome.windows.update(windowId, {
+      focused: true,
+      // focused:true alone does not restore a minimized window
+      state: win.state === 'minimized' ? 'normal' : undefined,
+    });
+  });
 }
 
 async function openPermissionSettings() {
@@ -292,6 +344,7 @@ async function openPermissionSettings() {
 export default {
   openUrlInTab,
   openPassKeyWindow,
+  openPassKeyWindowForDevCheck,
   openExpandTabOrSidePanel,
   openStandaloneWindow,
   openExpandTab,

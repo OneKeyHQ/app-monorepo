@@ -16,7 +16,15 @@ export enum EAppSyncStorageKeys {
   last_valid_server_time = 'last_valid_server_time',
   last_valid_local_time = 'last_valid_local_time',
   onekey_jotai_context_atoms_snapshot = 'onekey_jotai_context_atoms_snapshot',
+  onekey_account_selector_recent_selection = 'onekey_account_selector_recent_selection',
   onekey_swr_cache = 'onekey_swr_cache',
+  onekey_device_performance_tier = 'onekey_device_performance_tier',
+  // TokenList cells one-time cold-start cleanup version flag (spec §7). A
+  // monotonically-increasing integer compared against
+  // TOKEN_COLD_START_CLEANUP_VERSION so the OLD `::ctx:renderedTokenListCacheAtom`
+  // disk fields are purged once per version (and re-purged after a
+  // downgrade→upgrade). Stored in the cold-start cache MMKV instance.
+  onekey_tokenlist_cold_start_cleanup_version = 'onekey_tokenlist_cold_start_cleanup_version',
 }
 
 // Dev setting keys stored in the separate 'onekey-app-dev-setting' MMKV instance,
@@ -24,6 +32,7 @@ export enum EAppSyncStorageKeys {
 export enum EDevSettingSyncStorageKeys {
   onekey_developer_mode_enabled = 'onekey_developer_mode_enabled',
   onekey_bundle_skip_gpg_verification = 'onekey_bundle_skip_gpg_verification',
+  onekey_native_network_throttle_enabled = 'onekey_native_network_throttle_enabled',
 }
 
 // Logical "scope" identifiers used when caching lists that are surfaced by

@@ -34,6 +34,8 @@ import {
   getFillDirectionDisplayInfo,
 } from '../utils';
 
+import { DesktopActionIconButton } from './DesktopActionIconButton';
+
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
 const formatter: INumberFormatProps = {
@@ -220,7 +222,7 @@ const TradesHistoryRow = memo(
                 gap="$2"
                 alignItems="center"
                 onPress={handleSwitchInstrument}
-                cursor="default"
+                cursor="pointer"
               >
                 <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
                 <SizableText
@@ -376,7 +378,7 @@ const TradesHistoryRow = memo(
               justifyContent={calcCellAlign(columnConfigs[1].align)}
               alignItems="center"
               onPress={handleSwitchInstrument}
-              cursor="default"
+              cursor="pointer"
             >
               <SizableText
                 numberOfLines={1}
@@ -392,9 +394,11 @@ const TradesHistoryRow = memo(
               {...getColumnStyle(columnConfigs[2])}
               justifyContent={calcCellAlign(columnConfigs[2].align)}
               alignItems="center"
+              minWidth={0}
             >
-              <XStack gap="$1.5" alignItems="center">
+              <XStack gap="$1.5" alignItems="center" width="100%" minWidth={0}>
                 <SizableText
+                  flexShrink={1}
                   numberOfLines={1}
                   ellipsizeMode="tail"
                   size="$bodySm"
@@ -489,15 +493,11 @@ const TradesHistoryRow = memo(
               {`${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
             </SizableText>
             {canShare ? (
-              <IconButton
+              <DesktopActionIconButton
                 testID="perp-icon-btn"
-                variant="tertiary"
-                size="small"
                 icon="ShareOutline"
                 iconSize="$4"
                 onPress={() => onShare?.(fill)}
-                hoverStyle={null}
-                pressStyle={null}
               />
             ) : (
               <XStack width={16} height={16} />

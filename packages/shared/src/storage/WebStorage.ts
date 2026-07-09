@@ -8,8 +8,6 @@ import { IndexedDBPromised } from '../IndexedDBPromised';
 import platformEnv from '../platformEnv';
 import resetUtils from '../utils/resetUtils';
 
-import WebStorageLegacy from './WebStorageLegacy';
-
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 import type {
   Callback,
@@ -18,6 +16,27 @@ import type {
   MultiCallback,
   MultiGetCallback,
 } from '@react-native-async-storage/async-storage/lib/typescript/types';
+
+const LEGACY_STORAGE_DB_NAME = 'OneKeyStorage';
+
+async function doesLegacyStorageDbExist(): Promise<boolean | undefined> {
+  try {
+    const databases = await globalThis.indexedDB?.databases?.();
+    if (!databases) {
+      return undefined;
+    }
+    return databases.some(
+      (database) => database.name === LEGACY_STORAGE_DB_NAME,
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+async function createLegacyStorage(): Promise<AsyncStorageStatic> {
+  const { default: WebStorageLegacy } = await import('./WebStorageLegacy');
+  return new WebStorageLegacy();
+}
 
 // localforage.config({
 //   name: 'OneKeyStorage',
@@ -57,7 +76,11 @@ async function migrateFromLegacyStorage({
     return;
   }
   // export default new WebStorage();
-  const legacyStorage = new WebStorageLegacy();
+  const legacyStorageDbExists = await doesLegacyStorageDbExist();
+  if (legacyStorageDbExists === false) {
+    return;
+  }
+  const legacyStorage = await createLegacyStorage();
   const keys = await legacyStorage.getAllKeys(undefined);
   for (const key of keys) {
     if (

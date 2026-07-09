@@ -1,4 +1,4 @@
 interface:
   display_name: "OneKey DeFi Integration"
-  short_description: "App-side Earn, Borrow, Staking, and DeFi protocol guidance"
-  default_prompt: "Use $1k-defi-module-integration for OneKey Earn, Borrow, Staking, vault/lending/yield protocols, ABI-backed operations, native/provider-backed operations, pending/history, route handoffs, risk display, and DeFi regression review."
+  short_description: "App-side Earn, native Discovery Earn, Borrow, Staking, DeFi Portfolio action, route-account context, protocol, pending/history guidance"
+  default_prompt: "Use $1k-defi-module-integration for OneKey Earn, native Discovery-hosted Earn, Borrow, Staking, DeFi Portfolio one-click actions, AssetDetails modal route/account context, supported-protocols and build-transaction contracts, vault/lending/yield protocols, ABI-backed operations, native/provider-backed operations, pending/history, route handoffs, Swap-assisted DeFi funding, risk display, and DeFi regression review. For Jira/Slack/review/ledger-derived tasks, verify the current evidence packet before coding; identify the closest valid Earn/Borrow/Staking/DeFi repo pattern before adding hooks, state owners, adapters, or abstractions; split large hooks by stable business responsibility. Use 1k-earn-bugfix as historical prevention input, not as the App implementation owner."

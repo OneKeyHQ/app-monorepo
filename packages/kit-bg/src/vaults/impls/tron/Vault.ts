@@ -67,6 +67,7 @@ import { EErc20MethodSelectors } from '../evm/decoder/abi';
 import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHardwareLedger } from './KeyringHardwareLedger';
+import { KeyringHardwareTrezor } from './KeyringHardwareTrezor';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
@@ -103,6 +104,7 @@ export default class Vault extends VaultBase {
     qr: KeyringQr,
     hw: KeyringHardware,
     hwLedger: KeyringHardwareLedger,
+    hwTrezor: KeyringHardwareTrezor,
     imported: KeyringImported,
     watching: KeyringWatching,
     external: KeyringExternal,

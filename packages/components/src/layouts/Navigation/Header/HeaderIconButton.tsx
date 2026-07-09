@@ -15,6 +15,10 @@ function HeaderIconButton(props: IIconButtonProps) {
       variant="tertiary"
       focusVisibleStyle={undefined}
       className="app-region-no-drag"
+      // The iOS 26 Liquid Glass treatment (reset negative margin, strip
+      // self-drawn background/press, raise icon contrast) is handled inside
+      // IconButton via the GlassHeaderContext, so it only applies when this
+      // button is actually injected into the native glass bar.
       {...props}
     />
   );

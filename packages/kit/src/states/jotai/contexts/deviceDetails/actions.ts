@@ -1,15 +1,21 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import {
   contextAtomMethod,
   currentWalletIdAtom,
   deviceMetaStateAtom,
   deviceMetaStaticAtom,
+  emptyMetaState,
+  emptyMetaStatic,
+  refreshSettledAtom,
   walletWithDeviceStateAtom,
 } from './atoms';
 
@@ -27,28 +33,49 @@ async function buildDeviceMetaStatic(
   if (!features) {
     return undefined;
   }
+  const vendorProfile = getVendorProfile(
+    device.vendor ?? EHardwareVendor.onekey,
+  );
+  const isThirdParty = vendorProfile.isThirdParty;
 
-  const versions = await deviceUtils.getDeviceVersion({
-    device,
-    features,
-  });
-  const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
-    features,
-  });
-  const firmwareType = await deviceUtils.getFirmwareType({
-    features,
-  });
+  const versions = isThirdParty
+    ? thirdPartyDeviceUtils.getDeviceVersion({
+        device,
+        features,
+      })
+    : await deviceUtils.getDeviceVersion({
+        device,
+        features,
+      });
+  const deviceType = isThirdParty
+    ? device.deviceType
+    : await deviceUtils.getDeviceTypeFromFeatures({
+        features,
+      });
+  const firmwareType = isThirdParty
+    ? thirdPartyDeviceUtils.getFirmwareType({
+        features,
+      })
+    : await deviceUtils.getFirmwareType({
+        features,
+      });
   const firmwareTypeLabel = deviceUtils.getFirmwareTypeLabelByFirmwareType({
     firmwareType,
     displayFormat: 'withSpace',
   });
   const firmwareVersionDisplay = versions?.firmwareVersion
-    ? `${firmwareTypeLabel}v${versions?.firmwareVersion}`
+    ? `${firmwareTypeLabel}v${versions.firmwareVersion}`
     : '-';
 
-  const deviceName = deviceUtils.buildDeviceBleName({
-    features,
-  });
+  const deviceName = isThirdParty
+    ? thirdPartyDeviceUtils.getDeviceName({
+        device,
+        features,
+        defaultDeviceName: vendorProfile.defaultDeviceName,
+      })
+    : deviceUtils.buildDeviceBleName({
+        features,
+      });
 
   return {
     deviceName,
@@ -89,41 +116,69 @@ async function buildDeviceMetaState(
     autoShutDownDelayMs,
     language,
     hapticFeedback,
+    isReady: true,
   };
 }
 
 class DeviceDetailsActions extends ContextJotaiActionsBase {
-  updateDeviceMetaStatic = contextAtomMethod(async (get, set) => {
-    const data = get(walletWithDeviceStateAtom());
-    const metaStatic = await buildDeviceMetaStatic(data);
-    if (metaStatic) {
-      set(deviceMetaStaticAtom(), metaStatic);
-    }
-  });
+  updateDeviceMetaStatic = contextAtomMethod(
+    async (get, set, walletId?: string) => {
+      const data = get(walletWithDeviceStateAtom());
+      const metaStatic = await buildDeviceMetaStatic(data);
+      // Superseded by a newer device switch during the await — drop this write.
+      if (walletId && get(currentWalletIdAtom()) !== walletId) return;
+      if (metaStatic) {
+        set(deviceMetaStaticAtom(), metaStatic);
+      }
+    },
+  );
 
-  updateDeviceMetaState = contextAtomMethod(async (get, set) => {
-    const data = get(walletWithDeviceStateAtom());
-    const metaState = await buildDeviceMetaState(data);
-    if (metaState) {
-      set(deviceMetaStateAtom(), metaState);
-    }
-  });
+  updateDeviceMetaState = contextAtomMethod(
+    async (get, set, walletId?: string) => {
+      const data = get(walletWithDeviceStateAtom());
+      const metaState = await buildDeviceMetaState(data);
+      if (walletId && get(currentWalletIdAtom()) !== walletId) return;
+      if (metaState) {
+        set(deviceMetaStateAtom(), metaState);
+      }
+    },
+  );
 
   refresh = contextAtomMethod(async (get, set, incomingWalletId?: string) => {
     const walletId = incomingWalletId ?? get(currentWalletIdAtom());
     if (!walletId) return;
 
-    const r =
-      await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
-        filterHiddenWallet: true,
-      });
+    // Device switched: reset header state so the skeleton re-engages.
+    if (walletId !== get(currentWalletIdAtom())) {
+      set(currentWalletIdAtom(), walletId);
+      set(walletWithDeviceStateAtom(), undefined);
+      set(deviceMetaStaticAtom(), emptyMetaStatic);
+      set(deviceMetaStateAtom(), emptyMetaState);
+      set(refreshSettledAtom(), false);
+    }
 
-    const data = r?.[walletId];
-    set(currentWalletIdAtom(), walletId);
-    set(walletWithDeviceStateAtom(), data);
-    await this.updateDeviceMetaStatic.call(set);
-    await this.updateDeviceMetaState.call(set);
-    return data;
+    try {
+      const r =
+        await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+          filterHiddenWallet: true,
+        });
+
+      const data = r?.[walletId];
+      // Drop a superseded response (device switched mid-flight).
+      if (get(currentWalletIdAtom()) !== walletId) {
+        return data;
+      }
+      set(currentWalletIdAtom(), walletId);
+      set(walletWithDeviceStateAtom(), data);
+      await this.updateDeviceMetaStatic.call(set, walletId);
+      await this.updateDeviceMetaState.call(set, walletId);
+      return data;
+    } finally {
+      // Don't mark settled if a newer refresh already took over.
+      if (get(currentWalletIdAtom()) === walletId) {
+        set(refreshSettledAtom(), true);
+      }
+    }
   });
 
   getCurrentWalletId = contextAtomMethod(async (get) => {

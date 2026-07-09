@@ -67,6 +67,7 @@ export interface IIpTableConfigWithRuntime {
  * SNI request configuration
  */
 export interface ISniRequestConfig {
+  requestId?: string;
   ip: string;
   hostname: string;
   path: string;
@@ -81,7 +82,11 @@ export interface ISniRequestConfig {
  * SNI response
  */
 export interface ISniResponse {
+  data?: string;
+  status?: number;
+  statusText?: string;
   statusCode: number;
   headers: Record<string, string>;
+  multiValueHeaders?: Record<string, string[]>;
   body: string;
 }

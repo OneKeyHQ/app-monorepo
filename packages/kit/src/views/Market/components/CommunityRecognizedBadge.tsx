@@ -1,13 +1,8 @@
 import { useIntl } from 'react-intl';
 
-import {
-  Icon,
-  Popover,
-  SizableText,
-  Tooltip,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Icon, SizableText, YStack, useMedia } from '@onekeyhq/components';
+import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
+import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface ICommunityRecognizedBadgeProps {
@@ -31,7 +26,7 @@ export function CommunityRecognizedBadge({
   // Use Popover on small screens (mobile/tablet), Tooltip on large screens (desktop)
   if (!gtMd) {
     return (
-      <Popover
+      <LazyPopover
         title={
           <Icon name="BadgeRecognizedSolid" size="$8" color="$iconSuccess" />
         }
@@ -47,7 +42,7 @@ export function CommunityRecognizedBadge({
   }
 
   return (
-    <Tooltip
+    <LazyTooltip
       placement="top"
       renderTrigger={iconElement}
       renderContent={<SizableText size="$bodySm">{contentText}</SizableText>}

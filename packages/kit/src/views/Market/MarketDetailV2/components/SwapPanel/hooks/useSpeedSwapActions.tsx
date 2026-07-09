@@ -11,12 +11,14 @@ import { ethers } from 'ethers';
 import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
+import { getGasAccountErrorEntry } from '@onekeyhq/kit/src/views/SignatureConfirm/constants/gasAccountErrorCodes';
 import { type ISwapReviewStepTexts } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
 import { checkSwapLatestBalanceSufficient } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
 import type {
@@ -26,8 +28,13 @@ import type {
   ISwapReviewGasInfoEntry,
   ISwapReviewState,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
+import {
+  getStockTradeAnalyticsPayload,
+  getSwapAnalyticsCategoryFromQuoteResult,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapStockAnalytics';
 import { getSwapExecutionTypeFromQuoteResult } from '@onekeyhq/kit/src/views/Swap/utils/swapTypeUtils';
 import {
+  useCurrencyPersistAtom,
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -38,6 +45,8 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -164,11 +173,13 @@ export function buildMarketReviewTokens({
   fromToken,
   toToken,
   tradeTokenPrice,
+  tradeTokenCurrency,
 }: {
   tradeType: ESwapDirection;
   fromToken: ISwapToken;
   toToken: ISwapToken;
   tradeTokenPrice?: BigNumber;
+  tradeTokenCurrency?: string;
 }) {
   if (!tradeTokenPrice || tradeTokenPrice.isNaN() || !tradeTokenPrice.gt(0)) {
     return { fromToken, toToken };
@@ -181,6 +192,7 @@ export function buildMarketReviewTokens({
       fromToken: {
         ...fromToken,
         price: resolvedPrice,
+        currency: tradeTokenCurrency ?? fromToken.currency,
       },
       toToken,
     };
@@ -191,7 +203,127 @@ export function buildMarketReviewTokens({
     toToken: {
       ...toToken,
       price: resolvedPrice,
+      currency: tradeTokenCurrency ?? toToken.currency,
     },
+  };
+}
+
+type IMarketSwapBuildCtx = {
+  cowSwapOrderId?: string;
+  oneInchFusionOrderHash?: string;
+  changeHeroOrderId?: string;
+};
+
+export function buildMarketSwapHistoryItem({
+  swapInfo,
+  txHash,
+  gasFeeFiatValue,
+  gasFeeInNative,
+  currency,
+  currencyId,
+  now = Date.now,
+}: {
+  swapInfo: ISwapTxInfo;
+  txHash?: string;
+  gasFeeFiatValue?: string;
+  gasFeeInNative?: string;
+  currency?: string;
+  currencyId?: string;
+  now?: () => number;
+}) {
+  const buildCtx = swapInfo.swapBuildResData.ctx as
+    | IMarketSwapBuildCtx
+    | undefined;
+  const serviceOrderId =
+    swapInfo.swapBuildResData.orderId ??
+    swapInfo.swapBuildResData.result?.quoteId;
+  const historyOrderId =
+    swapInfo.swapBuildResData.swftOrder?.orderId ??
+    (txHash
+      ? (buildCtx?.cowSwapOrderId ??
+        buildCtx?.oneInchFusionOrderHash ??
+        buildCtx?.changeHeroOrderId)
+      : (serviceOrderId ??
+        buildCtx?.cowSwapOrderId ??
+        buildCtx?.oneInchFusionOrderHash ??
+        buildCtx?.changeHeroOrderId));
+  const fromNetworkPreset = Object.values(presetNetworksMap).find(
+    (item) => item.id === swapInfo.sender.token.networkId,
+  );
+  const toNetworkPreset = Object.values(presetNetworksMap).find(
+    (item) => item.id === swapInfo.receiver.token.networkId,
+  );
+  const useOrderId = Boolean(
+    (!txHash && historyOrderId) ||
+    buildCtx?.cowSwapOrderId ||
+    buildCtx?.oneInchFusionOrderHash,
+  );
+
+  const swapHistoryItem: ISwapTxHistory = {
+    status: ESwapTxHistoryStatus.PENDING,
+    currency,
+    currencyId,
+    accountInfo: {
+      sender: {
+        accountId: swapInfo.sender.accountInfo?.accountId,
+        networkId: swapInfo.sender.accountInfo?.networkId,
+      },
+      receiver: {
+        accountId: swapInfo.receiver.accountInfo?.accountId,
+        networkId: swapInfo.receiver.accountInfo?.networkId,
+      },
+    },
+    baseInfo: {
+      toAmount: swapInfo.receiver.amount,
+      fromAmount: swapInfo.sender.amount,
+      fromToken: swapInfo.sender.token,
+      toToken: swapInfo.receiver.token,
+      fromNetwork: {
+        networkId: fromNetworkPreset?.id ?? '',
+        name: fromNetworkPreset?.name ?? '',
+        symbol: fromNetworkPreset?.symbol ?? '',
+        logoURI: fromNetworkPreset?.logoURI ?? '',
+        shortcode: fromNetworkPreset?.shortcode ?? '',
+      },
+      toNetwork: {
+        networkId: toNetworkPreset?.id ?? '',
+        name: toNetworkPreset?.name ?? '',
+        symbol: toNetworkPreset?.symbol ?? '',
+        logoURI: toNetworkPreset?.logoURI ?? '',
+        shortcode: toNetworkPreset?.shortcode ?? '',
+      },
+    },
+    txInfo: {
+      txId: txHash,
+      useOrderId,
+      gasFeeFiatValue,
+      gasFeeInNative,
+      orderId: historyOrderId,
+      sender: swapInfo.accountAddress,
+      receiver: swapInfo.receivingAddress,
+    },
+    date: {
+      created: now(),
+      updated: now(),
+    },
+    swapInfo: {
+      instantRate: swapInfo.swapBuildResData.result?.instantRate ?? '',
+      provider: swapInfo.swapBuildResData.result?.info,
+      socketBridgeScanUrl: swapInfo.swapBuildResData.socketBridgeScanUrl,
+      oneKeyFee: swapInfo.swapBuildResData.result?.fee?.percentageFee,
+      protocolFee: swapInfo.swapBuildResData.result?.fee?.protocolFees,
+      otherFeeInfos: swapInfo.swapBuildResData.result?.fee?.otherFeeInfos ?? [],
+      orderId: serviceOrderId,
+      supportUrl: swapInfo.swapBuildResData.result?.supportUrl,
+      orderSupportUrl: swapInfo.swapBuildResData.result?.orderSupportUrl,
+      oneKeyFeeExtraInfo: swapInfo.swapBuildResData.result?.oneKeyFeeExtraInfo,
+    },
+    ctx: swapInfo.swapBuildResData.ctx,
+  };
+
+  return {
+    swapHistoryItem,
+    historyOrderId,
   };
 }
 
@@ -226,6 +358,7 @@ export function useSpeedSwapActions(props: {
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();
   const [settingsAtom] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const { activeAccount: account } = useActiveAccount({ num: 0 });
   const [shouldApprove, setShouldApprove] = useState(false);
   const [shouldResetApprove, setShouldResetApprove] = useState(false);
@@ -279,19 +412,28 @@ export function useSpeedSwapActions(props: {
       balanceToken: marketToken,
     };
   }, [tradeType, marketToken, tradeToken]);
-  const tradeTokenPriceKey = `${tradeToken.networkId ?? ''}:${tradeToken.contractAddress ?? ''}`;
+  const currentCurrencyId = settingsAtom.currencyInfo.id;
+  const tradeTokenPriceKey = `${tradeToken.networkId ?? ''}:${
+    tradeToken.contractAddress ?? ''
+  }:${currentCurrencyId}`;
   const { price: liveTradeTokenPrice, tokenKey: liveTradeTokenPriceKey } =
-    usePaymentTokenPrice(tradeToken, tradeToken.networkId);
+    usePaymentTokenPrice(tradeToken, tradeToken.networkId, currentCurrencyId);
+  const fallbackTradeTokenPrice = useMemo(() => {
+    if (tradeToken.currency && tradeToken.currency !== currentCurrencyId) {
+      return new BigNumber(0);
+    }
+    return new BigNumber(tradeToken.price || 0);
+  }, [currentCurrencyId, tradeToken.currency, tradeToken.price]);
   const effectiveTradeTokenPrice = useMemo(() => {
     if (liveTradeTokenPriceKey === tradeTokenPriceKey) {
-      return liveTradeTokenPrice ?? new BigNumber(tradeToken.price || 0);
+      return liveTradeTokenPrice ?? fallbackTradeTokenPrice;
     }
 
-    return new BigNumber(tradeToken.price || 0);
+    return fallbackTradeTokenPrice;
   }, [
+    fallbackTradeTokenPrice,
     liveTradeTokenPrice,
     liveTradeTokenPriceKey,
-    tradeToken.price,
     tradeTokenPriceKey,
   ]);
 
@@ -477,104 +619,19 @@ export function useSpeedSwapActions(props: {
       gasFeeInNative?: string;
     }) => {
       const txNetworkId = swapInfo.sender.token.networkId;
-      const buildCtx = swapInfo.swapBuildResData.ctx as
-        | {
-            cowSwapOrderId?: string;
-            oneInchFusionOrderHash?: string;
-            changeHeroOrderId?: string;
-          }
-        | undefined;
-      const serviceOrderId =
-        swapInfo.swapBuildResData.orderId ??
-        swapInfo.swapBuildResData.result?.quoteId;
-      const historyOrderId =
-        swapInfo.swapBuildResData.swftOrder?.orderId ??
-        (txHash
-          ? (buildCtx?.cowSwapOrderId ??
-            buildCtx?.oneInchFusionOrderHash ??
-            buildCtx?.changeHeroOrderId)
-          : (serviceOrderId ??
-            buildCtx?.cowSwapOrderId ??
-            buildCtx?.oneInchFusionOrderHash ??
-            buildCtx?.changeHeroOrderId));
-      const fromNetworkPreset = Object.values(presetNetworksMap).find(
-        (item) => item.id === swapInfo.sender.token.networkId,
-      );
-      const toNetworkPreset = Object.values(presetNetworksMap).find(
-        (item) => item.id === swapInfo.receiver.token.networkId,
-      );
-      const useOrderId = Boolean(
-        (!txHash && historyOrderId) ||
-        buildCtx?.cowSwapOrderId ||
-        buildCtx?.oneInchFusionOrderHash,
-      );
+      const { historyOrderId, swapHistoryItem } = buildMarketSwapHistoryItem({
+        swapInfo,
+        txHash,
+        gasFeeFiatValue,
+        gasFeeInNative,
+        currency: settingsAtom.currencyInfo?.symbol,
+        currencyId: settingsAtom.currencyInfo?.id,
+      });
 
       if (
         swapInfo.protocol === EProtocolOfExchange.SWAP ||
         swapInfo.swapBuildResData.result.isWrapped
       ) {
-        const swapHistoryItem: ISwapTxHistory = {
-          status: ESwapTxHistoryStatus.PENDING,
-          currency: settingsAtom.currencyInfo?.symbol,
-          accountInfo: {
-            sender: {
-              accountId: swapInfo.sender.accountInfo?.accountId,
-              networkId: swapInfo.sender.accountInfo?.networkId,
-            },
-            receiver: {
-              accountId: swapInfo.receiver.accountInfo?.accountId,
-              networkId: swapInfo.receiver.accountInfo?.networkId,
-            },
-          },
-          baseInfo: {
-            toAmount: swapInfo.receiver.amount,
-            fromAmount: swapInfo.sender.amount,
-            fromToken: swapInfo.sender.token,
-            toToken: swapInfo.receiver.token,
-            fromNetwork: {
-              networkId: fromNetworkPreset?.id ?? '',
-              name: fromNetworkPreset?.name ?? '',
-              symbol: fromNetworkPreset?.symbol ?? '',
-              logoURI: fromNetworkPreset?.logoURI ?? '',
-              shortcode: fromNetworkPreset?.shortcode ?? '',
-            },
-            toNetwork: {
-              networkId: toNetworkPreset?.id ?? '',
-              name: toNetworkPreset?.name ?? '',
-              symbol: toNetworkPreset?.symbol ?? '',
-              logoURI: toNetworkPreset?.logoURI ?? '',
-              shortcode: toNetworkPreset?.shortcode ?? '',
-            },
-          },
-          txInfo: {
-            txId: txHash,
-            useOrderId,
-            gasFeeFiatValue,
-            gasFeeInNative,
-            orderId: historyOrderId,
-            sender: swapInfo.accountAddress,
-            receiver: swapInfo.receivingAddress,
-          },
-          date: {
-            created: Date.now(),
-            updated: Date.now(),
-          },
-          swapInfo: {
-            instantRate: swapInfo.swapBuildResData.result?.instantRate ?? '',
-            provider: swapInfo.swapBuildResData.result?.info,
-            socketBridgeScanUrl: swapInfo.swapBuildResData.socketBridgeScanUrl,
-            oneKeyFee: swapInfo.swapBuildResData.result?.fee?.percentageFee,
-            protocolFee: swapInfo.swapBuildResData.result?.fee?.protocolFees,
-            otherFeeInfos:
-              swapInfo.swapBuildResData.result?.fee?.otherFeeInfos ?? [],
-            orderId: serviceOrderId,
-            supportUrl: swapInfo.swapBuildResData.result?.supportUrl,
-            orderSupportUrl: swapInfo.swapBuildResData.result?.orderSupportUrl,
-            oneKeyFeeExtraInfo:
-              swapInfo.swapBuildResData.result?.oneKeyFeeExtraInfo,
-          },
-          ctx: swapInfo.swapBuildResData.ctx,
-        };
         await backgroundApiProxy.serviceSwap.addSwapHistoryItem(
           swapHistoryItem,
         );
@@ -595,7 +652,7 @@ export function useSpeedSwapActions(props: {
         orderId: historyOrderId,
       };
     },
-    [settingsAtom.currencyInfo?.symbol],
+    [settingsAtom.currencyInfo?.id, settingsAtom.currencyInfo?.symbol],
   );
 
   const handleMarketSwapBuildTxSuccess = useCallback(
@@ -1052,6 +1109,7 @@ export function useSpeedSwapActions(props: {
         swapProvider: buildRes.result?.info.provider ?? '',
         swapProviderName: buildRes.result?.info.providerName ?? '',
         swapType: getSwapExecutionTypeFromQuoteResult(buildRes.result),
+        orderType: getSwapAnalyticsCategoryFromQuoteResult(buildRes.result),
         slippage: slippage.toString(),
         sourceChain: fromToken.networkId ?? '',
         receivedChain: toToken.networkId ?? '',
@@ -1061,6 +1119,11 @@ export function useSpeedSwapActions(props: {
         router: JSON.stringify(buildRes.result?.routesData ?? ''),
         isFirstTime: settingsAtom.isFirstTimeSwap,
         createFrom: 'marketDex',
+        ...getStockTradeAnalyticsPayload({
+          protocol: buildRes.result?.protocol,
+          fromToken: buildRes.result?.fromTokenInfo,
+          toToken: buildRes.result?.toTokenInfo,
+        }),
       });
     },
     [
@@ -1130,6 +1193,8 @@ export function useSpeedSwapActions(props: {
         rateDifference: buildMarketReviewRateDifference({
           quoteResult: snapshot.quoteResult,
           swapInfo: snapshot.swapInfo,
+          defaultTokenCurrency: settingsAtom.currencyInfo.id,
+          currencyMap,
         }),
         texts: buildReviewStepTexts(snapshot.quoteResult.info.providerName),
       });
@@ -1212,7 +1277,13 @@ export function useSpeedSwapActions(props: {
         quoteResult: snapshot.quoteResult,
       };
     },
-    [buildMarketApproveUnsignedTxArr, buildReviewStepTexts, slippage],
+    [
+      buildMarketApproveUnsignedTxArr,
+      buildReviewStepTexts,
+      currencyMap,
+      settingsAtom.currencyInfo.id,
+      slippage,
+    ],
   );
 
   const estimateMarketPresetNetworkFees = useCallback(
@@ -1292,6 +1363,7 @@ export function useSpeedSwapActions(props: {
           fromToken: fromTokenFinal,
           toToken: toTokenFinal,
           tradeTokenPrice: effectiveTradeTokenPrice,
+          tradeTokenCurrency: currentCurrencyId,
         });
 
       if (isWrap || isWrapped) {
@@ -1409,7 +1481,9 @@ export function useSpeedSwapActions(props: {
       buildMarketReviewStateFromSnapshot,
       buildSpeedSwapTxData,
       buildWrappedSwapData,
+      currentCurrencyId,
       effectiveSpenderAddress,
+      effectiveTradeTokenPrice,
       fromToken,
       fromTokenAmountDebounced,
       isCustomRpcUnavailable,
@@ -1419,7 +1493,6 @@ export function useSpeedSwapActions(props: {
       shouldApprove,
       shouldResetApprove,
       slippage,
-      effectiveTradeTokenPrice,
       tradeType,
       toToken,
     ],
@@ -2130,6 +2203,24 @@ export function useSpeedSwapActions(props: {
           onCancel?.();
           return;
         }
+        // Sponsored broadcast failed at the gas-account layer: show the mapped
+        // sponsor message (sponsor unavailable / quote expired …) before
+        // surfacing the failure. Plain errors fall through unchanged.
+        const gasAccountEntry = getGasAccountErrorEntry(
+          getGasAccountErrorCode(error),
+        );
+        if (gasAccountEntry) {
+          // Mute the rethrown bridge error so the global handler doesn't toast
+          // again (would duplicate the mapped message).
+          (error as IOneKeyError).autoToast = false;
+          // Honor the suppressToast contract (e.g. daily-limit codes stay
+          // silent and fall back to user-paid without a quota toast).
+          if (!gasAccountEntry.suppressToast) {
+            Toast.error({
+              title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+            });
+          }
+        }
         throw error;
       }
     },
@@ -2138,6 +2229,7 @@ export function useSpeedSwapActions(props: {
       assertLatestFromTokenBalanceSufficient,
       cancelSpeedSwapBuildTx,
       handleMarketSwapBuildTxSuccess,
+      intl,
       isUserCancelledError,
       logMarketCreateOrder,
       openMarketFallbackTxConfirm,
@@ -2202,12 +2294,27 @@ export function useSpeedSwapActions(props: {
           onCancel?.();
           return;
         }
+        // Same sponsor-error mapping as sendMarketSwapTx: Fallback codes were
+        // already resent user-paid inside sendMarketDirectUnsignedTxs, so only
+        // Refresh/Hint reach here — surface the mapped message before failing.
+        const gasAccountEntry = getGasAccountErrorEntry(
+          getGasAccountErrorCode(error),
+        );
+        if (gasAccountEntry) {
+          (error as IOneKeyError).autoToast = false;
+          if (!gasAccountEntry.suppressToast) {
+            Toast.error({
+              title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+            });
+          }
+        }
         throw error;
       }
     },
     [
       cancelSpeedSwapBuildTx,
       handleMarketSwapBuildTxSuccess,
+      intl,
       isUserCancelledError,
       openMarketFallbackTxConfirm,
       requireReviewExecutionSnapshot,
@@ -2609,7 +2716,17 @@ export function useSpeedSwapActions(props: {
       tradeType === ESwapDirection.SELL
         ? effectiveTradeTokenPrice
         : new BigNumber(toToken.price || 0);
+    const fromTokenPriceCurrency =
+      tradeType === ESwapDirection.BUY ? currentCurrencyId : fromToken.currency;
+    const toTokenPriceCurrency =
+      tradeType === ESwapDirection.SELL ? currentCurrencyId : toToken.currency;
+    const canUseInlinePriceCurrencies =
+      (!fromTokenPriceCurrency && !toTokenPriceCurrency) ||
+      (!!fromTokenPriceCurrency &&
+        !!toTokenPriceCurrency &&
+        fromTokenPriceCurrency === toTokenPriceCurrency);
     const canUseInlineTokenPrices =
+      canUseInlinePriceCurrencies &&
       !fromTokenPriceBN.isNaN() &&
       !toTokenPriceBN.isNaN() &&
       fromTokenPriceBN.gt(0) &&
@@ -2703,11 +2820,14 @@ export function useSpeedSwapActions(props: {
     });
   }, [
     effectiveTradeTokenPrice,
+    currentCurrencyId,
     tradeType,
+    fromToken.currency,
     fromToken.price,
     fromToken.symbol,
     fromToken.networkId,
     fromToken.contractAddress,
+    toToken.currency,
     toToken.price,
     toToken.symbol,
     toToken.networkId,

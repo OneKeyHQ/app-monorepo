@@ -1,5 +1,10 @@
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
+export type ILocalSecretEnvelopeSelfTestKind =
+  | 'debug'
+  | 'restore'
+  | 'diagnostic';
+
 export enum EModalSettingRoutes {
   SettingListModal = 'SettingListModal',
   SettingListSubModal = 'SettingListSubModal',
@@ -16,9 +21,11 @@ export enum EModalSettingRoutes {
   SettingReceiveRiskSupportedAssets = 'SettingReceiveRiskSupportedAssets',
   SettingSignatureRecordModal = 'SettingSignatureRecordModal',
   SettingDevFirmwareUpdateModal = 'SettingDevFirmwareUpdateModal',
+  SettingDevPro2FirmwareUpdateModal = 'SettingDevPro2FirmwareUpdateModal',
   SettingDevAppUpdateModal = 'SettingDevAppUpdateModal',
   SettingDevV4MigrationModal = 'SettingDevV4MigrationModal',
   SettingDevUnitTestsModal = 'SettingDevUnitTestsModal',
+  SettingDevSesHardenRuntimeCheckModal = 'SettingDevSesHardenRuntimeCheckModal',
   SettingDevDesktopApiProxyTestModal = 'SettingDevDesktopApiProxyTestModal',
   SettingDevPerpGalleryModal = 'SettingDevPerpGalleryModal',
   SettingDevCryptoGalleryModal = 'SettingDevCryptoGalleryModal',
@@ -26,6 +33,7 @@ export enum EModalSettingRoutes {
   SettingDevAuthGalleryModal = 'SettingDevAuthGalleryModal',
   SettingDevKeylessWalletGallery = 'SettingDevKeylessWalletGallery',
   SettingDevStorageGalleryModal = 'SettingDevStorageGalleryModal',
+  SettingDevLocalSecretEnvelopeSelfTestModal = 'SettingDevLocalSecretEnvelopeSelfTestModal',
   SettingExportCustomNetworkConfig = 'SettingExportCustomNetworkConfig',
   SettingNotifications = 'SettingNotifications',
   SettingManageAccountActivity = 'SettingManageAccountActivity',
@@ -45,11 +53,23 @@ export enum EModalSettingRoutes {
   SettingOneKeyIdKeylessWallet = 'SettingOneKeyIdKeylessWallet',
 }
 
+export enum ESettingsTabNames {
+  OneKeyID = 'OneKeyID',
+  Backup = 'Backup',
+  Preferences = 'Preferences',
+  Wallet = 'Wallet',
+  Security = 'Security',
+  Network = 'Network',
+  About = 'About',
+  Search = 'Search',
+  Dev = 'Dev',
+}
+
 export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingListModal]: { flag?: string } | undefined;
   [EModalSettingRoutes.SettingListSubModal]:
     | {
-        name: string;
+        name: ESettingsTabNames | string;
         title?: string;
       }
     | undefined;
@@ -78,15 +98,20 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingReceiveRiskSupportedAssets]: undefined;
   [EModalSettingRoutes.SettingSignatureRecordModal]: undefined;
   [EModalSettingRoutes.SettingDevFirmwareUpdateModal]: undefined;
+  [EModalSettingRoutes.SettingDevPro2FirmwareUpdateModal]: undefined;
   [EModalSettingRoutes.SettingDevAppUpdateModal]: undefined;
   [EModalSettingRoutes.SettingDevV4MigrationModal]: undefined;
   [EModalSettingRoutes.SettingDevUnitTestsModal]: undefined;
+  [EModalSettingRoutes.SettingDevSesHardenRuntimeCheckModal]: undefined;
   [EModalSettingRoutes.SettingDevDesktopApiProxyTestModal]: undefined;
   [EModalSettingRoutes.SettingDevPerpGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevCryptoGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevCloudBackupGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevAuthGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevStorageGalleryModal]: undefined;
+  [EModalSettingRoutes.SettingDevLocalSecretEnvelopeSelfTestModal]: {
+    testKind: ILocalSecretEnvelopeSelfTestKind;
+  };
   [EModalSettingRoutes.SettingExportCustomNetworkConfig]: undefined;
   [EModalSettingRoutes.SettingNotifications]: undefined;
   [EModalSettingRoutes.SettingManageAccountActivity]: undefined;

@@ -3,7 +3,11 @@ import type { ComponentType } from 'react';
 import * as Sentry from '@sentry/electron/renderer';
 import { withErrorBoundary, withProfiler } from '@sentry/react';
 
-import { buildBasicOptions, buildIntegrations } from './basicOptions';
+import {
+  buildBasicOptions,
+  buildIntegrations,
+  buildSentryReleaseName,
+} from './basicOptions';
 
 import type { FallbackRender } from '@sentry/react';
 
@@ -23,6 +27,7 @@ export const initSentry = () => {
   });
   Sentry.init({
     ...basicOptions,
+    release: buildSentryReleaseName(),
     integrations: buildIntegrations(Sentry as any),
   });
 };

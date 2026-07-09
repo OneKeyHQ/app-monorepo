@@ -41,10 +41,15 @@ const icons = {
   CheckboxIndeterminateCustom: () =>
     import("./react/custom/CheckboxIndeterminate"),
   ColorfulGiftCustom: () => import("./react/custom/ColorfulGift"),
+  FunctionCustom: () => import("./react/custom/Function"),
   OnekeyDeviceCustom: () => import("./react/custom/OnekeyDevice"),
   RestartToUpdateCustom: () => import("./react/custom/RestartToUpdate"),
   ShortcutsCustom: () => import("./react/custom/Shortcuts"),
   SidebarLeftArrowCustom: () => import("./react/custom/SidebarLeftArrow"),
+  TradingViewExitFullscreenCustom: () =>
+    import("./react/custom/TradingViewExitFullscreen"),
+  TradingViewFullscreenCustom: () =>
+    import("./react/custom/TradingViewFullscreen"),
   AkashIllus: () => import("./react/illus/Akash"),
   AlgorandIllus: () => import("./react/illus/Algorand"),
   AllNetworksIllus: () => import("./react/illus/AllNetworks"),
@@ -1148,7 +1153,10 @@ const icons = {
   TouchId2Outline: () => import("./react/outline/TouchId2"),
   TpslOutline: () => import("./react/outline/Tpsl"),
   TradeOutline: () => import("./react/outline/Trade"),
+  TradingViewBarsOutline: () => import("./react/outline/TradingViewBars"),
   TradingViewCandlesOutline: () => import("./react/outline/TradingViewCandles"),
+  TradingViewCandlesHlcOutline: () =>
+    import("./react/outline/TradingViewCandlesHlc"),
   TradingViewLineOutline: () => import("./react/outline/TradingViewLine"),
   TrailingStopOutline: () => import("./react/outline/TrailingStop"),
   TranscriptionOutline: () => import("./react/outline/Transcription"),
@@ -1161,6 +1169,7 @@ const icons = {
   UfoOutline: () => import("./react/outline/Ufo"),
   UnderlineOutline: () => import("./react/outline/Underline"),
   UndoOutline: () => import("./react/outline/Undo"),
+  UndoFlipHorOutline: () => import("./react/outline/UndoFlipHor"),
   UndockOutline: () => import("./react/outline/Undock"),
   UnityOutline: () => import("./react/outline/Unity"),
   UnlockedOutline: () => import("./react/outline/Unlocked"),

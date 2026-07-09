@@ -61,6 +61,28 @@ export class KeylessDataCorruptedError extends OneKeyAppError {
   override name = EOneKeyErrorClassNames.KeylessDataCorruptedError;
 }
 
+// Thrown when a speed-up / cancel (replace) transaction targets a nonce that
+// has already been consumed on-chain (original tx confirmed or replaced).
+// Carries a user-friendly, already-localized message and auto-toasts so the
+// raw backend error (e.g. server code 40024) is not surfaced to the user.
+export class ReplaceTxNonceConsumedError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage:
+          'The transaction has been confirmed or replaced and can no longer be sped up or canceled.',
+        defaultKey: ETranslations.global_nonce_error_lower,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.ReplaceTxNonceConsumed;
+
+  override name = EOneKeyErrorClassNames.ReplaceTxNonceConsumed;
+
+  override autoToast?: boolean | undefined = true;
+}
+
 export class IncorrectMasterPassword extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(
@@ -85,6 +107,43 @@ export class LocalDBRecordNotFoundError extends OneKeyAppError {
   }
 
   override className = EOneKeyErrorClassNames.LocalDBRecordNotFoundError;
+}
+
+export class LocalDBIndexedAccountIndexConflictError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'LocalDBIndexedAccountIndexConflictError',
+      }),
+    );
+  }
+
+  override className =
+    EOneKeyErrorClassNames.LocalDBIndexedAccountIndexConflictError;
+}
+
+// Thrown when the on-disk local database (Realm / IndexedDB) fails to open, for
+// ANY reason. A schema/version downgrade (on-disk DB newer than this build) is
+// only one possible cause — disk corruption, I/O failures, locking, low storage
+// etc. all surface here too. We do NOT try to classify the underlying cause (it
+// is brittle and easy to misclassify), so this is a generic "DB open failed"
+// error. The DB layer passes in the ORIGINAL underlying message as this error's
+// `message`, so logs / Sentry / the lock screen keep the real reason instead of
+// a masked one. We intentionally do NOT set an i18n `defaultKey`: the only
+// fallback (used when the underlying error carried no message) is the fixed
+// English `defaultMessage` below. (OK-56874)
+export class LocalDbOpenError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DB open unknown error',
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override className: EOneKeyErrorClassNames =
+    EOneKeyErrorClassNames.LocalDbOpenError;
 }
 
 export class TransferInvalidCodeError extends OneKeyAppError {
@@ -381,6 +440,29 @@ export class WrongPassword extends OneKeyAppError {
       }),
     );
   }
+
+  override className: EOneKeyErrorClassNames =
+    EOneKeyErrorClassNames.WrongPassword;
+}
+
+// Thrown when a local secret envelope (LSE) cannot be unwrapped because its
+// required platform layer (secureStorage/keychain, IndexedDB CryptoKey) is
+// transiently unavailable (e.g. keychain busy at cold start). This is NOT a
+// wrong-password condition: the password may be correct, so callers must
+// surface a retryable error instead of masking it as WrongPassword.
+export class LocalSecretEnvelopeUnavailable extends OneKeyAppError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'LocalSecretEnvelopeUnavailable',
+        defaultKey: ETranslations.global_try_again,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override className: EOneKeyErrorClassNames =
+    EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable;
 }
 
 export class SecureQRCodeDialogCancel extends OneKeyAppError {

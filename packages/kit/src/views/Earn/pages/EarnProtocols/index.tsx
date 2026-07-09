@@ -56,6 +56,8 @@ enum EProtocolCategory {
   FixedRate = 'fixedRate',
 }
 
+const MOBILE_FIXED_RATE_YIELD_COLUMN_MIN_WIDTH = 112;
+
 const parseDaysRemaining = (rawDaysRemaining?: string | null) => {
   if (!rawDaysRemaining) {
     return undefined;
@@ -336,7 +338,12 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
               </Stack>
               <YStack mr="$2" flex={1} minWidth={0}>
                 <XStack ai="center" gap="$2" minWidth={0}>
-                  <SizableText size="$bodyLgMedium" flexShrink={0}>
+                  <SizableText
+                    size="$bodyLgMedium"
+                    numberOfLines={1}
+                    flexShrink={1}
+                    minWidth={0}
+                  >
                     {isFixedRateCategory ? maturityTitle : providerName}
                   </SizableText>
                   {!isFixedRateCategory
@@ -355,7 +362,11 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                     : null}
                 </XStack>
                 {isFixedRateCategory ? (
-                  <SizableText size="$bodySmMedium" color="$textSubdued">
+                  <SizableText
+                    size="$bodySmMedium"
+                    color="$textSubdued"
+                    numberOfLines={1}
+                  >
                     {detailText}
                   </SizableText>
                 ) : (
@@ -439,6 +450,10 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         key: 'yield',
         label: intl.formatMessage({ id: ETranslations.defi_apr_apy }),
         flex: 2,
+        minWidth:
+          isFixedRateCategory && !isDesktopLayout
+            ? MOBILE_FIXED_RATE_YIELD_COLUMN_MIN_WIDTH
+            : undefined,
         align: 'flex-end',
         sortable: true,
         comparator: (a, b) => {
@@ -451,17 +466,35 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
             isFixedRateCategory &&
             !isDesktopLayout &&
             Boolean(item.provider.liquidity);
+          const mobileLiquidityLabel = intl.formatMessage({
+            id: ETranslations.global_liquidity,
+          });
           const mobileLiquidity = showMobileLiquidity ? (
-            <SizableText size="$bodySmMedium" color="$textSubdued">
-              {`${intl.formatMessage({
-                id: ETranslations.global_liquidity,
-              })} ${item.provider.liquidity}`}
-            </SizableText>
+            <XStack ai="center" jc="flex-end" gap="$0.5" w="100%" minWidth={0}>
+              <SizableText
+                size="$bodySmMedium"
+                color="$textSubdued"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                flexShrink={1}
+                minWidth={0}
+              >
+                {mobileLiquidityLabel}
+              </SizableText>
+              <SizableText
+                size="$bodySmMedium"
+                color="$textSubdued"
+                numberOfLines={1}
+                flexShrink={0}
+              >
+                {item.provider.liquidity}
+              </SizableText>
+            </XStack>
           ) : null;
 
           if (item.aprInfo?.button?.type === 'redeem') {
             return (
-              <YStack ai="flex-end" gap="$0.5">
+              <YStack ai="flex-end" gap="$0.5" minWidth={0}>
                 <SizableText size="$bodyLgMedium" color="$textInfo">
                   {item.aprInfo.button.text?.text ||
                     intl.formatMessage({ id: ETranslations.defi_redeemable })}
@@ -471,7 +504,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
             );
           }
           return (
-            <YStack ai="flex-end" gap="$0.5">
+            <YStack ai="flex-end" gap="$0.5" minWidth={0}>
               <AprText
                 hideSuffix={isDesktopLayout}
                 asset={{

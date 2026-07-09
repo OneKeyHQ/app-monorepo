@@ -13,7 +13,10 @@ import {
   perpsActiveAccountEnableTradingModeAtom,
   perpsActiveAccountStatusAtom,
   perpsActiveAccountStatusInfoAtom,
+  perpsActiveAccountSummaryAtom,
+  perpsComputedAccountValueAtom,
   perpsShouldShowEnableTradingButtonAtom,
+  perpsSpotBalancesAtom,
 } from './perps';
 
 const now = 1_000_000;
@@ -427,7 +430,7 @@ describe('perpsActiveAccountEnableTradingModeAtom', () => {
     });
   });
 
-  it('keeps external accounts on the explicit enable-trading fallback path', () => {
+  it('routes external accounts through the order-panel enable dialog path', () => {
     jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
       accountId: 'external--60--injected--wallet',
       indexedAccountId: null,
@@ -441,7 +444,7 @@ describe('perpsActiveAccountEnableTradingModeAtom', () => {
       isSoftwareAccount: false,
       isHardwareAccount: false,
       canAutoEnableInOrderPanel: false,
-      requiresEnableTradingDialogInOrderPanel: false,
+      requiresEnableTradingDialogInOrderPanel: true,
       requiresExplicitEnableTrading: true,
     });
   });
@@ -532,7 +535,7 @@ describe('perpsShouldShowEnableTradingButtonAtom', () => {
     ).toBe(false);
   });
 
-  it('keeps the explicit CTA layout for non-auto-enable fallback accounts', () => {
+  it('does not reserve the explicit CTA layout for external dialog-enable accounts', () => {
     jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
       accountId: 'external--60--injected--wallet',
       indexedAccountId: null,
@@ -553,7 +556,7 @@ describe('perpsShouldShowEnableTradingButtonAtom', () => {
 
     expect(
       jotaiDefaultStore.get(perpsShouldShowEnableTradingButtonAtom.atom()),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('hides the explicit enable-trading CTA after the account can trade', () => {
@@ -578,5 +581,136 @@ describe('perpsShouldShowEnableTradingButtonAtom', () => {
     expect(
       jotaiDefaultStore.get(perpsShouldShowEnableTradingButtonAtom.atom()),
     ).toBe(false);
+  });
+});
+
+describe('perpsComputedAccountValueAtom withdrawable', () => {
+  const ADDR = '0xabc';
+
+  function seedAtoms(mode: EHyperLiquidAbstractionMode) {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: 'account-1',
+      indexedAccountId: 'indexed-1',
+      deriveType: 'default',
+      accountAddress: ADDR,
+    });
+    jotaiDefaultStore.set(perpsAbstractionModeAtom.atom(), {
+      accountAddress: ADDR,
+      mode,
+      source: 'live',
+    });
+    jotaiDefaultStore.set(perpsActiveAccountSummaryAtom.atom(), {
+      accountAddress: ADDR,
+      accountValue: '900',
+      totalMarginUsed: undefined,
+      crossAccountValue: '900',
+      crossMaintenanceMarginUsed: undefined,
+      totalNtlPos: undefined,
+      totalRawUsd: undefined,
+      // Per-dex perp withdrawable (not meaningful in unified/PM); set != USDC
+      // available below to prove the computed value never reads it.
+      withdrawable: '500',
+      totalUnrealizedPnl: undefined,
+    });
+    jotaiDefaultStore.set(perpsSpotBalancesAtom.atom(), {
+      accountAddress: ADDR,
+      spotTotalUsd: '1000',
+      balances: [
+        { coin: 'USDC', token: 0, total: '200', hold: '50', entryNtl: '0' },
+      ],
+    });
+  }
+
+  afterEach(() => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: null,
+      indexedAccountId: null,
+      deriveType: 'default',
+      accountAddress: null,
+    });
+    jotaiDefaultStore.set(perpsAbstractionModeAtom.atom(), undefined);
+    jotaiDefaultStore.set(perpsActiveAccountSummaryAtom.atom(), undefined);
+    jotaiDefaultStore.set(perpsActiveAccountStatusInfoAtom.atom(), undefined);
+    jotaiDefaultStore.set(perpsSpotBalancesAtom.atom(), undefined);
+  });
+
+  it('not activated account: returns zero and does not keep account value loading', () => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: 'account-1',
+      indexedAccountId: 'indexed-1',
+      deriveType: 'default',
+      accountAddress: ADDR,
+    });
+    jotaiDefaultStore.set(perpsActiveAccountStatusInfoAtom.atom(), {
+      accountAddress: ADDR,
+      details: {
+        activatedOk: false,
+        agentOk: false,
+        referralCodeOk: false,
+        builderFeeOk: false,
+        internalRebateBoundOk: false,
+        abstractionOk: false,
+      },
+    });
+
+    expect(jotaiDefaultStore.get(perpsComputedAccountValueAtom.atom())).toEqual(
+      {
+        accountValue: '0',
+        withdrawable: '0',
+        isLoading: false,
+      },
+    );
+  });
+
+  it('activation unknown (check pending/failed): keeps loading instead of confirmed zero', () => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: 'account-1',
+      indexedAccountId: 'indexed-1',
+      deriveType: 'default',
+      accountAddress: ADDR,
+    });
+    jotaiDefaultStore.set(perpsActiveAccountStatusInfoAtom.atom(), {
+      accountAddress: ADDR,
+      details: {
+        activatedOk: undefined,
+        agentOk: false,
+        referralCodeOk: false,
+        builderFeeOk: false,
+        internalRebateBoundOk: false,
+        abstractionOk: false,
+      },
+    });
+
+    expect(jotaiDefaultStore.get(perpsComputedAccountValueAtom.atom())).toEqual(
+      {
+        accountValue: undefined,
+        withdrawable: undefined,
+        isLoading: true,
+      },
+    );
+  });
+
+  it('unified account: withdrawable = USDC available (total - hold)', () => {
+    seedAtoms(EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT);
+    expect(jotaiDefaultStore.get(perpsComputedAccountValueAtom.atom())).toEqual(
+      {
+        accountValue: '1000',
+        withdrawable: '150',
+        isLoading: false,
+      },
+    );
+  });
+
+  // PM uses the same spot-side USDC proxy as unified; the per-dex
+  // summary.withdrawable (500) is not meaningful and must not be used.
+  it('portfolio margin: withdrawable = spot-side USDC, NOT per-dex summary', () => {
+    seedAtoms(EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN);
+    expect(jotaiDefaultStore.get(perpsComputedAccountValueAtom.atom())).toEqual(
+      {
+        accountValue: '1000',
+        withdrawable: '150',
+        isLoading: false,
+      },
+    );
   });
 });

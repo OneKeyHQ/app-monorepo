@@ -164,7 +164,7 @@ export function AuthApiTests() {
         <Button
           onPress={async () => {
             demoLog(
-              await getSupabaseClient().client.auth.getUser(),
+              await (await getSupabaseClient()).client.auth.getUser(),
               'get supabase client',
             );
           }}
@@ -187,10 +187,9 @@ export function AuthApiTests() {
         <Button
           onPress={async () => {
             try {
-              const result = await getSupabaseClient().storage?.setItem(
-                storageKey,
-                storageValue,
-              );
+              const result = await (
+                await getSupabaseClient()
+              ).storage?.setItem(storageKey, storageValue);
               demoLog(result, 'storage set item');
             } catch (e) {
               demoError(e, 'storage set item');
@@ -202,8 +201,9 @@ export function AuthApiTests() {
         <Button
           onPress={async () => {
             try {
-              const result =
-                await getSupabaseClient().storage?.getItem(storageKey);
+              const result = await (
+                await getSupabaseClient()
+              ).storage?.getItem(storageKey);
               demoLog(result, 'storage get item');
             } catch (e) {
               demoError(e, 'storage get item');
@@ -215,8 +215,9 @@ export function AuthApiTests() {
         <Button
           onPress={async () => {
             try {
-              const result =
-                await getSupabaseClient().storage?.removeItem(storageKey);
+              const result = await (
+                await getSupabaseClient()
+              ).storage?.removeItem(storageKey);
               demoLog(result, 'storage remove item');
             } catch (e) {
               demoError(e, 'storage remove item');
@@ -228,7 +229,9 @@ export function AuthApiTests() {
         <Button
           onPress={async () => {
             try {
-              const result = await getSupabaseClient().storage?.getAllKeys();
+              const result = await (
+                await getSupabaseClient()
+              ).storage?.getAllKeys();
               demoLog(result, 'storage get all keys');
             } catch (e) {
               demoError(e, 'storage get all keys');
@@ -240,7 +243,7 @@ export function AuthApiTests() {
         <Button
           onPress={async () => {
             try {
-              await getSupabaseClient().storage?.clear();
+              await (await getSupabaseClient()).storage?.clear();
               demoLog('cleared', 'storage clear');
             } catch (e) {
               demoError(e, 'storage clear');

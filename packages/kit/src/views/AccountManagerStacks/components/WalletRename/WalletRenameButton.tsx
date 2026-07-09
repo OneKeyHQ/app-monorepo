@@ -14,6 +14,7 @@ import {
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { AccountManagerTestIDs } from '../../testIDs';
 
@@ -39,15 +40,20 @@ export function WalletRenameButton({
     return !!editable;
   }, [editable, wallet?.id]);
 
-  // Third-party HW wallets (e.g. Ledger) rename is DB-only — do not go
-  // through the OneKey SDK device label flow, since the device does not
-  // speak OneKey protocol and applySettings would fail.
-  const isThirdPartyHwWallet = useMemo(
-    () =>
-      Boolean(
-        wallet?.associatedDeviceInfo?.vendor &&
-        getVendorProfile(wallet.associatedDeviceInfo.vendor).isThirdParty,
-      ),
+  // Third-party HW wallets without vendor-routed settings (e.g. Ledger) rename
+  // is DB-only. Trezor has a dedicated settings route, so it can update the
+  // hardware label through serviceHardware.setDeviceLabel.
+  const shouldUseDbOnlyWalletRename = useMemo(() => {
+    const vendor = wallet?.associatedDeviceInfo?.vendor;
+    if (!vendor) return false;
+    const profile = getVendorProfile(vendor);
+    return profile.isThirdParty && !profile.supportsDeviceSettings;
+  }, [wallet?.associatedDeviceInfo?.vendor]);
+
+  // Trezor device labels only hold printable ASCII, so restrict the label
+  // input for Trezor (OneKey accepts CJK and keeps the shared dialog as-is).
+  const labelAsciiOnly = useMemo(
+    () => wallet?.associatedDeviceInfo?.vendor === EHardwareVendor.trezor,
     [wallet?.associatedDeviceInfo?.vendor],
   );
 
@@ -69,12 +75,13 @@ export function WalletRenameButton({
               !accountUtils.isHwHiddenWallet({
                 wallet,
               }) &&
-              !isThirdPartyHwWallet
+              !shouldUseDbOnlyWalletRename
             ) {
               void showHardwareLabelSetDialog(
                 {
                   wallet,
                   intl,
+                  asciiOnly: labelAsciiOnly,
                 },
                 {
                   onSubmit: async (name) => {

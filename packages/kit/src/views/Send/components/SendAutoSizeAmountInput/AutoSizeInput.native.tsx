@@ -45,6 +45,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
       inlineTokenSymbol,
       inlinePrefixGapPx,
       inlineSuffixGapPx,
+      fontFamily,
       onChangeText,
       placeholder,
       editable,
@@ -85,7 +86,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
     }, [currencyLabel, inlineTokenSymbol]);
 
     return (
-      <Stack width="100%" alignItems="center" py="$1">
+      <Stack width="100%" alignItems="center" py="$1" overflow="hidden">
         <AutoSizeInputView
           contentCentered
           style={{
@@ -99,6 +100,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
           fontSize={maxFontSize}
           minFontSize={minFontSize}
           textAlign={autoSizeTextAlign}
+          fontFamily={fontFamily}
           fontWeight="500"
           editable={editable ?? true}
           keyboardType={mapAutoSizeKeyboardType(keyboardType ?? 'decimal-pad')}

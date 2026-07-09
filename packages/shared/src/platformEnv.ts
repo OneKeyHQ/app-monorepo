@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-import MobileDetect from 'mobile-detect';
 import { Platform } from 'react-native';
 
 import { ANDROID_CHANNEL } from './androidNativeEnv';
@@ -62,8 +61,14 @@ export enum ERuntimeRole {
   Standalone = 'standalone',
 }
 
+type IMobileDetectInfo = {
+  mobile: () => string | null;
+  os: () => string | null;
+  userAgent: () => string | null;
+};
+
 export type IPlatformEnv = {
-  mobileDetectInfo: MobileDetect | undefined;
+  mobileDetectInfo: IMobileDetectInfo | undefined;
   isNewRouteMode: boolean;
 
   appFullName: string;
@@ -137,6 +142,8 @@ export type IPlatformEnv = {
   /** ios, tablet only */
   isNativeIOSPad?: boolean;
   isNativeIOSPadStore?: boolean;
+  /** ios 26+, used to opt into Liquid Glass UIKit defaults */
+  isNativeIOS26Plus?: boolean;
   isNativeAndroid?: boolean;
   isNativeAndroidGooglePlay?: boolean;
   isNativeAndroidHuawei?: boolean;
@@ -227,6 +234,8 @@ const isNativeIOSPhone =
   isNative && Platform.OS === 'ios' && !Platform.isPad && !Platform.isTV;
 const isNativeIOSPad = isNative && Platform.OS === 'ios' && Platform.isPad;
 const isNativeIOSPadStore = isNativeIOSPad && isProduction;
+const isNativeIOS26Plus =
+  isNativeIOS && parseInt(String(Platform.Version), 10) >= 26;
 const isNativeAndroid = isNative && Platform.OS === 'android';
 const androidChannel = ANDROID_CHANNEL;
 const isNativeAndroidGooglePlay =
@@ -416,23 +425,40 @@ let isWebMobileAndroid = false;
 let isWebMobileIOS = false;
 let isWebSafari = false;
 let isWebDappMode = false;
-let mobileDetectInfo: MobileDetect | undefined;
+let mobileDetectInfo: IMobileDetectInfo | undefined;
 (function () {
   if (!isWeb) {
     return;
   }
-  // https://hgoebl.github.io/mobile-detect.js/doc/MobileDetect.html
-  const md = new MobileDetect(globalThis.navigator?.userAgent);
-  mobileDetectInfo = md;
-  const mobileInfo = md.mobile();
-  isWebMobile = Boolean(mobileInfo);
-  const os = md.os();
-  const ua = md.userAgent();
+  const ua = globalThis.navigator?.userAgent || '';
+  const isIPadOS =
+    ua.includes('Macintosh') && (globalThis.navigator?.maxTouchPoints || 0) > 1;
 
-  isWebMobileAndroid = os === 'AndroidOS';
-  isWebMobileIOS = os === 'iOS' || os === 'iPadOS';
+  isWebMobileAndroid = /Android/u.test(ua);
+  isWebMobileIOS = /iPhone|iPad|iPod/u.test(ua) || isIPadOS;
+  isWebMobile = isWebMobileAndroid || isWebMobileIOS || /Mobi|Mobile/u.test(ua);
   isWebSafari =
-    ua === 'Safari' || globalThis.navigator?.userAgent?.includes('Safari');
+    ua.includes('Safari') &&
+    !ua.includes('Chrome') &&
+    !ua.includes('Chromium') &&
+    !ua.includes('Edg/');
+  mobileDetectInfo = {
+    mobile: () => {
+      if (isWebMobileAndroid) return 'Android';
+      if (isWebMobileIOS) return 'iPhone';
+      return isWebMobile ? 'UnknownMobile' : null;
+    },
+    os: () => {
+      if (isWebMobileAndroid) return 'AndroidOS';
+      if (isWebMobileIOS)
+        return isIPadOS || ua.includes('iPad') ? 'iPadOS' : 'iOS';
+      return null;
+    },
+    userAgent: () => {
+      if (isWebSafari) return 'Safari';
+      return null;
+    },
+  };
   isWebDappMode = isWebInDappMode();
 })();
 
@@ -440,8 +466,9 @@ const isRuntimeChrome = checkIsRuntimeChrome();
 const isRuntimeEdge = checkIsRuntimeEdge();
 const isRuntimeBrave = checkIsRuntimeBrave();
 const isRuntimeMacOSBrowser = isDesktopMac || checkIsRuntimeMacOSBrowser();
-// Desktop (Electron) supports WebUSB through Chromium, except Linux which uses Bridge due to udev permission issues
-const isSupportWebUSB = isExtension || isWeb || (isDesktop && !isDesktopLinux);
+// Desktop (Electron) supports WebUSB through Chromium. Linux requires host udev
+// rules for device access, which the desktop app can request via PolicyKit.
+const isSupportWebUSB = isExtension || isWeb || isDesktop;
 
 const isSupportDesktopBle = isDesktopMac || isDesktopWin;
 
@@ -579,6 +606,7 @@ const platformEnv: IPlatformEnv = {
   isNativeIOSPhone,
   isNativeIOSPad,
   isNativeIOSPadStore,
+  isNativeIOS26Plus,
   isNativeAndroid,
   isNativeAndroidGooglePlay,
   isNativeAndroidHuawei,

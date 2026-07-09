@@ -17,14 +17,17 @@ import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes'
 import thirdpartyLocaleConverter from '@onekeyhq/shared/src/locale/thirdpartyLocaleConverter';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import { extractHyperLiquidErrorMessage } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
 import type {
   ITokenSearchAliasItem,
   ITokenSearchAliases,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { buildTokenSelectorDappTokenFilterParams } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import type {
   IHyperLiquidSignatureRSV,
   IHyperLiquidTypedDataApproveBuilderFee,
@@ -35,16 +38,24 @@ import type {
   IPerpServerBannerConfig,
   IPerpsAssetMetaMap,
 } from '@onekeyhq/shared/types/hyperliquid/types';
+import type { IFetchAccountTokensResp } from '@onekeyhq/shared/types/token';
 
-import { settingsPersistAtom } from '../../states/jotai/atoms';
+import {
+  type IPerpsDepositNetwork,
+  type IPerpsDepositToken,
+  perpsDepositTokensAtom,
+  settingsPersistAtom,
+} from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 import { logHyperLiquidApiFailure } from '../ServiceHyperLiquid/utils/logHyperLiquidApiFailure';
 
+import {
+  buildPerpsDepositTokensByNetwork,
+  buildPerpsDepositTokensFromWalletTokenResponses,
+  resolvePerpsDepositSelectedToken,
+} from './utils/depositTokenListUtils';
+
 import type { IHyperliquidCustomSettings } from '../../dbs/simple/entity/SimpleDbEntityPerp';
-import type {
-  IPerpsDepositNetwork,
-  IPerpsDepositToken,
-} from '../../states/jotai/atoms';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
@@ -214,6 +225,21 @@ export interface IPerpServerDepositConfig {
   tokens: IPerpsDepositToken[];
 }
 
+export interface IPerpServerDepositTokenByNetworkConfig {
+  contractAddress: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  logoURI: string;
+  isNative: boolean;
+  isDefault?: boolean;
+}
+
+export type IPerpServerDepositTokensByNetworkConfig = Record<
+  string,
+  IPerpServerDepositTokenByNetworkConfig[]
+>;
+
 export interface IPerpServerReferrerConfig {
   referrerAddress?: string;
   referrerRate?: number;
@@ -261,14 +287,63 @@ export interface IPerpServerConfigResponse {
   commonConfig?: IPerpServerCommonConfig;
   bannerConfig?: IPerpServerBannerConfig;
   depositTokenConfig?: IPerpServerDepositConfig[];
+  depositTokensByNetwork?: IPerpServerDepositTokensByNetworkConfig;
   hyperLiquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
   tokenSearchAliases?: ITokenSearchAliases;
   tokenSelectorTabs?: IPerpDynamicTab[];
   perpsAssetMetaMap?: IPerpsAssetMetaMap;
   activityCards?: IPerpServerActivityCard[];
 }
+
+export interface IFetchPerpsDepositTokensFromWalletTokenListParams {
+  accountId: string;
+  indexedAccountId?: string;
+  forceRefresh?: boolean;
+}
+
+export interface IFetchPerpsDepositTokensFromWalletTokenListResult {
+  ownerKey: string;
+  tokens: IPerpsDepositToken[];
+  tokensByNetwork: Record<string, IPerpsDepositToken[]>;
+  selectedToken?: IPerpsDepositToken;
+  isStale?: boolean;
+}
+
+interface IPerpsDepositTokenListData {
+  ownerKey: string;
+  tokens: IPerpsDepositToken[];
+  tokensByNetwork: Record<string, IPerpsDepositToken[]>;
+}
+
+interface IPerpsDepositTokenListCacheParams {
+  ownerKey: string;
+  allNetworksAccountId: string;
+  ownerIndexId?: string;
+  supportedNetworkIds: string[];
+}
+
+interface IPerpsDepositTokenListCacheEntry {
+  createdAt: number;
+  promise: Promise<IPerpsDepositTokenListData>;
+}
+
+const PERPS_DEPOSIT_TOKEN_LIST_CACHE_TTL_MS = timerUtils.getTimeDurationMs({
+  seconds: 60,
+});
+const PERPS_DEPOSIT_TOKEN_LIST_COLD_CACHE_MAX_AGE_MS =
+  timerUtils.getTimeDurationMs({
+    day: 1,
+  });
+
 @backgroundClass()
 class ServiceWebviewPerp extends ServiceBase {
+  private perpsDepositTokenListCache = new Map<
+    string,
+    IPerpsDepositTokenListCacheEntry
+  >();
+
+  private perpsDepositTokenListWriteGenerations = new Map<string, number>();
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -276,6 +351,427 @@ class ServiceWebviewPerp extends ServiceBase {
   @backgroundMethod()
   async initializePerpConfig() {
     // TODO init by server api
+  }
+
+  private isValidIndexedAccountId(indexedAccountId: string | undefined) {
+    if (!indexedAccountId) {
+      return false;
+    }
+    const { walletId, index } = accountUtils.parseIndexedAccountId({
+      indexedAccountId,
+    });
+    return Boolean(walletId) && Number.isFinite(index);
+  }
+
+  private getIndexedAccountIdForAllNetworks({
+    accountId,
+    indexedAccountId,
+  }: {
+    accountId: string;
+    indexedAccountId: string | undefined;
+  }) {
+    if (this.isValidIndexedAccountId(indexedAccountId)) {
+      return indexedAccountId;
+    }
+
+    if (this.isValidIndexedAccountId(accountId)) {
+      return accountId;
+    }
+
+    const resolvedIndexedAccountId =
+      accountUtils.buildAllNetworkIndexedAccountIdFromAccountId({
+        accountId,
+      });
+    return this.isValidIndexedAccountId(resolvedIndexedAccountId)
+      ? resolvedIndexedAccountId
+      : indexedAccountId;
+  }
+
+  private async normalizePerpsDepositAllNetworksOwner({
+    accountId,
+    indexedAccountId,
+  }: IFetchPerpsDepositTokensFromWalletTokenListParams) {
+    if (accountUtils.isOthersAccount({ accountId })) {
+      return { accountId, indexedAccountId };
+    }
+
+    const allNetworksIndexedAccountId = this.getIndexedAccountIdForAllNetworks({
+      accountId,
+      indexedAccountId,
+    });
+    if (!allNetworksIndexedAccountId) {
+      return { accountId, indexedAccountId };
+    }
+
+    const allNetworksAccount =
+      await this.backgroundApi.serviceAccount.getMockedAllNetworkAccount({
+        indexedAccountId: allNetworksIndexedAccountId,
+      });
+
+    return {
+      accountId: allNetworksAccount.id,
+      indexedAccountId: allNetworksIndexedAccountId,
+    };
+  }
+
+  private buildPerpsDepositTokenListCacheKey({
+    ownerKey,
+    supportedNetworkIds,
+  }: IPerpsDepositTokenListCacheParams) {
+    return `${ownerKey}::${supportedNetworkIds.join(',')}`;
+  }
+
+  private getPerpsDepositTokenListWriteGeneration(cacheKey: string) {
+    return this.perpsDepositTokenListWriteGenerations.get(cacheKey) ?? 0;
+  }
+
+  private bumpPerpsDepositTokenListWriteGeneration(cacheKey: string) {
+    const writeGeneration =
+      this.getPerpsDepositTokenListWriteGeneration(cacheKey) + 1;
+    this.perpsDepositTokenListWriteGenerations.set(cacheKey, writeGeneration);
+    return writeGeneration;
+  }
+
+  private isPerpsDepositTokenListWriteGenerationCurrent({
+    cacheKey,
+    writeGeneration,
+  }: {
+    cacheKey: string;
+    writeGeneration: number;
+  }) {
+    return (
+      this.getPerpsDepositTokenListWriteGeneration(cacheKey) === writeGeneration
+    );
+  }
+
+  private buildPerpsDepositTokenListOwnerKey({
+    allNetworksAccountId,
+    ownerIndexId,
+  }: Pick<
+    IPerpsDepositTokenListCacheParams,
+    'allNetworksAccountId' | 'ownerIndexId'
+  >) {
+    return `${allNetworksAccountId}::${ownerIndexId ?? ''}`;
+  }
+
+  private async setPerpsDepositTokenListActiveOwner(ownerKey: string) {
+    await perpsDepositTokensAtom.set((prev) => {
+      if (prev.depositTokenListOwnerKey === ownerKey) {
+        return prev;
+      }
+      const emptyTokensByNetwork = Object.fromEntries(
+        Object.keys(prev.tokens).map((networkId) => [networkId, []]),
+      );
+      return {
+        ...prev,
+        tokens: emptyTokensByNetwork,
+        depositTokenListOwnerKey: ownerKey,
+        currentPerpsDepositSelectedToken: undefined,
+        depositTokenListRevision: (prev.depositTokenListRevision ?? 0) + 1,
+        depositTokenListSource: undefined,
+      };
+    });
+  }
+
+  private getPerpsDepositTokenListDataMemoryCache(
+    params: IPerpsDepositTokenListCacheParams,
+  ): Promise<IPerpsDepositTokenListData> | undefined {
+    const cacheKey = this.buildPerpsDepositTokenListCacheKey(params);
+    const cached = this.perpsDepositTokenListCache.get(cacheKey);
+    if (
+      cached &&
+      Date.now() - cached.createdAt < PERPS_DEPOSIT_TOKEN_LIST_CACHE_TTL_MS
+    ) {
+      return cached.promise;
+    }
+    return undefined;
+  }
+
+  private async fetchPerpsDepositTokenListDataUncached({
+    ownerKey,
+    allNetworksAccountId,
+    ownerIndexId,
+    supportedNetworkIds,
+  }: IPerpsDepositTokenListCacheParams): Promise<IPerpsDepositTokenListData> {
+    if (!supportedNetworkIds.length) {
+      return {
+        ownerKey,
+        tokens: [],
+        tokensByNetwork: {},
+      };
+    }
+
+    const walletTokenFilterParams = buildTokenSelectorDappTokenFilterParams({
+      lpToken: false,
+    });
+    const requestFactories = supportedNetworkIds.map(
+      (networkId) => async () => {
+        const defaultDeriveType =
+          await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId,
+          });
+        const networkAccount =
+          await this.backgroundApi.serviceAccount.getNetworkAccount({
+            accountId: ownerIndexId ? undefined : allNetworksAccountId,
+            indexedAccountId: ownerIndexId,
+            networkId,
+            deriveType: defaultDeriveType ?? 'default',
+          });
+
+        return this.backgroundApi.serviceToken.fetchAccountTokens({
+          accountId: networkAccount.id,
+          networkId,
+          indexedAccountId: ownerIndexId,
+          flag: 'perps-deposit-token-list',
+          mergeTokens: true,
+          saveToLocal: false,
+          hideSmallBalanceTokens: true,
+          hideRiskTokens: true,
+          ...walletTokenFilterParams,
+        });
+      },
+    );
+
+    const settledResponses = await promiseAllSettledEnhanced(requestFactories, {
+      continueOnError: true,
+      concurrency: 3,
+    });
+    const responses = settledResponses.filter(
+      (response): response is IFetchAccountTokensResp => Boolean(response),
+    );
+    const { networks } =
+      await this.backgroundApi.serviceNetwork.getNetworksByIds({
+        networkIds: supportedNetworkIds,
+      });
+    const networkLogoURIByNetworkId = Object.fromEntries(
+      networks.map((network: { id: string; logoURI?: string }) => [
+        network.id,
+        network.logoURI,
+      ]),
+    );
+    const tokens = buildPerpsDepositTokensFromWalletTokenResponses({
+      responses,
+      networkLogoURIByNetworkId,
+    });
+    const walletTokensByNetwork = buildPerpsDepositTokensByNetwork(tokens);
+    const tokensByNetwork = supportedNetworkIds.reduce<
+      Record<string, IPerpsDepositToken[]>
+    >((memo, networkId) => {
+      memo[networkId] = walletTokensByNetwork[networkId] ?? [];
+      return memo;
+    }, {});
+    return {
+      ownerKey,
+      tokens,
+      tokensByNetwork,
+    };
+  }
+
+  private fetchPerpsDepositTokenListDataCached(
+    params: IPerpsDepositTokenListCacheParams,
+    options: {
+      cacheKey: string;
+      writeGeneration: number;
+    },
+  ): Promise<IPerpsDepositTokenListData> {
+    const cacheKey = this.buildPerpsDepositTokenListCacheKey(params);
+    const now = Date.now();
+    const cached = this.getPerpsDepositTokenListDataMemoryCache(params);
+
+    if (cached) {
+      return cached;
+    }
+
+    const promise = this.fetchPerpsDepositTokenListDataUncached(params)
+      .then((data) => {
+        if (
+          this.isPerpsDepositTokenListWriteGenerationCurrent({
+            cacheKey: options.cacheKey,
+            writeGeneration: options.writeGeneration,
+          })
+        ) {
+          void this.backgroundApi.simpleDb.perp.setPerpsDepositTokenListCache({
+            cacheKey,
+            ownerKey: data.ownerKey,
+            tokens: data.tokens,
+            tokensByNetwork: data.tokensByNetwork,
+          });
+        }
+        return data;
+      })
+      .catch((error: unknown) => {
+        const current = this.perpsDepositTokenListCache.get(cacheKey);
+        if (current?.promise === promise) {
+          this.perpsDepositTokenListCache.delete(cacheKey);
+        }
+        throw error;
+      });
+    this.perpsDepositTokenListCache.set(cacheKey, {
+      createdAt: now,
+      promise,
+    });
+    return promise;
+  }
+
+  private async updatePerpsDepositTokenListAtom(
+    { ownerKey, tokens, tokensByNetwork }: IPerpsDepositTokenListData,
+    options?: {
+      cacheKey: string;
+      writeGeneration: number;
+    },
+  ) {
+    let selectedToken: IPerpsDepositToken | undefined;
+    let isStale = false;
+
+    if (
+      options &&
+      !this.isPerpsDepositTokenListWriteGenerationCurrent(options)
+    ) {
+      return { selectedToken, isStale: true };
+    }
+
+    await perpsDepositTokensAtom.set((prev) => {
+      if (prev.depositTokenListOwnerKey !== ownerKey) {
+        isStale = true;
+        return prev;
+      }
+      selectedToken = resolvePerpsDepositSelectedToken({
+        tokens,
+        currentToken: prev.currentPerpsDepositSelectedToken,
+        defaultTokens: prev.defaultTokens,
+      });
+      return {
+        ...prev,
+        tokens: tokensByNetwork,
+        currentPerpsDepositSelectedToken: selectedToken,
+        depositTokenListOwnerKey: ownerKey,
+        depositTokenListRevision: (prev.depositTokenListRevision ?? 0) + 1,
+        depositTokenListSource: 'walletBalance',
+      };
+    });
+
+    return { selectedToken, isStale };
+  }
+
+  private refreshPerpsDepositTokenListDataInBackground(
+    params: IPerpsDepositTokenListCacheParams,
+    options: {
+      cacheKey: string;
+      writeGeneration: number;
+    },
+  ) {
+    void this.fetchPerpsDepositTokenListDataCached(params, options)
+      .then((data) => this.updatePerpsDepositTokenListAtom(data, options))
+      .catch((error: unknown) => {
+        console.error(
+          '[ServiceWebviewPerp] Failed to refresh perps deposit tokens:',
+          error,
+        );
+      });
+  }
+
+  @backgroundMethod()
+  async fetchPerpsDepositTokensFromWalletTokenList({
+    accountId,
+    indexedAccountId,
+    forceRefresh,
+  }: IFetchPerpsDepositTokensFromWalletTokenListParams): Promise<IFetchPerpsDepositTokensFromWalletTokenListResult> {
+    const { accountId: allNetworksAccountId, indexedAccountId: ownerIndexId } =
+      await this.normalizePerpsDepositAllNetworksOwner({
+        accountId,
+        indexedAccountId,
+      });
+    const ownerKey = this.buildPerpsDepositTokenListOwnerKey({
+      allNetworksAccountId,
+      ownerIndexId,
+    });
+    const currentDepositTokens = await perpsDepositTokensAtom.get();
+    const supportedNetworkIds = Object.keys(
+      currentDepositTokens.tokens,
+    ).toSorted();
+    const cacheParams = {
+      ownerKey,
+      allNetworksAccountId,
+      ownerIndexId,
+      supportedNetworkIds,
+    };
+    await this.setPerpsDepositTokenListActiveOwner(ownerKey);
+
+    const cacheKey = this.buildPerpsDepositTokenListCacheKey(cacheParams);
+    let writeGeneration =
+      this.getPerpsDepositTokenListWriteGeneration(cacheKey);
+    if (forceRefresh) {
+      writeGeneration = this.bumpPerpsDepositTokenListWriteGeneration(cacheKey);
+      this.perpsDepositTokenListCache.delete(cacheKey);
+      const writeOptions = { cacheKey, writeGeneration };
+      const data = await this.fetchPerpsDepositTokenListDataCached(
+        cacheParams,
+        writeOptions,
+      );
+      const { selectedToken, isStale } =
+        await this.updatePerpsDepositTokenListAtom(data, writeOptions);
+      return {
+        ...data,
+        selectedToken,
+        isStale,
+      };
+    }
+
+    const memoryCache =
+      this.getPerpsDepositTokenListDataMemoryCache(cacheParams);
+    if (memoryCache) {
+      const writeOptions = { cacheKey, writeGeneration };
+      const data = await memoryCache;
+      const { selectedToken, isStale } =
+        await this.updatePerpsDepositTokenListAtom(data, writeOptions);
+      return {
+        ...data,
+        selectedToken,
+        isStale,
+      };
+    }
+
+    const coldCache =
+      await this.backgroundApi.simpleDb.perp.getPerpsDepositTokenListCache({
+        cacheKey,
+        maxAgeMs: PERPS_DEPOSIT_TOKEN_LIST_COLD_CACHE_MAX_AGE_MS,
+      });
+
+    if (coldCache) {
+      const data = {
+        ownerKey: coldCache.ownerKey ?? ownerKey,
+        tokens: coldCache.tokens,
+        tokensByNetwork: coldCache.tokensByNetwork,
+      };
+      const { selectedToken, isStale } =
+        await this.updatePerpsDepositTokenListAtom(data, {
+          cacheKey,
+          writeGeneration,
+        });
+      this.refreshPerpsDepositTokenListDataInBackground(cacheParams, {
+        cacheKey,
+        writeGeneration,
+      });
+      return {
+        ...data,
+        selectedToken,
+        isStale,
+      };
+    }
+
+    const writeOptions = { cacheKey, writeGeneration };
+    const data = await this.fetchPerpsDepositTokenListDataCached(
+      cacheParams,
+      writeOptions,
+    );
+    const { selectedToken, isStale } =
+      await this.updatePerpsDepositTokenListAtom(data, writeOptions);
+
+    return {
+      ...data,
+      selectedToken,
+      isStale,
+    };
   }
 
   private resolveHyperliquidRequestAction(

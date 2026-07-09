@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEqual, isNil } from 'lodash';
@@ -62,6 +62,43 @@ import type { ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
+function hasPositivePerpsDepositTokenAmount(tokenAmount?: string) {
+  if (!tokenAmount) {
+    return false;
+  }
+  const amountBN = new BigNumber(tokenAmount);
+  return !amountBN.isNaN() && amountBN.gt(0);
+}
+
+function shouldRefreshPerpsDepositQuote({
+  selectedAction,
+  isArbitrumUsdcToken,
+  canQuoteDepositAmount,
+  isQuoteLoading,
+  tokenAmount,
+  quoteToAmount,
+}: {
+  selectedAction: 'deposit' | 'withdraw';
+  isArbitrumUsdcToken: boolean;
+  canQuoteDepositAmount: boolean;
+  isQuoteLoading: boolean;
+  tokenAmount: string;
+  quoteToAmount?: string;
+}) {
+  if (
+    selectedAction !== 'deposit' ||
+    isArbitrumUsdcToken ||
+    !canQuoteDepositAmount ||
+    isQuoteLoading ||
+    !hasPositivePerpsDepositTokenAmount(tokenAmount)
+  ) {
+    return false;
+  }
+
+  const quoteAmountBN = new BigNumber(quoteToAmount || '0');
+  return quoteAmountBN.isNaN() || quoteAmountBN.lte(0);
+}
+
 export const usePerpDepositOrder = ({
   accountId,
   indexedAccountId,
@@ -74,6 +111,7 @@ export const usePerpDepositOrder = ({
   const filterPerpDepositOrder = useMemo(() => {
     return perpDepositOrder.filter((item) => {
       return (
+        !item.keepForHistoryConfirmation &&
         ((!item.accountId && !accountId) || item.accountId === accountId) &&
         ((!item.indexedAccountId && !indexedAccountId) ||
           item.indexedAccountId === indexedAccountId)
@@ -108,9 +146,37 @@ const usePerpDeposit = (
   const intl = useIntl();
 
   const [perpDepositQuoteLoading, setPerpDepositQuoteLoading] = useState(false);
+  const quoteRequestIdRef = useRef(0);
   const [, setPerpDepositOrder] = usePerpsDepositOrderAtom();
+  const getPerpsDepositTargetScope = useCallback(async () => {
+    if (!indexedAccountId && !selectedAccountId) {
+      return {};
+    }
+    try {
+      const perpsDeriveType =
+        (await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: PERPS_NETWORK_ID,
+        })) ?? 'default';
+      const perpsAccount =
+        await backgroundApiProxy.serviceAccount.getNetworkAccount({
+          accountId: indexedAccountId ? undefined : selectedAccountId,
+          indexedAccountId,
+          deriveType: perpsDeriveType,
+          networkId: PERPS_NETWORK_ID,
+        });
+      return {
+        perpsAccountAddress:
+          perpsAccount?.addressDetail?.normalizedAddress ||
+          perpsAccount?.addressDetail?.address ||
+          perpsAccount?.address,
+        perpsDeriveType,
+      };
+    } catch {
+      return {};
+    }
+  }, [indexedAccountId, selectedAccountId]);
   const handlePerpDepositTxSuccess = useCallback(
-    ({
+    async ({
       fromAmount,
       toAmount,
       fromToken,
@@ -126,22 +192,24 @@ const usePerpDeposit = (
       skipToast?: boolean;
     }) => {
       if (!skipToast) {
+        const formattedAmount = new BigNumber(fromAmount).toFixed();
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.feedback_transaction_submitted,
           }),
           message: intl.formatMessage(
             {
-              id: ETranslations.perp_toast_deposit_success_msg,
+              id: ETranslations.perp_toast_deposit_success_eta_one_minute__msg,
             },
             {
-              amount: fromAmount,
+              amount: formattedAmount,
               token: fromToken?.symbol,
             },
           ),
         });
       }
       const time = Date.now();
+      const perpsScope = await getPerpsDepositTargetScope();
       setPerpDepositOrder((prev) => {
         return {
           orders: [
@@ -155,6 +223,7 @@ const usePerpDeposit = (
               time,
               accountId: selectedAccountId,
               indexedAccountId,
+              ...perpsScope,
             },
           ],
         };
@@ -166,7 +235,13 @@ const usePerpDeposit = (
         });
       }, 200);
     },
-    [indexedAccountId, intl, selectedAccountId, setPerpDepositOrder],
+    [
+      getPerpsDepositTargetScope,
+      indexedAccountId,
+      intl,
+      selectedAccountId,
+      setPerpDepositOrder,
+    ],
   );
   const isArbitrumUsdcToken = useMemo(() => {
     return equalTokenNoCaseSensitive({
@@ -231,7 +306,28 @@ const usePerpDeposit = (
     return result?.accountId ?? '';
   }, [result?.accountId]);
 
+  const getNextQuoteRequestId = useCallback(() => {
+    quoteRequestIdRef.current += 1;
+    return quoteRequestIdRef.current;
+  }, []);
+
+  const isActiveQuoteRequest = useCallback((requestId: number) => {
+    return quoteRequestIdRef.current === requestId;
+  }, []);
+
+  const resetPerpDepositQuote = useCallback(
+    (requestId?: number) => {
+      if (requestId !== undefined && !isActiveQuoteRequest(requestId)) {
+        return;
+      }
+      setPerpDepositQuoteLoading(false);
+      setPerpDepositQuote(undefined);
+    },
+    [isActiveQuoteRequest],
+  );
+
   const perpDepositQuoteAction = useCallback(async () => {
+    const requestId = getNextQuoteRequestId();
     const amountBN = new BigNumber(amount ?? '0');
     if (
       selectedAction !== 'deposit' ||
@@ -240,8 +336,7 @@ const usePerpDeposit = (
       !checkFromTokenFiatValue
     ) {
       await backgroundApiProxy.serviceSwap.cancelFetchPerpDepositQuote();
-      setPerpDepositQuoteLoading(false);
-      setPerpDepositQuote(undefined);
+      resetPerpDepositQuote(requestId);
       return;
     }
     try {
@@ -260,29 +355,34 @@ const usePerpDeposit = (
             userAddress: result.fromUserAddress,
             receivingAddress: result.perpReceiverAddress,
           });
-        if (quoteRes) {
-          setPerpDepositQuote(quoteRes);
+        if (!isActiveQuoteRequest(requestId)) {
+          return;
         }
+        setPerpDepositQuote(quoteRes);
         setPerpDepositQuoteLoading(false);
       } else {
         await backgroundApiProxy.serviceSwap.cancelFetchPerpDepositQuote();
-        setPerpDepositQuoteLoading(false);
-        setPerpDepositQuote(undefined);
+        resetPerpDepositQuote(requestId);
       }
     } catch (e: any) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const cause = e?.cause || e?.data?.cause;
+      if (!isActiveQuoteRequest(requestId)) {
+        return;
+      }
+      resetPerpDepositQuote(requestId);
       if (cause !== ESwapFetchCancelCause.SWAP_PERP_DEPOSIT_QUOTE_CANCEL) {
-        setPerpDepositQuoteLoading(false);
-        setPerpDepositQuote(undefined);
         throw e;
       }
     }
   }, [
     amount,
+    getNextQuoteRequestId,
+    isActiveQuoteRequest,
     selectedAction,
     isArbitrumUsdcToken,
     checkFromTokenFiatValue,
+    resetPerpDepositQuote,
     result?.fromUserAddress,
     result?.perpReceiverAddress,
     token,
@@ -290,13 +390,18 @@ const usePerpDeposit = (
 
   useEffect(() => {
     if (isAvailableBalance) {
+      const requestId = getNextQuoteRequestId();
       void backgroundApiProxy.serviceSwap.cancelFetchPerpDepositQuote();
-      setPerpDepositQuoteLoading(false);
-      setPerpDepositQuote(undefined);
+      resetPerpDepositQuote(requestId);
     } else {
       void perpDepositQuoteAction();
     }
-  }, [perpDepositQuoteAction, isAvailableBalance]);
+  }, [
+    getNextQuoteRequestId,
+    perpDepositQuoteAction,
+    isAvailableBalance,
+    resetPerpDepositQuote,
+  ]);
 
   const buildQuoteRes = useCallback(
     async (buildSwapResponse: IPerpDepositQuoteResponse) => {
@@ -1089,9 +1194,21 @@ const usePerpDeposit = (
         unsignedTxArr,
       );
       if (res) {
+        // Do NOT hard-code false: if the quote's from-token is actually Arb USDC
+        // (direct transfer, no swap order on the server), reporting
+        // isArbUSDCToken=false makes the status polling stuck in pending forever.
+        const isArbUSDCOrder =
+          isArbitrumUsdcToken ||
+          equalTokenNoCaseSensitive({
+            token1: perpDepositQuote.result.fromTokenInfo,
+            token2: {
+              networkId: PERPS_NETWORK_ID,
+              contractAddress: USDC_TOKEN_INFO.address,
+            },
+          });
         void handlePerpDepositTxSuccess({
           fromTxId: res.txid,
-          isArbUSDCOrder: false,
+          isArbUSDCOrder,
           fromToken: token,
           toAmount: perpDepositQuote.result.toAmount,
           fromAmount: amount,
@@ -1136,6 +1253,7 @@ const usePerpDeposit = (
     estimateNetworkFee,
     accountId,
     perpSendTxAction,
+    isArbitrumUsdcToken,
     handlePerpDepositTxSuccess,
     amount,
     result?.fromUserAddress,
@@ -1165,20 +1283,16 @@ const usePerpDeposit = (
   }, [perpDepositQuote?.result?.allowanceResult, intl, shouldSignEveryTime]);
 
   const checkRefreshQuote = useMemo(() => {
-    if (
-      selectedAction === 'deposit' &&
-      checkFromTokenFiatValue &&
-      !perpDepositQuoteLoading &&
-      !isArbitrumUsdcToken
-    ) {
-      const quoteAmount = perpDepositQuote?.result?.toAmount;
-      const quoteAmountBN = new BigNumber(quoteAmount || '0');
-      if (quoteAmountBN.isNaN() || quoteAmountBN.lte(0)) {
-        return true;
-      }
-    }
-    return false;
+    return shouldRefreshPerpsDepositQuote({
+      selectedAction,
+      isArbitrumUsdcToken,
+      canQuoteDepositAmount: !!checkFromTokenFiatValue,
+      isQuoteLoading: perpDepositQuoteLoading,
+      tokenAmount: amount,
+      quoteToAmount: perpDepositQuote?.result?.toAmount,
+    });
   }, [
+    amount,
     perpDepositQuoteLoading,
     selectedAction,
     checkFromTokenFiatValue,

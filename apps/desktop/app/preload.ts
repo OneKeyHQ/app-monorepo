@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/require-await */
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
+import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble';
 import { contextBridge, ipcRenderer } from 'electron';
 
 import { OAUTH_CALLBACK_DESKTOP_CHANNEL } from '@onekeyhq/shared/src/consts/authConsts';
@@ -8,6 +9,7 @@ import { OAUTH_CALLBACK_DESKTOP_CHANNEL } from '@onekeyhq/shared/src/consts/auth
 import { ipcMessageKeys } from './config';
 
 import type { NobleBleAPI } from '@onekeyfe/hd-transport-electron';
+import type { TrezorBleApi } from '@onekeyfe/hwk-trezor-connector-electron-ble';
 
 export interface IVerifyUpdateParams {
   downloadedFile?: string;
@@ -75,6 +77,7 @@ const platformInfo = ipcRenderer.sendSync(ipcMessageKeys.GET_PLATFORM_INFO) as {
   isMas: boolean;
   channel?: string;
   deskChannel: string;
+  processStartAt: number;
 };
 
 const isDev = ipcRenderer.sendSync(ipcMessageKeys.IS_DEV);
@@ -106,6 +109,7 @@ const desktopApi = {
   deskChannel: platformInfo.deskChannel,
   systemVersion: platformInfo.systemVersion,
   isMas: platformInfo.isMas,
+  processStartAt: platformInfo.processStartAt,
   isDev,
   channel: platformInfo.channel,
   ready: () => ipcRenderer.send(ipcMessageKeys.APP_READY),
@@ -278,6 +282,60 @@ const desktopApi = {
     checkAvailability: () =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.BLE_AVAILABILITY_CHECK),
   } as NobleBleAPI,
+  // Vendor-neutral BLE channel for third-party hardware (Trezor today,
+  // Ledger / other vendors can plug in the same shape later). The shape
+  // mirrors SDK's `TrezorBleApi` because Trezor was the first consumer,
+  // but nothing here is Trezor-specific — the underlying IPC channels
+  // happen to currently be those registered by `initTrezorBleSupport`
+  // in main, and they can be swapped/multiplexed without touching this
+  // renderer surface.
+  thirdPartyBle: {
+    scan: (options?: { serviceUuids?: string[]; durationMs?: number }) =>
+      ipcRenderer.invoke(TREZOR_BLE_CHANNELS.scan, options),
+    stopScan: () => ipcRenderer.invoke(TREZOR_BLE_CHANNELS.stopScan),
+    connect: (id: string) =>
+      ipcRenderer.invoke(TREZOR_BLE_CHANNELS.connect, id),
+    disconnect: (id: string) =>
+      ipcRenderer.invoke(TREZOR_BLE_CHANNELS.disconnect, id),
+    subscribe: (id: string) =>
+      ipcRenderer.invoke(TREZOR_BLE_CHANNELS.subscribe, id),
+    unsubscribe: (id: string) =>
+      ipcRenderer.invoke(TREZOR_BLE_CHANNELS.unsubscribe, id),
+    write: (id: string, hexData: string) =>
+      ipcRenderer.invoke(TREZOR_BLE_CHANNELS.write, id, hexData),
+    checkAvailability: () =>
+      ipcRenderer.invoke(TREZOR_BLE_CHANNELS.availability),
+    getDevice: (id: string) =>
+      ipcRenderer.invoke(TREZOR_BLE_CHANNELS.getDevice, id),
+    // cspell:ignore Rssi
+    readRssi: (id: string) =>
+      ipcRenderer.invoke(TREZOR_BLE_CHANNELS.readRssi, id),
+    cancelPairing: () => ipcRenderer.invoke(TREZOR_BLE_CHANNELS.cancelPairing),
+    onNotification: (handler: (id: string, hexData: string) => void) => {
+      const subscription = (_: unknown, id: string, hexData: string) => {
+        handler(id, hexData);
+      };
+      ipcRenderer.on(TREZOR_BLE_CHANNELS.notification, subscription);
+      return () => {
+        ipcRenderer.removeListener(
+          TREZOR_BLE_CHANNELS.notification,
+          subscription,
+        );
+      };
+    },
+    onDeviceDisconnected: (handler: (id: string) => void) => {
+      const subscription = (_: unknown, id: string) => {
+        handler(id);
+      };
+      ipcRenderer.on(TREZOR_BLE_CHANNELS.disconnected, subscription);
+      return () => {
+        ipcRenderer.removeListener(
+          TREZOR_BLE_CHANNELS.disconnected,
+          subscription,
+        );
+      };
+    },
+  } as TrezorBleApi,
   getCpuUsage: () => ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_CPU_USAGE),
   getMemoryUsage: () =>
     ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE),

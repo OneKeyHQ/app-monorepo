@@ -8,7 +8,7 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import {
-  type EApproveType,
+  EApproveType,
   EManagePositionType,
   type IEarnTokenInfo,
   type IEarnWithdrawActionIcon,
@@ -31,6 +31,7 @@ export const useManagePage = ({
   reserveAddress,
   marketAddress,
   revalidateOnFocus = true,
+  undefinedResultIfReRun = false,
 }: {
   accountId: string;
   indexedAccountId: string | undefined;
@@ -42,6 +43,7 @@ export const useManagePage = ({
   reserveAddress?: string;
   marketAddress?: string;
   revalidateOnFocus?: boolean;
+  undefinedResultIfReRun?: boolean;
 }) => {
   const {
     result,
@@ -116,7 +118,7 @@ export const useManagePage = ({
       reserveAddress,
       marketAddress,
     ],
-    { watchLoading: true, revalidateOnFocus },
+    { watchLoading: true, revalidateOnFocus, undefinedResultIfReRun },
   );
 
   const { managePageData, protocolList, earnAccount } = result || {};
@@ -144,20 +146,28 @@ export const useManagePage = ({
 
     const actionData = (() => {
       // Borrow manage-page uses supply/borrow actions for the first tab.
-      if (
-        [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(
-          type,
-        )
-      ) {
+      if (type === EManagePositionType.Withdraw) {
+        return (
+          managePageData.withdraw ??
+          managePageData.supply ??
+          managePageData.deposit
+        );
+      }
+      if (type === EManagePositionType.Supply) {
         return (
           managePageData.supply ??
           managePageData.withdraw ??
           managePageData.deposit
         );
       }
-      if (
-        [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
-      ) {
+      if (type === EManagePositionType.Repay) {
+        return (
+          managePageData.repay ??
+          managePageData.borrow ??
+          managePageData.deposit
+        );
+      }
+      if (type === EManagePositionType.Borrow) {
         return (
           managePageData.borrow ??
           managePageData.repay ??
@@ -221,6 +231,22 @@ export const useManagePage = ({
     const withdrawAction = managePageData.withdraw as
       | IEarnWithdrawActionIcon
       | undefined;
+    let approve: IProtocolInfo['approve'];
+    if (managePageData.approve) {
+      approve = {
+        allowance: managePageData.approve.allowance ?? '0',
+        approveType:
+          (managePageData.approve.approveType as unknown as EApproveType) ??
+          EApproveType.Legacy,
+        approveTarget: managePageData.approve.approveTarget ?? '',
+      };
+    } else if (managePageData.approveTarget) {
+      approve = {
+        allowance: managePageData.borrowAllowance ?? '0',
+        approveType: EApproveType.Legacy,
+        approveTarget: managePageData.approveTarget,
+      };
+    }
 
     return {
       symbol,
@@ -267,15 +293,8 @@ export const useManagePage = ({
         matchingProtocol?.provider.morphoTokenRate,
       morphoTokenRate: matchingProtocol?.provider.morphoTokenRate,
       // approve
-      approve: managePageData.approve
-        ? {
-            allowance: managePageData.approve.allowance ?? '0',
-            approveType:
-              (managePageData.approve.approveType as unknown as EApproveType) ??
-              undefined,
-            approveTarget: managePageData.approve.approveTarget ?? undefined,
-          }
-        : undefined,
+      approve,
+      approveAsset: managePageData.approveAsset,
       withdrawApprove: managePageData.withdrawApprove,
     } as IProtocolInfo;
   }, [

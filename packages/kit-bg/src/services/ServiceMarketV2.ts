@@ -8,6 +8,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { dedupeTokenSelectorFavoriteCoins } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
@@ -58,12 +59,17 @@ type IMarketTokenListRequestParams = {
   minLiquidity?: number;
   maxLiquidity?: number;
   type?: string;
+  category?: string;
   timeFrame?: string;
 };
 
 type INormalizedMarketTokenListRequestParams = IMarketTokenListRequestParams & {
   page: number;
   limit: number;
+};
+
+type IFetchMarketTokenListOptions = {
+  forceRemote?: boolean;
 };
 
 @backgroundClass()
@@ -113,6 +119,16 @@ class ServiceMarketV2 extends ServiceBase {
     }
   }
 
+  private async _getMarketTokenBatchCacheLocale(requestLocale?: string) {
+    let locale = requestLocale?.trim();
+    if (!locale) {
+      const settings = await settingsPersistAtom.get();
+      locale = settings.locale;
+    }
+
+    return (locale === 'system' ? getDefaultLocale() : locale).toLowerCase();
+  }
+
   private _normalizeMarketTokenListParams({
     page = 1,
     limit = 20,
@@ -134,6 +150,7 @@ class ServiceMarketV2 extends ServiceBase {
     minLiquidity,
     maxLiquidity,
     type,
+    category,
     timeFrame,
   }: INormalizedMarketTokenListRequestParams) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
@@ -151,6 +168,7 @@ class ServiceMarketV2 extends ServiceBase {
         minLiquidity,
         maxLiquidity,
         type,
+        category,
         timeFrame,
         currency: 'usd',
       },
@@ -257,30 +275,37 @@ class ServiceMarketV2 extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchMarketTokenList({
-    networkId,
-    sortBy,
-    sortType,
-    page = 1,
-    limit = 20,
-    minLiquidity,
-    maxLiquidity,
-    type,
-    timeFrame,
-  }: IMarketTokenListRequestParams) {
-    return this.memoizedFetchMarketTokenList(
-      this._normalizeMarketTokenListParams({
-        networkId,
-        sortBy,
-        sortType,
-        page,
-        limit,
-        minLiquidity,
-        maxLiquidity,
-        type,
-        timeFrame,
-      }),
-    );
+  async fetchMarketTokenList(
+    {
+      networkId,
+      sortBy,
+      sortType,
+      page = 1,
+      limit = 20,
+      minLiquidity,
+      maxLiquidity,
+      type,
+      category,
+      timeFrame,
+    }: IMarketTokenListRequestParams,
+    options?: IFetchMarketTokenListOptions,
+  ) {
+    const normalizedParams = this._normalizeMarketTokenListParams({
+      networkId,
+      sortBy,
+      sortType,
+      page,
+      limit,
+      minLiquidity,
+      maxLiquidity,
+      type,
+      category,
+      timeFrame,
+    });
+    if (options?.forceRemote) {
+      return this._fetchMarketTokenListFromApi(normalizedParams);
+    }
+    return this.memoizedFetchMarketTokenList(normalizedParams);
   }
 
   @backgroundMethod()
@@ -454,6 +479,7 @@ class ServiceMarketV2 extends ServiceBase {
   @backgroundMethod()
   async fetchMarketTokenListBatch({
     tokenAddressList,
+    requestLocale,
     skipCache = false,
   }: {
     tokenAddressList: {
@@ -461,19 +487,22 @@ class ServiceMarketV2 extends ServiceBase {
       chainId: string;
       isNative: boolean;
     }[];
+    requestLocale?: string;
     skipCache?: boolean;
   }) {
     // Clean expired cache entries periodically
     this._cleanExpiredMarketTokenBatchCache();
 
     const now = Date.now();
+    const cacheLocale =
+      await this._getMarketTokenBatchCacheLocale(requestLocale);
     const cachedResults: IMarketTokenListItem[] = [];
     const missingTokens: typeof tokenAddressList = [];
     const tokenIndexMap = new Map<string, number>();
 
     // Check cache for each token
     tokenAddressList.forEach((token, index) => {
-      const cacheKey = `${
+      const cacheKey = `${cacheLocale}:${
         token.chainId
       }:${token.contractAddress.toLowerCase()}`;
       tokenIndexMap.set(cacheKey, index);
@@ -509,7 +538,10 @@ class ServiceMarketV2 extends ServiceBase {
         currency: 'usd',
       },
       {
-        headers: { 'x-onekey-request-currency': 'usd' },
+        headers: {
+          'x-onekey-request-currency': 'usd',
+          'x-onekey-request-locale': cacheLocale,
+        },
       },
     );
 
@@ -533,7 +565,7 @@ class ServiceMarketV2 extends ServiceBase {
     data.list.forEach((item, apiIndex) => {
       const token = missingTokens[apiIndex];
       if (!token) return;
-      const cacheKey = `${
+      const cacheKey = `${cacheLocale}:${
         token.chainId
       }:${token.contractAddress.toLowerCase()}`;
       const originalIndex = tokenIndexMap.get(cacheKey);

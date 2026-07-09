@@ -2,10 +2,12 @@ import BigNumber from 'bignumber.js';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import defiActionUtils from '@onekeyhq/shared/src/utils/defiActionUtils';
 import {
   EDeFiAssetType,
-  type IDeFiAsset,
+  EDeFiPositionAction,
   type IDeFiProtocol,
+  type IDeFiSupportedProtocolAction,
   type IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
@@ -169,7 +171,7 @@ export type IProtocolPositionSection = {
   assetType: IProtocolPositionSectionAssetType;
   title: string;
   titleId?: ETranslations;
-  assets: IDeFiAsset[];
+  assets: IProtocolPositionSourceAsset[];
 };
 
 export type IProtocolPositionItem = {
@@ -182,7 +184,12 @@ export type IProtocolPositionItem = {
   poolName?: string;
   poolFullName?: string;
   value: string;
+  // Most-conservative (lowest) health factor across the position's source
+  // positions, or null when none report one. Only lending/debt positions carry
+  // it; everything else stays null. Drives the Health Factor row.
+  healthFactor?: number | null;
   sections: IProtocolPositionSection[];
+  sourcePositions?: IDeFiProtocol['positions'][number]['sourcePositions'];
 };
 
 export type ILocalizedProtocolPositionSection = Omit<
@@ -216,11 +223,9 @@ function normalizeDeFiCategory(value?: string) {
 }
 
 // Some upstreams (notably f(x) Protocol) stamp a placeholder like "x" into
-// poolName when the position has no real market label. Without filtering
-// we'd both render the literal "x" in the Position cell and let the
-// unified-row bucketer merge every placeholder-named position into a
-// single phantom row. `sanitizePoolName` returns undefined for these so
-// callers fall back to symbol-join for display and per-groupId bucketing.
+// poolName when the position has no real market label. `sanitizePoolName`
+// returns undefined for these so the Position cell falls back to the
+// symbol-join instead of rendering the literal "x".
 const POOL_NAME_PLACEHOLDERS: ReadonlySet<string> = new Set([
   'x',
   '-',
@@ -281,13 +286,15 @@ function getProtocolPositionSectionKey(
 }
 
 function buildPositionSections(position: IDeFiProtocol['positions'][number]) {
-  const groupedAssets: Record<IProtocolPositionSectionAssetType, IDeFiAsset[]> =
-    {
-      supplied: [],
-      borrowed: [],
-      rewards: [],
-      other: [],
-    };
+  const groupedAssets: Record<
+    IProtocolPositionSectionAssetType,
+    IProtocolPositionSourceAsset[]
+  > = {
+    supplied: [],
+    borrowed: [],
+    rewards: [],
+    other: [],
+  };
 
   [...position.assets, ...position.debts, ...position.rewards].forEach(
     (asset) => {
@@ -308,6 +315,23 @@ function buildPositionSections(position: IDeFiProtocol['positions'][number]) {
   }).filter((section) => section.assets.length > 0);
 }
 
+// Lending health factor is account-level, so a position's source positions
+// normally all report the same number; we still take the lowest finite value
+// defensively (lowest == closest to liquidation == the one worth surfacing).
+// Returns null when nothing reports a usable health factor.
+function getPositionHealthFactor(
+  sourcePositions: IDeFiProtocol['positions'][number]['sourcePositions'],
+): number | null {
+  let lowest: number | null = null;
+  for (const source of sourcePositions ?? []) {
+    const value = source.metrics?.healthFactor;
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      lowest = lowest === null ? value : Math.min(lowest, value);
+    }
+  }
+  return lowest;
+}
+
 function buildProtocolPositionItems(protocol: IDeFiProtocol) {
   return protocol.positions.map<IProtocolPositionItem>((position) => {
     const categoryLabel = getPositionModuleLabel(position.category);
@@ -323,7 +347,9 @@ function buildProtocolPositionItems(protocol: IDeFiProtocol) {
       poolName: position.poolName,
       poolFullName: position.poolFullName,
       value: position.value,
+      healthFactor: getPositionHealthFactor(position.sourcePositions),
       sections,
+      sourcePositions: position.sourcePositions,
     };
   });
 }
@@ -358,9 +384,9 @@ function buildLocalizedProtocolPositionItems({
 
 // ─── Category-grouped layout (desktop protocol list) ──────────────────────
 // Lending stays per-position because supplied/borrowed/rewards each get their
-// own row-section header; everything else collapses by category and merges
-// rows that share `poolName` so users see one logical position even when the
-// backend reports it as multiple groupIds.
+// own row-section header; everything else collapses by category into the
+// compact unified table — one row per groupId. Distinct groupIds are never
+// merged, even when they share a poolName.
 
 const LENDING_NORMALIZED_CATEGORY = 'lending';
 const DEPOSIT_NORMALIZED_CATEGORY = 'deposit';
@@ -382,16 +408,19 @@ export type IProtocolUnifiedPositionDisplay =
 
 export type IProtocolUnifiedRow = {
   rowKey: string;
+  groupId: string;
+  category: string;
+  sourcePositions?: IDeFiProtocol['positions'][number]['sourcePositions'];
   positionDisplay: IProtocolUnifiedPositionDisplay;
   // Drives the Supplied/Balance/USD columns. Equals the supplied bucket when
   // the position has supplied assets; for rewards-only positions (e.g. a
   // protocol whose category=='rewards' has no supplied bucket at all) this
   // falls back to the rewards bucket so the row isn't empty.
-  primaryAssets: IDeFiAsset[];
+  primaryAssets: IProtocolPositionSourceAsset[];
   // Only populated when the position has BOTH supplied and rewards. The
   // dedicated Rewards column is hidden across the whole table when no row
   // contributes to it.
-  rewardsExtraAssets: IDeFiAsset[];
+  rewardsExtraAssets: IProtocolPositionSourceAsset[];
 };
 
 // One badge per group, one block per group. A category that mixes clean
@@ -451,27 +480,28 @@ function buildUnifiedRowsFromPositions(
   displayKind: IUnifiedPositionDisplayKind,
   positions: IProtocolPositionItem[],
 ): IProtocolUnifiedRow[] {
-  // Bucket by sanitized poolName (placeholder strings like "x" / "n/a" are
-  // treated as no-name so they don't collapse distinct positions into a
-  // single phantom row). Positions without a meaningful poolName bucket by
-  // groupId so they only ever merge with themselves.
+  // Bucket strictly by groupId. Distinct groupIds never merge — even when they
+  // share a poolName — so a pool the backend reports as several groupIds renders
+  // as several rows. Entries that share a groupId still merge, so a single
+  // position is never split across rows. poolName is display-only now.
   type IUnifiedRowBucket = {
     poolName?: string;
-    suppliedAssets: IDeFiAsset[];
-    rewardsAssets: IDeFiAsset[];
+    suppliedAssets: IProtocolPositionSourceAsset[];
+    rewardsAssets: IProtocolPositionSourceAsset[];
     firstGroupId: string;
+    category: string;
+    sourcePositions: NonNullable<
+      IDeFiProtocol['positions'][number]['sourcePositions']
+    >;
   };
   const orderedKeys: string[] = [];
   const buckets = new Map<string, IUnifiedRowBucket>();
 
   for (const position of positions) {
-    // Falls back to poolFullName when the short name is a placeholder so
-    // the unified row still gets a real label (and a real bucket key)
-    // when the upstream only filled in the long name.
+    // poolName (falling back to poolFullName) is the display label only; the
+    // row is keyed by groupId so distinct groupIds stay distinct rows.
     const cleanPoolName = getProtocolPositionDisplayName(position);
-    const bucketKey = cleanPoolName
-      ? `name:${cleanPoolName}`
-      : `id:${position.groupId}`;
+    const bucketKey = `id:${position.groupId}`;
     let bucket = buckets.get(bucketKey);
     if (!bucket) {
       bucket = {
@@ -479,10 +509,13 @@ function buildUnifiedRowsFromPositions(
         suppliedAssets: [],
         rewardsAssets: [],
         firstGroupId: position.groupId,
+        category: position.category,
+        sourcePositions: [],
       };
       buckets.set(bucketKey, bucket);
       orderedKeys.push(bucketKey);
     }
+    bucket.sourcePositions.push(...(position.sourcePositions ?? []));
     for (const section of position.sections) {
       if (section.assetType === 'supplied' || section.assetType === 'other') {
         // 'other' is rare and folds into supplied so it still surfaces in
@@ -544,7 +577,10 @@ function buildUnifiedRowsFromPositions(
     }
 
     return {
-      rowKey: bucket.poolName ? `name:${bucket.poolName}` : `id:${key}`,
+      rowKey: key,
+      groupId: bucket.firstGroupId,
+      category: bucket.category,
+      sourcePositions: bucket.sourcePositions,
       positionDisplay,
       primaryAssets,
       rewardsExtraAssets,
@@ -558,6 +594,23 @@ function buildUnifiedRowsFromPositions(
 const DEBT_GROUP_KEY_SUFFIX = ':debt';
 
 function positionHasBorrowed(position: IProtocolPositionItem): boolean {
+  return position.sections.some(
+    (section) => section.assetType === 'borrowed' && section.assets.length > 0,
+  );
+}
+
+// A position renders as "sectioned" (Supplied/Borrowed/Rewards blocks, each
+// asset getting its own action) when it's lending or carries debt; otherwise
+// it's a compact "unified" position with a single position-level action.
+// Mirrors the split in buildProtocolCategoryGroups so the detail page matches
+// the list.
+function isSectionedPosition(
+  position: ILocalizedProtocolPositionItem,
+): boolean {
+  const normalized = normalizeDeFiCategory(position.category) || 'other';
+  if (normalized === LENDING_NORMALIZED_CATEGORY) {
+    return true;
+  }
   return position.sections.some(
     (section) => section.assetType === 'borrowed' && section.assets.length > 0,
   );
@@ -735,6 +788,73 @@ function collectDeFiImageUrls({
   return Array.from(urls);
 }
 
+// Badge label id for a resolved action, in the same wording the detail page
+// uses. `Permit` is an internal approval step (omitted → undefined); Claim and
+// ClaimWithdrawal collapse to one "Claim". RemoveLiquidity reads "Remove &
+// Claim rewards" only when the position holds rewards, otherwise plain "Remove".
+function getProtocolActionBadgeLabelId(
+  action: EDeFiPositionAction,
+  hasRewards: boolean,
+): ETranslations | undefined {
+  switch (action) {
+    case EDeFiPositionAction.Withdraw:
+      return ETranslations.global_withdraw;
+    case EDeFiPositionAction.Repay:
+      return ETranslations.defi_repay;
+    case EDeFiPositionAction.Claim:
+    case EDeFiPositionAction.ClaimWithdrawal:
+      return ETranslations.earn_claim;
+    case EDeFiPositionAction.RemoveLiquidity:
+      return hasRewards
+        ? ETranslations.earn_remove_and_claim_rewards__action
+        : ETranslations.dexmarket_details_liquidity_change_remove;
+    default:
+      return undefined;
+  }
+}
+
+// Badge display order, deduped by label id. A protocol with both a reward LP
+// and a plain LP can surface both Remove variants, hence both are listed.
+const DEFI_ACTION_BADGE_LABEL_ORDER: ETranslations[] = [
+  ETranslations.global_withdraw,
+  ETranslations.defi_repay,
+  ETranslations.earn_claim,
+  ETranslations.earn_remove_and_claim_rewards__action,
+  ETranslations.dexmarket_details_liquidity_change_remove,
+];
+
+// Distinct, ordered i18n label ids for the actions a protocol's positions can
+// perform (union across positions). Empty when nothing is actionable or the
+// supported-actions config hasn't loaded yet.
+function getProtocolActionBadgeLabelIds({
+  protocol,
+  supportedActions,
+}: {
+  protocol: IDeFiProtocol;
+  supportedActions: IDeFiSupportedProtocolAction[];
+}): ETranslations[] {
+  if (!supportedActions.length) return [];
+  const available = new Set<ETranslations>();
+  for (const position of protocol.positions) {
+    const hasRewards = defiActionUtils.positionHasRewards(position);
+    for (const resolved of defiActionUtils.resolveDeFiPositionActions({
+      protocol,
+      position,
+      supportedActions,
+    })) {
+      const labelId = getProtocolActionBadgeLabelId(
+        resolved.action,
+        // Remapped LP withdraws don't claim on-chain — plain "Remove" only.
+        hasRewards && !resolved.buildAction,
+      );
+      if (labelId) available.add(labelId);
+    }
+  }
+  return DEFI_ACTION_BADGE_LABEL_ORDER.filter((labelId) =>
+    available.has(labelId),
+  );
+}
+
 export {
   buildLocalizedProtocolCategoryGroups,
   buildLocalizedProtocolPositionItems,
@@ -742,6 +862,8 @@ export {
   buildProtocolDisplayInfo,
   buildProtocolPositionItems,
   collectDeFiImageUrls,
+  getProtocolActionBadgeLabelIds,
   getProtocolPositionDisplayName,
   getPositionModuleLabel,
+  isSectionedPosition,
 };

@@ -3,23 +3,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { debounce, noop } from 'lodash';
 import { StyleSheet } from 'react-native';
 
-import type { ISortableListViewRef } from '@onekeyhq/components';
 import {
   Page,
-  SortableListView,
   Stack,
   XStack,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { SortableListView } from '@onekeyhq/components/src/layouts/SortableListView';
+import type { ISortableListViewRef } from '@onekeyhq/components/src/layouts/SortableListView';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHardwareWalletConnectStatus } from '@onekeyhq/kit/src/hooks/useHardwareWalletConnectStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  useAccountSelectorActions,
-  useSelectedAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import {
@@ -38,6 +36,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
+import { shouldShowCreateHiddenWalletSidebarButtonForWallet } from '../../../components/WalletEdit/WalletEditButtonUtils';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 import { AccountManagerTestIDs } from '../../../testIDs';
 
@@ -106,7 +105,7 @@ export function AccountSelectorWalletListSideBar({
 
   // Detect connected hardware wallets via WebUSB
   // Note: connectedDevices reference is stable - only changes when device list actually changes
-  const { connectedDevices } = useHardwareWalletConnectStatus();
+  const { isWalletConnected } = useHardwareWalletConnectStatus();
 
   const [layoutRefreshTS, setLayoutRefreshTS] = useState(0);
   useEffect(() => {
@@ -311,43 +310,32 @@ export function AccountSelectorWalletListSideBar({
 
   const shouldShowCreateHiddenWalletButtonFn = useCallback(
     ({ wallet }: { wallet: IDBWallet | undefined }) => {
-      let shouldShowCreateHiddenWalletButton = false;
       noop(reloadWalletsHook);
-      if (
-        wallet &&
-        accountUtils.isHwOrQrWallet({ walletId: wallet.id }) &&
-        !accountUtils.isHwHiddenWallet({ wallet }) &&
-        isEditableRouteParams &&
-        !wallet?.deprecated &&
-        settings.showAddHiddenInWalletSidebar
-      ) {
-        if (
-          accountUtils.isHwWallet({
-            walletId: wallet.id,
-          }) &&
-          !accountUtils.isQrWallet({
-            walletId: wallet.id,
-          }) &&
-          (wallet?.associatedDeviceInfo?.featuresInfo?.passphraseProtection ===
-            true ||
-            (wallet?.hiddenWallets?.length ?? 0) > 0)
-        ) {
-          shouldShowCreateHiddenWalletButton = true;
-        }
-
-        if (
-          accountUtils.isQrWallet({
-            walletId: wallet.id,
-          }) &&
-          !accountUtils.isHwWallet({
-            walletId: wallet.id,
-          }) &&
-          (wallet?.hiddenWallets?.length ?? 0) > 0
-        ) {
-          shouldShowCreateHiddenWalletButton = true;
-        }
-      }
-      return shouldShowCreateHiddenWalletButton;
+      if (!wallet) return false;
+      const featuresInfo = wallet.associatedDeviceInfo?.featuresInfo as
+        | {
+            passphraseProtection?: boolean | null;
+            passphrase_protection?: boolean | null;
+          }
+        | undefined;
+      return shouldShowCreateHiddenWalletSidebarButtonForWallet({
+        isEditableRouteParams: !!isEditableRouteParams,
+        showAddHiddenInWalletSidebar: settings.showAddHiddenInWalletSidebar,
+        isDeprecated: wallet.deprecated,
+        isHiddenWallet: accountUtils.isHwHiddenWallet({ wallet }),
+        isHwOrQrWallet: accountUtils.isHwOrQrWallet({ walletId: wallet.id }),
+        isHwWallet: accountUtils.isHwWallet({
+          walletId: wallet.id,
+        }),
+        isQrWallet: accountUtils.isQrWallet({
+          walletId: wallet.id,
+        }),
+        hasPassphraseProtection:
+          featuresInfo?.passphrase_protection === true ||
+          featuresInfo?.passphraseProtection === true,
+        hiddenWalletsLength: wallet.hiddenWallets?.length ?? 0,
+        vendor: wallet.associatedDeviceInfo?.vendor,
+      });
     },
     [
       isEditableRouteParams,
@@ -406,13 +394,11 @@ export function AccountSelectorWalletListSideBar({
       }
 
       const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
-      const deviceId = wallet.associatedDeviceInfo?.deviceId;
-      const isConnected =
-        isHwWallet && deviceId ? connectedDevices.has(deviceId) : false;
+      const isConnected = isHwWallet ? isWalletConnected(wallet) : false;
       map.set(wallet.id, isConnected);
     });
     return map;
-  }, [wallets, connectedDevices]);
+  }, [wallets, isWalletConnected]);
 
   const isShowCloseButton = md && !platformEnv.isNativeIOS;
   const shouldHideWalletList =

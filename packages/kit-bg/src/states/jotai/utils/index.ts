@@ -18,6 +18,7 @@ import {
   prepareColdStartSnapshotForWrite,
 } from '@onekeyhq/shared/src/utils/coldStartCacheSnapshotUtils';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
   MMKV_MIGRATION_COMPLETE_KEY,
@@ -434,6 +435,110 @@ const coldStartDirtyKeys = new Set<string>();
 /** Debounce timer for batched MMKV writes */
 let coldStartSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
+const ACCOUNT_SELECTOR_COLD_START_SCOPE_PREFIX = 'store:accountSelector@';
+const RECENT_ACCOUNT_SWITCH_COLD_START_MS = 5 * 60 * 1000;
+const ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION = 1;
+
+function isDappConnectionBackedAccountSelectorColdStartScope(
+  coldStartScopeKey: string,
+) {
+  if (!coldStartScopeKey.startsWith(ACCOUNT_SELECTOR_COLD_START_SCOPE_PREFIX)) {
+    return false;
+  }
+  const sceneId = coldStartScopeKey.slice(
+    ACCOUNT_SELECTOR_COLD_START_SCOPE_PREFIX.length,
+  );
+  return (
+    sceneId === EAccountSelectorSceneName.discover ||
+    sceneId.startsWith(`${EAccountSelectorSceneName.discover}--`)
+  );
+}
+
+type IAccountSelectorRecentSelectionCacheItem = {
+  version: typeof ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION;
+  updatedAt: number;
+  selectedAccountsMap?: unknown;
+  updateMeta?: unknown;
+};
+
+type IAccountSelectorRecentSelectionCache = Record<
+  string,
+  IAccountSelectorRecentSelectionCacheItem | undefined
+>;
+
+function getRecentAccountSelectorColdStartValue({
+  coldStartScopeKey,
+  coldStartCacheKey,
+}: {
+  coldStartScopeKey: string;
+  coldStartCacheKey: IContextAtomColdStartCacheKey;
+}) {
+  if (!coldStartScopeKey.startsWith(ACCOUNT_SELECTOR_COLD_START_SCOPE_PREFIX)) {
+    return undefined;
+  }
+  const sceneId = coldStartScopeKey.slice(
+    ACCOUNT_SELECTOR_COLD_START_SCOPE_PREFIX.length,
+  );
+  if (!sceneId) {
+    return undefined;
+  }
+  // OK-57139: discover (dApp) scenes are backed by the dApp connection
+  // record, not by the recent-selection cache. Hydrating them from this
+  // cache resurrects a stale browser-side selection which then overwrites
+  // the re-aligned connection session. New builds no longer write discover
+  // entries; this guard also ignores entries written by older builds.
+  if (isDappConnectionBackedAccountSelectorColdStartScope(coldStartScopeKey)) {
+    return undefined;
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { coldStartCacheStorage } =
+      require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { EAppSyncStorageKeys } =
+      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+
+    const cache =
+      coldStartCacheStorage.getObject<IAccountSelectorRecentSelectionCache>(
+        EAppSyncStorageKeys.onekey_account_selector_recent_selection,
+      );
+    const item = cache?.[sceneId];
+    const now = Date.now();
+    if (
+      item?.version !== ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION ||
+      !item.updatedAt ||
+      now - item.updatedAt < 0 ||
+      now - item.updatedAt > RECENT_ACCOUNT_SWITCH_COLD_START_MS
+    ) {
+      return undefined;
+    }
+
+    if (
+      coldStartCacheKey ===
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom
+    ) {
+      return item.selectedAccountsMap;
+    }
+    if (
+      coldStartCacheKey ===
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.accountSelectorUpdateMetaAtom
+    ) {
+      return item.updateMeta;
+    }
+    if (
+      coldStartCacheKey ===
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.accountSelectorStorageReadyAtom
+    ) {
+      return true;
+    }
+  } catch {
+    /* best-effort */
+  }
+
+  return undefined;
+}
+
 function flushColdStartCache() {
   if (coldStartDirtyKeys.size === 0) return;
   coldStartLog(
@@ -490,6 +595,83 @@ function scheduleColdStartSave(name: string) {
   }, 2000);
 }
 
+function patchGlobalColdStartSnapshot({
+  scopedKey,
+  value,
+}: {
+  scopedKey: string;
+  value: unknown;
+}) {
+  const globalSnapshot = globalThis as {
+    __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
+  };
+  const snapshot = globalSnapshot.__ONEKEY_CTX_ATOM_SNAPSHOT__;
+  if (value === undefined) {
+    if (snapshot) {
+      delete snapshot[scopedKey];
+    }
+    return;
+  }
+  const nextSnapshot = snapshot ?? {};
+  nextSnapshot[scopedKey] = value;
+  globalSnapshot.__ONEKEY_CTX_ATOM_SNAPSHOT__ = nextSnapshot;
+}
+
+async function flushWebColdStartCacheNowIfNeeded() {
+  if (!platformEnv.isWeb && !platformEnv.isDesktop) {
+    return;
+  }
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { flushColdStartCacheNow } =
+      require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
+    await flushColdStartCacheNow();
+  } catch {
+    /* webColdStartStorage may not be loaded on extension UI */
+  }
+}
+
+export async function writeContextAtomColdStartCacheValues({
+  entries,
+  flushImmediately,
+}: {
+  entries: {
+    coldStartScopeKey: string;
+    coldStartCacheKey: IContextAtomColdStartCacheKey;
+    value: unknown;
+  }[];
+  flushImmediately?: boolean;
+}) {
+  if (entries.length === 0) {
+    return;
+  }
+
+  let lastScopedKey = '';
+  for (const { coldStartScopeKey, coldStartCacheKey, value } of entries) {
+    const scopedKey = buildColdStartScopedKey({
+      coldStartScopeKey,
+      coldStartCacheKey,
+    });
+    lastScopedKey = scopedKey;
+    coldStartValuesMap.set(scopedKey, value);
+    coldStartDirtyKeys.add(scopedKey);
+    patchGlobalColdStartSnapshot({ scopedKey, value });
+    coldStartLog(`writeNow: ${scopedKey}`);
+  }
+
+  if (flushImmediately) {
+    if (coldStartSaveTimer) {
+      clearTimeout(coldStartSaveTimer);
+      coldStartSaveTimer = undefined;
+    }
+    flushColdStartCache();
+    await flushWebColdStartCacheNowIfNeeded();
+    return;
+  }
+
+  scheduleColdStartSave(lastScopedKey);
+}
+
 let coldStartAppStateListenerRegistered = false;
 function ensureColdStartAppStateListener() {
   if (coldStartAppStateListenerRegistered) return;
@@ -518,6 +700,152 @@ function ensureColdStartAppStateListener() {
   });
 }
 
+// ============================================================
+// TokenList cells — slim cold-start snapshot slot (spec §7).
+//
+// The cells owns its slim bundle slot inside the SAME physical
+// `onekey_jotai_context_atoms_snapshot` blob the generic flusher uses, BUT it
+// is intentionally kept OFF `coldStartValuesMap` / `coldStartDirtyKeys` so the
+// generic flusher never re-derives or revives it. The cells drives both write
+// (debounced RMW) and T0 read explicitly so it controls the fan-out-via-apply
+// hydrate (spec §7 design decision).
+// ============================================================
+
+function getColdStartCacheStorage() {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { coldStartCacheStorage } =
+    require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+  return coldStartCacheStorage;
+}
+
+/**
+ * Synchronously read a single scoped key out of the shared cold-start snapshot
+ * blob (spec §7 T0 read). Returns undefined when absent / unparseable. Used by
+ * the cells slim hydrate on web/desktop (native reads the already-parsed
+ * `__ONEKEY_CTX_ATOM_SNAPSHOT__` directly).
+ */
+export function readColdStartSnapshotKey({
+  scopedKey,
+}: {
+  scopedKey: string;
+}): unknown {
+  try {
+    const storage = getColdStartCacheStorage();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { EAppSyncStorageKeys } =
+      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+    const raw = storage.getString(
+      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
+    );
+    const snapshot = parseColdStartSnapshotRaw(raw);
+    if (!snapshot) {
+      return undefined;
+    }
+    return snapshot[scopedKey];
+  } catch {
+    return undefined;
+  }
+}
+
+// Pending slim writes (scopedKey -> value), flushed on a ~2s debounce or on the
+// cold-start flush trigger (app background). Kept separate from
+// coldStartValuesMap/coldStartDirtyKeys so this slot stays cells-owned.
+const cellsSlimPendingWrites = new Map<string, unknown>();
+let cellsSlimSaveTimer: ReturnType<typeof setTimeout> | undefined;
+let cellsSlimFlushTriggerRegistered = false;
+
+function flushCellsSlimColdStartWrites() {
+  if (cellsSlimPendingWrites.size === 0) return;
+  try {
+    const storage = getColdStartCacheStorage();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { EAppSyncStorageKeys } =
+      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+    // Read-modify-write the shared blob so we co-exist with the generic flusher
+    // (main thread only; safe per the same single-thread assumption flushColdStartCache relies on).
+    const raw = storage.getString(
+      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
+    );
+    const snapshot = parseColdStartSnapshotRaw(raw) ?? {};
+    for (const [scopedKey, value] of cellsSlimPendingWrites) {
+      snapshot[scopedKey] = value;
+    }
+    const prepared = prepareColdStartSnapshotForWrite(snapshot);
+    storage.set(
+      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
+      prepared.serialized,
+    );
+    cellsSlimPendingWrites.clear();
+  } catch {
+    /* best-effort */
+  }
+}
+
+function ensureCellsSlimFlushTrigger() {
+  if (cellsSlimFlushTriggerRegistered) return;
+  cellsSlimFlushTriggerRegistered = true;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { registerColdStartFlushTrigger } =
+      require('@onekeyhq/shared/src/storage/coldStartFlushTrigger') as typeof import('@onekeyhq/shared/src/storage/coldStartFlushTrigger');
+    registerColdStartFlushTrigger(() => {
+      if (cellsSlimSaveTimer) {
+        clearTimeout(cellsSlimSaveTimer);
+        cellsSlimSaveTimer = undefined;
+      }
+      flushCellsSlimColdStartWrites();
+    });
+  } catch {
+    /* coldStartFlushTrigger may be unavailable in some test harnesses */
+  }
+}
+
+/**
+ * Debounced write of a single cells-owned scoped key into the shared cold-start
+ * snapshot blob (spec §7 落盘). ~2s debounce to avoid main-thread RMW storms; an
+ * app-background flush trigger forces the final value out. Does NOT touch
+ * coldStartValuesMap/coldStartDirtyKeys.
+ */
+export function writeColdStartSnapshotKey({
+  scopedKey,
+  value,
+}: {
+  scopedKey: string;
+  value: unknown;
+}): void {
+  ensureCellsSlimFlushTrigger();
+  cellsSlimPendingWrites.set(scopedKey, value);
+  if (cellsSlimSaveTimer) {
+    clearTimeout(cellsSlimSaveTimer);
+  }
+  cellsSlimSaveTimer = setTimeout(() => {
+    cellsSlimSaveTimer = undefined;
+    flushCellsSlimColdStartWrites();
+  }, 2000);
+}
+
+/**
+ * Defensive double-authority kill (spec §7, memory
+ * reference_coldstart_cache_double_authority): delete every in-memory tracker
+ * entry whose scoped key ends with `suffix` (the OLD
+ * `::ctx:renderedTokenListCacheAtom`). Without this, deleting only the disk
+ * field would be revived within ~2s by the next flushColdStartCache rebuild
+ * from `coldStartValuesMap`. The NEW slim key never matches the OLD suffix so
+ * it is never touched here.
+ */
+export function purgeOldColdStartRuntimeKeys(suffix: string): void {
+  for (const key of coldStartValuesMap.keys()) {
+    if (key.endsWith(suffix)) {
+      coldStartValuesMap.delete(key);
+    }
+  }
+  for (const key of coldStartDirtyKeys) {
+    if (key.endsWith(suffix)) {
+      coldStartDirtyKeys.delete(key);
+    }
+  }
+}
+
 export function hydrateContextColdStartCacheForProvider({
   store,
   coldStartScopeKey,
@@ -543,20 +871,28 @@ export function hydrateContextColdStartCacheForProvider({
     const snapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
       | Record<string, unknown>
       | undefined;
-    if (!snapshot) {
-      return;
-    }
 
     for (const [
       cacheKey,
       { atom: atomBuilder },
     ] of contextAtomSnapshotRegistry) {
       const typedCacheKey = cacheKey as IContextAtomColdStartCacheKey;
-      const cached = getScopedColdStartSnapshotValue({
-        snapshot,
-        coldStartScopeKey: scope,
-        coldStartCacheKey: typedCacheKey,
-      });
+      const recentAccountSelectorCached =
+        getRecentAccountSelectorColdStartValue({
+          coldStartScopeKey: scope,
+          coldStartCacheKey: typedCacheKey,
+        });
+      const shouldSkipScopedSnapshot =
+        isDappConnectionBackedAccountSelectorColdStartScope(scope);
+      const cached =
+        recentAccountSelectorCached ??
+        (!shouldSkipScopedSnapshot && snapshot
+          ? getScopedColdStartSnapshotValue({
+              snapshot,
+              coldStartScopeKey: scope,
+              coldStartCacheKey: typedCacheKey,
+            })
+          : undefined);
       if (cached !== undefined && cached !== null) {
         const scopedCacheKey = buildColdStartScopedKey({
           coldStartScopeKey: scope,
@@ -667,6 +1003,10 @@ export function contextAtomBase<Value>({
         }
         if (coldStartValuesMap.get(scopedCacheKey) !== currentValue) {
           coldStartValuesMap.set(scopedCacheKey, currentValue);
+          patchGlobalColdStartSnapshot({
+            scopedKey: scopedCacheKey,
+            value: currentValue,
+          });
           coldStartLog(`changed: ${scopedCacheKey}`);
           scheduleColdStartSave(scopedCacheKey);
         }

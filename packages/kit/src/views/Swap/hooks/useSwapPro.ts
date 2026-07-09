@@ -31,6 +31,7 @@ import type {
 import {
   swapProPositionsListMaxCount,
   swapProPositionsListMinValue,
+  swapProStockPositionsListMinValue,
   wrappedTokens,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -49,10 +50,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useCurrency } from '../../../components/Currency';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
-  useAccountSelectorActions,
   useActiveAccount,
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import {
   buildSwapProPositionsOwnerKey,
   useSwapActions,
@@ -81,6 +82,11 @@ import { useMarketBasicConfig } from '../../Market/hooks';
 import { useTransactionsWebSocket } from '../../Market/MarketDetailV2/components/InformationTabs/components/TransactionsHistory/hooks/useTransactionsWebSocket';
 import { useSpeedSwapInit } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useSpeedSwapInit';
 import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import {
+  SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
+  getSwapAnalyticsTokenListType,
+  getSwapAnalyticsTokenRole,
+} from '../utils/swapStockAnalytics';
 
 import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 
@@ -884,6 +890,10 @@ export function useSwapProTokenInit() {
 export function useSwapProTokenSearch(
   input: string,
   selectedNetworkId?: string,
+  analyticsOverride?: {
+    tokenRole?: string;
+    tokenListType?: string;
+  },
 ) {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchTokenList, setSearchTokenList] = useState<
@@ -969,7 +979,12 @@ export function useSwapProTokenSearch(
 
         const queryLength = input.length;
         const currentNetworkId = selectedNetworkId ?? '';
-        const logKey = `${input}__${currentNetworkId}`;
+        const logKey = [
+          input,
+          currentNetworkId,
+          analyticsOverride?.tokenRole ?? '',
+          analyticsOverride?.tokenListType ?? '',
+        ].join('__');
         if (queryLength >= 1 && lastLoggedSearchRef.current !== logKey) {
           lastLoggedSearchRef.current = logKey;
           const networkInfo = selectedNetworkId
@@ -977,13 +992,25 @@ export function useSwapProTokenSearch(
             : undefined;
           const networkName =
             networkInfo?.name ?? selectedNetworkId ?? 'Market';
+          const resultCount =
+            analyticsOverride?.tokenListType ===
+            SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK
+              ? finalList.filter((item) => !!item.stock).length
+              : finalList.length;
           defaultLogger.swap.tokenSelectorSearch.swapTokenSelectorSearch({
             query: input,
-            resultCount: finalList.length,
+            resultCount,
             networkId: currentNetworkId,
             networkName,
+            network: networkName,
             direction: ESwapDirectionType.FROM,
             from: 'pro',
+            tokenRole:
+              analyticsOverride?.tokenRole ??
+              getSwapAnalyticsTokenRole(ESwapDirectionType.FROM),
+            tokenListType:
+              analyticsOverride?.tokenListType ??
+              getSwapAnalyticsTokenListType({ from: 'pro' }),
           });
         }
       } catch (e) {
@@ -1000,7 +1027,12 @@ export function useSwapProTokenSearch(
     return () => {
       isCancelled = true;
     };
-  }, [input, selectedNetworkId]);
+  }, [
+    input,
+    analyticsOverride?.tokenListType,
+    analyticsOverride?.tokenRole,
+    selectedNetworkId,
+  ]);
 
   const searchTokenListLength = searchTokenList.length;
   // Use a content-based key so the polling effect restarts when search
@@ -1155,20 +1187,27 @@ export function useSwapProTokenTransactionList(
     setSwapProTokenTransactionPrice(newTransactions[0].to.price ?? '');
   }, [transactionsData?.list, setSwapProTokenTransactionPrice]);
 
-  const addNewTransaction = useCallback(
-    (newTransaction: IMarketTokenTransaction) => {
-      const prev = swapProTokenTransactionListRef.current;
-      // Check if transaction already exists to avoid duplicates
-      const existingIndex = prev.findIndex(
-        (tx) => tx.hash === newTransaction.hash,
-      );
-
-      if (existingIndex !== -1) {
+  const addNewTransactions = useCallback(
+    (newTransactions: IMarketTokenTransaction[]) => {
+      if (newTransactions.length === 0) {
         return;
       }
 
-      // Add new transaction at the beginning and sort by timestamp
-      const updatedTransactions = [newTransaction, ...prev].toSorted(
+      const prev = swapProTokenTransactionListRef.current;
+      const seenHashes = new Set(prev.map((tx) => tx.hash));
+      const nextTransactions = newTransactions.filter((tx) => {
+        if (seenHashes.has(tx.hash)) {
+          return false;
+        }
+        seenHashes.add(tx.hash);
+        return true;
+      });
+
+      if (nextTransactions.length === 0) {
+        return;
+      }
+
+      const updatedTransactions = [...nextTransactions, ...prev].toSorted(
         (a, b) => b.timestamp - a.timestamp,
       );
       setSwapProTokenTransactionList(updatedTransactions);
@@ -1184,7 +1223,7 @@ export function useSwapProTokenTransactionList(
     tokenAddress,
     enabled: enableWebSocket && supportSpeedSwap,
     currency: currencyInfo.id,
-    onNewTransaction: addNewTransaction,
+    onNewTransactions: addNewTransactions,
   });
 
   return {
@@ -1443,32 +1482,42 @@ export function useSwapProSupportNetworksTokenList(
 export function useSwapProPositionsListFilter(
   filterToken?: ISwapToken[],
   sourceTokenList?: ISwapToken[],
+  isStockPositions?: boolean,
 ) {
   const [swapProSupportNetworksTokenList] =
     useSwapProSupportNetworksTokenListAtom();
   const positionsTokenList = sourceTokenList ?? swapProSupportNetworksTokenList;
-  const filterDefaultTokenList = useMemo(() => {
-    const filterMinValueTokenList = positionsTokenList.filter((token) => {
-      return new BigNumber(token.fiatValue || '0').gt(
-        swapProPositionsListMinValue,
-      );
+  const filterMinValueTokenList = useMemo(() => {
+    // Stock positions use a lower $0.1 floor (vs $1) and skip the max-count cap,
+    // so small stock holdings still show and aren't pushed out of the top N.
+    const minValue = isStockPositions
+      ? swapProStockPositionsListMinValue
+      : swapProPositionsListMinValue;
+    return positionsTokenList.filter((token) => {
+      return new BigNumber(token.fiatValue || '0').gt(minValue);
     });
-    if (filterMinValueTokenList.length <= swapProPositionsListMaxCount) {
+  }, [positionsTokenList, isStockPositions]);
+
+  const filterDefaultTokenList = useMemo(() => {
+    if (
+      isStockPositions ||
+      filterMinValueTokenList.length <= swapProPositionsListMaxCount
+    ) {
       return filterMinValueTokenList;
     }
     return filterMinValueTokenList.slice(0, swapProPositionsListMaxCount);
-  }, [positionsTokenList]);
+  }, [filterMinValueTokenList, isStockPositions]);
 
   const finallyTokenList = useMemo(
     () =>
       filterToken
-        ? positionsTokenList.filter((token) =>
+        ? filterMinValueTokenList.filter((token) =>
             filterToken.some((t) =>
               equalTokenNoCaseSensitive({ token1: t, token2: token }),
             ),
           )
         : filterDefaultTokenList,
-    [filterDefaultTokenList, positionsTokenList, filterToken],
+    [filterDefaultTokenList, filterMinValueTokenList, filterToken],
   );
   return {
     finallyTokenList,

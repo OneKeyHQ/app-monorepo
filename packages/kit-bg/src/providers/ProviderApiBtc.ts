@@ -5,7 +5,10 @@ import BigNumber from 'bignumber.js';
 import { Psbt } from 'bitcoinjs-lib';
 import { isEmpty, isNil } from 'lodash';
 
-import { getInputsToSignFromPsbt } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import {
+  getInputsToSignFromPsbt,
+  getSignPsbtOptionsForPsbtIndex,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import {
   parseHexContext,
   validateAppName,
@@ -156,6 +159,7 @@ class ProviderApiBtc extends ProviderApiBase {
   // Provider API
   @providerApiMethod()
   public async requestAccounts(request: IJsBridgeMessagePayload) {
+    this.tryFocusPendingApprovalWindow(request);
     return this.semaphore.runExclusive(async () => {
       defaultLogger.discovery.dapp.dappRequest({ request });
       await this.checkIfEnableConnect();
@@ -703,12 +707,24 @@ class ProviderApiBtc extends ProviderApiBase {
     const result: string[] = [];
 
     for (let i = 0; i < psbtHexs.length; i += 1) {
+      // UniSat-compatible `signPsbts` passes `options` as an array (one entry
+      // per psbt), while OneKey/legacy callers pass a single shared object.
+      // Extract per-psbt options for the array form so `toSignInputs`,
+      // `isBtcWalletProvider` and `autoFinalized` are not lost. Losing them
+      // makes `getInputsToSignFromPsbt` skip script-path inputs (e.g. Babylon
+      // staking, whose input address differs from the account address),
+      // yielding an empty `inputsToSign` that throws in `buildDecodedPsbtTx`
+      // and hangs the confirm page on an infinite loading skeleton.
+      const optionsForCurrentPsbt = getSignPsbtOptionsForPsbtIndex({
+        options,
+        index: i,
+      });
       const formattedPsbtHex = formatPsbtHex(psbtHexs[i]);
       const psbt = Psbt.fromHex(formattedPsbtHex, { network: psbtNetwork });
       const respPsbtHex = await this._signPsbt(request, {
         psbt,
         psbtNetwork,
-        options,
+        options: optionsForCurrentPsbt,
       });
       result.push(respPsbtHex);
     }

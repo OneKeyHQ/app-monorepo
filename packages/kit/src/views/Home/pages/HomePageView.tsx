@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/core';
 import { CanceledError } from 'axios';
 import { useIntl } from 'react-intl';
+import { useSharedValue } from 'react-native-reanimated';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
@@ -18,10 +19,15 @@ import {
   XStack,
   YStack,
   useFocusedTab,
+  useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
+import {
+  ENABLE_IMMERSIVE_GLASS_HEADER,
+  IMMERSIVE_GLASS_TOP_OFFSET,
+} from '@onekeyhq/kit/src/components/ImmersiveGlassHeader';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
@@ -37,8 +43,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
-import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -47,8 +52,10 @@ import { NetworkAlert } from '../../../components/NetworkAlert';
 import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
 import { RiskApprovalAlert } from '../../../components/RiskApprovalAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { HomeWalletConnectionRow } from '../../../components/TabPageHeader/MDHeader';
 import { WatchOnlyAlert } from '../../../components/WatchOnlyAlert';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import {
@@ -56,21 +63,33 @@ import {
   useApprovalsInfoAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import {
+  useAccountSelectorStorageInitDoneAtom,
   useActiveAccount,
+  useIsAccountSelectorActiveAccountInitDone,
   useIsAccountSelectorSyncLoading,
 } from '../../../states/jotai/contexts/accountSelector';
 import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
+import {
+  HomeHeaderGlassOverlay,
+  HomeHeaderGlassScrollObserver,
+} from '../components/HomeHeaderGlass';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
+import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
 
 import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { homePageContentMaxWidthSx } from './homePageContentMaxWidth';
+import {
+  isWalletListResolvedNoWallet,
+  shouldShowNoWalletContent,
+} from './homePageNoWalletContent';
 import { NFTListContainerWithProvider } from './NFTListContainer';
+import { PerpsContainer } from './PerpsContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
@@ -80,6 +99,24 @@ import type { LayoutChangeEvent } from 'react-native';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
+
+// Initial (first-render) estimate for the collapsible header height on native.
+// iOS folds into the collapsible header: the top pass-through padding
+// (~tabPageHeight 118, so content starts below the fixed glass bar) + the
+// wallet-connection row (~44) + balance/actions/banner (~312) + the non-sticky
+// TabBar (~48). Other native platforms keep the original 312. The library
+// re-measures via onLayout; this only minimizes first-frame content shift, so
+// tune against a real device if a first-frame jump appears.
+let NATIVE_HOME_HEADER_HEIGHT: number | undefined;
+if (ENABLE_IMMERSIVE_GLASS_HEADER) {
+  NATIVE_HOME_HEADER_HEIGHT = 522;
+} else if (platformEnv.isNative) {
+  NATIVE_HOME_HEADER_HEIGHT = 312;
+}
+
+// Web sticky TabBar is `position: relative` so its absolutely-positioned portal
+// `<div>` (rendered just below it) anchors to the TabBar instead of the page.
+const WEB_TABBAR_CONTAINER_STYLE = { position: 'relative' as const };
 
 interface IAndroidScrollContainerProps {
   children: React.ReactNode;
@@ -126,7 +163,15 @@ function HistoryTabNotificationAlertSlot() {
   return <NotificationEnableAlert scene="txHistory" />;
 }
 
-function NoWalletContent({ tabBarHeight = 0 }: { tabBarHeight?: number }) {
+function NoWalletContent({
+  tabBarHeight = 0,
+  topInset = 0,
+}: {
+  tabBarHeight?: number;
+  // iOS removes the fixed nav-bar spacer for the glass pass-through, so the
+  // empty-wallet state carries its own top inset to clear the fixed bar.
+  topInset?: number;
+}) {
   const isSyncLoading = useIsAccountSelectorSyncLoading(0);
   if (isSyncLoading) {
     return (
@@ -141,6 +186,7 @@ function NoWalletContent({ tabBarHeight = 0 }: { tabBarHeight?: number }) {
       contentContainerStyle={{
         justifyContent: 'center',
         flexGrow: 1,
+        pt: topInset,
         pb: tabBarHeight,
       }}
     >
@@ -154,6 +200,19 @@ function HomeTabContentMaxWidth({ children }: { children: React.ReactNode }) {
     <Stack flex={1} {...homePageContentMaxWidthSx}>
       {children}
     </Stack>
+  );
+}
+
+// The home alerts, in fixed order. iOS renders them inside the collapsible
+// header (so they don't sit behind the glass bar); other platforms pin them
+// below the fixed nav bar. Shared so the two placements can't drift.
+function HomeAlerts() {
+  return (
+    <>
+      <RiskApprovalAlert />
+      <WatchOnlyAlert />
+      <NetworkAlert />
+    </>
   );
 }
 
@@ -190,6 +249,8 @@ export function HomePageView({
   const tabBarHeight = useScrollContentTabBarOffset();
   const tabContainerWidth = useTabContainerWidth();
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  const { md: isSmallScreen } = useMedia();
   const {
     activeAccount: {
       account,
@@ -203,6 +264,21 @@ export function HomePageView({
       vaultSettings: cachedVaultSettings,
     },
   } = useActiveAccount({ num: 0 });
+  const [accountSelectorStorageInitDone] =
+    useAccountSelectorStorageInitDoneAtom();
+  const accountSelectorActiveAccountInitDone =
+    useIsAccountSelectorActiveAccountInitDone(0);
+  const { result: walletListResult } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceAccount.getWallets({
+        ignoreEmptySingletonWalletAccounts: true,
+      }),
+    [],
+    {
+      checkIsFocused: false,
+      watchLoading: false,
+    },
+  );
 
   const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
@@ -281,20 +357,11 @@ export function HomePageView({
     (vaultSettings?.NFTEnabled &&
       networkUtils.getEnabledNFTNetworkIds().includes(network?.id ?? ''));
 
-  const { result: isDeFiEnabled = true } = usePromiseResult(
-    async () => {
-      if (!network?.id) return false;
-      if (networkUtils.isAllNetwork({ networkId: network.id })) return true;
-      const enabledNetworks =
-        await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
-      return !!enabledNetworks[network.id];
-    },
-    [network?.id],
-    {
-      initResult: true,
-      swrKey: network?.id ? swrKeys.defiEnabled(network.id) : undefined,
-    },
-  );
+  const {
+    isDeFiSupported: isDeFiEnabled,
+    isPerpsSupported: isPerpsEnabled,
+    perpTabShowWeb,
+  } = useHomeWalletTabSupport({ network });
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -418,17 +485,9 @@ export function HomePageView({
     [accountName, deriveInfo?.label, deriveInfo?.labelKey, intl, network?.name],
   );
 
-  // Alerts sit outside Tabs.Container (rendered next to TabPageHeader below).
-  // Keeping them inside renderHeader made them scroll through the sticky
-  // TabBar area — a partially-scrolled alert would leave a visible band
-  // between TabPageHeader and the tabs.
-  const renderHeader = useCallback(() => {
-    return (
-      <Stack {...homePageContentMaxWidthSx}>
-        <HomeHeaderContainer />
-      </Stack>
-    );
-  }, []);
+  // `renderHeader` is defined below (after `buildTabBar`) so that on iOS
+  // it can inline the now non-sticky TabBar and the relocated wallet connection
+  // row into the collapsible header.
 
   // Rendered on web only. On native the equivalent lives inside the history
   // list's ListHeaderComponent so its height stays inside the list's measurer.
@@ -451,6 +510,20 @@ export function HomePageView({
         testID: HomeTestIDs.tabPortfolio,
         component: <PortfolioContainerWithProvider />,
       },
+      isPerpsEnabled
+        ? {
+            id: EHomeWalletTab.Perps,
+            name: intl.formatMessage({
+              id: ETranslations.global_perp,
+            }),
+            testID: HomeTestIDs.tabPerps,
+            component: (
+              <HomeTabContentMaxWidth>
+                <PerpsContainer />
+              </HomeTabContentMaxWidth>
+            ),
+          }
+        : undefined,
       isDeFiEnabled
         ? {
             id: EHomeWalletTab.DeFi,
@@ -488,7 +561,20 @@ export function HomePageView({
         ),
       },
     ].filter(Boolean);
-  }, [intl, isDeFiEnabled, isNFTEnabled]);
+  }, [intl, isDeFiEnabled, isNFTEnabled, isPerpsEnabled]);
+
+  const pagerTabConfigs = useMemo(
+    () =>
+      tabConfigs.filter(
+        (tab) => !(perpTabShowWeb && tab.id === EHomeWalletTab.Perps),
+      ),
+    [perpTabShowWeb, tabConfigs],
+  );
+
+  const tabBarTabNames = useMemo(
+    () => tabConfigs.map((tab) => tab.name),
+    [tabConfigs],
+  );
 
   const tabTestIDMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -500,12 +586,24 @@ export function HomePageView({
     return map;
   }, [tabConfigs]);
 
+  const switchToPerpsWebTab = useCallback(() => {
+    navigation.switchTab(ETabRoutes.WebviewPerpTrade);
+  }, [navigation]);
+
   const handleRenderItem = useCallback(
     (props: ITabBarItemProps) => {
       const testID = tabTestIDMap[props.name];
-      return <TabBarItem {...props} testID={testID} />;
+      const nextTab = tabConfigs.find((tab) => tab.name === props.name);
+      const handlePress = (name: string) => {
+        if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
+          switchToPerpsWebTab();
+          return;
+        }
+        props.onPress(name);
+      };
+      return <TabBarItem {...props} testID={testID} onPress={handlePress} />;
     },
-    [tabTestIDMap],
+    [perpTabShowWeb, switchToPerpsWebTab, tabConfigs, tabTestIDMap],
   );
 
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
@@ -522,23 +620,59 @@ export function HomePageView({
     setStickyHost((prev) => (prev === next ? prev : next));
   }, []);
 
-  const initialTabName = tabConfigs[0]?.name ?? '';
+  const initialTabName = pagerTabConfigs[0]?.name ?? '';
   const [activeTabName, setActiveTabName] = useState(initialTabName);
-  const initialTabId = tabConfigs[0]?.id;
+  const initialTabId = pagerTabConfigs[0]?.id;
   const [activeTabId, setActiveTabId] = useState<EHomeWalletTab | undefined>(
     initialTabId,
   );
+  const [mountedHomeTabIds, setMountedHomeTabIds] = useState<
+    Set<EHomeWalletTab>
+  >(() => (initialTabId ? new Set([initialTabId]) : new Set()));
+  const lastDisplayableTabNameRef = useRef(initialTabName);
 
   useEffect(() => {
     setActiveTabName((prev) =>
-      tabConfigs.some((tab) => tab.name === prev)
+      pagerTabConfigs.some((tab) => tab.name === prev)
         ? prev
-        : (tabConfigs[0]?.name ?? ''),
+        : (pagerTabConfigs[0]?.name ?? ''),
     );
     setActiveTabId((prev) =>
-      tabConfigs.some((tab) => tab.id === prev) ? prev : tabConfigs[0]?.id,
+      pagerTabConfigs.some((tab) => tab.id === prev)
+        ? prev
+        : pagerTabConfigs[0]?.id,
     );
-  }, [tabConfigs]);
+    const lastDisplayableTab = pagerTabConfigs.find(
+      (tab) => tab.name === lastDisplayableTabNameRef.current,
+    );
+    if (!lastDisplayableTab) {
+      lastDisplayableTabNameRef.current = pagerTabConfigs[0]?.name ?? '';
+    }
+  }, [pagerTabConfigs]);
+
+  useEffect(() => {
+    if (!perpTabShowWeb || activeTabId !== EHomeWalletTab.Perps) {
+      return;
+    }
+    const fallbackTabName = pagerTabConfigs[0]?.name;
+    if (fallbackTabName) {
+      tabsRef.current?.jumpToTab(fallbackTabName);
+    }
+  }, [activeTabId, perpTabShowWeb, pagerTabConfigs]);
+
+  useEffect(() => {
+    if (!activeTabId) {
+      return;
+    }
+    setMountedHomeTabIds((prev) => {
+      if (prev.has(activeTabId)) {
+        return prev;
+      }
+      const next = new Set(prev);
+      next.add(activeTabId);
+      return next;
+    });
+  }, [activeTabId]);
 
   const renderToolbar = useCallback(
     ({ focusedTab }: { focusedTab: string }) => (
@@ -549,26 +683,83 @@ export function HomePageView({
     [],
   );
 
+  // Fixed nav-bar (TabPageHeader overlay) height. iOS previously measured 162
+  // (raw 182 - 20 offset) with the wallet-connection row (Row 2) pinned in the
+  // nav bar. That row now scrolls inside the collapsible header, so the fixed
+  // bar is ~44pt shorter (search row only) → ~118. Declared here (above the
+  // render callbacks) so renderHeader can read it for its iOS glass-pass-through
+  // top padding. Re-measured via handleTabPageLayout; the initial value only
+  // minimizes first-frame shift.
+  const [tabPageHeight, setTabPageHeight] = useState(
+    ENABLE_IMMERSIVE_GLASS_HEADER ? 118 : 92,
+  );
+  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
+    const height = e.nativeEvent.layout.height - 20;
+    setTabPageHeight(height);
+  }, []);
+
+  // iOS glass fade: shared value written by HomeHeaderGlassScrollObserver
+  // (inside Tabs.Container) and read by HomeHeaderGlassOverlay (the fixed bar).
+  // Both live in ../components/HomeHeaderGlass; only this bridge value is kept
+  // here since it spans the two subtrees. Cheap enough to run on all platforms.
+  const headerGlassScrollY = useSharedValue(0);
+
+  const makeTabPressHandler = useCallback(
+    (tabBarProps: any) => (name: string) => {
+      const nextTab = tabConfigs.find((tab) => tab.name === name);
+      if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
+        switchToPerpsWebTab();
+        return;
+      }
+      setActiveTabName(nextTab?.name ?? name);
+      setActiveTabId(nextTab?.id);
+      lastDisplayableTabNameRef.current = nextTab?.name ?? name;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      tabBarProps.onTabPress?.(name);
+    },
+    [tabConfigs, perpTabShowWeb, switchToPerpsWebTab],
+  );
+
+  // Shared TabBar builder (Spot / Perps / DeFi / NFT / History), used by all
+  // three placements: iOS renders it inside `renderHeader` (scrolls away with
+  // the collapsible header), Android in `renderTabBar` (pinned), and web in the
+  // sticky bar (which passes `position: relative` so its portal can anchor).
+  // Design: plain-text tabs on small screens only; pill elsewhere.
+  const buildTabBar = useCallback(
+    (tabBarProps: any, containerStyle?: any) => (
+      <Tabs.TabBar
+        {...tabBarProps}
+        tabNames={tabBarTabNames}
+        indexDecimal={perpTabShowWeb ? undefined : tabBarProps.indexDecimal}
+        onTabPress={makeTabPressHandler(tabBarProps)}
+        variant={isSmallScreen ? 'text' : 'pill'}
+        renderItem={handleRenderItem}
+        renderToolbar={renderToolbar}
+        containerStyle={containerStyle}
+      />
+    ),
+    [
+      tabBarTabNames,
+      perpTabShowWeb,
+      makeTabPressHandler,
+      isSmallScreen,
+      handleRenderItem,
+      renderToolbar,
+    ],
+  );
+
   const renderTabBar = useCallback(
     (tabBarProps: any) => {
-      const handleTabPress = (name: string) => {
-        const nextTab = tabConfigs.find((tab) => tab.name === name);
-        setActiveTabName(nextTab?.name ?? name);
-        setActiveTabId(nextTab?.id);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        tabBarProps.onTabPress?.(name);
-      };
-
       if (platformEnv.isNative) {
-        return (
-          <Tabs.TabBar
-            {...tabBarProps}
-            onTabPress={handleTabPress}
-            variant="pill"
-            renderItem={handleRenderItem}
-            renderToolbar={renderToolbar}
-          />
-        );
+        // iOS: the TabBar is rendered inside `renderHeader` so it scrolls away
+        // with the collapsible header instead of pinning below the nav bar
+        // (Liquid Glass immersive layout). Returning null keeps the library's
+        // tabBar slot empty (measured height 0); tab switching stays available
+        // via horizontal swipe, or by scrolling the header back into view.
+        if (ENABLE_IMMERSIVE_GLASS_HEADER) {
+          return null;
+        }
+        return buildTabBar(tabBarProps);
       }
 
       // Outer YStack stays full-width so the sticky bg covers the entire
@@ -584,14 +775,7 @@ export function HomePageView({
           zIndex={10}
         >
           <Stack {...homePageContentMaxWidthSx}>
-            <Tabs.TabBar
-              {...tabBarProps}
-              onTabPress={handleTabPress}
-              variant="pill"
-              renderItem={handleRenderItem}
-              renderToolbar={renderToolbar}
-              containerStyle={{ position: 'relative' as any }}
-            />
+            {buildTabBar(tabBarProps, WEB_TABBAR_CONTAINER_STYLE)}
             <div
               ref={portalRefCallback}
               style={{
@@ -606,22 +790,75 @@ export function HomePageView({
         </YStack>
       );
     },
-    [
-      portalRefCallback,
-      stickyHostRefCallback,
-      handleRenderItem,
-      renderToolbar,
-      tabConfigs,
-    ],
+    [buildTabBar, portalRefCallback, stickyHostRefCallback],
+  );
+
+  // Alerts sit outside Tabs.Container (rendered next to TabPageHeader below).
+  // Keeping them inside renderHeader made them scroll through the sticky
+  // TabBar area — a partially-scrolled alert would leave a visible band
+  // between TabPageHeader and the tabs.
+  const renderHeader = useCallback(
+    (headerProps?: any) => (
+      <Stack
+        {...homePageContentMaxWidthSx}
+        // iOS pass-through: the fixed nav-bar spacer is removed (see homePage),
+        // so the collapsible header starts at the very top (behind the glass
+        // bar). This top padding pushes its first visible row below the bar;
+        // scrolling then slides the content up UNDER the translucent bar.
+        pt={ENABLE_IMMERSIVE_GLASS_HEADER ? tabPageHeight : undefined}
+      >
+        {/* iOS: the wallet connection row (account + network) is relocated from
+            the fixed nav bar into the collapsible header so it scrolls away with
+            the page — only the search row stays fixed. Home scene only; the
+            url-account page keeps its own header. */}
+        {ENABLE_IMMERSIVE_GLASS_HEADER &&
+        sceneName === EAccountSelectorSceneName.home ? (
+          <>
+            <HomeWalletConnectionRow
+              headerPx="$5"
+              sceneName={sceneName}
+              tabRoute={ETabRoutes.Home}
+            />
+            {/* iOS: alerts move into the collapsible header so they don't sit
+                behind the translucent glass bar; they scroll with the page.
+                Non-iOS keeps them pinned below the nav bar (see homePage). */}
+            <HomeAlerts />
+          </>
+        ) : null}
+        <HomeHeaderContainer />
+        {/* iOS: the non-sticky TabBar lives here so it scrolls away with the
+            header. `headerProps` is only present when invoked by Tabs.Container;
+            the not-backed-up path calls renderHeader() with no tabs. */}
+        {ENABLE_IMMERSIVE_GLASS_HEADER && headerProps ? (
+          <>
+            <Stack bg="$bgApp">{buildTabBar(headerProps)}</Stack>
+            {/* Headless: bridges the focused tab's scroll offset out to the
+                fixed glass bar's fade (must live inside Tabs.Container). */}
+            <HomeHeaderGlassScrollObserver scrollYOut={headerGlassScrollY} />
+          </>
+        ) : null}
+      </Stack>
+    ),
+    [buildTabBar, sceneName, tabPageHeight, headerGlassScrollY],
   );
 
   const handleTabChange = useCallback(
     (data: { tabName: string }) => {
       const nextTab = tabConfigs.find((tab) => tab.name === data.tabName);
+      if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
+        switchToPerpsWebTab();
+        const fallbackTabName =
+          lastDisplayableTabNameRef.current || pagerTabConfigs[0]?.name;
+        if (fallbackTabName && fallbackTabName !== data.tabName) {
+          tabsRef.current?.jumpToTab(fallbackTabName);
+        }
+        return;
+      }
       setActiveTabName(nextTab?.name ?? data.tabName);
       setActiveTabId(nextTab?.id);
+      lastDisplayableTabNameRef.current = nextTab?.name ?? data.tabName;
     },
-    [tabConfigs],
+    [perpTabShowWeb, switchToPerpsWebTab, tabConfigs, pagerTabConfigs],
   );
 
   // When the user switches network while NOT on the wallet (token list) tab,
@@ -716,7 +953,19 @@ export function HomePageView({
         ref={tabsRef as any}
         key={key}
         allowHeaderOverscroll
-        headerHeight={platformEnv.isNative ? 312 : undefined}
+        // iOS folds the wallet-connection row + TabBar into the collapsible
+        // header, so the header estimate grows and the separate tabBar slot
+        // collapses to 0 (see NATIVE_HOME_HEADER_HEIGHT).
+        headerHeight={NATIVE_HOME_HEADER_HEIGHT}
+        tabBarHeight={ENABLE_IMMERSIVE_GLASS_HEADER ? 0 : undefined}
+        // iOS glass pass-through: clear the library's default white
+        // topContainer background so the collapsible header's top-padding strip
+        // (behind the translucent bar) shows the app background, not white.
+        headerContainerStyle={
+          ENABLE_IMMERSIVE_GLASS_HEADER
+            ? { backgroundColor: 'transparent' }
+            : undefined
+        }
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         renderHeader={renderHeader}
@@ -724,10 +973,17 @@ export function HomePageView({
         onTabChange={handleTabChange}
         renderSubHeader={renderSubHeader}
       >
-        {tabConfigs.map((tab) => (
+        {pagerTabConfigs.map((tab) => (
           <Tabs.Tab key={tab.name} name={tab.name}>
             <FreezeInactiveHomeTab tabName={tab.name}>
-              {tab.component}
+              {platformEnv.isNative ||
+              tab.id === EHomeWalletTab.Perps ||
+              activeTabId === tab.id ||
+              mountedHomeTabIds.has(tab.id) ? (
+                tab.component
+              ) : (
+                <Stack flex={1} />
+              )}
             </FreezeInactiveHomeTab>
           </Tabs.Tab>
         ))}
@@ -744,17 +1000,23 @@ export function HomePageView({
     renderTabBar,
     handleTabChange,
     renderSubHeader,
-    tabConfigs,
+    pagerTabConfigs,
+    activeTabId,
+    mountedHomeTabIds,
   ]);
 
   const handleSwitchWalletHomeTab = useCallback(
     (payload: { id: EHomeWalletTab }) => {
+      if (perpTabShowWeb && payload.id === EHomeWalletTab.Perps) {
+        switchToPerpsWebTab();
+        return;
+      }
       const name = tabConfigs.find((i) => i.id === payload.id)?.name;
       if (name) {
         tabsRef.current?.jumpToTab(name);
       }
     },
-    [tabConfigs],
+    [perpTabShowWeb, switchToPerpsWebTab, tabConfigs],
   );
 
   useEffect(() => {
@@ -793,7 +1055,7 @@ export function HomePageView({
 
   const { result: accountNetworkNotSupported } = usePromiseResult(
     async () => {
-      if (!network?.id) return undefined;
+      if (!network?.id || (!wallet?.id && !account?.id)) return undefined;
       const checkResult =
         await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
           {
@@ -888,20 +1150,38 @@ export function HomePageView({
     tabs,
   ]);
 
-  // Initial heights based on measured header sizes on each platform.
-  // iOS measured: 162 (raw 182 - 20 offset). Must match actual layout
-  // to prevent content shift when onLayout fires.
-  const [tabPageHeight, setTabPageHeight] = useState(
-    platformEnv.isNativeIOS ? 162 : 92,
-  );
-  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
-    const height = e.nativeEvent.layout.height - 20;
-    setTabPageHeight(height);
-  }, []);
+  // (tabPageHeight state + handleTabPageLayout are declared earlier, above the
+  // render callbacks, so renderHeader can read tabPageHeight for its iOS glass
+  // pass-through top padding.)
 
   const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
     wallet,
     account,
+  });
+  const walletListWalletIds = walletListResult?.wallets.map((item) => item.id);
+  const walletListResolvedNoWallet = isWalletListResolvedNoWallet({
+    wallets: walletListResult?.wallets,
+  });
+  const walletPageContent = useMemo(
+    () =>
+      platformEnv.isNative ? (
+        <AndroidScrollContainer>{homePageContent}</AndroidScrollContainer>
+      ) : (
+        homePageContent
+      ),
+    [homePageContent],
+  );
+  const activeWalletId = wallet?.id;
+  const activeWalletUnavailable =
+    accountUtils.isWalletDeprecatedOrMocked(wallet);
+  const showNoWalletContent = shouldShowNoWalletContent({
+    hasNoUsableWallet,
+    accountSelectorStorageInitDone,
+    accountSelectorActiveAccountInitDone,
+    walletListResolvedNoWallet,
+    activeWalletUnavailable,
+    activeWalletId,
+    walletListWalletIds,
   });
 
   const homePage = useMemo(() => {
@@ -909,41 +1189,64 @@ export function HomePageView({
       return <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />;
     }
 
-    let content = <NoWalletContent tabBarHeight={tabBarHeight} />;
+    let content = <Stack flex={1} />;
+
+    if (showNoWalletContent) {
+      content = (
+        <NoWalletContent
+          tabBarHeight={tabBarHeight}
+          topInset={ENABLE_IMMERSIVE_GLASS_HEADER ? tabPageHeight : 0}
+        />
+      );
+    }
 
     if (!hasNoUsableWallet) {
-      content = platformEnv.isNative ? (
-        <AndroidScrollContainer>{homePageContent}</AndroidScrollContainer>
-      ) : (
-        homePageContent
-      );
+      content = walletPageContent;
       // This is a temporary hack solution, need to fix the layout of headerLeft and headerRight
+    }
+    // Top slot above content: iOS pass-through omits the fixed nav-bar spacer
+    // entirely (renderHeader carries the equal top padding so content scrolls
+    // under the glass bar); other native platforms reserve the bar height; web
+    // renders the header inline.
+    let nativeTopSlot: React.ReactNode = null;
+    if (!ENABLE_IMMERSIVE_GLASS_HEADER) {
+      nativeTopSlot = platformEnv.isNative ? (
+        <Stack h={tabPageHeight} />
+      ) : (
+        <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
+      );
     }
     return (
       <>
         <Page.Body>
           <Page.Container flex={1} padded={false}>
-            {platformEnv.isNative ? (
-              <Stack h={tabPageHeight} />
-            ) : (
-              <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
+            {nativeTopSlot}
+            {/* Alerts: iOS renders these inside the collapsible header
+                (renderHeader) so they don't sit behind the glass bar; other
+                platforms keep them pinned below the fixed nav bar. */}
+            {ENABLE_IMMERSIVE_GLASS_HEADER ? null : (
+              <Stack {...homePageContentMaxWidthSx}>
+                <HomeAlerts />
+              </Stack>
             )}
-            <Stack {...homePageContentMaxWidthSx}>
-              <RiskApprovalAlert />
-              <WatchOnlyAlert />
-              <NetworkAlert />
-            </Stack>
             {content}
             {platformEnv.isNative ? (
               <YStack
                 position="absolute"
-                top={-20}
+                top={-IMMERSIVE_GLASS_TOP_OFFSET}
                 left={0}
-                bg="$bgApp"
                 pt="$5"
                 width="100%"
                 onLayout={handleTabPageLayout}
+                // iOS (all supported versions): transparent bar with a
+                // progressive BlurView frost (HomeHeaderGlassOverlay) so home
+                // content scrolls visibly beneath it. Android keeps the solid
+                // background (tab bar still pinned).
+                {...(ENABLE_IMMERSIVE_GLASS_HEADER ? {} : { bg: '$bgApp' })}
               >
+                {ENABLE_IMMERSIVE_GLASS_HEADER ? (
+                  <HomeHeaderGlassOverlay scrollY={headerGlassScrollY} />
+                ) : null}
                 <TabPageHeader
                   sceneName={sceneName}
                   tabRoute={ETabRoutes.Home}
@@ -957,11 +1260,13 @@ export function HomePageView({
   }, [
     ready,
     hasNoUsableWallet,
+    showNoWalletContent,
     tabPageHeight,
     sceneName,
     handleTabPageLayout,
-    homePageContent,
+    walletPageContent,
     tabBarHeight,
+    headerGlassScrollY,
   ]);
 
   return useMemo(() => {

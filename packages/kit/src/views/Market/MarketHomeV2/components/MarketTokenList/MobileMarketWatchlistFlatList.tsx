@@ -270,6 +270,7 @@ function MobileMarketWatchlistFlatListImpl({
               return;
             }
             void toMarketDetailPage({
+              ...item,
               symbol: item.symbol,
               tokenAddress: item.address,
               networkId: item.networkId,
@@ -409,7 +410,7 @@ function MobileMarketWatchlistFlatListImpl({
         <Stack
           {...(platformEnv.isNative ? null : { justifyContent: 'center' })}
           alignItems="center"
-          paddingTop="$8"
+          y={-25}
         >
           <MarketRecommendList
             maxSize={8}

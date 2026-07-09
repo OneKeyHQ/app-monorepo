@@ -14,6 +14,11 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
+    app: {
+      error: {
+        log: jest.fn(),
+      },
+    },
     scanQrCode: {
       parseQrCode: {
         parsedQrCode: jest.fn(),

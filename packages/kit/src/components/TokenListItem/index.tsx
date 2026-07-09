@@ -28,6 +28,7 @@ export type ITokenListItemProps = {
   disabled?: boolean;
   titleMatchStr?: IFuseResultMatch;
   moreComponent?: React.ReactNode;
+  tokenSymbolAccessory?: React.ReactNode;
   badgeText?: string;
   tokenSize?: 'xxs' | 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 } & IListItemProps &
@@ -46,10 +47,33 @@ export function TokenListItem({
   disabled,
   titleMatchStr,
   moreComponent,
+  tokenSymbolAccessory,
   badgeText,
   tokenSize,
   ...rest
 }: ITokenListItemProps) {
+  const primaryContent =
+    badgeText || tokenSymbolAccessory ? (
+      <XStack alignItems="center" gap="$1" minWidth={0}>
+        <SizableText
+          size="$bodyLgMedium"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          flexShrink={1}
+        >
+          {tokenSymbol}
+        </SizableText>
+        {badgeText ? (
+          <Badge badgeType="success" badgeSize="sm">
+            {badgeText}
+          </Badge>
+        ) : null}
+        {tokenSymbolAccessory}
+      </XStack>
+    ) : (
+      tokenSymbol
+    );
+
   return (
     <ListItem
       userSelect="none"
@@ -76,18 +100,7 @@ export function TokenListItem({
           opacity: 0.5,
         })}
         flex={1}
-        primary={
-          badgeText ? (
-            <XStack alignItems="center" gap="$2">
-              <SizableText size="$bodyLgMedium">{tokenSymbol}</SizableText>
-              <Badge badgeType="success" badgeSize="sm">
-                {badgeText}
-              </Badge>
-            </XStack>
-          ) : (
-            tokenSymbol
-          )
-        }
+        primary={primaryContent}
         primaryMatch={titleMatchStr}
         primaryTextProps={{
           numberOfLines: 1,

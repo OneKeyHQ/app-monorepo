@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 
-import { LogLevel, Purchases } from '@revenuecat/purchases-js';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -16,6 +15,7 @@ import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import purchaseSdkUtils from '../purchasesSdk/purchaseSdkUtils';
+import { loadPurchasesSdkWeb } from '../purchasesSdk/purchasesSdkWebLoader';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 import primePaymentUtils from './primePaymentUtils';
@@ -26,11 +26,6 @@ import type {
   IUsePrimePayment,
 } from './usePrimePaymentTypes';
 import type { CustomerInfo, PurchaseParams } from '@revenuecat/purchases-js';
-
-if (process.env.NODE_ENV !== 'production') {
-  console.log('Purchases.setLogLevel Verbose');
-  Purchases.setLogLevel(LogLevel.Verbose);
-}
 
 export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
   const { user, isReady: isAuthReady } = useOneKeyAuth();
@@ -59,6 +54,8 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
       // TODO VPN required
       // await Purchases.setProxyURL('https://api.rc-backup.com/');
 
+      const { Purchases } = await loadPurchasesSdkWeb();
+
       // TODO how to configure another userId when user login with another account
       // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
 
@@ -73,6 +70,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
 
   const getCustomerInfo = useCallback(async () => {
     await initSdk({ loginRequired: true });
+    const { Purchases } = await loadPurchasesSdkWeb();
 
     const customerInfo: CustomerInfo =
       await Purchases.getSharedInstance().getCustomerInfo();
@@ -106,6 +104,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
     }
 
     const { isSandboxKey } = await initSdk();
+    const { Purchases } = await loadPurchasesSdkWeb();
 
     const { offerings, targetOffering } =
       await primePaymentUtils.fetchWebTargetOffering({
@@ -179,6 +178,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
       featureName?: EPrimeFeatures;
     }) => {
       const { isSandboxKey } = await initSdk({ loginRequired: true });
+      const { Purchases } = await loadPurchasesSdkWeb();
       try {
         if (!isReady) {
           throw new OneKeyLocalError('PrimeAuth Not ready');

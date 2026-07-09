@@ -16,16 +16,12 @@ import { useHomeBalanceState } from '@onekeyhq/kit/src/hooks/useHomeBalanceState
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  useAllTokenListAtom,
-  useAllTokenListMapAtom,
-  useTokenListStateAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useTokenListStateAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
 import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalFiatCryptoRoutes,
@@ -72,8 +68,15 @@ function WalletActionSend({
   // const { selectedAccount } = useSelectedAccount({ num: 0 });
   const intl = useIntl();
 
-  const [allTokens] = useAllTokenListAtom();
-  const [map] = useAllTokenListMapAtom();
+  // Snapshot of the home raw list + full fiat map (PULLed from the BG VM,
+  // refreshed on each home structure frame). `handleOnSend` reads it in its
+  // closure (callback snapshot, red-team C-F5 / R-#4) for the native-balance gas
+  // check + the buy-modal fallback params.
+  const {
+    tokens: allTokens,
+    keys: allTokensKeys,
+    map,
+  } = useHomeTokenListSnapshot();
   const [tokenListState] = useTokenListStateAtom();
 
   const { result: isBuySupported } = useSupportNetworkId('buy', network?.id);
@@ -116,7 +119,7 @@ function WalletActionSend({
       !vaultSettings.allowZeroFee &&
       !network?.isAllNetworks
     ) {
-      const nativeToken = allTokens.tokens.find(
+      const nativeToken = allTokens.find(
         (t) => t.isNative && !t.networkId?.startsWith('onekeyall'),
       );
       const tokenFiat = nativeToken ? map[nativeToken.$key] : undefined;
@@ -210,7 +213,7 @@ function WalletActionSend({
                           params: {
                             networkId: network.id,
                             accountId: account?.id ?? '',
-                            tokens: allTokens.tokens,
+                            tokens: allTokens,
                             map,
                           },
                         });
@@ -326,8 +329,8 @@ function WalletActionSend({
         accountId: account?.id ?? '',
         isAllNetworks: network.isAllNetworks,
         tokens: {
-          data: allTokens.tokens,
-          keys: allTokens.keys,
+          data: allTokens,
+          keys: allTokensKeys,
           map,
         },
         tokenListState,
@@ -387,8 +390,8 @@ function WalletActionSend({
     vaultSettings,
     navigation,
     intl,
-    allTokens.tokens,
-    allTokens.keys,
+    allTokens,
+    allTokensKeys,
     map,
     tokenListState,
     deriveInfoItems.length,
@@ -447,12 +450,7 @@ function WalletActions({ ...rest }: IXStackProps) {
           </ReviewControl>
         );
       case 'swap':
-        return platformEnv.isExtensionUiPopup ||
-          platformEnv.isExtensionUiSidePanel ? (
-          <WalletActionPerp key="perp" customization={customization} />
-        ) : (
-          <WalletActionSwap key="swap" customization={customization} />
-        );
+        return <WalletActionSwap key="swap" customization={customization} />;
       case 'perp':
         return <WalletActionPerp key="perp" customization={customization} />;
       case 'staking':

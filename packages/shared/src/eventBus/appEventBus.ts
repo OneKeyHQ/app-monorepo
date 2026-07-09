@@ -9,7 +9,14 @@ import type {
 import type { ISubSettingConfig } from '@onekeyhq/kit/src/views/Setting/pages/Tab/config';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import type { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type {
+  EHardwareUiStateAction,
+  IJotaiContextStoreData,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type {
+  IStructureSnapshot,
+  IValuationFrame,
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { EThirdPartyDevicePermissionDeniedReason } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
@@ -67,6 +74,7 @@ export const HARDWARE_ERROR_DIALOG_TYPES = {
 // Hardware error dialog event payload type
 export interface IHardwareErrorDialogPayload {
   errorType: string; // Extensible but type-safe error types
+  vendor?: EHardwareVendor | string;
   payload?: IOneKeyHardwareErrorPayload | Record<string, unknown>; // Original error payload with type safety
   errorCode?: number | string; // Hardware error code
   errorMessage?: string; // Error message
@@ -89,13 +97,42 @@ export type IEventBusPayloadShowToast = {
   message?: string;
   icon?: string;
   duration?: number;
-  errorCode?: number;
+  errorCode?: number | string;
+  errorClassName?: string;
+  errorName?: string;
   httpStatusCode?: number;
   toastId?: string;
   i18nKey?: ETranslations;
   requestId?: string;
   diagnosticText?: string;
 };
+
+export type ILinuxUdevGuideReason =
+  | 'not-linux'
+  | 'snap'
+  | 'flatpak'
+  | 'missing-pkexec'
+  | 'cancelled'
+  | 'not-authorized'
+  | 'failed'
+  | 'webusb-access-denied'
+  | 'unknown';
+
+export type IEventBusPayloadShowLinuxUdevGuide = {
+  reason?: ILinuxUdevGuideReason;
+};
+
+export type IEventBusPayloadShowLocalSecretEnvelopeErrorDialog = {
+  technicalMessage: string;
+};
+
+export type IEventBusPayloadAccountDataUpdate =
+  | undefined
+  | {
+      isManualRefresh?: boolean;
+      refreshSource?: 'home-header' | 'pull-to-refresh';
+    };
+
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: {
     num: number;
@@ -127,6 +164,7 @@ export interface IAppEventBusPayload {
     fromAmount: string;
     toAmount: string;
   };
+  [EAppEventBusNames.SwapStockTokenSelected]: ISwapToken;
   [EAppEventBusNames.WalletRemove]: {
     walletId: string;
   };
@@ -183,6 +221,7 @@ export interface IAppEventBusPayload {
     error: IOneKeyError;
   };
   [EAppEventBusNames.ShowToast]: IEventBusPayloadShowToast;
+  [EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog]: IEventBusPayloadShowLocalSecretEnvelopeErrorDialog;
   [EAppEventBusNames.ShowAirGapQrcode]: {
     title?: string;
     drawType: IQrcodeDrawType;
@@ -249,9 +288,16 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.LocalPendingTxConfirmed]: {
     accountId: string;
     indexedAccountId?: string;
+    accountAddress?: string;
+    deriveType?: string | IAccountDeriveTypes;
+    perpsAccountId?: string | null;
+    perpsIndexedAccountId?: string | null;
+    perpsAccountAddress?: string;
+    perpsDeriveType?: string | IAccountDeriveTypes;
     networkId: string;
     txid: string;
     status: EDecodedTxStatus;
+    isPerpsDepositTx?: boolean;
   };
   [EAppEventBusNames.DeFiPositionRefreshed]: {
     accountId: string;
@@ -269,11 +315,34 @@ export interface IAppEventBusPayload {
     scheduledAt: number;
   };
   [EAppEventBusNames.GasAccountSubmitRetryCleared]: undefined;
-  [EAppEventBusNames.TokenListUpdate]: {
-    tokens: IAccountToken[];
-    keys: string;
-    map: Record<string, ITokenFiat>;
-    merge?: boolean;
+  // TokenList cells Phase-2 BG frame transport (D2=A). The structure event
+  // carries the FULL idempotent structure snapshot for an owner (generation is
+  // monotonic); the valuation event carries the FULL current fiat map for an
+  // owner (idempotent, self-healing via the apply-layer fiatEqual guard). Both
+  // carry their owner key + a monotonic version so the UI shell can drop a
+  // stale PULL result and detect a generation/version gap.
+  [EAppEventBusNames.TokenListStructureFrame]: {
+    ownerKey: string;
+    structureVersion: number;
+    structure: IStructureSnapshot;
+  };
+  [EAppEventBusNames.TokenListValuationFrame]: {
+    ownerKey: string;
+    valuationVersion: number;
+    valuation: IValuationFrame;
+  };
+  // TokenList cells Phase-2 risky frame (design 2026-06-16 §R0). FULL idempotent
+  // risky snapshot for an owner: the risky token list + its `$key -> ITokenFiat`
+  // map. `riskyVersion` is monotonic and INDEPENDENT of the structure/valuation
+  // versions; the UI shell version-guards + drops stale PULLs against it. Carries
+  // the owner's `storeData` so the receive shell can identity-check it (never
+  // diffed — always the whole current risky set).
+  [EAppEventBusNames.TokenListRiskyFrame]: {
+    ownerKey: string;
+    riskyVersion: number;
+    riskyTokens: IAccountToken[];
+    riskyMap: Record<string, ITokenFiat>;
+    storeData: IJotaiContextStoreData;
   };
   [EAppEventBusNames.RefreshTokenList]:
     | undefined
@@ -304,7 +373,7 @@ export interface IAppEventBusPayload {
     accountId: string;
     networkId: string;
   };
-  [EAppEventBusNames.AccountDataUpdate]: undefined;
+  [EAppEventBusNames.AccountDataUpdate]: IEventBusPayloadAccountDataUpdate;
   [EAppEventBusNames.AccountValueUpdate]: undefined;
   [EAppEventBusNames.onDragBeginInListView]: undefined;
   [EAppEventBusNames.onDragEndInListView]: undefined;
@@ -336,12 +405,18 @@ export interface IAppEventBusPayload {
     tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
   };
   [EAppEventBusNames.ShowSystemDiskFullWarning]: undefined;
+  [EAppEventBusNames.ShowLinuxBundleUdevGuide]: IEventBusPayloadShowLinuxUdevGuide;
   [EAppEventBusNames.SwapTxHistoryStatusUpdate]: {
     status: ESwapTxHistoryStatus;
     crossChainStatus?: ESwapCrossChainStatus;
     fromToken?: ISwapToken;
     toToken?: ISwapToken;
   };
+  [EAppEventBusNames.RefreshSwapHistoryList]: undefined;
+  // De-facto "network list changed, refresh" signal. Emitted not only when a
+  // custom network is added/removed, but also after a server-network sync that
+  // changes the set (e.g. a network delisted to TRASH). All network selectors
+  // listen to it to re-pull their network list.
   [EAppEventBusNames.AddedCustomNetwork]: undefined;
   [EAppEventBusNames.SyncDappAccountToHomeAccount]: {
     selectedAccount: IAccountSelectorSelectedAccount;
@@ -446,6 +521,9 @@ export interface IAppEventBusPayload {
     mode: 'perp' | 'spot';
     coin: string;
   };
+  [EAppEventBusNames.PerpSwitchInfoPanelTab]: {
+    tab: 'Positions' | 'Balances';
+  };
   [EAppEventBusNames.HyperliquidConnectionChange]: {
     type: 'connection';
     subType: 'datastream';
@@ -491,6 +569,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.UpdateNotificationBadge]: undefined;
   [EAppEventBusNames.BtcFreshAddressUpdated]: undefined;
   [EAppEventBusNames.BtcFreshAddressConnectDappRejected]: undefined;
+  [EAppEventBusNames.BtcFindAddressUpdated]: undefined;
   [EAppEventBusNames.ClientLogUploadProgress]: {
     stage: ELogUploadStage;
     progressPercent?: number;
@@ -504,6 +583,7 @@ export interface IAppEventBusPayload {
       | ETranslations.global_earn;
     openUrl?: boolean;
     shouldConsumePendingUrl?: boolean;
+    showWebPage?: boolean;
     switchType?: 'default' | 'tap' | 'swipe';
   };
   [EAppEventBusNames.SwitchEarnMode]: {
@@ -549,6 +629,7 @@ export interface IAppEventBusPayload {
     params: any;
   };
   [EAppEventBusNames.HomePageReady]: undefined;
+  [EAppEventBusNames.ModalNavigatorMounted]: undefined;
   [EAppEventBusNames.TrayActionWillNavigate]: undefined;
   [EAppEventBusNames.MemoryPressureWarning]: {
     /** 'low' (Android only) or 'critical' (iOS + Android). See native spec. */

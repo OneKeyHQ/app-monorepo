@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IMarketDetailPlatform,
   IMarketDetailPool,
@@ -179,44 +180,109 @@ export function MarketDetailPools({
     },
   );
 
+  // Resolve the OneKey networks that still exist locally. The server pools API
+  // may return networks that have already been delisted/removed from the
+  // client; getNetworksByIds simply filters those out instead of throwing.
+  const { result: existingNetworks, isLoading: isExistingNetworksLoading } =
+    usePromiseResult(
+      async () => {
+        const networkIds = pools
+          .map((i) => i.onekeyNetworkId)
+          .filter((i): i is string => Boolean(i));
+        if (!networkIds.length) {
+          return [];
+        }
+        const { networks } =
+          await backgroundApiProxy.serviceNetwork.getNetworksByIds({
+            networkIds,
+          });
+        return networks;
+      },
+      [pools],
+      {
+        initResult: [],
+        watchLoading: true,
+      },
+    );
+
+  const existingNetworkMap = useMemo(
+    () =>
+      new Map<string, IServerNetwork>(
+        existingNetworks.map((network) => [network.id, network]),
+      ),
+    [existingNetworks],
+  );
+
+  // Drop pools whose network has been delisted. Previously a single stale
+  // networkId broke the entire selector row: getNetwork throws for unknown
+  // networks and the symbols Promise.all rejected as a whole, leaving every
+  // network icon blank.
+  // While the existing-network set is still loading, keep all pools so the
+  // selector doesn't momentarily collapse to the CEX tab; delisted networks are
+  // filtered out once existingNetworks resolves.
+  const validPools = useMemo(
+    () =>
+      isExistingNetworksLoading
+        ? pools
+        : pools.filter(
+            (i) =>
+              i.onekeyNetworkId && existingNetworkMap.has(i.onekeyNetworkId),
+          ),
+    [pools, isExistingNetworksLoading, existingNetworkMap],
+  );
+
   const oneKeyNetworkIds = useMemo(() => {
-    const result = pools
+    const result = validPools
       .map((i) => i.onekeyNetworkId)
       .filter((i) => Boolean(i)) as string[];
     if (tickers?.length) {
       result.push(CEX);
     }
     return result;
-  }, [pools, tickers?.length]);
+  }, [validPools, tickers?.length]);
 
-  const { result: oneKeyNetworkSymbols } = usePromiseResult(
-    async () => {
-      const symbols: {
-        logoURI?: string;
-        networkName?: string;
-      }[] = await Promise.all(
-        oneKeyNetworkIds.map((networkId) => {
-          if (networkId === CEX) {
-            return Promise.resolve({ networkName: CEX });
-          }
-          return networkId
-            ? backgroundApiProxy.serviceNetwork.getNetwork({ networkId })
-            : Promise.resolve({ logoURI: '' });
-        }),
-      );
-      return symbols;
-    },
-    [oneKeyNetworkIds],
-    {
-      initResult: [],
-    },
-  );
-  const [index, selectIndex] = useState(0);
-  const isCEXSelected = !pools[index];
+  const oneKeyNetworkSymbols = useMemo(() => {
+    const symbols: {
+      logoURI?: string;
+      networkName?: string;
+    }[] = validPools.map((i) => {
+      const network = i.onekeyNetworkId
+        ? existingNetworkMap.get(i.onekeyNetworkId)
+        : undefined;
+      return { logoURI: network?.logoURI };
+    });
+    if (tickers?.length) {
+      symbols.push({ networkName: CEX });
+    }
+    return symbols;
+  }, [validPools, existingNetworkMap, tickers?.length]);
+  // Identify the selected tab by a stable key (pool localId, or the CEX
+  // sentinel) instead of a positional index. validPools changes asynchronously:
+  // it holds every pool while existingNetworks is loading, then drops delisted
+  // pools once it resolves. A raw index could fall out of range (silently
+  // switching to CEX) or point at a pool that shifted into that slot. Deriving
+  // the index from the selected key keeps the selection pinned to the same tab,
+  // and falls back to the first tab when the selected pool was delisted.
+  const tabKeys = useMemo(() => {
+    const keys = validPools.map((i) => i.localId);
+    if (tickers?.length) {
+      keys.push(CEX);
+    }
+    return keys;
+  }, [validPools, tickers?.length]);
+
+  const [selectedKey, setSelectedKey] = useState<string | undefined>(undefined);
+
+  const index = useMemo(() => {
+    const found = selectedKey ? tabKeys.indexOf(selectedKey) : -1;
+    return found >= 0 ? found : 0;
+  }, [selectedKey, tabKeys]);
+
+  const isCEXSelected = !validPools[index];
 
   const listData = useMemo(
-    () => (isCEXSelected ? tickers : pools[index]) ?? [],
-    [index, isCEXSelected, pools, tickers],
+    () => (isCEXSelected ? tickers : validPools[index]) ?? [],
+    [index, isCEXSelected, validPools, tickers],
   );
 
   const formatListData = isCEXSelected
@@ -243,9 +309,12 @@ export function MarketDetailPools({
         volumeUsdH24: Number(i.attributes.volumeUsd.h24),
         reserveInUsd: Number(i.attributes.reserveInUsd),
       }));
-  const handleChange = useCallback((selectedIndex: number) => {
-    selectIndex(selectedIndex);
-  }, []);
+  const handleChange = useCallback(
+    (selectedIndex: number) => {
+      setSelectedKey(tabKeys[selectedIndex]);
+    },
+    [tabKeys],
+  );
 
   type IDataSource = typeof formatListData;
   type IDataSourceItem = IDataSource[0];

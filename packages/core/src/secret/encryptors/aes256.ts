@@ -174,6 +174,55 @@ function parseV2Payload(dataBuffer: Buffer): {
   };
 }
 
+// Non-secret description of an encrypted payload's on-disk container, read from
+// the plaintext (unauthenticated) header ONLY. It deliberately never returns
+// salt / nonce / dataType / ciphertext / tag, so it leaks no secret material
+// and needs no password. Used by dev diagnostics to report "what encryption +
+// KDF iterations is this record using" without decrypting it.
+export type ISecretEncryptPayloadMetadata = {
+  format: 'v2' | 'legacy-gcm' | 'legacy-cbc-or-unknown';
+  cipher?: 'AES-256-GCM';
+  kdf?: 'PBKDF2-SHA256';
+  // Only the V2 container records the KDF iteration count in its header; legacy
+  // containers do not, so this stays undefined for them.
+  iterations?: number;
+};
+
+function readSecretEncryptPayloadMetadata({
+  data,
+}: {
+  data: Buffer | string;
+}): ISecretEncryptPayloadMetadata {
+  let dataBuffer: Buffer;
+  try {
+    dataBuffer = bufferUtils.toBuffer(data);
+  } catch {
+    return { format: 'legacy-cbc-or-unknown' };
+  }
+  if (isV2Payload(dataBuffer)) {
+    try {
+      // Only the iteration count is read; aad / ciphertextWithTag are ignored.
+      const { iterations } = parseV2Payload(dataBuffer);
+      return {
+        cipher: 'AES-256-GCM',
+        format: 'v2',
+        iterations,
+        kdf: 'PBKDF2-SHA256',
+      };
+    } catch {
+      return { format: 'legacy-cbc-or-unknown' };
+    }
+  }
+  if (isLegacyGcmPayload(dataBuffer)) {
+    return {
+      cipher: 'AES-256-GCM',
+      format: 'legacy-gcm',
+      kdf: 'PBKDF2-SHA256',
+    };
+  }
+  return { format: 'legacy-cbc-or-unknown' };
+}
+
 export const encodeKeyPrefix =
   'ENCODE_KEY::755174C1-6480-401A-8C3D-84ADB2E0C376::';
 let encodeKey = platformEnv.isWebEmbed
@@ -1157,6 +1206,7 @@ export {
   getSecretEncryptV2LocalTargetIterations,
   getBgSensitiveTextEncodeKey,
   isEncodedSensitiveText,
+  readSecretEncryptPayloadMetadata,
   setBgSensitiveTextEncodeKey,
   shouldUpgradeSecretEncryptPayload,
 };

@@ -706,6 +706,7 @@ export enum EBtcRewardErrorCode {
   InvalidAddress = 100_302,
   CommitFailed = 100_303,
   CodeNotFound = 100_304,
+  RecoverNotFound = 100_307,
 }
 
 export interface IBtcRewardError {
@@ -750,6 +751,19 @@ export interface IBtcRewardCommitData {
   codeId: string;
   payoutEligibleAt: string;
   expectedPayoutAt: string;
+}
+
+export interface IBtcRewardRecoverParams {
+  code: string;
+  voucherCode: string;
+  walletAddress: string;
+}
+
+export interface IBtcRewardRecoverData {
+  codeId: string;
+  btcAmount: string;
+  btcPriceUsd: string;
+  payoutEligibleAt: string;
 }
 
 export interface IBtcRewardHistoryParams {

@@ -177,10 +177,12 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
       fontSize,
       minFontSize,
       availableInlineWidth,
+      inlineTextAlignMode = 'auto',
       currencyLabel,
       inlineTokenSymbol,
       inlinePrefixGapPx,
       inlineSuffixGapPx,
+      fontFamily,
       selectionColor,
       onChangeText,
       placeholder,
@@ -319,7 +321,9 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
     }
 
     let desktopInlineRowOffsetPx = 0;
-    if (desktopAmountTextAlign === 'right') {
+    if (inlineTextAlignMode === 'center') {
+      desktopInlineRowOffsetPx = 0;
+    } else if (desktopAmountTextAlign === 'right') {
       desktopInlineRowOffsetPx = Math.round(-inlineInputSlackPx / 2);
     } else if (desktopAmountTextAlign === 'left') {
       desktopInlineRowOffsetPx = Math.round(inlineInputSlackPx / 2);
@@ -334,6 +338,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
         width="100%"
         alignItems="center"
         justifyContent="center"
+        overflow="hidden"
         style={
           desktopInlineRowOffsetPx && !hasSmallWidth
             ? { transform: [{ translateX: desktopInlineRowOffsetPx }] }
@@ -346,6 +351,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
             fontWeight="500"
             lineHeight={Math.ceil(effectiveFontSize * 1.4)}
             style={{
+              fontFamily,
               fontSize: effectiveFontSize,
               marginRight: inlinePrefixGapPx,
             }}
@@ -361,6 +367,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
           editable={editable}
           fontSize={effectiveFontSize}
           fontWeight="500"
+          fontFamily={fontFamily}
           color="$text"
           unstyled
           borderWidth={0}
@@ -424,6 +431,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
             fontWeight="500"
             lineHeight={Math.ceil(effectiveFontSize * 1.4)}
             style={{
+              fontFamily,
               fontSize: effectiveFontSize,
               marginLeft: inlineSuffixGapPx,
             }}
