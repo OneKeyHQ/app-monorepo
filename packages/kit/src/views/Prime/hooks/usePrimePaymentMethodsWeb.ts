@@ -27,12 +27,6 @@ import type {
 } from './usePrimePaymentTypes';
 import type { CustomerInfo, PurchaseParams } from '@revenuecat/purchases-js';
 
-async function loadStripeV3() {
-  // Load Stripe before RevenueCat opens checkout, otherwise RevenueCat injects
-  // https://js.stripe.com/v3 itself.
-  await import('@onekeyhq/shared/src/modules3rdParty/stripe-v3');
-}
-
 export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
   const { user, isReady: isAuthReady } = useOneKeyAuth();
   const [, setPrimePersistAtom] = usePrimePersistAtom();
@@ -60,7 +54,6 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
       // TODO VPN required
       // await Purchases.setProxyURL('https://api.rc-backup.com/');
 
-      await loadStripeV3();
       const { Purchases } = await loadPurchasesSdkWeb();
 
       // TODO how to configure another userId when user login with another account
