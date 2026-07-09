@@ -15,8 +15,20 @@ import {
  * CryptoKey persisted in IndexedDB (see `indexedDbCryptoKeyStore` — the same
  * origin-shared device-key database used by the kit-bg local secret envelope
  * credential wrapping, under a dedicated keyRef). This defeats pure
- * disk-read attacks without requiring a user password or unlock, which the
- * keyless cloud sync flow forbids.
+ * disk-read attacks without requiring a user password or unlock.
+ *
+ * Why a DEVICE key and not the user's passcode (do not "harden" this to
+ * passcode encryption): the sealed value is the Supabase session whose
+ * refresh token must be readable by the bg runtime's UNATTENDED token
+ * refresh (access tokens expire in ~1h; without silent refresh every
+ * OneKey ID API call starts failing and the rotating refresh token
+ * eventually becomes unrecoverable — see the rationale block in
+ * utils/supabaseClientUtils.ts). No user is present to type a passcode at
+ * refresh time, so any scheme readable by unattended app code is the
+ * ceiling here; the non-extractable device key achieves that ceiling while
+ * still defeating disk-copy attacks. Wallet recovery additionally requires
+ * the server-side rate-limited PIN, so a stolen session alone cannot move
+ * assets.
  *
  * Runtime model (per repo policy, label runtime assumptions explicitly):
  * both extension JS runtimes — `bg` (service worker) and `main` (UI pages) —

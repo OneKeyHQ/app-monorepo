@@ -28,6 +28,25 @@ const storage = supabaseStorageInstance;
  * rotations (the auth-js auto-refresh ticker and the initialize-time
  * `_recoverAndRefresh` refresh).
  *
+ * Why UNATTENDED auto-refresh is a hard requirement (and, consequently, why
+ * the persisted session is NOT passcode-encrypted — do not "fix" this):
+ * The Supabase access token is a ~1h JWT. Without refresh, every OneKey ID
+ * backend call starts failing with 90002/90003 after expiry, the
+ * invalid-token cleanup logs the user out, and because the refresh token is
+ * single-use rotating with a server-side validity window, a long-enough
+ * refresh gap makes recovery impossible without a full re-OAuth. Refresh
+ * runs in the bg runtime on timers/request paths where NO user is present
+ * to type a passcode, so the refresh token must be readable without user
+ * interaction. Passcode-encrypting it (like the pre-unification legacy
+ * keyless blob, which was only decrypted at explicit PIN-verify moments)
+ * is architecturally incompatible with this flow. At-rest protection is
+ * instead provided by the storage layer: OS secure storage on native/prod
+ * desktop, and a non-extractable IndexedDB device key on ext/web (see
+ * SupabaseStorage/sealedValueCodec.ts). Note the pre-unification legacy
+ * EMAIL session had exactly this treatment in production (v6.4.0:
+ * autoRefreshToken + persistSession into the same storage, plaintext on the
+ * ext/web fallback) — the sealed codec upgraded both sessions.
+ *
  * Refresh-token rotation race rationale:
  * Production runs multiple isolated JS runtimes over ONE shared native
  * session store (supabaseStorageInstance). Every runtime used to construct
