@@ -60,7 +60,16 @@ async function getFirmwareUpdateDevSettingsFromStorage() {
 
 async function getHardwareConfigSource(
   originalUrl: string,
+  hardwareConfigUrl?: string,
 ): Promise<IHardwareConfigSource> {
+  const explicitCustomUrl = hardwareConfigUrl?.trim();
+  if (explicitCustomUrl) {
+    return {
+      url: explicitCustomUrl,
+      isCustomSource: true,
+    };
+  }
+
   const devSettings = await getFirmwareUpdateDevSettingsFromStorage();
   const customUrl =
     devSettings?.hardwareConfigUrl?.trim() ||
@@ -79,19 +88,22 @@ async function getHardwareConfigSource(
   };
 }
 
-async function resolveHardwareConfigUrl(url: string) {
+async function resolveHardwareConfigUrl(
+  url: string,
+  hardwareConfigUrl?: string,
+) {
   const sourceUrl = new URL(url);
   if (sourceUrl.hostname !== 'data.onekey.so') {
     return sourceUrl.toString();
   }
 
-  const { url: hardwareConfigUrl, isCustomSource } =
-    await getHardwareConfigSource(sourceUrl.toString());
+  const { url: targetHardwareConfigUrl, isCustomSource } =
+    await getHardwareConfigSource(sourceUrl.toString(), hardwareConfigUrl);
   if (!isCustomSource) {
     return sourceUrl.toString();
   }
 
-  const targetUrl = new URL(hardwareConfigUrl);
+  const targetUrl = new URL(targetHardwareConfigUrl);
   if (targetUrl.pathname === '/') {
     targetUrl.pathname = sourceUrl.pathname;
   }
@@ -130,11 +142,14 @@ async function getConfigFetcherAxios(): Promise<AxiosInstance> {
   return configFetcherAxios;
 }
 
-export async function createConfigFetcher(): Promise<
+export async function createConfigFetcher(params?: {
+  hardwareConfigUrl?: string;
+}): Promise<
   ((url: string) => Promise<RemoteConfigResponse | null>) | undefined
 > {
   const initialConfigSource = await getHardwareConfigSource(
     'https://data.onekey.so/config.json',
+    params?.hardwareConfigUrl,
   );
 
   // Always use configFetcher for an explicit dev config source, even on
@@ -151,7 +166,10 @@ export async function createConfigFetcher(): Promise<
   }
 
   return async (url: string) => {
-    const resolvedUrl = await resolveHardwareConfigUrl(url);
+    const resolvedUrl = await resolveHardwareConfigUrl(
+      url,
+      params?.hardwareConfigUrl,
+    );
     console.log('[HardwareSDK] configFetcher url:', resolvedUrl);
     try {
       const axiosInstance = await getConfigFetcherAxios();
