@@ -215,6 +215,34 @@ let perpsActiveAssetCtxDisplayLastSetAt = 0;
 let perpsActiveAssetCtxDisplayTimer: ReturnType<typeof setTimeout> | undefined;
 let perpsActiveAssetCtxDisplayPending: IPerpsActiveAssetCtxAtom | undefined;
 
+function getPerpsDepositTraceTokenIdentity(token?: {
+  networkId?: string;
+  contractAddress?: string;
+  symbol?: string;
+}) {
+  if (!token) {
+    return undefined;
+  }
+  return `${token.networkId ?? ''}::${token.contractAddress ?? token.symbol ?? ''}`;
+}
+
+function getPerpsDepositTraceToken(token?: IPerpsDepositToken) {
+  if (!token) {
+    return undefined;
+  }
+  return {
+    identity: getPerpsDepositTraceTokenIdentity(token),
+    networkId: token.networkId,
+    symbol: token.symbol,
+    contractAddress: token.contractAddress,
+    decimals: token.decimals,
+    isNative: token.isNative,
+    balanceParsed: token.balanceParsed,
+    fiatValue: token.fiatValue,
+    price: token.price,
+  };
+}
+
 async function setPerpsActiveAssetCtxDisplay(
   nextValue: IPerpsActiveAssetCtxAtom,
 ) {
@@ -627,13 +655,17 @@ export default class ServiceHyperliquid extends ServiceBase {
           networks,
         };
       });
+      let previousToken: IPerpsDepositToken | undefined;
+      let selectedTokenForTrace: IPerpsDepositToken | undefined;
       await perpsDepositTokensAtom.set((prev): IPerpsDepositTokensAtom => {
+        previousToken = prev.currentPerpsDepositSelectedToken;
         const tokens = Object.values(tokensMap).flat();
         const selectedToken = resolvePerpsDepositSelectedToken({
           tokens,
           currentToken: prev.currentPerpsDepositSelectedToken,
           defaultTokens,
         });
+        selectedTokenForTrace = selectedToken;
         return {
           ...prev,
           tokens: tokensMap,
@@ -641,6 +673,14 @@ export default class ServiceHyperliquid extends ServiceBase {
           currentPerpsDepositSelectedToken: selectedToken,
           depositTokenListSource: 'serverConfig',
         };
+      });
+      defaultLogger.perp.deposit.perpDepositMaxTrace({
+        runtime: 'bg',
+        phase: 'serverConfigTokenAtomUpdate',
+        balanceSyncSource: 'serverConfig',
+        resultTokenCount: Object.values(tokensMap).flat().length,
+        previousToken: getPerpsDepositTraceToken(previousToken),
+        selectedToken: getPerpsDepositTraceToken(selectedTokenForTrace),
       });
       return;
     }
@@ -664,12 +704,16 @@ export default class ServiceHyperliquid extends ServiceBase {
       );
       tokensMap[network.networkId] = networkTokens;
     });
+    let previousToken: IPerpsDepositToken | undefined;
+    let selectedTokenForTrace: IPerpsDepositToken | undefined;
     await perpsDepositTokensAtom.set((prev): IPerpsDepositTokensAtom => {
+      previousToken = prev.currentPerpsDepositSelectedToken;
       const selectedToken = resolvePerpsDepositSelectedToken({
         tokens,
         currentToken: prev.currentPerpsDepositSelectedToken,
         defaultTokens,
       });
+      selectedTokenForTrace = selectedToken;
       return {
         ...prev,
         tokens: tokensMap,
@@ -677,6 +721,14 @@ export default class ServiceHyperliquid extends ServiceBase {
         currentPerpsDepositSelectedToken: selectedToken,
         depositTokenListSource: 'serverConfig',
       };
+    });
+    defaultLogger.perp.deposit.perpDepositMaxTrace({
+      runtime: 'bg',
+      phase: 'serverConfigTokenAtomUpdate',
+      balanceSyncSource: 'serverConfig',
+      resultTokenCount: tokens.length,
+      previousToken: getPerpsDepositTraceToken(previousToken),
+      selectedToken: getPerpsDepositTraceToken(selectedTokenForTrace),
     });
   }
 
