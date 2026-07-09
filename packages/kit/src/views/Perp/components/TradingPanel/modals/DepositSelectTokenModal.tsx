@@ -19,7 +19,7 @@ import {
   mergePerpsDepositTokensPreservingOrder,
   shouldUsePerpsDepositLiveWalletTokens,
 } from './depositTokenDisplayUtils';
-import { DepositTokenSelectionContent } from './DepositWithdrawModal';
+import { DepositTokenSelectionContent } from './DepositTokenSelectionContent';
 
 import type { RouteProp } from '@react-navigation/native';
 

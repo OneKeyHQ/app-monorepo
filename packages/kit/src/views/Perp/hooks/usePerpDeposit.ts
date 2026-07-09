@@ -252,7 +252,7 @@ const usePerpDeposit = (
       },
     });
   }, [token]);
-  const { result } = usePromiseResult(
+  const { result, isLoading: isDepositQuoteAccountLoading } = usePromiseResult(
     async () => {
       if (
         selectedAction !== 'deposit' ||
@@ -306,6 +306,43 @@ const usePerpDeposit = (
     return result?.accountId ?? '';
   }, [result?.accountId]);
 
+  const hasValidDepositQuoteInput = useMemo(() => {
+    const amountBN = new BigNumber(amount ?? '0');
+    return (
+      selectedAction === 'deposit' &&
+      !isArbitrumUsdcToken &&
+      !!token?.networkId &&
+      !!checkFromTokenFiatValue &&
+      !!(indexedAccountId || selectedAccountId) &&
+      amountBN.gt(0) &&
+      !amountBN.isNaN()
+    );
+  }, [
+    amount,
+    checkFromTokenFiatValue,
+    indexedAccountId,
+    isArbitrumUsdcToken,
+    selectedAccountId,
+    selectedAction,
+    token?.networkId,
+  ]);
+
+  const hasDepositQuoteAccount = useMemo(
+    () => Boolean(result?.fromUserAddress && result?.perpReceiverAddress),
+    [result?.fromUserAddress, result?.perpReceiverAddress],
+  );
+
+  const shouldWaitForDepositQuoteAccount = useMemo(
+    () =>
+      hasValidDepositQuoteInput &&
+      (isDepositQuoteAccountLoading === true || !hasDepositQuoteAccount),
+    [
+      hasDepositQuoteAccount,
+      hasValidDepositQuoteInput,
+      isDepositQuoteAccountLoading,
+    ],
+  );
+
   const getNextQuoteRequestId = useCallback(() => {
     quoteRequestIdRef.current += 1;
     return quoteRequestIdRef.current;
@@ -333,10 +370,15 @@ const usePerpDeposit = (
       selectedAction !== 'deposit' ||
       !token ||
       isArbitrumUsdcToken ||
-      !checkFromTokenFiatValue
+      !checkFromTokenFiatValue ||
+      !hasValidDepositQuoteInput
     ) {
       await backgroundApiProxy.serviceSwap.cancelFetchPerpDepositQuote();
       resetPerpDepositQuote(requestId);
+      return;
+    }
+    if (shouldWaitForDepositQuoteAccount) {
+      setPerpDepositQuoteLoading(true);
       return;
     }
     try {
@@ -382,9 +424,11 @@ const usePerpDeposit = (
     selectedAction,
     isArbitrumUsdcToken,
     checkFromTokenFiatValue,
+    hasValidDepositQuoteInput,
     resetPerpDepositQuote,
     result?.fromUserAddress,
     result?.perpReceiverAddress,
+    shouldWaitForDepositQuoteAccount,
     token,
   ]);
 
@@ -1282,18 +1326,23 @@ const usePerpDeposit = (
     });
   }, [perpDepositQuote?.result?.allowanceResult, intl, shouldSignEveryTime]);
 
+  const effectivePerpDepositQuoteLoading = useMemo(
+    () => perpDepositQuoteLoading || shouldWaitForDepositQuoteAccount,
+    [perpDepositQuoteLoading, shouldWaitForDepositQuoteAccount],
+  );
+
   const checkRefreshQuote = useMemo(() => {
     return shouldRefreshPerpsDepositQuote({
       selectedAction,
       isArbitrumUsdcToken,
       canQuoteDepositAmount: !!checkFromTokenFiatValue,
-      isQuoteLoading: perpDepositQuoteLoading,
+      isQuoteLoading: effectivePerpDepositQuoteLoading,
       tokenAmount: amount,
       quoteToAmount: perpDepositQuote?.result?.toAmount,
     });
   }, [
     amount,
-    perpDepositQuoteLoading,
+    effectivePerpDepositQuoteLoading,
     selectedAction,
     checkFromTokenFiatValue,
     perpDepositQuote?.result?.toAmount,
@@ -1302,7 +1351,7 @@ const usePerpDeposit = (
 
   return {
     perpDepositQuote,
-    perpDepositQuoteLoading,
+    perpDepositQuoteLoading: effectivePerpDepositQuoteLoading,
     shouldApprove: !!perpDepositQuote?.result?.allowanceResult,
     shouldResetApprove:
       perpDepositQuote?.result?.allowanceResult?.shouldResetApprove,
