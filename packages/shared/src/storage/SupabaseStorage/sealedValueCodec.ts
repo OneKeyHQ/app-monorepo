@@ -98,6 +98,27 @@ function parseSealedValueEnvelope(
   return null;
 }
 
+// Best-effort request to mark this origin's storage persistent, so the
+// IndexedDB database holding the device key is excluded from
+// storage-pressure eviction on web — losing that key costs the user a
+// re-OAuth (session unrecoverable). Fire-and-forget by design: browsers may
+// deny silently (grant heuristics vary and there is no fallback action to
+// take); extension origins already hold `unlimitedStorage` and Electron
+// grants by default, where this is a harmless no-op. Safari's ITP 7-day
+// script-storage deletion is a separate mechanism this does NOT exempt.
+let persistentStorageRequested = false;
+function requestPersistentStorageBestEffort() {
+  if (persistentStorageRequested) {
+    return;
+  }
+  persistentStorageRequested = true;
+  try {
+    void globalThis?.navigator?.storage?.persist?.()?.catch?.(() => {});
+  } catch {
+    // API unavailable in this runtime (e.g. React Native) — nothing to do.
+  }
+}
+
 export function buildSupabaseSealedValueCodec({
   cryptoGlobal,
   dbName,
@@ -121,12 +142,15 @@ export function buildSupabaseSealedValueCodec({
           // getOrCreateCryptoKey validates WebCrypto + IndexedDB availability
           // and races safely against the other runtime (single readwrite
           // transaction), so both runtimes converge on one persisted key.
-          return await getOrCreateCryptoKey({
+          const deviceKey = await getOrCreateCryptoKey({
             cryptoGlobal,
             dbName,
             indexedDBInstance,
             keyRef,
           });
+          // This runtime now depends on IndexedDB durability for the key.
+          requestPersistentStorageBestEffort();
+          return deviceKey;
         } catch (error) {
           console.error(
             'SupabaseStorage sealed-value device key unavailable, falling back to plaintext storage:',
