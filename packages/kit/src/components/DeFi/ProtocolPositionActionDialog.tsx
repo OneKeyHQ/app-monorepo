@@ -8,11 +8,14 @@ import {
   Button,
   Checkbox,
   Dialog,
+  ScrollView,
   SizableText,
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
+import type { useInPageDialog } from '@onekeyhq/components';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
@@ -48,8 +51,13 @@ import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
-import { showDeFiActionTxConfirmDialog } from './DeFiActionTxConfirmResult';
+import {
+  type IDeFiActionTxConfirmDialogResult,
+  showDeFiActionTxConfirmDialog,
+} from './DeFiActionTxConfirmResult';
 import { resolveProtocolLendingDefiFillableAmountState } from './protocolLendingActionUtils';
+import { shouldShowProtocolPositionActionInlineSubmitError } from './protocolPositionActionErrorUtils';
+import { resolveProtocolPositionActionDialogLayout } from './protocolPositionActionLayoutUtils';
 import {
   ProtocolValueCell,
   isProtocolAssetValueUnavailable,
@@ -748,12 +756,16 @@ type IProtocolPositionActionSubmitParams = {
   isMaxAmount?: boolean;
   // Position holds rewards — drives the "Remove & Claim rewards" tx label.
   hasRewards?: boolean;
-  // When provided and returning true at failure time, the hook skips its
-  // error Toast — the caller renders the error inline instead. A callback
-  // (not a boolean) so the dialog can fall back to the Toast for errors
-  // thrown after it has already closed (e.g. tx-confirm init failures).
-  isErrorToastSuppressed?: () => boolean;
+  // When provided and returning true for a specific failure, the hook skips
+  // its error Toast because the caller renders that error inline instead.
+  isErrorToastSuppressed?: (error: unknown) => boolean;
   onBeforeNavigateConfirm?: () => void | Promise<void>;
+  onSettleResult?: (result: {
+    status: IDeFiActionTxConfirmDialogResult;
+    data: ISendTxOnSuccessData[];
+  }) => boolean | void | Promise<boolean | void>;
+  onConfirmFail?: (error: Error) => void;
+  onConfirmCancel?: () => void;
 };
 
 function buildDeFiActionExtraParams({
@@ -818,6 +830,9 @@ function useProtocolPositionActionSubmit({
       hasRewards,
       isErrorToastSuppressed,
       onBeforeNavigateConfirm,
+      onSettleResult,
+      onConfirmFail,
+      onConfirmCancel,
     }: IProtocolPositionActionSubmitParams) => {
       if (selectedAssets.length === 0) {
         throw new OneKeyLocalError('DeFi action asset is missing');
@@ -1004,16 +1019,25 @@ function useProtocolPositionActionSubmit({
                 networkId,
                 data,
               });
+              const shouldContinueSuccess = await onSettleResult?.({
+                status: finalStatus,
+                data,
+              });
+              if (shouldContinueSuccess === false) {
+                return;
+              }
               if (finalStatus !== EOnChainHistoryTxStatus.Success) {
                 return;
               }
               await onSuccess?.({ accountId, networkId, data });
             },
             onFail: (error: Error) => {
+              onConfirmFail?.(error);
               if (isTxConfirmInitializing) {
                 txConfirmInitError = error;
               }
             },
+            onCancel: onConfirmCancel,
           });
         } finally {
           isTxConfirmInitializing = false;
@@ -1023,7 +1047,7 @@ function useProtocolPositionActionSubmit({
         }
       } catch (error) {
         if (!isUserRejectedErrorMessage({ error, intl })) {
-          if (isErrorToastSuppressed?.()) {
+          if (isErrorToastSuppressed?.(error)) {
             errorToastUtils.toastIfErrorDisable(error);
           } else {
             showProtocolPositionActionErrorToast(error);
@@ -1488,6 +1512,9 @@ function ProtocolPositionActionDialogContent({
   ) => void | Promise<void>;
 }) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
+  const { bodyMaxHeight, feedbackMaxHeight } =
+    resolveProtocolPositionActionDialogLayout({ gtMd });
   const submitProtocolPositionAction = useProtocolPositionActionSubmit({
     accountId,
     networkId,
@@ -1498,6 +1525,9 @@ function ProtocolPositionActionDialogContent({
       currencyInfo: { symbol: currencySymbol },
     },
   ] = useSettingsPersistAtom();
+  const closeRef = useRef<(() => void | Promise<void>) | undefined>(undefined);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   // Percent as typed text so the hero is directly editable. Invalid or empty
   // text zeroes the preview and disables confirm (buildDeFiActionBps returns
   // undefined outside integer 1..100) while keeping the field editable.
@@ -1529,6 +1559,11 @@ function ProtocolPositionActionDialogContent({
     () => (action.assets[0] ? [0] : []),
   );
   const [submitError, setSubmitError] = useState<string | undefined>(undefined);
+
+  const releaseSubmitGuard = useCallback(() => {
+    submittingRef.current = false;
+    setSubmitting(false);
+  }, []);
 
   const selectedAssets = useMemo(
     () =>
@@ -1828,17 +1863,28 @@ function ProtocolPositionActionDialogContent({
     close?: () => void | Promise<void>;
     preventClose: () => void;
   }) => {
-    if (selectedAssets.length === 0) {
-      preventClose();
-      return;
-    }
-
+    preventClose();
+    if (selectedAssets.length === 0 || submittingRef.current) return;
+    closeRef.current = close;
+    submittingRef.current = true;
+    setSubmitting(true);
     setSubmitError(undefined);
-    // Keep the action dialog open while the server builds the transaction so
-    // the button can show loading. Close it immediately before opening any
-    // signing/tx-confirm modal, otherwise the old dialog stays stacked above
-    // the confirm page until the async submit finishes.
-    let isActionDialogClosed = false;
+    let submitGuardReleased = false;
+    const releaseSubmitGuardOnce = () => {
+      if (submitGuardReleased) return;
+      submitGuardReleased = true;
+      releaseSubmitGuard();
+    };
+    const releaseSubmitGuardOnceWithError = (error: Error) => {
+      if (
+        !submitGuardReleased &&
+        !isUserRejectedErrorMessage({ error, intl }) &&
+        shouldShowProtocolPositionActionInlineSubmitError(error)
+      ) {
+        setSubmitError(getErrorMessage(error));
+      }
+      releaseSubmitGuardOnce();
+    };
     try {
       await submitProtocolPositionAction({
         action,
@@ -1847,24 +1893,26 @@ function ProtocolPositionActionDialogContent({
         percent: isPercentAction ? actionPercent : undefined,
         amount: useManualAmountInput ? amount : undefined,
         isMaxAmount: useManualAmountInput ? isMaxAmount : undefined,
-        // Errors raised while the dialog is still open render inline below;
-        // once it has closed, the hook's Toast is the only visible surface.
-        isErrorToastSuppressed: () => !isActionDialogClosed,
-        onBeforeNavigateConfirm: async () => {
-          if (isActionDialogClosed) return;
-          isActionDialogClosed = true;
-          await close?.();
+        isErrorToastSuppressed:
+          shouldShowProtocolPositionActionInlineSubmitError,
+        onSettleResult: ({ status }) => {
+          releaseSubmitGuardOnce();
+          void closeRef.current?.();
+          if (status !== EOnChainHistoryTxStatus.Success) {
+            return false;
+          }
         },
+        onConfirmFail: releaseSubmitGuardOnceWithError,
+        onConfirmCancel: releaseSubmitGuardOnce,
       });
     } catch (error) {
       if (
-        !isActionDialogClosed &&
-        !isUserRejectedErrorMessage({ error, intl })
+        !isUserRejectedErrorMessage({ error, intl }) &&
+        shouldShowProtocolPositionActionInlineSubmitError(error)
       ) {
         setSubmitError(getErrorMessage(error));
       }
-      // Keep the dialog open so the user can retry instead of auto-closing.
-      preventClose();
+      releaseSubmitGuardOnce();
     }
   };
 
@@ -2012,46 +2060,79 @@ function ProtocolPositionActionDialogContent({
     );
   }
 
+  const showLiquidationWarning =
+    Boolean(hasDebts) && action.action === EDeFiPositionAction.Withdraw;
+  const inlineErrorMessage = submitError ?? repayWalletBalanceError;
+  const showTransactionCountNotice = selectedAssets.length > 1;
+  const showFeedbackRegion =
+    showLiquidationWarning ||
+    Boolean(inlineErrorMessage) ||
+    showTransactionCountNotice;
+
   return (
     <YStack gap="$5">
       <Dialog.Header>
         <Dialog.Title>{actionLabel}</Dialog.Title>
       </Dialog.Header>
 
-      {selectable ? assetSelector : null}
-      {actionBody}
+      <ScrollView
+        maxHeight={bodyMaxHeight}
+        mx="$-5"
+        px="$5"
+        nestedScrollEnabled
+      >
+        <YStack gap="$5">
+          {selectable ? assetSelector : null}
+          {actionBody}
+        </YStack>
+      </ScrollView>
 
-      {hasDebts && action.action === EDeFiPositionAction.Withdraw ? (
-        <Alert
-          type="warning"
-          icon="InfoCircleOutline"
-          description={intl.formatMessage({
-            id: ETranslations.defi_liquidation_withdraw_desc,
-          })}
-        />
-      ) : null}
+      {showFeedbackRegion ? (
+        <ScrollView
+          maxHeight={feedbackMaxHeight}
+          mx="$-5"
+          px="$5"
+          nestedScrollEnabled
+        >
+          <YStack gap="$3">
+            {showLiquidationWarning ? (
+              <Alert
+                type="warning"
+                icon="InfoCircleOutline"
+                description={intl.formatMessage({
+                  id: ETranslations.defi_liquidation_withdraw_desc,
+                })}
+              />
+            ) : null}
 
-      {submitError || repayWalletBalanceError ? (
-        <Alert
-          type="critical"
-          icon="ErrorOutline"
-          title={intl.formatMessage({
-            id: ETranslations.global_an_error_occurred,
-          })}
-          description={submitError ?? repayWalletBalanceError}
-        />
-      ) : null}
+            {inlineErrorMessage ? (
+              <Alert
+                type="critical"
+                icon="ErrorOutline"
+                title={intl.formatMessage({
+                  id: ETranslations.global_an_error_occurred,
+                })}
+                description={inlineErrorMessage}
+              />
+            ) : null}
 
-      {selectedAssets.length > 1 ? (
-        // Each selected asset builds its own transaction (approvals discovered
-        // at build time may add more), so hardware-wallet users know how many
-        // confirmations to expect. Count shown is the business-tx floor.
-        <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
-          {intl.formatMessage(
-            { id: ETranslations.address_risk_check_txs__msg },
-            { count: selectedAssets.length },
-          )}
-        </SizableText>
+            {showTransactionCountNotice ? (
+              // Each selected asset builds its own transaction (approvals discovered
+              // at build time may add more), so hardware-wallet users know how many
+              // confirmations to expect. Count shown is the business-tx floor.
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                textAlign="center"
+              >
+                {intl.formatMessage(
+                  { id: ETranslations.address_risk_check_txs__msg },
+                  { count: selectedAssets.length },
+                )}
+              </SizableText>
+            ) : null}
+          </YStack>
+        </ScrollView>
       ) : null}
 
       <Dialog.Footer
@@ -2060,8 +2141,8 @@ function ProtocolPositionActionDialogContent({
         onConfirmText={actionLabel}
         onConfirm={handleConfirm}
         confirmButtonProps={{
-          disabled: isConfirmDisabled,
-          loading: isRepayWalletBalancePending,
+          disabled: isConfirmDisabled || submitting,
+          loading: submitting || isRepayWalletBalancePending,
         }}
       />
     </YStack>
@@ -2076,6 +2157,7 @@ function showProtocolPositionActionDialog({
   hasDebts,
   rewardAssets,
   onSuccess,
+  dialog,
 }: {
   accountId: string;
   networkId: string;
@@ -2086,8 +2168,10 @@ function showProtocolPositionActionDialog({
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
   ) => void | Promise<void>;
+  dialog?: ReturnType<typeof useInPageDialog>;
 }) {
-  Dialog.show({
+  const DialogInstance = dialog ?? Dialog;
+  DialogInstance.show({
     showFooter: false,
     renderContent: (
       <ProtocolPositionActionDialogContent
