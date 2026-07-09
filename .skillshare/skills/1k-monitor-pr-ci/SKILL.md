@@ -9,6 +9,36 @@ argument-hint: "<PR number or URL> [polling interval]"
 
 Monitor a pull request's CI checks and review comments. Auto-fix CI failures, address inline review comments, reply to reviewers, and resolve threads.
 
+For a one-shot, low-context PR status summary, use:
+
+```bash
+yarn agent:check --profile ci --pr <PR_NUMBER>
+```
+
+For monitor automation, prefer the stable machine-readable contract:
+
+```bash
+yarn agent:check --profile ci --pr <PR_NUMBER> --json-file /tmp/agent-check.json
+```
+
+Read `/tmp/agent-check.json` instead of parsing terminal text. The report has
+`schemaVersion: 1`, top-level `status` / `exitCode` / `failureReasons`, and
+stable nested objects for `remote.pr`, `remote.checks`, and `remote.review`.
+
+To reply to and resolve a specific review thread without starting the monitor:
+
+```bash
+yarn agent:review-thread --pr <PR_NUMBER> --list
+yarn agent:review-thread --pr <PR_NUMBER> --thread <THREAD_ID> --reply-file <FILE>
+```
+
+Use the GraphQL thread id from `--list` or
+`remote.review.threads.unresolvedItems[].id`; numeric indexes are only for
+`--dry-run` validation.
+
+Use this monitor workflow only when the user wants polling, automatic fixes, or
+batch review-thread handling.
+
 ## Usage
 
 ```
@@ -56,57 +86,34 @@ If `$ARGUMENTS` is empty, auto-detect PR from current branch and use default 6m 
 
 Each iteration (`[Check N/30]`):
 
-### 1a. Fetch ALL data — EVERY iteration
+### 1a. Fetch agent-check JSON — EVERY iteration
 
-**CRITICAL: You MUST run ALL FOUR queries in parallel on EVERY iteration.** This is the most common failure mode — skipping query 3 or 4 on subsequent iterations causes new review comments to be silently ignored. Do NOT skip any query even if the previous iteration had no threads.
+Use `agent:check` as the single read path. It fetches CI checks, PR metadata,
+inline comments, and GraphQL review-thread state, then writes a stable
+`schemaVersion: 1` JSON report.
 
-   ```bash
-   # 1. CI check status
-   gh pr checks <PR_NUMBER> --json bucket,name,state,link,startedAt,completedAt,workflow
+```bash
+AGENT_CHECK_JSON="$(mktemp -t agent-check.XXXXXX.json)"
+yarn agent:check --profile ci --pr <PR_NUMBER> --json-file "$AGENT_CHECK_JSON" || true
+```
 
-   # 2. PR-level reviews and general comments
-   gh pr view <PR_NUMBER> --json state,reviews,comments,reviewDecision,url
+Do not treat a non-zero `agent:check` exit code as a command failure by itself.
+For monitor purposes, non-zero means the JSON contains actionable state such as
+pending CI, failed CI, unresolved review threads, draft PR, blocked merge state,
+or truncated review data.
 
-   # 3. Inline review comments (e.g. from Devin, human reviewers)
-   gh api repos/{owner}/{repo}/pulls/<PR_NUMBER>/comments \
-     --jq '.[] | {user: .user.login, body: .body, path: .path, line: .original_line, created_at: .created_at}'
+Read these fields from the JSON report:
 
-   # 4. Unresolved review threads (GraphQL — provides thread IDs for resolving)
-   gh api graphql -f query='
-   query($owner: String!, $repo: String!, $pr: Int!) {
-     repository(owner: $owner, name: $repo) {
-       pullRequest(number: $pr) {
-         id
-         reviewThreads(first: 100) {
-           nodes {
-             id
-             isResolved
-             isOutdated
-             path
-             line
-             startLine
-             diffSide
-             comments(first: 20) {
-               nodes {
-                 id
-                 databaseId
-                 body
-                 author {
-                   login
-                 }
-                 createdAt
-               }
-             }
-           }
-         }
-       }
-     }
-   }' -f owner="OWNER" -f repo="REPO" -F pr=PR_NUMBER
-   ```
+- `status`, `exitCode`, `failureReasons`
+- `remote.pr.{number,url,state,reviewDecision,mergeStateStatus,isDraft}`
+- `remote.checks.counts`, `remote.checks.failed`, `remote.checks.pending`, `remote.checks.gateFailed`
+- `remote.review.threads.{unresolved,activeUnresolved,dataComplete,unresolvedItems}`
+- `remote.review.changesRequestedBy`
 
-   > **Why all four?** `gh pr checks` only returns CI status. `gh pr view --json reviews` returns PR-level reviews but NOT inline file comments. `gh api .../pulls/.../comments` is the ONLY way to get inline code review comments. The GraphQL query is the ONLY way to get thread IDs and resolution status. New comments can arrive at ANY time (from Devin, human reviewers, CI bots), so you MUST check on every iteration — not just the first.
-
-**GraphQL fallback**: If GraphQL fails (e.g. token permission issues), fall back to the REST API for inline comments:
+**Fallback**: If `agent:check` is unavailable or returns an unsupported
+`schemaVersion`, use raw `gh` queries for the same four signals. GraphQL remains
+required for thread IDs and resolution state. If GraphQL fails, fall back to the
+REST API for inline comments:
 
 ```bash
 gh api repos/{owner}/{repo}/pulls/{pr_number}/comments \
@@ -136,11 +143,11 @@ Unresolved threads: 3
 
 ### 1c. Decide next action
 
-Before choosing an action, classify the `gh pr checks` output into three buckets:
+Before choosing an action, classify the `agent:check` JSON into three buckets:
 
-- **Normal failed checks**: any failed check except `release-ready-merge-gate`
-- **Gate failure**: failed check named exactly `release-ready-merge-gate`
-- **Pending checks**: any check still pending or in progress
+- **Normal failed checks**: `remote.checks.failed`
+- **Gate failure**: `remote.checks.gateFailed`
+- **Pending checks**: `remote.checks.pending`
 
 If `release-ready-merge-gate` is failing, treat it as an expected merge blocker rather than a CI failure to auto-fix.
 
@@ -159,7 +166,7 @@ If `release-ready-merge-gate` is failing, treat it as an expected merge blocker 
 For each failed check:
 
 1. Identify the actionable failed check from the latest poll result.
-   - Use the current iteration's `gh pr checks --json ...` output, not stale output from a previous iteration.
+   - Use the current iteration's `remote.checks.failed` output, not stale output from a previous iteration.
    - Preserve the failed check's `name` and `link`.
    - A rerun can expose a different failure later in the same check after an earlier error is fixed. For example, `lint (24.x)` may fail first on formatting, then fail again on package-version consistency. If the same check name fails again after a push, treat it as a new Step 2 item and continue fixing until no normal failed checks remain.
 

@@ -1,136 +1,122 @@
-# CLAUDE.md
+# Agent Instructions
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+OneKey is a TypeScript React/React Native monorepo for desktop, mobile, web,
+and browser extension wallet apps. Keep changes scoped, typed, cross-platform
+aware, and aligned with existing package boundaries.
 
-## Repository Overview
+## Core Rules
 
-OneKey is an open-source multi-chain crypto wallet with a monorepo architecture supporting desktop, mobile, web, and browser extension platforms. The codebase uses Yarn workspaces with TypeScript and React/React Native.
+- Do not remove existing code/components unless the request explicitly requires it.
+- TypeScript must stay precise: no fallback `never[]`, no avoidable `any`, and no
+  `@ts-ignore` without documented justification.
+- Prefer platform-specific files or `Platform.select` for platform behavior.
+  Do not apply global CSS/style fixes for platform-specific bugs.
+- All comments must be in English and explain non-obvious logic only.
+- Never modify generated translations (`translations.ts`, locale JSON files).
 
-## Language & Types
+## Runtime Model
 
-Primary language: TypeScript. When making code changes, always ensure TypeScript types are correct — never use fallback types like `never[]` when a specific type is expected. Run `tsc --noEmit` on affected files after edits.
+Production native apps run two JS runtimes in the same native process:
+`main` (UI) and `background` (bg). They have isolated JS heaps; JS objects are
+not shared. Native resources such as MMKV, DB handles, file handles, and native
+singletons may be shared underneath.
 
-## Platform Considerations
+For any native, storage, state, memory, startup, or crash analysis, explicitly
+state:
 
-This is a React Native project targeting iOS, Android, and Web. Always consider platform-specific behavior when making changes. Use Platform.select or platform-specific file extensions (.ios.ts, .android.ts, .web.ts) where appropriate. Never apply global CSS/style changes when platform-specific fixes are needed.
+- Runtime scope: `main`, `bg`, or both.
+- Native resource ownership: shared native instance or per-runtime instance.
+- JS heap copies: whether data is deserialized once per runtime.
+- Timing/order: bg and main initialize independently; do not assume readiness.
 
-## Runtime Threading Model - ALWAYS ASSUME IN NATIVE ANALYSIS
+Every conclusion must label the runtime(s) it concerns and distinguish shared
+native resources from per-runtime JS copies. main-JS and bg-JS bundles ship
+version-locked; practical version skew is native-vs-JS, not bg-vs-main.
 
-**Production runs TWO JS runtimes: `main` (UI) and `background` (bg).** They live in the **same native process** but in **isolated JS contexts** (separate Hermes/JS heaps — JS-level memory is NOT shared between them). Dev environments are often a single runtime, so NEVER infer production memory/timing/concurrency behavior from dev.
+## Import Hierarchy
 
-When analyzing ANY native / storage / state / memory / startup / crash issue, you MUST first answer:
+Never violate this dependency order:
 
-- **Where does this code run** — `main`, `bg`, or both?
-- **Native resources** (MMKV, DB handles, file handles, native singletons): shared across both runtimes, or one per runtime? (Native singletons like an MMKV instance are typically shared — one native copy.)
-- **JS-heap copies**: does the same data get deserialized/resident **once per runtime** (×2)? JS objects are NOT shared even when the underlying native store is.
-- **Timing/order**: bg and main init independently; don't assume one is ready when the other runs.
+- `@onekeyhq/shared`: must not import other OneKey packages.
+- `@onekeyhq/components`: may import `shared` only.
+- `@onekeyhq/kit-bg`: may import `shared` and `core` only; never `components`
+  or `kit`.
+- `@onekeyhq/kit`: may import `shared`, `components`, and `kit-bg`.
+- Apps may import all packages.
 
-**Every conclusion MUST explicitly label which runtime(s) it concerns** (`main` / `bg` / both), and MUST distinguish a single shared native resource from per-runtime JS-heap copies. State this distinction even when it turns out not to matter — surfacing it is the check.
+## Security
 
-Related: main-JS & bg-JS bundles ship version-locked (atomic OTA), so the only real version skew is native-vs-JS, never bg-vs-main.
+- Never commit secrets, API keys, private keys, seeds, mnemonics, or sensitive
+  user data.
+- Never log sensitive data or bypass authentication, validation, CSP, transaction
+  verification, or risk checks.
+- Keep hardware wallet communication isolated in background processes.
+- Do not modify cryptographic functions without deep security review.
+- Use `stringUtils.stableStringify()` for deterministic crypto/hash/signature
+  serialization; never use raw `JSON.stringify()` for those paths.
 
-## Import Hierarchy Rules - STRICTLY ENFORCED
+## Restricted Patterns
 
-**CRITICAL**: Violating these rules WILL break the build and cause circular dependencies.
+- Use `toLowerCase()` / `toUpperCase()`, never locale variants.
+- Do not import `@onekeyfe/hd-core` directly; use `await CoreSDKLoader()`.
+- Do not import `localDbInstance` directly; use `localDb`.
+- Do not commit code that fails linting or TypeScript checks.
 
-**HIERARCHY (NEVER violate this order):**
-- `@onekeyhq/shared` - **FORBIDDEN** to import from any other OneKey packages
-- `@onekeyhq/components` - **ONLY** allowed to import from `shared`
-- `@onekeyhq/kit-bg` - **ONLY** allowed to import from `shared` and `core` (NEVER `components` or `kit`)
-- `@onekeyhq/kit` - Can import from `shared`, `components`, and `kit-bg`
-- Apps (desktop/mobile/ext/web) - Can import from all packages
+## Data And Dependencies
 
-## Security Considerations - ABSOLUTE REQUIREMENTS
+- Local DB schema changes must keep Realm and IndexedDB definitions in sync and
+  bump `LOCAL_DB_VERSION` in `packages/kit-bg/src/dbs/local/consts.ts`.
+- Schema changes include Realm properties, Realm record getters, IndexedDB store
+  names/buckets, schema maps, and persisted model fields.
+- For patch-package, edit files under `node_modules/`, regenerate with
+  `npx patch-package <package-name>`, and verify patches exclude build artifacts.
 
-**FORBIDDEN ACTIONS** (NEVER DO THESE):
-- ❌ **NEVER** commit sensitive information (API keys, private keys, secrets, mnemonics)
-- ❌ **NEVER** log sensitive data in console or files
-- ❌ **NEVER** expose private keys or seeds in any form
-- ❌ **NEVER** bypass security validations or authentication
-- ❌ **NEVER** modify cryptographic functions without deep security review
+## Debugging And Verification
 
-**MANDATORY SECURITY PRACTICES**:
-- ✅ Hardware wallet communication MUST remain isolated in background processes
-- ✅ Encryption using AES-256 for local storage is REQUIRED
-- ✅ Transaction verification and risk detection MUST NOT be bypassed
-- ✅ Content Security Policy MUST be maintained in extensions
-- ✅ ALL user inputs MUST be validated and sanitized
-- ✅ Crypto operations MUST follow established patterns
+- If a fix attempt fails, re-analyze the root cause from scratch; do not retry
+  the same approach with small tweaks.
+- For visual bugs, first confirm platform plus expected vs actual behavior.
+- For Electron, DApp, UI, startup, and interaction fixes, state repro condition,
+  what does not count as passing, and final pass condition before editing.
+- Do not treat element existence as proof. Verify active tab state, real webview
+  rendering, URL/title/content readiness, and console/log evidence where relevant.
 
-## Restricted Patterns - STRICTLY FORBIDDEN
+## Git And Commands
 
-- ❌ **NEVER** use `toLocaleLowerCase()` or `toLocaleUpperCase()` → Use `toLowerCase()` and `toUpperCase()` instead
-- ❌ **NEVER** directly import from `'@onekeyfe/hd-core'` → ALWAYS use `const {} = await CoreSDKLoader()` pattern
-- ❌ **NEVER** import `localDbInstance` directly → ALWAYS use `localDb` instead
-- ❌ **NEVER** modify auto-generated files (`translations.ts`, locale JSON files)
-- ❌ **NEVER** bypass TypeScript types with `any` or `@ts-ignore` without documented justification
-- ❌ **NEVER** commit code that fails linting or TypeScript compilation
-- ❌ **NEVER** use `JSON.stringify()` for cryptographic operations → ALWAYS use `stringUtils.stableStringify()` for deterministic serialization when computing hashes or signatures
+- Base branch is `x`; never work directly on `x`.
+- Commit format: `type: short description`.
+- Do not add Co-Authored-By, Generated with, or tool attribution lines.
+- Before commit: `yarn agent:check --profile commit`.
+- Before PR readiness checks: `yarn agent:check --profile pr`.
+- For remote-only CI/review status: `yarn agent:check --profile ci --pr <number>`.
+- To reply to and resolve one review thread: list with
+  `yarn agent:review-thread --pr <number> --list`, then run
+  `yarn agent:review-thread --pr <number> --thread <thread-id> --reply-file <file>`.
+- Use lower-level lint/typecheck/GitHub commands only when debugging a failed
+  `agent:check` step; detailed logs are under `node_modules/.cache/agent-checks`.
+- Use targeted tests when risk or scope requires them. Prefer explicit Jest paths,
+  workspace test scripts, or documented scenario commands over the ambiguous root
+  `yarn test` alias.
 
-## Code Changes
-
-When fixing bugs, do NOT remove existing code/components that weren't part of the request. Only modify what is explicitly asked for. If you believe something should be removed, ask first.
-
-## Database Schema Changes
-
-When modifying local database schema-related code, always keep Realm DB and IndexedDB definitions in sync and bump `LOCAL_DB_VERSION` in `packages/kit-bg/src/dbs/local/consts.ts` in the same change. This includes Realm schema properties, Realm `record` getters that convert objects to plain JSON records, IndexedDB store names or bucket assignments, local DB schema maps, and persisted model fields. Verify that neither the Realm schema files nor the IndexedDB schema/type maps are missing the corresponding update. Do not rely on optional fields or default values to skip the version bump.
-
-## Dependencies & Patching
-
-When working with patch-package, never edit .patch files directly. Instead, modify the source files in node_modules/ and run `npx patch-package <package-name>` to regenerate the patch. Always verify the generated patch excludes build artifacts (e.g., android/build/).
-
-## Git Basics
-
-- **Main branch**: `x` - Always use `x` as the base branch (not `master` or `main`)
-- **NEVER** work directly on the `x` branch → ALWAYS create feature branches
-- **Commit format**: `type: short description` (feat, fix, refactor, chore, docs)
-- Do NOT include "Co-Authored-By" signatures in commits (no Claude, no Happy, no AI tool attribution)
-- Do NOT include "Generated with" or "via" tool attribution lines in commit messages
-- When creating PRs or commits, ensure the git history is clean. Never amend into merge commits. If multiple fixes are needed, squash them into logical commits before pushing.
-
-## Debugging
-
-- After making a fix attempt that the user reports as not working, do NOT retry the same approach with minor tweaks. Instead, re-analyze the root cause from scratch, explain your new hypothesis, and propose a fundamentally different approach before implementing.
-- When the user reports a visual bug, ask for the specific platform and confirm the expected vs actual behavior before attempting a fix. Do not assume the root cause — misdiagnosis wastes rounds.
-
-## Essential Commands
+Common commands:
 
 ```bash
-yarn app:desktop    # Start desktop dev
-yarn app:web        # Start web dev
-yarn app:ext        # Start extension dev
-yarn app:ios        # Start iOS dev
-yarn app:android    # Start Android dev
-yarn lint:staged    # MANDATORY: Lint staged files before commit
-yarn tsc:staged     # MANDATORY: Type check staged files before commit
-yarn test           # MANDATORY: Run tests
+yarn app:desktop
+yarn app:web
+yarn app:ext
+yarn app:ios
+yarn app:android
+yarn agent:check --profile commit
+yarn agent:check --profile pr
+yarn agent:check --profile ci --pr <number>
+yarn agent:review-thread --pr <number> --list
 ```
 
-## Skills Reference
+## Skills And CLI
 
-For detailed guidance, use these skills (invoke with `/skill-name`):
-
-- **1k-dev-commands** - Development and build commands
-- **1k-architecture** - Project structure and import rules
-- **1k-state-management** - Jotai atom patterns
-- **1k-coding-patterns** - React and TypeScript best practices
-- **1k-git-workflow** - Git branching and commit conventions
-- **1k-i18n** - Internationalization guidelines
-- **1k-cross-platform** - Platform-specific development
-- **1k-trade-swap-market** - Trade/Swap/Market domain workflow, pitfalls, code map, and validation
-- **1k-adding-chains** - Adding new blockchain support
-- **1k-bundle-release** - Bundle hot update release management (cherry-pick, diff-check, publish)
-
-## CLI Skills (external plugin)
-
-The `onekey` CLI (`apps/cli/`) supports App Bot Wallet login (`onekey auth
-login --app-transfer`) and hardware wallet login (`onekey auth login
---hardware`). Skill packs live in the external repo
-<https://github.com/OneKeyHQ/onekey-wallet-skills> and are installed via
-`/plugin install onekey-wallet-skills`; do not re-add them to this monorepo.
-
-After `onekey auth login --hardware`, the active session is hardware-backed,
-so normal `onekey balance`, `onekey transfer`, `onekey swap …` run against the
-device automatically — no `--hardware` flag on those commands. Device
-lifecycle commands live under `onekey device <subcommand>` (search, verify,
-change-pin, toggle-passphrase, settings).
+- Prefer repo skills in `.skillshare/skills` for detailed workflows such as
+  architecture, i18n, cross-platform work, swap/market, bundle release, PRs,
+  CI monitoring, and UI verification.
+- `apps/cli/` has its own guidance. External OneKey wallet CLI skill packs live
+  in `https://github.com/OneKeyHQ/onekey-wallet-skills`; do not re-add them to
+  this monorepo.
