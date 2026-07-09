@@ -17,6 +17,7 @@ import { useMarketRenderCommitProbe } from '../../utils/marketReactPerf';
 import { CompactNetworkSelector } from '../components/CompactNetworkSelector';
 import { MarketBannerList } from '../components/MarketBanner';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
+import { MarketStockCategorySelector } from '../components/MarketTokenList/MarketStockCategorySelector';
 import { TimeRangeDropdown } from '../components/TimeRangeDropdown';
 import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
@@ -26,11 +27,17 @@ import {
 
 import { DesktopStickyHeaderContext } from './DesktopStickyHeaderContext';
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
+import {
+  getDefaultMarketStockCategoryId,
+  getMarketStockCategoryRequestParam,
+} from './marketStockCategoryUtils';
 
 import type { IDesktopLayoutProps } from './DesktopLayout.types';
+import type { IMarketCategoryItem } from '../types';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
 const DESKTOP_STICKY_HEADER_TOP_GAP = 8;
+const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
 
 const LazyMarketWatchlistTokenList = lazy(async () => {
   const { MarketWatchlistTokenList } =
@@ -112,6 +119,29 @@ export function DesktopLayout({
   const [stockDataCategoryMap, setStockDataCategoryMap] = useState<
     Record<string, boolean>
   >({});
+  const stockCategories =
+    filterBarProps.stockCategories ?? EMPTY_MARKET_STOCK_CATEGORIES;
+  const [selectedStockCategoryId, setSelectedStockCategoryId] = useState(
+    getDefaultMarketStockCategoryId(stockCategories),
+  );
+  useEffect(() => {
+    if (stockCategories.length === 0) {
+      if (selectedStockCategoryId !== 'all') {
+        setSelectedStockCategoryId('all');
+      }
+      return;
+    }
+
+    if (
+      !stockCategories.some(
+        (category) => category.id === selectedStockCategoryId,
+      )
+    ) {
+      setSelectedStockCategoryId(
+        getDefaultMarketStockCategoryId(stockCategories),
+      );
+    }
+  }, [selectedStockCategoryId, stockCategories]);
   const handleStockDataChange = useCallback(
     (categoryId: string, isStockData: boolean) => {
       setStockDataCategoryMap((prev) => {
@@ -243,6 +273,19 @@ export function DesktopLayout({
     [],
   );
 
+  const stockCategoryToolbar = useMemo(() => {
+    if (stockCategories.length === 0) {
+      return null;
+    }
+    return (
+      <MarketStockCategorySelector
+        categories={stockCategories}
+        selectedCategoryId={selectedStockCategoryId}
+        onSelectCategory={setSelectedStockCategoryId}
+      />
+    );
+  }, [selectedStockCategoryId, stockCategories]);
+
   const stickyHeaderCtx = useMemo(
     () => ({ portalTarget, activeTabName }),
     [portalTarget, activeTabName],
@@ -275,7 +318,23 @@ export function DesktopLayout({
             <MarketNormalTokenList
               networkId={selectedNetworkId}
               selectedCategory={item.categoryId}
+              stockCategory={
+                isMarketStockCategoryById(
+                  filterBarProps.categories,
+                  item.categoryId,
+                )
+                  ? getMarketStockCategoryRequestParam(selectedStockCategoryId)
+                  : undefined
+              }
               timeRange={filterBarProps.timeRange}
+              toolbar={
+                isMarketStockCategoryById(
+                  filterBarProps.categories,
+                  item.categoryId,
+                )
+                  ? stockCategoryToolbar
+                  : undefined
+              }
               tabIntegrated
               tabName={item.tabName}
               listContainerProps={listContainerProps}
