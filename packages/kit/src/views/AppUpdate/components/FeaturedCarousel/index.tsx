@@ -169,6 +169,14 @@ export function FeaturedCarousel({
     to: number;
   } | null>(null);
   const isJumpingJs = jumpIndices !== null;
+  // Synchronous mirror of "a jump animation is in flight", readable inside
+  // jumpTo without a stale closure. It stays true from the moment a jump starts
+  // until jumpIndices is cleared on settle, so re-entrant navigation (arrow or
+  // indicator tap) during the ~180ms jump is ignored. Without it, a second tap
+  // takes the distance<=1 branch and moves progress/activeIndex while the
+  // in-flight jump's jumpIndices still drives jump-mode rendering, briefly
+  // leaving the visible slide out of step with the footer CTA and active index.
+  const isJumpAnimatingRef = useRef(false);
 
   const heightSpring = useHeightSpring({ progress, measuredHeights });
 
@@ -209,11 +217,15 @@ export function FeaturedCarousel({
 
   const jumpTo = useCallback(
     (target: number) => {
+      // A jump animation is still settling — ignore re-entrant navigation until
+      // it finishes so jumpIndices, progress and activeIndex converge together.
+      if (isJumpAnimatingRef.current) return;
       const clamped = Math.max(0, Math.min(features.length - 1, target));
       const distance = Math.abs(clamped - activeIndex);
 
       if (distance > 1) {
         // Jump mode: snap progress immediately, run a short timing transition for old/new slides
+        isJumpAnimatingRef.current = true;
         jumpFromIndex.value = activeIndex;
         jumpToIndex.value = clamped;
         jumpProgress.value = 0;
@@ -278,14 +290,21 @@ export function FeaturedCarousel({
     },
   );
 
-  // Clear jumpIndices when the timing animation completes.
+  // Clears jump-mode render state and its synchronous mirror once the timing
+  // animation settles, re-enabling navigation.
+  const endJump = useCallback(() => {
+    isJumpAnimatingRef.current = false;
+    setJumpIndices(null);
+  }, []);
+
+  // Clear jump state when the timing animation completes.
   // (Entry to jump mode is set synchronously inside jumpTo to avoid a
   // 1-frame normal-mode flash; only the exit needs worklet → JS bridge.)
   useAnimatedReaction(
     () => isJumping.value,
     (current, prev) => {
       if (prev === true && current === false) {
-        runOnJS(setJumpIndices)(null);
+        runOnJS(endJump)();
       }
     },
   );
