@@ -54,6 +54,26 @@ function resolveRepayValueForMax({
   return referenceBalance;
 }
 
+export function resolveProtocolLendingWithdrawAmountState({
+  amount,
+  referenceBalance,
+}: {
+  amount: string;
+  referenceBalance: string;
+}) {
+  const amountBN = toNonNegativeAmountBN(amount);
+  const referenceBalanceBN = toNonNegativeAmountBN(referenceBalance);
+  const isAmountInsufficient = Boolean(
+    amountBN?.gt(0) &&
+    referenceBalanceBN !== undefined &&
+    amountBN.gt(referenceBalanceBN),
+  );
+
+  return {
+    isAmountInsufficient,
+  };
+}
+
 export function resolveProtocolLendingDefiFillableAmountState({
   isRepay,
   availableAmount,
