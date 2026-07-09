@@ -389,6 +389,7 @@ export const swrKeys = {
     pageSize,
     minLiquidity,
     type,
+    category,
     timeFrame,
   }: {
     networkId: string;
@@ -397,9 +398,10 @@ export const swrKeys = {
     pageSize?: number;
     minLiquidity?: number;
     type?: string;
+    category?: string;
     timeFrame?: string;
-  }) =>
-    [
+  }) => {
+    const parts = [
       NS.marketHomeTokenList,
       'v1',
       networkId,
@@ -409,7 +411,12 @@ export const swrKeys = {
       minLiquidity ?? '',
       type ?? '',
       timeFrame ?? '',
-    ].join(':'),
+    ];
+    if (category) {
+      parts.push(category);
+    }
+    return parts.join(':');
+  },
   tokenSelectorView: ({
     ownerMode,
     filterMode,
