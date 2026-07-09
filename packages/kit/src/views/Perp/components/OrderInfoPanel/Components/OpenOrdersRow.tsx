@@ -13,7 +13,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  formatLocalizedNumberString,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getValidPriceDecimals,
   isSpotInstrument,
@@ -186,9 +189,9 @@ const OpenOrdersRow = memo(
       const executePriceFormatted = new BigNumber(executePrice).toFixed(
         decimals,
       );
-      const executePriceLimitFormatted = new BigNumber(
-        executePriceLimit,
-      ).toFixed(decimals);
+      const executePriceLimitFormatted = formatLocalizedNumberString(
+        new BigNumber(executePriceLimit).toFixed(decimals),
+      );
       const priceFormatted = new BigNumber(price).toFixed(decimals);
       const sizeFormatted = numberFormat(size, balanceFormatter);
       const value = priceBN.times(origSizeBN).toFixed();
