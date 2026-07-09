@@ -77,7 +77,11 @@ import {
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
-import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
+import {
+  HomePullToRefreshProvider,
+  PullToRefresh,
+  onHomePageRefresh,
+} from '../components/PullToRefresh';
 import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
 
@@ -1271,11 +1275,17 @@ export function HomePageView({
 
   return useMemo(() => {
     return (
-      <HomeStickyHeaderContext.Provider value={stickyHeaderCtx}>
-        <Page fullPage testID={HomeTestIDs.page}>
-          {homePage}
-        </Page>
-      </HomeStickyHeaderContext.Provider>
+      <HomePullToRefreshProvider
+        progressViewOffset={
+          ENABLE_IMMERSIVE_GLASS_HEADER ? tabPageHeight : undefined
+        }
+      >
+        <HomeStickyHeaderContext.Provider value={stickyHeaderCtx}>
+          <Page fullPage testID={HomeTestIDs.page}>
+            {homePage}
+          </Page>
+        </HomeStickyHeaderContext.Provider>
+      </HomePullToRefreshProvider>
     );
-  }, [homePage, stickyHeaderCtx]);
+  }, [homePage, stickyHeaderCtx, tabPageHeight]);
 }

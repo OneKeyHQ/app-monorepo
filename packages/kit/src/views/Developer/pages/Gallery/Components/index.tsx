@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useNavigation } from '@react-navigation/native';
 import natsort from 'natsort';
 
@@ -35,7 +36,13 @@ const Index = () => {
   }
 
   const tabBarHeight = useScrollContentTabBarOffset();
-  const topPadding = platformEnv.isNativeIOS ? '$10' : undefined;
+  const headerHeight = useHeaderHeight();
+  let topPadding: number | '$10' | undefined;
+  if (platformEnv.isNativeIOS26Plus) {
+    topPadding = headerHeight;
+  } else if (platformEnv.isNativeIOS) {
+    topPadding = '$10';
+  }
   return (
     <Page>
       <Page.Body pt={topPadding}>
