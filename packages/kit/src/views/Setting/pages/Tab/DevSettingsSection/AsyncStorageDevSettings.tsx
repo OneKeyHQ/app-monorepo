@@ -98,8 +98,14 @@ export function AsyncStorageDevSettings() {
     const allKeys = [...mainKeys, ...bgKeys];
 
     try {
-      // 1. Clean slate (main path forwards to bg on iOS).
-      await appStorage.multiRemove(allKeys);
+      // 1. Clean slate via the bg-direct remove, not appStorage.multiRemove.
+      //    Teardown must not depend on the forwarder path being healthy (that
+      //    is the very thing under test); routing setup/cleanup straight to the
+      //    single-writer bg runtime authoritatively clears both main-forwarded
+      //    and bg-origin keys from the shared native store.
+      await backgroundApiProxy.serviceDevSetting.demoAsyncStorageBgMultiRemove(
+        allKeys,
+      );
 
       // 2. Interleave main-origin and bg-origin writes concurrently so a
       //    stale-manifest clobber would drop the other runtime's keys.
@@ -185,9 +191,13 @@ export function AsyncStorageDevSettings() {
       setConcurrentResult(`ERROR: ${message}`);
       Toast.error({ title: 'Concurrent write test error', message });
     } finally {
-      // Best-effort cleanup so repeated runs start clean.
+      // Best-effort cleanup so repeated runs start clean. Use the bg-direct
+      // remove (same reason as the clean-slate above): teardown must converge
+      // on the single-writer bg runtime rather than the under-test main path.
       try {
-        await appStorage.multiRemove(allKeys);
+        await backgroundApiProxy.serviceDevSetting.demoAsyncStorageBgMultiRemove(
+          allKeys,
+        );
       } catch {
         // ignore cleanup failure
       }
