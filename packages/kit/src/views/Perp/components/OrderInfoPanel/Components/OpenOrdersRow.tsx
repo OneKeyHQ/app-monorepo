@@ -253,7 +253,7 @@ const OpenOrdersRow = memo(
             width="100%"
             alignItems="center"
           >
-            <YStack onPress={handleSwitchInstrument} cursor="default">
+            <YStack onPress={handleSwitchInstrument} cursor="pointer">
               <SizableText
                 numberOfLines={1}
                 ellipsizeMode="tail"
@@ -414,7 +414,7 @@ const OpenOrdersRow = memo(
               justifyContent="center"
               alignItems={calcCellAlign(columnConfigs[1].align)}
               onPress={handleSwitchInstrument}
-              cursor="default"
+              cursor="pointer"
             >
               <SizableText
                 size="$bodySm"
