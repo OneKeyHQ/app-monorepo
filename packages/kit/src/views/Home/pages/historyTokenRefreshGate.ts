@@ -16,12 +16,16 @@ export function filterAccountsNeedingTokenRefreshAfterHistory({
   accounts,
   lastTokensTabState,
   tokenRefreshScope,
+  historyRefreshStartedAt,
+  sameCycleToleranceMs = 0,
   now,
   minIntervalMs,
 }: {
   accounts: IChangedAccount[];
   lastTokensTabState: ITokensTabLastState | undefined;
   tokenRefreshScope?: ITokenRefreshScope;
+  historyRefreshStartedAt: number;
+  sameCycleToleranceMs?: number;
   now: number;
   minIntervalMs: number;
 }) {
@@ -29,14 +33,24 @@ export function filterAccountsNeedingTokenRefreshAfterHistory({
     return accounts;
   }
 
-  if (now - lastTokensTabState.at >= minIntervalMs) {
-    return accounts;
-  }
-
   const matchedScope =
     tokenRefreshScope &&
     lastTokensTabState.accountId === tokenRefreshScope.accountId &&
     lastTokensTabState.networkId === tokenRefreshScope.networkId;
+
+  if (tokenRefreshScope && !matchedScope) {
+    return accounts;
+  }
+
+  const isSameRefreshCycle =
+    lastTokensTabState.at + sameCycleToleranceMs >= historyRefreshStartedAt;
+
+  if (
+    !lastTokensTabState.isRefreshing &&
+    (!isSameRefreshCycle || now - lastTokensTabState.at >= minIntervalMs)
+  ) {
+    return accounts;
+  }
 
   if (matchedScope && tokenRefreshScope.includesAllAccountsInNetwork) {
     return accounts.filter(

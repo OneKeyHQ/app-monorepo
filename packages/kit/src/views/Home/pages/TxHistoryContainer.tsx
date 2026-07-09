@@ -228,6 +228,7 @@ function TxHistoryListContainer(
   );
 
   const isManualRefresh = useRef(false);
+  const accountDataUpdateRefreshAtRef = useRef<number | undefined>(undefined);
 
   // Stable identity tuple shared by the init guard and request-id effect so
   // they can't drift on what counts as an identity change.
@@ -258,6 +259,10 @@ function TxHistoryListContainer(
       fetchRequestIdRef.current += 1;
       const requestId = fetchRequestIdRef.current;
       const isManualRefreshForThisRun = isManualRefresh.current;
+      const historyRefreshStartedAt = Date.now();
+      const tokenRefreshCycleStartedAt = isManualRefreshForThisRun
+        ? (accountDataUpdateRefreshAtRef.current ?? historyRefreshStartedAt)
+        : historyRefreshStartedAt;
       const isCurrentRequest = () => fetchRequestIdRef.current === requestId;
 
       let emittedTrue = false;
@@ -381,6 +386,8 @@ function TxHistoryListContainer(
               networkId: refreshNetworkId,
               includesAllAccountsInNetwork: !!mergeDeriveAddressData,
             },
+            historyRefreshStartedAt: tokenRefreshCycleStartedAt,
+            sameCycleToleranceMs: POLLING_DEBOUNCE_INTERVAL,
             now: Date.now(),
             minIntervalMs: POLLING_INTERVAL_FOR_TOKEN,
           });
@@ -410,6 +417,7 @@ function TxHistoryListContainer(
         // Must clear unconditionally — otherwise the next polling tick would
         // be wrongly treated as a manual refresh.
         isManualRefresh.current = false;
+        accountDataUpdateRefreshAtRef.current = undefined;
         if (emittedTrue) {
           appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
             isRefreshing: false,
@@ -671,6 +679,7 @@ function TxHistoryListContainer(
       if (isFocused) {
         if (payload?.isManualRefresh) {
           isManualRefresh.current = true;
+          accountDataUpdateRefreshAtRef.current = Date.now();
         }
         void run();
       }

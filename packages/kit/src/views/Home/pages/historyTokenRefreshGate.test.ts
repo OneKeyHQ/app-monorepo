@@ -9,6 +9,7 @@ describe('filterAccountsNeedingTokenRefreshAfterHistory', () => {
       filterAccountsNeedingTokenRefreshAfterHistory({
         accounts: [account],
         lastTokensTabState: undefined,
+        historyRefreshStartedAt: 10_000,
         now: 20_000,
         minIntervalMs: 15_000,
       }),
@@ -24,21 +25,24 @@ describe('filterAccountsNeedingTokenRefreshAfterHistory', () => {
           isRefreshing: false,
           at: 10_000,
         },
+        historyRefreshStartedAt: 9500,
+        sameCycleToleranceMs: 1000,
         now: 20_000,
         minIntervalMs: 15_000,
       }),
     ).toEqual([otherNetworkAccount]);
   });
 
-  it('also treats an in-flight token refresh as a recent token activity', () => {
+  it('also treats an expired in-flight token refresh as active token coverage', () => {
     expect(
       filterAccountsNeedingTokenRefreshAfterHistory({
         accounts: [account],
         lastTokensTabState: {
           ...account,
           isRefreshing: true,
-          at: 18_000,
+          at: 1000,
         },
+        historyRefreshStartedAt: 19_000,
         now: 20_000,
         minIntervalMs: 15_000,
       }),
@@ -71,6 +75,8 @@ describe('filterAccountsNeedingTokenRefreshAfterHistory', () => {
           ...indexedAccount,
           includesAllAccountsInNetwork: true,
         },
+        historyRefreshStartedAt: 9500,
+        sameCycleToleranceMs: 1000,
         now: 20_000,
         minIntervalMs: 15_000,
       }),
@@ -100,10 +106,46 @@ describe('filterAccountsNeedingTokenRefreshAfterHistory', () => {
           ...indexedAccount,
           includesAllAccountsInNetwork: true,
         },
+        historyRefreshStartedAt: 9500,
+        sameCycleToleranceMs: 1000,
         now: 20_000,
         minIntervalMs: 15_000,
       }),
     ).toEqual([nativeAccount]);
+  });
+
+  it('keeps a recent completed token refresh from a previous history cycle', () => {
+    expect(
+      filterAccountsNeedingTokenRefreshAfterHistory({
+        accounts: [account],
+        lastTokensTabState: {
+          ...account,
+          isRefreshing: false,
+          at: 10_000,
+        },
+        historyRefreshStartedAt: 12_000,
+        sameCycleToleranceMs: 1000,
+        now: 20_000,
+        minIntervalMs: 15_000,
+      }),
+    ).toEqual([account]);
+  });
+
+  it('skips a completed token refresh that started just before the history run due to listener ordering', () => {
+    expect(
+      filterAccountsNeedingTokenRefreshAfterHistory({
+        accounts: [account],
+        lastTokensTabState: {
+          ...account,
+          isRefreshing: false,
+          at: 10_000,
+        },
+        historyRefreshStartedAt: 10_500,
+        sameCycleToleranceMs: 1000,
+        now: 12_000,
+        minIntervalMs: 15_000,
+      }),
+    ).toEqual([]);
   });
 
   it('keeps the same account and network after the cooldown expires', () => {
@@ -115,6 +157,8 @@ describe('filterAccountsNeedingTokenRefreshAfterHistory', () => {
           isRefreshing: false,
           at: 1000,
         },
+        historyRefreshStartedAt: 500,
+        sameCycleToleranceMs: 1000,
         now: 20_000,
         minIntervalMs: 15_000,
       }),
@@ -130,6 +174,7 @@ describe('filterAccountsNeedingTokenRefreshAfterHistory', () => {
           isRefreshing: false,
           at: 5000,
         },
+        historyRefreshStartedAt: 5000,
         now: 20_000,
         minIntervalMs: 15_000,
       }),
