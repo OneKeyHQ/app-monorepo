@@ -61,6 +61,7 @@ import {
   resolveProtocolLendingDefiFillableAmountState,
   resolveProtocolLendingRemainingDebtState,
   resolveProtocolLendingRepayAmountState,
+  resolveProtocolLendingWithdrawAmountState,
 } from './protocolLendingActionUtils';
 import {
   type IProtocolPositionActionSuccessParams,
@@ -1169,6 +1170,10 @@ function ProtocolLendingActionBorrowContent({
     repayWalletBalance,
     repayAllTargetAmount,
   });
+  const withdrawAmountState = resolveProtocolLendingWithdrawAmountState({
+    amount,
+    referenceBalance,
+  });
   // Max fillable amount: withdraw → the full supplied balance; repay → the
   // server-provided maxRepayBalance first (debt capped by wallet), then direct
   // wallet balance if the server max is unavailable.
@@ -1186,7 +1191,8 @@ function ProtocolLendingActionBorrowContent({
       })
     : repayAmountState.isFullClose;
   const isAmountInsufficient =
-    !isWithdraw && repayAmountState.isAmountInsufficient;
+    (isWithdraw && withdrawAmountState.isAmountInsufficient) ||
+    (!isWithdraw && repayAmountState.isAmountInsufficient);
   const selectedAmountPercent = resolveSelectedAmountPercent({
     isMaxAmount,
     isAmountPositive,
@@ -1257,7 +1263,10 @@ function ProtocolLendingActionBorrowContent({
     reserveAddress,
     amount,
     isDisabled:
-      isBorrowDataLoading || isRepayWalletBalancePending || hasBorrowLoadError,
+      isBorrowDataLoading ||
+      isRepayWalletBalancePending ||
+      hasBorrowLoadError ||
+      isAmountInsufficient,
     repayAll: actionType === 'repay' ? isFullClose : undefined,
   });
 
