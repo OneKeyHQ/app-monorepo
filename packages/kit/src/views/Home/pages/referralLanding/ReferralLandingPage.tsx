@@ -15,6 +15,10 @@ import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { useOneKeyWalletDetection } from '@onekeyhq/kit/src/hooks/useWebDapp/useOneKeyWalletDetection';
 import { createReferralLandingRequestGuard } from '@onekeyhq/kit/src/routes/config/deeplink/referralLandingRequestGuard';
 import { safePushToEarnRoute } from '@onekeyhq/kit/src/views/Earn/earnUtils';
+import {
+  openExtensionEarnHomeInExpandTab,
+  shouldOpenEarnHomeInExtensionExpandTab,
+} from '@onekeyhq/kit/src/views/Earn/openExtensionEarnHomeInExpandTab';
 import { useBindReferralViaExtension } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useBindReferralViaExtension';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
@@ -543,7 +547,11 @@ function ReferralLandingPage() {
         : ETabRoutes.Market;
 
       if (pageName && EARN_PAGE_NAMES.has(pageName)) {
-        await safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome);
+        if (shouldOpenEarnHomeInExtensionExpandTab) {
+          await openExtensionEarnHomeInExpandTab();
+        } else {
+          await safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome);
+        }
         if (!shouldContinueReferralRequest()) {
           return;
         }

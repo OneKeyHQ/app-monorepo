@@ -80,8 +80,8 @@ const useCheckTabsChangedInDev = platformEnv.isDev
     }
   : () => {};
 
-// Extension popup/side panel navigate through in-page entries (home tabs,
-// wallet actions) instead of a bottom tab bar.
+// Extension popup/side panel navigate through in-page entries on md layouts
+// instead of a bottom tab bar.
 const isExtPopupOrSidePanel =
   platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel;
 
@@ -136,8 +136,9 @@ export function TabNavigator() {
   const config = useTabRouterConfig(routerConfigParams);
   const isShowWebTabBar = platformEnv.isDesktop;
   const isFocused = useIsIOSTabNavigatorFocused();
-  const { gtMd } = useMedia();
+  const { gtMd, md } = useMedia();
   const isTabletDetailView = useSplitSubView();
+  const shouldHideExtTabBar = isExtPopupOrSidePanel && md;
 
   useGlobalShortcuts();
   useCheckTabsChangedInDev(config);
@@ -229,12 +230,12 @@ export function TabNavigator() {
         config={config}
         extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
         showTabBar={
-          !(isTabletDetailView && isLandscape) && !isExtPopupOrSidePanel
+          !(isTabletDetailView && isLandscape) && !shouldHideExtTabBar
         }
         bottomMenu={<BottomMenu />}
         webPageTabBar={<WebPageTabBar />}
       />
-      {platformEnv.isDev && isExtPopupOrSidePanel ? (
+      {platformEnv.isDev && shouldHideExtTabBar ? (
         <FloatingDevModeBackButton />
       ) : null}
       {platformEnv.isWebDappMode && gtMd ? <Footer /> : null}

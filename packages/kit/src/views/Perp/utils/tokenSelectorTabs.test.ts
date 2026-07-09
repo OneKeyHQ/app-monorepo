@@ -7,11 +7,13 @@ import {
   getNextPerpTokenSelectorSortConfig,
   getPerpTokenSelectorDynamicTabItems,
   getPerpTokenSelectorFallbackTabId,
+  getPerpTokenSelectorHotTab,
   getPerpTokenSelectorPrimaryTabId,
   getPerpTokenSelectorSortAssetCtxsByDex,
   isPerpTokenSelectorAllTab,
   isPerpTokenSelectorDynamicTabUserSort,
   isPerpTokenSelectorFavoritesTab,
+  isPerpTokenSelectorHotTab,
   isPerpTokenSelectorPerpsTab,
   isPerpTokenSelectorPrimaryTab,
   isPerpTokenSelectorSortFieldActive,
@@ -136,6 +138,21 @@ describe('tokenSelectorTabs', () => {
     expect(isPerpTokenSelectorSpotTab('spot')).toBe(true);
     expect(isPerpTokenSelectorPrimaryTab('favorites')).toBe(true);
     expect(isPerpTokenSelectorPrimaryTab('all')).toBe(false);
+  });
+
+  it('finds the server hot tab by id or label', () => {
+    expect(
+      isPerpTokenSelectorHotTab({
+        tabId: ' hot ',
+        name: 'Custom',
+      }),
+    ).toBe(true);
+    expect(
+      getPerpTokenSelectorHotTab([
+        { tabId: 'stocks', name: 'Stocks', tokens: ['AAPL'] },
+        { tabId: 'server-1', name: '热门', tokens: ['BTC', 'ETH'] },
+      ]),
+    ).toEqual({ tabId: 'server-1', name: '热门', tokens: ['BTC', 'ETH'] });
   });
 
   it('maps legacy and category tab ids back to a primary tab', () => {

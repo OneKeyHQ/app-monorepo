@@ -18,7 +18,8 @@ export function PerpsBalancePill({ userAddress }: { userAddress?: string }) {
   const [perpsActiveAccount] = usePerpsActiveAccountAtom();
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const { showPortfolio } = useShowPortfolio();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal();
 
   const isForThisAccount =
     !!userAddress &&
@@ -45,6 +46,9 @@ export function PerpsBalancePill({ userAddress }: { userAddress?: string }) {
   const handlePress = (e: GestureResponderEvent) => {
     e.stopPropagation();
     if (isEmptyAccount) {
+      if (isDepositDisabled) {
+        return;
+      }
       void showDepositWithdrawModal('deposit');
     } else {
       void showPortfolio();
@@ -61,7 +65,8 @@ export function PerpsBalancePill({ userAddress }: { userAddress?: string }) {
       borderRadius="$full"
       bg={isEmptyAccount ? '$brand9' : '$neutral4'}
       onPress={handlePress}
-      cursor="pointer"
+      cursor={isEmptyAccount && isDepositDisabled ? 'default' : 'pointer'}
+      opacity={isEmptyAccount && isDepositDisabled ? 0.5 : 1}
       hoverStyle={{ opacity: 0.85 }}
       pressStyle={{ opacity: 0.7 }}
       testID="web-account-selector-perps-pill"

@@ -1369,6 +1369,7 @@ describe('useSwapActions', () => {
     expect(store.get(swapQuoteEventTotalCountAtom())).toEqual({
       eventId: 'early-stock-event',
       count: 1,
+      totalQuoteCountReceived: false,
     });
     expect(store.get(swapQuoteCurrentEventReceivedCountAtom())).toBe(1);
     expect(store.get(swapQuoteListAtom())[0]).toEqual(
@@ -1407,6 +1408,7 @@ describe('useSwapActions', () => {
     expect(store.get(swapQuoteEventTotalCountAtom())).toEqual({
       eventId: 'early-stock-event',
       count: 3,
+      totalQuoteCountReceived: true,
     });
     expect(store.get(swapQuoteCurrentEventReceivedCountAtom())).toBe(1);
     expect(store.get(swapQuoteCurrentSelectAtom())?.quoteId).toBe(
