@@ -2497,17 +2497,16 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         if (shouldSync) {
           const current = this.getSelectedAccount.call(set, { num });
-          const newSelectedAccount =
+          let newSelectedAccount =
             accountSelectorUtils.buildMergedSelectedAccount({
               data: current,
               mergedByData: eventPayload.selectedAccount,
             });
-          console.log('syncHomeAndSwapSelectedAccount >>>> ', {
-            params,
-            data: current,
-            mergedByData: eventPayload.selectedAccount,
-            newSelectedAccount,
-          });
+          newSelectedAccount =
+            await serviceAccountSelector.fixOthersWalletAccountNetworkPair({
+              selectedAccount: newSelectedAccount,
+              source: 'syncHomeAndSwapSelectedAccount',
+            });
           await this.updateSelectedAccount.call(set, {
             updateMeta: {
               eventEmitDisabled: true, // stop update infinite loop here
@@ -2900,6 +2899,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           );
           return;
         }
+        selectedAccount =
+          await serviceAccountSelector.fixOthersWalletAccountNetworkPair({
+            selectedAccount,
+            source: `saveToStorage:${sceneName}:${num}`,
+          });
+        const fixedPayload = {
+          ...payload,
+          selectedAccount,
+        };
         const currentSaved = await simpleDb.accountSelector.getSelectedAccount({
           sceneName,
           sceneUrl,
@@ -2914,7 +2922,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         // **** saveSelectedAccount
         // skip discover account selector persist here
-        await simpleDb.accountSelector.saveSelectedAccount(payload);
+        await simpleDb.accountSelector.saveSelectedAccount(fixedPayload);
 
         // **** save global derive type (with event emit if need)
         const updateMeta = get(accountSelectorUpdateMetaAtom())[num];
@@ -2947,10 +2955,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               data: homeSelectedAccount,
               mergedByData: selectedAccount,
             });
+          const fixedNewSelectedAccount =
+            await serviceAccountSelector.fixOthersWalletAccountNetworkPair({
+              selectedAccount: newSelectedAccount,
+              source: 'saveToStorage:syncHome',
+            });
           await simpleDb.accountSelector.saveSelectedAccount({
             sceneName: EAccountSelectorSceneName.home,
             num: 0,
-            selectedAccount: newSelectedAccount,
+            selectedAccount: fixedNewSelectedAccount,
           });
         }
 
@@ -2971,7 +2984,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           }
           appEventBus.emit(
             EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
-            payload,
+            fixedPayload,
           );
         }
       });

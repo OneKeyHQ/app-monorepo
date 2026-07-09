@@ -108,6 +108,82 @@ class ServiceAccountSelector extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async fixOthersWalletAccountNetworkPair({
+    selectedAccount,
+    source,
+  }: {
+    selectedAccount: IAccountSelectorSelectedAccount;
+    source?: string;
+  }): Promise<IAccountSelectorSelectedAccount> {
+    const { walletId, networkId, othersWalletAccountId } = selectedAccount;
+    if (
+      !walletId ||
+      !networkId ||
+      !othersWalletAccountId ||
+      !accountUtils.isOthersWallet({ walletId }) ||
+      networkUtils.isAllNetwork({ networkId })
+    ) {
+      return selectedAccount;
+    }
+
+    let dbAccount: IDBAccount | undefined;
+    try {
+      dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
+        accountId: othersWalletAccountId,
+      });
+    } catch {
+      return selectedAccount;
+    }
+
+    if (!dbAccount) {
+      return selectedAccount;
+    }
+
+    try {
+      if (
+        accountUtils.isAccountCompatibleWithNetwork({
+          account: dbAccount,
+          networkId,
+        })
+      ) {
+        return selectedAccount;
+      }
+    } catch {
+      // Fall through to compatible-network resolution below.
+    }
+
+    let fixedNetworkId: string | undefined;
+    try {
+      fixedNetworkId = accountUtils.getAccountCompatibleNetwork({
+        account: dbAccount,
+        networkId,
+      });
+    } catch {
+      return selectedAccount;
+    }
+
+    if (!fixedNetworkId || fixedNetworkId === networkId) {
+      return selectedAccount;
+    }
+
+    defaultLogger.accountSelector.listData.fixOthersWalletAccountNetworkPair({
+      source,
+      walletId,
+      networkId,
+      fixedNetworkId,
+      accountImpl: dbAccount.impl,
+      accountCreateAtNetwork: dbAccount.createAtNetwork,
+      accountNetworksCount: dbAccount.networks?.length,
+    });
+
+    return {
+      ...selectedAccount,
+      networkId: fixedNetworkId,
+      deriveType: selectedAccount.deriveType || 'default',
+    };
+  }
+
+  @backgroundMethod()
   public async mergeHomeDataToSwapMap({
     swapMap,
   }: {
@@ -119,35 +195,43 @@ class ServiceAccountSelector extends ServiceBase {
         num: 0,
       });
     if (homeData) {
+      const fixedHomeData = await this.fixOthersWalletAccountNetworkPair({
+        selectedAccount: homeData,
+        source: 'mergeHomeDataToSwapMap:home',
+      });
       // eslint-disable-next-line no-param-reassign
       swapMap = cloneDeep(swapMap || {});
 
-      const updateSwapMap = (num: number) => {
+      const updateSwapMap = async (num: number) => {
         if (!swapMap) {
           return;
         }
         const swapDataMerged = accountSelectorUtils.buildMergedSelectedAccount({
           data: swapMap[num],
-          mergedByData: homeData,
+          mergedByData: fixedHomeData,
         });
         if (swapDataMerged) {
           const usedNetworkId =
             // swapDataMerged.networkId ??
             // swapMap[num]?.networkId ??
-            homeData?.networkId;
-          swapMap[num] = swapDataMerged;
-          if (swapMap && swapMap[num]) {
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            swapMap[num].networkId = usedNetworkId;
-          }
+            fixedHomeData?.networkId;
+          const fixedSwapDataMerged =
+            await this.fixOthersWalletAccountNetworkPair({
+              selectedAccount: {
+                ...swapDataMerged,
+                networkId: usedNetworkId,
+              },
+              source: `mergeHomeDataToSwapMap:${num}`,
+            });
+          swapMap[num] = fixedSwapDataMerged;
         }
       };
 
-      updateSwapMap(0);
+      await updateSwapMap(0);
 
       const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
       if (!swapToAnotherAccountSwitchOn) {
-        updateSwapMap(1);
+        await updateSwapMap(1);
       }
     }
     return swapMap;

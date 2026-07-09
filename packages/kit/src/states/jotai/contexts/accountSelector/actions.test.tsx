@@ -59,6 +59,9 @@ type ISaveSelectedAccountParams = {
 type IMergeHomeDataToSwapMapParams = {
   swapMap: ISelectedAccountsMap | undefined;
 };
+type IFixOthersWalletAccountNetworkPairParams = {
+  selectedAccount: ISelectedAccount;
+};
 type IIndexedAccount = NonNullable<
   ReturnType<typeof defaultActiveAccountInfo>['indexedAccount']
 >;
@@ -110,6 +113,11 @@ const mockMergeHomeDataToSwapMap: jest.MockedFunction<
   (
     params: IMergeHomeDataToSwapMapParams,
   ) => Promise<ISelectedAccountsMap | undefined>
+> = jest.fn();
+const mockFixOthersWalletAccountNetworkPair: jest.MockedFunction<
+  (
+    params: IFixOthersWalletAccountNetworkPairParams,
+  ) => Promise<ISelectedAccount>
 > = jest.fn();
 const mockGetGlobalDeriveType: jest.MockedFunction<() => Promise<string>> =
   jest.fn();
@@ -289,6 +297,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       fixDeriveTypesForInitAccountSelectorMap: (
         params: IFixDeriveTypesForInitAccountSelectorMapParams,
       ) => mockFixDeriveTypesForInitAccountSelectorMap(params),
+      fixOthersWalletAccountNetworkPair: (
+        params: IFixOthersWalletAccountNetworkPairParams,
+      ) => mockFixOthersWalletAccountNetworkPair(params),
       getGlobalDeriveType: () => mockGetGlobalDeriveType(),
       mergeHomeDataToSwapMap: (params: IMergeHomeDataToSwapMapParams) =>
         mockMergeHomeDataToSwapMap(params),
@@ -379,6 +390,9 @@ describe('useAccountSelectorActions', () => {
     mockSaveGlobalDeriveType.mockResolvedValue(undefined);
     mockMergeHomeDataToSwapMap.mockImplementation(
       async (params) => params.swapMap,
+    );
+    mockFixOthersWalletAccountNetworkPair.mockImplementation(
+      async ({ selectedAccount }) => selectedAccount,
     );
     mockGetGlobalDeriveType.mockResolvedValue('default');
     mockShouldUseGlobalDeriveType.mockResolvedValue(true);
@@ -511,6 +525,53 @@ describe('useAccountSelectorActions', () => {
       indexedAccountId: undefined,
       othersWalletAccountId: accountId,
     });
+  });
+
+  it('normalizes imported account network pairs before saving to storage', async () => {
+    const btcAccountId =
+      'imported--0--xpub6CgTVumLgde7C8aBr9Zfbn6LeJN347raED9oW6ZCfbwEqeQodRGLUvrjK3ec3uNbGYxMcxRJ5Q5grxip4Bd5XWmnai12tkdTLkTepQiAdnR--P2TR';
+    const mismatchedSelectedAccount = {
+      ...defaultSelectedAccount(),
+      walletId: WALLET_TYPE_IMPORTED,
+      focusedWallet: WALLET_TYPE_IMPORTED,
+      networkId: 'cfx--1029',
+      deriveType: 'default' as const,
+      othersWalletAccountId: btcAccountId,
+    };
+    mockGetSelectedAccount.mockResolvedValue(undefined);
+    mockFixOthersWalletAccountNetworkPair.mockImplementation(
+      async ({ selectedAccount }) => ({
+        ...selectedAccount,
+        networkId: 'btc--0',
+      }),
+    );
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.saveToStorage({
+        selectedAccount: mismatchedSelectedAccount,
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccountUpdatedAt: Date.now(),
+      });
+    });
+
+    expect(mockSaveSelectedAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccount: expect.objectContaining({
+          walletId: WALLET_TYPE_IMPORTED,
+          focusedWallet: WALLET_TYPE_IMPORTED,
+          networkId: 'btc--0',
+          othersWalletAccountId: btcAccountId,
+        }),
+      }),
+    );
   });
 
   it('clears a restored mocked hardware wallet selection during storage init', async () => {

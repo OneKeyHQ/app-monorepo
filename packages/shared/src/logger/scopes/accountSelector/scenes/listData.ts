@@ -130,6 +130,19 @@ export class AccountSelectorListDataScene extends BaseScene {
   }
 
   @LogToLocal()
+  public fixOthersWalletAccountNetworkPair(params: {
+    source: string | undefined;
+    walletId: string | undefined;
+    networkId: string | undefined;
+    fixedNetworkId: string | undefined;
+    accountImpl: string | undefined;
+    accountCreateAtNetwork: string | undefined;
+    accountNetworksCount: number | undefined;
+  }) {
+    return params;
+  }
+
+  @LogToLocal()
   public initFromStorageSelectedAccountsMapResult(params: {
     selectedAccountsMap: IAccountSelectorSelectedAccountsMap | undefined;
   }) {
