@@ -1,3 +1,5 @@
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+
 type IChangedAccount = {
   accountId: string;
   networkId: string;
@@ -33,6 +35,19 @@ export function buildTokenRefreshPlanAfterHistory({
 
   if (!lastTokensTabState?.isRefreshing) {
     return refreshNow;
+  }
+
+  const matchedAccount =
+    !tokenRefreshScope ||
+    lastTokensTabState.accountId === tokenRefreshScope.accountId;
+  if (
+    matchedAccount &&
+    networkUtils.isAllNetwork({ networkId: lastTokensTabState.networkId })
+  ) {
+    return {
+      accountsToRefreshNow: [],
+      accountsToRefreshAfterTokensDone: accounts,
+    };
   }
 
   const matchedScope =

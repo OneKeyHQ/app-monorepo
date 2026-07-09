@@ -1,3 +1,5 @@
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+
 import { buildTokenRefreshPlanAfterHistory } from './historyTokenRefreshGate';
 
 describe('buildTokenRefreshPlanAfterHistory', () => {
@@ -78,6 +80,48 @@ describe('buildTokenRefreshPlanAfterHistory', () => {
     ).toEqual({
       accountsToRefreshNow: [otherNetworkAccount],
       accountsToRefreshAfterTokensDone: [nativeAccount, nestedAccount],
+    });
+  });
+
+  it('defers all changed accounts while an all-network token refresh is in flight for the same account', () => {
+    expect(
+      buildTokenRefreshPlanAfterHistory({
+        accounts: [account, otherNetworkAccount],
+        lastTokensTabState: {
+          accountId: account.accountId,
+          networkId: getNetworkIdsMap().onekeyall,
+          isRefreshing: true,
+          at: 10_000,
+        },
+        tokenRefreshScope: {
+          accountId: account.accountId,
+          networkId: getNetworkIdsMap().onekeyall,
+        },
+      }),
+    ).toEqual({
+      accountsToRefreshNow: [],
+      accountsToRefreshAfterTokensDone: [account, otherNetworkAccount],
+    });
+  });
+
+  it('does not defer accounts for an all-network token refresh from another account', () => {
+    expect(
+      buildTokenRefreshPlanAfterHistory({
+        accounts: [account],
+        lastTokensTabState: {
+          accountId: 'another-account',
+          networkId: getNetworkIdsMap().onekeyall,
+          isRefreshing: true,
+          at: 10_000,
+        },
+        tokenRefreshScope: {
+          accountId: account.accountId,
+          networkId: getNetworkIdsMap().onekeyall,
+        },
+      }),
+    ).toEqual({
+      accountsToRefreshNow: [account],
+      accountsToRefreshAfterTokensDone: [],
     });
   });
 

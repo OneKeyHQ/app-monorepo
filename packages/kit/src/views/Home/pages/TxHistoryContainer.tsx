@@ -31,6 +31,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryTxDisplayStatus } from '@onekeyhq/shared/src/utils/historyUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -386,6 +387,7 @@ function TxHistoryListContainer(
         });
         updateHistoryData(r.txs);
 
+        clearPendingTokenRefreshAfterTokensDone();
         const tokenRefreshPlan = buildTokenRefreshPlanAfterHistory({
           accounts: r.accountsWithChangedTxs,
           lastTokensTabState: getTokensTabLastState(),
@@ -409,13 +411,15 @@ function TxHistoryListContainer(
         emitRefreshTokenList(tokenRefreshPlan.accountsToRefreshNow);
 
         if (tokenRefreshPlan.accountsToRefreshAfterTokensDone.length > 0) {
-          clearPendingTokenRefreshAfterTokensDone();
+          const isAllNetworkTokenRefresh = networkUtils.isAllNetwork({
+            networkId: refreshNetworkId,
+          });
           pendingTokenRefreshAfterTokensDoneCleanupRef.current =
             runAfterTokensDone({
               accountId: refreshAccountId,
               networkId: refreshNetworkId,
               matchAccountId: true,
-              matchNetworkId: true,
+              matchNetworkId: !isAllNetworkTokenRefresh,
               fallbackDelayMs: POLLING_DEBOUNCE_INTERVAL,
               retryDelayMs: POLLING_DEBOUNCE_INTERVAL,
               deferWhileRefreshing: true,
