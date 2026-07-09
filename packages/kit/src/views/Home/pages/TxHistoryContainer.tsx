@@ -64,6 +64,22 @@ import {
 } from './hooks/useFrozenTopHistoryData';
 import { useHistoryListLoadMore } from './hooks/useHistoryListLoadMore';
 
+type ITokenRefreshAccount = {
+  accountId: string;
+  networkId: string;
+};
+
+type IPendingTokenRefreshAfterTokensDone = {
+  accounts: ITokenRefreshAccount[];
+  accountId: string;
+  networkId: string;
+  matchNetworkId: boolean;
+  cleanup?: () => void;
+};
+
+const getTokenRefreshAccountKey = (account: ITokenRefreshAccount) =>
+  `${account.accountId}::${account.networkId}`;
+
 function TxHistoryListContainer(
   params:
     | {
@@ -234,13 +250,86 @@ function TxHistoryListContainer(
   // App resume should force the backend history fetch without joining the
   // AccountDataUpdate token refresh cycle.
   const forceHistoryRefresh = useRef(false);
-  const pendingTokenRefreshAfterTokensDoneCleanupRef = useRef<
-    (() => void) | undefined
+  const pendingTokenRefreshAfterTokensDoneRef = useRef<
+    IPendingTokenRefreshAfterTokensDone | undefined
   >(undefined);
+  const emitRefreshTokenList = useCallback(
+    (accounts: ITokenRefreshAccount[]) => {
+      if (accounts.length > 0) {
+        appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+          accounts,
+        });
+      }
+    },
+    [],
+  );
+  const stopPendingTokenRefreshAfterTokensDone = useCallback(
+    ({ clearAccounts }: { clearAccounts: boolean }) => {
+      const pending = pendingTokenRefreshAfterTokensDoneRef.current;
+      pending?.cleanup?.();
+      if (!pending) return;
+      if (clearAccounts) {
+        pendingTokenRefreshAfterTokensDoneRef.current = undefined;
+      } else {
+        pending.cleanup = undefined;
+      }
+    },
+    [],
+  );
   const clearPendingTokenRefreshAfterTokensDone = useCallback(() => {
-    pendingTokenRefreshAfterTokensDoneCleanupRef.current?.();
-    pendingTokenRefreshAfterTokensDoneCleanupRef.current = undefined;
-  }, []);
+    stopPendingTokenRefreshAfterTokensDone({ clearAccounts: true });
+  }, [stopPendingTokenRefreshAfterTokensDone]);
+  const suspendPendingTokenRefreshAfterTokensDone = useCallback(() => {
+    stopPendingTokenRefreshAfterTokensDone({ clearAccounts: false });
+  }, [stopPendingTokenRefreshAfterTokensDone]);
+  const registerPendingTokenRefreshAfterTokensDone = useCallback(
+    ({
+      accounts,
+      accountId,
+      networkId,
+    }: {
+      accounts: ITokenRefreshAccount[];
+      accountId: string;
+      networkId: string;
+    }) => {
+      if (accounts.length === 0) return;
+      pendingTokenRefreshAfterTokensDoneRef.current?.cleanup?.();
+      const pending: IPendingTokenRefreshAfterTokensDone = {
+        accounts,
+        accountId,
+        networkId,
+        matchNetworkId: !networkUtils.isAllNetwork({
+          networkId,
+        }),
+      };
+      pending.cleanup = runAfterTokensDone({
+        accountId,
+        networkId,
+        matchAccountId: true,
+        matchNetworkId: pending.matchNetworkId,
+        fallbackDelayMs: POLLING_DEBOUNCE_INTERVAL,
+        retryDelayMs: POLLING_DEBOUNCE_INTERVAL,
+        deferWhileRefreshing: true,
+        onRun: () => {
+          if (pendingTokenRefreshAfterTokensDoneRef.current === pending) {
+            pendingTokenRefreshAfterTokensDoneRef.current = undefined;
+          }
+          emitRefreshTokenList(pending.accounts);
+        },
+      });
+      pendingTokenRefreshAfterTokensDoneRef.current = pending;
+    },
+    [emitRefreshTokenList],
+  );
+  const rearmPendingTokenRefreshAfterTokensDone = useCallback(() => {
+    const pending = pendingTokenRefreshAfterTokensDoneRef.current;
+    if (!pending || pending.cleanup) return;
+    registerPendingTokenRefreshAfterTokensDone({
+      accounts: pending.accounts,
+      accountId: pending.accountId,
+      networkId: pending.networkId,
+    });
+  }, [registerPendingTokenRefreshAfterTokensDone]);
 
   // Stable identity tuple shared by the init guard and request-id effect so
   // they can't drift on what counts as an identity change.
@@ -270,7 +359,7 @@ function TxHistoryListContainer(
     async () => {
       fetchRequestIdRef.current += 1;
       const requestId = fetchRequestIdRef.current;
-      clearPendingTokenRefreshAfterTokensDone();
+      suspendPendingTokenRefreshAfterTokensDone();
       const isManualRefreshForThisRun = isManualRefresh.current;
       const forceHistoryRefreshForThisRun =
         isManualRefreshForThisRun || forceHistoryRefresh.current;
@@ -388,8 +477,16 @@ function TxHistoryListContainer(
         });
         updateHistoryData(r.txs);
 
+        const accountsToPlanTokenRefresh = uniqBy(
+          [
+            ...(pendingTokenRefreshAfterTokensDoneRef.current?.accounts ?? []),
+            ...r.accountsWithChangedTxs,
+          ],
+          getTokenRefreshAccountKey,
+        );
+        clearPendingTokenRefreshAfterTokensDone();
         const tokenRefreshPlan = buildTokenRefreshPlanAfterHistory({
-          accounts: r.accountsWithChangedTxs,
+          accounts: accountsToPlanTokenRefresh,
           lastTokensTabState: getTokensTabLastState(),
           tokenRefreshScope: {
             accountId: refreshAccountId,
@@ -398,39 +495,14 @@ function TxHistoryListContainer(
           },
         });
 
-        const emitRefreshTokenList = (
-          accounts: typeof tokenRefreshPlan.accountsToRefreshNow,
-        ) => {
-          if (accounts.length > 0) {
-            appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
-              accounts,
-            });
-          }
-        };
-
         emitRefreshTokenList(tokenRefreshPlan.accountsToRefreshNow);
 
         if (tokenRefreshPlan.accountsToRefreshAfterTokensDone.length > 0) {
-          const isAllNetworkTokenRefresh = networkUtils.isAllNetwork({
+          registerPendingTokenRefreshAfterTokensDone({
+            accounts: tokenRefreshPlan.accountsToRefreshAfterTokensDone,
+            accountId: refreshAccountId,
             networkId: refreshNetworkId,
           });
-          pendingTokenRefreshAfterTokensDoneCleanupRef.current =
-            runAfterTokensDone({
-              accountId: refreshAccountId,
-              networkId: refreshNetworkId,
-              matchAccountId: true,
-              matchNetworkId: !isAllNetworkTokenRefresh,
-              fallbackDelayMs: POLLING_DEBOUNCE_INTERVAL,
-              retryDelayMs: POLLING_DEBOUNCE_INTERVAL,
-              deferWhileRefreshing: true,
-              onRun: () => {
-                pendingTokenRefreshAfterTokensDoneCleanupRef.current =
-                  undefined;
-                emitRefreshTokenList(
-                  tokenRefreshPlan.accountsToRefreshAfterTokensDone,
-                );
-              },
-            });
         }
         if (r.accountsWithCompletedDeFiPortfolioTxs.length > 0) {
           void Promise.all(
@@ -462,6 +534,7 @@ function TxHistoryListContainer(
           });
         }
         if (isCurrentRequest()) {
+          rearmPendingTokenRefreshAfterTokensDone();
           setIsHeaderRefreshing(false);
         }
       }
@@ -482,6 +555,10 @@ function TxHistoryListContainer(
       updateHistoryData,
       onFirstPageResponse,
       clearPendingTokenRefreshAfterTokensDone,
+      emitRefreshTokenList,
+      registerPendingTokenRefreshAfterTokensDone,
+      rearmPendingTokenRefreshAfterTokensDone,
+      suspendPendingTokenRefreshAfterTokensDone,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
