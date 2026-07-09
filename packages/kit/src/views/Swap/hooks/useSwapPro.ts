@@ -1187,20 +1187,27 @@ export function useSwapProTokenTransactionList(
     setSwapProTokenTransactionPrice(newTransactions[0].to.price ?? '');
   }, [transactionsData?.list, setSwapProTokenTransactionPrice]);
 
-  const addNewTransaction = useCallback(
-    (newTransaction: IMarketTokenTransaction) => {
-      const prev = swapProTokenTransactionListRef.current;
-      // Check if transaction already exists to avoid duplicates
-      const existingIndex = prev.findIndex(
-        (tx) => tx.hash === newTransaction.hash,
-      );
-
-      if (existingIndex !== -1) {
+  const addNewTransactions = useCallback(
+    (newTransactions: IMarketTokenTransaction[]) => {
+      if (newTransactions.length === 0) {
         return;
       }
 
-      // Add new transaction at the beginning and sort by timestamp
-      const updatedTransactions = [newTransaction, ...prev].toSorted(
+      const prev = swapProTokenTransactionListRef.current;
+      const seenHashes = new Set(prev.map((tx) => tx.hash));
+      const nextTransactions = newTransactions.filter((tx) => {
+        if (seenHashes.has(tx.hash)) {
+          return false;
+        }
+        seenHashes.add(tx.hash);
+        return true;
+      });
+
+      if (nextTransactions.length === 0) {
+        return;
+      }
+
+      const updatedTransactions = [...nextTransactions, ...prev].toSorted(
         (a, b) => b.timestamp - a.timestamp,
       );
       setSwapProTokenTransactionList(updatedTransactions);
@@ -1216,7 +1223,7 @@ export function useSwapProTokenTransactionList(
     tokenAddress,
     enabled: enableWebSocket && supportSpeedSwap,
     currency: currencyInfo.id,
-    onNewTransaction: addNewTransaction,
+    onNewTransactions: addNewTransactions,
   });
 
   return {

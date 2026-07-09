@@ -133,7 +133,7 @@ const PositionRowDesktopSymbolAndLeverage = memo(
           justifyContent={calcCellAlign(columnConfig.align)}
           gap="$2"
           onPress={onChangeAsset}
-          cursor="default"
+          cursor="pointer"
         >
           <XStack alignItems="center" gap="$2">
             <Divider
