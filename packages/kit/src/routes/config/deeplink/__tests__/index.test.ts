@@ -191,6 +191,28 @@ describe('stocks / perps universal links', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
+  it.each([
+    'https://swap.onekey.so/',
+    'https://swap.onekeytest.com/any/path',
+  ])('routes swap universal link to the Swap tab home: %s', async (url) => {
+    handleDeepLinkUrl({ url });
+    await flushAsyncTasks();
+
+    expect(switchTab).toHaveBeenCalledWith(ETabRoutes.Swap);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'https://app.onekey.so/market',
+    'https://app.onekeytest.com/market/',
+  ])('routes market universal link to the Market tab: %s', async (url) => {
+    handleDeepLinkUrl({ url });
+    await flushAsyncTasks();
+
+    expect(switchTab).toHaveBeenCalledWith(ETabRoutes.Market);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
   it('routes perps universal link to the web Perps tab when usePerpWeb is on', async () => {
     mockedPerpsCommonConfigGet.mockResolvedValue({
       perpConfigCommon: { usePerpWeb: true },
@@ -232,9 +254,11 @@ describe('stocks / perps universal links', () => {
     'https://app.onekey.so/swap',
     'https://app.onekey.so/swap?tab=bridge',
     'https://app.onekey.so/settings',
+    'https://app.onekey.so/market/tokens/btc',
     'https://evil.example/swap?tab=stock',
     'https://stocks.evil.example/',
     'http://stocks.onekey.so/',
+    'http://swap.onekey.so/',
   ])('ignores non stocks/perps universal link: %s', async (url) => {
     handleDeepLinkUrl({ url });
     await flushAsyncTasks();

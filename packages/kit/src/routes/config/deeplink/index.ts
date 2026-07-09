@@ -13,6 +13,8 @@ import {
   ONEKEY_PERPS_TEST_APP_LINK_HOST,
   ONEKEY_STOCKS_APP_LINK_HOST,
   ONEKEY_STOCKS_TEST_APP_LINK_HOST,
+  ONEKEY_SWAP_APP_LINK_HOST,
+  ONEKEY_SWAP_TEST_APP_LINK_HOST,
   ONEKEY_UNIVERSAL_LINK_HOST,
   ONEKEY_UNIVERSAL_TEST_LINK_HOST,
   WALLET_CONNECT_DEEP_LINK,
@@ -121,7 +123,11 @@ async function handleReferralLandingAppDeepLink({
   return true;
 }
 
-type IOneKeyAppLinkTarget = { type: 'stocks' } | { type: 'perps' };
+type IOneKeyAppLinkTarget =
+  | { type: 'stocks' }
+  | { type: 'perps' }
+  | { type: 'swapHome' }
+  | { type: 'market' };
 
 const ONEKEY_WEB_APP_UNIVERSAL_LINK_HOSTS = new Set<string>([
   ONEKEY_UNIVERSAL_LINK_HOST,
@@ -134,6 +140,10 @@ const ONEKEY_STOCKS_APP_LINK_HOSTS = new Set<string>([
 const ONEKEY_PERPS_APP_LINK_HOSTS = new Set<string>([
   ONEKEY_PERPS_APP_LINK_HOST,
   ONEKEY_PERPS_TEST_APP_LINK_HOST,
+]);
+const ONEKEY_SWAP_APP_LINK_HOSTS = new Set<string>([
+  ONEKEY_SWAP_APP_LINK_HOST,
+  ONEKEY_SWAP_TEST_APP_LINK_HOST,
 ]);
 
 // expo-linking returns "swap" while the jest URL polyfill returns "/swap".
@@ -157,6 +167,9 @@ function parseOneKeyAppLinkTarget({
   if (ONEKEY_PERPS_APP_LINK_HOSTS.has(host)) {
     return { type: 'perps' };
   }
+  if (ONEKEY_SWAP_APP_LINK_HOSTS.has(host)) {
+    return { type: 'swapHome' };
+  }
   if (!ONEKEY_WEB_APP_UNIVERSAL_LINK_HOSTS.has(host)) {
     return undefined;
   }
@@ -170,6 +183,9 @@ function parseOneKeyAppLinkTarget({
   }
   if (normalizedPath === 'perps') {
     return { type: 'perps' };
+  }
+  if (normalizedPath === 'market') {
+    return { type: 'market' };
   }
   return undefined;
 }
@@ -215,6 +231,14 @@ async function processOneKeyAppUniversalLink(
         },
       },
     });
+    return true;
+  }
+  if (target.type === 'swapHome') {
+    navigation.switchTab(ETabRoutes.Swap);
+    return true;
+  }
+  if (target.type === 'market') {
+    navigation.switchTab(ETabRoutes.Market);
     return true;
   }
   const perpsTabRoute = await getPerpsAppLinkTabRoute();

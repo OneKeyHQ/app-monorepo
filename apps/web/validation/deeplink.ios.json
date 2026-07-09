@@ -30,6 +30,10 @@
           {
             "/": "/perps",
             "comment": "Matches the perps trade universal link"
+          },
+          {
+            "/": "/market",
+            "comment": "Matches the market home universal link"
           }
         ]
       }

@@ -27,7 +27,9 @@
         "applinks:stocks.onekey.so",
         "applinks:stocks.onekeytest.com",
         "applinks:perps.onekey.so",
-        "applinks:perps.onekeytest.com"
+        "applinks:perps.onekeytest.com",
+        "applinks:swap.onekey.so",
+        "applinks:swap.onekeytest.com"
       ]
     },
     "android": {
