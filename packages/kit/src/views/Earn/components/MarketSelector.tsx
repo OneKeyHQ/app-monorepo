@@ -12,7 +12,6 @@ import {
   SegmentControl,
   SizableText,
   Stack,
-  XStack,
   YStack,
   fs,
   useMedia,
@@ -258,15 +257,13 @@ const MarketSelectorMobile = ({
           pb="$2"
           position="relative"
         >
-          <XStack alignItems="center" justifyContent="center" gap="$2">
-            <SizableText
-              size="$headingMd"
-              textAlign="center"
-              color={isActive ? '$text' : '$textSubdued'}
-            >
-              {intl.formatMessage({ id: messageId })}
-            </SizableText>
-          </XStack>
+          <SizableText
+            size="$headingMd"
+            textAlign="center"
+            color={isActive ? '$text' : '$textSubdued'}
+          >
+            {intl.formatMessage({ id: messageId })}
+          </SizableText>
           {isActive ? (
             <YStack
               position="absolute"
