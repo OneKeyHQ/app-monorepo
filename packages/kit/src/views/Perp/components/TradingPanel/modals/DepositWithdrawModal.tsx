@@ -45,6 +45,7 @@ import {
   SendAutoSizeAmountInput,
 } from '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { resolvePerpsDepositSelectedToken } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/utils/depositTokenListUtils';
 import type {
   IPerpsActiveAccountAtom,
   IPerpsDepositToken,
@@ -89,6 +90,12 @@ import {
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
 } from '../../PerpDialogLayout';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
+
+import {
+  getPerpsDepositTokenDisplayList,
+  mergePerpsDepositTokensPreservingOrder,
+  shouldShowPerpsDepositTokenSkeleton,
+} from './depositTokenDisplayUtils';
 
 import type { RouteProp } from '@react-navigation/native';
 import type { IntlShape } from 'react-intl';
@@ -138,63 +145,6 @@ function getPerpsDepositMinAmountTextColor(
   selectedAction: IPerpsDepositWithdrawActionType,
 ) {
   return selectedAction === 'deposit' ? '$textCritical' : '$textSubdued';
-}
-
-export function shouldUsePerpsDepositLiveWalletTokens({
-  atomOwnerKey,
-  routeOwnerKey,
-  depositTokenListSource,
-}: {
-  atomOwnerKey?: string;
-  routeOwnerKey?: string;
-  depositTokenListSource?: 'serverConfig' | 'walletBalance';
-}) {
-  return (
-    Boolean(routeOwnerKey) &&
-    atomOwnerKey === routeOwnerKey &&
-    depositTokenListSource === 'walletBalance'
-  );
-}
-
-export function mergePerpsDepositTokensPreservingOrder({
-  currentTokens,
-  nextTokens,
-}: {
-  currentTokens: IPerpsDepositToken[];
-  nextTokens: IPerpsDepositToken[];
-}) {
-  if (currentTokens.length === 0) {
-    return nextTokens;
-  }
-
-  const usedNextTokenIndexes = new Set<number>();
-  const mergedTokens = currentTokens.reduce<IPerpsDepositToken[]>(
-    (memo, currentToken) => {
-      const nextTokenIndex = nextTokens.findIndex((nextToken, index) => {
-        if (usedNextTokenIndexes.has(index)) {
-          return false;
-        }
-        return equalTokenNoCaseSensitive({
-          token1: currentToken,
-          token2: nextToken,
-        });
-      });
-
-      if (nextTokenIndex === -1) {
-        return memo;
-      }
-
-      usedNextTokenIndexes.add(nextTokenIndex);
-      memo.push(nextTokens[nextTokenIndex]);
-      return memo;
-    },
-    [],
-  );
-
-  const appendedTokens = nextTokens.filter(
-    (_, index) => !usedNextTokenIndexes.has(index),
-  );
-  return [...mergedTokens, ...appendedTokens];
 }
 
 interface IDepositWithdrawParams {
@@ -542,6 +492,7 @@ function DepositWithdrawContent({
   const [
     {
       tokens,
+      defaultTokens,
       currentPerpsDepositSelectedToken,
       depositTokenListOwnerKey,
       depositTokenListRevision,
@@ -550,7 +501,7 @@ function DepositWithdrawContent({
   ] = usePerpsDepositTokensAtom();
 
   const cachedDepositTokens = useMemo(
-    () => Object.values(tokens).flat(),
+    () => getPerpsDepositTokenDisplayList(tokens),
     [tokens],
   );
   const currentDepositTokenIdentity = useMemo(
@@ -913,33 +864,42 @@ function DepositWithdrawContent({
 
   useEffect(() => {
     if (result) {
-      const findToken = result.find((t) =>
-        equalTokenNoCaseSensitive({
-          token1: t,
-          token2: currentPerpsDepositSelectedTokenRef.current,
-        }),
-      );
-      if (currentPerpsDepositSelectedTokenRef.current && findToken) {
-        setPerpsDepositTokensAtom((prev) => ({
-          ...prev,
-          currentPerpsDepositSelectedToken: {
-            ...currentPerpsDepositSelectedTokenRef.current,
-            networkId: findToken?.networkId,
-            contractAddress: findToken?.contractAddress,
-            name: findToken?.name,
-            symbol: findToken?.symbol,
-            decimals: findToken?.decimals,
-            networkLogoURI: findToken?.networkLogoURI,
-            logoURI: findToken?.logoURI,
-            isNative: findToken?.isNative,
-            balanceParsed: findToken?.balanceParsed,
-            fiatValue: findToken?.fiatValue,
-            price: findToken?.price,
-          },
-        }));
+      const selectedToken = resolvePerpsDepositSelectedToken({
+        tokens: result,
+        currentToken: currentPerpsDepositSelectedTokenRef.current,
+        defaultTokens,
+      });
+      if (selectedToken) {
+        setPerpsDepositTokensAtom((prev) =>
+          equalTokenNoCaseSensitive({
+            token1: prev.currentPerpsDepositSelectedToken,
+            token2: selectedToken,
+          })
+            ? {
+                ...prev,
+                currentPerpsDepositSelectedToken: {
+                  ...prev.currentPerpsDepositSelectedToken,
+                  networkId: selectedToken.networkId,
+                  contractAddress: selectedToken.contractAddress,
+                  name: selectedToken.name,
+                  symbol: selectedToken.symbol,
+                  decimals: selectedToken.decimals,
+                  networkLogoURI: selectedToken.networkLogoURI,
+                  logoURI: selectedToken.logoURI,
+                  isNative: selectedToken.isNative,
+                  balanceParsed: selectedToken.balanceParsed,
+                  fiatValue: selectedToken.fiatValue,
+                  price: selectedToken.price,
+                },
+              }
+            : {
+                ...prev,
+                currentPerpsDepositSelectedToken: selectedToken,
+              },
+        );
       }
     }
-  }, [result, setPerpsDepositTokensAtom]);
+  }, [defaultTokens, result, setPerpsDepositTokensAtom]);
 
   const availableBalance = useMemo(() => {
     const rawBalance =
@@ -1733,18 +1693,11 @@ function DepositWithdrawContent({
   );
 
   const fallbackSelectedDepositToken = useMemo(() => {
-    const arbitrumUsdcToken = cachedDepositTokens.find((token) =>
-      equalTokenNoCaseSensitive({
-        token1: token,
-        token2: {
-          networkId: PERPS_NETWORK_ID,
-          contractAddress: USDC_TOKEN_INFO.address,
-        },
-      }),
-    );
-
-    return arbitrumUsdcToken ?? cachedDepositTokens[0];
-  }, [cachedDepositTokens]);
+    return resolvePerpsDepositSelectedToken({
+      tokens: cachedDepositTokens,
+      defaultTokens,
+    });
+  }, [cachedDepositTokens, defaultTokens]);
 
   const resolvedCurrentPerpsDepositSelectedToken =
     currentPerpsDepositSelectedToken ?? fallbackSelectedDepositToken;
@@ -1766,19 +1719,11 @@ function DepositWithdrawContent({
     }
 
     if (!currentPerpsDepositSelectedToken && fallbackSelectedDepositToken) {
-      const arbUSDCToken = depositTokensWithPrice.find((token) =>
-        equalTokenNoCaseSensitive({
-          token1: token,
-          token2: {
-            networkId: PERPS_NETWORK_ID,
-            contractAddress: USDC_TOKEN_INFO.address,
-          },
-        }),
-      );
       const selectedToken =
-        arbUSDCToken ??
-        depositTokensWithPrice?.[0] ??
-        fallbackSelectedDepositToken;
+        resolvePerpsDepositSelectedToken({
+          tokens: depositTokensWithPrice,
+          defaultTokens,
+        }) ?? fallbackSelectedDepositToken;
       setPerpsDepositTokensAtom((prev) => {
         if (prev.currentPerpsDepositSelectedToken) {
           return prev;
@@ -1792,6 +1737,7 @@ function DepositWithdrawContent({
   }, [
     fallbackSelectedDepositToken,
     depositTokensWithPrice,
+    defaultTokens,
     currentPerpsDepositSelectedToken,
     setPerpsDepositTokensAtom,
     checkAccountSupport,
@@ -1845,6 +1791,34 @@ function DepositWithdrawContent({
   }, []);
 
   const depositTokenSelectComponent = useMemo(() => {
+    const shouldShowTokenSkeleton = shouldShowPerpsDepositTokenSkeleton({
+      selectedAction,
+      checkAccountSupport,
+      hasLoadedDepositTokenBalances,
+      depositTokensWithPriceLength: depositTokensWithPrice.length,
+      hasDisplayDepositToken: Boolean(resolvedCurrentPerpsDepositSelectedToken),
+    });
+    if (shouldShowTokenSkeleton) {
+      return (
+        <XStack
+          width="100%"
+          alignItems="center"
+          justifyContent="space-between"
+          gap="$3"
+          minHeight={50}
+        >
+          <XStack alignItems="center" gap="$2.5" flex={1} minWidth={0}>
+            <Skeleton w="$10" h="$10" radius="round" />
+            <YStack flex={1} minWidth={0} justifyContent="center" gap="$2">
+              <Skeleton h="$4" w="$24" borderRadius="$1" />
+              <Skeleton h="$3" w="$18" borderRadius="$1" />
+            </YStack>
+          </XStack>
+          <Skeleton h="$8" w={56} borderRadius="$full" />
+        </XStack>
+      );
+    }
+
     const displayDepositToken = resolvedCurrentPerpsDepositSelectedToken;
     const hasSourceBalance = displayDepositToken?.balanceParsed !== undefined;
     const sourceBalanceFormatted = hasSourceBalance
@@ -1931,10 +1905,13 @@ function DepositWithdrawContent({
   }, [
     checkAccountSupport,
     currentNetworkInfo?.name,
+    depositTokensWithPrice.length,
     handleMaxPress,
+    hasLoadedDepositTokenBalances,
     intl,
     openTokenSelectorPage,
     resolvedCurrentPerpsDepositSelectedToken,
+    selectedAction,
   ]);
 
   const depositToAmount = useMemo(() => {

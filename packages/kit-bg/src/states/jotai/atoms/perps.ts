@@ -906,11 +906,13 @@ export interface IPerpsDepositToken {
   balanceParsed?: string;
   fiatValue?: string;
   isNative?: boolean;
+  isDefault?: boolean;
   logoURI?: string;
 }
 
 export interface IPerpsDepositTokensAtom {
   tokens: Record<string, IPerpsDepositToken[]>;
+  defaultTokens?: IPerpsDepositToken[];
   currentPerpsDepositSelectedToken?: IPerpsDepositToken;
   depositTokenListOwnerKey?: string;
   depositTokenListRevision?: number;

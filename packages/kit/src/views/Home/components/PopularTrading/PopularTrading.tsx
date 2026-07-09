@@ -964,10 +964,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             <Button
               testID="home-show-view-more-button-btn"
               variant="secondary"
-              iconAfter="ChevronRightSmallOutline"
               onPress={handleViewMore}
               flexGrow={1}
               flexBasis={0}
+              childrenAsText={false}
               $md={
                 {
                   borderRadius: '$full',
@@ -976,7 +976,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                 } as any
               }
             >
-              {intl.formatMessage({ id: ETranslations.global_view_more })}
+              <XStack alignItems="center" gap="$2">
+                <SizableText size="$bodyMdMedium">
+                  {intl.formatMessage({ id: ETranslations.global_view_more })}
+                </SizableText>
+                <Icon name="ChevronRightSmallOutline" size="$5.5" />
+              </XStack>
             </Button>
           </XStack>
         ) : null}
