@@ -11,7 +11,12 @@ import {
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  SizableText,
+  XStack,
+  useInPageDialog,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
@@ -523,6 +528,7 @@ const ProtocolPositionActionButton = memo(
     onSuccess,
   }: IProtocolPositionActionButtonProps) => {
     const intl = useIntl();
+    const inPageDialog = useInPageDialog();
     const submitProtocolPositionAction = useProtocolPositionActionSubmit({
       accountId: accountId ?? '',
       networkId: protocol.networkId,
@@ -763,6 +769,7 @@ const ProtocolPositionActionButton = memo(
               hasDebts: positionHasDebts,
               intl,
               onSuccess,
+              dialog: inPageDialog,
             });
           return;
         }
@@ -777,11 +784,13 @@ const ProtocolPositionActionButton = memo(
           hasDebts: positionHasDebts,
           rewardAssets: defiActionUtils.getPositionRewardAssets(position),
           onSuccess,
+          dialog: inPageDialog,
         });
       },
       [
         accountId,
         hasRewards,
+        inPageDialog,
         intl,
         onSuccess,
         position,
@@ -823,11 +832,13 @@ const ProtocolPositionActionButton = memo(
             hasDebts: positionHasDebts,
             intl,
             onSuccess,
+            dialog: inPageDialog,
           });
       },
       [
         accountId,
         indexedAccountId,
+        inPageDialog,
         intl,
         manageAsset,
         onSuccess,
