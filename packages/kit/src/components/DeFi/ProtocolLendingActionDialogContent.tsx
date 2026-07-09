@@ -1322,6 +1322,11 @@ function ProtocolLendingActionBorrowContent({
       currentAllowance: protocolInfo?.approve?.allowance,
       amountValue: amount,
       onSubmit: submitBorrowTx,
+      onBeforeNavigateConfirm: () => {
+        if (isBorrowDialogClosedRef.current) return;
+        isBorrowDialogClosedRef.current = true;
+        void closeRef.current?.();
+      },
     });
 
   const handleFooterConfirm = async ({
@@ -1333,9 +1338,8 @@ function ProtocolLendingActionBorrowContent({
   }) => {
     closeRef.current = close;
     isBorrowDialogClosedRef.current = false;
-    // We own the close timing: onBeforeNavigate closes right before the
-    // tx-confirm page opens, and the approve hop keeps the dialog open until
-    // it auto-submits.
+    // We own the close timing: approval and business confirms both close this
+    // dialog right before tx-confirm opens, so the old dialog never overlays it.
     preventClose();
     if (submitting) return;
     setSubmitting(true);
