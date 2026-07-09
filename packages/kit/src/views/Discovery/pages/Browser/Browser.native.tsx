@@ -329,6 +329,7 @@ function MobileBrowser() {
     const listener = async (event: {
       tab: ETranslations;
       openUrl?: boolean;
+      showWebPage?: boolean;
       switchType?: IExploreTabSwitchType;
     }) => {
       exploreTabSwitchTypeRef.current = event.switchType ?? 'default';
@@ -339,6 +340,9 @@ function MobileBrowser() {
       // If the target is Browser itself, do NOT collapse the WebView.
       if (!displayHomePage && event.tab !== ETranslations.global_browser) {
         setDisplayHomePage(true);
+      }
+      if (event.tab === ETranslations.global_browser && event.showWebPage) {
+        setDisplayHomePage(false);
       }
 
       await backgroundApiProxy.serviceSetting.setSelectedBrowserTab(event.tab);
