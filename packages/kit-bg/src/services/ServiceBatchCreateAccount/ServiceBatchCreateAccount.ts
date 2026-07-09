@@ -411,7 +411,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     let hwAllNetworkPrepareAccountsResponse:
       | IHwAllNetworkPrepareAccountsResponse
       | undefined;
-    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+    const flow = this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
         let customNetworks: {
           networkId: string;
@@ -525,6 +525,24 @@ class ServiceBatchCreateAccount extends ServiceBase {
         },
       },
     );
+    return flow.catch((error) => {
+      // Emit only for a UI-progress flow's prepare-phase escape; background
+      // (no-UI) flows must not broadcast to the shared progress event.
+      if (
+        !this.isCreateFlowCancelled &&
+        !this.progressInfo &&
+        payload.params.showUIProgress
+      ) {
+        appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
+          totalCount: 0,
+          createdCount: 0,
+          progressTotal: 0,
+          progressCurrent: 0,
+          error: errorUtils.toPlainErrorObject(error),
+        });
+      }
+      throw error;
+    });
   }
 
   @backgroundMethod()
