@@ -234,7 +234,17 @@ async function processOneKeyAppUniversalLink(
     return true;
   }
   if (target.type === 'swapHome') {
-    navigation.switchTab(ETabRoutes.Swap);
+    // Explicit tab param resets any live Stock/Limit sub tab so the link
+    // always lands on the plain Swap home, cold or warm.
+    navigation.navigate(ERootRoutes.Main, {
+      screen: ETabRoutes.Swap,
+      params: {
+        screen: ETabSwapRoutes.TabSwap,
+        params: {
+          tab: ESwapTabSwitchType.SWAP,
+        },
+      },
+    });
     return true;
   }
   if (target.type === 'market') {

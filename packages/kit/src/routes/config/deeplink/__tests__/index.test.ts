@@ -197,8 +197,16 @@ describe('stocks / perps universal links', () => {
       handleDeepLinkUrl({ url });
       await flushAsyncTasks();
 
-      expect(switchTab).toHaveBeenCalledWith(ETabRoutes.Swap);
-      expect(navigate).not.toHaveBeenCalled();
+      expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+        screen: ETabRoutes.Swap,
+        params: {
+          screen: ETabSwapRoutes.TabSwap,
+          params: {
+            tab: 'swap',
+          },
+        },
+      });
+      expect(switchTab).not.toHaveBeenCalled();
     },
   );
 

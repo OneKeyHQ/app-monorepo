@@ -28,12 +28,27 @@
             "comment": "Matches the stock trade universal link"
           },
           {
+            "/": "/swap/",
+            "?": {
+              "tab": "stock"
+            },
+            "comment": "Trailing-slash variant of the stock trade universal link"
+          },
+          {
             "/": "/perps",
             "comment": "Matches the perps trade universal link"
           },
           {
+            "/": "/perps/",
+            "comment": "Trailing-slash variant of the perps trade universal link"
+          },
+          {
             "/": "/market",
             "comment": "Matches the market home universal link"
+          },
+          {
+            "/": "/market/",
+            "comment": "Trailing-slash variant of the market home universal link"
           }
         ]
       }
