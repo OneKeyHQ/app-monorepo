@@ -55,6 +55,7 @@ import type {
   IFirmwareUpdateV3VersionParams,
   IHardwareBridgeReleasePayload,
   IOneKeyDeviceFeatures,
+  IPro2FirmwareUpdateTarget,
   IResourceUpdateInfo,
 } from '@onekeyhq/shared/types/device';
 import {
@@ -115,6 +116,21 @@ export type IUpdateFirmwareWorkflowParams = {
 export type IStartUpdateWorkflowV2Result = {
   backgroundTaskStarted: true;
 };
+
+const PRO2_APP_FIRMWARE_UPDATE_TARGETS = new Set<IPro2FirmwareUpdateTarget>([
+  'app_v1',
+  'app_v2',
+]);
+
+const PRO2_NON_BOOT_UPDATE_TARGETS = new Set<IPro2FirmwareUpdateTarget>([
+  'app_v1',
+  'app_v2',
+  'resource',
+  'se01',
+  'se02',
+  'se03',
+  'se04',
+]);
 
 export type IUpdateFirmwareTaskFn = ({
   id,
@@ -626,6 +642,20 @@ class ServiceFirmwareUpdate extends ServiceBase {
       // ignore
     }
 
+    const pro2ForceTargets =
+      deviceType === EDeviceType.Pro2
+        ? Array.from(
+            new Set([
+              ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+                'pro2ForceUpdateTargets',
+              )) ?? []),
+              ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+                'pro2ForceUpdateOnceTargets',
+              )) ?? []),
+            ]),
+          )
+        : undefined;
+
     return {
       updatingConnectId: fixedUpdatingConnectId,
       originalConnectId,
@@ -646,6 +676,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         bridge,
       },
       totalPhase: totalPhase.filter(Boolean),
+      pro2ForceTargets,
     };
   }
 
@@ -929,24 +960,28 @@ class ServiceFirmwareUpdate extends ServiceBase {
       (await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'pro2ForceUpdateOnceTargets',
       )) ?? [];
-    const pro2FirmwareTargets = new Set([
-      'app_v1',
-      'app_v2',
-      'se01',
-      'se02',
-      'se03',
-      'se04',
-    ]);
-    const shouldForcePro2Firmware = [
+    const releaseFeatures =
+      'features' in releasePayload ? releasePayload.features : undefined;
+    const isPro2Device =
+      releaseFeatures &&
+      (await deviceUtils.getDeviceTypeFromFeatures({
+        features: releaseFeatures,
+      })) === EDeviceType.Pro2;
+    const pro2ForceTargets = [
       ...pro2ForceUpdateTargets,
       ...pro2ForceUpdateOnceTargets,
-    ].some((target) => pro2FirmwareTargets.has(target));
+    ];
+    const shouldForcePro2Firmware = pro2ForceTargets.some((target) =>
+      PRO2_NON_BOOT_UPDATE_TARGETS.has(target),
+    );
     const shouldForcePro2Bootloader =
       pro2ForceUpdateTargets.includes('boot') ||
       pro2ForceUpdateOnceTargets.includes('boot');
     if (
       firmwareType === 'firmware' &&
-      (mockUpdateFirmware || mockUpdateOnceFirmware || shouldForcePro2Firmware)
+      (isPro2Device
+        ? shouldForcePro2Firmware || shouldForcePro2Bootloader
+        : mockUpdateFirmware || mockUpdateOnceFirmware)
     ) {
       hasUpgrade = true;
     }
@@ -955,9 +990,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
     }
     if (
       firmwareType === 'bootloader' &&
-      (mockUpdateBootloader ||
-        mockUpdateOnceBootloader ||
-        shouldForcePro2Bootloader)
+      (isPro2Device
+        ? shouldForcePro2Bootloader
+        : mockUpdateBootloader || mockUpdateOnceBootloader)
     ) {
       hasUpgrade = true;
     }
@@ -2123,6 +2158,20 @@ class ServiceFirmwareUpdate extends ServiceBase {
   ): Promise<IFirmwareUpdateResult> {
     const { releaseResult } = params;
     const { updateInfos } = releaseResult;
+    const pro2ForceUpdateTargets =
+      (await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'pro2ForceUpdateTargets',
+      )) ?? [];
+    const pro2ForceUpdateOnceTargets =
+      (await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'pro2ForceUpdateOnceTargets',
+      )) ?? [];
+    const isPro2Device = releaseResult.deviceType === EDeviceType.Pro2;
+    const pro2ForceTargets = isPro2Device
+      ? Array.from(
+          new Set([...pro2ForceUpdateTargets, ...pro2ForceUpdateOnceTargets]),
+        )
+      : undefined;
 
     const updateParams: IFirmwareUpdateV3VersionParams = {
       connectId: releaseResult.updatingConnectId,
@@ -2136,6 +2185,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
         ? updateInfos.bootloader?.toVersion
         : undefined,
       firmwareType: updateInfos.firmware?.toFirmwareType,
+      isPro2Device,
+      pro2ForceTargets,
     };
     return this.createRunTaskWithRetry({
       fn: async () => this.updatingFirmwareV3(updateParams),
@@ -2185,25 +2236,36 @@ class ServiceFirmwareUpdate extends ServiceBase {
         forceUpdateResEvenIfSameVersion === true ||
         pro2ForceUpdateTargets.includes('resource') ||
         pro2ForceUpdateOnceTargets.includes('resource');
+      const shouldVerifyFirmwareVersion =
+        !params.isPro2Device ||
+        !params.pro2ForceTargets?.length ||
+        params.pro2ForceTargets.some((target) =>
+          PRO2_APP_FIRMWARE_UPDATE_TARGETS.has(target),
+        );
 
       try {
         const currentTransportType =
           await this.backgroundApi.serviceSetting.getHardwareTransportType();
+        const updatingConnectId = deviceUtils.getUpdatingConnectId({
+          connectId,
+          currentTransportType,
+        });
         const updateResult = await convertDeviceResponse(async () =>
-          hardwareSDK.firmwareUpdateV3(
-            deviceUtils.getUpdatingConnectId({
-              connectId,
-              currentTransportType,
-            }),
-            {
-              platform: platformEnv.symbol ?? 'web',
-              bleVersion: toBleVersion,
-              firmwareVersion: toFirmwareVersion,
-              bootloaderVersion: toBootloaderVersion,
-              forcedUpdateRes,
-              firmwareType: params.firmwareType,
-            },
-          ),
+          params.isPro2Device
+            ? hardwareSDK.firmwareUpdateV4(updatingConnectId, {
+                platform: platformEnv.symbol ?? 'web',
+                forcedUpdateRes,
+                firmwareType: params.firmwareType,
+                forceTargets: params.pro2ForceTargets,
+              })
+            : hardwareSDK.firmwareUpdateV3(updatingConnectId, {
+                platform: platformEnv.symbol ?? 'web',
+                bleVersion: toBleVersion,
+                firmwareVersion: toFirmwareVersion,
+                bootloaderVersion: toBootloaderVersion,
+                forcedUpdateRes,
+                firmwareType: params.firmwareType,
+              }),
         );
 
         // verify final version
@@ -2228,10 +2290,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
           }
         };
 
-        verifyVersion(
-          toFirmwareVersion?.join('.'),
-          updateResult?.firmwareVersion,
-        );
+        if (shouldVerifyFirmwareVersion) {
+          verifyVersion(
+            toFirmwareVersion?.join('.'),
+            updateResult?.firmwareVersion,
+          );
+        }
         verifyVersion(toBleVersion?.join('.'), updateResult?.bleVersion);
         verifyVersion(
           toBootloaderVersion?.join('.'),

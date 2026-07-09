@@ -1,5 +1,6 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { IPro2FirmwareUpdateTarget } from '@onekeyhq/shared/types/device';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { EAtomNames } from '../atomNames';
@@ -198,15 +199,7 @@ export type IFirmwareUpdateDevSettings = {
   pro2ForceUpdateOnceTargets: IPro2FirmwareUpdateTarget[];
 };
 export type IFirmwareUpdateDevSettingsKeys = keyof IFirmwareUpdateDevSettings;
-export type IPro2FirmwareUpdateTarget =
-  | 'boot'
-  | 'app_v1'
-  | 'app_v2'
-  | 'resource'
-  | 'se01'
-  | 'se02'
-  | 'se03'
-  | 'se04';
+export type { IPro2FirmwareUpdateTarget };
 export const {
   target: firmwareUpdateDevSettingsPersistAtom,
   use: useFirmwareUpdateDevSettingsPersistAtom,

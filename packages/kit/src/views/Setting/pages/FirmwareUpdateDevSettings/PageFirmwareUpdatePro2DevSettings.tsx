@@ -36,15 +36,6 @@ const PRO2_FIRMWARE_UPDATE_TARGETS: {
 
 const EMPTY_PRO2_FIRMWARE_UPDATE_TARGETS: IPro2FirmwareUpdateTarget[] = [];
 
-const PRO2_APP_AND_SE_TARGETS = new Set<IPro2FirmwareUpdateTarget>([
-  'app_v1',
-  'app_v2',
-  'se01',
-  'se02',
-  'se03',
-  'se04',
-]);
-
 function HardwareConfigUrlDevButtons() {
   const [devSetting, setDevSetting] = useFirmwareUpdateDevSettingsPersistAtom();
   const updateHardwareConfigUrl = useCallback(
@@ -92,29 +83,6 @@ function HardwareConfigUrlDevButtons() {
   );
 }
 
-function buildPro2LegacyForceValues({
-  targets,
-  onceTargets,
-}: {
-  targets: IPro2FirmwareUpdateTarget[];
-  onceTargets: IPro2FirmwareUpdateTarget[];
-}) {
-  const hasPersistentFirmwareTarget = targets.some((target) =>
-    PRO2_APP_AND_SE_TARGETS.has(target),
-  );
-  const hasOnceFirmwareTarget = onceTargets.some((target) =>
-    PRO2_APP_AND_SE_TARGETS.has(target),
-  );
-  return {
-    forceUpdateFirmware: hasPersistentFirmwareTarget,
-    forceUpdateOnceFirmware: hasOnceFirmwareTarget,
-    forceUpdateBootloader: targets.includes('boot'),
-    forceUpdateOnceBootloader: onceTargets.includes('boot'),
-    forceUpdateResource: targets.includes('resource'),
-    forceUpdateResEvenSameVersion: targets.includes('resource'),
-  };
-}
-
 function Pro2FirmwareUpdateTargetRow({
   target,
 }: {
@@ -137,10 +105,6 @@ function Pro2FirmwareUpdateTargetRow({
       const values = {
         pro2ForceUpdateTargets: nextTargets,
         pro2ForceUpdateOnceTargets: nextOnceTargets,
-        ...buildPro2LegacyForceValues({
-          targets: nextTargets,
-          onceTargets: nextOnceTargets,
-        }),
       };
       setDevSetting((prev) => ({
         ...prev,
@@ -245,7 +209,7 @@ function FirmwareUpdatePro2DevSettings() {
       ))}
       <ListItem
         title="Force relation"
-        subtitle="boot maps to bootloader; app_v1/app_v2/se01-se04 map to firmware; resource maps to resource only."
+        subtitle="Each enabled target is passed to Pro2 firmwareUpdateV4 and installed independently."
         titleProps={{ color: '$textCritical' }}
       />
       <XStack px="$5" py="$3" gap="$2">

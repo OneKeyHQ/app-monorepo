@@ -36,6 +36,7 @@ import type {
   ICheckAllFirmwareReleaseResult,
   IFirmwareChangeLog,
   IFirmwareUpdateInfo,
+  IPro2FirmwareUpdateTarget,
 } from '@onekeyhq/shared/types/device';
 
 import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
@@ -58,6 +59,20 @@ type IProtocolV2FirmwareComponentDisplay = {
     }>;
   };
 };
+
+const PRO2_FORCE_TARGET_BY_COMPONENT_TARGET = new Map<
+  string,
+  IPro2FirmwareUpdateTarget
+>([
+  ['BOOTLOADER', 'boot'],
+  ['APPLICATION_P1', 'app_v1'],
+  ['APPLICATION_P2', 'app_v2'],
+  ['CRATE', 'resource'],
+  ['SE01', 'se01'],
+  ['SE02', 'se02'],
+  ['SE03', 'se03'],
+  ['SE04', 'se04'],
+]);
 
 function formatVersion(version: string | number[] | undefined) {
   if (Array.isArray(version)) {
@@ -257,9 +272,11 @@ function FirmwareUpdateDebugPayloadSection({
   const components = release?.components as
     | Record<string, IProtocolV2FirmwareComponentDisplay>
     | undefined;
+  const pro2ForceTargets = result?.pro2ForceTargets;
 
   const componentEntries = useMemo(() => {
     if (!components) return [];
+    const forceTargets = new Set(pro2ForceTargets ?? []);
     const orderedKeys = [
       ...(release?.installOrder ?? []),
       ...Object.keys(components).filter(
@@ -268,8 +285,16 @@ function FirmwareUpdateDebugPayloadSection({
     ];
     return orderedKeys
       .map((key) => [key, components[key]] as const)
-      .filter(([, component]) => Boolean(component));
-  }, [components, release?.installOrder]);
+      .filter(([, component]) => {
+        if (!component) return false;
+        if (forceTargets.size === 0) return true;
+        const target = component.target?.toUpperCase();
+        const pro2ForceTarget = target
+          ? PRO2_FORCE_TARGET_BY_COMPONENT_TARGET.get(target)
+          : undefined;
+        return Boolean(pro2ForceTarget && forceTargets.has(pro2ForceTarget));
+      });
+  }, [components, pro2ForceTargets, release?.installOrder]);
 
   if (componentEntries.length === 0) {
     return null;

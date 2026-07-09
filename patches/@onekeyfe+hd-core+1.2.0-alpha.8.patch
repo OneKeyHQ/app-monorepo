@@ -1,0 +1,228 @@
+diff --git a/node_modules/@onekeyfe/hd-core/dist/index.js b/node_modules/@onekeyfe/hd-core/dist/index.js
+index 51d55282b9..30b417afb3 100644
+--- a/node_modules/@onekeyfe/hd-core/dist/index.js
++++ b/node_modules/@onekeyfe/hd-core/dist/index.js
+@@ -45575,6 +45575,16 @@ const PROTOCOL_V2_REMOTE_COMPONENT_TARGETS = {
+         kind: 'resource',
+     },
+ };
++const PROTOCOL_V2_FORCE_TARGETS_BY_REMOTE_TARGET = new Map([
++    ['BOOTLOADER', 'boot'],
++    ['APPLICATION_P1', 'app_v1'],
++    ['APPLICATION_P2', 'app_v2'],
++    ['CRATE', 'resource'],
++    ['SE01', 'se01'],
++    ['SE02', 'se02'],
++    ['SE03', 'se03'],
++    ['SE04', 'se04'],
++]);
+ const PROTOCOL_V2_ROMLOADER_UNSUPPORTED_MESSAGE = 'FW_MGMT_TARGET_ROMLOADER is not accepted by the current Pro2 bootloader update request. Flash romloader with the loader-specific flow instead of firmwareUpdateV4.';
+ const PROTOCOL_V2_TARGET_ID_BY_DECODED_NAME = new Map(Object.entries(ProtocolV2FirmwareTargetType).map(([key, value]) => [key, value]));
+ const PROTOCOL_V2_TARGET_STATUS_BY_DECODED_NAME = new Map([
+@@ -45752,6 +45762,7 @@ class FirmwareUpdateV4 extends FirmwareUpdateBaseMethod {
+             { name: 'se02Binary', type: 'buffer' },
+             { name: 'se03Binary', type: 'buffer' },
+             { name: 'se04Binary', type: 'buffer' },
++            { name: 'forceTargets', type: 'array', allowEmpty: true },
+             { name: 'firmwareType', type: 'string' },
+             { name: 'platform', type: 'string' },
+         ]);
+@@ -45768,6 +45779,7 @@ class FirmwareUpdateV4 extends FirmwareUpdateBaseMethod {
+             se03Binary: payload.se03Binary,
+             se04Binary: payload.se04Binary,
+             resourceBinaries: payload.resourceBinaries,
++            forceTargets: payload.forceTargets,
+             firmwareType: payload.firmwareType,
+             platform: payload.platform,
+         };
+@@ -45932,6 +45944,17 @@ class FirmwareUpdateV4 extends FirmwareUpdateBaseMethod {
+         }
+         return target;
+     }
++    shouldAllowRemoteProtocolV2ComponentByForceTargets(component) {
++        var _a;
++        const forceTargets = this.params.forceTargets;
++        if (!(forceTargets === null || forceTargets === void 0 ? void 0 : forceTargets.length))
++            return true;
++        const targetName = (_a = component.target) === null || _a === void 0 ? void 0 : _a.toUpperCase();
++        const forceTarget = targetName
++            ? PROTOCOL_V2_FORCE_TARGETS_BY_REMOTE_TARGET.get(targetName)
++            : undefined;
++        return Boolean(forceTarget && forceTargets.includes(forceTarget));
++    }
+     getProtocolV2ComponentTargetVersion(release, component, target) {
+         if (component.version)
+             return component.version;
+@@ -46124,8 +46147,14 @@ class FirmwareUpdateV4 extends FirmwareUpdateBaseMethod {
+             }
+             const entries = this.getRemoteComponentEntries(release);
+             for (const [key, component] of entries) {
++                if (!this.shouldAllowRemoteProtocolV2ComponentByForceTargets(component)) {
++                    Log$4.log(`[FirmwareUpdateV4] skip Protocol V2 component ${key}; filtered by forceTargets`);
++                    continue;
++                }
+                 const target = this.getRemoteComponentTarget(key, component);
+-                const shouldInstall = yield this.shouldInstallRemoteProtocolV2Component(release, key, component, target, features);
++                const shouldInstall = this.params.forceTargets && this.params.forceTargets.length
++                    ? true
++                    : yield this.shouldInstallRemoteProtocolV2Component(release, key, component, target, features);
+                 if (shouldInstall) {
+                     const remoteBinary = yield this.downloadRemoteProtocolV2Component(key, component);
+                     if (remoteBinary.kind === 'resource') {
+diff --git a/node_modules/@onekeyfe/hd-core/dist/types/api/firmwareUpdate.d.ts b/node_modules/@onekeyfe/hd-core/dist/types/api/firmwareUpdate.d.ts
+index 6f762234e7..c11a576332 100644
+--- a/node_modules/@onekeyfe/hd-core/dist/types/api/firmwareUpdate.d.ts
++++ b/node_modules/@onekeyfe/hd-core/dist/types/api/firmwareUpdate.d.ts
+@@ -20,6 +20,7 @@ export declare function firmwareUpdate(connectId: string | undefined, params: Pa
+     rebootOnSuccess?: boolean;
+ }): Response<PROTO.Success>;
+ type IPlatform = 'native' | 'desktop' | 'ext' | 'web' | 'web-embed';
++type IProtocolV2FirmwareUpdateForceTarget = 'boot' | 'app_v1' | 'app_v2' | 'resource' | 'se01' | 'se02' | 'se03' | 'se04';
+ type Platform = {
+     platform: IPlatform;
+ };
+@@ -53,6 +54,7 @@ export interface FirmwareUpdateV4Params {
+     se04Binary?: ArrayBuffer;
+     resourceBinaries?: ArrayBuffer[];
+     forcedUpdateRes?: boolean;
++    forceTargets?: IProtocolV2FirmwareUpdateForceTarget[];
+ }
+ export declare function firmwareUpdateV3(connectId: string | undefined, params: Params<FirmwareUpdateV3Params>): Response<{
+     bleVersion: string;
+@@ -65,4 +67,4 @@ export declare function firmwareUpdateV4(connectId: string | undefined, params:
+     bootloaderVersion: string;
+ }>;
+ export {};
+-//# sourceMappingURL=firmwareUpdate.d.ts.map
+\ No newline at end of file
++//# sourceMappingURL=firmwareUpdate.d.ts.map
+diff --git a/node_modules/@onekeyfe/hd-core/src/api/FirmwareUpdateV4.ts b/node_modules/@onekeyfe/hd-core/src/api/FirmwareUpdateV4.ts
+index 9580737d5b..010d87bb3e 100644
+--- a/node_modules/@onekeyfe/hd-core/src/api/FirmwareUpdateV4.ts
++++ b/node_modules/@onekeyfe/hd-core/src/api/FirmwareUpdateV4.ts
+@@ -116,6 +116,9 @@ type ProtocolV2RemoteComponentTarget = {
+   targetId: number;
+   kind: 'bootloader' | 'firmware' | 'resource';
+ };
++type ProtocolV2FirmwareUpdateForceTarget = NonNullable<
++  FirmwareUpdateV4Params['forceTargets']
++>[number];
+ 
+ type ProtocolV2OkppHeader = {
+   type: string;
+@@ -174,6 +177,20 @@ const PROTOCOL_V2_REMOTE_COMPONENT_TARGETS: Readonly<
+   },
+ };
+ 
++const PROTOCOL_V2_FORCE_TARGETS_BY_REMOTE_TARGET = new Map<
++  string,
++  ProtocolV2FirmwareUpdateForceTarget
++>([
++  ['BOOTLOADER', 'boot'],
++  ['APPLICATION_P1', 'app_v1'],
++  ['APPLICATION_P2', 'app_v2'],
++  ['CRATE', 'resource'],
++  ['SE01', 'se01'],
++  ['SE02', 'se02'],
++  ['SE03', 'se03'],
++  ['SE04', 'se04'],
++]);
++
+ const PROTOCOL_V2_ROMLOADER_UNSUPPORTED_MESSAGE =
+   'FW_MGMT_TARGET_ROMLOADER is not accepted by the current Pro2 bootloader update request. Flash romloader with the loader-specific flow instead of firmwareUpdateV4.';
+ 
+@@ -404,6 +421,7 @@ export default class FirmwareUpdateV4 extends FirmwareUpdateBaseMethod<FirmwareU
+       { name: 'se02Binary', type: 'buffer' },
+       { name: 'se03Binary', type: 'buffer' },
+       { name: 'se04Binary', type: 'buffer' },
++      { name: 'forceTargets', type: 'array', allowEmpty: true },
+       { name: 'firmwareType', type: 'string' },
+       { name: 'platform', type: 'string' },
+     ]);
+@@ -421,6 +439,7 @@ export default class FirmwareUpdateV4 extends FirmwareUpdateBaseMethod<FirmwareU
+       se03Binary: payload.se03Binary,
+       se04Binary: payload.se04Binary,
+       resourceBinaries: payload.resourceBinaries,
++      forceTargets: payload.forceTargets,
+       firmwareType: payload.firmwareType,
+       platform: payload.platform,
+     };
+@@ -630,6 +649,19 @@ export default class FirmwareUpdateV4 extends FirmwareUpdateBaseMethod<FirmwareU
+     return target;
+   }
+ 
++  private shouldAllowRemoteProtocolV2ComponentByForceTargets(
++    component: IProtocolV2FirmwareComponent
++  ) {
++    const forceTargets = this.params.forceTargets;
++    if (!forceTargets?.length) return true;
++
++    const targetName = component.target?.toUpperCase();
++    const forceTarget = targetName
++      ? PROTOCOL_V2_FORCE_TARGETS_BY_REMOTE_TARGET.get(targetName)
++      : undefined;
++    return Boolean(forceTarget && forceTargets.includes(forceTarget));
++  }
++
+   private getProtocolV2ComponentTargetVersion(
+     release: IFirmwareReleaseInfo,
+     component: IProtocolV2FirmwareComponent,
+@@ -869,14 +901,22 @@ export default class FirmwareUpdateV4 extends FirmwareUpdateBaseMethod<FirmwareU
+     const entries = this.getRemoteComponentEntries(release);
+ 
+     for (const [key, component] of entries) {
++      if (!this.shouldAllowRemoteProtocolV2ComponentByForceTargets(component)) {
++        Log.log(
++          `[FirmwareUpdateV4] skip Protocol V2 component ${key}; filtered by forceTargets`
++        );
++        continue;
++      }
+       const target = this.getRemoteComponentTarget(key, component);
+-      const shouldInstall = await this.shouldInstallRemoteProtocolV2Component(
+-        release,
+-        key,
+-        component,
+-        target,
+-        features
+-      );
++      const shouldInstall = this.params.forceTargets?.length
++        ? true
++        : await this.shouldInstallRemoteProtocolV2Component(
++            release,
++            key,
++            component,
++            target,
++            features
++          );
+       if (shouldInstall) {
+         const remoteBinary = await this.downloadRemoteProtocolV2Component(key, component);
+         if (remoteBinary.kind === 'resource') {
+diff --git a/node_modules/@onekeyfe/hd-core/src/types/api/firmwareUpdate.ts b/node_modules/@onekeyfe/hd-core/src/types/api/firmwareUpdate.ts
+index 9a98f2c492..1e53d58fc6 100644
+--- a/node_modules/@onekeyfe/hd-core/src/types/api/firmwareUpdate.ts
++++ b/node_modules/@onekeyfe/hd-core/src/types/api/firmwareUpdate.ts
+@@ -28,6 +28,15 @@ export declare function firmwareUpdate(
+ 
+ type IPlatform = 'native' | 'desktop' | 'ext' | 'web' | 'web-embed';
+ type Platform = { platform: IPlatform };
++type IProtocolV2FirmwareUpdateForceTarget =
++  | 'boot'
++  | 'app_v1'
++  | 'app_v2'
++  | 'resource'
++  | 'se01'
++  | 'se02'
++  | 'se03'
++  | 'se04';
+ 
+ export declare function firmwareUpdateV2(
+   connectId: string | undefined,
+@@ -84,6 +93,8 @@ export interface FirmwareUpdateV4Params {
+   /** 资源包通过 FW_MGMT_TARGET_CRATE = 1 安装；Pro2 正常升级推荐传入单个合并 CRATE，多个元素仅用于调试/兼容 */
+   resourceBinaries?: ArrayBuffer[];
+   forcedUpdateRes?: boolean;
++  /** 仅安装 remote config 中匹配的 Protocol V2 component；未传时保持默认版本判断逻辑 */
++  forceTargets?: IProtocolV2FirmwareUpdateForceTarget[];
+ }
+ 
+ export declare function firmwareUpdateV3(

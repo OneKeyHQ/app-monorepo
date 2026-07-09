@@ -118,7 +118,18 @@ export type ICheckAllFirmwareReleaseResult = {
     bridge: IHardwareBridgeReleasePayload | undefined;
   };
   totalPhase: IDeviceFirmwareType[];
+  pro2ForceTargets?: IPro2FirmwareUpdateTarget[];
 };
+
+export type IPro2FirmwareUpdateTarget =
+  | 'boot'
+  | 'app_v1'
+  | 'app_v2'
+  | 'resource'
+  | 'se01'
+  | 'se02'
+  | 'se03'
+  | 'se04';
 
 export type IDeviceResponseUnsuccessful = Unsuccessful;
 export type IDeviceResponseSuccess<T> = Success<T>;
@@ -415,6 +426,8 @@ export type IFirmwareUpdateV3VersionParams = {
   firmwareVersion: string | undefined;
   bootloaderVersion: string | undefined;
   firmwareType: EFirmwareType | undefined;
+  isPro2Device?: boolean;
+  pro2ForceTargets?: IPro2FirmwareUpdateTarget[];
 };
 
 export enum EHardwareCallContext {
