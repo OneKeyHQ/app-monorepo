@@ -29,7 +29,7 @@ function runAfterInteractions(): Promise<void> {
   if (!platformEnv.isNative) {
     return Promise.resolve();
   }
-  return timerUtils.setTimeoutPromised();
+  return timerUtils.setTimeoutPromised(undefined, 250);
 }
 
 export async function deferHeavyWorkUntilUIIdle({

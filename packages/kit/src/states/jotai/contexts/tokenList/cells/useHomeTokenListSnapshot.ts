@@ -149,3 +149,23 @@ export function useHomeTokenListSnapshot(num = 0): IHomeTokenListSnapshot {
     [expectedCacheKey, result],
   );
 }
+
+export function useHomeTokenListSnapshotFetcher(
+  num = 0,
+): () => Promise<IHomeTokenListSnapshot> {
+  const [listStructure] = useListStructureAtom();
+  const ownerKey = useHomeTokenListOwnerKey(num);
+  const structureGeneration = listStructure.generation;
+
+  return useMemo(
+    () => async (): Promise<IHomeTokenListSnapshot> => {
+      if (!ownerKey) {
+        return EMPTY_SNAPSHOT;
+      }
+      return fetchHomeTokenListSnapshot(ownerKey, structureGeneration).catch(
+        () => EMPTY_SNAPSHOT,
+      );
+    },
+    [ownerKey, structureGeneration],
+  );
+}

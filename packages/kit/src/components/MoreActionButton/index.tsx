@@ -1,4 +1,11 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo } from 'react';
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -41,7 +48,8 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
-import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
+import { useHomeTokenListSnapshotFetcher } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
+import { deferHeavyWorkUntilUIIdle } from '@onekeyhq/kit/src/utils/deferHeavyWork';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import {
   useFirmwareUpdatesDetectStatusPersistAtom,
@@ -163,12 +171,13 @@ function MoreActionContentHeader({
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
-  const { tokens, keys, map } = useHomeTokenListSnapshot();
+  const fetchHomeTokenListSnapshot = useHomeTokenListSnapshotFetcher();
   const scanQrCode = useScanQrCodeLazy();
   const { closePopover } = usePopoverContext();
 
   const handleScan = useCallback(async () => {
     await closePopover?.();
+    const { tokens, keys, map } = await fetchHomeTokenListSnapshot();
     await scanQrCode.start({
       handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
       autoExecuteParsedAction: true,
@@ -180,7 +189,7 @@ function MoreActionContentHeader({
         map,
       },
     });
-  }, [closePopover, scanQrCode, account, network, tokens, keys, map]);
+  }, [closePopover, fetchHomeTokenListSnapshot, scanQrCode, account, network]);
 
   const popupMenu = useMemo(() => {
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
@@ -917,9 +926,10 @@ function MoreActionGeneralGrid() {
   } = useActiveAccount({ num: 0 });
   const scanQrCode = useScanQrCodeLazy();
 
-  const { tokens, keys, map } = useHomeTokenListSnapshot();
+  const fetchHomeTokenListSnapshot = useHomeTokenListSnapshotFetcher();
 
   const handleScan = useCallback(async () => {
+    const { tokens, keys, map } = await fetchHomeTokenListSnapshot();
     await scanQrCode.start({
       handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
       autoExecuteParsedAction: true,
@@ -931,7 +941,7 @@ function MoreActionGeneralGrid() {
         map,
       },
     });
-  }, [scanQrCode, account, network, tokens, keys, map]);
+  }, [fetchHomeTokenListSnapshot, scanQrCode, account, network]);
 
   const handlePrime = useCallback(() => {
     navigation.pushFullModal(EModalRoutes.PrimeModal, {
@@ -1435,20 +1445,54 @@ function MoreActionDevice() {
   );
 }
 
+function useIsMoreActionDeferredContentReady() {
+  const [ready, setReady] = useState(!platformEnv.isNative);
+
+  useEffect(() => {
+    if (!platformEnv.isNative) {
+      setReady(true);
+      return undefined;
+    }
+
+    let isMounted = true;
+    setReady(false);
+    void deferHeavyWorkUntilUIIdle({ minFrames: 2 }).then(() => {
+      if (isMounted) {
+        setReady(true);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  return ready;
+}
+
 function BaseMoreActionContent() {
   const isDesktopMode = useIsDesktopModeUIInTabPages();
+  const isDeferredContentReady = useIsMoreActionDeferredContentReady();
   return (
     <YStack flex={1}>
       <ScrollView overflow="scroll" flex={1}>
-        {platformEnv.isWebDappMode ? null : <UpdateReminders />}
-        {platformEnv.isWebDappMode ? null : <MoreActionOneKeyId />}
-        {isDesktopMode ? null : <MoreActionDevice />}
+        {isDeferredContentReady && !platformEnv.isWebDappMode ? (
+          <UpdateReminders />
+        ) : null}
+        {isDeferredContentReady && !platformEnv.isWebDappMode ? (
+          <MoreActionOneKeyId />
+        ) : null}
+        {isDeferredContentReady && !isDesktopMode ? <MoreActionDevice /> : null}
         <MoreActionDivider />
         <MoreActionGeneralGrid />
         <MoreActionDivider />
         <MoreActionWalletGrid />
-        <MoreActionDivider />
-        <MoreActionMoreGrid />
+        {isDeferredContentReady ? (
+          <>
+            <MoreActionDivider />
+            <MoreActionMoreGrid />
+          </>
+        ) : null}
       </ScrollView>
       <MoreActionContentFooter />
     </YStack>
@@ -1484,6 +1528,7 @@ function MoreActionContent({
   containerStyle?: IYStackProps;
 }) {
   const isDesktopMode = useIsDesktopModeUIInTabPages();
+  const isDeferredContentReady = useIsMoreActionDeferredContentReady();
   const { closePopover } = usePopoverContext();
 
   useEffect(() => {
@@ -1497,15 +1542,23 @@ function MoreActionContent({
     <MoreActionProvider>
       <YStack minHeight={600} {...containerStyle}>
         <MoreActionContentHeader />
-        {platformEnv.isWebDappMode ? null : <UpdateReminders />}
-        {platformEnv.isWebDappMode ? null : <MoreActionOneKeyId />}
-        {isDesktopMode ? null : <MoreActionDevice />}
+        {isDeferredContentReady && !platformEnv.isWebDappMode ? (
+          <UpdateReminders />
+        ) : null}
+        {isDeferredContentReady && !platformEnv.isWebDappMode ? (
+          <MoreActionOneKeyId />
+        ) : null}
+        {isDeferredContentReady && !isDesktopMode ? <MoreActionDevice /> : null}
         <MoreActionDivider />
         <MoreActionGeneralGrid />
         <MoreActionDivider />
         <MoreActionWalletGrid />
-        <MoreActionDivider />
-        <MoreActionMoreGrid />
+        {isDeferredContentReady ? (
+          <>
+            <MoreActionDivider />
+            <MoreActionMoreGrid />
+          </>
+        ) : null}
         <YStack flex={1} />
         <MoreActionContentFooter />
       </YStack>
