@@ -7,10 +7,8 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
-import {
-  LocalSecretEnvelopeUnavailable,
-  OneKeyError,
-} from '@onekeyhq/shared/src/errors';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -602,7 +600,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
         );
         if (
           throwOnLocalSecretEnvelopeUnavailable &&
-          error instanceof LocalSecretEnvelopeUnavailable
+          errorUtils.isErrorByClassName({
+            error,
+            className: EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable,
+          })
         ) {
           throw error;
         }

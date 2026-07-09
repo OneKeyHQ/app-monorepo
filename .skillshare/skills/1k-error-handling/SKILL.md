@@ -17,6 +17,34 @@ Best practices for error handling in OneKey codebase.
 
 ## Quick Reference
 
+### Error Type Detection
+
+When classifying OneKey app errors, do not rely on `error instanceof SomeError`.
+Errors often cross background/main runtimes, RPC boundaries, native bridges, or
+serialization layers, so their prototype chain may be lost. Prefer existing
+helpers that inspect `error.className` / `error.name`.
+
+```typescript
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+
+if (
+  errorUtils.isErrorByClassName({
+    error,
+    className: EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable,
+  })
+) {
+  // handle LocalSecretEnvelopeUnavailable
+}
+```
+
+Use domain helpers where they already exist, for example
+`deviceErrorUtils.isHardwareError()` / `isHardwareErrorByCode()` for hardware
+errors and `errorToastUtils.showLocalSecretEnvelopeErrorDialogIfNeeded()` for
+LSE recovery UI. Direct `instanceof Error` is acceptable only for generic JS
+operations such as safely reading `message` / `stack`, not for business error
+taxonomy.
+
 ### Basic Try/Catch
 ```typescript
 async function fetchData() {
@@ -146,7 +174,7 @@ Topics covered:
 - [ ] User-friendly messages shown to users
 - [ ] Loading and error states handled in UI
 - [ ] No silent error swallowing
-- [ ] Specific error types caught when appropriate
+- [ ] Specific error types caught with `className`/helper-based checks, not `instanceof`
 
 ## Related Skills
 

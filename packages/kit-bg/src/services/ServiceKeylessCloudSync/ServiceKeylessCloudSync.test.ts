@@ -1,16 +1,21 @@
 import { LocalSecretEnvelopeUnavailable } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import systemTimeUtils, {
   ECloudSyncDataTimeSource,
 } from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
+import localDb from '../../dbs/local/localDb';
+import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
 import ServiceKeylessCloudSync from './ServiceKeylessCloudSync';
 
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    getCredentialInner: jest.fn(),
+  },
 }));
 
 jest.mock('../../states/jotai/atoms', () => ({
@@ -34,8 +39,18 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   };
 });
 
+jest.mock('../ServiceKeylessWallet/utils/keylessSyncCredentialStorage', () => ({
+  __esModule: true,
+  default: {
+    getCredential: jest.fn(),
+    removeAllCredentials: jest.fn(),
+    saveCredential: jest.fn(),
+  },
+}));
+
 describe('ServiceKeylessCloudSync', () => {
   afterEach(() => {
+    jest.clearAllMocks();
     jest.restoreAllMocks();
   });
 
@@ -116,6 +131,31 @@ describe('ServiceKeylessCloudSync', () => {
       password: 'pwd',
       throwOnLocalSecretEnvelopeUnavailable: true,
     });
+  });
+
+  test('keyless credential repair detects local secret envelope errors by className', async () => {
+    const service = new ServiceKeylessCloudSync({
+      backgroundApi: {},
+    });
+    const error = {
+      className: EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable,
+      message: 'Local secret envelope wrapping key unavailable',
+    };
+
+    jest
+      .spyOn(service, 'getCurrentCloudSyncKeylessWalletId')
+      .mockResolvedValue('hd-keyless-wallet-id');
+    jest.mocked(keylessSyncCredentialStorage.getCredential).mockResolvedValue(
+      null,
+    );
+    jest.mocked(localDb.getCredentialInner).mockRejectedValue(error);
+
+    await expect(
+      service.repairKeylessSyncCredentialIfNeeded({
+        password: 'pwd',
+        throwOnLocalSecretEnvelopeUnavailable: true,
+      }),
+    ).rejects.toBe(error);
   });
 
   test('silent keyless sync enable replays scene sync items', async () => {
