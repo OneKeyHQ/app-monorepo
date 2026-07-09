@@ -883,6 +883,12 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async resetHardwareSDK() {
+    this.registeredEvents = false;
+    await resetHardwareSDKInstance();
+  }
+
+  @backgroundMethod()
   async passHardwareEventsFromOffscreenToBackground(eventMessage: CoreMessage) {
     const sdk = await this.getSDKInstance({
       connectId: undefined,

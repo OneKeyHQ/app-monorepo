@@ -2,11 +2,23 @@ import type { PropsWithChildren, ReactElement } from 'react';
 import { Children, cloneElement, useCallback } from 'react';
 
 import type { IPropsWithTestId } from '@onekeyhq/components';
-import { ESwitchSize, SizableText, Switch, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  ESwitchSize,
+  SizableText,
+  Switch,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useFirmwareUpdateDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IFirmwareUpdateDevSettingsKeys } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  HARDWARE_CONFIG_URL_LOCAL,
+  HARDWARE_CONFIG_URL_PRO2_DEDICATED,
+} from '@onekeyhq/shared/src/hardware/configUrls';
 
 import { FirmwareUpdateActions } from './FirmwareUpdateActions';
 
@@ -14,7 +26,7 @@ interface IFirmwareUpdateSectionFieldItem extends PropsWithChildren {
   name?: IFirmwareUpdateDevSettingsKeys;
   title: IListItemProps['title'];
   titleProps?: IListItemProps['titleProps'];
-  onValueChange?: (v: any) => void;
+  onValueChange?: (v: any) => Promise<void> | void;
 }
 
 function FirmwareUpdateSectionFieldItem({
@@ -32,7 +44,7 @@ function FirmwareUpdateSectionFieldItem({
     async (v: any) => {
       if (name) {
         setDevSetting((o) => ({ ...o, [name]: v }));
-        onValueChange?.(v);
+        await onValueChange?.(v);
       }
     },
     [name, onValueChange, setDevSetting],
@@ -47,6 +59,47 @@ function FirmwareUpdateSectionFieldItem({
   return (
     <ListItem title={title} titleProps={titleProps} testID={testID}>
       {field}
+    </ListItem>
+  );
+}
+
+function HardwareConfigUrlDevButtons() {
+  const [devSetting, setDevSetting] = useFirmwareUpdateDevSettingsPersistAtom();
+  const updateHardwareConfigUrl = useCallback(
+    async (hardwareConfigUrl: string) => {
+      setDevSetting((o) => ({ ...o, hardwareConfigUrl }));
+      await backgroundApiProxy.serviceDevSetting.updateFirmwareUpdateDevSettings(
+        { hardwareConfigUrl },
+      );
+      await backgroundApiProxy.serviceHardware.resetHardwareSDK();
+    },
+    [setDevSetting],
+  );
+  const currentUrl = devSetting.hardwareConfigUrl;
+
+  return (
+    <ListItem
+      title="Hardware config source"
+      titleProps={{ color: '$textCritical' }}
+    >
+      <XStack gap="$2">
+        <Button
+          size="small"
+          disabled={currentUrl === HARDWARE_CONFIG_URL_LOCAL}
+          onPress={() => updateHardwareConfigUrl(HARDWARE_CONFIG_URL_LOCAL)}
+        >
+          Localhost
+        </Button>
+        <Button
+          size="small"
+          disabled={currentUrl === HARDWARE_CONFIG_URL_PRO2_DEDICATED}
+          onPress={() =>
+            updateHardwareConfigUrl(HARDWARE_CONFIG_URL_PRO2_DEDICATED)
+          }
+        >
+          Pro2
+        </Button>
+      </XStack>
     </ListItem>
   );
 }
@@ -98,6 +151,7 @@ export function FirmwareUpdateDevSettings() {
       >
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
+      <HardwareConfigUrlDevButtons />
       <FirmwareUpdateSectionFieldItem
         name="forceUpdateResource"
         title="Force update resource"
