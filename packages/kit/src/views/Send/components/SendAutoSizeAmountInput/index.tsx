@@ -21,6 +21,7 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import type { IInputProps, IStackProps } from '@onekeyhq/components';
+import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -34,6 +35,9 @@ const WRAPPED_SYMBOL_MIN_FONT_SIZE = 14;
 const WRAPPED_SYMBOL_MAX_FONT_SIZE = 24;
 const WRAPPED_SYMBOL_HORIZONTAL_PADDING_PX = 16;
 const WRAPPED_SYMBOL_BREAK_CHARS = new Set([' ', '-', '_', '/', '.']);
+const AMOUNT_FONT_FAMILY = platformEnv.isNative
+  ? 'Roobert-Medium'
+  : webFontFamily;
 // iOS-only hidden marker used to force a native prop delta without visible UI change.
 const IOS_FORCE_WRITE_BACK_MARKER = '\u200B';
 
@@ -446,6 +450,7 @@ function SendAutoSizeAmountInputComponent(
       inlineTokenSymbol={inlineTokenSymbol}
       inlinePrefixGapPx={inlinePrefixGapPx}
       inlineSuffixGapPx={inlineSuffixGapPx}
+      fontFamily={AMOUNT_FONT_FAMILY}
       selectionColor={selectionColor}
       onChangeText={handleChangeText}
       placeholder={placeholder}
@@ -477,7 +482,10 @@ function SendAutoSizeAmountInputComponent(
           maxWidth={wrappedTokenSymbolMaxWidthPx || (md ? '92%' : '96%')}
           mt="$1"
           lineHeight={Math.ceil(wrappedSymbolFontSize * 1.2)}
-          style={{ fontSize: wrappedSymbolFontSize }}
+          style={{
+            fontFamily: AMOUNT_FONT_FAMILY,
+            fontSize: wrappedSymbolFontSize,
+          }}
         >
           {wrappedTokenSymbol}
         </SizableText>
