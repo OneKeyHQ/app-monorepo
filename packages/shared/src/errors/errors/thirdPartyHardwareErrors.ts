@@ -19,6 +19,8 @@ export const THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE =
   ThirdPartyHwErrorCode.DevicePathForbidden;
 export const THIRD_PARTY_HW_BLE_CONNECT_FAILED_CODE =
   ThirdPartyHwErrorCode.BleConnectFailed;
+export const THIRD_PARTY_HW_PIN_MISMATCH_CODE =
+  ThirdPartyHwErrorCode.PinMismatch;
 
 // ---------------------------------------------------------------------------
 // Base class for third-party hardware errors
@@ -150,6 +152,20 @@ export class ThirdPartyPinInvalid extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.PinInvalid;
+}
+
+/** Two new-PIN entries did not match during set/change PIN (host-input models) */
+export class ThirdPartyPinMismatch extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_pins_do_not_match,
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override code = THIRD_PARTY_HW_PIN_MISMATCH_CODE;
 }
 
 export class ThirdPartyPinCancelled extends ThirdPartyHardwareError {
