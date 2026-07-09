@@ -7,6 +7,7 @@ import {
   Icon,
   Popover,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -107,7 +108,11 @@ export const BorrowHealthFactorTooltip = ({
           <XStack jc="space-between" ai="center">
             <XStack ai="center" gap="$2">
               <SizableText size="$headingMd">{healthFactorLabel}</SizableText>
-              <SizableText size="$headingMd" color={valueColor}>
+              <SizableText
+                size="$headingMd"
+                color={valueColor}
+                fontVariant={TABULAR_NUMS}
+              >
                 {detail.value}
               </SizableText>
             </XStack>

@@ -6,6 +6,7 @@ import {
   IconButton,
   Image,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useMedia,
@@ -41,7 +42,9 @@ const HeaderField = ({
       <SizableText size="$bodyMd" color="$textSubdued">
         {title}
       </SizableText>
-      <SizableText size="$bodyLgMedium">{description}</SizableText>
+      <SizableText size="$bodyLgMedium" fontVariant={TABULAR_NUMS}>
+        {description}
+      </SizableText>
     </YStack>
   );
 };
@@ -182,7 +185,9 @@ export const ReserveProtocolHeader = ({
               <SizableText size="$bodySm" color="$textSubdued">
                 {`${labels.oraclePrice}:`}
               </SizableText>
-              <SizableText size="$bodySmMedium">{oraclePrice}</SizableText>
+              <SizableText size="$bodySmMedium" fontVariant={TABULAR_NUMS}>
+                {oraclePrice}
+              </SizableText>
             </XStack>
           ) : null}
         </XStack>

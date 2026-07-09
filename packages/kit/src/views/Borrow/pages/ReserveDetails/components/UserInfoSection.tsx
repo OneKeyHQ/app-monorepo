@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Divider, XStack, YStack } from '@onekeyhq/components';
+import { Divider, TABULAR_NUMS, XStack, YStack } from '@onekeyhq/components';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { GridItem } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/GridItemV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -48,6 +48,7 @@ export const UserInfoSection = ({ userInfo }: IUserInfoSectionProps) => {
                 text={walletBalance.description}
                 size="$bodySm"
                 color="$textSubdued"
+                fontVariant={TABULAR_NUMS}
               />
             ) : null
           }
@@ -62,6 +63,7 @@ export const UserInfoSection = ({ userInfo }: IUserInfoSectionProps) => {
                 text={suppliedBalance.description}
                 size="$bodySm"
                 color="$textSubdued"
+                fontVariant={TABULAR_NUMS}
               />
             ) : null
           }
@@ -76,6 +78,7 @@ export const UserInfoSection = ({ userInfo }: IUserInfoSectionProps) => {
                 text={borrowedBalance.description}
                 size="$bodySm"
                 color="$textSubdued"
+                fontVariant={TABULAR_NUMS}
               />
             ) : null
           }
@@ -90,6 +93,7 @@ export const UserInfoSection = ({ userInfo }: IUserInfoSectionProps) => {
                 text={availableBorrowBalance.description}
                 size="$bodySm"
                 color="$textSubdued"
+                fontVariant={TABULAR_NUMS}
               />
             ) : null
           }

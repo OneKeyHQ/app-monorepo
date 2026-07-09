@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { XStack, useMedia } from '@onekeyhq/components';
+import { TABULAR_NUMS, XStack, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
@@ -50,7 +50,11 @@ const SuppliedHeader = ({
               color: '$textSubdued',
             }}
           />
-          <EarnText text={data?.suppliedBalance?.title} size="$bodyMdMedium" />
+          <EarnText
+            text={data?.suppliedBalance?.title}
+            size="$bodyMdMedium"
+            fontVariant={TABULAR_NUMS}
+          />
         </XStack>
       ) : null}
       {data?.suppliedApy?.title ? (
@@ -62,7 +66,11 @@ const SuppliedHeader = ({
               color: '$textSubdued',
             }}
           />
-          <EarnText text={data?.suppliedApy?.title} size="$bodyMdMedium" />
+          <EarnText
+            text={data?.suppliedApy?.title}
+            size="$bodyMdMedium"
+            fontVariant={TABULAR_NUMS}
+          />
           <EarnTooltip tooltip={data?.suppliedApy?.tooltip} />
         </XStack>
       ) : null}

@@ -2,7 +2,13 @@ import { type ReactNode, useMemo } from 'react';
 
 import Svg, { Circle } from 'react-native-svg';
 
-import { SizableText, XStack, YStack, useTheme } from '@onekeyhq/components';
+import {
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+  useTheme,
+} from '@onekeyhq/components';
 
 interface ICircleProgressProps {
   percentage: number;
@@ -87,7 +93,11 @@ export function CircleProgress({
         justifyContent="center"
       >
         {children ?? (
-          <SizableText size="$bodyMdMedium" color="$text">
+          <SizableText
+            size="$bodyMdMedium"
+            color="$text"
+            fontVariant={TABULAR_NUMS}
+          >
             {percentageText}%
           </SizableText>
         )}

@@ -14,6 +14,7 @@ import {
   Skeleton,
   Stack,
   Switch,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -273,7 +274,12 @@ function BalanceDetailsContent({
           {isLoading ? (
             <Skeleton.BodyLg />
           ) : (
-            <SizableText textAlign="right" size="$bodyLgMedium" minWidth={125}>
+            <SizableText
+              textAlign="right"
+              size="$bodyLgMedium"
+              minWidth={125}
+              fontVariant={TABULAR_NUMS}
+            >
               {`${overview?.frozenBalanceParsed ?? '-'} ${
                 network?.symbol ?? ''
               }`}
@@ -300,6 +306,7 @@ function BalanceDetailsContent({
                         textAlign="right"
                         size="$bodyMd"
                         color="$textSubdued"
+                        fontVariant={TABULAR_NUMS}
                       >
                         {`${
                           overview?.deriveItems?.[index]?.frozenBalanceParsed ??
@@ -391,7 +398,7 @@ function BalanceDetailsContent({
           {isLoading ? (
             <Skeleton.Heading3Xl />
           ) : (
-            <SizableText size="$heading3xl">
+            <SizableText size="$heading3xl" fontVariant={TABULAR_NUMS}>
               {`${overview?.balanceParsed ?? '-'} ${network?.symbol ?? ''}`}
             </SizableText>
           )}
@@ -413,7 +420,11 @@ function BalanceDetailsContent({
             {isLoading ? (
               <Skeleton.BodyLg />
             ) : (
-              <SizableText textAlign="right" size="$bodyLgMedium">
+              <SizableText
+                textAlign="right"
+                size="$bodyLgMedium"
+                fontVariant={TABULAR_NUMS}
+              >
                 {`${overview?.totalBalanceParsed ?? '-'} ${
                   network?.symbol ?? ''
                 }`}
@@ -438,6 +449,7 @@ function BalanceDetailsContent({
                       textAlign="right"
                       size="$bodyMd"
                       color="$textSubdued"
+                      fontVariant={TABULAR_NUMS}
                     >
                       {`${
                         overview?.deriveItems?.[index]?.totalBalanceParsed ??

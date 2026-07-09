@@ -6,6 +6,7 @@ import {
   Image,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   Tooltip,
   XStack,
 } from '@onekeyhq/components';
@@ -23,7 +24,12 @@ const LeverageBadge = memo(({ leverage }: { leverage: number }) => (
     alignItems="center"
     px="$1.5"
   >
-    <SizableText fontSize={10} color="$textInfo" lineHeight={16}>
+    <SizableText
+      fontSize={10}
+      color="$textInfo"
+      lineHeight={16}
+      fontVariant={TABULAR_NUMS}
+    >
       {leverage}x
     </SizableText>
   </XStack>

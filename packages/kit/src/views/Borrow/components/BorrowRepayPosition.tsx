@@ -18,6 +18,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -232,7 +233,9 @@ function RemainingCollateralInfo({
   return (
     <BorrowInfoItem title={data.title.text}>
       <YStack alignItems="flex-end">
-        <SizableText size="$bodyMdMedium">{data.description.text}</SizableText>
+        <SizableText size="$bodyMdMedium" fontVariant={TABULAR_NUMS}>
+          {data.description.text}
+        </SizableText>
       </YStack>
     </BorrowInfoItem>
   );
@@ -936,7 +939,7 @@ function RepayWithCollateralForm({
                 </XStack>
                 <XStack alignItems="center" justifyContent="space-between">
                   <Stack flex={1} px="$3.5" pt="$3" pb="$2.5">
-                    <SizableText size="$heading3xl">
+                    <SizableText size="$heading3xl" fontVariant={TABULAR_NUMS}>
                       {usingAmountText}
                     </SizableText>
                   </Stack>
@@ -949,7 +952,11 @@ function RepayWithCollateralForm({
                   alignItems="center"
                 >
                   {priceImpactInfo?.fiatValue ? (
-                    <SizableText size="$bodySm" color="$textSubdued">
+                    <SizableText
+                      size="$bodySm"
+                      color="$textSubdued"
+                      fontVariant={TABULAR_NUMS}
+                    >
                       <NumberSizeableText
                         size="$bodySm"
                         color="$textSubdued"
@@ -963,7 +970,11 @@ function RepayWithCollateralForm({
                       {` (${priceImpactInfo.pctFormatted})`}
                     </SizableText>
                   ) : (
-                    <SizableText size="$bodySm" color="$textSubdued">
+                    <SizableText
+                      size="$bodySm"
+                      color="$textSubdued"
+                      fontVariant={TABULAR_NUMS}
+                    >
                       {priceImpactInfo?.pctFormatted ?? '-'}
                     </SizableText>
                   )}
@@ -1105,6 +1116,7 @@ function RepayWithCollateralForm({
                       text={{ text: quoteSummary }}
                       color="$text"
                       size="$bodyMdMedium"
+                      fontVariant={TABULAR_NUMS}
                     />
                   }
                 />
@@ -1155,7 +1167,7 @@ function RepayWithCollateralForm({
                 userSelect="none"
                 onPress={handleOpenSlippage}
               >
-                <SizableText size="$bodyMdMedium">
+                <SizableText size="$bodyMdMedium" fontVariant={TABULAR_NUMS}>
                   {displaySlippageText}
                 </SizableText>
                 <Icon
@@ -1175,7 +1187,7 @@ function RepayWithCollateralForm({
                   />
                 }
               >
-                <SizableText size="$bodyMdMedium">
+                <SizableText size="$bodyMdMedium" fontVariant={TABULAR_NUMS}>
                   {transactionConfirmation.fee.description.text}
                 </SizableText>
               </BorrowInfoItem>

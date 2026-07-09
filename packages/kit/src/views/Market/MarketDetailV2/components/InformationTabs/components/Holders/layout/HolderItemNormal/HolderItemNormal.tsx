@@ -1,6 +1,11 @@
 import { memo } from 'react';
 
-import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+} from '@onekeyhq/components';
 import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
 
 import { AddressDisplay } from '../../../AddressDisplay';
@@ -34,7 +39,12 @@ function HolderItemNormalBase({
       hoverStyle={{ backgroundColor: '$bgHover' }}
     >
       {/* Rank */}
-      <SizableText size="$bodyMd" color="$textSubdued" {...styles.rank}>
+      <SizableText
+        size="$bodyMd"
+        color="$textSubdued"
+        fontVariant={TABULAR_NUMS}
+        {...styles.rank}
+      >
         #{rank}
       </SizableText>
 
@@ -48,7 +58,12 @@ function HolderItemNormalBase({
       />
 
       {/* Market Cap Percentage */}
-      <SizableText size="$bodyMd" color="$text" {...styles.percentage}>
+      <SizableText
+        size="$bodyMd"
+        color="$text"
+        fontVariant={TABULAR_NUMS}
+        {...styles.percentage}
+      >
         {displayPercentage}
       </SizableText>
 

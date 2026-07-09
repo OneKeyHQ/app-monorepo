@@ -3,6 +3,7 @@ import {
   Popover,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
 } from '@onekeyhq/components';
 import type { ColorTokens, IIconProps } from '@onekeyhq/components';
@@ -62,7 +63,11 @@ export function StatCard({
         {icon ? (
           <Icon name={icon} size="$4" color={iconColor || '$iconSuccess'} />
         ) : null}
-        <SizableText size="$bodyLgMedium" color="$text">
+        <SizableText
+          size="$bodyLgMedium"
+          color="$text"
+          fontVariant={TABULAR_NUMS}
+        >
           {value}
         </SizableText>
       </XStack>

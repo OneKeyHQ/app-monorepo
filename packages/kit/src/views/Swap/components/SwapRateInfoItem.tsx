@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { SizableText, XStack } from '@onekeyhq/components';
+import { SizableText, TABULAR_NUMS, XStack } from '@onekeyhq/components';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -49,7 +49,11 @@ const SwapRateInfoItem = ({
       cursor="pointer"
       onPress={handleExchangeRate}
     >
-      <SizableText color="$textSubdued" size="$bodyMd">
+      <SizableText
+        color="$textSubdued"
+        size="$bodyMd"
+        fontVariant={TABULAR_NUMS}
+      >
         {rateContent}
       </SizableText>
     </XStack>

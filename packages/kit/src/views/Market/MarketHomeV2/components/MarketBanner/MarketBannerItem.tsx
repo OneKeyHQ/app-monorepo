@@ -7,6 +7,7 @@ import {
   Image,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -158,7 +159,11 @@ function MarketBannerItemComponent({
           ) : null}
         </XStack>
         {description ? (
-          <SizableText size="$bodyMdMedium" color={descriptionColor}>
+          <SizableText
+            size="$bodyMdMedium"
+            color={descriptionColor}
+            fontVariant={TABULAR_NUMS}
+          >
             {description.text}
           </SizableText>
         ) : null}

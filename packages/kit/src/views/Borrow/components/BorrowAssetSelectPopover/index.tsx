@@ -6,6 +6,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -64,8 +65,14 @@ function AssetRow({
 
       {/* Amount column */}
       <YStack alignItems="flex-end" flexShrink={0}>
-        <SizableText size="$bodyMd">{balance?.title?.text ?? '-'}</SizableText>
-        <SizableText size="$bodySm" color="$textSubdued">
+        <SizableText size="$bodyMd" fontVariant={TABULAR_NUMS}>
+          {balance?.title?.text ?? '-'}
+        </SizableText>
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          fontVariant={TABULAR_NUMS}
+        >
           {balance?.description?.text ?? '-'}
         </SizableText>
       </YStack>

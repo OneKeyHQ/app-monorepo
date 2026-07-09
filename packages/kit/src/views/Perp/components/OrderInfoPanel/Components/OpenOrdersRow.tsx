@@ -3,7 +3,13 @@ import { memo, useCallback, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -13,7 +19,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  formatLocalizedNumberString,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getValidPriceDecimals,
   isSpotInstrument,
@@ -186,9 +195,9 @@ const OpenOrdersRow = memo(
       const executePriceFormatted = new BigNumber(executePrice).toFixed(
         decimals,
       );
-      const executePriceLimitFormatted = new BigNumber(
-        executePriceLimit,
-      ).toFixed(decimals);
+      const executePriceLimitFormatted = formatLocalizedNumberString(
+        new BigNumber(executePriceLimit).toFixed(decimals),
+      );
       const priceFormatted = new BigNumber(price).toFixed(decimals);
       const sizeFormatted = numberFormat(size, balanceFormatter);
       const value = priceBN.times(origSizeBN).toFixed();
@@ -273,6 +282,7 @@ const OpenOrdersRow = memo(
                   ellipsizeMode="tail"
                   size="$bodySm"
                   color="$textSubdued"
+                  fontVariant={TABULAR_NUMS}
                 >
                   {`${dateInfo.date} ${dateInfo.time}`}
                 </SizableText>
@@ -302,7 +312,7 @@ const OpenOrdersRow = memo(
                 id: ETranslations.perp_position_mobile_fill,
               })}
             </SizableText>
-            <SizableText size="$bodySm">
+            <SizableText size="$bodySm" fontVariant={TABULAR_NUMS}>
               {`${orderBaseInfo.sizeFormatted} / ${orderBaseInfo.origSizeFormatted}`}
             </SizableText>
           </XStack>
@@ -316,7 +326,12 @@ const OpenOrdersRow = memo(
                 id: ETranslations.perp_orderbook_price,
               })}
             </SizableText>
-            <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+            <SizableText
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              size="$bodySm"
+              fontVariant={TABULAR_NUMS}
+            >
               {order.orderType.includes('Market')
                 ? intl.formatMessage({
                     id: ETranslations.perp_position_market,
@@ -348,7 +363,12 @@ const OpenOrdersRow = memo(
                 id: ETranslations.perp_open_orders_trigger_condition,
               })}
             </SizableText>
-            <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+            <SizableText
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              size="$bodySm"
+              fontVariant={TABULAR_NUMS}
+            >
               {orderBaseInfo.triggerCondition}
             </SizableText>
           </XStack>
@@ -362,7 +382,12 @@ const OpenOrdersRow = memo(
                 id: ETranslations.perp_position_tp_sl,
               })}
             </SizableText>
-            <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+            <SizableText
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              size="$bodySm"
+              fontVariant={TABULAR_NUMS}
+            >
               {tpslInfo.tpsl}
             </SizableText>
           </XStack>
@@ -394,6 +419,7 @@ const OpenOrdersRow = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
+                fontVariant={TABULAR_NUMS}
               >
                 {dateInfo.date}
               </SizableText>
@@ -402,6 +428,7 @@ const OpenOrdersRow = memo(
                 ellipsizeMode="tail"
                 size="$bodySm"
                 color="$textSubdued"
+                fontVariant={TABULAR_NUMS}
               >
                 {dateInfo.time}
               </SizableText>
@@ -458,6 +485,7 @@ const OpenOrdersRow = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
+                fontVariant={TABULAR_NUMS}
               >
                 {orderBaseInfo.sizeFormatted}
               </SizableText>
@@ -473,6 +501,7 @@ const OpenOrdersRow = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
+                fontVariant={TABULAR_NUMS}
               >
                 {orderBaseInfo.origSizeFormatted}
               </SizableText>
@@ -488,6 +517,7 @@ const OpenOrdersRow = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
+                fontVariant={TABULAR_NUMS}
               >
                 {orderBaseInfo.valueFormatted}
               </SizableText>
@@ -503,6 +533,7 @@ const OpenOrdersRow = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
+                fontVariant={TABULAR_NUMS}
               >
                 {order.orderType.includes('Market')
                   ? intl.formatMessage({
@@ -535,6 +566,7 @@ const OpenOrdersRow = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
+                fontVariant={TABULAR_NUMS}
               >
                 {orderBaseInfo.triggerCondition}
               </SizableText>
@@ -549,6 +581,7 @@ const OpenOrdersRow = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
+                fontVariant={TABULAR_NUMS}
               >
                 {tpslInfo.tpsl}
               </SizableText>

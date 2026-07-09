@@ -2,6 +2,7 @@ import {
   Icon,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   View,
   XStack,
   YStack,
@@ -10,8 +11,6 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { formatPortfolioTotal } from './formatPortfolioTotal';
-
-const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 export type IProtocolHeaderRowProps = {
   name: string;

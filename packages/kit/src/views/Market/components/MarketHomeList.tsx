@@ -20,6 +20,7 @@ import {
   Skeleton,
   Spinner,
   Stack,
+  TABULAR_NUMS,
   Table,
   View,
   XStack,
@@ -662,6 +663,7 @@ function BasicMarketHomeList({
                   size="$bodyMd"
                   color="$textSubdued"
                   userSelect="none"
+                  fontVariant={TABULAR_NUMS}
                 >
                   {serialNumber ?? '-'}
                 </SizableText>

@@ -8,6 +8,7 @@ import {
   IconButton,
   NumberSizeableText,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useClipboard,
@@ -209,7 +210,12 @@ function BalanceRowMobile({ item, onChangeAsset }: IBalanceRowProps) {
                 />
               ) : null}
             </XStack>
-            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              numberOfLines={1}
+              fontVariant={TABULAR_NUMS}
+            >
               {balanceText}
             </SizableText>
           </YStack>
@@ -231,6 +237,7 @@ function BalanceRowMobile({ item, onChangeAsset }: IBalanceRowProps) {
                 color={pnlColor}
                 numberOfLines={1}
                 textAlign="right"
+                fontVariant={TABULAR_NUMS}
               >
                 {pnlText}
               </SizableText>
@@ -322,7 +329,12 @@ function BalanceRowDesktop({
     if (cell.key === 'pnl') {
       return (
         <XStack minWidth={0} alignItems="center" gap="$1">
-          <SizableText size="$bodySmMedium" color={pnlColor} numberOfLines={1}>
+          <SizableText
+            size="$bodySmMedium"
+            color={pnlColor}
+            numberOfLines={1}
+            fontVariant={TABULAR_NUMS}
+          >
             {cell.cellValue}
           </SizableText>
           {canShare ? (
@@ -348,6 +360,7 @@ function BalanceRowDesktop({
       <SizableText
         size="$bodySmMedium"
         color={cell.key === 'pnl' ? pnlColor : undefined}
+        fontVariant={TABULAR_NUMS}
       >
         {cell.cellValue}
       </SizableText>

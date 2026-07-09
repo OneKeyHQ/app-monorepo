@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 import {
   NumberSizeableText,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -128,7 +129,11 @@ export function TokenDetailHeaderRight({
             id: ETranslations.dexmarket_stock_pe_ttm,
           })}
           value={
-            <SizableText size="$headingXs" color="$text">
+            <SizableText
+              size="$headingXs"
+              color="$text"
+              fontVariant={TABULAR_NUMS}
+            >
               {formatRatioValue(tokenDetail?.stock?.tradingActivity?.peRatio)}
             </SizableText>
           }

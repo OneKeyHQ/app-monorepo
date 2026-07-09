@@ -2,6 +2,7 @@ import {
   type INumberSizeableTextProps,
   NumberSizeableText,
   SizableText,
+  TABULAR_NUMS,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -16,7 +17,11 @@ export function PriceChangePercentage({
     children === null ||
     (typeof children === 'string' && children.length === 0)
   ) {
-    return <SizableText size="$bodyMd">-</SizableText>;
+    return (
+      <SizableText size="$bodyMd" fontVariant={TABULAR_NUMS}>
+        -
+      </SizableText>
+    );
   }
 
   const { color } = formatPriceChangeDisplay(children);

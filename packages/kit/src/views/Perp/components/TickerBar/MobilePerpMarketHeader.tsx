@@ -10,6 +10,7 @@ import {
   Popover,
   SizableText,
   Skeleton,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -270,6 +271,7 @@ function MobilePerpMarketHeader() {
               lineHeight={14}
               color="$textSubdued"
               dashThickness={0.5}
+              fontVariant={TABULAR_NUMS}
             >
               {markPriceDisplay}
             </DashText>
@@ -419,7 +421,9 @@ function MobilePerpMarketHeader() {
                 </YStack>
               }
             />
-            <SizableText size="$heading2xl">{midPrice}</SizableText>
+            <SizableText size="$heading2xl" fontVariant={TABULAR_NUMS}>
+              {midPrice}
+            </SizableText>
           </>
 
           {priceMetaContent}
@@ -431,7 +435,12 @@ function MobilePerpMarketHeader() {
               id: ETranslations.perp_token_bar_24h_Volume,
             })}
           >
-            <SizableText size="$bodySmMedium" color="$text" textAlign="right">
+            <SizableText
+              size="$bodySmMedium"
+              color="$text"
+              textAlign="right"
+              fontVariant={TABULAR_NUMS}
+            >
               {volumeDisplay}
             </SizableText>
           </StatRow>
@@ -443,7 +452,12 @@ function MobilePerpMarketHeader() {
                 : ETranslations.perp_token_bar_open_Interest,
             })}
           >
-            <SizableText size="$bodySmMedium" color="$text" textAlign="right">
+            <SizableText
+              size="$bodySmMedium"
+              color="$text"
+              textAlign="right"
+              fontVariant={TABULAR_NUMS}
+            >
               {openInterestDisplay}
             </SizableText>
           </StatRow>
@@ -458,6 +472,7 @@ function MobilePerpMarketHeader() {
                 size="$bodySmMedium"
                 textAlign="right"
                 color={fundingColor}
+                fontVariant={TABULAR_NUMS}
               >
                 {fundingDisplay}
               </SizableText>
@@ -495,6 +510,7 @@ function MobilePerpMarketHeader() {
                 size="$bodySmMedium"
                 textAlign="right"
                 color="$green11"
+                fontVariant={TABULAR_NUMS}
               >
                 0%
               </SizableText>

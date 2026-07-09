@@ -12,6 +12,7 @@ import {
   IconButton,
   Popover,
   SizableText,
+  TABULAR_NUMS,
   Tooltip,
   XStack,
   YStack,
@@ -24,7 +25,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  formatLocalizedNumberString,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getValidPriceDecimals,
   parseDexCoin,
@@ -99,8 +103,15 @@ function MarkPrice({ coin }: { coin: string }) {
   return useMemo(
     () => (
       <DebugRenderTracker position="bottom-right" name="MarkPrice" offsetY={10}>
-        <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-          {midFormattedByDecimals}
+        <SizableText
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          size="$bodySm"
+          fontVariant={TABULAR_NUMS}
+        >
+          {midFormattedByDecimals
+            ? formatLocalizedNumberString(midFormattedByDecimals)
+            : midFormattedByDecimals}
         </SizableText>
       </DebugRenderTracker>
     ),
@@ -157,6 +168,7 @@ const PositionRowDesktopSymbolAndLeverage = memo(
                 lineHeight={20}
                 color="$textSubdued"
                 fontSize={12}
+                fontVariant={TABULAR_NUMS}
               >
                 {assetInfo.leverageType} {assetInfo.leverage}x
               </SizableText>
@@ -188,7 +200,12 @@ const PositionRowDesktopPositionSize = memo(
           justifyContent="center"
           alignItems={calcCellAlign(columnConfig.align)}
         >
-          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+            fontVariant={TABULAR_NUMS}
+          >
             {`${sizeInfo.sizeAbsFormatted}`}
           </SizableText>
           <SizableText
@@ -196,6 +213,7 @@ const PositionRowDesktopPositionSize = memo(
             ellipsizeMode="tail"
             size="$bodySm"
             color="$textSubdued"
+            fontVariant={TABULAR_NUMS}
           >
             {`${sizeInfo.sizeValue}`}
           </SizableText>
@@ -224,7 +242,12 @@ const PositionRowDesktopEntryPrice = memo(
           justifyContent={calcCellAlign(columnConfig.align)}
           alignItems="center"
         >
-          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+            fontVariant={TABULAR_NUMS}
+          >
             {priceInfo.entryPriceFormatted}
           </SizableText>
         </XStack>
@@ -248,8 +271,15 @@ const PositionRowDesktopMarkPrice = memo(
           name="MarkPrice"
           offsetY={10}
         >
-          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-            {midFormattedByDecimals}
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+            fontVariant={TABULAR_NUMS}
+          >
+            {midFormattedByDecimals
+              ? formatLocalizedNumberString(midFormattedByDecimals)
+              : midFormattedByDecimals}
           </SizableText>
         </DebugRenderTracker>
       </XStack>
@@ -276,7 +306,12 @@ const PositionRowDesktopLiqPrice = memo(
           justifyContent={calcCellAlign(columnConfig.align)}
           alignItems="center"
         >
-          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+            fontVariant={TABULAR_NUMS}
+          >
             {priceInfo.liquidationPriceFormatted}
           </SizableText>
         </XStack>
@@ -309,6 +344,7 @@ const PositionRowDesktopPnL = memo(
             color={otherInfo.pnlColor}
             numberOfLines={1}
             ellipsizeMode="tail"
+            fontVariant={TABULAR_NUMS}
           >
             {`${otherInfo.pnlPlusOrMinus}${otherInfo.unrealizedPnl}(${otherInfo.pnlPlusOrMinus}${otherInfo.roiPercent}%)`}
           </SizableText>
@@ -355,6 +391,7 @@ const PositionRowDesktopMargin = memo(
               numberOfLines={1}
               ellipsizeMode="tail"
               size="$bodySm"
+              fontVariant={TABULAR_NUMS}
             >{`${otherInfo.marginUsedFormatted}`}</SizableText>
             {isIsolatedMode ? (
               <IconButton
@@ -403,6 +440,7 @@ const PositionRowDesktopFunding = memo(
                 ellipsizeMode="tail"
                 size="$bodySm"
                 color={otherInfo.fundingSinceOpenColor}
+                fontVariant={TABULAR_NUMS}
               >{`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}</SizableText>
             }
             renderContent={
@@ -420,6 +458,7 @@ const PositionRowDesktopFunding = memo(
                   <SizableText
                     size="$bodySm"
                     color={otherInfo.fundingAllTimeColor}
+                    fontVariant={TABULAR_NUMS}
                   >
                     {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}{' '}
                   </SizableText>
@@ -437,6 +476,7 @@ const PositionRowDesktopFunding = memo(
                   <SizableText
                     size="$bodySm"
                     color={otherInfo.fundingAllTimeColor}
+                    fontVariant={TABULAR_NUMS}
                   >
                     {`${otherInfo.fundingAllPlusOrMinus}$${otherInfo.fundingAllTimeFormatted}`}{' '}
                   </SizableText>
@@ -451,6 +491,7 @@ const PositionRowDesktopFunding = memo(
                   <SizableText
                     size="$bodySm"
                     color={otherInfo.fundingSinceChangeColor}
+                    fontVariant={TABULAR_NUMS}
                   >
                     {`${otherInfo.fundingSinceChangePlusOrMinus}$${otherInfo.fundingSinceChangeFormatted}`}
                   </SizableText>
@@ -507,7 +548,12 @@ const PositionRowDesktopTPSL = memo(
         showOrder = true;
       }
 
-      return { tpsl: `${tpPrice}/${slPrice}`, showOrder };
+      return {
+        tpsl: `${formatLocalizedNumberString(
+          tpPrice,
+        )}/${formatLocalizedNumberString(slPrice)}`,
+        showOrder,
+      };
     }, [currentAssetOpenOrders]);
 
     return (
@@ -554,6 +600,7 @@ const PositionRowDesktopTPSL = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
+                fontVariant={TABULAR_NUMS}
               >
                 {tpslInfo.tpsl}
               </SizableText>
@@ -795,6 +842,7 @@ const PositionRowMobileHeader = memo(
             px="$1"
             color="$textSubdued"
             fontSize={10}
+            fontVariant={TABULAR_NUMS}
           >
             {assetInfo.leverageType} {assetInfo.leverage}x
           </SizableText>
@@ -830,7 +878,11 @@ const PositionRowMobilePnLAndROE = memo(
               id: ETranslations.perp_position_pnl_mobile,
             })}
           </SizableText>
-          <SizableText size="$bodyMdMedium" color={otherInfo.pnlColor}>
+          <SizableText
+            size="$bodyMdMedium"
+            color={otherInfo.pnlColor}
+            fontVariant={TABULAR_NUMS}
+          >
             {`${otherInfo.pnlPlusOrMinus}${otherInfo.unrealizedPnl}`}
           </SizableText>
         </YStack>
@@ -838,7 +890,11 @@ const PositionRowMobilePnLAndROE = memo(
           <SizableText size="$bodySm" color="$textSubdued">
             ROE
           </SizableText>
-          <SizableText size="$bodyMdMedium" color={otherInfo.pnlColor}>
+          <SizableText
+            size="$bodyMdMedium"
+            color={otherInfo.pnlColor}
+            fontVariant={TABULAR_NUMS}
+          >
             {`${otherInfo.pnlPlusOrMinus}${otherInfo.roiPercent}%`}
           </SizableText>
         </YStack>
@@ -883,7 +939,7 @@ const PositionRowMobilePositionSize = memo(
           <Icon name="RepeatOutline" size="$3" color="$textSubdued" />
         </XStack>
         <XStack alignItems="center" gap="$1">
-          <SizableText size="$bodySmMedium">
+          <SizableText size="$bodySmMedium" fontVariant={TABULAR_NUMS}>
             {isSizeViewChange
               ? `$${sizeInfo.sizeValue}`
               : sizeInfo.sizeAbsFormatted}
@@ -915,7 +971,7 @@ const PositionRowMobileMargin = memo(
           })}
         </SizableText>
         <XStack alignItems="center" gap="$1">
-          <SizableText size="$bodySmMedium">
+          <SizableText size="$bodySmMedium" fontVariant={TABULAR_NUMS}>
             {`${otherInfo.marginUsedFormatted}`}
           </SizableText>
           {isIsolatedMode ? (
@@ -947,7 +1003,7 @@ const PositionRowMobileEntryPrice = memo(
             id: ETranslations.perp_position_entry_price,
           })}
         </SizableText>
-        <SizableText size="$bodySmMedium">
+        <SizableText size="$bodySmMedium" fontVariant={TABULAR_NUMS}>
           {priceInfo.entryPriceFormatted}
         </SizableText>
       </YStack>
@@ -998,6 +1054,7 @@ const PositionRowMobileFunding = memo(
                   <SizableText
                     size="$bodyMdMedium"
                     color={otherInfo.fundingSinceOpenColor}
+                    fontVariant={TABULAR_NUMS}
                   >
                     {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}
                   </SizableText>
@@ -1012,6 +1069,7 @@ const PositionRowMobileFunding = memo(
                   <SizableText
                     size="$bodyMdMedium"
                     color={otherInfo.fundingSinceChangeColor}
+                    fontVariant={TABULAR_NUMS}
                   >
                     {`${otherInfo.fundingSinceChangePlusOrMinus}$${otherInfo.fundingSinceChangeFormatted}`}
                   </SizableText>
@@ -1030,6 +1088,7 @@ const PositionRowMobileFunding = memo(
                   <SizableText
                     size="$bodyMdMedium"
                     color={otherInfo.fundingAllTimeColor}
+                    fontVariant={TABULAR_NUMS}
                   >
                     {`${otherInfo.fundingAllPlusOrMinus}$${otherInfo.fundingAllTimeFormatted}`}
                   </SizableText>
@@ -1060,6 +1119,7 @@ const PositionRowMobileFunding = memo(
         <SizableText
           size="$bodySmMedium"
           color={otherInfo.fundingSinceOpenColor}
+          fontVariant={TABULAR_NUMS}
         >
           {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}
         </SizableText>
@@ -1088,7 +1148,11 @@ const PositionRowMobileTPSL = memo(({ coin }: { coin: string }) => {
       }
     });
 
-    return { tpsl: `${tpPrice}/${slPrice}` };
+    return {
+      tpsl: `${formatLocalizedNumberString(
+        tpPrice,
+      )}/${formatLocalizedNumberString(slPrice)}`,
+    };
   }, [currentAssetOpenOrders]);
 
   return (
@@ -1098,7 +1162,11 @@ const PositionRowMobileTPSL = memo(({ coin }: { coin: string }) => {
           id: ETranslations.perp_position_tp_sl,
         })}
       </SizableText>
-      <SizableText size="$bodySmMedium" numberOfLines={1}>
+      <SizableText
+        size="$bodySmMedium"
+        numberOfLines={1}
+        fontVariant={TABULAR_NUMS}
+      >
         {tpslInfo.tpsl}
       </SizableText>
     </YStack>
@@ -1120,8 +1188,12 @@ const PositionRowMobileMarkPrice = memo(({ coin }: { coin: string }) => {
           id: ETranslations.perp_position_mark_price,
         })}
       </SizableText>
-      <SizableText size="$bodySmMedium" numberOfLines={1}>
-        {midFormattedByDecimals || '--'}
+      <SizableText
+        size="$bodySmMedium"
+        numberOfLines={1}
+        fontVariant={TABULAR_NUMS}
+      >
+        {formatLocalizedNumberString(midFormattedByDecimals || '--')}
       </SizableText>
     </YStack>
   );
@@ -1138,7 +1210,7 @@ const PositionRowMobileLiqPrice = memo(
             id: ETranslations.perp_position_liq_price,
           })}
         </SizableText>
-        <SizableText size="$bodySmMedium">
+        <SizableText size="$bodySmMedium" fontVariant={TABULAR_NUMS}>
           {priceInfo.liquidationPriceFormatted}
         </SizableText>
       </YStack>
@@ -1364,10 +1436,10 @@ const PositionRow = memo(
       const entryPrice = new BigNumber(pos.entryPx || '0').toFixed(decimals);
 
       const liquidationPrice = new BigNumber(pos.liquidationPx || '0');
-      const entryPriceFormatted = entryPrice;
-      const liquidationPriceFormatted = liquidationPrice.isZero()
-        ? 'N/A'
-        : liquidationPrice.toFixed(decimals);
+      const entryPriceFormatted = formatLocalizedNumberString(entryPrice);
+      const liquidationPriceFormatted = formatLocalizedNumberString(
+        liquidationPrice.isZero() ? 'N/A' : liquidationPrice.toFixed(decimals),
+      );
 
       return {
         entryPriceFormatted,

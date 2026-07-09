@@ -9,6 +9,7 @@ import {
   Popover,
   Progress,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useIsOverlayPage,
@@ -169,6 +170,7 @@ function OverviewMarketVOLItem({
             color="$textSubdued"
             borderRadius="$1"
             px="$1"
+            fontVariant={TABULAR_NUMS}
           >
             {`#${rank}`}
           </SizableText>

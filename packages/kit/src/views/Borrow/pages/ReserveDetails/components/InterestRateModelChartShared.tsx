@@ -2,7 +2,13 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { ColorTokens } from '@tamagui/core';
@@ -152,7 +158,7 @@ export function InterestRateModelHeader({
   utilizationRatioLabel,
 }: IInterestRateModelHeaderProps) {
   return (
-    <SizableText size="$headingXl">
+    <SizableText size="$headingXl" fontVariant={TABULAR_NUMS}>
       {utilizationPercentage} {utilizationRatioLabel}
     </SizableText>
   );
@@ -245,7 +251,12 @@ export function InterestRateModelTooltip({
           <SizableText size="$bodySm" color="$textSubdued" whiteSpace="nowrap">
             {utilizationRatioLabel}
           </SizableText>
-          <SizableText size="$bodySmMedium" color="$text" whiteSpace="nowrap">
+          <SizableText
+            size="$bodySmMedium"
+            color="$text"
+            whiteSpace="nowrap"
+            fontVariant={TABULAR_NUMS}
+          >
             {(hoverData.utilizationRatio * 100).toFixed(2)}%
           </SizableText>
         </XStack>
@@ -253,7 +264,12 @@ export function InterestRateModelTooltip({
           <SizableText size="$bodySm" color="$textSubdued" whiteSpace="nowrap">
             {borrowApyLabel}
           </SizableText>
-          <SizableText size="$bodySmMedium" color="$text" whiteSpace="nowrap">
+          <SizableText
+            size="$bodySmMedium"
+            color="$text"
+            whiteSpace="nowrap"
+            fontVariant={TABULAR_NUMS}
+          >
             {hoverData.borrowApy.toFixed(2)}%
           </SizableText>
         </XStack>
@@ -261,7 +277,12 @@ export function InterestRateModelTooltip({
           <SizableText size="$bodySm" color="$textSubdued" whiteSpace="nowrap">
             {supplyApyLabel}
           </SizableText>
-          <SizableText size="$bodySmMedium" color="$text" whiteSpace="nowrap">
+          <SizableText
+            size="$bodySmMedium"
+            color="$text"
+            whiteSpace="nowrap"
+            fontVariant={TABULAR_NUMS}
+          >
             {hoverData.supplyApy.toFixed(2)}%
           </SizableText>
         </XStack>

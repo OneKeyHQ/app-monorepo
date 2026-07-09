@@ -2,7 +2,13 @@ import { Fragment } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Image, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Image,
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -33,7 +39,9 @@ const HeaderField = ({
       <SizableText size="$bodyMd" color="$textSubdued">
         {title}
       </SizableText>
-      <SizableText size="$bodyLgMedium">{description}</SizableText>
+      <SizableText size="$bodyLgMedium" fontVariant={TABULAR_NUMS}>
+        {description}
+      </SizableText>
     </YStack>
   );
 };

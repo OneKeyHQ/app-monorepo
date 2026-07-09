@@ -8,6 +8,7 @@ import {
   NumberSizeableText,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -128,6 +129,7 @@ const SwapProPositionItem = ({
             size="$bodyMd"
             color={pnlDisplay.color}
             numberOfLines={1}
+            fontVariant={TABULAR_NUMS}
           >
             {pnlDisplay.text}
           </SizableText>

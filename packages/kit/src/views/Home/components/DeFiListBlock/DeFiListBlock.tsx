@@ -9,6 +9,7 @@ import {
   Divider,
   SizableText,
   Skeleton,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useMedia,
@@ -69,8 +70,6 @@ import { buildDeFiOverviewCells } from './hooks/useDeFiOverviewTopN';
 import { resolveOverviewCols } from './overviewColsResolver';
 import { type IProtocolHandle, Protocol } from './Protocol';
 import { useIsDeFiEnabled } from './useIsDeFiEnabled';
-
-const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 const MAX_PROTOCOLS_ON_SMALL_SCREEN = 6;
 const PROTOCOL_LIST_TOGGLE_PRESS_LOCK_MS = 600;

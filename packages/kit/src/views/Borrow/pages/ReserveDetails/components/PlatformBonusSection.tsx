@@ -7,6 +7,7 @@ import {
   Divider,
   Icon,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useMedia,
@@ -57,7 +58,11 @@ export function PlatformBonusSection({
                   id: ETranslations.earn_event_ends_in,
                 })}
               </SizableText>
-              <SizableText size="$bodySmMedium" color="$textSuccess">
+              <SizableText
+                size="$bodySmMedium"
+                color="$textSuccess"
+                fontVariant={TABULAR_NUMS}
+              >
                 {intl.formatMessage(
                   { id: ETranslations.earn_number_days },
                   { number: endsInDays },

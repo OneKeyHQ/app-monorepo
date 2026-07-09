@@ -16,6 +16,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   Tabs,
   YStack,
   useMedia,
@@ -76,7 +77,6 @@ import {
 // Page.Container is now layout="full" so the scroll container fills the
 // viewport, and visual max-width is enforced one level down per content block.
 const DEFI_CONTAINER_CONTENT_MAX_WIDTH = 1140;
-const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 const PROTOCOL_NAV_PENDING_TARGET_TIMEOUT_MS = 5000;
 
 function scrollToAnchor(

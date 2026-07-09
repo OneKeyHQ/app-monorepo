@@ -18,6 +18,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useMedia,
@@ -951,7 +952,6 @@ function SwapKLineTokenPriceInfo({
       {price ? (
         <NumberSizeableText
           size={compact ? '$bodyMdMedium' : '$bodyLgMedium'}
-          fontFamily="$monoMedium"
           formatter="price"
           formatterOptions={{ currency: '$' }}
           numberOfLines={1}
@@ -963,7 +963,7 @@ function SwapKLineTokenPriceInfo({
         <SizableText
           size={compact ? '$bodyMdMedium' : '$bodyLgMedium'}
           color="$textSubdued"
-          fontFamily="$monoMedium"
+          fontVariant={TABULAR_NUMS}
           numberOfLines={1}
         >
           --
@@ -972,7 +972,6 @@ function SwapKLineTokenPriceInfo({
       {priceChange ? (
         <PriceChangePercentage
           size={compact ? '$bodyXsMedium' : '$bodySmMedium'}
-          fontFamily="$monoMedium"
           numberOfLines={1}
         >
           {priceChange}
@@ -981,7 +980,7 @@ function SwapKLineTokenPriceInfo({
         <SizableText
           size="$bodySmMedium"
           color="$textSubdued"
-          fontFamily="$monoMedium"
+          fontVariant={TABULAR_NUMS}
           numberOfLines={1}
         >
           --

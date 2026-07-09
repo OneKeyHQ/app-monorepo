@@ -3,7 +3,13 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IPerpsActiveTwapOrder } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -72,6 +78,7 @@ function MobileTwapInfoRow({ label, value }: { label: string; value: string }) {
         ellipsizeMode="tail"
         textAlign="right"
         maxWidth="60%"
+        fontVariant={TABULAR_NUMS}
       >
         {value}
       </SizableText>
@@ -206,6 +213,7 @@ const MobileTwapOpenOrdersRow = memo(
                 color="$textSubdued"
                 numberOfLines={1}
                 ellipsizeMode="tail"
+                fontVariant={TABULAR_NUMS}
               >
                 {dateInfo.date} {dateInfo.time}
               </SizableText>

@@ -3,7 +3,13 @@ import { memo, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
@@ -375,7 +381,11 @@ const AccountRow = memo(
           <YStack flex={1} gap="$1">
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMdMedium">{typeConfig.text}</SizableText>
-              <SizableText size="$bodyMdMedium" color={textColor}>
+              <SizableText
+                size="$bodyMdMedium"
+                color={textColor}
+                fontVariant={TABULAR_NUMS}
+              >
                 {signPrefix}
                 {numberFormat(totalAmount, balanceFormatter)}
               </SizableText>
@@ -384,7 +394,11 @@ const AccountRow = memo(
               <SizableText size="$bodySm" color={statusInfo.color}>
                 {statusInfo.text}
               </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                fontVariant={TABULAR_NUMS}
+              >
                 {dateInfo.date} {dateInfo.time}
               </SizableText>
             </XStack>
@@ -412,7 +426,12 @@ const AccountRow = memo(
           justifyContent="center"
           alignItems={calcCellAlign(columnConfigs[0].align)}
         >
-          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+            fontVariant={TABULAR_NUMS}
+          >
             {dateInfo.date}
           </SizableText>
           <SizableText
@@ -420,6 +439,7 @@ const AccountRow = memo(
             ellipsizeMode="tail"
             size="$bodySm"
             color="$textSubdued"
+            fontVariant={TABULAR_NUMS}
           >
             {dateInfo.time}
           </SizableText>
@@ -463,6 +483,7 @@ const AccountRow = memo(
             ellipsizeMode="tail"
             size="$bodySm"
             color={textColor}
+            fontVariant={TABULAR_NUMS}
           >
             {signPrefix}
             {numberFormat(amount, balanceFormatter)}
@@ -480,6 +501,7 @@ const AccountRow = memo(
             ellipsizeMode="tail"
             size="$bodySm"
             color={fee && Number(fee) !== 0 ? '$red11' : undefined}
+            fontVariant={TABULAR_NUMS}
           >
             {fee && Number(fee) !== 0
               ? numberFormat(fee, balanceFormatter)

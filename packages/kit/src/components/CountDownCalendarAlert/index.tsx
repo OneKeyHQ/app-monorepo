@@ -3,7 +3,14 @@ import { useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ISizableTextProps } from '@onekeyhq/components';
-import { Alert, Badge, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Alert,
+  Badge,
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+  getFontVariantStyle,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
 export interface ICountDownCalendarAlertProps {
@@ -44,7 +51,11 @@ function TimeItem({
   return (
     <>
       <Badge badgeType="info">
-        <Badge.Text size="$bodyMdMedium" color="$textInfo">
+        <Badge.Text
+          size="$bodyMdMedium"
+          color="$textInfo"
+          style={getFontVariantStyle(TABULAR_NUMS)}
+        >
           {formattedTimeLeft}
         </Badge.Text>
       </Badge>

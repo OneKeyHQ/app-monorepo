@@ -15,10 +15,12 @@ import {
   IconButton,
   SizableText,
   Skeleton,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { ISizableTextProps } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -57,6 +59,7 @@ const OverviewItem = ({
   tooltip,
   needDivider,
   isLoading,
+  fontVariant,
 }: {
   title: IEarnText;
   text?: IEarnText;
@@ -64,6 +67,9 @@ const OverviewItem = ({
   tooltip?: IEarnTooltip | React.ReactNode;
   needDivider?: boolean;
   isLoading?: boolean;
+  /** Set by call sites whose `text` binding is an explicit amount — the
+   *  generic prop itself must not assume numeric content. */
+  fontVariant?: ISizableTextProps['fontVariant'];
 }) => {
   return (
     <>
@@ -75,7 +81,12 @@ const OverviewItem = ({
           ) : (
             <>
               {text ? (
-                <EarnText text={text} size="$headingLg" color="$textText" />
+                <EarnText
+                  text={text}
+                  size="$headingLg"
+                  color="$textText"
+                  fontVariant={fontVariant}
+                />
               ) : null}
               {isValidElement(tooltip) ? (
                 tooltip
@@ -352,6 +363,7 @@ export const Overview = ({
                 }
                 size="$heading3xl"
                 color="$textText"
+                fontVariant={TABULAR_NUMS}
               />
               <IconButton
                 testID={BorrowTestIDs.overviewRefreshBtn}
@@ -369,6 +381,7 @@ export const Overview = ({
                   text={reserves.data.overview.netApy}
                   size="$bodyMdMedium"
                   color="$textText"
+                  fontVariant={TABULAR_NUMS}
                 />
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {labels.netApy}
@@ -429,6 +442,7 @@ export const Overview = ({
                       }
                       size="$headingLg"
                       color="$textText"
+                      fontVariant={TABULAR_NUMS}
                     />
                     {healthFactorData?.healthFactor ? (
                       <XStack mt="$1">
@@ -459,6 +473,7 @@ export const Overview = ({
                   }
                   size="$headingLg"
                   color="$textText"
+                  fontVariant={TABULAR_NUMS}
                 />
                 <XStack mt="$1">
                   <BorrowBonusTooltip
@@ -529,6 +544,7 @@ export const Overview = ({
     <XStack mt="$2" mb={showBottomSpacing ? '$10' : undefined} ai="center">
       <OverviewItem
         needDivider
+        fontVariant={TABULAR_NUMS}
         title={{ text: labels.netWorth }}
         text={
           reserves.data?.overview?.netWorth ?? {
@@ -550,6 +566,7 @@ export const Overview = ({
 
       <OverviewItem
         needDivider
+        fontVariant={TABULAR_NUMS}
         title={{ text: labels.netApy }}
         text={
           reserves.data?.overview?.netApy ?? {
@@ -560,6 +577,7 @@ export const Overview = ({
       />
       <OverviewItem
         needDivider
+        fontVariant={TABULAR_NUMS}
         title={{ text: labels.healthFactor }}
         text={
           isHealthFactorLoading && !healthFactorData
@@ -582,6 +600,7 @@ export const Overview = ({
       />
       <OverviewItem
         needDivider
+        fontVariant={TABULAR_NUMS}
         title={
           reserves.data?.overview?.platformBonus?.data?.title ?? {
             text: labels.platformBonus,

@@ -7,6 +7,7 @@ import {
   Divider,
   Icon,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -126,11 +127,13 @@ export const ManagePositionPart = ({
               text={userInfo?.walletBalance?.title}
               size="$headingXl"
               color="$text"
+              fontVariant={TABULAR_NUMS}
             />
             <EarnText
               text={userInfo?.walletBalance?.description}
               size="$bodyMd"
               color="$textSubdued"
+              fontVariant={TABULAR_NUMS}
             />
           </YStack>
           {userInfo?.walletBalance?.button ? (
@@ -167,11 +170,13 @@ export const ManagePositionPart = ({
               text={userInfo?.availableBorrowBalance?.title}
               size="$headingXl"
               color="$text"
+              fontVariant={TABULAR_NUMS}
             />
             <EarnText
               text={userInfo?.availableBorrowBalance?.description}
               size="$bodyMd"
               color="$textSubdued"
+              fontVariant={TABULAR_NUMS}
             />
           </YStack>
           {userInfo?.availableBorrowBalance?.button ? (
@@ -201,9 +206,14 @@ export const ManagePositionPart = ({
             text={userInfo?.suppliedBalance?.title}
             size="$bodyMdMedium"
             color="$text"
+            fontVariant={TABULAR_NUMS}
           />
           {userInfo?.suppliedBalance?.description?.text ? (
-            <SizableText size="$bodyMd" color="$textSubdued">
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              fontVariant={TABULAR_NUMS}
+            >
               ({userInfo.suppliedBalance.description.text})
             </SizableText>
           ) : null}
@@ -218,9 +228,14 @@ export const ManagePositionPart = ({
             text={userInfo?.borrowedBalance?.title}
             size="$bodyMdMedium"
             color="$text"
+            fontVariant={TABULAR_NUMS}
           />
           {userInfo?.borrowedBalance?.description?.text ? (
-            <SizableText size="$bodyMd" color="$textSubdued">
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              fontVariant={TABULAR_NUMS}
+            >
               ({userInfo.borrowedBalance.description.text})
             </SizableText>
           ) : null}

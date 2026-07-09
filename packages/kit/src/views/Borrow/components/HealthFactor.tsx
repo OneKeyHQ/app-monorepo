@@ -5,6 +5,7 @@ import {
   LinearGradient,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   YStack,
   useTheme,
 } from '@onekeyhq/components';
@@ -245,6 +246,7 @@ export const HealthFactor = ({
               size="$bodySmMedium"
               whiteSpace="nowrap"
               color={valueColor ?? '$text'}
+              fontVariant={TABULAR_NUMS}
             >
               {displayText}
             </SizableText>

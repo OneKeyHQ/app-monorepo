@@ -1,7 +1,13 @@
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  SizableText,
+  Stack,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   useSettingsPersistAtom,
@@ -15,8 +21,6 @@ import type {
 
 import { OVERVIEW_TILE_SHADOW } from './DeFiOverviewLayout';
 import { formatPortfolioTotal } from './formatPortfolioTotal';
-
-const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 export type IDeFiOverviewTileProps = {
   protocol: IDeFiProtocol;

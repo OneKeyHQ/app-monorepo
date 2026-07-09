@@ -3,7 +3,13 @@ import { memo } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  SizableText,
+  Stack,
+  TABULAR_NUMS,
+  XStack,
+} from '@onekeyhq/components';
 import type { ColorTokens } from '@onekeyhq/components/src/primitives';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
@@ -40,7 +46,7 @@ function SecurityStatusItem({
       </Stack>
 
       <Stack>
-        <SizableText size="$headingXl" color="$text">
+        <SizableText size="$headingXl" color="$text" fontVariant={TABULAR_NUMS}>
           {count}
         </SizableText>
 

@@ -13,6 +13,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useDialogInstance,
@@ -247,7 +248,7 @@ function DonutArc({
         strokeWidth={DONUT_STROKE}
         progressColor={DONUT_COLOR}
       >
-        <SizableText size="$bodyXs" fontWeight="600">
+        <SizableText size="$bodyXs" fontWeight="600" fontVariant={TABULAR_NUMS}>
           {`${Math.round(percentage)}%`}
         </SizableText>
       </CircleProgress>

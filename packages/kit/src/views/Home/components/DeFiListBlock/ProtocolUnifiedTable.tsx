@@ -2,7 +2,14 @@ import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  SizableText,
+  Stack,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import type { IProtocolUnifiedRow } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -55,8 +62,6 @@ export const USD_FLEX_WITHOUT_REWARDS = 1;
 // the top-by-USD rows + a "+N more" chip, so an 8-token yield position
 // settles at four lines of content instead of eight.
 const MAX_BALANCE_LINES = 3;
-
-const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 type IProtocolUnifiedTableProps = {
   rows: IProtocolUnifiedRow[];

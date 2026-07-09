@@ -4,6 +4,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -35,8 +36,7 @@ function MobileVerticalEmptyRow({
       <SizableText
         fontSize={11}
         lineHeight={14}
-        fontFamily="$monoRegular"
-        fontVariant={['tabular-nums']}
+        fontVariant={TABULAR_NUMS}
         color={priceColor}
       >
         --
@@ -44,8 +44,7 @@ function MobileVerticalEmptyRow({
       <SizableText
         fontSize={11}
         lineHeight={14}
-        fontFamily="$monoRegular"
-        fontVariant={['tabular-nums']}
+        fontVariant={TABULAR_NUMS}
         color="$textSubdued"
       >
         --
@@ -61,8 +60,7 @@ function MobileHorizontalEmptyRow() {
         <SizableText
           fontSize={12}
           lineHeight={16}
-          fontFamily="$monoRegular"
-          fontVariant={['tabular-nums']}
+          fontVariant={TABULAR_NUMS}
           color="$textSubdued"
         >
           --
@@ -70,8 +68,7 @@ function MobileHorizontalEmptyRow() {
         <SizableText
           fontSize={12}
           lineHeight={16}
-          fontFamily="$monoRegular"
-          fontVariant={['tabular-nums']}
+          fontVariant={TABULAR_NUMS}
           color="$green11"
         >
           --
@@ -81,8 +78,7 @@ function MobileHorizontalEmptyRow() {
         <SizableText
           fontSize={12}
           lineHeight={16}
-          fontFamily="$monoRegular"
-          fontVariant={['tabular-nums']}
+          fontVariant={TABULAR_NUMS}
           color="$red11"
         >
           --
@@ -90,8 +86,7 @@ function MobileHorizontalEmptyRow() {
         <SizableText
           fontSize={12}
           lineHeight={16}
-          fontFamily="$monoRegular"
-          fontVariant={['tabular-nums']}
+          fontVariant={TABULAR_NUMS}
           color="$textSubdued"
         >
           --
@@ -200,8 +195,7 @@ export function DefaultLoadingNode({
               fontSize={20}
               lineHeight={24}
               fontWeight="600"
-              fontFamily="$monoRegular"
-              fontVariant={['tabular-nums']}
+              fontVariant={TABULAR_NUMS}
               color="$text"
             >
               {midPriceDisplay}
@@ -209,8 +203,7 @@ export function DefaultLoadingNode({
             <SizableText
               fontSize={10}
               lineHeight={14}
-              fontFamily="$monoRegular"
-              fontVariant={['tabular-nums']}
+              fontVariant={TABULAR_NUMS}
               color="$textSubdued"
             >
               --

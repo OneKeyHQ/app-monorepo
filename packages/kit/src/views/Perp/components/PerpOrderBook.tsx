@@ -8,6 +8,7 @@ import {
   Divider,
   Popover,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useMedia,
@@ -221,19 +222,14 @@ function MobileHeader({
             <YStack gap="$3">
               <XStack justifyContent="space-between" alignItems="center">
                 <XStack gap="$1" alignItems="center">
-                  <SizableText
-                    size="$headingXs"
-                    fontFamily="$monoRegular"
-                    fontVariant={['tabular-nums']}
-                  >
+                  <SizableText size="$headingXs">
                     {intl.formatMessage({
                       id: ETranslations.perps_hourly,
                     })}
                   </SizableText>
                   <SizableText
                     size="$headingXs"
-                    fontFamily="$monoRegular"
-                    fontVariant={['tabular-nums']}
+                    fontVariant={TABULAR_NUMS}
                     color="$textSubdued"
                   >
                     ({countdown})
@@ -241,84 +237,63 @@ function MobileHeader({
                 </XStack>
                 <SizableText
                   size="$headingXs"
-                  fontFamily="$monoRegular"
-                  fontVariant={['tabular-nums']}
+                  fontVariant={TABULAR_NUMS}
                   color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
                 >
                   {hourlyFundingRate}%
                 </SizableText>
               </XStack>
               <XStack justifyContent="space-between" alignItems="center">
-                <SizableText
-                  size="$headingXs"
-                  fontFamily="$monoRegular"
-                  fontVariant={['tabular-nums']}
-                >
+                <SizableText size="$headingXs">
                   {intl.formatMessage({
                     id: ETranslations.earn_daily,
                   })}
                 </SizableText>
                 <SizableText
                   size="$headingXs"
-                  fontFamily="$monoRegular"
-                  fontVariant={['tabular-nums']}
+                  fontVariant={TABULAR_NUMS}
                   color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
                 >
                   {dailyFundingRate}%
                 </SizableText>
               </XStack>
               <XStack justifyContent="space-between" alignItems="center">
-                <SizableText
-                  size="$headingXs"
-                  fontFamily="$monoRegular"
-                  fontVariant={['tabular-nums']}
-                >
+                <SizableText size="$headingXs">
                   {intl.formatMessage({
                     id: ETranslations.earn_weekly,
                   })}
                 </SizableText>
                 <SizableText
                   size="$headingXs"
-                  fontFamily="$monoRegular"
-                  fontVariant={['tabular-nums']}
+                  fontVariant={TABULAR_NUMS}
                   color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
                 >
                   {weeklyFundingRate}%
                 </SizableText>
               </XStack>
               <XStack justifyContent="space-between" alignItems="center">
-                <SizableText
-                  size="$headingXs"
-                  fontFamily="$monoRegular"
-                  fontVariant={['tabular-nums']}
-                >
+                <SizableText size="$headingXs">
                   {intl.formatMessage({
                     id: ETranslations.earn_monthly,
                   })}
                 </SizableText>
                 <SizableText
                   size="$headingXs"
-                  fontFamily="$monoRegular"
-                  fontVariant={['tabular-nums']}
+                  fontVariant={TABULAR_NUMS}
                   color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
                 >
                   {monthlyFundingRate}%
                 </SizableText>
               </XStack>
               <XStack justifyContent="space-between" alignItems="center">
-                <SizableText
-                  size="$headingXs"
-                  fontFamily="$monoRegular"
-                  fontVariant={['tabular-nums']}
-                >
+                <SizableText size="$headingXs">
                   {intl.formatMessage({
                     id: ETranslations.earn_annually,
                   })}
                 </SizableText>
                 <SizableText
                   size="$headingXs"
-                  fontFamily="$monoRegular"
-                  fontVariant={['tabular-nums']}
+                  fontVariant={TABULAR_NUMS}
                   color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
                 >
                   {annualizedFundingRate}%

@@ -11,6 +11,7 @@ import {
   Popover,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -131,6 +132,7 @@ export const BorrowBonusTooltip = ({
                     text={data.totalReceived.description}
                     size="$headingXl"
                     color="$text"
+                    fontVariant={TABULAR_NUMS}
                   />
                   {data.totalReceived.button ? (
                     <XStack
@@ -298,6 +300,7 @@ export const BorrowBonusTooltip = ({
                         { number: endsInDays },
                       ),
                     }}
+                    fontVariant={TABULAR_NUMS}
                   />
                 </XStack>
                 {!isEmpty(data.data.rewards) ? (

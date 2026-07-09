@@ -2,7 +2,12 @@ import { memo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { NumberSizeableText, SizableText, YStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  TABULAR_NUMS,
+  YStack,
+} from '@onekeyhq/components';
 
 function PnlCellBase({
   usdValue,
@@ -49,7 +54,11 @@ function PnlCellBase({
           --
         </SizableText>
       )}
-      <SizableText size="$bodySm" color={displayColor}>
+      <SizableText
+        size="$bodySm"
+        color={displayColor}
+        fontVariant={TABULAR_NUMS}
+      >
         {isValid ? `${percent}%` : '--'}
       </SizableText>
     </YStack>

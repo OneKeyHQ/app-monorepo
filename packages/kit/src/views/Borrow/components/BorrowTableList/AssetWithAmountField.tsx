@@ -1,4 +1,11 @@
-import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Image,
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import type { IBorrowToken, IEarnText } from '@onekeyhq/shared/types/staking';
@@ -58,6 +65,7 @@ export const AssetWithAmountField = ({
                 size="$bodySmMedium"
                 color="$textSuccess"
                 whiteSpace="nowrap"
+                fontVariant={TABULAR_NUMS}
               />
               <Image
                 src={platformBonusApy.logoURI}
@@ -71,12 +79,18 @@ export const AssetWithAmountField = ({
               <Icon name="WalletOutline" size="$3.5" color="$iconSubdued" />
             ) : null}
             <EarnText text={amountLabel} size="$bodySm" color="$textSubdued" />
-            <EarnText text={amount} size="$bodySm" color="$textSubdued" />
+            <EarnText
+              text={amount}
+              size="$bodySm"
+              color="$textSubdued"
+              fontVariant={TABULAR_NUMS}
+            />
             {amountDescription ? (
               <EarnText
                 text={{ text: `(${amountDescription.text})` }}
                 size="$bodySm"
                 color="$textSubdued"
+                fontVariant={TABULAR_NUMS}
               />
             ) : null}
           </XStack>

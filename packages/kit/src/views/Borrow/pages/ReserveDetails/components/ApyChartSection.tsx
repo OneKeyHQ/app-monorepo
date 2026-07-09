@@ -2,7 +2,13 @@ import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { ApyChartBase } from '@onekeyhq/kit/src/views/Staking/components/ApyChartBase';
 import { GridItem } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/GridItemV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -90,7 +96,7 @@ function ApyChartSectionComponent({
       {/* APY Chart */}
       <YStack gap="$3">
         <XStack jc="space-between" ai="center">
-          <SizableText size="$headingXl">
+          <SizableText size="$headingXl" fontVariant={TABULAR_NUMS}>
             {Number(apyValue).toFixed(2)}% {apyLabel}
           </SizableText>
           {media.gtSm ? (

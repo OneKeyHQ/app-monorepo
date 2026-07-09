@@ -8,6 +8,7 @@ import {
   Image,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   Video,
   XStack,
 } from '@onekeyhq/components';
@@ -105,7 +106,11 @@ function BasicNFTListItem(props: IProps) {
               borderWidth={2}
               borderColor="$bgApp"
             >
-              <SizableText size="$bodyMdMedium" color="$textInverse">
+              <SizableText
+                size="$bodyMdMedium"
+                color="$textInverse"
+                fontVariant={TABULAR_NUMS}
+              >
                 x
                 {new BigNumber(nft.amount).gt(SHOW_NFT_AMOUNT_MAX)
                   ? `${SHOW_NFT_AMOUNT_MAX}+`

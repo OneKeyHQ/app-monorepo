@@ -1,6 +1,12 @@
 import { useIntl } from 'react-intl';
 
-import { Dialog, Icon, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Dialog,
+  Icon,
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+} from '@onekeyhq/components';
 import { NATIVE_HIT_SLOP } from '@onekeyhq/components/src/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -63,7 +69,11 @@ function TokenSecurityAlert() {
       hitSlop={NATIVE_HIT_SLOP}
     >
       <Icon name="BugOutline" size="$4" color={color} />
-      <SizableText size="$bodySmMedium" color={color}>
+      <SizableText
+        size="$bodySmMedium"
+        color={color}
+        fontVariant={TABULAR_NUMS}
+      >
         {count}
       </SizableText>
     </XStack>

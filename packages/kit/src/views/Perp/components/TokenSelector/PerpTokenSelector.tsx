@@ -24,6 +24,7 @@ import {
   SearchBar,
   SizableText,
   Spinner,
+  TABULAR_NUMS,
   Tooltip,
   XStack,
   YStack,
@@ -1462,7 +1463,7 @@ const PerpTickerChangeLeaf = memo(
       return (
         <SizableText
           fontSize={10}
-          fontFamily="$monoRegular"
+          fontVariant={TABULAR_NUMS}
           color="$textSubdued"
           alignSelf="center"
         >
@@ -1473,8 +1474,6 @@ const PerpTickerChangeLeaf = memo(
     return (
       <NumberSizeableText
         style={{ fontSize: 10 }}
-        fontFamily="$monoRegular"
-        fontVariant={['tabular-nums']}
         alignSelf="center"
         color={change24hPercent < 0 ? '$red11' : '$green11'}
         formatter="priceChange"

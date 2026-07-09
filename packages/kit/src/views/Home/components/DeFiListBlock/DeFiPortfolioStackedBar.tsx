@@ -7,6 +7,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   Tooltip,
   XStack,
   YStack,
@@ -64,8 +65,6 @@ const STACKED_BAR_CHROME = {
     borderColor: '$borderSubdued',
   },
 } as const;
-
-const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 const SEGMENT_OPACITY = 0.86;
 

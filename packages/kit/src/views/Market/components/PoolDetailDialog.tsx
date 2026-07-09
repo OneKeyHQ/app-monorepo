@@ -8,6 +8,7 @@ import type { INumberSizeableTextProps } from '@onekeyhq/components';
 import {
   NumberSizeableText,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -50,7 +51,9 @@ export function PoolDetailsItem({
       );
     }
     return typeof children === 'string' ? (
-      <SizableText size="$bodyMdMedium">{children}</SizableText>
+      <SizableText size="$bodyMdMedium" fontVariant={TABULAR_NUMS}>
+        {children}
+      </SizableText>
     ) : (
       children
     );

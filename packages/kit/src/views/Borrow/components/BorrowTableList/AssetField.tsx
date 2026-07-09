@@ -1,4 +1,11 @@
-import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Image,
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import type { IBorrowToken, IEarnText } from '@onekeyhq/shared/types/staking';
@@ -51,6 +58,7 @@ export const AssetField = ({
                 size="$bodySmMedium"
                 color="$textSuccess"
                 whiteSpace="nowrap"
+                fontVariant={TABULAR_NUMS}
               />
               <Image
                 src={platformBonusApy.logoURI}

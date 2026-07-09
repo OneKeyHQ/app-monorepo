@@ -1,6 +1,11 @@
 import { useMemo } from 'react';
 
-import { NumberSizeableText, SizableText, YStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  TABULAR_NUMS,
+  YStack,
+} from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import {
   useSwapProSelectTokenAtom,
@@ -83,7 +88,7 @@ const SwapProPriceInfo = ({ onPricePress }: ISwapProPriceInfoProps) => {
       <NumberSizeableText
         size="$headingLg"
         color={textColor}
-        fontFamily="$monoMedium"
+        fontWeight="500"
         formatter="price"
         formatterOptions={{
           currency: '$',
@@ -104,7 +109,7 @@ const SwapProPriceInfo = ({ onPricePress }: ISwapProPriceInfoProps) => {
       <SizableText
         size="$bodySmMedium"
         color={textColor}
-        fontFamily="$monoMedium"
+        fontVariant={TABULAR_NUMS}
       >
         {formattedPriceChange}
       </SizableText>

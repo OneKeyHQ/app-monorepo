@@ -12,6 +12,7 @@ import {
   Illustration,
   Popover,
   SizableText,
+  TABULAR_NUMS,
   Toast,
   Tooltip,
   XStack,
@@ -285,6 +286,7 @@ function MobileTwapHistoryInfoRow({
         ellipsizeMode="tail"
         textAlign="right"
         maxWidth="60%"
+        fontVariant={TABULAR_NUMS}
       >
         {value}
       </SizableText>
@@ -507,7 +509,11 @@ function TwapActiveRow({
             justifyContent={calcCellAlign(columnConfigs[1].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm" color={sideInfo.color}>
+            <SizableText
+              size="$bodySm"
+              color={sideInfo.color}
+              fontVariant={TABULAR_NUMS}
+            >
               {baseInfo.sizeWithSymbol}
             </SizableText>
           </XStack>
@@ -516,7 +522,11 @@ function TwapActiveRow({
             justifyContent={calcCellAlign(columnConfigs[2].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm" color={sideInfo.color}>
+            <SizableText
+              size="$bodySm"
+              color={sideInfo.color}
+              fontVariant={TABULAR_NUMS}
+            >
               {baseInfo.executedSizeWithSymbol}
             </SizableText>
           </XStack>
@@ -525,7 +535,7 @@ function TwapActiveRow({
             justifyContent={calcCellAlign(columnConfigs[3].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm">
+            <SizableText size="$bodySm" fontVariant={TABULAR_NUMS}>
               {baseInfo.avgPriceFormatted}
             </SizableText>
           </XStack>
@@ -534,7 +544,9 @@ function TwapActiveRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[4].align)}
           >
-            <SizableText size="$bodySm">{baseInfo.runningTimeText}</SizableText>
+            <SizableText size="$bodySm" fontVariant={TABULAR_NUMS}>
+              {baseInfo.runningTimeText}
+            </SizableText>
           </YStack>
           <XStack
             {...getColumnStyle(columnConfigs[5])}
@@ -555,7 +567,9 @@ function TwapActiveRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[7].align)}
           >
-            <SizableText size="$bodySm">{creationTime.inline}</SizableText>
+            <SizableText size="$bodySm" fontVariant={TABULAR_NUMS}>
+              {creationTime.inline}
+            </SizableText>
           </YStack>
         </>
       ) : null}
@@ -700,7 +714,11 @@ function TwapHistoryRow({
                 {sideInfo.text}
               </SizableText>
             </XStack>
-            <SizableText size="$bodySm" color="$textSubdued">
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              fontVariant={TABULAR_NUMS}
+            >
               {historyTime.inline}
             </SizableText>
           </YStack>
@@ -793,8 +811,14 @@ function TwapHistoryRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[0].align)}
           >
-            <SizableText size="$bodySm">{historyTime.date}</SizableText>
-            <SizableText size="$bodySm" color="$textSubdued">
+            <SizableText size="$bodySm" fontVariant={TABULAR_NUMS}>
+              {historyTime.date}
+            </SizableText>
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              fontVariant={TABULAR_NUMS}
+            >
               {historyTime.time}
             </SizableText>
           </YStack>
@@ -812,7 +836,11 @@ function TwapHistoryRow({
             justifyContent={calcCellAlign(columnConfigs[2].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm" color={sideInfo.color}>
+            <SizableText
+              size="$bodySm"
+              color={sideInfo.color}
+              fontVariant={TABULAR_NUMS}
+            >
               {baseInfo.sizeWithSymbol}
             </SizableText>
           </XStack>
@@ -824,6 +852,7 @@ function TwapHistoryRow({
             <SizableText
               size="$bodySm"
               color={isActivated ? undefined : sideInfo.color}
+              fontVariant={TABULAR_NUMS}
             >
               {historyDisplayInfo.executedSize}
             </SizableText>
@@ -833,7 +862,7 @@ function TwapHistoryRow({
             justifyContent={calcCellAlign(columnConfigs[4].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm">
+            <SizableText size="$bodySm" fontVariant={TABULAR_NUMS}>
               {historyDisplayInfo.averagePrice}
             </SizableText>
           </XStack>
@@ -842,7 +871,7 @@ function TwapHistoryRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[5].align)}
           >
-            <SizableText size="$bodySm">
+            <SizableText size="$bodySm" fontVariant={TABULAR_NUMS}>
               {historyDisplayInfo.totalRuntime}
             </SizableText>
           </YStack>
@@ -960,11 +989,11 @@ function TwapFillRow({
     return (
       <YStack gap="$3">
         <YStack gap="$1.5">
-          <SizableText size="$bodySm">
+          <SizableText size="$bodySm" fontVariant={TABULAR_NUMS}>
             {intl.formatMessage({ id: ETranslations.perps_fee_title })}
             {feeRatePercentage}
           </SizableText>
-          <SizableText size="$bodySm">
+          <SizableText size="$bodySm" fontVariant={TABULAR_NUMS}>
             {intl.formatMessage({ id: ETranslations.perps_fee_total })}
             {fillInfo.feeFormatted}
           </SizableText>
@@ -1004,7 +1033,11 @@ function TwapFillRow({
                 {directionInfo.text}
               </SizableText>
             </XStack>
-            <SizableText size="$bodySm" color="$textSubdued">
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              fontVariant={TABULAR_NUMS}
+            >
               {dateInfo.date} {dateInfo.time}
             </SizableText>
           </YStack>
@@ -1014,7 +1047,11 @@ function TwapFillRow({
                 id: ETranslations.perp_trades_close_pnl,
               })}
             </SizableText>
-            <SizableText size="$bodySm" color={fillInfo.closePnlColor}>
+            <SizableText
+              size="$bodySm"
+              color={fillInfo.closePnlColor}
+              fontVariant={TABULAR_NUMS}
+            >
               {`${fillInfo.closePnlPlusOrMinus}${fillInfo.closePnlFormatted}`}
             </SizableText>
           </YStack>
@@ -1034,7 +1071,9 @@ function TwapFillRow({
                 id: ETranslations.perp_trades_history_price,
               })}
             </SizableText>
-            <SizableText size="$bodySm">{fillInfo.priceFormatted}</SizableText>
+            <SizableText size="$bodySm" fontVariant={TABULAR_NUMS}>
+              {fillInfo.priceFormatted}
+            </SizableText>
           </YStack>
           <YStack gap="$1" flex={1} alignItems="flex-start">
             <SizableText size="$bodySm" color="$textSubdued">
@@ -1042,7 +1081,9 @@ function TwapFillRow({
                 id: ETranslations.perp_position_position_size,
               })}
             </SizableText>
-            <SizableText size="$bodySm">{fillInfo.sizeFormatted}</SizableText>
+            <SizableText size="$bodySm" fontVariant={TABULAR_NUMS}>
+              {fillInfo.sizeFormatted}
+            </SizableText>
           </YStack>
           <YStack gap="$1" flex={1} alignItems="flex-start">
             <SizableText size="$bodySm" color="$textSubdued">
@@ -1050,7 +1091,9 @@ function TwapFillRow({
                 id: ETranslations.perp_trades_history_trade_value,
               })}
             </SizableText>
-            <SizableText size="$bodySm">{fillInfo.valueFormatted}</SizableText>
+            <SizableText size="$bodySm" fontVariant={TABULAR_NUMS}>
+              {fillInfo.valueFormatted}
+            </SizableText>
           </YStack>
           <YStack gap="$1" flex={1} alignItems="flex-end">
             <SizableText size="$bodySm" color="$textSubdued">
@@ -1068,6 +1111,7 @@ function TwapFillRow({
                   size="$bodySm"
                   color="$textSubdued"
                   dashThickness={0.3}
+                  fontVariant={TABULAR_NUMS}
                 >
                   {fillInfo.feeFormatted}
                 </DashText>
@@ -1104,8 +1148,14 @@ function TwapFillRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[0].align)}
           >
-            <SizableText size="$bodySm">{dateInfo.date}</SizableText>
-            <SizableText size="$bodySm" color="$textSubdued">
+            <SizableText size="$bodySm" fontVariant={TABULAR_NUMS}>
+              {dateInfo.date}
+            </SizableText>
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              fontVariant={TABULAR_NUMS}
+            >
               {dateInfo.time}
             </SizableText>
           </YStack>
@@ -1130,21 +1180,27 @@ function TwapFillRow({
             justifyContent={calcCellAlign(columnConfigs[3].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm">{fillInfo.priceFormatted}</SizableText>
+            <SizableText size="$bodySm" fontVariant={TABULAR_NUMS}>
+              {fillInfo.priceFormatted}
+            </SizableText>
           </XStack>
           <XStack
             {...getColumnStyle(columnConfigs[4])}
             justifyContent={calcCellAlign(columnConfigs[4].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm">{fillInfo.sizeFormatted}</SizableText>
+            <SizableText size="$bodySm" fontVariant={TABULAR_NUMS}>
+              {fillInfo.sizeFormatted}
+            </SizableText>
           </XStack>
           <XStack
             {...getColumnStyle(columnConfigs[5])}
             justifyContent={calcCellAlign(columnConfigs[5].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm">{fillInfo.valueFormatted}</SizableText>
+            <SizableText size="$bodySm" fontVariant={TABULAR_NUMS}>
+              {fillInfo.valueFormatted}
+            </SizableText>
           </XStack>
           <XStack
             {...getColumnStyle(columnConfigs[6])}
@@ -1158,6 +1214,7 @@ function TwapFillRow({
                   size="$bodySm"
                   color="$textSubdued"
                   dashThickness={0.3}
+                  fontVariant={TABULAR_NUMS}
                 >
                   {fillInfo.feeFormatted}
                 </DashText>
@@ -1178,6 +1235,7 @@ function TwapFillRow({
             ellipsizeMode="tail"
             size="$bodySm"
             color={fillInfo.closePnlColor}
+            fontVariant={TABULAR_NUMS}
           >
             {`${fillInfo.closePnlPlusOrMinus}${fillInfo.closePnlFormatted}`}
           </SizableText>

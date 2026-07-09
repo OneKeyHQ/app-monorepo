@@ -7,6 +7,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useMedia,
@@ -356,7 +357,11 @@ export const useColumnsDesktop = (
               { amount: ageInfo.amount },
             );
 
-            return <SizableText size="$bodyMd">{ageLabel}</SizableText>;
+            return (
+              <SizableText size="$bodyMd" fontVariant={TABULAR_NUMS}>
+                {ageLabel}
+              </SizableText>
+            );
           },
           renderSkeleton: () => <Skeleton width={60} height={16} />,
         }

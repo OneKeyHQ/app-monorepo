@@ -2,7 +2,13 @@ import { Fragment, memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  SizableText,
+  Stack,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -23,8 +29,6 @@ import {
 //
 // The Supplied segment uses "Positions" in the first header cell to align with
 // the unified table; Borrowed and Rewards keep their semantic labels.
-
-const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 type IProtocolSectionedPositionTableProps = {
   position: ILocalizedProtocolPositionItem;

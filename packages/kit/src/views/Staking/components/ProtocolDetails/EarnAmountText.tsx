@@ -1,6 +1,10 @@
 import { useMemo } from 'react';
 
-import { NumberSizeableText, SizableText } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  TABULAR_NUMS,
+} from '@onekeyhq/components';
 import type { ISizableTextProps } from '@onekeyhq/components';
 import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 
@@ -67,7 +71,11 @@ export function EarnAmountText({
 
   // Percentages and unrecognized text: render as-is
   if (parsed.type === 'passthrough') {
-    return <SizableText {...textProps}>{text}</SizableText>;
+    return (
+      <SizableText fontVariant={TABULAR_NUMS} {...textProps}>
+        {text}
+      </SizableText>
+    );
   }
 
   // Pure number without suffix

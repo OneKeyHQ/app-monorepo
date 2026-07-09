@@ -7,6 +7,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useMedia,
@@ -223,6 +224,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
                   <SizableText
                     size="$bodyMd"
                     color={rate >= 0 ? '$textSuccess' : '$textCritical'}
+                    fontVariant={TABULAR_NUMS}
                   >
                     {`${rate >= 0 ? '+' : ''}${rate.toFixed(4)}%`}
                   </SizableText>

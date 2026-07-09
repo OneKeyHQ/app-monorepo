@@ -16,8 +16,10 @@ import {
   Popover,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
+  getFontVariantStyle,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -120,7 +122,9 @@ function PortfolioItem({
         ) : null}
         {badgeText ? (
           <Badge badgeType={badgeType}>
-            <Badge.Text>{badgeText}</Badge.Text>
+            <Badge.Text style={getFontVariantStyle(TABULAR_NUMS)}>
+              {badgeText}
+            </Badge.Text>
           </Badge>
         ) : null}
       </XStack>

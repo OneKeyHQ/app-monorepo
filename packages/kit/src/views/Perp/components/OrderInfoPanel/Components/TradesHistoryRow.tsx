@@ -9,6 +9,7 @@ import {
   IconButton,
   Popover,
   SizableText,
+  TABULAR_NUMS,
   Tooltip,
   XStack,
   YStack,
@@ -19,7 +20,10 @@ import { useSpotPairDisplayMapAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  formatLocalizedNumberString,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getSpotTokenDisplayName,
   getValidPriceDecimals,
@@ -136,7 +140,9 @@ const TradesHistoryRow = memo(
       const decimals = getValidPriceDecimals(price);
       const priceBN = new BigNumber(price);
       const sizeBN = new BigNumber(size);
-      const priceFormatted = priceBN.toFixed(decimals);
+      const priceFormatted = formatLocalizedNumberString(
+        priceBN.toFixed(decimals),
+      );
       const feeFormatted = numberFormat(fee, formatter);
 
       const tradeValue = priceBN.times(sizeBN).toFixed();
@@ -171,11 +177,17 @@ const TradesHistoryRow = memo(
       return (
         <YStack gap="$3">
           <YStack gap="$1.5">
-            <SizableText size={isMobile ? '$bodyMd' : '$bodySm'}>
+            <SizableText
+              size={isMobile ? '$bodyMd' : '$bodySm'}
+              fontVariant={TABULAR_NUMS}
+            >
               {intl.formatMessage({ id: ETranslations.perps_fee_title })}
               {feeRatePercentage}
             </SizableText>
-            <SizableText size={isMobile ? '$bodyMd' : '$bodySm'}>
+            <SizableText
+              size={isMobile ? '$bodyMd' : '$bodySm'}
+              fontVariant={TABULAR_NUMS}
+            >
               {intl.formatMessage({ id: ETranslations.perps_fee_total })}
               {tradeBaseInfo.feeFormatted}
             </SizableText>
@@ -230,7 +242,11 @@ const TradesHistoryRow = memo(
                   {directionInfo.directionStr}
                 </SizableText>
               </XStack>
-              <SizableText size="$bodySm" color="$textSubdued">
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                fontVariant={TABULAR_NUMS}
+              >
                 {dateInfo.date} {dateInfo.time}
               </SizableText>
             </YStack>
@@ -245,6 +261,7 @@ const TradesHistoryRow = memo(
                   <SizableText
                     size="$bodySm"
                     color={closePnlInfo.closePnlColor}
+                    fontVariant={TABULAR_NUMS}
                   >
                     {`${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
                   </SizableText>
@@ -280,7 +297,7 @@ const TradesHistoryRow = memo(
                   id: ETranslations.perp_trades_history_price,
                 })}
               </SizableText>
-              <SizableText size="$bodySm">
+              <SizableText size="$bodySm" fontVariant={TABULAR_NUMS}>
                 {tradeBaseInfo.priceFormatted}
               </SizableText>
             </YStack>
@@ -290,7 +307,9 @@ const TradesHistoryRow = memo(
                   id: ETranslations.perp_position_position_size,
                 })}
               </SizableText>
-              <SizableText size="$bodySm">{tradeBaseInfo.size}</SizableText>
+              <SizableText size="$bodySm" fontVariant={TABULAR_NUMS}>
+                {tradeBaseInfo.size}
+              </SizableText>
             </YStack>
             <YStack gap="$1" flex={1} alignItems="flex-start">
               <SizableText size="$bodySm" color="$textSubdued">
@@ -298,7 +317,7 @@ const TradesHistoryRow = memo(
                   id: ETranslations.perp_trades_history_trade_value,
                 })}
               </SizableText>
-              <SizableText size="$bodySm">
+              <SizableText size="$bodySm" fontVariant={TABULAR_NUMS}>
                 {tradeBaseInfo.tradeValueFormatted}
               </SizableText>
             </YStack>
@@ -318,6 +337,7 @@ const TradesHistoryRow = memo(
                     size="$bodySm"
                     color="$textSubdued"
                     dashThickness={0.3}
+                    fontVariant={TABULAR_NUMS}
                   >
                     {tradeBaseInfo.feeFormatted}
                   </DashText>
@@ -358,6 +378,7 @@ const TradesHistoryRow = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
+                fontVariant={TABULAR_NUMS}
               >
                 {dateInfo.date}
               </SizableText>
@@ -366,6 +387,7 @@ const TradesHistoryRow = memo(
                 ellipsizeMode="tail"
                 size="$bodySm"
                 color="$textSubdued"
+                fontVariant={TABULAR_NUMS}
               >
                 {dateInfo.time}
               </SizableText>
@@ -415,6 +437,7 @@ const TradesHistoryRow = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
+                fontVariant={TABULAR_NUMS}
               >
                 {tradeBaseInfo.priceFormatted}
               </SizableText>
@@ -430,6 +453,7 @@ const TradesHistoryRow = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
+                fontVariant={TABULAR_NUMS}
               >{`${tradeBaseInfo.size} ${assetSymbol}`}</SizableText>
             </XStack>
 
@@ -443,6 +467,7 @@ const TradesHistoryRow = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
+                fontVariant={TABULAR_NUMS}
               >
                 {tradeBaseInfo.tradeValueFormatted}
               </SizableText>
@@ -461,6 +486,7 @@ const TradesHistoryRow = memo(
                     size="$bodySm"
                     color="$textSubdued"
                     dashThickness={0.3}
+                    fontVariant={TABULAR_NUMS}
                   >
                     {tradeBaseInfo.feeFormatted}
                   </DashText>
@@ -485,6 +511,7 @@ const TradesHistoryRow = memo(
               ellipsizeMode="tail"
               size="$bodySm"
               color={closePnlInfo.closePnlColor}
+              fontVariant={TABULAR_NUMS}
             >
               {`${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
             </SizableText>

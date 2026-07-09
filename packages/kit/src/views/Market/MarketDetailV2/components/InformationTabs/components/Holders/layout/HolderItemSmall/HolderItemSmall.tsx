@@ -1,6 +1,11 @@
 import { memo } from 'react';
 
-import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+} from '@onekeyhq/components';
 import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
 
 import { AddressDisplay } from '../../../AddressDisplay';
@@ -27,7 +32,11 @@ function HolderItemSmallBase({
     <XStack h={52} px="$5" alignItems="center" gap="$3">
       <XStack gap="$4" alignItems="center" flex={1}>
         {/* Rank */}
-        <SizableText size="$bodyMd" color="$textSubdued">
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          fontVariant={TABULAR_NUMS}
+        >
           {rank}
         </SizableText>
 
@@ -46,7 +55,12 @@ function HolderItemSmallBase({
       </XStack>
 
       {/* Percentage */}
-      <SizableText size="$bodyMd" color="$text" {...styles.percentage}>
+      <SizableText
+        size="$bodyMd"
+        color="$text"
+        fontVariant={TABULAR_NUMS}
+        {...styles.percentage}
+      >
         {displayPercentage}
       </SizableText>
 
