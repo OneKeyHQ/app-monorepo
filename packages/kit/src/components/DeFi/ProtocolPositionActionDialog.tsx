@@ -67,6 +67,7 @@ import {
   resolveProtocolPositionActionPercentInput,
   resolveProtocolPositionActionPercentKeyPress,
   resolveProtocolPositionActionPercentValue,
+  shouldClearProtocolPositionActionInitialPercentValue,
 } from './protocolPositionActionPercentUtils';
 import {
   ProtocolValueCell,
@@ -1619,6 +1620,9 @@ function ProtocolPositionActionDialogContent({
   const [actionPercentText, setActionPercentText] = useState(
     String(DEFAULT_ACTION_PERCENT),
   );
+  // Only the untouched default Max value clears on first focus; preset taps or
+  // manual edits already carry user intent and should stay editable in place.
+  const actionPercentHasUserIntentRef = useRef(false);
   const actionPercent =
     resolveProtocolPositionActionPercentValue(actionPercentText);
   // Manual single-token entry (withdraw / repay). `amount` is human-decimal;
@@ -1841,12 +1845,25 @@ function ProtocolPositionActionDialogContent({
   const currentSelectedAsset = selectedAssets[0];
 
   const handleActionPercentChange = (next: string) => {
+    actionPercentHasUserIntentRef.current = true;
     setActionPercentText((currentValue) =>
       resolveProtocolPositionActionPercentInput({
         currentValue,
         nextValue: next,
       }),
     );
+  };
+  const handleActionPercentFocus = () => {
+    const shouldClearInitialValue =
+      shouldClearProtocolPositionActionInitialPercentValue({
+        value: actionPercentText,
+        hasUserIntent: actionPercentHasUserIntentRef.current,
+      });
+
+    actionPercentHasUserIntentRef.current = true;
+    if (shouldClearInitialValue) {
+      setActionPercentText('');
+    }
   };
 
   const handleAmountChange = (next: string) => {
@@ -1872,6 +1889,7 @@ function ProtocolPositionActionDialogContent({
   };
 
   const handlePercentPresetChange = (presetPercent: number) => {
+    actionPercentHasUserIntentRef.current = true;
     setActionPercentText(String(presetPercent));
   };
 
@@ -1942,10 +1960,10 @@ function ProtocolPositionActionDialogContent({
     setSubmitting(true);
     setSubmitError(undefined);
     let isActionDialogClosed = false;
-    const closeActionDialogBeforeConfirm = () => {
+    const closeActionDialogBeforeConfirm = async () => {
       if (isActionDialogClosed) return;
       isActionDialogClosed = true;
-      void closeRef.current?.();
+      await closeRef.current?.();
     };
     let submitGuardReleased = false;
     const releaseSubmitGuardOnce = () => {
@@ -1977,9 +1995,9 @@ function ProtocolPositionActionDialogContent({
           !isActionDialogClosed &&
           shouldShowProtocolPositionActionInlineSubmitError(error),
         onBeforeNavigateConfirm: closeActionDialogBeforeConfirm,
-        onSettleResult: ({ status }) => {
+        onSettleResult: async ({ status }) => {
           releaseSubmitGuardOnce();
-          closeActionDialogBeforeConfirm();
+          await closeActionDialogBeforeConfirm();
           if (status !== EOnChainHistoryTxStatus.Success) {
             return false;
           }
@@ -2073,6 +2091,7 @@ function ProtocolPositionActionDialogContent({
         <ProtocolPositionActionPercentHero
           percentText={actionPercentText}
           onChangePercentText={handleActionPercentChange}
+          onFocus={handleActionPercentFocus}
           value={outputValueState.value}
           isUnavailable={outputValueState.isUnavailable}
           showPriceUnavailableTooltip={

@@ -766,10 +766,10 @@ function ProtocolLendingActionDefiContent({
     setSubmitting(true);
     setSubmitError(undefined);
     let isActionDialogClosed = false;
-    const closeActionDialogBeforeConfirm = () => {
+    const closeActionDialogBeforeConfirm = async () => {
       if (isActionDialogClosed) return;
       isActionDialogClosed = true;
-      void closeRef.current?.();
+      await closeRef.current?.();
     };
     let submitGuardReleased = false;
     const releaseSubmitGuardOnce = () => {
@@ -799,9 +799,9 @@ function ProtocolLendingActionDefiContent({
           !isActionDialogClosed &&
           shouldShowProtocolPositionActionInlineSubmitError(error),
         onBeforeNavigateConfirm: closeActionDialogBeforeConfirm,
-        onSettleResult: ({ status }) => {
+        onSettleResult: async ({ status }) => {
           releaseSubmitGuardOnce();
-          closeActionDialogBeforeConfirm();
+          await closeActionDialogBeforeConfirm();
           if (status !== EOnChainHistoryTxStatus.Success) {
             return false;
           }
@@ -1332,16 +1332,26 @@ function ProtocolLendingActionBorrowContent({
   });
   const handleBorrowRepay = useUniversalBorrowRepay({ accountId, networkId });
   const closeRef = useRef<(() => void | Promise<void>) | undefined>(undefined);
+  const isActionDialogClosedRef = useRef(false);
   const businessSubmitCounterRef = useRef(0);
+  const closeActionDialogBeforeConfirm = useCallback(async () => {
+    if (isActionDialogClosedRef.current) return;
+    isActionDialogClosedRef.current = true;
+    await closeRef.current?.();
+  }, []);
   const startSubmitGuard = useCallback(() => {
     submittingRef.current = true;
-    setSubmitting(true);
-    setSubmitError(undefined);
+    if (!isActionDialogClosedRef.current) {
+      setSubmitting(true);
+      setSubmitError(undefined);
+    }
   }, []);
 
   const releaseSubmitGuard = useCallback(() => {
     submittingRef.current = false;
-    setSubmitting(false);
+    if (!isActionDialogClosedRef.current) {
+      setSubmitting(false);
+    }
   }, []);
 
   const submitBorrowTx = useCallback(async () => {
@@ -1356,6 +1366,7 @@ function ProtocolLendingActionBorrowContent({
     const releaseSubmitGuardOnceWithError = (error: unknown) => {
       if (
         !submitGuardReleased &&
+        !isActionDialogClosedRef.current &&
         !isUserRejectedErrorMessage({ error, intl }) &&
         shouldShowProtocolPositionActionInlineSubmitError(error)
       ) {
@@ -1399,9 +1410,9 @@ function ProtocolLendingActionBorrowContent({
             releaseSubmitGuardOnce();
             void onSuccess?.({ accountId, networkId, data });
           },
-          onSettleResult: () => {
+          onSettleResult: async () => {
             releaseSubmitGuardOnce();
-            void closeRef.current?.();
+            await closeActionDialogBeforeConfirm();
           },
           onFail: releaseSubmitGuardOnceWithError,
           onCancel: releaseSubmitGuardOnce,
@@ -1427,9 +1438,9 @@ function ProtocolLendingActionBorrowContent({
           releaseSubmitGuardOnce();
           void onSuccess?.({ accountId, networkId, data });
         },
-        onSettleResult: () => {
+        onSettleResult: async () => {
           releaseSubmitGuardOnce();
-          void closeRef.current?.();
+          await closeActionDialogBeforeConfirm();
         },
         onFail: releaseSubmitGuardOnceWithError,
         onCancel: releaseSubmitGuardOnce,
@@ -1452,6 +1463,7 @@ function ProtocolLendingActionBorrowContent({
     protocolInfo?.providerDetail.name,
     protocolInfo?.stakeTag,
     reserveAddress,
+    closeActionDialogBeforeConfirm,
     releaseSubmitGuard,
     source,
     startSubmitGuard,
@@ -1466,6 +1478,7 @@ function ProtocolLendingActionBorrowContent({
       currentAllowance: protocolInfo?.approve?.allowance,
       amountValue: amount,
       onSubmit: submitBorrowTx,
+      onBeforeNavigateConfirm: closeActionDialogBeforeConfirm,
     });
 
   const handleFooterConfirm = async ({
@@ -1476,6 +1489,7 @@ function ProtocolLendingActionBorrowContent({
     preventClose: () => void;
   }) => {
     closeRef.current = close;
+    isActionDialogClosedRef.current = false;
     preventClose();
     if (submittingRef.current) return;
     startSubmitGuard();

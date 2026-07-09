@@ -4,6 +4,7 @@ import {
   resolveProtocolPositionActionPercentInput,
   resolveProtocolPositionActionPercentKeyPress,
   resolveProtocolPositionActionPercentValue,
+  shouldClearProtocolPositionActionInitialPercentValue,
   validateProtocolPositionActionPercentInput,
 } from './protocolPositionActionPercentUtils';
 
@@ -116,5 +117,33 @@ describe('resolveProtocolPositionActionPercentValue', () => {
     expect(resolveProtocolPositionActionPercentValue('100')).toBe(100);
     expect(resolveProtocolPositionActionPercentValue('')).toBe(0);
     expect(resolveProtocolPositionActionPercentValue('101')).toBe(0);
+  });
+});
+
+describe('shouldClearProtocolPositionActionInitialPercentValue', () => {
+  it('clears only the untouched initial max value', () => {
+    expect(
+      shouldClearProtocolPositionActionInitialPercentValue({
+        value: '100',
+        hasUserIntent: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldClearProtocolPositionActionInitialPercentValue({
+        value: '100',
+        hasUserIntent: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not clear non-max default or edited values', () => {
+    ['0', '50', ''].forEach((value) => {
+      expect(
+        shouldClearProtocolPositionActionInitialPercentValue({
+          value,
+          hasUserIntent: false,
+        }),
+      ).toBe(false);
+    });
   });
 });

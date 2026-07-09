@@ -78,3 +78,13 @@ export function resolveProtocolPositionActionPercentValue(value: string) {
     ? toNumber(value)
     : 0;
 }
+
+export function shouldClearProtocolPositionActionInitialPercentValue({
+  value,
+  hasUserIntent,
+}: {
+  value: string;
+  hasUserIntent: boolean;
+}) {
+  return !hasUserIntent && value === HUNDRED_PERCENT;
+}
