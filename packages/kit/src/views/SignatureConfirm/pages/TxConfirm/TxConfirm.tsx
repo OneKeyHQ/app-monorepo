@@ -45,7 +45,10 @@ import { TxAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
 import { TxConfirmAlert } from '../../components/SignatureConfirmAlert';
 import { TxConfirmDetails } from '../../components/SignatureConfirmDetails';
 import { TxConfirmExtraInfo } from '../../components/SignatureConfirmExtraInfo';
-import { TxConfirmHeaderRight } from '../../components/SignatureConfirmHeader';
+import {
+  TxConfirmHeaderRight,
+  getTxConfirmMevProtectionProvider,
+} from '../../components/SignatureConfirmHeader';
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 import StakingInfo from '../../components/StakingInfo';
@@ -456,17 +459,39 @@ function TxConfirm() {
     return <TaskQueueController taskQueue={unsignedTxQueue} />;
   }, [isQueueMode, unsignedTxQueue]);
 
-  const renderHeaderRight = useCallback(
-    () => (
+  const shouldRenderHeaderRight = useMemo(
+    () =>
+      Boolean(
+        getTxConfirmMevProtectionProvider({
+          decodedTxs,
+          unsignedTxs,
+          effectiveFeePayer,
+          txFeeInfoInit,
+        }),
+      ),
+    [decodedTxs, unsignedTxs, effectiveFeePayer, txFeeInfoInit],
+  );
+
+  const renderHeaderRight = useCallback(() => {
+    if (!shouldRenderHeaderRight) {
+      return null;
+    }
+
+    return (
       <TxConfirmHeaderRight
         decodedTxs={decodedTxs}
         unsignedTxs={unsignedTxs}
         effectiveFeePayer={effectiveFeePayer}
         txFeeInfoInit={txFeeInfoInit}
       />
-    ),
-    [decodedTxs, unsignedTxs, effectiveFeePayer, txFeeInfoInit],
-  );
+    );
+  }, [
+    decodedTxs,
+    unsignedTxs,
+    effectiveFeePayer,
+    txFeeInfoInit,
+    shouldRenderHeaderRight,
+  ]);
 
   return (
     <Page
@@ -475,7 +500,11 @@ function TxConfirm() {
       safeAreaEnabled
       testID={SignatureConfirmTestIDs.TxConfirmPage}
     >
-      <Page.Header title={txConfirmTitle} headerRight={renderHeaderRight} />
+      <Page.Header
+        title={txConfirmTitle}
+        headerRight={shouldRenderHeaderRight ? renderHeaderRight : undefined}
+        unstable_headerRightItems={undefined}
+      />
       <Page.Body testID={SignatureConfirmTestIDs.TxConfirmBody} px="$5">
         {renderTxQueueController()}
         {renderTxConfirmContent()}

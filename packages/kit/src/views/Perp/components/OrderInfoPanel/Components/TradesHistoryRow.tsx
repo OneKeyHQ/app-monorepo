@@ -222,7 +222,7 @@ const TradesHistoryRow = memo(
                 gap="$2"
                 alignItems="center"
                 onPress={handleSwitchInstrument}
-                cursor="default"
+                cursor="pointer"
               >
                 <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
                 <SizableText
@@ -378,7 +378,7 @@ const TradesHistoryRow = memo(
               justifyContent={calcCellAlign(columnConfigs[1].align)}
               alignItems="center"
               onPress={handleSwitchInstrument}
-              cursor="default"
+              cursor="pointer"
             >
               <SizableText
                 numberOfLines={1}

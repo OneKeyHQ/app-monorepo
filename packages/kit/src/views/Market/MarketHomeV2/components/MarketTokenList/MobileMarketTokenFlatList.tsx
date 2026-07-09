@@ -26,6 +26,7 @@ import type { FlatListProps } from 'react-native';
 interface IMobileMarketTokenFlatListProps {
   networkId: string;
   selectedCategory?: string;
+  stockCategory?: string;
   timeRange?: IMarketTimeRangeValue;
   listContainerProps: {
     paddingBottom: number;
@@ -39,6 +40,7 @@ const EMPTY_DATA: IMarketToken[] = [];
 function MobileMarketTokenFlatListBase({
   networkId,
   selectedCategory,
+  stockCategory,
   timeRange,
   listContainerProps,
   onStockDataChange,
@@ -62,6 +64,7 @@ function MobileMarketTokenFlatListBase({
     initialSortType: 'desc',
     pageSize: 20,
     type: selectedCategory,
+    category: stockCategory,
     timeRange,
   });
 
