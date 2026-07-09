@@ -251,6 +251,7 @@ type IBorrowBuildTxParams = {
   ) => boolean | void | Promise<boolean | void>;
   onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
   onFail?: IModalSendParamList['SendConfirm']['onFail'];
+  onCancel?: IModalSendParamList['SendConfirm']['onCancel'];
 };
 
 export function useUniversalBorrowSupply({
@@ -334,6 +335,7 @@ export function useUniversalBorrowWithdraw({
       onSettleResult,
       onSuccess,
       onFail,
+      onCancel,
     }: IBorrowBuildTxParams) => {
       const resp =
         await backgroundApiProxy.serviceStaking.borrowBuildWithdrawTransaction({
@@ -368,6 +370,7 @@ export function useUniversalBorrowWithdraw({
           });
         },
         onFail,
+        onCancel,
       });
     },
     [accountId, networkId, navigationToTxConfirm],
@@ -455,6 +458,7 @@ export function useUniversalBorrowRepay({
       onSettleResult,
       onSuccess,
       onFail,
+      onCancel,
     }: IBorrowBuildTxParams) => {
       const resp =
         await backgroundApiProxy.serviceStaking.borrowBuildRepayTransaction({
@@ -489,6 +493,7 @@ export function useUniversalBorrowRepay({
           });
         },
         onFail,
+        onCancel,
       });
     },
     [accountId, networkId, navigationToTxConfirm],

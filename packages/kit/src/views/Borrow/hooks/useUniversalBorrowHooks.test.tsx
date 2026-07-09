@@ -48,6 +48,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useSignatureConfirm', () => {
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const serviceStaking = {
     addEarnOrder: jest.fn(),
+    borrowBuildWithdrawTransaction: jest.fn(),
     borrowBuildRepayTransaction: jest.fn(),
     getBorrowRepayWithCollateralQuote: jest.fn(),
     borrowBuildRepayWithCollateralTransaction: jest.fn(),
@@ -97,6 +98,7 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import {
   useUniversalBorrowRepay,
   useUniversalBorrowRepayWithCollateral,
+  useUniversalBorrowWithdraw,
 } from './useUniversalBorrowHooks';
 
 // In the harness, Metro's export * creates non-configurable getters so
@@ -112,6 +114,7 @@ const signatureConfirmMock = (globalThis as any)
 const backgroundMock = (globalThis as any).__borrowBackgroundMock as {
   serviceStaking: {
     addEarnOrder: jest.Mock;
+    borrowBuildWithdrawTransaction: jest.Mock;
     borrowBuildRepayTransaction: jest.Mock;
     getBorrowRepayWithCollateralQuote: jest.Mock;
     borrowBuildRepayWithCollateralTransaction: jest.Mock;
@@ -547,6 +550,9 @@ describe('useUniversalBorrowRepay settle plumbing', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    backgroundMock.serviceStaking.borrowBuildWithdrawTransaction.mockResolvedValue(
+      { tx: '{}', orderId: 'order-1' },
+    );
     backgroundMock.serviceStaking.borrowBuildRepayTransaction.mockResolvedValue(
       { tx: '{}', orderId: 'order-1' },
     );
@@ -638,5 +644,54 @@ describe('useUniversalBorrowRepay settle plumbing', () => {
     });
     expect(onSettleResult).toHaveBeenCalledTimes(1);
     expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it('passes onCancel through to repay tx confirm', async () => {
+    const onCancel = jest.fn();
+    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() =>
+      useUniversalBorrowRepay({ networkId: 'evm--1', accountId: 'acc-1' }),
+    );
+
+    await act(async () => {
+      await result.current({ ...REPAY_PARAMS, onCancel });
+    });
+
+    expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onCancel,
+      }),
+    );
+  });
+
+  it('passes onCancel through to withdraw tx confirm', async () => {
+    const onCancel = jest.fn();
+    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() =>
+      useUniversalBorrowWithdraw({ networkId: 'evm--1', accountId: 'acc-1' }),
+    );
+
+    await act(async () => {
+      await result.current({
+        amount: '1',
+        provider: 'aave',
+        marketAddress: '0xmarket',
+        reserveAddress: '0xreserve',
+        stakingInfo: {
+          label: EEarnLabels.Withdraw,
+          protocol: 'Aave',
+          tags: ['withdraw'],
+        },
+        onCancel,
+      });
+    });
+
+    expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onCancel,
+      }),
+    );
   });
 });

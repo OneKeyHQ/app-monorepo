@@ -1042,8 +1042,8 @@ function ProtocolLendingActionBorrowContent({
   // path and must be a deliberate choice. Debt-free withdraw still defaults Max.
   const [isMaxAmount, setIsMaxAmount] = useState(isWithdraw && !hasDebts);
   const [submitError, setSubmitError] = useState<string | undefined>(undefined);
-  // Footer confirm loading is overridden by confirmButtonProps and released
-  // early by preventClose(), so the dialog owns the build spinner and guard.
+  // Footer confirm loading is overridden by confirmButtonProps, so the dialog
+  // owns the build / confirm / pending spinner and duplicate-submit guard.
   const [submitting, setSubmitting] = useState(false);
   // Synchronous single-submit mutex for runGuardedStep. `submitting` state is
   // async, so the footer tap and the auto-advance effect can both read it false
@@ -1070,6 +1070,21 @@ function ProtocolLendingActionBorrowContent({
   // Show the body only after the first load settles; later reserve-switch
   // reloads keep the frame (values update in place) instead of re-flashing.
   const hasLoadedOnceRef = useRef(false);
+
+  const releaseSubmitGuard = useCallback(() => {
+    submittingRef.current = false;
+    submittedStepKindRef.current = undefined;
+    setSubmitting(false);
+  }, []);
+
+  const setSubmitErrorFromUnknown = useCallback(
+    (error: unknown) => {
+      if (!isUserRejectedErrorMessage({ error, intl })) {
+        setSubmitError(getErrorMessage(error));
+      }
+    },
+    [intl],
+  );
 
   // Withdraw prefills the full balance as an untouched Max default once the
   // balance resolves (it loads async here, unlike the defi source). Any user
@@ -1345,6 +1360,20 @@ function ProtocolLendingActionBorrowContent({
   // below closes after final chain status, or keeps recovery state if the
   // receipt poll exhausts.
   const submitBorrowTx = useCallback(async () => {
+    let submitGuardReleased = false;
+    const releaseSubmitGuardOnce = () => {
+      if (submitGuardReleased) {
+        return;
+      }
+      submitGuardReleased = true;
+      releaseSubmitGuard();
+    };
+    const releaseSubmitGuardOnceWithError = (error: Error) => {
+      if (!submitGuardReleased) {
+        setSubmitErrorFromUnknown(error);
+      }
+      releaseSubmitGuardOnce();
+    };
     const { provider, marketAddress } = source;
     const tags: string[] = [
       EEarnLabels.Borrow,
@@ -1364,6 +1393,7 @@ function ProtocolLendingActionBorrowContent({
       status: IDeFiActionTxConfirmDialogResult;
       data: ISendTxOnSuccessData[];
     }) => {
+      releaseSubmitGuardOnce();
       const navigationDecision = resolvePostActionNavigation({
         txStatus: status,
       });
@@ -1402,8 +1432,11 @@ function ProtocolLendingActionBorrowContent({
           : undefined,
         onSettleResult,
         onSuccess: (data) => {
+          releaseSubmitGuardOnce();
           void onSuccess?.({ accountId, networkId, data });
         },
+        onFail: releaseSubmitGuardOnceWithError,
+        onCancel: releaseSubmitGuardOnce,
       });
       return;
     }
@@ -1424,8 +1457,11 @@ function ProtocolLendingActionBorrowContent({
         : undefined,
       onSettleResult,
       onSuccess: (data) => {
+        releaseSubmitGuardOnce();
         void onSuccess?.({ accountId, networkId, data });
       },
+      onFail: releaseSubmitGuardOnceWithError,
+      onCancel: releaseSubmitGuardOnce,
     });
   }, [
     accountId,
@@ -1439,9 +1475,11 @@ function ProtocolLendingActionBorrowContent({
     onSuccess,
     protocolInfo?.providerDetail.logoURI,
     protocolInfo?.stakeTag,
+    releaseSubmitGuard,
     reserveAddress,
     runAssetsList,
     runManagePage,
+    setSubmitErrorFromUnknown,
     source,
   ]);
 
@@ -1466,11 +1504,16 @@ function ProtocolLendingActionBorrowContent({
 
   // Shared guarded runner for a confirm step (approve or the main submit): owns
   // the dialog's submitting spinner + inline error and keeps the step label
-  // stable across the tx-confirm navigation hop. The manual footer tap and the
-  // auto-advance effect below both go through this, so submitBorrowTx's settle /
-  // keep-open handling is identical whether step 2 is tapped or auto-fired.
+  // stable across the tx-confirm navigation hop. Business tx submits can defer
+  // release to confirm callbacks, keeping loading through the pending sheet.
+  // The manual footer tap and the auto-advance effect below both go through this,
+  // so submitBorrowTx's settle / keep-open handling is identical whether step 2
+  // is tapped or auto-fired.
   const runGuardedStep = useCallback(
-    async (runStep: () => Promise<void>) => {
+    async (
+      runStep: () => Promise<void>,
+      options?: { deferRelease?: boolean },
+    ) => {
       // Read + set the mutex synchronously — a stale `submitting` closure can't
       // stop a concurrent second submit (footer tap racing the auto-advance
       // effect at actionStep2).
@@ -1479,19 +1522,19 @@ function ProtocolLendingActionBorrowContent({
       submittedStepKindRef.current = stepState.kind;
       setSubmitting(true);
       setSubmitError(undefined);
+      let shouldDeferRelease = false;
       try {
         await runStep();
+        shouldDeferRelease = options?.deferRelease === true;
       } catch (error) {
-        if (!isUserRejectedErrorMessage({ error, intl })) {
-          setSubmitError(getErrorMessage(error));
-        }
+        setSubmitErrorFromUnknown(error);
       } finally {
-        submittingRef.current = false;
-        submittedStepKindRef.current = undefined;
-        setSubmitting(false);
+        if (!shouldDeferRelease) {
+          releaseSubmitGuard();
+        }
       }
     },
-    [stepState.kind, intl],
+    [releaseSubmitGuard, setSubmitErrorFromUnknown, stepState.kind],
   );
 
   const handleFooterConfirm = async ({
@@ -1514,7 +1557,7 @@ function ProtocolLendingActionBorrowContent({
       await runGuardedStep(onApprove);
       return;
     }
-    await runGuardedStep(submitBorrowTx);
+    await runGuardedStep(submitBorrowTx, { deferRelease: true });
   };
 
   // Auto-advance to step 2: once the approve tx confirms and the allowance
@@ -1533,7 +1576,7 @@ function ProtocolLendingActionBorrowContent({
       return;
     }
     autoSubmittedRef.current = true;
-    void runGuardedStep(submitBorrowTx);
+    void runGuardedStep(submitBorrowTx, { deferRelease: true });
   }, [stepState.kind, submitting, runGuardedStep, submitBorrowTx]);
 
   const actionLabel = getActionLabel({
