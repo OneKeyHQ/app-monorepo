@@ -12,25 +12,27 @@ type ITokenRefreshScope = IChangedAccount & {
   includesAllAccountsInNetwork?: boolean;
 };
 
-export function filterAccountsNeedingTokenRefreshAfterHistory({
+type ITokenRefreshPlanAfterHistory = {
+  accountsToRefreshNow: IChangedAccount[];
+  accountsToRefreshAfterTokensDone: IChangedAccount[];
+};
+
+export function buildTokenRefreshPlanAfterHistory({
   accounts,
   lastTokensTabState,
   tokenRefreshScope,
-  historyRefreshStartedAt,
-  sameCycleToleranceMs = 0,
-  now,
-  minIntervalMs,
 }: {
   accounts: IChangedAccount[];
   lastTokensTabState: ITokensTabLastState | undefined;
   tokenRefreshScope?: ITokenRefreshScope;
-  historyRefreshStartedAt: number;
-  sameCycleToleranceMs?: number;
-  now: number;
-  minIntervalMs: number;
-}) {
-  if (!lastTokensTabState) {
-    return accounts;
+}): ITokenRefreshPlanAfterHistory {
+  const refreshNow: ITokenRefreshPlanAfterHistory = {
+    accountsToRefreshNow: accounts,
+    accountsToRefreshAfterTokensDone: [],
+  };
+
+  if (!lastTokensTabState?.isRefreshing) {
+    return refreshNow;
   }
 
   const matchedScope =
@@ -39,30 +41,36 @@ export function filterAccountsNeedingTokenRefreshAfterHistory({
     lastTokensTabState.networkId === tokenRefreshScope.networkId;
 
   if (tokenRefreshScope && !matchedScope) {
-    return accounts;
-  }
-
-  const isSameRefreshCycle =
-    lastTokensTabState.at + sameCycleToleranceMs >= historyRefreshStartedAt;
-
-  if (
-    !lastTokensTabState.isRefreshing &&
-    (!isSameRefreshCycle || now - lastTokensTabState.at >= minIntervalMs)
-  ) {
-    return accounts;
-  }
-
-  if (matchedScope && tokenRefreshScope.includesAllAccountsInNetwork) {
-    return accounts.filter(
-      (account) => account.networkId !== tokenRefreshScope.networkId,
-    );
+    return refreshNow;
   }
 
   const coveredAccount = matchedScope ? tokenRefreshScope : lastTokensTabState;
+  if (matchedScope && tokenRefreshScope.includesAllAccountsInNetwork) {
+    const accountsToRefreshAfterTokensDone = accounts.filter(
+      (account) => account.networkId === tokenRefreshScope.networkId,
+    );
+    const accountsToRefreshNow = accounts.filter(
+      (account) => account.networkId !== tokenRefreshScope.networkId,
+    );
+    return {
+      accountsToRefreshNow,
+      accountsToRefreshAfterTokensDone,
+    };
+  }
 
-  return accounts.filter(
+  const accountsToRefreshAfterTokensDone = accounts.filter(
+    (account) =>
+      account.accountId === coveredAccount.accountId &&
+      account.networkId === coveredAccount.networkId,
+  );
+  const accountsToRefreshNow = accounts.filter(
     (account) =>
       account.accountId !== coveredAccount.accountId ||
       account.networkId !== coveredAccount.networkId,
   );
+
+  return {
+    accountsToRefreshNow,
+    accountsToRefreshAfterTokensDone,
+  };
 }

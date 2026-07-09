@@ -1,55 +1,54 @@
-import { filterAccountsNeedingTokenRefreshAfterHistory } from './historyTokenRefreshGate';
+import { buildTokenRefreshPlanAfterHistory } from './historyTokenRefreshGate';
 
-describe('filterAccountsNeedingTokenRefreshAfterHistory', () => {
+describe('buildTokenRefreshPlanAfterHistory', () => {
   const account = { accountId: 'account-1', networkId: 'btc--0' };
   const otherNetworkAccount = { accountId: 'account-1', networkId: 'evm--1' };
 
-  it('keeps all changed accounts when there is no recent token refresh', () => {
+  it('refreshes all changed accounts now when there is no active token refresh', () => {
     expect(
-      filterAccountsNeedingTokenRefreshAfterHistory({
+      buildTokenRefreshPlanAfterHistory({
         accounts: [account],
         lastTokensTabState: undefined,
-        historyRefreshStartedAt: 10_000,
-        now: 20_000,
-        minIntervalMs: 15_000,
       }),
-    ).toEqual([account]);
+    ).toEqual({
+      accountsToRefreshNow: [account],
+      accountsToRefreshAfterTokensDone: [],
+    });
   });
 
-  it('skips the same account and network during the token refresh cooldown', () => {
+  it('does not skip a completed token refresh from the same cycle', () => {
     expect(
-      filterAccountsNeedingTokenRefreshAfterHistory({
+      buildTokenRefreshPlanAfterHistory({
         accounts: [account, otherNetworkAccount],
         lastTokensTabState: {
           ...account,
           isRefreshing: false,
           at: 10_000,
         },
-        historyRefreshStartedAt: 9500,
-        sameCycleToleranceMs: 1000,
-        now: 20_000,
-        minIntervalMs: 15_000,
       }),
-    ).toEqual([otherNetworkAccount]);
+    ).toEqual({
+      accountsToRefreshNow: [account, otherNetworkAccount],
+      accountsToRefreshAfterTokensDone: [],
+    });
   });
 
-  it('also treats an expired in-flight token refresh as active token coverage', () => {
+  it('defers the same account and network while the token refresh is still in flight', () => {
     expect(
-      filterAccountsNeedingTokenRefreshAfterHistory({
-        accounts: [account],
+      buildTokenRefreshPlanAfterHistory({
+        accounts: [account, otherNetworkAccount],
         lastTokensTabState: {
           ...account,
           isRefreshing: true,
           at: 1000,
         },
-        historyRefreshStartedAt: 19_000,
-        now: 20_000,
-        minIntervalMs: 15_000,
       }),
-    ).toEqual([]);
+    ).toEqual({
+      accountsToRefreshNow: [otherNetworkAccount],
+      accountsToRefreshAfterTokensDone: [account],
+    });
   });
 
-  it('skips all changed merge-derive accounts in the same network when the indexed account refreshed tokens recently', () => {
+  it('defers all changed merge-derive accounts in the same network while the indexed account is refreshing tokens', () => {
     const indexedAccount = {
       accountId: 'indexed-account-1',
       networkId: 'btc--0',
@@ -64,23 +63,22 @@ describe('filterAccountsNeedingTokenRefreshAfterHistory', () => {
     };
 
     expect(
-      filterAccountsNeedingTokenRefreshAfterHistory({
+      buildTokenRefreshPlanAfterHistory({
         accounts: [nativeAccount, nestedAccount, otherNetworkAccount],
         lastTokensTabState: {
           ...indexedAccount,
-          isRefreshing: false,
+          isRefreshing: true,
           at: 10_000,
         },
         tokenRefreshScope: {
           ...indexedAccount,
           includesAllAccountsInNetwork: true,
         },
-        historyRefreshStartedAt: 9500,
-        sameCycleToleranceMs: 1000,
-        now: 20_000,
-        minIntervalMs: 15_000,
       }),
-    ).toEqual([otherNetworkAccount]);
+    ).toEqual({
+      accountsToRefreshNow: [otherNetworkAccount],
+      accountsToRefreshAfterTokensDone: [nativeAccount, nestedAccount],
+    });
   });
 
   it('does not use a merge-derive scope when it does not match the recent token refresh state', () => {
@@ -94,90 +92,86 @@ describe('filterAccountsNeedingTokenRefreshAfterHistory', () => {
     };
 
     expect(
-      filterAccountsNeedingTokenRefreshAfterHistory({
+      buildTokenRefreshPlanAfterHistory({
         accounts: [nativeAccount],
         lastTokensTabState: {
           accountId: 'another-indexed-account',
           networkId: 'btc--0',
-          isRefreshing: false,
+          isRefreshing: true,
           at: 10_000,
         },
         tokenRefreshScope: {
           ...indexedAccount,
           includesAllAccountsInNetwork: true,
         },
-        historyRefreshStartedAt: 9500,
-        sameCycleToleranceMs: 1000,
-        now: 20_000,
-        minIntervalMs: 15_000,
       }),
-    ).toEqual([nativeAccount]);
+    ).toEqual({
+      accountsToRefreshNow: [nativeAccount],
+      accountsToRefreshAfterTokensDone: [],
+    });
   });
 
-  it('keeps a recent completed token refresh from a previous history cycle', () => {
+  it('refreshes now after a recent completed token refresh from a previous history cycle', () => {
     expect(
-      filterAccountsNeedingTokenRefreshAfterHistory({
+      buildTokenRefreshPlanAfterHistory({
         accounts: [account],
         lastTokensTabState: {
           ...account,
           isRefreshing: false,
           at: 10_000,
         },
-        historyRefreshStartedAt: 12_000,
-        sameCycleToleranceMs: 1000,
-        now: 20_000,
-        minIntervalMs: 15_000,
       }),
-    ).toEqual([account]);
+    ).toEqual({
+      accountsToRefreshNow: [account],
+      accountsToRefreshAfterTokensDone: [],
+    });
   });
 
-  it('skips a completed token refresh that started just before the history run due to listener ordering', () => {
+  it('refreshes now when a completed token refresh started just before the history run', () => {
     expect(
-      filterAccountsNeedingTokenRefreshAfterHistory({
+      buildTokenRefreshPlanAfterHistory({
         accounts: [account],
         lastTokensTabState: {
           ...account,
           isRefreshing: false,
           at: 10_000,
         },
-        historyRefreshStartedAt: 10_500,
-        sameCycleToleranceMs: 1000,
-        now: 12_000,
-        minIntervalMs: 15_000,
       }),
-    ).toEqual([]);
+    ).toEqual({
+      accountsToRefreshNow: [account],
+      accountsToRefreshAfterTokensDone: [],
+    });
   });
 
-  it('keeps the same account and network after the cooldown expires', () => {
+  it('refreshes now after the former cooldown window expires', () => {
     expect(
-      filterAccountsNeedingTokenRefreshAfterHistory({
+      buildTokenRefreshPlanAfterHistory({
         accounts: [account],
         lastTokensTabState: {
           ...account,
           isRefreshing: false,
           at: 1000,
         },
-        historyRefreshStartedAt: 500,
-        sameCycleToleranceMs: 1000,
-        now: 20_000,
-        minIntervalMs: 15_000,
       }),
-    ).toEqual([account]);
+    ).toEqual({
+      accountsToRefreshNow: [account],
+      accountsToRefreshAfterTokensDone: [],
+    });
   });
 
-  it('keeps the same account and network at the cooldown boundary', () => {
+  it('refreshes now at the former cooldown boundary', () => {
     expect(
-      filterAccountsNeedingTokenRefreshAfterHistory({
+      buildTokenRefreshPlanAfterHistory({
         accounts: [account],
         lastTokensTabState: {
           ...account,
           isRefreshing: false,
           at: 5000,
         },
-        historyRefreshStartedAt: 5000,
-        now: 20_000,
-        minIntervalMs: 15_000,
       }),
-    ).toEqual([account]);
+    ).toEqual({
+      accountsToRefreshNow: [account],
+      accountsToRefreshAfterTokensDone: [],
+    });
   });
 });

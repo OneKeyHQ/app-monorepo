@@ -18,7 +18,6 @@ import {
   HISTORY_PAGE_SIZE,
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
-  POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -42,7 +41,10 @@ import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
-import { getTokensTabLastState } from '../../../hooks/useRunAfterTokensDone';
+import {
+  getTokensTabLastState,
+  runAfterTokensDone,
+} from '../../../hooks/useRunAfterTokensDone';
 import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
@@ -54,7 +56,7 @@ import { maybeOpenPrivateSendHistoryDetail } from '../../Swap/utils/privateSendH
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 
-import { filterAccountsNeedingTokenRefreshAfterHistory } from './historyTokenRefreshGate';
+import { buildTokenRefreshPlanAfterHistory } from './historyTokenRefreshGate';
 import {
   FrozenTopHistoryScrollObserver,
   useFrozenTopHistoryData,
@@ -228,7 +230,16 @@ function TxHistoryListContainer(
   );
 
   const isManualRefresh = useRef(false);
-  const accountDataUpdateRefreshAtRef = useRef<number | undefined>(undefined);
+  // App resume should force the backend history fetch without joining the
+  // AccountDataUpdate token refresh cycle.
+  const forceHistoryRefresh = useRef(false);
+  const pendingTokenRefreshAfterTokensDoneCleanupRef = useRef<
+    (() => void) | undefined
+  >(undefined);
+  const clearPendingTokenRefreshAfterTokensDone = useCallback(() => {
+    pendingTokenRefreshAfterTokensDoneCleanupRef.current?.();
+    pendingTokenRefreshAfterTokensDoneCleanupRef.current = undefined;
+  }, []);
 
   // Stable identity tuple shared by the init guard and request-id effect so
   // they can't drift on what counts as an identity change.
@@ -259,10 +270,8 @@ function TxHistoryListContainer(
       fetchRequestIdRef.current += 1;
       const requestId = fetchRequestIdRef.current;
       const isManualRefreshForThisRun = isManualRefresh.current;
-      const historyRefreshStartedAt = Date.now();
-      const tokenRefreshCycleStartedAt = isManualRefreshForThisRun
-        ? (accountDataUpdateRefreshAtRef.current ?? historyRefreshStartedAt)
-        : historyRefreshStartedAt;
+      const forceHistoryRefreshForThisRun =
+        isManualRefreshForThisRun || forceHistoryRefresh.current;
       const isCurrentRequest = () => fetchRequestIdRef.current === requestId;
 
       let emittedTrue = false;
@@ -326,7 +335,7 @@ function TxHistoryListContainer(
               {
                 indexedAccountId: indexedAccount?.id ?? '',
                 networkId: network.id,
-                isManualRefresh: isManualRefreshForThisRun,
+                isManualRefresh: forceHistoryRefreshForThisRun,
                 filterScam: settings.isFilterScamHistoryEnabled,
                 filterLowValue: settings.isFilterLowValueHistoryEnabled,
                 excludeTestNetwork: true,
@@ -340,7 +349,7 @@ function TxHistoryListContainer(
           r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
             accountId,
             networkId: network.id,
-            isManualRefresh: isManualRefreshForThisRun,
+            isManualRefresh: forceHistoryRefreshForThisRun,
             filterScam: settings.isFilterScamHistoryEnabled,
             filterLowValue: settings.isFilterLowValueHistoryEnabled,
             excludeTestNetwork: true,
@@ -377,25 +386,47 @@ function TxHistoryListContainer(
         });
         updateHistoryData(r.txs);
 
-        const accountsNeedingTokenRefresh =
-          filterAccountsNeedingTokenRefreshAfterHistory({
-            accounts: r.accountsWithChangedTxs,
-            lastTokensTabState: getTokensTabLastState(),
-            tokenRefreshScope: {
+        const tokenRefreshPlan = buildTokenRefreshPlanAfterHistory({
+          accounts: r.accountsWithChangedTxs,
+          lastTokensTabState: getTokensTabLastState(),
+          tokenRefreshScope: {
+            accountId: refreshAccountId,
+            networkId: refreshNetworkId,
+            includesAllAccountsInNetwork: !!mergeDeriveAddressData,
+          },
+        });
+
+        const emitRefreshTokenList = (
+          accounts: typeof tokenRefreshPlan.accountsToRefreshNow,
+        ) => {
+          if (accounts.length > 0) {
+            appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+              accounts,
+            });
+          }
+        };
+
+        emitRefreshTokenList(tokenRefreshPlan.accountsToRefreshNow);
+
+        if (tokenRefreshPlan.accountsToRefreshAfterTokensDone.length > 0) {
+          clearPendingTokenRefreshAfterTokensDone();
+          pendingTokenRefreshAfterTokensDoneCleanupRef.current =
+            runAfterTokensDone({
               accountId: refreshAccountId,
               networkId: refreshNetworkId,
-              includesAllAccountsInNetwork: !!mergeDeriveAddressData,
-            },
-            historyRefreshStartedAt: tokenRefreshCycleStartedAt,
-            sameCycleToleranceMs: POLLING_DEBOUNCE_INTERVAL,
-            now: Date.now(),
-            minIntervalMs: POLLING_INTERVAL_FOR_TOKEN,
-          });
-
-        if (accountsNeedingTokenRefresh.length > 0) {
-          appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
-            accounts: accountsNeedingTokenRefresh,
-          });
+              matchAccountId: true,
+              matchNetworkId: true,
+              fallbackDelayMs: POLLING_DEBOUNCE_INTERVAL,
+              retryDelayMs: POLLING_DEBOUNCE_INTERVAL,
+              deferWhileRefreshing: true,
+              onRun: () => {
+                pendingTokenRefreshAfterTokensDoneCleanupRef.current =
+                  undefined;
+                emitRefreshTokenList(
+                  tokenRefreshPlan.accountsToRefreshAfterTokensDone,
+                );
+              },
+            });
         }
         if (r.accountsWithCompletedDeFiPortfolioTxs.length > 0) {
           void Promise.all(
@@ -417,7 +448,7 @@ function TxHistoryListContainer(
         // Must clear unconditionally — otherwise the next polling tick would
         // be wrongly treated as a manual refresh.
         isManualRefresh.current = false;
-        accountDataUpdateRefreshAtRef.current = undefined;
+        forceHistoryRefresh.current = false;
         if (emittedTrue) {
           appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
             isRefreshing: false,
@@ -446,6 +477,7 @@ function TxHistoryListContainer(
       limit,
       updateHistoryData,
       onFirstPageResponse,
+      clearPendingTokenRefreshAfterTokensDone,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
@@ -587,7 +619,13 @@ function TxHistoryListContainer(
   // ~1s `usePromiseResult` debounce window where the runner-body bump can't.
   useEffect(() => {
     fetchRequestIdRef.current += 1;
-  }, [identityKey]);
+    clearPendingTokenRefreshAfterTokensDone();
+  }, [clearPendingTokenRefreshAfterTokensDone, identityKey]);
+
+  useEffect(
+    () => () => clearPendingTokenRefreshAfterTokensDone(),
+    [clearPendingTokenRefreshAfterTokensDone],
+  );
 
   useEffect(() => {
     if (isHeaderRefreshing) {
@@ -660,6 +698,7 @@ function TxHistoryListContainer(
       return;
     }
     lastVisibilityRefreshAtRef.current = now;
+    forceHistoryRefresh.current = true;
     void run({ alwaysSetState: true });
   }, [run]);
 
@@ -679,7 +718,6 @@ function TxHistoryListContainer(
       if (isFocused) {
         if (payload?.isManualRefresh) {
           isManualRefresh.current = true;
-          accountDataUpdateRefreshAtRef.current = Date.now();
         }
         void run();
       }
