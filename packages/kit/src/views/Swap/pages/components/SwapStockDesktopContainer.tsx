@@ -1741,6 +1741,7 @@ function StockPriceChart({
           priceScaleEntireTextOnly
           priceFormatter={priceFormatter}
           fontSize={11}
+          useTimeScaleTickMarkWithoutUnit
           onHover={handleChartHover}
         />
       </YStack>
