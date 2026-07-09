@@ -308,7 +308,9 @@ export const { target: perpsSpotBalancesAtom, use: usePerpsSpotBalancesAtom } =
 // #endregion
 
 export type IPerpsActiveAccountStatusDetails = {
-  activatedOk: boolean;
+  // undefined = activation not confirmed (check pending or failed);
+  // false = HL userRole confirmed 'missing'; true = confirmed activated
+  activatedOk: boolean | undefined;
   agentOk: boolean;
   referralCodeOk: boolean;
   builderFeeOk: boolean;
@@ -360,6 +362,8 @@ export const {
     const activeSummary = isSummaryForActiveAccount ? summary : undefined;
     const activeSpotData = isSpotForActiveAccount ? spotData : undefined;
     const mode = isModeForActiveAccount ? modeData?.mode : undefined;
+    // Only a confirmed HL 'missing' role may zero the account value;
+    // activatedOk === undefined (check pending/failed) keeps the loading path
     const isActiveAccountNotActivated =
       isStatusForActiveAccount && status?.details?.activatedOk === false;
 

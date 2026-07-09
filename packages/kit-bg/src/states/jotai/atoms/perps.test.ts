@@ -662,6 +662,34 @@ describe('perpsComputedAccountValueAtom withdrawable', () => {
     );
   });
 
+  it('activation unknown (check pending/failed): keeps loading instead of confirmed zero', () => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: 'account-1',
+      indexedAccountId: 'indexed-1',
+      deriveType: 'default',
+      accountAddress: ADDR,
+    });
+    jotaiDefaultStore.set(perpsActiveAccountStatusInfoAtom.atom(), {
+      accountAddress: ADDR,
+      details: {
+        activatedOk: undefined,
+        agentOk: false,
+        referralCodeOk: false,
+        builderFeeOk: false,
+        internalRebateBoundOk: false,
+        abstractionOk: false,
+      },
+    });
+
+    expect(jotaiDefaultStore.get(perpsComputedAccountValueAtom.atom())).toEqual(
+      {
+        accountValue: undefined,
+        withdrawable: undefined,
+        isLoading: true,
+      },
+    );
+  });
+
   it('unified account: withdrawable = USDC available (total - hold)', () => {
     seedAtoms(EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT);
     expect(jotaiDefaultStore.get(perpsComputedAccountValueAtom.atom())).toEqual(

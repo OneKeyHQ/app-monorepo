@@ -152,6 +152,10 @@ import {
   invalidateUserAbstractionRawCache,
 } from './userAbstractionCache';
 import { shouldPreserveConfirmedUserAbstractionMode } from './userAbstractionMode';
+import {
+  buildPerpsAccountStatusCheckInitialDetails,
+  canApplyPerpsNotActivatedZeroState,
+} from './utils/perpsAccountStatusCheckUtils';
 
 import type ServiceHyperliquidCache from './ServiceHyperliquidCache';
 import type { IPerpsActiveAssetCtxSnapshotCacheHydration } from './ServiceHyperliquidCache';
@@ -2684,6 +2688,10 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   hideEnableTradingLoadingTimer: ReturnType<typeof setTimeout> | undefined;
 
+  // Monotonic id so concurrent checkPerpsAccountStatus() calls resolving out
+  // of order cannot overwrite newer results with stale ones
+  private perpsAccountStatusCheckSeq = 0;
+
   fetchUserAbstractionRawWithCache = createFetchUserAbstractionRawWithCache(
     async (accountAddress) => {
       const { infoClient } = hyperLiquidApiClients;
@@ -2857,17 +2865,13 @@ export default class ServiceHyperliquid extends ServiceBase {
     isEnableTradingTrigger?: boolean;
   } = {}): Promise<void> {
     const { infoClient } = hyperLiquidApiClients;
+    this.perpsAccountStatusCheckSeq += 1;
+    const checkSeq = this.perpsAccountStatusCheckSeq;
     markPerpsColdStartPerf('service_check_account_status_start', {
       isEnableTradingTrigger,
     });
-    const statusDetails: IPerpsActiveAccountStatusDetails = {
-      activatedOk: false,
-      agentOk: false,
-      referralCodeOk: false,
-      builderFeeOk: false,
-      internalRebateBoundOk: false,
-      abstractionOk: false,
-    };
+    const statusDetails: IPerpsActiveAccountStatusDetails =
+      buildPerpsAccountStatusCheckInitialDetails();
     let status: IPerpsActiveAccountStatusInfoAtom | undefined;
 
     const selectedAccount = await perpsActiveAccountAtom.get();
@@ -2920,7 +2924,12 @@ export default class ServiceHyperliquid extends ServiceBase {
         });
         const latestActiveAccount = await perpsActiveAccountAtom.get();
         if (
-          latestActiveAccount?.accountAddress?.toLowerCase() === accountAddress
+          canApplyPerpsNotActivatedZeroState({
+            checkSeq,
+            latestCheckSeq: this.perpsAccountStatusCheckSeq,
+            checkedAddress: accountAddress,
+            activeAddress: latestActiveAccount?.accountAddress,
+          })
         ) {
           await spotBalancesAtom.set({ balances: [], isLoaded: true });
           await perpsSpotBalancesAtom.set({
@@ -2998,29 +3007,33 @@ export default class ServiceHyperliquid extends ServiceBase {
         }
       }
     } finally {
-      status = {
-        accountAddress: accountAddress || null,
-        details: statusDetails,
-      };
-      await perpsActiveAccountStatusInfoAtom.set(status);
-      await perpsAccountLoadingInfoAtom.set(
-        (prev): IPerpsAccountLoadingInfo => ({
-          ...prev,
-          enableTradingStatusPending: false,
-        }),
-      );
-
-      clearTimeout(this.hideEnableTradingLoadingTimer);
-      this.hideEnableTradingLoadingTimer = setTimeout(async () => {
+      // Only the latest check may commit shared status/loading state; a stale
+      // check resolving late must not clobber a newer check's result
+      if (checkSeq === this.perpsAccountStatusCheckSeq) {
+        status = {
+          accountAddress: accountAddress || null,
+          details: statusDetails,
+        };
+        await perpsActiveAccountStatusInfoAtom.set(status);
         await perpsAccountLoadingInfoAtom.set(
           (prev): IPerpsAccountLoadingInfo => ({
             ...prev,
-            enableTradingLoading: false,
-            enableTradingTriggered: false,
             enableTradingStatusPending: false,
           }),
         );
-      }, 0);
+
+        clearTimeout(this.hideEnableTradingLoadingTimer);
+        this.hideEnableTradingLoadingTimer = setTimeout(async () => {
+          await perpsAccountLoadingInfoAtom.set(
+            (prev): IPerpsAccountLoadingInfo => ({
+              ...prev,
+              enableTradingLoading: false,
+              enableTradingTriggered: false,
+              enableTradingStatusPending: false,
+            }),
+          );
+        }, 0);
+      }
       markPerpsColdStartPerf('service_check_account_status_end', {
         accountAddress: accountAddress ? 'set' : 'empty',
         activatedOk: statusDetails.activatedOk,
@@ -3721,14 +3734,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     await perpsActiveAccountStatusInfoAtom.set(
       (_prev): IPerpsActiveAccountStatusInfoAtom => ({
         accountAddress: null,
-        details: {
-          activatedOk: false,
-          agentOk: false,
-          builderFeeOk: false,
-          referralCodeOk: false,
-          internalRebateBoundOk: false,
-          abstractionOk: false,
-        },
+        details: buildPerpsAccountStatusCheckInitialDetails(),
       }),
     );
   }
