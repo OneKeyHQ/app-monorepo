@@ -8,11 +8,15 @@ import {
   Button,
   Checkbox,
   Dialog,
+  Input,
+  Keyboard,
+  Page,
   ScrollView,
   SizableText,
   Stack,
   XStack,
   YStack,
+  useIsKeyboardShown,
   useMedia,
 } from '@onekeyhq/components';
 import type { useInPageDialog } from '@onekeyhq/components';
@@ -30,6 +34,7 @@ import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes'
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   buildDeFiActionBps,
   resolveDeFiActionTxAmount,
@@ -59,6 +64,13 @@ import { resolveProtocolLendingDefiFillableAmountState } from './protocolLending
 import { shouldShowProtocolPositionActionInlineSubmitError } from './protocolPositionActionErrorUtils';
 import { resolveProtocolPositionActionDialogLayout } from './protocolPositionActionLayoutUtils';
 import {
+  getProtocolPositionActionPercentInputMaxLength,
+  resolveProtocolPositionActionPercentInput,
+  resolveProtocolPositionActionPercentKeyPress,
+  resolveProtocolPositionActionPercentValue,
+  shouldClearProtocolPositionActionInitialPercentValue,
+} from './protocolPositionActionPercentUtils';
+import {
   ProtocolValueCell,
   isProtocolAssetValueUnavailable,
 } from './ProtocolValueCell';
@@ -87,6 +99,32 @@ const resolveActionTxAmount = resolveDeFiActionTxAmount as (params: {
   amount?: string;
   isMaxAmount?: boolean;
 }) => { amount?: string; bps?: string };
+
+export function ProtocolPositionActionKeyboardDismissFooter() {
+  const intl = useIntl();
+  const isKeyboardShown = useIsKeyboardShown();
+
+  if (!platformEnv.isNativeIOS || !isKeyboardShown) return null;
+
+  return (
+    <XStack
+      p="$2.5"
+      px="$5"
+      justifyContent="flex-end"
+      bg="$bgSubdued"
+      borderTopWidth="$px"
+      borderTopColor="$borderSubduedLight"
+    >
+      <Button
+        variant="tertiary"
+        testID="defi-action-keyboard-done-btn"
+        onPress={Keyboard.dismiss}
+      >
+        {intl.formatMessage({ id: ETranslations.global_done })}
+      </Button>
+    </XStack>
+  );
+}
 
 function normalizeActionPercent(percent?: number) {
   if (!Number.isFinite(percent)) return DEFAULT_ACTION_PERCENT;
@@ -1192,40 +1230,89 @@ function ProtocolPositionActionPercentHero({
   currencySymbol: string;
   priceUnavailableLabel: string;
 }) {
+  const shouldReplaceZeroInput = percentText === '0';
+  const shouldCompleteHundredInput = percentText === '10';
+  const maxLength =
+    platformEnv.isNativeIOS &&
+    (shouldReplaceZeroInput || shouldCompleteHundredInput)
+      ? percentText.length
+      : getProtocolPositionActionPercentInputMaxLength(percentText);
+  const handleKeyPress = (event: { nativeEvent: { key?: string } }) => {
+    if (!shouldReplaceZeroInput && !shouldCompleteHundredInput) return;
+    const { key } = event.nativeEvent;
+    const nextValue = resolveProtocolPositionActionPercentKeyPress({
+      currentValue: percentText,
+      key,
+    });
+    if (nextValue !== undefined) {
+      onChangePercentText(nextValue);
+    }
+  };
+
   return (
-    <SendAutoSizeAmountInput
+    <YStack
       minHeight={DEFI_ACTION_HERO_MIN_HEIGHT}
       justifyContent="center"
-      maxFontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
-      value={percentText}
-      onChange={onChangePercentText}
-      tokenSymbol="%"
-      inputProps={{ keyboardType: 'number-pad', onFocus }}
-      extraContent={
-        <XStack
-          alignItems="center"
-          justifyContent="center"
-          gap="$1"
-          minWidth={0}
+      alignItems="center"
+      gap="$2"
+    >
+      <XStack alignItems="center" justifyContent="center" gap="$1">
+        <Input
+          testID="defi-position-action-percent-input"
+          value={percentText}
+          onChangeText={onChangePercentText}
+          keyboardType="number-pad"
+          maxLength={maxLength}
+          onFocus={onFocus}
+          onKeyPress={handleKeyPress}
+          autoCorrect={false}
+          spellCheck={false}
+          autoComplete="off"
+          textContentType="none"
+          unstyled
+          borderWidth={0}
+          bg="transparent"
+          p="$0"
+          h={Math.ceil(MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE * 1.4)}
+          size="large"
+          fontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
+          fontWeight="500"
+          textAlign="right"
+          placeholder="0"
+          placeholderTextColor="$textDisabled"
+          containerProps={{
+            width: 96,
+            borderWidth: 0,
+            bg: 'transparent',
+          }}
+        />
+        <SizableText
+          fontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
+          lineHeight={Math.ceil(MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE * 1.4)}
+          fontWeight="500"
+          color="$text"
         >
-          <SizableText size="$headingLg" color="$textSubdued">
-            ≈
-          </SizableText>
-          <ProtocolValueCell
-            value={value}
-            currencySymbol={currencySymbol}
-            priceUnavailableLabel={priceUnavailableLabel}
-            isUnavailable={isUnavailable}
-            showPriceUnavailableTooltip={showPriceUnavailableTooltip}
-            size="$headingLg"
-            color="$textSubdued"
-            textAlign="center"
-            numberOfLines={1}
-            fontVariant={['tabular-nums']}
-          />
-        </XStack>
-      }
-    />
+          %
+        </SizableText>
+      </XStack>
+      <XStack alignItems="center" justifyContent="center" gap="$1" minWidth={0}>
+        <SizableText size="$headingLg" color="$textSubdued">
+          ≈
+        </SizableText>
+        <ProtocolValueCell
+          value={value}
+          currencySymbol={currencySymbol}
+          priceUnavailableLabel={priceUnavailableLabel}
+          isUnavailable={isUnavailable}
+          showPriceUnavailableTooltip={showPriceUnavailableTooltip}
+          size="$headingLg"
+          color="$textSubdued"
+          textAlign="center"
+          numberOfLines={1}
+          fontVariant={['tabular-nums']}
+        />
+      </XStack>
+    </YStack>
   );
 }
 
@@ -1500,6 +1587,7 @@ function ProtocolPositionActionDialogContent({
   hasDebts,
   rewardAssets,
   onSuccess,
+  renderMode = 'dialog',
 }: {
   accountId: string;
   networkId: string;
@@ -1510,6 +1598,7 @@ function ProtocolPositionActionDialogContent({
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
   ) => void | Promise<void>;
+  renderMode?: 'dialog' | 'page';
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -1534,9 +1623,11 @@ function ProtocolPositionActionDialogContent({
   const [actionPercentText, setActionPercentText] = useState(
     String(DEFAULT_ACTION_PERCENT),
   );
-  const actionPercent = /^(0|[1-9]\d{0,2})$/.test(actionPercentText)
-    ? Math.min(100, Number(actionPercentText))
-    : 0;
+  // Only the untouched default Max value clears on first focus; preset taps or
+  // manual edits already carry user intent and should stay editable in place.
+  const actionPercentHasUserIntentRef = useRef(false);
+  const actionPercent =
+    resolveProtocolPositionActionPercentValue(actionPercentText);
   // Manual single-token entry (withdraw / repay). `amount` is human-decimal;
   // `isMaxAmount` flags a full close so submit sends bps=10000 instead.
   //
@@ -1757,12 +1848,25 @@ function ProtocolPositionActionDialogContent({
   const currentSelectedAsset = selectedAssets[0];
 
   const handleActionPercentChange = (next: string) => {
-    // Integers 0..100 only, no leading zeros; allow empty while editing.
-    // Reject other keystrokes outright (same convention as the token-amount
-    // input's validateAmountInput gate).
-    if (next !== '' && !/^(0|[1-9]\d{0,2})$/.test(next)) return;
-    if (next !== '' && Number(next) > 100) return;
-    setActionPercentText(next);
+    actionPercentHasUserIntentRef.current = true;
+    setActionPercentText((currentValue) =>
+      resolveProtocolPositionActionPercentInput({
+        currentValue,
+        nextValue: next,
+      }),
+    );
+  };
+  const handleActionPercentFocus = () => {
+    const shouldClearInitialValue =
+      shouldClearProtocolPositionActionInitialPercentValue({
+        value: actionPercentText,
+        hasUserIntent: actionPercentHasUserIntentRef.current,
+      });
+
+    actionPercentHasUserIntentRef.current = true;
+    if (shouldClearInitialValue) {
+      setActionPercentText('');
+    }
   };
 
   const handleAmountChange = (next: string) => {
@@ -1787,19 +1891,8 @@ function ProtocolPositionActionDialogContent({
     }
   };
 
-  // The percent hero prefills 100% as an untouched default; first focus clears
-  // it, mirroring the amount hero's Max-prefill clear. A percent the user set
-  // deliberately (typed, or picked from the preset row) is never cleared.
-  const isPercentPristineRef = useRef(true);
-  const handlePercentInputFocus = () => {
-    if (isPercentPristineRef.current) {
-      isPercentPristineRef.current = false;
-      setActionPercentText('');
-    }
-  };
-
   const handlePercentPresetChange = (presetPercent: number) => {
-    isPercentPristineRef.current = false;
+    actionPercentHasUserIntentRef.current = true;
     setActionPercentText(String(presetPercent));
   };
 
@@ -1869,6 +1962,12 @@ function ProtocolPositionActionDialogContent({
     submittingRef.current = true;
     setSubmitting(true);
     setSubmitError(undefined);
+    let isActionDialogClosed = false;
+    const closeActionDialogBeforeConfirm = async () => {
+      if (isActionDialogClosed) return;
+      isActionDialogClosed = true;
+      await closeRef.current?.();
+    };
     let submitGuardReleased = false;
     const releaseSubmitGuardOnce = () => {
       if (submitGuardReleased) return;
@@ -1878,6 +1977,7 @@ function ProtocolPositionActionDialogContent({
     const releaseSubmitGuardOnceWithError = (error: Error) => {
       if (
         !submitGuardReleased &&
+        !isActionDialogClosed &&
         !isUserRejectedErrorMessage({ error, intl }) &&
         shouldShowProtocolPositionActionInlineSubmitError(error)
       ) {
@@ -1886,6 +1986,7 @@ function ProtocolPositionActionDialogContent({
       releaseSubmitGuardOnce();
     };
     try {
+      await Keyboard.dismissWithDelay(80);
       await submitProtocolPositionAction({
         action,
         selectedAssets,
@@ -1893,11 +1994,13 @@ function ProtocolPositionActionDialogContent({
         percent: isPercentAction ? actionPercent : undefined,
         amount: useManualAmountInput ? amount : undefined,
         isMaxAmount: useManualAmountInput ? isMaxAmount : undefined,
-        isErrorToastSuppressed:
-          shouldShowProtocolPositionActionInlineSubmitError,
-        onSettleResult: ({ status }) => {
+        isErrorToastSuppressed: (error) =>
+          !isActionDialogClosed &&
+          shouldShowProtocolPositionActionInlineSubmitError(error),
+        onBeforeNavigateConfirm: closeActionDialogBeforeConfirm,
+        onSettleResult: async ({ status }) => {
           releaseSubmitGuardOnce();
-          void closeRef.current?.();
+          await closeActionDialogBeforeConfirm();
           if (status !== EOnChainHistoryTxStatus.Success) {
             return false;
           }
@@ -1907,6 +2010,7 @@ function ProtocolPositionActionDialogContent({
       });
     } catch (error) {
       if (
+        !isActionDialogClosed &&
         !isUserRejectedErrorMessage({ error, intl }) &&
         shouldShowProtocolPositionActionInlineSubmitError(error)
       ) {
@@ -1990,7 +2094,7 @@ function ProtocolPositionActionDialogContent({
         <ProtocolPositionActionPercentHero
           percentText={actionPercentText}
           onChangePercentText={handleActionPercentChange}
-          onFocus={handlePercentInputFocus}
+          onFocus={handleActionPercentFocus}
           value={outputValueState.value}
           isUnavailable={outputValueState.isUnavailable}
           showPriceUnavailableTooltip={
@@ -2068,6 +2172,106 @@ function ProtocolPositionActionDialogContent({
     showLiquidationWarning ||
     Boolean(inlineErrorMessage) ||
     showTransactionCountNotice;
+  const bodyNode = (
+    <YStack gap="$5">
+      {selectable ? assetSelector : null}
+      {actionBody}
+    </YStack>
+  );
+  const feedbackNode = showFeedbackRegion ? (
+    <YStack gap="$3">
+      {showLiquidationWarning ? (
+        <Alert
+          type="warning"
+          icon="InfoCircleOutline"
+          description={intl.formatMessage({
+            id: ETranslations.defi_liquidation_withdraw_desc,
+          })}
+        />
+      ) : null}
+
+      {inlineErrorMessage ? (
+        <Alert
+          type="critical"
+          icon="ErrorOutline"
+          title={intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          })}
+          description={inlineErrorMessage}
+        />
+      ) : null}
+
+      {showTransactionCountNotice ? (
+        // Each selected asset builds its own transaction (approvals discovered
+        // at build time may add more), so hardware-wallet users know how many
+        // confirmations to expect. Count shown is the business-tx floor.
+        <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
+          {intl.formatMessage(
+            { id: ETranslations.address_risk_check_txs__msg },
+            { count: selectedAssets.length },
+          )}
+        </SizableText>
+      ) : null}
+    </YStack>
+  ) : null;
+  const contentNode = (
+    <>
+      <ScrollView
+        maxHeight={bodyMaxHeight}
+        mx="$-5"
+        px="$5"
+        nestedScrollEnabled
+      >
+        {bodyNode}
+      </ScrollView>
+
+      {feedbackNode ? (
+        <ScrollView
+          maxHeight={feedbackMaxHeight}
+          mx="$-5"
+          px="$5"
+          nestedScrollEnabled
+        >
+          {feedbackNode}
+        </ScrollView>
+      ) : null}
+    </>
+  );
+  const confirmButtonProps = {
+    disabled: isConfirmDisabled || submitting,
+    loading: submitting || isRepayWalletBalancePending,
+  };
+
+  if (renderMode === 'page') {
+    return (
+      <>
+        <Page.Header title={actionLabel} />
+        <Page.Body>
+          <ScrollView flex={1} nestedScrollEnabled>
+            <YStack p="$5" gap="$5">
+              {bodyNode}
+              {feedbackNode}
+            </YStack>
+          </ScrollView>
+        </Page.Body>
+        <Page.Footer>
+          <YStack bg="$bgApp">
+            <Page.FooterActions
+              onConfirmText={actionLabel}
+              onConfirm={(close) => {
+                void handleConfirm({
+                  close,
+                  preventClose: () => undefined,
+                });
+              }}
+              confirmButtonProps={confirmButtonProps}
+            />
+            <ProtocolPositionActionKeyboardDismissFooter />
+          </YStack>
+        </Page.Footer>
+      </>
+    );
+  }
 
   return (
     <YStack gap="$5">
@@ -2075,75 +2279,15 @@ function ProtocolPositionActionDialogContent({
         <Dialog.Title>{actionLabel}</Dialog.Title>
       </Dialog.Header>
 
-      <ScrollView
-        maxHeight={bodyMaxHeight}
-        mx="$-5"
-        px="$5"
-        nestedScrollEnabled
-      >
-        <YStack gap="$5">
-          {selectable ? assetSelector : null}
-          {actionBody}
-        </YStack>
-      </ScrollView>
-
-      {showFeedbackRegion ? (
-        <ScrollView
-          maxHeight={feedbackMaxHeight}
-          mx="$-5"
-          px="$5"
-          nestedScrollEnabled
-        >
-          <YStack gap="$3">
-            {showLiquidationWarning ? (
-              <Alert
-                type="warning"
-                icon="InfoCircleOutline"
-                description={intl.formatMessage({
-                  id: ETranslations.defi_liquidation_withdraw_desc,
-                })}
-              />
-            ) : null}
-
-            {inlineErrorMessage ? (
-              <Alert
-                type="critical"
-                icon="ErrorOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.global_an_error_occurred,
-                })}
-                description={inlineErrorMessage}
-              />
-            ) : null}
-
-            {showTransactionCountNotice ? (
-              // Each selected asset builds its own transaction (approvals discovered
-              // at build time may add more), so hardware-wallet users know how many
-              // confirmations to expect. Count shown is the business-tx floor.
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                textAlign="center"
-              >
-                {intl.formatMessage(
-                  { id: ETranslations.address_risk_check_txs__msg },
-                  { count: selectedAssets.length },
-                )}
-              </SizableText>
-            ) : null}
-          </YStack>
-        </ScrollView>
-      ) : null}
+      {contentNode}
 
       <Dialog.Footer
         showCancelButton={false}
         showConfirmButton
         onConfirmText={actionLabel}
         onConfirm={handleConfirm}
-        confirmButtonProps={{
-          disabled: isConfirmDisabled || submitting,
-          loading: submitting || isRepayWalletBalancePending,
-        }}
+        confirmButtonProps={confirmButtonProps}
+        extraContent={<ProtocolPositionActionKeyboardDismissFooter />}
       />
     </YStack>
   );
@@ -2194,6 +2338,7 @@ export {
   isUserRejectedErrorMessage,
   ProtocolPositionActionAmountInput,
   ProtocolPositionActionAnchor,
+  ProtocolPositionActionDialogContent,
   showProtocolPositionActionDialog,
   useProtocolPositionActionSubmit,
   type IProtocolPositionActionSuccessParams,
