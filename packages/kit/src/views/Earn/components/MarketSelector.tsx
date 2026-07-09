@@ -9,7 +9,6 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import {
-  Badge,
   SegmentControl,
   SizableText,
   Stack,
@@ -20,7 +19,6 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import type { ISegmentControlProps } from '@onekeyhq/components';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EarnTestIDs } from '../testIDs';
@@ -29,15 +27,6 @@ import type { LayoutChangeEvent } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
 export type IEarnHomeMode = 'earn' | 'borrow';
-
-const getBadgeTheme = ({
-  themeVariant,
-  isActive,
-}: {
-  themeVariant: 'light' | 'dark';
-  isActive: boolean;
-  // eslint-disable-next-line no-nested-ternary
-}) => (isActive ? (themeVariant === 'light' ? 'dark' : 'light') : themeVariant);
 
 const MarketSelectorDesktop = ({
   mode,
@@ -51,16 +40,11 @@ const MarketSelectorDesktop = ({
   activeBackgroundColor?: ISegmentControlProps['activeBackgroundColor'];
 }) => {
   const intl = useIntl();
-  const themeVariant = useThemeVariant();
 
   const options = useMemo(() => {
-    const renderLabel = (
-      value: IEarnHomeMode,
-      messageId: ETranslations,
-      withBadge = false,
-    ) => {
+    const renderLabel = (value: IEarnHomeMode, messageId: ETranslations) => {
       const isActive = mode === value;
-      const labelText = (
+      return (
         <SizableText
           size="$bodyMdMedium"
           textAlign="center"
@@ -69,25 +53,6 @@ const MarketSelectorDesktop = ({
           {intl.formatMessage({ id: messageId })}
         </SizableText>
       );
-      if (!withBadge) {
-        return labelText;
-      }
-      const badgeTheme = getBadgeTheme({ themeVariant, isActive });
-      return (
-        <XStack alignItems="center" justifyContent="center" gap="$2">
-          {labelText}
-          <Badge
-            badgeSize="sm"
-            badgeType="success"
-            pointerEvents="none"
-            theme={badgeTheme}
-          >
-            <Badge.Text>
-              {intl.formatMessage({ id: ETranslations.explore_badge_new })}
-            </Badge.Text>
-          </Badge>
-        </XStack>
-      );
     };
     return [
       {
@@ -95,11 +60,11 @@ const MarketSelectorDesktop = ({
         value: 'earn' as const,
       },
       {
-        label: renderLabel('borrow', ETranslations.global_borrow, true),
+        label: renderLabel('borrow', ETranslations.global_borrow),
         value: 'borrow' as const,
       },
     ];
-  }, [intl, mode, themeVariant]);
+  }, [intl, mode]);
 
   const itemStyleProps = useMemo(() => {
     const baseProps = {
@@ -258,11 +223,6 @@ const AnimatedTabBar = ({
         <Animated.Text style={[animatedStyles.tabText, borrowTextStyle]}>
           {intl.formatMessage({ id: ETranslations.global_borrow })}
         </Animated.Text>
-        <Badge badgeSize="sm" badgeType="success" pointerEvents="none">
-          <Badge.Text>
-            {intl.formatMessage({ id: ETranslations.explore_badge_new })}
-          </Badge.Text>
-        </Badge>
       </Pressable>
       {containerWidth > 0 ? (
         <AnimatedUnderline
@@ -287,11 +247,7 @@ const MarketSelectorMobile = ({
   const intl = useIntl();
 
   const options = useMemo(() => {
-    const renderLabel = (
-      value: IEarnHomeMode,
-      messageId: ETranslations,
-      withBadge = false,
-    ) => {
+    const renderLabel = (value: IEarnHomeMode, messageId: ETranslations) => {
       const isActive = mode === value;
       return (
         <YStack
@@ -310,13 +266,6 @@ const MarketSelectorMobile = ({
             >
               {intl.formatMessage({ id: messageId })}
             </SizableText>
-            {withBadge ? (
-              <Badge badgeSize="sm" badgeType="success" pointerEvents="none">
-                <Badge.Text>
-                  {intl.formatMessage({ id: ETranslations.explore_badge_new })}
-                </Badge.Text>
-              </Badge>
-            ) : null}
           </XStack>
           {isActive ? (
             <YStack
@@ -338,7 +287,7 @@ const MarketSelectorMobile = ({
         value: 'earn' as const,
       },
       {
-        label: renderLabel('borrow', ETranslations.global_borrow, true),
+        label: renderLabel('borrow', ETranslations.global_borrow),
         value: 'borrow' as const,
       },
     ];
