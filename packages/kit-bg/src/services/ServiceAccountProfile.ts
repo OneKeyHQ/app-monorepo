@@ -1076,18 +1076,33 @@ class ServiceAccountProfile extends ServiceBase {
       });
     } else {
       const current = await activeAccountValueAtom.get();
-      const mergedAtomValue =
+      let baseValue: Record<string, string> = {};
+      if (
         current?.accountId === accountId &&
         typeof current.value === 'object' &&
         current.value !== null
-          ? {
-              ...current.value,
-              ...usdValueMap,
-            }
-          : usdValueMap;
+      ) {
+        baseValue = current.value;
+      } else {
+        // Partial (single-network) write for an account the atom doesn't
+        // currently hold — e.g. an account switch while home is on a
+        // single-chain view, or a cold start outside All Networks. Replacing
+        // the atom with the one-network map would make cross-network
+        // consumers (menu-bar tray, account selector active row) sum a single
+        // network — and read $0 when that network is disabled in the
+        // All-Networks enabled set. Seed the base from the persisted
+        // per-network values instead; the fresh entries overlay their keys.
+        const persisted = await this.getAllNetworkAccountsValueByAccountId({
+          accountId,
+        });
+        baseValue = persisted.value ?? {};
+      }
       await activeAccountValueAtom.set({
         accountId,
-        value: mergedAtomValue,
+        value: {
+          ...baseValue,
+          ...usdValueMap,
+        },
         currency: 'usd',
       });
     }
