@@ -498,10 +498,14 @@ function TxHistoryListContainer(
         emitRefreshTokenList(tokenRefreshPlan.accountsToRefreshNow);
 
         if (tokenRefreshPlan.accountsToRefreshAfterTokensDone.length > 0) {
-          registerPendingTokenRefreshAfterTokensDone({
-            accounts: tokenRefreshPlan.accountsToRefreshAfterTokensDone,
+          const tokensDoneScope = tokenRefreshPlan.tokensDoneScope ?? {
             accountId: refreshAccountId,
             networkId: refreshNetworkId,
+          };
+          registerPendingTokenRefreshAfterTokensDone({
+            accounts: tokenRefreshPlan.accountsToRefreshAfterTokensDone,
+            accountId: tokensDoneScope.accountId,
+            networkId: tokensDoneScope.networkId,
           });
         }
         if (r.accountsWithCompletedDeFiPortfolioTxs.length > 0) {

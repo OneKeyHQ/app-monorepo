@@ -47,6 +47,7 @@ describe('buildTokenRefreshPlanAfterHistory', () => {
     ).toEqual({
       accountsToRefreshNow: [otherNetworkAccount],
       accountsToRefreshAfterTokensDone: [account],
+      tokensDoneScope: account,
     });
   });
 
@@ -80,27 +81,55 @@ describe('buildTokenRefreshPlanAfterHistory', () => {
     ).toEqual({
       accountsToRefreshNow: [otherNetworkAccount],
       accountsToRefreshAfterTokensDone: [nativeAccount, nestedAccount],
+      tokensDoneScope: indexedAccount,
     });
   });
 
   it('defers all changed accounts while an all-network token refresh is in flight for the same account', () => {
+    const tokensDoneScope = {
+      accountId: account.accountId,
+      networkId: getNetworkIdsMap().onekeyall,
+    };
+
     expect(
       buildTokenRefreshPlanAfterHistory({
         accounts: [account, otherNetworkAccount],
         lastTokensTabState: {
-          accountId: account.accountId,
-          networkId: getNetworkIdsMap().onekeyall,
+          ...tokensDoneScope,
           isRefreshing: true,
           at: 10_000,
         },
         tokenRefreshScope: {
-          accountId: account.accountId,
-          networkId: getNetworkIdsMap().onekeyall,
+          ...tokensDoneScope,
         },
       }),
     ).toEqual({
       accountsToRefreshNow: [],
       accountsToRefreshAfterTokensDone: [account, otherNetworkAccount],
+      tokensDoneScope,
+    });
+  });
+
+  it('keeps the all-network tokens done scope when history has switched to a single network', () => {
+    const tokensDoneScope = {
+      accountId: account.accountId,
+      networkId: getNetworkIdsMap().onekeyall,
+    };
+
+    expect(
+      buildTokenRefreshPlanAfterHistory({
+        accounts: [account, otherNetworkAccount],
+        lastTokensTabState: {
+          ...tokensDoneScope,
+          isRefreshing: true,
+          at: 10_000,
+        },
+        tokenRefreshScope: account,
+      }),
+    ).toEqual({
+      accountsToRefreshNow: [],
+      accountsToRefreshAfterTokensDone: [account, otherNetworkAccount],
+      tokensDoneScope,
     });
   });
 

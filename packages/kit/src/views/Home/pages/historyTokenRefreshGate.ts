@@ -17,7 +17,16 @@ type ITokenRefreshScope = IChangedAccount & {
 type ITokenRefreshPlanAfterHistory = {
   accountsToRefreshNow: IChangedAccount[];
   accountsToRefreshAfterTokensDone: IChangedAccount[];
+  tokensDoneScope?: IChangedAccount;
 };
+
+const getTokensDoneScope = ({
+  accountId,
+  networkId,
+}: IChangedAccount): IChangedAccount => ({
+  accountId,
+  networkId,
+});
 
 export function buildTokenRefreshPlanAfterHistory({
   accounts,
@@ -47,6 +56,7 @@ export function buildTokenRefreshPlanAfterHistory({
     return {
       accountsToRefreshNow: [],
       accountsToRefreshAfterTokensDone: accounts,
+      tokensDoneScope: getTokensDoneScope(lastTokensTabState),
     };
   }
 
@@ -70,6 +80,7 @@ export function buildTokenRefreshPlanAfterHistory({
     return {
       accountsToRefreshNow,
       accountsToRefreshAfterTokensDone,
+      tokensDoneScope: getTokensDoneScope(lastTokensTabState),
     };
   }
 
@@ -87,5 +98,6 @@ export function buildTokenRefreshPlanAfterHistory({
   return {
     accountsToRefreshNow,
     accountsToRefreshAfterTokensDone,
+    tokensDoneScope: getTokensDoneScope(lastTokensTabState),
   };
 }
