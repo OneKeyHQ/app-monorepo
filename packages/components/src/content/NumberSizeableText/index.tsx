@@ -145,9 +145,14 @@ export function NumberSizeableText({
       {/* eslint-disable no-nested-ternary */}
       {result.map((r, index) =>
         typeof r === 'string' ? (
+          // These slices build fresh SizableTexts (not spreading `props`), so
+          // they'd otherwise fall back to the app-wide tabular default and
+          // ignore a caller override (e.g. PROPORTIONAL_NUMS on a hero
+          // balance) — forward `fontVariant` explicitly to every slice.
           <SizableText
             key={index}
             color={props.color}
+            fontVariant={props.fontVariant}
             fontWeight={parentFontWeight}
             fontSize={parentFontSize}
             lineHeight={props.lineHeight ?? parentFontSize}
@@ -162,6 +167,7 @@ export function NumberSizeableText({
           <SizableText
             key={index}
             color={props.color}
+            fontVariant={props.fontVariant}
             fontWeight={parentFontWeight}
             fontSize={scriptFontSize}
             lineHeight={parentFontSize}
