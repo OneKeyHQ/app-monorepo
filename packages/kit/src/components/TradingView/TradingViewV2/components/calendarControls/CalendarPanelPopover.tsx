@@ -46,6 +46,13 @@ const WEEKDAY_REFERENCE_DATES = [
 const TIME_OPTIONS = Array.from({ length: 96 }, (_, index) => index * 15);
 const DEFAULT_TIME_RANGE_SECONDS = 86_400;
 const DEFAULT_CALENDAR_LOCALE = 'en-US';
+const CALENDAR_DISPLAY_SYSTEM_OPTIONS = {
+  calendar: 'gregory',
+  numberingSystem: 'latn',
+} as const satisfies Pick<
+  Intl.DateTimeFormatOptions,
+  'calendar' | 'numberingSystem'
+>;
 
 function createDateTimeFormatter(
   locale: string,
@@ -227,7 +234,7 @@ function CalendarGrid({
   goToDate,
   rangeStartDate,
   rangeEndDate,
-  monthFormatter,
+  monthYearFormatter,
   weekdayLabels,
   onDatePress,
   onMonthChange,
@@ -237,7 +244,7 @@ function CalendarGrid({
   goToDate: Date;
   rangeStartDate: Date;
   rangeEndDate: Date;
-  monthFormatter: Intl.DateTimeFormat;
+  monthYearFormatter: Intl.DateTimeFormat;
   weekdayLabels: readonly string[];
   onDatePress: (date: Date) => void;
   onMonthChange: (date: Date) => void;
@@ -245,9 +252,9 @@ function CalendarGrid({
   const calendarDays = useMemo(() => buildCalendarDays(monthDate), [monthDate]);
   const rangeStartTime = startOfDay(rangeStartDate).getTime();
   const rangeEndTime = startOfDay(rangeEndDate).getTime();
-  const monthLabel = useMemo(
-    () => monthFormatter.format(monthDate),
-    [monthFormatter, monthDate],
+  const monthYearLabel = useMemo(
+    () => monthYearFormatter.format(monthDate),
+    [monthDate, monthYearFormatter],
   );
 
   return (
@@ -264,10 +271,7 @@ function CalendarGrid({
         />
         <XStack gap="$3" alignItems="center">
           <SizableText size="$headingLg" color="$text">
-            {monthLabel}
-          </SizableText>
-          <SizableText size="$headingLg" color="$text">
-            {monthDate.getFullYear()}
+            {monthYearLabel}
           </SizableText>
         </XStack>
         <IconButton
@@ -365,14 +369,18 @@ export function CalendarPanelPopover({
   const dateFormatters = useMemo(
     () => ({
       date: createDateTimeFormatter(intl.locale, {
+        ...CALENDAR_DISPLAY_SYSTEM_OPTIONS,
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
       }),
-      month: createDateTimeFormatter(intl.locale, {
+      monthYear: createDateTimeFormatter(intl.locale, {
+        ...CALENDAR_DISPLAY_SYSTEM_OPTIONS,
+        year: 'numeric',
         month: 'long',
       }),
       weekday: createDateTimeFormatter(intl.locale, {
+        calendar: CALENDAR_DISPLAY_SYSTEM_OPTIONS.calendar,
         weekday: 'short',
         timeZone: 'UTC',
       }),
@@ -577,7 +585,7 @@ export function CalendarPanelPopover({
             goToDate={goToDate}
             rangeStartDate={rangeStartDate}
             rangeEndDate={rangeEndDate}
-            monthFormatter={dateFormatters.month}
+            monthYearFormatter={dateFormatters.monthYear}
             weekdayLabels={weekdayLabels}
             onDatePress={handleDatePress}
             onMonthChange={setMonthDate}
@@ -615,7 +623,7 @@ export function CalendarPanelPopover({
       calendarLabels.cancel,
       calendarLabels.goTo,
       dateFormatters.date,
-      dateFormatters.month,
+      dateFormatters.monthYear,
       goToDate,
       goToTime,
       handleDatePress,
