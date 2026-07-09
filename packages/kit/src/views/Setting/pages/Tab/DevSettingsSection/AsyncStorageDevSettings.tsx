@@ -118,7 +118,15 @@ export function AsyncStorageDevSettings() {
           ]),
         );
       }
-      await Promise.all(writeTasks);
+      // Wait for EVERY write to settle before reading/cleanup. Promise.all
+      // rejects on the first failure while the other writes — especially the
+      // in-flight bg-origin RPCs — keep running, and one could land AFTER the
+      // finally-block multiRemove, leaving dirty test keys and making the next
+      // run start unclean. allSettled drains the whole write path first.
+      const writeResults = await Promise.allSettled(writeTasks);
+      const writeFailures = writeResults.filter(
+        (r) => r.status === 'rejected',
+      ).length;
 
       // 3a. Verify from the main runtime (main read refreshes its manifest).
       const mainReadPairs = await appStorage.multiGet(allKeys);
@@ -160,13 +168,13 @@ export function AsyncStorageDevSettings() {
         ? 'dual-runtime forwarding ON'
         : 'forwarding OFF (single-runtime/non-iOS — trivial pass)';
 
-      if (missing.length === 0 && mismatch === 0) {
+      if (missing.length === 0 && mismatch === 0 && writeFailures === 0) {
         const message = `PASS ${intact}/${total} (main ${CONCURRENT_TEST_ROUNDS} + bg ${CONCURRENT_TEST_ROUNDS}) · ${forwardingNote}`;
         setConcurrentResult(message);
         Toast.success({ title: 'Concurrent write test PASS', message });
       } else {
         const sample = missing.slice(0, 5).join(', ');
-        const message = `FAIL intact ${intact}/${total} · missing ${missing.length} · mismatch ${mismatch}${
+        const message = `FAIL intact ${intact}/${total} · missing ${missing.length} · mismatch ${mismatch} · writeFail ${writeFailures}${
           sample ? ` · e.g. ${sample}` : ''
         } · ${forwardingNote}`;
         setConcurrentResult(message);
