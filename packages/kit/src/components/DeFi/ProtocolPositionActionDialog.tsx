@@ -8,10 +8,12 @@ import {
   Button,
   Checkbox,
   Dialog,
+  ScrollView,
   SizableText,
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import type { useInPageDialog } from '@onekeyhq/components';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
@@ -55,6 +57,7 @@ import {
 } from './DeFiActionTxConfirmResult';
 import { resolveProtocolLendingDefiFillableAmountState } from './protocolLendingActionUtils';
 import { shouldShowProtocolPositionActionInlineSubmitError } from './protocolPositionActionErrorUtils';
+import { resolveProtocolPositionActionDialogLayout } from './protocolPositionActionLayoutUtils';
 import {
   ProtocolValueCell,
   isProtocolAssetValueUnavailable,
@@ -1509,6 +1512,9 @@ function ProtocolPositionActionDialogContent({
   ) => void | Promise<void>;
 }) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
+  const { bodyMaxHeight, feedbackMaxHeight } =
+    resolveProtocolPositionActionDialogLayout({ gtMd });
   const submitProtocolPositionAction = useProtocolPositionActionSubmit({
     accountId,
     networkId,
@@ -2054,46 +2060,79 @@ function ProtocolPositionActionDialogContent({
     );
   }
 
+  const showLiquidationWarning =
+    Boolean(hasDebts) && action.action === EDeFiPositionAction.Withdraw;
+  const inlineErrorMessage = submitError ?? repayWalletBalanceError;
+  const showTransactionCountNotice = selectedAssets.length > 1;
+  const showFeedbackRegion =
+    showLiquidationWarning ||
+    Boolean(inlineErrorMessage) ||
+    showTransactionCountNotice;
+
   return (
     <YStack gap="$5">
       <Dialog.Header>
         <Dialog.Title>{actionLabel}</Dialog.Title>
       </Dialog.Header>
 
-      {selectable ? assetSelector : null}
-      {actionBody}
+      <ScrollView
+        maxHeight={bodyMaxHeight}
+        mx="$-5"
+        px="$5"
+        nestedScrollEnabled
+      >
+        <YStack gap="$5">
+          {selectable ? assetSelector : null}
+          {actionBody}
+        </YStack>
+      </ScrollView>
 
-      {hasDebts && action.action === EDeFiPositionAction.Withdraw ? (
-        <Alert
-          type="warning"
-          icon="InfoCircleOutline"
-          description={intl.formatMessage({
-            id: ETranslations.defi_liquidation_withdraw_desc,
-          })}
-        />
-      ) : null}
+      {showFeedbackRegion ? (
+        <ScrollView
+          maxHeight={feedbackMaxHeight}
+          mx="$-5"
+          px="$5"
+          nestedScrollEnabled
+        >
+          <YStack gap="$3">
+            {showLiquidationWarning ? (
+              <Alert
+                type="warning"
+                icon="InfoCircleOutline"
+                description={intl.formatMessage({
+                  id: ETranslations.defi_liquidation_withdraw_desc,
+                })}
+              />
+            ) : null}
 
-      {submitError || repayWalletBalanceError ? (
-        <Alert
-          type="critical"
-          icon="ErrorOutline"
-          title={intl.formatMessage({
-            id: ETranslations.global_an_error_occurred,
-          })}
-          description={submitError ?? repayWalletBalanceError}
-        />
-      ) : null}
+            {inlineErrorMessage ? (
+              <Alert
+                type="critical"
+                icon="ErrorOutline"
+                title={intl.formatMessage({
+                  id: ETranslations.global_an_error_occurred,
+                })}
+                description={inlineErrorMessage}
+              />
+            ) : null}
 
-      {selectedAssets.length > 1 ? (
-        // Each selected asset builds its own transaction (approvals discovered
-        // at build time may add more), so hardware-wallet users know how many
-        // confirmations to expect. Count shown is the business-tx floor.
-        <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
-          {intl.formatMessage(
-            { id: ETranslations.address_risk_check_txs__msg },
-            { count: selectedAssets.length },
-          )}
-        </SizableText>
+            {showTransactionCountNotice ? (
+              // Each selected asset builds its own transaction (approvals discovered
+              // at build time may add more), so hardware-wallet users know how many
+              // confirmations to expect. Count shown is the business-tx floor.
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                textAlign="center"
+              >
+                {intl.formatMessage(
+                  { id: ETranslations.address_risk_check_txs__msg },
+                  { count: selectedAssets.length },
+                )}
+              </SizableText>
+            ) : null}
+          </YStack>
+        </ScrollView>
       ) : null}
 
       <Dialog.Footer
