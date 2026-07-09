@@ -1,8 +1,11 @@
 import { useCallback, useRef, useState } from 'react';
 
+import { useHeaderHeight } from '@react-navigation/elements';
+
 import { Button, Dialog, Input, Page, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import { ETransactionType } from '@onekeyhq/shared/types/signatureRecord';
@@ -149,9 +152,11 @@ const CustomSignMessage = ({ num }: { num: number }) => {
 
 const DevHomeStack2 = () => {
   const num = 0;
+  const headerHeight = useHeaderHeight();
+  const topPadding = platformEnv.isNativeIOS26Plus ? headerHeight : undefined;
   return (
     <Page>
-      <YStack px="$4" gap="$4">
+      <YStack px="$4" pt={topPadding} gap="$4">
         <SignMessageButton />
         <SignTransactionButton />
         <ConnectSiteButton />
