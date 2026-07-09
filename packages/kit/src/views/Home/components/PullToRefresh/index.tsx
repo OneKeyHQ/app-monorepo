@@ -3,7 +3,6 @@ import {
   memo,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -60,28 +59,6 @@ function BasePullToRefresh({ onRefresh, ...props }: IPullToRefreshProps) {
     (props.progressViewOffset === undefined ||
       props.progressViewOffset === 0) &&
     progressViewOffsetFromContext !== undefined;
-  const [
-    deferredContextProgressViewOffset,
-    setDeferredContextProgressViewOffset,
-  ] = useState<number | undefined>();
-
-  useEffect(() => {
-    if (!shouldUseContextProgressViewOffset) {
-      setDeferredContextProgressViewOffset(undefined);
-      return;
-    }
-
-    // Fabric iOS ignores the initial progressViewOffset because the deferred
-    // initial props are compared against themselves. Apply Home's offset after
-    // mount so native sees a real 0 -> offset update before refresh starts.
-    setDeferredContextProgressViewOffset(undefined);
-    const frameId = requestAnimationFrame(() => {
-      setDeferredContextProgressViewOffset(progressViewOffsetFromContext);
-    });
-    return () => {
-      cancelAnimationFrame(frameId);
-    };
-  }, [progressViewOffsetFromContext, shouldUseContextProgressViewOffset]);
 
   const handleRefresh = useCallback(() => {
     onRefresh?.();
@@ -92,10 +69,11 @@ function BasePullToRefresh({ onRefresh, ...props }: IPullToRefreshProps) {
     defaultLogger.account.wallet.walletPullToRefresh();
   }, [onRefresh]);
 
+  // Keep the idle offset at zero because iOS also counts progressViewOffset
+  // toward the native pull distance required to trigger UIRefreshControl.
   const progressViewOffset =
-    shouldUseContextProgressViewOffset &&
-    deferredContextProgressViewOffset !== undefined
-      ? deferredContextProgressViewOffset
+    shouldUseContextProgressViewOffset && refreshing
+      ? progressViewOffsetFromContext
       : props.progressViewOffset;
   const iosRefreshControlProps: Partial<IRefreshControlType> =
     platformEnv.isNativeIOS
