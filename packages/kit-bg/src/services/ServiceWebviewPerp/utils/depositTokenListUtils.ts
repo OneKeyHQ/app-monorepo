@@ -144,7 +144,44 @@ export function buildPerpsDepositTokensByNetwork(tokens: IPerpsDepositToken[]) {
   }, {});
 }
 
-export function getDefaultPerpsDepositToken(tokens: IPerpsDepositToken[]) {
+function findMatchedPerpsDepositToken({
+  tokens,
+  targetToken,
+}: {
+  tokens: IPerpsDepositToken[];
+  targetToken?: IPerpsDepositToken;
+}) {
+  if (!targetToken) {
+    return undefined;
+  }
+  return tokens.find(
+    (token) =>
+      token.networkId === targetToken.networkId &&
+      normalizeTokenAddress(token.contractAddress) ===
+        normalizeTokenAddress(targetToken.contractAddress),
+  );
+}
+
+export function getDefaultPerpsDepositToken({
+  tokens,
+  defaultTokens,
+}: {
+  tokens: IPerpsDepositToken[];
+  defaultTokens?: IPerpsDepositToken[];
+}) {
+  const markedDefaultToken = tokens.find((token) => token.isDefault);
+  if (markedDefaultToken) {
+    return markedDefaultToken;
+  }
+  for (const defaultToken of defaultTokens ?? []) {
+    const matchedDefaultToken = findMatchedPerpsDepositToken({
+      tokens,
+      targetToken: defaultToken,
+    });
+    if (matchedDefaultToken) {
+      return matchedDefaultToken;
+    }
+  }
   return (
     tokens.find(
       (token) =>
@@ -158,21 +195,19 @@ export function getDefaultPerpsDepositToken(tokens: IPerpsDepositToken[]) {
 export function resolvePerpsDepositSelectedToken({
   tokens,
   currentToken,
+  defaultTokens,
 }: {
   tokens: IPerpsDepositToken[];
   currentToken?: IPerpsDepositToken;
+  defaultTokens?: IPerpsDepositToken[];
 }) {
-  if (currentToken) {
-    const matchedToken = tokens.find(
-      (token) =>
-        token.networkId === currentToken.networkId &&
-        normalizeTokenAddress(token.contractAddress) ===
-          normalizeTokenAddress(currentToken.contractAddress),
-    );
-    if (matchedToken) {
-      return matchedToken;
-    }
+  const matchedCurrentToken = findMatchedPerpsDepositToken({
+    tokens,
+    targetToken: currentToken,
+  });
+  if (matchedCurrentToken) {
+    return matchedCurrentToken;
   }
 
-  return getDefaultPerpsDepositToken(tokens);
+  return getDefaultPerpsDepositToken({ tokens, defaultTokens });
 }

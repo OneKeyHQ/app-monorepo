@@ -45,6 +45,7 @@ import {
   SendAutoSizeAmountInput,
 } from '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { resolvePerpsDepositSelectedToken } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/utils/depositTokenListUtils';
 import type {
   IPerpsActiveAccountAtom,
   IPerpsDepositToken,
@@ -531,6 +532,7 @@ function DepositWithdrawContent({
   const [
     {
       tokens,
+      defaultTokens,
       currentPerpsDepositSelectedToken,
       depositTokenListOwnerKey,
       depositTokenListRevision,
@@ -1722,18 +1724,11 @@ function DepositWithdrawContent({
   );
 
   const fallbackSelectedDepositToken = useMemo(() => {
-    const arbitrumUsdcToken = cachedDepositTokens.find((token) =>
-      equalTokenNoCaseSensitive({
-        token1: token,
-        token2: {
-          networkId: PERPS_NETWORK_ID,
-          contractAddress: USDC_TOKEN_INFO.address,
-        },
-      }),
-    );
-
-    return arbitrumUsdcToken ?? cachedDepositTokens[0];
-  }, [cachedDepositTokens]);
+    return resolvePerpsDepositSelectedToken({
+      tokens: cachedDepositTokens,
+      defaultTokens,
+    });
+  }, [cachedDepositTokens, defaultTokens]);
 
   const resolvedCurrentPerpsDepositSelectedToken =
     currentPerpsDepositSelectedToken ?? fallbackSelectedDepositToken;
@@ -1755,19 +1750,11 @@ function DepositWithdrawContent({
     }
 
     if (!currentPerpsDepositSelectedToken && fallbackSelectedDepositToken) {
-      const arbUSDCToken = depositTokensWithPrice.find((token) =>
-        equalTokenNoCaseSensitive({
-          token1: token,
-          token2: {
-            networkId: PERPS_NETWORK_ID,
-            contractAddress: USDC_TOKEN_INFO.address,
-          },
-        }),
-      );
       const selectedToken =
-        arbUSDCToken ??
-        depositTokensWithPrice?.[0] ??
-        fallbackSelectedDepositToken;
+        resolvePerpsDepositSelectedToken({
+          tokens: depositTokensWithPrice,
+          defaultTokens,
+        }) ?? fallbackSelectedDepositToken;
       setPerpsDepositTokensAtom((prev) => {
         if (prev.currentPerpsDepositSelectedToken) {
           return prev;
@@ -1781,6 +1768,7 @@ function DepositWithdrawContent({
   }, [
     fallbackSelectedDepositToken,
     depositTokensWithPrice,
+    defaultTokens,
     currentPerpsDepositSelectedToken,
     setPerpsDepositTokensAtom,
     checkAccountSupport,

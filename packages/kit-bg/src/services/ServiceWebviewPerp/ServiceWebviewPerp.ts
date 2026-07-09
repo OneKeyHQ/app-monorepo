@@ -225,6 +225,21 @@ export interface IPerpServerDepositConfig {
   tokens: IPerpsDepositToken[];
 }
 
+export interface IPerpServerDepositTokenByNetworkConfig {
+  contractAddress: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  logoURI: string;
+  isNative: boolean;
+  isDefault?: boolean;
+}
+
+export type IPerpServerDepositTokensByNetworkConfig = Record<
+  string,
+  IPerpServerDepositTokenByNetworkConfig[]
+>;
+
 export interface IPerpServerReferrerConfig {
   referrerAddress?: string;
   referrerRate?: number;
@@ -272,6 +287,7 @@ export interface IPerpServerConfigResponse {
   commonConfig?: IPerpServerCommonConfig;
   bannerConfig?: IPerpServerBannerConfig;
   depositTokenConfig?: IPerpServerDepositConfig[];
+  depositTokensByNetwork?: IPerpServerDepositTokensByNetworkConfig;
   hyperLiquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
   tokenSearchAliases?: ITokenSearchAliases;
   tokenSelectorTabs?: IPerpDynamicTab[];
@@ -627,6 +643,7 @@ class ServiceWebviewPerp extends ServiceBase {
       selectedToken = resolvePerpsDepositSelectedToken({
         tokens,
         currentToken: prev.currentPerpsDepositSelectedToken,
+        defaultTokens: prev.defaultTokens,
       });
       return {
         ...prev,
