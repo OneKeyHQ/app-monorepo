@@ -31,7 +31,12 @@ import { LegacyUniversalSearchInput } from './LegacyUniversalSearchInput';
 
 import type { SharedValue } from 'react-native-reanimated';
 
-function HomeWalletConnectionRow({
+// Height of the Home search-bar row. Shared source of truth so the iOS glass
+// frost layer (HomeHeaderGlass) can size itself to the same value instead of
+// hardcoding a copy that silently drifts if this row's height changes.
+export const HOME_HEADER_SEARCH_ROW_HEIGHT = 56;
+
+export function HomeWalletConnectionRow({
   headerPx,
   selectedHeaderTab,
   sceneName,
@@ -147,7 +152,7 @@ export function MDHeader({
               <XStack
                 alignItems="center"
                 px={headerPx}
-                h={56}
+                h={HOME_HEADER_SEARCH_ROW_HEIGHT}
                 gap={headerGlassActive ? '$3' : '$6'}
                 {...(top || platformEnv.isNativeAndroid
                   ? { mt: top || '$2' }
@@ -173,14 +178,20 @@ export function MDHeader({
                   <MoreActionButton />
                 </GlassButtonCapsule>
               </XStack>
-              {/* Row 2: Wallet connection (account + network + address) */}
-              <HomeWalletConnectionRow
-                headerPx={headerPx}
-                selectedHeaderTab={selectedHeaderTab}
-                sceneName={sceneName}
-                tabRoute={tabRoute}
-                customHeaderLeftItems={customHeaderLeftItems}
-              />
+              {/* Row 2: Wallet connection (account + network + address).
+                  iOS relocates this row into the collapsible scroll header
+                  (see HomePageView `renderHeader`) so it scrolls away with the
+                  page for the Liquid Glass immersive layout — only the search
+                  row stays fixed. Other platforms keep it pinned here. */}
+              {platformEnv.isNativeIOS ? null : (
+                <HomeWalletConnectionRow
+                  headerPx={headerPx}
+                  selectedHeaderTab={selectedHeaderTab}
+                  sceneName={sceneName}
+                  tabRoute={tabRoute}
+                  customHeaderLeftItems={customHeaderLeftItems}
+                />
+              )}
             </>
           ) : (
             <>
