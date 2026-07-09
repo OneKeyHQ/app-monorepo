@@ -19,10 +19,11 @@ Best practices for error handling in OneKey codebase.
 
 ### Error Type Detection
 
-When classifying OneKey app errors, do not rely on `error instanceof SomeError`.
-Errors often cross background/main runtimes, RPC boundaries, native bridges, or
-serialization layers, so their prototype chain may be lost. Prefer existing
-helpers that inspect `error.className` / `error.name`.
+When classifying OneKey custom app errors, do not rely on
+`error instanceof SomeOneKeyError`. OneKey errors often cross background/main
+runtimes, RPC boundaries, native bridges, or serialization layers, so their
+prototype chain may be lost. Prefer existing helpers that inspect
+`error.className` / `error.name`.
 
 ```typescript
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -41,9 +42,11 @@ if (
 Use domain helpers where they already exist, for example
 `deviceErrorUtils.isHardwareError()` / `isHardwareErrorByCode()` for hardware
 errors and `errorToastUtils.showLocalSecretEnvelopeErrorDialogIfNeeded()` for
-LSE recovery UI. Direct `instanceof Error` is acceptable only for generic JS
-operations such as safely reading `message` / `stack`, not for business error
-taxonomy.
+LSE recovery UI. Third-party errors, such as SDK/library `NetworkError`
+classes, may still use the library's `instanceof` check when the error object
+does not cross OneKey RPC/bridge serialization boundaries. Direct
+`instanceof Error` is acceptable for generic JS operations such as safely
+reading `message` / `stack`, not for OneKey custom error taxonomy.
 
 ### Basic Try/Catch
 ```typescript
@@ -174,7 +177,7 @@ Topics covered:
 - [ ] User-friendly messages shown to users
 - [ ] Loading and error states handled in UI
 - [ ] No silent error swallowing
-- [ ] Specific error types caught with `className`/helper-based checks, not `instanceof`
+- [ ] OneKey custom error types caught with `className`/helper-based checks; third-party errors use the library's stable classifier or `instanceof`
 
 ## Related Skills
 

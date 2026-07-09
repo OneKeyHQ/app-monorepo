@@ -83,10 +83,10 @@ function ParentComponent() {
 
 ### OneKey Error Type Detection
 
-Do not use `error instanceof SomeOneKeyError` to classify business errors. OneKey
-errors frequently cross background/main runtimes, RPC boundaries, native bridges,
-or serialization layers, so the prototype chain may not survive. Prefer helpers
-that inspect `error.className` / `error.name`.
+Do not use `error instanceof SomeOneKeyError` to classify OneKey custom errors.
+OneKey errors frequently cross background/main runtimes, RPC boundaries, native
+bridges, or serialization layers, so the prototype chain may not survive.
+Prefer helpers that inspect `error.className` / `error.name`.
 
 ```typescript
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -106,9 +106,11 @@ Use existing domain helpers when available:
 - LSE recovery UI: `errorToastUtils.showLocalSecretEnvelopeErrorDialogIfNeeded()`
 - Cancellation/toast suppression: central helpers in `errorToastUtils`
 
-`error instanceof Error` is acceptable only for generic JavaScript checks such as
-reading a native `message` or `stack`; it must not be used to decide business
-error taxonomy.
+Third-party errors, such as SDK/library `NetworkError` classes, may still use
+the library's `instanceof` check when the error object does not cross OneKey
+RPC/bridge serialization boundaries. Direct `instanceof Error` is acceptable
+for generic JavaScript checks such as reading a native `message` or `stack`; it
+must not be used to decide OneKey custom error taxonomy.
 
 ### Network Errors
 
@@ -118,12 +120,7 @@ async function fetchWithNetworkHandling() {
     const result = await apiCall();
     return result;
   } catch (error) {
-    if (
-      errorUtils.isErrorByClassName({
-        error,
-        className: EOneKeyErrorClassNames.AxiosNetworkError,
-      })
-    ) {
+    if (error instanceof NetworkError) {
       // Handle network-specific error
       Toast.error({ title: 'Network error. Please check your connection.' });
       return null;
@@ -166,12 +163,7 @@ async function submitForm(data: FormData) {
 }
 
 function getUserFriendlyMessage(error: unknown): string {
-  if (
-    errorUtils.isErrorByClassName({
-      error,
-      className: EOneKeyErrorClassNames.AxiosNetworkError,
-    })
-  ) {
+  if (error instanceof NetworkError) {
     return 'Please check your internet connection';
   }
   const message = (error as { message?: string } | undefined)?.message;
@@ -220,12 +212,7 @@ try {
 try {
   const result = await fetchData();
 } catch (error) {
-  if (
-    errorUtils.isErrorByClassName({
-      error,
-      className: EOneKeyErrorClassNames.AxiosNetworkError,
-    })
-  ) {
+  if (error instanceof NetworkError) {
     return fallback;
   }
   throw error; // Re-throw unexpected errors
@@ -258,4 +245,4 @@ function GoodComponent() {
 - [ ] User-friendly messages shown to users
 - [ ] Loading and error states handled in UI
 - [ ] No silent error swallowing
-- [ ] Specific OneKey error types caught with `className`/helper-based checks, not `instanceof`
+- [ ] OneKey custom error types caught with `className`/helper-based checks; third-party errors use the library's stable classifier or `instanceof`
