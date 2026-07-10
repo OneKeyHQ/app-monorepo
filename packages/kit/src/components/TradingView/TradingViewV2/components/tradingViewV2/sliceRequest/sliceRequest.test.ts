@@ -230,9 +230,9 @@ describe('sliceRequest', () => {
       // Check last slice ends at correct time
       expect(result[result.length - 1].to).toBe(timeTo);
 
-      // Check slices are continuous
+      // Adjacent slices overlap by one interval so exclusive API bounds do not create gaps.
       for (let i = 1; i < result.length; i += 1) {
-        expect(result[i].from).toBe(result[i - 1].to);
+        expect(result[i].from).toBe(result[i - 1].to - SECONDS_IN_MINUTE);
       }
     });
 
@@ -254,9 +254,11 @@ describe('sliceRequest', () => {
       // Check last slice ends at correct time
       expect(nativeTokenSlices[nativeTokenSlices.length - 1].to).toBe(timeTo);
 
-      // Check slices are continuous
+      // Adjacent slices overlap by one interval so exclusive API bounds do not create gaps.
       for (let i = 1; i < nativeTokenSlices.length; i += 1) {
-        expect(nativeTokenSlices[i].from).toBe(nativeTokenSlices[i - 1].to);
+        expect(nativeTokenSlices[i].from).toBe(
+          nativeTokenSlices[i - 1].to - SECONDS_IN_DAY,
+        );
       }
     });
 
@@ -282,9 +284,9 @@ describe('sliceRequest', () => {
 
       expect(result.length).toBe(3); // Math.ceil(6000 / 2000) = 3
 
-      // Verify continuity
+      // Adjacent slices overlap by one interval so exclusive API bounds do not create gaps.
       for (let i = 1; i < result.length; i += 1) {
-        expect(result[i].from).toBe(result[i - 1].to);
+        expect(result[i].from).toBe(result[i - 1].to - SECONDS_IN_MINUTE);
       }
 
       // Verify bounds
@@ -306,6 +308,53 @@ describe('sliceRequest', () => {
       for (let i = 0; i < result.length - 1; i += 1) {
         const sliceTime = result[i].to - result[i].from;
         expect(sliceTime).toBe(expectedTimePerSlice);
+      }
+    });
+
+    it('should respect a custom backend-safe data limit', () => {
+      const timeFrom = mockTimeFrom;
+      const timeTo = timeFrom + 1532 * SECONDS_IN_HOUR;
+      const result = sliceRequest('1H', timeFrom, timeTo, {
+        maxDataLength: 200,
+      });
+
+      expect(result).toHaveLength(8);
+      expect(result[0].from).toBe(timeFrom);
+      expect(result[result.length - 1].to).toBe(timeTo);
+
+      for (const slice of result) {
+        expect(
+          Math.ceil((slice.to - slice.from) / SECONDS_IN_HOUR),
+        ).toBeLessThanOrEqual(200);
+      }
+    });
+
+    it('should cover exclusive API boundaries without missing interval bars', () => {
+      const timeFrom = mockTimeFrom;
+      const timeTo = timeFrom + 400 * SECONDS_IN_HOUR;
+      const slices = sliceRequest('1H', timeFrom, timeTo, {
+        maxDataLength: 200,
+      });
+      const returnedTimestamps = new Set<number>();
+
+      for (const slice of slices) {
+        for (
+          let timestamp = timeFrom;
+          timestamp <= timeTo;
+          timestamp += SECONDS_IN_HOUR
+        ) {
+          if (timestamp > slice.from && timestamp < slice.to) {
+            returnedTimestamps.add(timestamp);
+          }
+        }
+      }
+
+      for (
+        let timestamp = timeFrom + SECONDS_IN_HOUR;
+        timestamp < timeTo;
+        timestamp += SECONDS_IN_HOUR
+      ) {
+        expect(returnedTimestamps.has(timestamp)).toBe(true);
       }
     });
 
@@ -363,9 +412,9 @@ describe('sliceRequest', () => {
       expect(result[0].from).toBe(expectedAdjustedTimeFrom);
       expect(result[result.length - 1].to).toBe(timeTo);
 
-      // Verify continuity
+      // Adjacent slices overlap by one interval so exclusive API bounds do not create gaps.
       for (let i = 1; i < result.length; i += 1) {
-        expect(result[i].from).toBe(result[i - 1].to);
+        expect(result[i].from).toBe(result[i - 1].to - SECONDS_IN_DAY);
       }
     });
 
@@ -379,9 +428,9 @@ describe('sliceRequest', () => {
       expect(result[0].from).toBe(timeFrom);
       expect(result[result.length - 1].to).toBe(timeTo);
 
-      // Verify continuity
+      // Adjacent slices overlap by one interval so exclusive API bounds do not create gaps.
       for (let i = 1; i < result.length; i += 1) {
-        expect(result[i].from).toBe(result[i - 1].to);
+        expect(result[i].from).toBe(result[i - 1].to - SECONDS_IN_DAY);
       }
     });
 
@@ -399,9 +448,9 @@ describe('sliceRequest', () => {
       expect(result[0].from).toBe(expectedAdjustedTimeFrom);
       expect(result[result.length - 1].to).toBe(timeTo);
 
-      // Verify continuity
+      // Adjacent slices overlap by one interval so exclusive API bounds do not create gaps.
       for (let i = 1; i < result.length; i += 1) {
-        expect(result[i].from).toBe(result[i - 1].to);
+        expect(result[i].from).toBe(result[i - 1].to - SECONDS_IN_DAY);
       }
     });
   });
@@ -436,7 +485,7 @@ describe('sliceRequest', () => {
       expect(result).toHaveLength(2);
       expect(result[0].from).toBe(timeTo - 2 * SECONDS_IN_DAY);
       expect(result[result.length - 1].to).toBe(timeTo);
-      expect(result[1].from).toBe(result[0].to);
+      expect(result[1].from).toBe(result[0].to - SECONDS_IN_MINUTE);
     });
 
     it('should still limit expanded requests to maximum 5 years', () => {

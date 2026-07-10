@@ -64,8 +64,13 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
         total: 3,
       })
       .mockResolvedValueOnce({
-        points: [buildPoint(1200), buildPoint(1080), buildPoint(1060, 2)],
-        total: 3,
+        points: [
+          buildPoint(1200),
+          buildPoint(1120),
+          buildPoint(1080),
+          buildPoint(1060, 2),
+        ],
+        total: 4,
       });
 
     const result = await fetchTradingViewV2DataWithSlicing({
@@ -78,6 +83,7 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
 
     expect(mockSliceRequest).toHaveBeenCalledWith('1m', 1000, 1120, {
       isNativeToken: false,
+      maxDataLength: 200,
       minTimeSpanSeconds: 172_800,
     });
     expect(mockFetchMarketTokenKline).toHaveBeenNthCalledWith(1, {
@@ -104,6 +110,64 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
         { t: 1080, c: 1080 },
       ],
     );
+  });
+
+  it('keeps a wide request continuous when the backend caps each response', async () => {
+    const actualSliceRequest = jest.requireActual<{
+      sliceRequest: typeof sliceRequest;
+    }>('../sliceRequest').sliceRequest;
+    const timeFrom = 1_776_959_280;
+    const timeTo = 1_782_471_600;
+    const intervalSeconds = 60 * 60;
+
+    mockSliceRequest.mockImplementation(actualSliceRequest);
+    mockFetchMarketTokenKline.mockImplementation(async (params) => {
+      const points: IMarketTokenKLineDataPoint[] = [];
+      const firstTimestamp =
+        Math.floor(params.timeFrom / intervalSeconds) * intervalSeconds +
+        intervalSeconds;
+
+      for (
+        let timestamp = firstTimestamp;
+        timestamp < params.timeTo;
+        timestamp += intervalSeconds
+      ) {
+        points.push(buildPoint(timestamp));
+      }
+
+      const cappedPoints = points.slice(-299);
+      return {
+        points: cappedPoints,
+        total: cappedPoints.length,
+      };
+    });
+
+    const result = await fetchTradingViewV2DataWithSlicing({
+      tokenAddress: '0x123',
+      networkId: 'evm--1',
+      interval: '1H',
+      timeFrom,
+      timeTo,
+    });
+    const expectedTimestamps: number[] = [];
+    const firstExpectedTimestamp =
+      Math.ceil(timeFrom / intervalSeconds) * intervalSeconds;
+
+    for (
+      let timestamp = firstExpectedTimestamp;
+      timestamp < timeTo;
+      timestamp += intervalSeconds
+    ) {
+      expectedTimestamps.push(timestamp);
+    }
+
+    expect(mockFetchMarketTokenKline).toHaveBeenCalledTimes(8);
+    expect(result?.points.map((point) => point.t)).toEqual(expectedTimestamps);
+    expect(
+      result?.points.filter(
+        (point) => point.t >= 1_777_564_800 && point.t < 1_777_651_200,
+      ),
+    ).toHaveLength(24);
   });
 
   it('uses fallback data when sliced primary data has no points', async () => {

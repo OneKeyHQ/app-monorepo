@@ -7,6 +7,8 @@ import type {
 import { sliceRequest } from '../sliceRequest';
 
 const MIN_TRADING_VIEW_KLINE_TIME_SPAN_SECONDS = 2 * 24 * 60 * 60;
+// The market K-line endpoint caps wide responses near 300 points.
+const TRADING_VIEW_KLINE_MAX_POINTS_PER_REQUEST = 200;
 
 export type ITradingViewV2KLineDataFallback = (params: {
   tokenAddress: string;
@@ -49,7 +51,7 @@ function normalizeKLinePoints({
   const pointsByTimestamp = new Map<number, IMarketTokenKLineDataPoint>();
 
   for (const point of points) {
-    if (point.t >= timeFrom && point.t <= timeTo) {
+    if (point.t >= timeFrom && point.t < timeTo) {
       pointsByTimestamp.set(point.t, point);
     }
   }
@@ -230,6 +232,9 @@ export async function fetchTradingViewV2DataWithSlicing({
 
     const slices = sliceRequest(interval, timeFrom, timeTo, {
       isNativeToken,
+      ...(!isNativeToken
+        ? { maxDataLength: TRADING_VIEW_KLINE_MAX_POINTS_PER_REQUEST }
+        : {}),
       minTimeSpanSeconds: isNativeToken
         ? undefined
         : MIN_TRADING_VIEW_KLINE_TIME_SPAN_SECONDS,

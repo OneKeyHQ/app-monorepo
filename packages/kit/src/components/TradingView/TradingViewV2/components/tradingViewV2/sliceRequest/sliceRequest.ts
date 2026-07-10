@@ -13,6 +13,7 @@ export interface ITimeSlice {
 
 export interface ISliceRequestOptions {
   isNativeToken?: boolean;
+  maxDataLength?: number;
   minTimeSpanSeconds?: number;
 }
 
@@ -65,9 +66,11 @@ export function sliceRequest(
       : expandedTimeFrom;
 
   // Determine max data length based on token type
-  const maxDataLength = options?.isNativeToken
-    ? NATIVE_TOKEN_MAX_DATA_LENGTH
-    : DEFAULT_MAX_DATA_LENGTH;
+  const maxDataLength =
+    options?.maxDataLength ??
+    (options?.isNativeToken
+      ? NATIVE_TOKEN_MAX_DATA_LENGTH
+      : DEFAULT_MAX_DATA_LENGTH);
 
   // Calculate total data points with adjusted time range
   const totalDataPoints = Math.ceil(
@@ -88,7 +91,9 @@ export function sliceRequest(
   const slices: ITimeSlice[] = [];
 
   for (let i = 0; i < sliceCount; i += 1) {
-    const sliceFrom = adjustedTimeFrom + i * timePerSlice;
+    // Overlap one interval because the market K-line endpoint excludes slice boundaries.
+    const sliceFrom =
+      adjustedTimeFrom + i * timePerSlice - (i > 0 ? intervalSeconds : 0);
     let sliceTo: number;
 
     if (i === sliceCount - 1) {
