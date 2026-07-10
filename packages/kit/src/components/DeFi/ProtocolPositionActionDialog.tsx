@@ -23,7 +23,7 @@ import type { useInPageDialog } from '@onekeyhq/components';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
-import { Token, TokenGroup } from '@onekeyhq/kit/src/components/Token';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
@@ -61,6 +61,7 @@ import {
   showDeFiActionTxConfirmDialog,
 } from './DeFiActionTxConfirmResult';
 import { resolveProtocolLendingDefiFillableAmountState } from './protocolLendingActionUtils';
+import { resolveProtocolPositionActionAssetPill } from './protocolPositionActionAssetUtils';
 import { shouldShowProtocolPositionActionInlineSubmitError } from './protocolPositionActionErrorUtils';
 import { resolveProtocolPositionActionDialogLayout } from './protocolPositionActionLayoutUtils';
 import {
@@ -70,6 +71,7 @@ import {
   resolveProtocolPositionActionPercentValue,
   shouldClearProtocolPositionActionInitialPercentValue,
 } from './protocolPositionActionPercentUtils';
+import { ProtocolPositionAssetPill } from './ProtocolPositionAssetPill';
 import {
   ProtocolValueCell,
   isProtocolAssetValueUnavailable,
@@ -372,16 +374,10 @@ function getSelectedAssetDisplaySymbol({
   action: EDeFiPositionAction;
   selectedAsset: IResolvedDeFiPositionActionAsset;
 }) {
-  if (
-    action === EDeFiPositionAction.RemoveLiquidity &&
-    selectedAsset.underlyingAssets?.length
-  ) {
-    return selectedAsset.underlyingAssets
-      .map((asset) => asset.symbol)
-      .filter(Boolean)
-      .join(' / ');
-  }
-  return selectedAsset.symbol;
+  return resolveProtocolPositionActionAssetPill({
+    action,
+    selectedAsset,
+  }).symbol;
 }
 
 function ProtocolPositionActionAssetRow({
@@ -2085,12 +2081,22 @@ function ProtocolPositionActionDialogContent({
       />
     );
   } else if (isPercentAction) {
-    const anchorUnderlyingTokens =
-      currentSelectedAsset?.underlyingAssets?.map((item) => ({
-        tokenImageUri: item.meta?.logoUrl,
-      })) ?? [];
+    const assetPill = currentSelectedAsset
+      ? resolveProtocolPositionActionAssetPill({
+          action: action.action,
+          selectedAsset: currentSelectedAsset,
+        })
+      : undefined;
     actionBody = (
       <YStack gap="$5">
+        {!selectable && assetPill ? (
+          <ProtocolPositionAssetPill
+            testID="defi-position-action-liquidity-pool"
+            symbol={assetPill.symbol}
+            logoURI={assetPill.logoURI}
+            logoURIs={assetPill.logoURIs}
+          />
+        ) : null}
         <ProtocolPositionActionPercentHero
           percentText={actionPercentText}
           onChangePercentText={handleActionPercentChange}
@@ -2103,41 +2109,6 @@ function ProtocolPositionActionDialogContent({
           currencySymbol={currencySymbol}
           priceUnavailableLabel={priceUnavailableLabel}
         />
-        {!selectable && currentSelectedAsset ? (
-          <ProtocolPositionActionAnchor
-            label={sourceLabel}
-            iconNode={
-              anchorUnderlyingTokens.length > 0 ? (
-                <TokenGroup
-                  tokens={anchorUnderlyingTokens}
-                  size="xs"
-                  variant="overlapped"
-                  wrapperStyle="border"
-                  wrapperBorderColor="$bgSubdued"
-                />
-              ) : (
-                <Token
-                  size="sm"
-                  tokenImageUri={currentSelectedAsset.asset.meta?.logoUrl}
-                  bg="$bg"
-                />
-              )
-            }
-            valueNode={
-              <SizableText
-                size="$bodyMdMedium"
-                color="$text"
-                numberOfLines={1}
-                flexShrink={0}
-              >
-                {getSelectedAssetDisplaySymbol({
-                  action: action.action,
-                  selectedAsset: currentSelectedAsset,
-                })}
-              </SizableText>
-            }
-          />
-        ) : null}
         <ProtocolPositionActionPercentPresetRow
           percent={actionPercent}
           maxLabel={maxLabel}

@@ -81,6 +81,7 @@ import {
 } from './ProtocolPositionActionDialog';
 import { shouldShowProtocolPositionActionInlineSubmitError } from './protocolPositionActionErrorUtils';
 import { resolveProtocolPositionActionDialogLayout } from './protocolPositionActionLayoutUtils';
+import { ProtocolPositionAssetPill } from './ProtocolPositionAssetPill';
 import { getProtocolProviderDisplayName } from './protocolProviderDisplayUtils';
 
 // Withdraw/Repay only — the portfolio dialog is exit-side (Supply/Borrow stay on
@@ -351,35 +352,9 @@ function LendingAssetSelectorRow({
 }) {
   const intl = useIntl();
 
-  // Pill content: logo + symbol, plus a chevron when it opens the asset list.
-  // The chevron stays a size below the token so it reads as a quiet affordance
-  // rather than competing with the asset identity.
-  const pillInner = (
-    <>
-      <Token size="sm" tokenImageUri={item.logoURI} bg="$bg" />
-      <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
-        {item.symbol}
-      </SizableText>
-      {selectable ? (
-        <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$4.5" />
-      ) : null}
-    </>
-  );
-
   if (!selectable) {
     return (
-      <XStack
-        alignSelf="center"
-        alignItems="center"
-        gap="$2"
-        px="$4"
-        py="$2.5"
-        borderRadius="$full"
-        borderCurve="continuous"
-        bg="$bgSubdued"
-      >
-        {pillInner}
-      </XStack>
+      <ProtocolPositionAssetPill symbol={item.symbol} logoURI={item.logoURI} />
     );
   }
 
@@ -392,26 +367,11 @@ function LendingAssetSelectorRow({
       <Popover
         title={intl.formatMessage({ id: ETranslations.token_selector_title })}
         renderTrigger={
-          // ButtonFrame renders as a native <button> on web, so the asset
-          // picker is keyboard-focusable and Enter/Space opens it — a plain
-          // onPress XStack was mouse-only.
-          <ButtonFrame
-            alignItems="center"
-            justifyContent="flex-start"
-            gap="$2"
-            px="$4"
-            py="$2.5"
-            borderWidth={0}
-            borderRadius="$full"
-            borderCurve="continuous"
-            bg="$bgSubdued"
-            hoverStyle={{ bg: '$bgHover' }}
-            pressStyle={{ bg: '$bgActive' }}
-            focusable
-            focusVisibleStyle={LENDING_SELECTOR_FOCUS_STYLE}
-          >
-            {pillInner}
-          </ButtonFrame>
+          <ProtocolPositionAssetPill
+            symbol={item.symbol}
+            logoURI={item.logoURI}
+            interactive
+          />
         }
         renderContent={({ closePopover }) => (
           <YStack p="$2">
