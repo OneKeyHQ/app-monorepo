@@ -1322,9 +1322,17 @@ const usePerpDeposit = (
   }, [perpDepositQuote?.result?.allowanceResult, intl, shouldSignEveryTime]);
 
   const effectivePerpDepositQuoteLoading = useMemo(
-    () => perpDepositQuoteLoading || shouldWaitForDepositQuoteAccount,
-    [perpDepositQuoteLoading, shouldWaitForDepositQuoteAccount],
+    () =>
+      checkFromTokenFiatValue === true &&
+      (perpDepositQuoteLoading || shouldWaitForDepositQuoteAccount),
+    [
+      checkFromTokenFiatValue,
+      perpDepositQuoteLoading,
+      shouldWaitForDepositQuoteAccount,
+    ],
   );
+
+  const hasValidPerpDepositQuote = checkFromTokenFiatValue === true;
 
   const checkRefreshQuote = useMemo(() => {
     return shouldRefreshPerpsDepositQuote({
@@ -1345,12 +1353,14 @@ const usePerpDeposit = (
   ]);
 
   return {
-    perpDepositQuote,
+    perpDepositQuote: hasValidPerpDepositQuote ? perpDepositQuote : undefined,
     perpDepositQuoteLoading: effectivePerpDepositQuoteLoading,
-    shouldApprove: !!perpDepositQuote?.result?.allowanceResult,
-    shouldResetApprove:
-      perpDepositQuote?.result?.allowanceResult?.shouldResetApprove,
-    multipleStepText,
+    shouldApprove:
+      hasValidPerpDepositQuote && !!perpDepositQuote?.result?.allowanceResult,
+    shouldResetApprove: hasValidPerpDepositQuote
+      ? perpDepositQuote?.result?.allowanceResult?.shouldResetApprove
+      : undefined,
+    multipleStepText: hasValidPerpDepositQuote ? multipleStepText : '',
     buildPerpDepositTx,
     isArbitrumUsdcToken,
     checkRefreshQuote,
