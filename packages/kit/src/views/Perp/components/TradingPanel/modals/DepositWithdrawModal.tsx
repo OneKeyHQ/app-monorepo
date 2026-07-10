@@ -58,10 +58,6 @@ import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type {
-  IPerpDepositMaxTraceParams,
-  IPerpDepositMaxTraceToken,
-} from '@onekeyhq/shared/src/logger/scopes/perp/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
@@ -121,53 +117,6 @@ function hasPositivePerpsDepositTokenAmount(tokenAmount?: string) {
   }
   const amountBN = new BigNumber(tokenAmount);
   return !amountBN.isNaN() && amountBN.gt(0);
-}
-
-function getPerpsDepositTraceTokenIdentity(token?: {
-  networkId?: string;
-  contractAddress?: string;
-  symbol?: string;
-}) {
-  if (!token) {
-    return undefined;
-  }
-  return `${token.networkId ?? ''}::${token.contractAddress ?? token.symbol ?? ''}`;
-}
-
-function getPerpsDepositTraceToken(token?: {
-  networkId?: string;
-  contractAddress?: string;
-  symbol?: string;
-  decimals?: number;
-  isNative?: boolean;
-  balanceParsed?: string;
-  fiatValue?: string;
-  price?: string;
-}): IPerpDepositMaxTraceToken | undefined {
-  if (!token) {
-    return undefined;
-  }
-  return {
-    identity: getPerpsDepositTraceTokenIdentity(token),
-    networkId: token.networkId,
-    symbol: token.symbol,
-    contractAddress: token.contractAddress,
-    decimals: token.decimals,
-    isNative: token.isNative,
-    balanceParsed: token.balanceParsed,
-    fiatValue: token.fiatValue,
-    price: token.price,
-  };
-}
-
-function getPerpsDepositTraceErrorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  if (typeof error === 'string') {
-    return error;
-  }
-  return 'unknown error';
 }
 
 function shouldWaitForPerpsDepositQuoteDebounce({
@@ -413,33 +362,6 @@ function DepositWithdrawContent({
   const lastSyncedDepositTokenListRevisionRef = useRef<number | undefined>(
     undefined,
   );
-  const perpsDepositMaxTraceContextRef = useRef<IPerpDepositMaxTraceParams>({
-    runtime: 'main',
-    phase: 'amountStateChanged',
-    selectedAction,
-    amount,
-    depositInputUnit,
-  });
-  perpsDepositMaxTraceContextRef.current = {
-    runtime: 'main',
-    phase: 'amountStateChanged',
-    selectedAction,
-    amount,
-    depositInputUnit,
-    currentTokenIdentity: currentDepositTokenIdentity,
-    currentToken: getPerpsDepositTraceToken(currentPerpsDepositSelectedToken),
-    depositTokenListRevision,
-  };
-  const logPerpsDepositMaxTrace = useCallback(
-    (traceParams: Omit<IPerpDepositMaxTraceParams, 'runtime'>) => {
-      defaultLogger.perp.deposit.perpDepositMaxTrace({
-        ...perpsDepositMaxTraceContextRef.current,
-        ...traceParams,
-      });
-    },
-    [],
-  );
-  const previousAmountRef = useRef(amount);
 
   const [depositTokensWithPrice, setDepositTokensWithPrice] = useState<
     IPerpsDepositToken[]
@@ -533,20 +455,11 @@ function DepositWithdrawContent({
       depositTokens,
       requestKey,
       preserveCurrentOrder,
-      source,
     }: {
       depositTokens: IPerpsDepositToken[];
       requestKey: string;
       preserveCurrentOrder?: boolean;
-      source: NonNullable<IPerpDepositMaxTraceParams['balanceSyncSource']>;
     }) => {
-      logPerpsDepositMaxTrace({
-        phase: 'balanceSyncStart',
-        balanceSyncSource: source,
-        preserveCurrentOrder: Boolean(preserveCurrentOrder),
-        syncTokenCount: depositTokens.length,
-        displayedTokenCount: depositTokensWithPriceRef.current.length,
-      });
       const tokensToSync = preserveCurrentOrder
         ? mergePerpsDepositTokensPreservingOrder({
             currentTokens: depositTokensWithPriceRef.current,
@@ -570,32 +483,14 @@ function DepositWithdrawContent({
         )
       ).filter((item): item is ISwapNativeTokenConfig => Boolean(item));
       if (depositTokenRequestKeyRef.current !== requestKey) {
-        logPerpsDepositMaxTrace({
-          phase: 'balanceSyncIgnored',
-          balanceSyncSource: source,
-          preserveCurrentOrder: Boolean(preserveCurrentOrder),
-          requestKeyMatched: false,
-          syncTokenCount: depositTokens.length,
-          displayedTokenCount: depositTokensWithPriceRef.current.length,
-          nativeTokenConfigCount: nativeTokenConfigsRes.length,
-        });
         return false;
       }
       setNativeTokenConfigs(nativeTokenConfigsRes);
       setDepositTokensWithPrice(tokensToSync);
       setHasLoadedDepositTokenBalances(true);
-      logPerpsDepositMaxTrace({
-        phase: 'balanceSyncDone',
-        balanceSyncSource: source,
-        preserveCurrentOrder: Boolean(preserveCurrentOrder),
-        requestKeyMatched: true,
-        syncTokenCount: tokensToSync.length,
-        displayedTokenCount: depositTokensWithPriceRef.current.length,
-        nativeTokenConfigCount: nativeTokenConfigsRes.length,
-      });
       return true;
     },
-    [logPerpsDepositMaxTrace],
+    [],
   );
 
   const { result, isLoading: balanceLoading } = usePromiseResult(
@@ -606,21 +501,11 @@ function DepositWithdrawContent({
         !selectedAccount.accountAddress ||
         !checkAccountSupport
       ) {
-        logPerpsDepositMaxTrace({
-          phase: 'initialTokenFetchSkipped',
-          balanceSyncSource: 'initialFetch',
-          checkAccountSupport,
-        });
         depositTokenListOwnerKeyRef.current = undefined;
         setHasLoadedDepositTokenBalances(true);
         return [];
       }
       try {
-        logPerpsDepositMaxTrace({
-          phase: 'initialTokenFetchStart',
-          balanceSyncSource: 'initialFetch',
-          cachedTokenCount: depositTokensWithPriceRef.current.length,
-        });
         const {
           isStale,
           ownerKey,
@@ -632,13 +517,6 @@ function DepositWithdrawContent({
           },
         );
         if (isStale || depositTokenRequestKeyRef.current !== requestKey) {
-          logPerpsDepositMaxTrace({
-            phase: 'initialTokenFetchIgnored',
-            balanceSyncSource: 'initialFetch',
-            isStale,
-            requestKeyMatched: depositTokenRequestKeyRef.current === requestKey,
-            resultTokenCount: depositTokens.length,
-          });
           return [];
         }
         depositTokenListOwnerKeyRef.current = ownerKey;
@@ -646,27 +524,15 @@ function DepositWithdrawContent({
           depositTokens,
           requestKey,
           preserveCurrentOrder: depositTokensWithPriceRef.current.length > 0,
-          source: 'initialFetch',
         });
         if (!didSync) {
           return [];
         }
-        logPerpsDepositMaxTrace({
-          phase: 'initialTokenFetchDone',
-          balanceSyncSource: 'initialFetch',
-          resultTokenCount: depositTokens.length,
-          ownerKeyMatched: true,
-        });
         return depositTokens;
       } catch (error) {
         if (depositTokenRequestKeyRef.current !== requestKey) {
           return [];
         }
-        logPerpsDepositMaxTrace({
-          phase: 'initialTokenFetchError',
-          balanceSyncSource: 'initialFetch',
-          errorMessage: getPerpsDepositTraceErrorMessage(error),
-        });
         console.error(
           '[DepositWithdrawModal] Failed to fetch tokens balance:',
           error,
@@ -686,7 +552,6 @@ function DepositWithdrawContent({
       selectedAccount.indexedAccountId,
       depositTokenRequestKey,
       checkAccountSupport,
-      logPerpsDepositMaxTrace,
       setPerpsDepositTokensAtom,
       syncDepositTokenBalances,
     ],
@@ -704,20 +569,10 @@ function DepositWithdrawContent({
       !selectedAccount.accountAddress ||
       !checkAccountSupport
     ) {
-      logPerpsDepositMaxTrace({
-        phase: 'silentTokenRefreshSkipped',
-        balanceSyncSource: 'silentRefresh',
-        checkAccountSupport,
-      });
       return;
     }
 
     try {
-      logPerpsDepositMaxTrace({
-        phase: 'silentTokenRefreshStart',
-        balanceSyncSource: 'silentRefresh',
-        cachedTokenCount: depositTokensWithPriceRef.current.length,
-      });
       const {
         isStale,
         ownerKey,
@@ -730,13 +585,6 @@ function DepositWithdrawContent({
         },
       );
       if (isStale || depositTokenRequestKeyRef.current !== requestKey) {
-        logPerpsDepositMaxTrace({
-          phase: 'silentTokenRefreshIgnored',
-          balanceSyncSource: 'silentRefresh',
-          isStale,
-          requestKeyMatched: depositTokenRequestKeyRef.current === requestKey,
-          resultTokenCount: depositTokens.length,
-        });
         return;
       }
       depositTokenListOwnerKeyRef.current = ownerKey;
@@ -744,23 +592,11 @@ function DepositWithdrawContent({
         depositTokens,
         requestKey,
         preserveCurrentOrder: true,
-        source: 'silentRefresh',
-      });
-      logPerpsDepositMaxTrace({
-        phase: 'silentTokenRefreshDone',
-        balanceSyncSource: 'silentRefresh',
-        resultTokenCount: depositTokens.length,
-        ownerKeyMatched: true,
       });
     } catch (error) {
       if (depositTokenRequestKeyRef.current !== requestKey) {
         return;
       }
-      logPerpsDepositMaxTrace({
-        phase: 'silentTokenRefreshError',
-        balanceSyncSource: 'silentRefresh',
-        errorMessage: getPerpsDepositTraceErrorMessage(error),
-      });
       console.error(
         '[DepositWithdrawModal] Failed to silently refresh tokens balance:',
         error,
@@ -772,7 +608,6 @@ function DepositWithdrawContent({
     selectedAccount.indexedAccountId,
     depositTokenRequestKey,
     checkAccountSupport,
-    logPerpsDepositMaxTrace,
     syncDepositTokenBalances,
   ]);
 
@@ -792,7 +627,6 @@ function DepositWithdrawContent({
       depositTokens: cachedDepositTokens,
       requestKey: depositTokenRequestKeyRef.current,
       preserveCurrentOrder: depositTokensWithPriceRef.current.length > 0,
-      source: 'revisionSync',
     });
   }, [
     cachedDepositTokens,
@@ -846,17 +680,11 @@ function DepositWithdrawContent({
       currentDepositTokenIdentity &&
       previousTokenIdentity !== currentDepositTokenIdentity
     ) {
-      logPerpsDepositMaxTrace({
-        phase: 'tokenIdentityResetAmount',
-        previousTokenIdentity,
-        nextTokenIdentity: currentDepositTokenIdentity,
-        amountBefore: perpsDepositMaxTraceContextRef.current.amount,
-      });
       setAmount('');
       setDepositInputUnit('usd');
       setShowMinAmountError(false);
     }
-  }, [currentDepositTokenIdentity, logPerpsDepositMaxTrace, selectedAction]);
+  }, [currentDepositTokenIdentity, selectedAction]);
 
   useEffect(() => {
     if (result) {
@@ -867,17 +695,6 @@ function DepositWithdrawContent({
         defaultTokens,
       });
       if (selectedToken) {
-        const sameToken = equalTokenNoCaseSensitive({
-          token1: previousToken,
-          token2: selectedToken,
-        });
-        logPerpsDepositMaxTrace({
-          phase: sameToken ? 'selectedTokenRefreshed' : 'selectedTokenChanged',
-          resultTokenCount: result.length,
-          sameToken,
-          previousToken: getPerpsDepositTraceToken(previousToken),
-          selectedToken: getPerpsDepositTraceToken(selectedToken),
-        });
         setPerpsDepositTokensAtom((prev) => {
           const currentToken = prev.currentPerpsDepositSelectedToken;
           if (
@@ -916,12 +733,7 @@ function DepositWithdrawContent({
         });
       }
     }
-  }, [
-    defaultTokens,
-    logPerpsDepositMaxTrace,
-    result,
-    setPerpsDepositTokensAtom,
-  ]);
+  }, [defaultTokens, result, setPerpsDepositTokensAtom]);
 
   const availableBalance = useMemo(() => {
     const rawBalance =
@@ -1355,24 +1167,6 @@ function DepositWithdrawContent({
       decimals: number;
       price?: string;
     }) => {
-      logPerpsDepositMaxTrace({
-        phase: 'maxPress',
-        hasTokenParams: Boolean(tokenParams),
-        checkAccountSupport,
-        isSubmitting,
-        isNativeAmountKeypad: shouldUseNativeAmountKeypad,
-        availableBalance: availableBalance.balance,
-        maxButtonToken: tokenParams
-          ? getPerpsDepositTraceToken({
-              networkId: tokenParams.networkId,
-              symbol: tokenParams.symbol,
-              decimals: tokenParams.decimals,
-              isNative: tokenParams.isNative,
-              balanceParsed: tokenParams.amount,
-              price: tokenParams.price,
-            })
-          : undefined,
-      });
       if (tokenParams && selectedAction === 'deposit') {
         const maxAmount = checkNativeTokenGasToast(
           tokenParams.isNative,
@@ -1392,36 +1186,19 @@ function DepositWithdrawContent({
             .decimalPlaces(2, BigNumber.ROUND_DOWN);
           nextAmount = usdVal.toFixed();
         }
-        logPerpsDepositMaxTrace({
-          phase: 'maxSetAmount',
-          hasTokenParams: true,
-          amountAfter: nextAmount,
-          maxTokenAmount,
-          price: priceBN.isNaN() ? undefined : priceBN.toFixed(),
-        });
         setAmount(nextAmount);
         return;
       }
       if (availableBalance) {
         const nextAmount = availableBalance.balance || '0';
-        logPerpsDepositMaxTrace({
-          phase: 'maxSetAmount',
-          hasTokenParams: false,
-          amountAfter: nextAmount,
-          availableBalance: availableBalance.balance,
-        });
         setAmount(nextAmount);
       }
     },
     [
       availableBalance,
       checkNativeTokenGasToast,
-      checkAccountSupport,
-      isSubmitting,
-      logPerpsDepositMaxTrace,
       selectedAction,
       depositInputUnit,
-      shouldUseNativeAmountKeypad,
       tokenPriceBN,
     ],
   );
@@ -1668,32 +1445,6 @@ function DepositWithdrawContent({
     return errorMessage;
   }, [errorMessage, intl, isInsufficientBalance]);
 
-  useEffect(() => {
-    const previousAmount = previousAmountRef.current;
-    if (previousAmount === amount) {
-      return;
-    }
-    logPerpsDepositMaxTrace({
-      phase: 'amountStateChanged',
-      amountBefore: previousAmount,
-      amountAfter: amount,
-      tokenAmount,
-      isDepositQuoteLoading,
-      isDepositQuotePendingDebounce,
-      isValidAmount,
-      isInsufficientBalance,
-    });
-    previousAmountRef.current = amount;
-  }, [
-    amount,
-    isDepositQuoteLoading,
-    isDepositQuotePendingDebounce,
-    isInsufficientBalance,
-    isValidAmount,
-    logPerpsDepositMaxTrace,
-    tokenAmount,
-  ]);
-
   const accountTypeInfo = useMemo(() => {
     const isHwWallet = accountUtils.isHwAccount({
       accountId: selectedAccount.accountId ?? '',
@@ -1809,11 +1560,6 @@ function DepositWithdrawContent({
           tokens: depositTokensWithPrice,
           defaultTokens,
         }) ?? fallbackSelectedDepositToken;
-      logPerpsDepositMaxTrace({
-        phase: 'fallbackSelectedTokenApplied',
-        resultTokenCount: depositTokensWithPrice.length,
-        selectedToken: getPerpsDepositTraceToken(selectedToken),
-      });
       setPerpsDepositTokensAtom((prev) => {
         if (prev.currentPerpsDepositSelectedToken) {
           return prev;
@@ -1831,7 +1577,6 @@ function DepositWithdrawContent({
     currentPerpsDepositSelectedToken,
     setPerpsDepositTokensAtom,
     checkAccountSupport,
-    logPerpsDepositMaxTrace,
   ]);
 
   const currentNetworkInfo = useMemo(() => {

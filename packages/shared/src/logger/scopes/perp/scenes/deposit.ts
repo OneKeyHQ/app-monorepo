@@ -3,7 +3,6 @@ import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 import type {
   IPerpDepositInitiateParams,
-  IPerpDepositMaxTraceParams,
   IPerpUserSelectDepositTokenParams,
 } from '../type';
 
@@ -31,10 +30,5 @@ export class PerpDepositScene extends BaseScene {
     const { userAddress, ...rest } = params;
     void userAddress;
     return rest;
-  }
-
-  @LogToLocal({ level: 'info' })
-  public perpDepositMaxTrace(params: IPerpDepositMaxTraceParams) {
-    return params;
   }
 }

@@ -16,7 +16,6 @@ import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import thirdpartyLocaleConverter from '@onekeyhq/shared/src/locale/thirdpartyLocaleConverter';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale/type';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -64,34 +63,6 @@ import type {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function getPerpsDepositTraceTokenIdentity(token?: {
-  networkId?: string;
-  contractAddress?: string;
-  symbol?: string;
-}) {
-  if (!token) {
-    return undefined;
-  }
-  return `${token.networkId ?? ''}::${token.contractAddress ?? token.symbol ?? ''}`;
-}
-
-function getPerpsDepositTraceToken(token?: IPerpsDepositToken) {
-  if (!token) {
-    return undefined;
-  }
-  return {
-    identity: getPerpsDepositTraceTokenIdentity(token),
-    networkId: token.networkId,
-    symbol: token.symbol,
-    contractAddress: token.contractAddress,
-    decimals: token.decimals,
-    isNative: token.isNative,
-    balanceParsed: token.balanceParsed,
-    fiatValue: token.fiatValue,
-    price: token.price,
-  };
 }
 
 export interface IHyperliquidClearinghouseState {
@@ -650,26 +621,16 @@ class ServiceWebviewPerp extends ServiceBase {
     },
   ) {
     let selectedToken: IPerpsDepositToken | undefined;
-    let previousToken: IPerpsDepositToken | undefined;
-    let nextDepositTokenListRevision: number | undefined;
     let isStale = false;
 
     if (
       options &&
       !this.isPerpsDepositTokenListWriteGenerationCurrent(options)
     ) {
-      defaultLogger.perp.deposit.perpDepositMaxTrace({
-        runtime: 'bg',
-        phase: 'backgroundTokenAtomWriteGenerationStale',
-        balanceSyncSource: 'backgroundRefresh',
-        isStale: true,
-        resultTokenCount: tokens.length,
-      });
       return { selectedToken, isStale: true };
     }
 
     await perpsDepositTokensAtom.set((prev) => {
-      previousToken = prev.currentPerpsDepositSelectedToken;
       if (prev.depositTokenListOwnerKey !== ownerKey) {
         isStale = true;
         return prev;
@@ -679,27 +640,14 @@ class ServiceWebviewPerp extends ServiceBase {
         currentToken: prev.currentPerpsDepositSelectedToken,
         defaultTokens: prev.defaultTokens,
       });
-      nextDepositTokenListRevision = (prev.depositTokenListRevision ?? 0) + 1;
       return {
         ...prev,
         tokens: tokensByNetwork,
         currentPerpsDepositSelectedToken: selectedToken,
         depositTokenListOwnerKey: ownerKey,
-        depositTokenListRevision: nextDepositTokenListRevision,
+        depositTokenListRevision: (prev.depositTokenListRevision ?? 0) + 1,
         depositTokenListSource: 'walletBalance',
       };
-    });
-
-    defaultLogger.perp.deposit.perpDepositMaxTrace({
-      runtime: 'bg',
-      phase: isStale ? 'backgroundTokenAtomStale' : 'backgroundTokenAtomUpdate',
-      balanceSyncSource: 'backgroundRefresh',
-      ownerKeyMatched: !isStale,
-      isStale,
-      resultTokenCount: tokens.length,
-      previousToken: getPerpsDepositTraceToken(previousToken),
-      selectedToken: getPerpsDepositTraceToken(selectedToken),
-      nextDepositTokenListRevision,
     });
 
     return { selectedToken, isStale };
