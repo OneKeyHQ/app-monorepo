@@ -1,4 +1,21 @@
-import { getMarketMobileSecondaryHeaderHeight } from './mobileLayoutUtils';
+import {
+  getMarketEmptyWatchlistContainerProps,
+  getMarketMobileSecondaryHeaderHeight,
+} from './mobileLayoutUtils';
+
+describe('getMarketEmptyWatchlistContainerProps', () => {
+  it('uses normal-flow padding on Android', () => {
+    expect(
+      getMarketEmptyWatchlistContainerProps({ isNativeAndroid: true }),
+    ).toEqual({ paddingTop: '$8' });
+  });
+
+  it('preserves the negative offset outside Android', () => {
+    expect(
+      getMarketEmptyWatchlistContainerProps({ isNativeAndroid: false }),
+    ).toEqual({ y: -25 });
+  });
+});
 
 describe('getMarketMobileSecondaryHeaderHeight', () => {
   it('collapses the Android secondary header for an empty watchlist', () => {
