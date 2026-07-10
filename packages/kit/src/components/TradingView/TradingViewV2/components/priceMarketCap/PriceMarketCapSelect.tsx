@@ -18,11 +18,13 @@ type IPriceMarketCapConfig = NonNullable<
 export function PriceMarketCapSelect({
   priceMarketCap,
   onPriceMarketCapModeChange,
+  onControlInteraction,
 }: {
   priceMarketCap: IPriceMarketCapConfig;
   onPriceMarketCapModeChange: (
     mode: IPriceMarketCapConfig['activeMode'],
   ) => void;
+  onControlInteraction?: () => void;
 }) {
   const intl = useIntl();
   const items = useMemo(
@@ -67,7 +69,10 @@ export function PriceMarketCapSelect({
           pressStyle={{ bg: '$bgActive' }}
           cursor={disabled ? 'not-allowed' : 'pointer'}
           userSelect="none"
-          onPress={onPress}
+          onPress={(event) => {
+            onControlInteraction?.();
+            onPress?.(event);
+          }}
         >
           <SizableText
             size="$bodyMdMedium"
