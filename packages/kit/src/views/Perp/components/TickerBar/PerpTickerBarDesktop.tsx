@@ -61,6 +61,12 @@ const TICKER_BAR_STAT_VALUE_TEXT_PROPS = {
 
 const TICKER_BAR_STAT_LABEL_VALUE_GAP = 5;
 const TICKER_BAR_STAT_DASH_LABEL_VALUE_GAP = 4;
+const TICKER_BAR_PRICE_SECTION_WIDTH = 90;
+const TICKER_BAR_WIDE_PRICE_SECTION_WIDTH = 120;
+const TICKER_BAR_SPOT_PRICE_SECTION_WIDTH = 168;
+const TICKER_BAR_WIDE_MARK_PRICE_LENGTH = 8;
+const TICKER_BAR_WIDE_CHANGE_DISPLAY_LENGTH = 15;
+
 function isValidPerpFormattedCtx(
   ctx: ReturnType<typeof formatAssetCtx> | undefined,
 ) {
@@ -129,6 +135,27 @@ function useTickerBarPerpAssetCtx() {
   return resolved.assetCtx;
 }
 
+function formatTickerBarChange24hDisplay({
+  change24h,
+  change24hPercent,
+}: {
+  change24h?: string;
+  change24hPercent?: string | number;
+}) {
+  const changeValue = change24h || '0';
+  const signedChangeValue =
+    changeValue.startsWith('-') || changeValue === '0'
+      ? changeValue
+      : `+${changeValue}`;
+  const percentText = numberFormat(String(change24hPercent || 0), {
+    formatter: 'priceChange',
+    formatterOptions: {
+      showPlusMinusSigns: true,
+    },
+  });
+  return `${signedChangeValue} (${percentText})`;
+}
+
 function useTickerBarIsLoading() {
   const { currentToken } = usePerpSession();
   const [tradingMode] = useTradingModeAtom();
@@ -179,6 +206,7 @@ const TickerBarMarkPriceView = memo(
                 fontWeight="500"
                 cursor="help"
                 lineHeight={20}
+                numberOfLines={1}
               >
                 {formattedMarkPrice}
               </SizableText>
@@ -245,10 +273,11 @@ const TickerBarChange24hView = memo(
         <SizableText
           size="$bodyXs"
           textTransform="none"
-          fontWeight="500"
+          fontWeight="600"
           letterSpacing={0.2}
           lineHeight={12}
           color={changeDisplay.trim().startsWith('-') ? '$red11' : '$green11'}
+          numberOfLines={1}
         >
           {changeDisplay}
         </SizableText>
@@ -264,21 +293,10 @@ export function TickerBarChange24h() {
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const displayCtx = tradingMode === 'spot' ? spotAssetCtx?.ctx : assetCtx?.ctx;
   const changeDisplay = useMemo(() => {
-    const changeValue = displayCtx?.change24h || '0';
-    const signedChangeValue =
-      changeValue.startsWith('-') || changeValue === '0'
-        ? changeValue
-        : `+${changeValue}`;
-    const percentText = numberFormat(
-      String(displayCtx?.change24hPercent || 0),
-      {
-        formatter: 'priceChange',
-        formatterOptions: {
-          showPlusMinusSigns: true,
-        },
-      },
-    );
-    return `${signedChangeValue} (${percentText})`;
+    return formatTickerBarChange24hDisplay({
+      change24h: displayCtx?.change24h,
+      change24hPercent: displayCtx?.change24hPercent,
+    });
   }, [displayCtx?.change24h, displayCtx?.change24hPercent]);
   const isLoading = useTickerBarIsLoading();
 
@@ -871,9 +889,34 @@ function TickerBarFundingRate() {
 function PerpTickerBarDesktop() {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [tradingMode] = useTradingModeAtom();
+  const assetCtx = useTickerBarPerpAssetCtx();
   const isSpot = tradingMode === 'spot';
   const marketDataGap = useMemo(() => (isSpot ? '$6' : '$6'), [isSpot]);
-  const priceSectionWidth = useMemo(() => (isSpot ? 168 : 96), [isSpot]);
+  const priceSectionWidth = useMemo(() => {
+    if (isSpot) {
+      return TICKER_BAR_SPOT_PRICE_SECTION_WIDTH;
+    }
+
+    const formattedMarkPrice = formatLocalizedNumberString(
+      assetCtx?.ctx?.markPrice || '',
+    );
+    const changeDisplay = formatTickerBarChange24hDisplay({
+      change24h: assetCtx?.ctx?.change24h,
+      change24hPercent: assetCtx?.ctx?.change24hPercent,
+    });
+    const needsWidePriceSection =
+      formattedMarkPrice.length > TICKER_BAR_WIDE_MARK_PRICE_LENGTH ||
+      changeDisplay.length > TICKER_BAR_WIDE_CHANGE_DISPLAY_LENGTH;
+
+    return needsWidePriceSection
+      ? TICKER_BAR_WIDE_PRICE_SECTION_WIDTH
+      : TICKER_BAR_PRICE_SECTION_WIDTH;
+  }, [
+    assetCtx?.ctx?.change24h,
+    assetCtx?.ctx?.change24hPercent,
+    assetCtx?.ctx?.markPrice,
+    isSpot,
+  ]);
   const content = (
     <XStack
       bg="$bgApp"
