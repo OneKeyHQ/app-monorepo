@@ -2679,10 +2679,16 @@ class ServiceHistory extends ServiceBase {
             txid,
             xpub,
             accountAddress,
-            ...(await this.buildFetchHistoryListParams({
-              ...params,
-              accountAddress: accountAddress || '',
-            })),
+            // skip account-scoped vault extras when the address lookup
+            // failed: the server rejects `accountAddressArray` without an
+            // accompanying `accountAddress`, and other vault extras (e.g.
+            // lightning auth) are equally meaningless with an empty address.
+            ...(accountAddress
+              ? await this.buildFetchHistoryListParams({
+                  ...params,
+                  accountAddress,
+                })
+              : {}),
           };
       const vault = await vaultFactory.getVault({ networkId, accountId });
       const resp = await vault.fetchAccountHistoryDetail(requestParams);
