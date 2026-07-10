@@ -67,6 +67,7 @@ import {
   resolveProtocolLendingRepayAmountState,
   resolveProtocolLendingRepayDebtState,
   resolveProtocolLendingWithdrawAmountState,
+  shouldShowProtocolLendingHealthFactorSkeleton,
 } from './protocolLendingActionUtils';
 import {
   type IProtocolPositionActionSuccessParams,
@@ -1290,6 +1291,17 @@ function ProtocolLendingActionBorrowContent({
     }
   };
 
+  const isActionRequestDisabled =
+    !accountId ||
+    !networkId ||
+    !source.provider ||
+    !source.marketAddress ||
+    !reserveAddress ||
+    isBorrowDataLoading ||
+    isRepayWalletBalancePending ||
+    hasBorrowLoadError ||
+    isAmountInsufficient;
+
   const actionResult = useUniversalBorrowAction({
     action: actionType,
     accountId,
@@ -1298,11 +1310,7 @@ function ProtocolLendingActionBorrowContent({
     marketAddress: source.marketAddress,
     reserveAddress,
     amount,
-    isDisabled:
-      isBorrowDataLoading ||
-      isRepayWalletBalancePending ||
-      hasBorrowLoadError ||
-      isAmountInsufficient,
+    isDisabled: isActionRequestDisabled,
     repayAll: actionType === 'repay' ? isFullClose : undefined,
   });
 
@@ -1619,7 +1627,12 @@ function ProtocolLendingActionBorrowContent({
     actionResult.checkAmountResult === false ||
     actionResult.checkAmountLoading;
   const shouldShowHealthFactorSkeleton =
-    !healthFactor && isAmountPositive && !actionResult.transactionConfirmation;
+    shouldShowProtocolLendingHealthFactorSkeleton({
+      hasHealthFactor: Boolean(healthFactor),
+      hasTransactionConfirmation: Boolean(actionResult.transactionConfirmation),
+      isAmountPositive,
+      isActionRequestDisabled,
+    });
   // Belt-and-suspenders: a selectable Aave entry whose asset fetch AND protocol
   // info both come back empty falls back to the empty state instead of crashing.
   const isEmpty =

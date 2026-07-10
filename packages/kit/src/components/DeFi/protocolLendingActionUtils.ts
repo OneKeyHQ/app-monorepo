@@ -225,6 +225,25 @@ export function resolveProtocolLendingBalanceContext({
   };
 }
 
+export function shouldShowProtocolLendingHealthFactorSkeleton({
+  hasHealthFactor,
+  hasTransactionConfirmation,
+  isAmountPositive,
+  isActionRequestDisabled,
+}: {
+  hasHealthFactor: boolean;
+  hasTransactionConfirmation: boolean;
+  isAmountPositive: boolean;
+  isActionRequestDisabled: boolean;
+}) {
+  return (
+    !hasHealthFactor &&
+    !hasTransactionConfirmation &&
+    isAmountPositive &&
+    !isActionRequestDisabled
+  );
+}
+
 // The server's /earn/v1/borrow/markets list is the per-environment source of
 // truth for which (provider, network, market) combos the borrow stack
 // supports. Fail-closed by design: no markets (still loading, fetch failed,

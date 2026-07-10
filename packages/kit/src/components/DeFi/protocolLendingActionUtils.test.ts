@@ -6,6 +6,7 @@ import {
   resolveProtocolLendingRepayAmountState,
   resolveProtocolLendingRepayDebtState,
   resolveProtocolLendingWithdrawAmountState,
+  shouldShowProtocolLendingHealthFactorSkeleton,
 } from './protocolLendingActionUtils';
 
 describe('protocolLendingActionUtils', () => {
@@ -233,6 +234,39 @@ describe('protocolLendingActionUtils', () => {
       primaryLabel: 'available',
       secondaryWalletBalance: '2',
     });
+  });
+
+  it('shows a health-factor skeleton while a valid positive amount is pending', () => {
+    expect(
+      shouldShowProtocolLendingHealthFactorSkeleton({
+        hasHealthFactor: false,
+        hasTransactionConfirmation: false,
+        isAmountPositive: true,
+        isActionRequestDisabled: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not show a health-factor skeleton when the action request is disabled', () => {
+    expect(
+      shouldShowProtocolLendingHealthFactorSkeleton({
+        hasHealthFactor: false,
+        hasTransactionConfirmation: false,
+        isAmountPositive: true,
+        isActionRequestDisabled: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not show a health-factor skeleton after confirmation resolves', () => {
+    expect(
+      shouldShowProtocolLendingHealthFactorSkeleton({
+        hasHealthFactor: false,
+        hasTransactionConfirmation: true,
+        isAmountPositive: true,
+        isActionRequestDisabled: false,
+      }),
+    ).toBe(false);
   });
 });
 
