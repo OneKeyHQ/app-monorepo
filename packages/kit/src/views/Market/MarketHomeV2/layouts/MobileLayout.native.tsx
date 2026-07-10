@@ -40,7 +40,10 @@ import {
   getMarketStockCategoryRequestParam,
 } from './marketStockCategoryUtils';
 import { shouldIgnoreProgrammaticSettlingTab } from './marketTabChangeGuards';
-import { getMarketMobileSecondaryHeaderHeight } from './mobileLayoutUtils';
+import {
+  MARKET_MOBILE_COLUMN_HEADER_HEIGHT,
+  getMarketMobileSecondaryHeaderHeight,
+} from './mobileLayoutUtils';
 
 import type {
   ILiquidityFilter,
@@ -133,6 +136,10 @@ function MarketHomeTabBar({
     ) &&
     ctx.stockCategories.length > 0,
   );
+  const hasSpotSecondaryControls =
+    showSpotFilterBar || showStockCategorySelector;
+  const showCompactSpotSubHeader =
+    showSpotSubHeader && !hasSpotSecondaryControls;
   const showPerpsSubHeader = currentFocusedTabName === perpsTabName;
 
   const renderWatchlistSubHeaderContent = useCallback(
@@ -227,8 +234,8 @@ function MarketHomeTabBar({
   );
 
   return (
-    <YStack bg="$bgApp">
-      <YStack>
+    <YStack pointerEvents="box-none">
+      <YStack bg="$bgApp">
         <Tabs.TabBar
           {...tabBarProps}
           directTabPressAnimation
@@ -238,6 +245,7 @@ function MarketHomeTabBar({
       <YStack
         height={getMarketMobileSecondaryHeaderHeight()}
         overflow={platformEnv.isNativeAndroid ? 'hidden' : undefined}
+        pointerEvents="box-none"
         position="relative"
       >
         <YStack
@@ -250,6 +258,7 @@ function MarketHomeTabBar({
               : 'absolute'
           }
           height="100%"
+          bg="$bgApp"
           justifyContent="flex-end"
           top={0}
           left={0}
@@ -261,7 +270,12 @@ function MarketHomeTabBar({
         <YStack
           display={showSpotSubHeader ? 'flex' : 'none'}
           position={showSpotSubHeader ? 'relative' : 'absolute'}
-          height="100%"
+          height={
+            showCompactSpotSubHeader
+              ? MARKET_MOBILE_COLUMN_HEADER_HEIGHT
+              : '100%'
+          }
+          bg="$bgApp"
           justifyContent="flex-end"
           top={0}
           left={0}
@@ -275,6 +289,7 @@ function MarketHomeTabBar({
           display={showPerpsSubHeader ? 'flex' : 'none'}
           position={showPerpsSubHeader ? 'relative' : 'absolute'}
           height="100%"
+          bg="$bgApp"
           justifyContent="flex-end"
           top={0}
           left={0}
@@ -510,6 +525,9 @@ function MobileLayoutComponent({
   const containerProps = useMemo(
     () => ({
       allowHeaderOverscroll: true,
+      headerContainerStyle: {
+        backgroundColor: 'transparent',
+      },
       // NOTE: renderHeader must never return a 0-height tree after it had
       // a positive height, because react-native-collapsible-tab-view's
       // useLayoutHeight guard ignores 0-height re-layouts once a positive
@@ -780,26 +798,34 @@ function MobileLayoutComponent({
         shouldSuppressItemPress={shouldSuppressItemPress}
       />
     </Tabs.Tab>,
-    ...spotTabItems.map((item) => (
-      <Tabs.Tab key={item.categoryId} name={item.tabName}>
-        <MobileMarketTokenFlatList
-          networkId={selectedNetworkId}
-          selectedCategory={item.categoryId}
-          stockCategory={
-            isMarketStockCategoryById(
-              filterBarProps.categories,
-              item.categoryId,
-            )
-              ? getMarketStockCategoryRequestParam(selectedStockCategoryId)
-              : undefined
-          }
-          timeRange={filterBarProps.timeRange}
-          listContainerProps={listContainerProps}
-          onStockDataChange={handleStockDataChange}
-          shouldSuppressItemPress={shouldSuppressItemPress}
-        />
-      </Tabs.Tab>
-    )),
+    ...spotTabItems.map((item) => {
+      const isStockCategory = isMarketStockCategoryById(
+        filterBarProps.categories,
+        item.categoryId,
+      );
+      const hasCompactHeader =
+        (isStockCategory || Boolean(stockDataCategoryMap[item.categoryId])) &&
+        !(isStockCategory && stockCategories.length > 0);
+
+      return (
+        <Tabs.Tab key={item.categoryId} name={item.tabName}>
+          <MobileMarketTokenFlatList
+            networkId={selectedNetworkId}
+            selectedCategory={item.categoryId}
+            stockCategory={
+              isStockCategory
+                ? getMarketStockCategoryRequestParam(selectedStockCategoryId)
+                : undefined
+            }
+            timeRange={filterBarProps.timeRange}
+            hasCompactHeader={hasCompactHeader}
+            listContainerProps={listContainerProps}
+            onStockDataChange={handleStockDataChange}
+            shouldSuppressItemPress={shouldSuppressItemPress}
+          />
+        </Tabs.Tab>
+      );
+    }),
     ...(showPerpsTab
       ? [
           <Tabs.Tab key={perpsTabName} name={perpsTabName}>

@@ -1,17 +1,19 @@
 import {
   getMarketEmptyWatchlistContainerProps,
   getMarketMobileSecondaryHeaderHeight,
+  getMarketNativeCompactListStyle,
+  getMarketRecommendContainerPaddingTop,
   getMarketWebSecondaryHeaderHeight,
 } from './mobileLayoutUtils';
 
 describe('getMarketEmptyWatchlistContainerProps', () => {
-  it('uses normal-flow padding on Android', () => {
+  it('keeps a 16px visual gap below the stable header on Android', () => {
     expect(
       getMarketEmptyWatchlistContainerProps({
         isNativeAndroid: true,
         isWeb: false,
       }),
-    ).toEqual({ paddingTop: '$8' });
+    ).toEqual({ y: -58 });
   });
 
   it('uses the recommendation list intrinsic spacing on mobile Web', () => {
@@ -23,13 +25,45 @@ describe('getMarketEmptyWatchlistContainerProps', () => {
     ).toEqual({});
   });
 
-  it('preserves the existing offset on iOS', () => {
+  it('keeps a 16px visual gap below the stable header on iOS', () => {
     expect(
       getMarketEmptyWatchlistContainerProps({
         isNativeAndroid: false,
         isWeb: false,
       }),
-    ).toEqual({ y: -25 });
+    ).toEqual({ y: -58 });
+  });
+});
+
+describe('getMarketNativeCompactListStyle', () => {
+  it('visually reclaims the unused space without overriding list padding', () => {
+    expect(getMarketNativeCompactListStyle(true)).toEqual({
+      transform: [{ translateY: -42 }],
+    });
+  });
+
+  it('does not transform tabs that render secondary controls', () => {
+    expect(getMarketNativeCompactListStyle(false)).toEqual({});
+  });
+});
+
+describe('getMarketRecommendContainerPaddingTop', () => {
+  it('does not add viewport-based padding on native', () => {
+    expect(
+      getMarketRecommendContainerPaddingTop({
+        isNative: true,
+        windowHeight: 874,
+      }),
+    ).toBe(0);
+  });
+
+  it('preserves viewport-based padding outside native', () => {
+    expect(
+      getMarketRecommendContainerPaddingTop({
+        isNative: false,
+        windowHeight: 874,
+      }),
+    ).toBe(37);
   });
 });
 
