@@ -1321,7 +1321,7 @@ function PerpsMetric({
       $gtMd={{ flexGrow: columnGtMdFlexGrow }}
     >
       <XStack width="100%" justifyContent={alignItems}>
-        <YStack gap="$1" alignItems={alignItems}>
+        <YStack width="100%" minWidth={0} gap="$1" alignItems={alignItems}>
           <XStack alignItems="center" gap="$1">
             <SizableText
               size="$bodySm"
@@ -1340,7 +1340,9 @@ function PerpsMetric({
               $gtMd={{ size: valueGtMdSize }}
               formatter={formatter}
               formatterOptions={formatterOptions}
-              numberOfLines={1}
+              flexShrink={1}
+              minWidth={0}
+              numberOfLines={platformEnv.isNative ? 1 : 2}
               adjustsFontSizeToFit
               minimumFontScale={0.7}
               contentStyle={{ color: valueColor }}
@@ -1354,7 +1356,9 @@ function PerpsMetric({
               size={valueSize}
               color={valueColor}
               $gtMd={{ size: valueGtMdSize }}
-              numberOfLines={1}
+              flexShrink={1}
+              minWidth={0}
+              numberOfLines={platformEnv.isNative ? 1 : 2}
               adjustsFontSizeToFit
               minimumFontScale={0.7}
             >

@@ -20,6 +20,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatLocalizedNumberString,
@@ -849,7 +850,7 @@ const PositionRowMobilePnLAndROE = memo(
             color={otherInfo.pnlColor}
             flexShrink={1}
             minWidth={0}
-            numberOfLines={1}
+            numberOfLines={platformEnv.isNative ? 1 : 2}
             adjustsFontSizeToFit
             minimumFontScale={0.7}
           >
@@ -873,7 +874,7 @@ const PositionRowMobilePnLAndROE = memo(
             color={otherInfo.pnlColor}
             flexShrink={1}
             minWidth={0}
-            numberOfLines={1}
+            numberOfLines={platformEnv.isNative ? 1 : 2}
             adjustsFontSizeToFit
             minimumFontScale={0.7}
           >
@@ -931,7 +932,7 @@ const PositionRowMobilePositionSize = memo(
             size="$bodyMdMedium"
             flexShrink={1}
             minWidth={0}
-            numberOfLines={1}
+            numberOfLines={platformEnv.isNative ? 1 : 2}
             adjustsFontSizeToFit
             minimumFontScale={0.7}
           >
@@ -977,7 +978,7 @@ const PositionRowMobileMargin = memo(
             size="$bodyMdMedium"
             flexShrink={1}
             minWidth={0}
-            numberOfLines={1}
+            numberOfLines={platformEnv.isNative ? 1 : 2}
             adjustsFontSizeToFit
             minimumFontScale={0.7}
           >
@@ -1023,7 +1024,7 @@ const PositionRowMobileEntryPrice = memo(
           size="$bodyMdMedium"
           flexShrink={1}
           minWidth={0}
-          numberOfLines={1}
+          numberOfLines={platformEnv.isNative ? 1 : 2}
           adjustsFontSizeToFit
           minimumFontScale={0.7}
         >
@@ -1147,7 +1148,7 @@ const PositionRowMobileFunding = memo(
           color={otherInfo.fundingSinceOpenColor}
           flexShrink={1}
           minWidth={0}
-          numberOfLines={1}
+          numberOfLines={platformEnv.isNative ? 1 : 2}
           adjustsFontSizeToFit
           minimumFontScale={0.7}
         >
@@ -1205,7 +1206,7 @@ const PositionRowMobileTPSL = memo(({ coin }: { coin: string }) => {
         size="$bodyMdMedium"
         flexShrink={1}
         minWidth={0}
-        numberOfLines={1}
+        numberOfLines={platformEnv.isNative ? 1 : 2}
         adjustsFontSizeToFit
         minimumFontScale={0.7}
       >
@@ -1241,7 +1242,7 @@ const PositionRowMobileMarkPrice = memo(({ coin }: { coin: string }) => {
         size="$bodyMdMedium"
         flexShrink={1}
         minWidth={0}
-        numberOfLines={1}
+        numberOfLines={platformEnv.isNative ? 1 : 2}
         adjustsFontSizeToFit
         minimumFontScale={0.7}
       >
@@ -1273,7 +1274,7 @@ const PositionRowMobileLiqPrice = memo(
           size="$bodyMdMedium"
           flexShrink={1}
           minWidth={0}
-          numberOfLines={1}
+          numberOfLines={platformEnv.isNative ? 1 : 2}
           adjustsFontSizeToFit
           minimumFontScale={0.7}
         >
