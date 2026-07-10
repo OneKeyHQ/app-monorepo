@@ -331,6 +331,7 @@ const modal: IWalletConnectModalShared = {
     const isMountedRef = useRef(true);
     const openRequestIdRef = useRef(0);
     const isClosingProgrammaticallyRef = useRef(false);
+    const isAwaitingMobileWalletApprovalRef = useRef(false);
 
     useEffect(
       () => () => {
@@ -339,18 +340,44 @@ const modal: IWalletConnectModalShared = {
       [],
     );
 
-    useEffect(
-      () =>
-        EventsController.subscribeEvent('MODAL_CLOSE', () => {
+    useEffect(() => {
+      const unsubscribeWalletSelection = EventsController.subscribeEvent(
+        'SELECT_WALLET',
+        (event) => {
+          if (event.data.event === 'SELECT_WALLET') {
+            isAwaitingMobileWalletApprovalRef.current =
+              event.data.properties.platform === 'mobile';
+          }
+        },
+      );
+      const unsubscribeModalClose = EventsController.subscribeEvent(
+        'MODAL_CLOSE',
+        (event) => {
           openRequestIdRef.current += 1;
-          if (!isClosingProgrammaticallyRef.current) {
+          const isConnected =
+            event.data.event === 'MODAL_CLOSE' &&
+            event.data.properties.connected;
+
+          // AppKit may close after launching a mobile wallet but before the
+          // WalletConnect session is approved. The OneKey status dialog remains
+          // the explicit cancellation surface while that pairing is pending.
+          if (
+            !isClosingProgrammaticallyRef.current &&
+            !isConnected &&
+            !isAwaitingMobileWalletApprovalRef.current
+          ) {
             void backgroundApiProxy.serviceWalletConnect.abortConnectPairing({
               uri: pairingUri,
             });
           }
-        }),
-      [],
-    );
+        },
+      );
+
+      return () => {
+        unsubscribeWalletSelection();
+        unsubscribeModalClose();
+      };
+    }, []);
 
     console.log('isNativeModalOpen', isNativeModalOpen);
 
@@ -358,6 +385,7 @@ const modal: IWalletConnectModalShared = {
       useState(false);
 
     const openModal = useCallback(async ({ uri }: { uri: string }) => {
+      isAwaitingMobileWalletApprovalRef.current = false;
       const requestId = openRequestIdRef.current + 1;
       openRequestIdRef.current = requestId;
       await resetAppKit();
