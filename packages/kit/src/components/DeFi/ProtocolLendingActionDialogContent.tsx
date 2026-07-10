@@ -65,6 +65,7 @@ import {
   resolveProtocolLendingDefiFillableAmountState,
   resolveProtocolLendingRemainingDebtState,
   resolveProtocolLendingRepayAmountState,
+  resolveProtocolLendingRepayDebtState,
   resolveProtocolLendingWithdrawAmountState,
 } from './protocolLendingActionUtils';
 import {
@@ -97,6 +98,7 @@ type IProtocolLendingActionSource =
       marketAddress: string;
       reserveAddress: string;
       symbol: string;
+      debtAmount?: string;
       logoURI?: string;
       providerDisplayName?: string;
       providerLogoURI?: string;
@@ -1136,19 +1138,24 @@ function ProtocolLendingActionBorrowContent({
         : (selectedBorrowAsset.borrowed?.number ??
           selectedBorrowAsset.borrowed?.amount)) ?? '0')
     : (protocolInfo?.activeBalance ?? '0');
-  // For repay the outstanding DEBT is NOT effectiveBalance: in fixed mode
-  // effectiveBalance is the manage-page repay.balance, which is the WALLET
-  // balance. Take the debt from the same fields the manage page's full-repay
-  // uses — the selected asset's borrowed amount (dropdown) or the dedicated
-  // debtBalance (fixed), falling back to maxRepayBalance so a missing debtBalance
-  // never collapses the reference to 0 (which would zero out Max/percent).
-  const debtText = selectedBorrowAsset
+  // Fixed-mode portfolio rows already know the outstanding debt. Preserve that
+  // amount because the manage-page max can be wallet-capped and therefore is not
+  // authoritative for either the Remaining debt label or repayAll detection.
+  const selectedBorrowAssetDebt = selectedBorrowAsset
     ? (selectedBorrowAsset.borrowed?.number ??
       selectedBorrowAsset.borrowed?.amount)
-    : (protocolInfo?.debtBalance ?? protocolInfo?.maxRepayBalance);
+    : undefined;
+  const repayDebtState = resolveProtocolLendingRepayDebtState({
+    selectedBorrowAssetDebt,
+    sourceDebtAmount: source.selectable ? undefined : source.debtAmount,
+    protocolDebtBalance: protocolInfo?.debtBalance,
+    maxRepayBalance: protocolInfo?.maxRepayBalance,
+  });
   // The exit-side balance shown in the hero anchor and used as the full-close
   // target: supplied collateral for withdraw, the outstanding debt for repay.
-  const referenceBalance = isWithdraw ? effectiveBalance : (debtText ?? '0');
+  const referenceBalance = isWithdraw
+    ? effectiveBalance
+    : repayDebtState.referenceBalance;
 
   const [amount, setAmount] = useState('');
   // Withdraw with an open loan starts at 0, not Max: pulling collateral against
@@ -1247,10 +1254,7 @@ function ProtocolLendingActionBorrowContent({
   // Show the wallet balance for repay whenever it has resolved — it tells the
   // user whether they can fully close the loan and why Max may cap below the debt.
   const walletBalanceText = isWithdraw ? undefined : repayWalletBalance;
-  const repayAllTargetAmount = selectedBorrowAsset
-    ? (selectedBorrowAsset.borrowed?.number ??
-      selectedBorrowAsset.borrowed?.amount)
-    : protocolInfo?.debtBalance;
+  const repayAllTargetAmount = repayDebtState.repayAllTargetAmount;
   const repayAmountState = resolveProtocolLendingRepayAmountState({
     amount,
     referenceBalance,

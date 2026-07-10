@@ -157,6 +157,26 @@ export function resolveProtocolLendingRepayAmountState({
   };
 }
 
+export function resolveProtocolLendingRepayDebtState({
+  selectedBorrowAssetDebt,
+  sourceDebtAmount,
+  protocolDebtBalance,
+  maxRepayBalance,
+}: {
+  selectedBorrowAssetDebt?: string;
+  sourceDebtAmount?: string;
+  protocolDebtBalance?: string;
+  maxRepayBalance?: string;
+}) {
+  const repayAllTargetAmount =
+    selectedBorrowAssetDebt ?? sourceDebtAmount ?? protocolDebtBalance;
+
+  return {
+    referenceBalance: repayAllTargetAmount ?? maxRepayBalance ?? '0',
+    repayAllTargetAmount,
+  };
+}
+
 export function resolveProtocolLendingRemainingDebtState({
   amount,
   debtAmount,

@@ -2,6 +2,7 @@ import {
   findSupportedBorrowMarket,
   resolveProtocolLendingBalanceContext,
   resolveProtocolLendingDefiFillableAmountState,
+  resolveProtocolLendingRepayDebtState,
   resolveProtocolLendingRemainingDebtState,
   resolveProtocolLendingRepayAmountState,
   resolveProtocolLendingWithdrawAmountState,
@@ -98,6 +99,29 @@ describe('protocolLendingActionUtils', () => {
 
     expect(state.valueForMax).toBe('2');
     expect(state.isFullClose).toBe(false);
+  });
+
+  it('uses the row-scoped portfolio debt before a wallet-capped repay max', () => {
+    expect(
+      resolveProtocolLendingRepayDebtState({
+        sourceDebtAmount: '5',
+        maxRepayBalance: '2',
+      }),
+    ).toEqual({
+      referenceBalance: '5',
+      repayAllTargetAmount: '5',
+    });
+  });
+
+  it('keeps a wallet-capped repay max non-authoritative when debt is unknown', () => {
+    expect(
+      resolveProtocolLendingRepayDebtState({
+        maxRepayBalance: '2',
+      }),
+    ).toEqual({
+      referenceBalance: '2',
+      repayAllTargetAmount: undefined,
+    });
   });
 
   it('keeps defi repay max unavailable before wallet balance resolves', () => {
