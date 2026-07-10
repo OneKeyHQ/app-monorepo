@@ -195,6 +195,9 @@ describe('desktop webview injected message delivery', () => {
 
     sendSymbolChange(captured, 'MARKER_deferred');
     expect(deliveredSymbols(node)).toContain('deferred');
+    // consumers gate registration on innerRef (WebContent.desktop), so the
+    // wrapper snapshot must refresh after the deferred mount
+    expect(captured.current?.innerRef).toBe(node);
   });
 
   it('flushes messages queued before dom-ready', async () => {

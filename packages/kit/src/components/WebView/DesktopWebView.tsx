@@ -444,7 +444,9 @@ const DesktopWebView = forwardRef(
       ref as Ref<unknown>,
       (): IWebViewWrapperRef => {
         const wrapper = {
-          innerRef: webviewRef.current,
+          // deferred preload mounts the node after the first create; the
+          // isWebviewReady dep re-snapshots innerRef once it exists.
+          innerRef: isWebviewReady ? webviewRef.current : null,
           jsBridge: jsBridgeHost,
           reload: () => {
             webviewRef.current?.reload();
@@ -483,7 +485,7 @@ const DesktopWebView = forwardRef(
       },
       // dom-ready is read via isDomReadyRef so a parent holding an old
       // wrapper still delivers.
-      [jsBridgeHost],
+      [isWebviewReady, jsBridgeHost],
     );
 
     const initWebviewByRef = useCallback(
