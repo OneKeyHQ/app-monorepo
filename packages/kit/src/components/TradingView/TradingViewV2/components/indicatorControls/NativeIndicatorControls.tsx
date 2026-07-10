@@ -217,10 +217,12 @@ export const TradingViewNativeIndicatorQuickBar = memo(
     nativeChartControlsConfig,
     nativeIndicatorState,
     onIndicatorSelect,
+    onControlInteraction,
   }: {
     nativeChartControlsConfig: ITradingViewNativeChartControlsConfigData | null;
     nativeIndicatorState: ITradingViewNativeIndicatorState;
     onIndicatorSelect: (indicatorName: string, desiredActive: boolean) => void;
+    onControlInteraction?: () => void;
   }) => {
     const {
       activeIndicatorValues,
@@ -250,7 +252,10 @@ export const TradingViewNativeIndicatorQuickBar = memo(
             key={indicator.value}
             indicator={indicator}
             isActive={activeIndicatorValues.has(indicator.value)}
-            onPress={() => handleIndicatorPress(indicator)}
+            onPress={() => {
+              onControlInteraction?.();
+              handleIndicatorPress(indicator);
+            }}
           />
         ))}
         {subIndicators.length ? (
@@ -261,7 +266,10 @@ export const TradingViewNativeIndicatorQuickBar = memo(
             key={indicator.value}
             indicator={indicator}
             isActive={activeIndicatorValues.has(indicator.value)}
-            onPress={() => handleIndicatorPress(indicator)}
+            onPress={() => {
+              onControlInteraction?.();
+              handleIndicatorPress(indicator);
+            }}
           />
         ))}
       </XStack>
@@ -447,15 +455,22 @@ export function IndicatorPopover({
   indicators,
   activeIndicatorValues,
   onIndicatorPress,
+  onControlInteraction,
 }: {
   title: string;
   indicators: ITradingViewIndicatorOption[];
   activeIndicatorValues: Set<string>;
   onIndicatorPress: (indicator: ITradingViewIndicatorOption) => void;
+  onControlInteraction?: () => void;
 }) {
   return (
     <Popover
       title={title}
+      onOpenChange={(open) => {
+        if (open) {
+          onControlInteraction?.();
+        }
+      }}
       showHeader={false}
       usingSheet={false}
       placement="bottom-end"
