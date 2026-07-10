@@ -4,6 +4,8 @@ import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog } from '@onekeyhq/components';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -158,6 +160,14 @@ export function useWalletConnection({
       // Connection successful - close the dialog
       await dialogRef.current?.close();
     } catch (error) {
+      if (
+        errorUtils.isErrorByClassName({
+          error,
+          className: EOneKeyErrorClassNames.OneKeyWalletConnectModalCloseError,
+        })
+      ) {
+        return;
+      }
       // Connection failed - dialog stays open to show retry button
       console.error('Wallet connection failed:', error);
       throw error;

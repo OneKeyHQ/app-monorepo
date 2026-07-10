@@ -388,7 +388,7 @@ export class WalletConnectDappSide {
     }
 
     const provider = attempt.provider;
-    if (uri && provider?.uri && provider.uri !== uri) {
+    if (uri && provider?.uri !== uri) {
       return;
     }
 
@@ -411,14 +411,20 @@ export class WalletConnectDappSide {
 
   async connectToWallet(params: IWalletConnectConnectToWalletParams) {
     const attempt: IWalletConnectAttempt = { cancelled: false };
+    const previousAttempt = this.activeConnectAttempt;
     this.activeConnectAttempt = attempt;
     try {
+      if (previousAttempt) {
+        previousAttempt.cancelled = true;
+        await previousAttempt.provider?.abortConnectPairing();
+      }
+      this.throwIfConnectCancelled(attempt);
       return await this.connectToWalletInternal(params, attempt);
     } finally {
       if (this.activeConnectAttempt === attempt) {
         this.activeConnectAttempt = undefined;
+        this.closeModal();
       }
-      this.closeModal();
     }
   }
 
