@@ -20,6 +20,7 @@ type IWalletConnectOpenModalPayload =
   IAppEventBusPayload[EAppEventBusNames.WalletConnectOpenModal];
 
 let pendingPayload: IWalletConnectOpenModalPayload | null = null;
+let wasModalOpened = false;
 const pendingPayloadListeners = new Set<() => void>();
 
 function getPendingPayload() {
@@ -34,8 +35,27 @@ function subscribePendingPayload(listener: () => void) {
 }
 
 function updatePendingPayload(payload: IWalletConnectOpenModalPayload) {
+  if (pendingPayload?.uri === payload.uri) return;
   pendingPayload = payload;
+  wasModalOpened = false;
   pendingPayloadListeners.forEach((listener) => listener());
+}
+
+function clearPendingPayload() {
+  if (!pendingPayload) return;
+  pendingPayload = null;
+  wasModalOpened = false;
+  pendingPayloadListeners.forEach((listener) => listener());
+}
+
+function handleModalState({
+  open,
+}: IAppEventBusPayload[EAppEventBusNames.WalletConnectModalState]) {
+  if (open) {
+    wasModalOpened = true;
+  } else if (wasModalOpened) {
+    clearPendingPayload();
+  }
 }
 
 function ReplayWalletConnectEvent({
@@ -48,9 +68,10 @@ function ReplayWalletConnectEvent({
     if (replayed.current) return;
     replayed.current = true;
     // Re-emit after WalletConnectModalContainer registers its listeners
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       appEventBus.emit(EAppEventBusNames.WalletConnectOpenModal, payload);
     }, 0);
+    return () => clearTimeout(timer);
   }, [payload]);
   return null;
 }
@@ -78,10 +99,23 @@ export function GlobalWalletConnectModalContainer() {
       EAppEventBusNames.WalletConnectOpenModal,
       updatePendingPayload,
     );
+    appEventBus.on(
+      EAppEventBusNames.WalletConnectCloseModal,
+      clearPendingPayload,
+    );
+    appEventBus.on(EAppEventBusNames.WalletConnectModalState, handleModalState);
     return () => {
       appEventBus.off(
         EAppEventBusNames.WalletConnectOpenModal,
         updatePendingPayload,
+      );
+      appEventBus.off(
+        EAppEventBusNames.WalletConnectCloseModal,
+        clearPendingPayload,
+      );
+      appEventBus.off(
+        EAppEventBusNames.WalletConnectModalState,
+        handleModalState,
       );
     };
   }, []);

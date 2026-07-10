@@ -43,7 +43,7 @@ describe('GlobalWalletConnectModalContainer', () => {
     mockShouldRenderPageEveryChildren = true;
   });
 
-  it('keeps the pairing payload when the iOS page gate remounts', async () => {
+  it('keeps the pairing payload across page remounts until the modal closes', async () => {
     const view = render(<GlobalWalletConnectModalContainer />);
 
     expect(mockPageEvery).toHaveBeenCalledTimes(1);
@@ -59,6 +59,14 @@ describe('GlobalWalletConnectModalContainer', () => {
       expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(1);
     });
 
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.WalletConnectModalState, {
+        open: false,
+      });
+    });
+
+    expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(1);
+
     mockShouldRenderPageEveryChildren = false;
     view.rerender(<GlobalWalletConnectModalContainer />);
 
@@ -68,6 +76,27 @@ describe('GlobalWalletConnectModalContainer', () => {
     await waitFor(() => {
       expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(2);
     });
+
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.WalletConnectModalState, {
+        open: true,
+      });
+      appEventBus.emit(EAppEventBusNames.WalletConnectModalState, {
+        open: false,
+      });
+    });
+
+    mockShouldRenderPageEveryChildren = false;
+    view.rerender(<GlobalWalletConnectModalContainer />);
+
+    mockShouldRenderPageEveryChildren = true;
+    view.rerender(<GlobalWalletConnectModalContainer />);
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(2);
 
     view.unmount();
   });
