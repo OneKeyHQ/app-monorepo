@@ -2,9 +2,9 @@ import {
   findSupportedBorrowMarket,
   resolveProtocolLendingBalanceContext,
   resolveProtocolLendingDefiFillableAmountState,
-  resolveProtocolLendingRepayDebtState,
   resolveProtocolLendingRemainingDebtState,
   resolveProtocolLendingRepayAmountState,
+  resolveProtocolLendingRepayDebtState,
   resolveProtocolLendingWithdrawAmountState,
 } from './protocolLendingActionUtils';
 
