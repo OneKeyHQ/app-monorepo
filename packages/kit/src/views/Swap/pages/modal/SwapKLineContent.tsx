@@ -1211,6 +1211,7 @@ function SwapKLineContentBody({
         decimal={selectedToken?.decimals ?? 0}
         dataSource="polling"
         disabledFeatures={disabledTradingViewFeatures}
+        enableNativeChartControls
         storageNamespace={SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE}
         forceEmptyKLineData={state.shouldForceEmptyKLineData}
         emptyKLineDataOnError
