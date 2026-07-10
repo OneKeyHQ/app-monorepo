@@ -1,6 +1,7 @@
 import type { IPerpsDepositToken } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import {
+  arePerpsDepositSelectedTokenRefreshFieldsEqual,
   getPerpsDepositTokenDisplayList,
   mergePerpsDepositTokensPreservingOrder,
   shouldShowPerpsDepositTokenSkeleton,
@@ -166,6 +167,49 @@ describe('shouldShowPerpsDepositTokenSkeleton', () => {
         hasLoadedDepositTokenBalances: false,
         depositTokensWithPriceLength: 0,
         hasDisplayDepositToken: false,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('arePerpsDepositSelectedTokenRefreshFieldsEqual', () => {
+  it('treats matching selected-token refresh fields as unchanged', () => {
+    const currentToken = makeDepositToken({
+      networkId: 'evm--42161',
+      contractAddress: '0xAF88D065E77C8CC2239327C5EDB3A432268E5831',
+      symbol: 'USDC',
+      fiatValue: '50.04',
+    });
+    const nextToken: IPerpsDepositToken = {
+      ...currentToken,
+      contractAddress: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
+    };
+
+    expect(
+      arePerpsDepositSelectedTokenRefreshFieldsEqual({
+        currentToken,
+        nextToken,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps balance and price refreshes observable', () => {
+    const currentToken = makeDepositToken({
+      networkId: 'evm--42161',
+      contractAddress: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
+      symbol: 'USDC',
+      fiatValue: '50.04',
+    });
+    const nextToken: IPerpsDepositToken = {
+      ...currentToken,
+      balanceParsed: '50.051477',
+      price: '0.999825',
+    };
+
+    expect(
+      arePerpsDepositSelectedTokenRefreshFieldsEqual({
+        currentToken,
+        nextToken,
       }),
     ).toBe(false);
   });

@@ -27,8 +27,6 @@ import {
   getColumnStyle,
 } from '../utils';
 
-import { DesktopActionIconButton } from './DesktopActionIconButton';
-
 import type { IColumnConfig } from '../List/CommonTableListView';
 import type { IBalanceDisplayItem } from '../List/SpotBalanceList';
 
@@ -132,19 +130,23 @@ function ContractAddressCell({
       >
         {shortened}
       </SizableText>
-      <DesktopActionIconButton
+      <IconButton
         testID={PerpTestIDs.BalanceRowCopyContractButton}
+        size="small"
+        variant="tertiary"
         icon="Copy3Outline"
-        iconSize="$4"
+        iconProps={{ size: '$3', color: '$iconSubdued' }}
         onPress={(e) => {
           e?.stopPropagation?.();
           copyText(contract);
         }}
       />
-      <DesktopActionIconButton
+      <IconButton
         testID={PerpTestIDs.BalanceRowOpenContractButton}
+        size="small"
+        variant="tertiary"
         icon="OpenOutline"
-        iconSize="$4"
+        iconProps={{ size: '$3', color: '$iconSubdued' }}
         onPress={(e) => {
           e?.stopPropagation?.();
           void openHyperLiquidTokenExplorerUrl({ tokenId: contract });
@@ -324,14 +326,18 @@ function BalanceRowDesktop({
             {cell.cellValue}
           </SizableText>
           {canShare ? (
-            <DesktopActionIconButton
+            <IconButton
               testID={PerpTestIDs.BalanceRowShareButton}
+              variant="tertiary"
+              size="small"
               icon="ShareOutline"
-              iconSize="$4"
+              iconSize="$3.5"
               onPress={(e) => {
                 e?.stopPropagation?.();
                 handleShare();
               }}
+              hoverStyle={null}
+              pressStyle={null}
             />
           ) : null}
         </XStack>
