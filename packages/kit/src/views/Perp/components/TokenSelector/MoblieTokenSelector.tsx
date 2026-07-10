@@ -134,10 +134,10 @@ function hasSpotVolumeData(
   );
 }
 
-// Android FlashList can preserve the pre-sort anchor, which defeats the
-// selector's explicit scroll-to-top contract.
-const androidSortScrollBehaviorProps: Record<string, unknown> =
-  platformEnv.isNativeAndroid
+// Disable anchor preservation only for this selector. Filtering and sorting
+// replace the dataset and should reveal the start of the updated results.
+const tokenSelectorScrollBehaviorProps: Record<string, unknown> =
+  platformEnv.isNative
     ? {
         maintainVisibleContentPosition: {
           disabled: true,
@@ -430,9 +430,19 @@ function MobileTokenSelectorModal({
   );
   const initialListRenderedRef = useRef(!platformEnv.isNativeIOS);
   const initialListRenderedIndexesRef = useRef<Set<number>>(new Set());
+  const initialRowsSnapshotDismissedRef = useRef(!platformEnv.isNativeIOS);
   const [hasInitialListRendered, setHasInitialListRendered] = useState(
     !platformEnv.isNativeIOS,
   );
+  const dismissInitialRowsSnapshot = useCallback(() => {
+    if (!platformEnv.isNativeIOS || initialRowsSnapshotDismissedRef.current) {
+      return;
+    }
+    initialRowsSnapshotDismissedRef.current = true;
+    initialListRenderedRef.current = true;
+    initialListRenderedIndexesRef.current.clear();
+    setHasInitialListRendered(true);
+  }, []);
   const fixedTabNames = useMemo(
     () => ({
       favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
@@ -1086,6 +1096,7 @@ function MobileTokenSelectorModal({
       DEFAULT_PERP_TOKEN_SORT_DIRECTION;
   const shouldUseCachedInitialList =
     platformEnv.isNativeIOS &&
+    !initialRowsSnapshotDismissedRef.current &&
     !searchQuery &&
     isDefaultPerpsSelectorView &&
     mockedListData.length === 0 &&
@@ -1095,13 +1106,13 @@ function MobileTokenSelectorModal({
     : mockedListData;
 
   useEffect(() => {
-    if (!platformEnv.isNativeIOS) {
+    if (!platformEnv.isNativeIOS || initialRowsSnapshotDismissedRef.current) {
       return;
     }
     initialListRenderedRef.current = false;
     initialListRenderedIndexesRef.current.clear();
     setHasInitialListRendered(false);
-  }, [activeTab, searchQuery, shouldUseCachedInitialList]);
+  }, [activeTab, shouldUseCachedInitialList]);
 
   usePerpActiveTabValidation({
     activeTab,
@@ -1213,6 +1224,7 @@ function MobileTokenSelectorModal({
     perpSortedList.length === 0;
   const shouldShowInitialRowsSnapshot =
     platformEnv.isNativeIOS &&
+    !initialRowsSnapshotDismissedRef.current &&
     !hasInitialListRendered &&
     !searchQuery &&
     isPerpTokenSelectorPerpsTab(displayPrimaryTab) &&
@@ -1279,6 +1291,7 @@ function MobileTokenSelectorModal({
             id: ETranslations.global_search,
           }),
           onChangeText: ({ nativeEvent }) => {
+            dismissInitialRowsSnapshot();
             const afterTrim = nativeEvent.text.trim();
             setSearchQuery(afterTrim);
           },
@@ -1407,7 +1420,7 @@ function MobileTokenSelectorModal({
               decelerationRate="normal"
               showsVerticalScrollIndicator
               nestedScrollEnabled={platformEnv.isNativeAndroid}
-              {...androidSortScrollBehaviorProps}
+              {...tokenSelectorScrollBehaviorProps}
               contentContainerStyle={{
                 paddingBottom: 10,
               }}
