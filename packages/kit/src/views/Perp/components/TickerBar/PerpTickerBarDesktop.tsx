@@ -52,15 +52,21 @@ import { useSpotMetaMaps } from '../../hooks/useSpotMetaMaps';
 import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
 import { FavoriteButton } from '../TokenSelector/PerpTokenSelectorRow';
 
+// Medium-weight (500) data values — the heading tokens' 600 reads too heavy
+// for a dense stat strip of tabular digits, while plain 400 gets lost against
+// the subdued labels at this size.
 const TICKER_BAR_STAT_VALUE_TEXT_PROPS = {
-  size: '$headingXs',
-  fontFamily: '$monoRegular',
-  textTransform: 'none',
-  letterSpacing: 0,
+  size: '$bodySmMedium',
 } as const;
 
 const TICKER_BAR_STAT_LABEL_VALUE_GAP = 5;
 const TICKER_BAR_STAT_DASH_LABEL_VALUE_GAP = 4;
+const TICKER_BAR_PRICE_SECTION_WIDTH = 90;
+const TICKER_BAR_WIDE_PRICE_SECTION_WIDTH = 120;
+const TICKER_BAR_SPOT_PRICE_SECTION_WIDTH = 168;
+const TICKER_BAR_WIDE_MARK_PRICE_LENGTH = 8;
+const TICKER_BAR_WIDE_CHANGE_DISPLAY_LENGTH = 15;
+
 function isValidPerpFormattedCtx(
   ctx: ReturnType<typeof formatAssetCtx> | undefined,
 ) {
@@ -129,6 +135,27 @@ function useTickerBarPerpAssetCtx() {
   return resolved.assetCtx;
 }
 
+function formatTickerBarChange24hDisplay({
+  change24h,
+  change24hPercent,
+}: {
+  change24h?: string;
+  change24hPercent?: string | number;
+}) {
+  const changeValue = change24h || '0';
+  const signedChangeValue =
+    changeValue.startsWith('-') || changeValue === '0'
+      ? changeValue
+      : `+${changeValue}`;
+  const percentText = numberFormat(String(change24hPercent || 0), {
+    formatter: 'priceChange',
+    formatterOptions: {
+      showPlusMinusSigns: true,
+    },
+  });
+  return `${signedChangeValue} (${percentText})`;
+}
+
 function useTickerBarIsLoading() {
   const { currentToken } = usePerpSession();
   const [tradingMode] = useTradingModeAtom();
@@ -176,9 +203,10 @@ const TickerBarMarkPriceView = memo(
             renderTrigger={
               <SizableText
                 size="$headingMd"
+                fontWeight="500"
                 cursor="help"
-                fontVariant={['tabular-nums']}
                 lineHeight={20}
+                numberOfLines={1}
               >
                 {formattedMarkPrice}
               </SizableText>
@@ -203,9 +231,9 @@ function TickerBarMarkPrice() {
   const assetCtx = useTickerBarPerpAssetCtx();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const isSpot = tradingMode === 'spot';
-  const formattedMarkPrice = isSpot
-    ? formatLocalizedNumberString(spotAssetCtx?.ctx?.markPrice || '')
-    : assetCtx?.ctx?.markPrice || '';
+  const formattedMarkPrice = formatLocalizedNumberString(
+    (isSpot ? spotAssetCtx?.ctx?.markPrice : assetCtx?.ctx?.markPrice) || '',
+  );
   const isLoading = useTickerBarIsLoading();
   useEffect(() => {
     if (!isLoading && formattedMarkPrice) {
@@ -245,10 +273,11 @@ const TickerBarChange24hView = memo(
         <SizableText
           size="$bodyXs"
           textTransform="none"
-          fontWeight="500"
+          fontWeight="600"
           letterSpacing={0.2}
           lineHeight={12}
           color={changeDisplay.trim().startsWith('-') ? '$red11' : '$green11'}
+          numberOfLines={1}
         >
           {changeDisplay}
         </SizableText>
@@ -264,21 +293,10 @@ export function TickerBarChange24h() {
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const displayCtx = tradingMode === 'spot' ? spotAssetCtx?.ctx : assetCtx?.ctx;
   const changeDisplay = useMemo(() => {
-    const changeValue = displayCtx?.change24h || '0';
-    const signedChangeValue =
-      changeValue.startsWith('-') || changeValue === '0'
-        ? changeValue
-        : `+${changeValue}`;
-    const percentText = numberFormat(
-      String(displayCtx?.change24hPercent || 0),
-      {
-        formatter: 'priceChange',
-        formatterOptions: {
-          showPlusMinusSigns: true,
-        },
-      },
-    );
-    return `${signedChangeValue} (${percentText})`;
+    return formatTickerBarChange24hDisplay({
+      change24h: displayCtx?.change24h,
+      change24hPercent: displayCtx?.change24hPercent,
+    });
   }, [displayCtx?.change24h, displayCtx?.change24hPercent]);
   const isLoading = useTickerBarIsLoading();
 
@@ -326,10 +344,7 @@ const TickerBarOraclePriceView = memo(
             placement="top"
           />
           <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-            <SizableText
-              {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
-              fontVariant={['tabular-nums']}
-            >
+            <SizableText {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}>
               {formattedOraclePrice}
             </SizableText>
           </SkeletonContainer>
@@ -342,7 +357,9 @@ TickerBarOraclePriceView.displayName = 'TickerBarOraclePriceView';
 
 function TickerBarOraclePrice() {
   const assetCtx = useTickerBarPerpAssetCtx();
-  const formattedOraclePrice = assetCtx?.ctx?.oraclePrice || '';
+  const formattedOraclePrice = formatLocalizedNumberString(
+    assetCtx?.ctx?.oraclePrice || '',
+  );
   const isLoading = useTickerBarIsLoading();
 
   return (
@@ -371,10 +388,7 @@ const TickerBar24hVolumeView = memo(
             })}
           </SizableText>
           <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-            <SizableText
-              {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
-              fontVariant={['tabular-nums']}
-            >
+            <SizableText {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}>
               ${formattedVolume24h}
             </SizableText>
           </SkeletonContainer>
@@ -444,10 +458,7 @@ const TickerBarOpenInterestView = memo(
             placement="top"
           />
           <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-            <SizableText
-              {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
-              fontVariant={['tabular-nums']}
-            >
+            <SizableText {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}>
               ${formattedOpenInterest}
             </SizableText>
           </SkeletonContainer>
@@ -496,10 +507,7 @@ const TickerBarMarketCapView = memo(
             })}
           </SizableText>
           <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-            <SizableText
-              {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
-              fontVariant={['tabular-nums']}
-            >
+            <SizableText {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}>
               {formattedMarketCap === '--'
                 ? formattedMarketCap
                 : `$${formattedMarketCap}`}
@@ -555,6 +563,7 @@ const TickerBarSpotContractView = memo(
             <XStack gap="$1" alignItems="center">
               <SizableText
                 {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
+                fontFamily="$monoRegular"
                 color="$text"
                 numberOfLines={1}
               >
@@ -616,11 +625,7 @@ function TickerBarFundingRateCountdown() {
       position="bottom-right"
       offsetX={10}
     >
-      <SizableText
-        {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
-        color="$text"
-        fontVariant={['tabular-nums']}
-      >
+      <SizableText {...TICKER_BAR_STAT_VALUE_TEXT_PROPS} color="$text">
         {countdown}
       </SizableText>
     </DebugRenderTracker>
@@ -666,7 +671,6 @@ const TickerBarFundingRateView = memo(
                   <XStack alignItems="baseline" gap="$2">
                     <DashText
                       {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
-                      fontVariant={['tabular-nums']}
                       color={fundingRate >= 0 ? '$green11' : '$red11'}
                       dashThickness={0.5}
                       dashSpacing={0}
@@ -684,22 +688,12 @@ const TickerBarFundingRateView = memo(
                         justifyContent="space-between"
                         alignItems="center"
                       >
-                        <SizableText
-                          size="$headingXs"
-                          fontFamily="$monoRegular"
-                          fontVariant={['tabular-nums']}
-                          color="$textSubdued"
-                        >
+                        <SizableText size="$bodySm" color="$textSubdued">
                           {intl.formatMessage({
                             id: ETranslations.perps_fee_rate_projection,
                           })}
                         </SizableText>
-                        <SizableText
-                          size="$headingXs"
-                          fontFamily="$monoRegular"
-                          fontVariant={['tabular-nums']}
-                          color="$textSubdued"
-                        >
+                        <SizableText size="$bodySm" color="$textSubdued">
                           {intl.formatMessage({
                             id: ETranslations.perp_position_funding,
                           })}
@@ -711,28 +705,17 @@ const TickerBarFundingRateView = memo(
                           alignItems="center"
                         >
                           <XStack gap="$1" alignItems="center">
-                            <SizableText
-                              size="$headingXs"
-                              fontFamily="$monoRegular"
-                              fontVariant={['tabular-nums']}
-                            >
+                            <SizableText size="$bodySm">
                               {intl.formatMessage({
                                 id: ETranslations.perps_hourly,
                               })}
                             </SizableText>
-                            <SizableText
-                              size="$headingXs"
-                              fontFamily="$monoRegular"
-                              fontVariant={['tabular-nums']}
-                              color="$textSubdued"
-                            >
+                            <SizableText size="$bodySm" color="$textSubdued">
                               ({countdown})
                             </SizableText>
                           </XStack>
                           <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
+                            size="$bodySm"
                             color={fundingRate >= 0 ? '$green11' : '$red11'}
                           >
                             {hourlyFundingRate}%
@@ -742,19 +725,13 @@ const TickerBarFundingRateView = memo(
                           justifyContent="space-between"
                           alignItems="center"
                         >
-                          <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
-                          >
+                          <SizableText size="$bodySm">
                             {intl.formatMessage({
                               id: ETranslations.earn_daily,
                             })}
                           </SizableText>
                           <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
+                            size="$bodySm"
                             color={fundingRate >= 0 ? '$green11' : '$red11'}
                           >
                             {dailyFundingRate}%
@@ -764,19 +741,13 @@ const TickerBarFundingRateView = memo(
                           justifyContent="space-between"
                           alignItems="center"
                         >
-                          <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
-                          >
+                          <SizableText size="$bodySm">
                             {intl.formatMessage({
                               id: ETranslations.earn_weekly,
                             })}
                           </SizableText>
                           <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
+                            size="$bodySm"
                             color={fundingRate >= 0 ? '$green11' : '$red11'}
                           >
                             {weeklyFundingRate}%
@@ -786,19 +757,13 @@ const TickerBarFundingRateView = memo(
                           justifyContent="space-between"
                           alignItems="center"
                         >
-                          <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
-                          >
+                          <SizableText size="$bodySm">
                             {intl.formatMessage({
                               id: ETranslations.earn_monthly,
                             })}
                           </SizableText>
                           <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
+                            size="$bodySm"
                             color={fundingRate >= 0 ? '$green11' : '$red11'}
                           >
                             {monthlyFundingRate}%
@@ -808,19 +773,13 @@ const TickerBarFundingRateView = memo(
                           justifyContent="space-between"
                           alignItems="center"
                         >
-                          <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
-                          >
+                          <SizableText size="$bodySm">
                             {intl.formatMessage({
                               id: ETranslations.earn_annually,
                             })}
                           </SizableText>
                           <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
+                            size="$bodySm"
                             color={fundingRate >= 0 ? '$green11' : '$red11'}
                           >
                             {annualizedFundingRate}%
@@ -830,11 +789,7 @@ const TickerBarFundingRateView = memo(
                     </YStack>
                     <Divider />
                     <YStack gap="$2" justifyContent="space-between">
-                      <SizableText
-                        size="$headingXs"
-                        fontVariant={['tabular-nums']}
-                        color="$textSubdued"
-                      >
+                      <SizableText size="$bodySm" color="$textSubdued">
                         {intl.formatMessage({
                           id: ETranslations.perp_trades_history_direction,
                         })}
@@ -875,7 +830,7 @@ const TickerBarFundingRateView = memo(
                     </YStack>
                     <Divider />
                     <YStack gap="$2">
-                      <SizableText size="$headingXs" color="$textSubdued">
+                      <SizableText size="$bodySm" color="$textSubdued">
                         {intl.formatMessage({
                           id: ETranslations.perp_funding_rate_tip0,
                         })}
@@ -934,9 +889,34 @@ function TickerBarFundingRate() {
 function PerpTickerBarDesktop() {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [tradingMode] = useTradingModeAtom();
+  const assetCtx = useTickerBarPerpAssetCtx();
   const isSpot = tradingMode === 'spot';
   const marketDataGap = useMemo(() => (isSpot ? '$6' : '$6'), [isSpot]);
-  const priceSectionWidth = useMemo(() => (isSpot ? 168 : 96), [isSpot]);
+  const priceSectionWidth = useMemo(() => {
+    if (isSpot) {
+      return TICKER_BAR_SPOT_PRICE_SECTION_WIDTH;
+    }
+
+    const formattedMarkPrice = formatLocalizedNumberString(
+      assetCtx?.ctx?.markPrice || '',
+    );
+    const changeDisplay = formatTickerBarChange24hDisplay({
+      change24h: assetCtx?.ctx?.change24h,
+      change24hPercent: assetCtx?.ctx?.change24hPercent,
+    });
+    const needsWidePriceSection =
+      formattedMarkPrice.length > TICKER_BAR_WIDE_MARK_PRICE_LENGTH ||
+      changeDisplay.length > TICKER_BAR_WIDE_CHANGE_DISPLAY_LENGTH;
+
+    return needsWidePriceSection
+      ? TICKER_BAR_WIDE_PRICE_SECTION_WIDTH
+      : TICKER_BAR_PRICE_SECTION_WIDTH;
+  }, [
+    assetCtx?.ctx?.change24h,
+    assetCtx?.ctx?.change24hPercent,
+    assetCtx?.ctx?.markPrice,
+    isSpot,
+  ]);
   const content = (
     <XStack
       bg="$bgApp"

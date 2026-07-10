@@ -26,7 +26,6 @@ import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
 import SwapTipsContainer from './SwapTipsContainer';
 
-import type { ScrollViewProps } from 'react-native';
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
 interface ISwapSwapMbContainerProps {
@@ -59,11 +58,6 @@ interface ISwapSwapMbContainerProps {
   fromTokenAmountValue: string;
   swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
   supportNetworksList: ISwapNetwork[];
-  // iOS immersive header: drives the glass nav-bar fade as this panel scrolls.
-  onScroll?: ScrollViewProps['onScroll'];
-  // iOS immersive header: top padding so content starts below the fixed glass
-  // bar and scrolls up under it (0 when the effect is off).
-  contentTopInset?: number;
 }
 
 const SwapSwapMbContainer = ({
@@ -87,8 +81,6 @@ const SwapSwapMbContainer = ({
   fromTokenAmountValue,
   swapRecentTokenPairs,
   supportNetworksList,
-  onScroll,
-  contentTopInset = 0,
 }: ISwapSwapMbContainerProps) => {
   const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
@@ -116,11 +108,7 @@ const SwapSwapMbContainer = ({
       keyboardDismissMode="on-drag"
       ref={scrollViewRef}
       showsVerticalScrollIndicator={false}
-      onScroll={onScroll}
-      contentContainerStyle={{
-        paddingTop: contentTopInset,
-        paddingBottom: tabBarHeight,
-      }}
+      contentContainerStyle={{ paddingBottom: tabBarHeight }}
       bottomOffset={bottomOffset}
     >
       <SwapTipsContainer pageType={swapTipsPageType} />

@@ -8,18 +8,22 @@ import {
   Button,
   Checkbox,
   Dialog,
+  Input,
+  Keyboard,
+  Page,
   ScrollView,
   SizableText,
   Stack,
   XStack,
   YStack,
+  useIsKeyboardShown,
   useMedia,
 } from '@onekeyhq/components';
 import type { useInPageDialog } from '@onekeyhq/components';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
-import { Token, TokenGroup } from '@onekeyhq/kit/src/components/Token';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
@@ -30,6 +34,7 @@ import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes'
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   buildDeFiActionBps,
   resolveDeFiActionTxAmount,
@@ -56,8 +61,20 @@ import {
   showDeFiActionTxConfirmDialog,
 } from './DeFiActionTxConfirmResult';
 import { resolveProtocolLendingDefiFillableAmountState } from './protocolLendingActionUtils';
+import {
+  resolveProtocolPositionActionAssetBalanceLabel,
+  resolveProtocolPositionActionAssetPill,
+} from './protocolPositionActionAssetUtils';
 import { shouldShowProtocolPositionActionInlineSubmitError } from './protocolPositionActionErrorUtils';
 import { resolveProtocolPositionActionDialogLayout } from './protocolPositionActionLayoutUtils';
+import {
+  getProtocolPositionActionPercentInputMaxLength,
+  resolveProtocolPositionActionPercentInput,
+  resolveProtocolPositionActionPercentKeyPress,
+  resolveProtocolPositionActionPercentValue,
+  shouldClearProtocolPositionActionInitialPercentValue,
+} from './protocolPositionActionPercentUtils';
+import { ProtocolPositionAssetPill } from './ProtocolPositionAssetPill';
 import {
   ProtocolValueCell,
   isProtocolAssetValueUnavailable,
@@ -87,6 +104,32 @@ const resolveActionTxAmount = resolveDeFiActionTxAmount as (params: {
   amount?: string;
   isMaxAmount?: boolean;
 }) => { amount?: string; bps?: string };
+
+export function ProtocolPositionActionKeyboardDismissFooter() {
+  const intl = useIntl();
+  const isKeyboardShown = useIsKeyboardShown();
+
+  if (!platformEnv.isNativeIOS || !isKeyboardShown) return null;
+
+  return (
+    <XStack
+      p="$2.5"
+      px="$5"
+      justifyContent="flex-end"
+      bg="$bgSubdued"
+      borderTopWidth="$px"
+      borderTopColor="$borderSubduedLight"
+    >
+      <Button
+        variant="tertiary"
+        testID="defi-action-keyboard-done-btn"
+        onPress={Keyboard.dismiss}
+      >
+        {intl.formatMessage({ id: ETranslations.global_done })}
+      </Button>
+    </XStack>
+  );
+}
 
 function normalizeActionPercent(percent?: number) {
   if (!Number.isFinite(percent)) return DEFAULT_ACTION_PERCENT;
@@ -334,16 +377,10 @@ function getSelectedAssetDisplaySymbol({
   action: EDeFiPositionAction;
   selectedAsset: IResolvedDeFiPositionActionAsset;
 }) {
-  if (
-    action === EDeFiPositionAction.RemoveLiquidity &&
-    selectedAsset.underlyingAssets?.length
-  ) {
-    return selectedAsset.underlyingAssets
-      .map((asset) => asset.symbol)
-      .filter(Boolean)
-      .join(' / ');
-  }
-  return selectedAsset.symbol;
+  return resolveProtocolPositionActionAssetPill({
+    action,
+    selectedAsset,
+  }).symbol;
 }
 
 function ProtocolPositionActionAssetRow({
@@ -1107,38 +1144,32 @@ function ProtocolPositionActionPercentPresetRow({
   );
 }
 
-// The position/balance context row shared by both flows: an icon + label on the
-// left, the value on the right. Withdraw shows the available token balance;
-// remove-liquidity shows the pool it's drawing from. Going to the full amount is
-// owned by the Max entry in the preset row below, so there's no button here.
+// The position/balance context row shared by amount actions and health-factor
+// feedback. Asset identity lives in the pill above the hero, so these fact rows
+// intentionally carry no leading token icon.
 function ProtocolPositionActionAnchor({
   label,
-  iconNode,
   valueNode,
   secondaryLabel,
   secondaryValueNode,
 }: {
   label: string;
-  iconNode: ReactNode;
   valueNode: ReactNode;
   // Optional second fact rendered inside the same box (e.g. repay shows the
   // remaining debt on top and the spendable wallet balance beneath it).
   secondaryLabel?: string;
   secondaryValueNode?: ReactNode;
 }) {
-  // Icon is a left accent that vertically centres against the whole block; the
-  // label/value rows live in a column beside it, so a second fact (repay's
-  // wallet balance) stacks cleanly under the first and both values right-align.
+  // A second fact (repay's wallet balance) stacks under the first and both
+  // values right-align.
   return (
     <XStack
       alignItems="center"
-      gap="$2"
       bg="$bgSubdued"
       borderRadius="$3"
       px="$3"
       py="$2.5"
     >
-      {iconNode}
       <YStack flex={1} gap="$1.5" minWidth={0}>
         <XStack alignItems="center" justifyContent="space-between" gap="$3">
           <SizableText
@@ -1192,40 +1223,89 @@ function ProtocolPositionActionPercentHero({
   currencySymbol: string;
   priceUnavailableLabel: string;
 }) {
+  const shouldReplaceZeroInput = percentText === '0';
+  const shouldCompleteHundredInput = percentText === '10';
+  const maxLength =
+    platformEnv.isNativeIOS &&
+    (shouldReplaceZeroInput || shouldCompleteHundredInput)
+      ? percentText.length
+      : getProtocolPositionActionPercentInputMaxLength(percentText);
+  const handleKeyPress = (event: { nativeEvent: { key?: string } }) => {
+    if (!shouldReplaceZeroInput && !shouldCompleteHundredInput) return;
+    const { key } = event.nativeEvent;
+    const nextValue = resolveProtocolPositionActionPercentKeyPress({
+      currentValue: percentText,
+      key,
+    });
+    if (nextValue !== undefined) {
+      onChangePercentText(nextValue);
+    }
+  };
+
   return (
-    <SendAutoSizeAmountInput
+    <YStack
       minHeight={DEFI_ACTION_HERO_MIN_HEIGHT}
       justifyContent="center"
-      maxFontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
-      value={percentText}
-      onChange={onChangePercentText}
-      tokenSymbol="%"
-      inputProps={{ keyboardType: 'number-pad', onFocus }}
-      extraContent={
-        <XStack
-          alignItems="center"
-          justifyContent="center"
-          gap="$1"
-          minWidth={0}
+      alignItems="center"
+      gap="$2"
+    >
+      <XStack alignItems="center" justifyContent="center" gap="$1">
+        <Input
+          testID="defi-position-action-percent-input"
+          value={percentText}
+          onChangeText={onChangePercentText}
+          keyboardType="number-pad"
+          maxLength={maxLength}
+          onFocus={onFocus}
+          onKeyPress={handleKeyPress}
+          autoCorrect={false}
+          spellCheck={false}
+          autoComplete="off"
+          textContentType="none"
+          unstyled
+          borderWidth={0}
+          bg="transparent"
+          p="$0"
+          h={Math.ceil(MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE * 1.4)}
+          size="large"
+          fontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
+          fontWeight="500"
+          textAlign="right"
+          placeholder="0"
+          placeholderTextColor="$textDisabled"
+          containerProps={{
+            width: 96,
+            borderWidth: 0,
+            bg: 'transparent',
+          }}
+        />
+        <SizableText
+          fontSize={MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE}
+          lineHeight={Math.ceil(MANUAL_AMOUNT_INPUT_MAX_FONT_SIZE * 1.4)}
+          fontWeight="500"
+          color="$text"
         >
-          <SizableText size="$headingLg" color="$textSubdued">
-            ≈
-          </SizableText>
-          <ProtocolValueCell
-            value={value}
-            currencySymbol={currencySymbol}
-            priceUnavailableLabel={priceUnavailableLabel}
-            isUnavailable={isUnavailable}
-            showPriceUnavailableTooltip={showPriceUnavailableTooltip}
-            size="$headingLg"
-            color="$textSubdued"
-            textAlign="center"
-            numberOfLines={1}
-            fontVariant={['tabular-nums']}
-          />
-        </XStack>
-      }
-    />
+          %
+        </SizableText>
+      </XStack>
+      <XStack alignItems="center" justifyContent="center" gap="$1" minWidth={0}>
+        <SizableText size="$headingLg" color="$textSubdued">
+          ≈
+        </SizableText>
+        <ProtocolValueCell
+          value={value}
+          currencySymbol={currencySymbol}
+          priceUnavailableLabel={priceUnavailableLabel}
+          isUnavailable={isUnavailable}
+          showPriceUnavailableTooltip={showPriceUnavailableTooltip}
+          size="$headingLg"
+          color="$textSubdued"
+          textAlign="center"
+          numberOfLines={1}
+          fontVariant={['tabular-nums']}
+        />
+      </XStack>
+    </YStack>
   );
 }
 
@@ -1368,16 +1448,16 @@ function ProtocolPositionActionReceive({
 
 // Borderless "Enter Amount" entry (mirrors the Send flow) for single-token
 // withdraw / repay: the typed amount is the hero, fiat sits beneath, an
-// Available context row shows the balance, and a 25/50/75/Max preset row
-// quick-fills the field (Max included) — the same control vocabulary as
-// remove-liquidity.
+// top pill identifies the asset, balance rows show availability/debt without
+// repeating its icon, and a 25/50/75/Max preset row quick-fills the field — the
+// same control vocabulary as remove-liquidity.
 function ProtocolPositionActionAmountInput({
+  assetSelector,
   amount,
   onChangeAmount,
   onSelectPercent,
   selectedPercent,
   symbol,
-  tokenLogoUrl,
   availableAmount,
   fiatValue,
   currencySymbol,
@@ -1390,12 +1470,12 @@ function ProtocolPositionActionAmountInput({
   secondaryLabel,
   secondaryAmount,
 }: {
+  assetSelector: ReactNode;
   amount: string;
   onChangeAmount: (value: string) => void;
   onSelectPercent: (percent: number) => void;
   selectedPercent: number;
   symbol: string;
-  tokenLogoUrl?: string;
   availableAmount: string;
   fiatValue: string;
   currencySymbol: string;
@@ -1412,6 +1492,7 @@ function ProtocolPositionActionAmountInput({
 }) {
   return (
     <YStack gap="$5">
+      {assetSelector}
       <SendAutoSizeAmountInput
         minHeight={DEFI_ACTION_HERO_MIN_HEIGHT}
         justifyContent="center"
@@ -1441,7 +1522,6 @@ function ProtocolPositionActionAmountInput({
       />
       <ProtocolPositionActionAnchor
         label={availableLabel}
-        iconNode={<Token size="sm" tokenImageUri={tokenLogoUrl} bg="$bg" />}
         valueNode={
           <XStack alignItems="center" gap="$1" flexShrink={0} minWidth={0}>
             <NumberSizeableTextWrapper
@@ -1500,6 +1580,7 @@ function ProtocolPositionActionDialogContent({
   hasDebts,
   rewardAssets,
   onSuccess,
+  renderMode = 'dialog',
 }: {
   accountId: string;
   networkId: string;
@@ -1510,6 +1591,7 @@ function ProtocolPositionActionDialogContent({
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
   ) => void | Promise<void>;
+  renderMode?: 'dialog' | 'page';
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -1534,9 +1616,11 @@ function ProtocolPositionActionDialogContent({
   const [actionPercentText, setActionPercentText] = useState(
     String(DEFAULT_ACTION_PERCENT),
   );
-  const actionPercent = /^(0|[1-9]\d{0,2})$/.test(actionPercentText)
-    ? Math.min(100, Number(actionPercentText))
-    : 0;
+  // Only the untouched default Max value clears on first focus; preset taps or
+  // manual edits already carry user intent and should stay editable in place.
+  const actionPercentHasUserIntentRef = useRef(false);
+  const actionPercent =
+    resolveProtocolPositionActionPercentValue(actionPercentText);
   // Manual single-token entry (withdraw / repay). `amount` is human-decimal;
   // `isMaxAmount` flags a full close so submit sends bps=10000 instead.
   //
@@ -1747,8 +1831,21 @@ function ProtocolPositionActionDialogContent({
     intl,
   });
   const maxLabel = intl.formatMessage({ id: ETranslations.global_max });
+  const assetBalanceLabel = resolveProtocolPositionActionAssetBalanceLabel(
+    action.action,
+  );
+  let assetBalanceLabelTranslation = ETranslations.global_available;
+  if (assetBalanceLabel === 'remainingDebt') {
+    assetBalanceLabelTranslation =
+      ETranslations.defi_borrow_repay_remaining_debt;
+  } else if (assetBalanceLabel === 'availableToWithdraw') {
+    assetBalanceLabelTranslation = ETranslations.available_to_withdraw__title;
+  }
   const availableLabel = intl.formatMessage({
-    id: ETranslations.global_available,
+    id: assetBalanceLabelTranslation,
+  });
+  const walletBalanceLabel = intl.formatMessage({
+    id: ETranslations.global_wallet_balance,
   });
   const insufficientLabel = intl.formatMessage({
     id: ETranslations.earn_insufficient_balance,
@@ -1757,12 +1854,25 @@ function ProtocolPositionActionDialogContent({
   const currentSelectedAsset = selectedAssets[0];
 
   const handleActionPercentChange = (next: string) => {
-    // Integers 0..100 only, no leading zeros; allow empty while editing.
-    // Reject other keystrokes outright (same convention as the token-amount
-    // input's validateAmountInput gate).
-    if (next !== '' && !/^(0|[1-9]\d{0,2})$/.test(next)) return;
-    if (next !== '' && Number(next) > 100) return;
-    setActionPercentText(next);
+    actionPercentHasUserIntentRef.current = true;
+    setActionPercentText((currentValue) =>
+      resolveProtocolPositionActionPercentInput({
+        currentValue,
+        nextValue: next,
+      }),
+    );
+  };
+  const handleActionPercentFocus = () => {
+    const shouldClearInitialValue =
+      shouldClearProtocolPositionActionInitialPercentValue({
+        value: actionPercentText,
+        hasUserIntent: actionPercentHasUserIntentRef.current,
+      });
+
+    actionPercentHasUserIntentRef.current = true;
+    if (shouldClearInitialValue) {
+      setActionPercentText('');
+    }
   };
 
   const handleAmountChange = (next: string) => {
@@ -1787,19 +1897,8 @@ function ProtocolPositionActionDialogContent({
     }
   };
 
-  // The percent hero prefills 100% as an untouched default; first focus clears
-  // it, mirroring the amount hero's Max-prefill clear. A percent the user set
-  // deliberately (typed, or picked from the preset row) is never cleared.
-  const isPercentPristineRef = useRef(true);
-  const handlePercentInputFocus = () => {
-    if (isPercentPristineRef.current) {
-      isPercentPristineRef.current = false;
-      setActionPercentText('');
-    }
-  };
-
   const handlePercentPresetChange = (presetPercent: number) => {
-    isPercentPristineRef.current = false;
+    actionPercentHasUserIntentRef.current = true;
     setActionPercentText(String(presetPercent));
   };
 
@@ -1869,6 +1968,12 @@ function ProtocolPositionActionDialogContent({
     submittingRef.current = true;
     setSubmitting(true);
     setSubmitError(undefined);
+    let isActionDialogClosed = false;
+    const closeActionDialogBeforeConfirm = async () => {
+      if (isActionDialogClosed) return;
+      isActionDialogClosed = true;
+      await closeRef.current?.();
+    };
     let submitGuardReleased = false;
     const releaseSubmitGuardOnce = () => {
       if (submitGuardReleased) return;
@@ -1878,6 +1983,7 @@ function ProtocolPositionActionDialogContent({
     const releaseSubmitGuardOnceWithError = (error: Error) => {
       if (
         !submitGuardReleased &&
+        !isActionDialogClosed &&
         !isUserRejectedErrorMessage({ error, intl }) &&
         shouldShowProtocolPositionActionInlineSubmitError(error)
       ) {
@@ -1886,6 +1992,7 @@ function ProtocolPositionActionDialogContent({
       releaseSubmitGuardOnce();
     };
     try {
+      await Keyboard.dismissWithDelay(80);
       await submitProtocolPositionAction({
         action,
         selectedAssets,
@@ -1893,11 +2000,13 @@ function ProtocolPositionActionDialogContent({
         percent: isPercentAction ? actionPercent : undefined,
         amount: useManualAmountInput ? amount : undefined,
         isMaxAmount: useManualAmountInput ? isMaxAmount : undefined,
-        isErrorToastSuppressed:
-          shouldShowProtocolPositionActionInlineSubmitError,
-        onSettleResult: ({ status }) => {
+        isErrorToastSuppressed: (error) =>
+          !isActionDialogClosed &&
+          shouldShowProtocolPositionActionInlineSubmitError(error),
+        onBeforeNavigateConfirm: closeActionDialogBeforeConfirm,
+        onSettleResult: async ({ status }) => {
           releaseSubmitGuardOnce();
-          void closeRef.current?.();
+          await closeActionDialogBeforeConfirm();
           if (status !== EOnChainHistoryTxStatus.Success) {
             return false;
           }
@@ -1907,6 +2016,7 @@ function ProtocolPositionActionDialogContent({
       });
     } catch (error) {
       if (
+        !isActionDialogClosed &&
         !isUserRejectedErrorMessage({ error, intl }) &&
         shouldShowProtocolPositionActionInlineSubmitError(error)
       ) {
@@ -1963,13 +2073,18 @@ function ProtocolPositionActionDialogContent({
   } else if (useManualAmountInput) {
     actionBody = (
       <ProtocolPositionActionAmountInput
+        assetSelector={
+          <ProtocolPositionAssetPill
+            symbol={manualAmountAsset?.symbol ?? ''}
+            logoURI={manualAmountAsset?.asset.meta?.logoUrl}
+          />
+        }
         amount={amount}
         onChangeAmount={handleAmountChange}
         validator={validateManualAmountInput}
         onSelectPercent={handleSelectPercent}
         selectedPercent={selectedAmountPercent}
         symbol={manualAmountAsset?.symbol ?? ''}
-        tokenLogoUrl={manualAmountAsset?.asset.meta?.logoUrl}
         availableAmount={availableAmount}
         fiatValue={amountFiatValue}
         currencySymbol={currencySymbol}
@@ -1978,19 +2093,31 @@ function ProtocolPositionActionDialogContent({
         maxLabel={maxLabel}
         insufficientLabel={insufficientLabel}
         onFocus={handleAmountInputFocus}
+        secondaryLabel={walletBalanceLabel}
+        secondaryAmount={isRepayAction ? repayWalletBalance : undefined}
       />
     );
   } else if (isPercentAction) {
-    const anchorUnderlyingTokens =
-      currentSelectedAsset?.underlyingAssets?.map((item) => ({
-        tokenImageUri: item.meta?.logoUrl,
-      })) ?? [];
+    const assetPill = currentSelectedAsset
+      ? resolveProtocolPositionActionAssetPill({
+          action: action.action,
+          selectedAsset: currentSelectedAsset,
+        })
+      : undefined;
     actionBody = (
       <YStack gap="$5">
+        {!selectable && assetPill ? (
+          <ProtocolPositionAssetPill
+            testID="defi-position-action-liquidity-pool"
+            symbol={assetPill.symbol}
+            logoURI={assetPill.logoURI}
+            logoURIs={assetPill.logoURIs}
+          />
+        ) : null}
         <ProtocolPositionActionPercentHero
           percentText={actionPercentText}
           onChangePercentText={handleActionPercentChange}
-          onFocus={handlePercentInputFocus}
+          onFocus={handleActionPercentFocus}
           value={outputValueState.value}
           isUnavailable={outputValueState.isUnavailable}
           showPriceUnavailableTooltip={
@@ -1999,41 +2126,6 @@ function ProtocolPositionActionDialogContent({
           currencySymbol={currencySymbol}
           priceUnavailableLabel={priceUnavailableLabel}
         />
-        {!selectable && currentSelectedAsset ? (
-          <ProtocolPositionActionAnchor
-            label={sourceLabel}
-            iconNode={
-              anchorUnderlyingTokens.length > 0 ? (
-                <TokenGroup
-                  tokens={anchorUnderlyingTokens}
-                  size="xs"
-                  variant="overlapped"
-                  wrapperStyle="border"
-                  wrapperBorderColor="$bgSubdued"
-                />
-              ) : (
-                <Token
-                  size="sm"
-                  tokenImageUri={currentSelectedAsset.asset.meta?.logoUrl}
-                  bg="$bg"
-                />
-              )
-            }
-            valueNode={
-              <SizableText
-                size="$bodyMdMedium"
-                color="$text"
-                numberOfLines={1}
-                flexShrink={0}
-              >
-                {getSelectedAssetDisplaySymbol({
-                  action: action.action,
-                  selectedAsset: currentSelectedAsset,
-                })}
-              </SizableText>
-            }
-          />
-        ) : null}
         <ProtocolPositionActionPercentPresetRow
           percent={actionPercent}
           maxLabel={maxLabel}
@@ -2068,6 +2160,106 @@ function ProtocolPositionActionDialogContent({
     showLiquidationWarning ||
     Boolean(inlineErrorMessage) ||
     showTransactionCountNotice;
+  const bodyNode = (
+    <YStack gap="$5">
+      {selectable ? assetSelector : null}
+      {actionBody}
+    </YStack>
+  );
+  const feedbackNode = showFeedbackRegion ? (
+    <YStack gap="$3">
+      {showLiquidationWarning ? (
+        <Alert
+          type="warning"
+          icon="InfoCircleOutline"
+          description={intl.formatMessage({
+            id: ETranslations.defi_liquidation_withdraw_desc,
+          })}
+        />
+      ) : null}
+
+      {inlineErrorMessage ? (
+        <Alert
+          type="critical"
+          icon="ErrorOutline"
+          title={intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          })}
+          description={inlineErrorMessage}
+        />
+      ) : null}
+
+      {showTransactionCountNotice ? (
+        // Each selected asset builds its own transaction (approvals discovered
+        // at build time may add more), so hardware-wallet users know how many
+        // confirmations to expect. Count shown is the business-tx floor.
+        <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
+          {intl.formatMessage(
+            { id: ETranslations.address_risk_check_txs__msg },
+            { count: selectedAssets.length },
+          )}
+        </SizableText>
+      ) : null}
+    </YStack>
+  ) : null;
+  const contentNode = (
+    <>
+      <ScrollView
+        maxHeight={bodyMaxHeight}
+        mx="$-5"
+        px="$5"
+        nestedScrollEnabled
+      >
+        {bodyNode}
+      </ScrollView>
+
+      {feedbackNode ? (
+        <ScrollView
+          maxHeight={feedbackMaxHeight}
+          mx="$-5"
+          px="$5"
+          nestedScrollEnabled
+        >
+          {feedbackNode}
+        </ScrollView>
+      ) : null}
+    </>
+  );
+  const confirmButtonProps = {
+    disabled: isConfirmDisabled || submitting,
+    loading: submitting || isRepayWalletBalancePending,
+  };
+
+  if (renderMode === 'page') {
+    return (
+      <>
+        <Page.Header title={actionLabel} />
+        <Page.Body>
+          <ScrollView flex={1} nestedScrollEnabled>
+            <YStack p="$5" gap="$5">
+              {bodyNode}
+              {feedbackNode}
+            </YStack>
+          </ScrollView>
+        </Page.Body>
+        <Page.Footer>
+          <YStack bg="$bgApp">
+            <Page.FooterActions
+              onConfirmText={actionLabel}
+              onConfirm={(close) => {
+                void handleConfirm({
+                  close,
+                  preventClose: () => undefined,
+                });
+              }}
+              confirmButtonProps={confirmButtonProps}
+            />
+            <ProtocolPositionActionKeyboardDismissFooter />
+          </YStack>
+        </Page.Footer>
+      </>
+    );
+  }
 
   return (
     <YStack gap="$5">
@@ -2075,75 +2267,15 @@ function ProtocolPositionActionDialogContent({
         <Dialog.Title>{actionLabel}</Dialog.Title>
       </Dialog.Header>
 
-      <ScrollView
-        maxHeight={bodyMaxHeight}
-        mx="$-5"
-        px="$5"
-        nestedScrollEnabled
-      >
-        <YStack gap="$5">
-          {selectable ? assetSelector : null}
-          {actionBody}
-        </YStack>
-      </ScrollView>
-
-      {showFeedbackRegion ? (
-        <ScrollView
-          maxHeight={feedbackMaxHeight}
-          mx="$-5"
-          px="$5"
-          nestedScrollEnabled
-        >
-          <YStack gap="$3">
-            {showLiquidationWarning ? (
-              <Alert
-                type="warning"
-                icon="InfoCircleOutline"
-                description={intl.formatMessage({
-                  id: ETranslations.defi_liquidation_withdraw_desc,
-                })}
-              />
-            ) : null}
-
-            {inlineErrorMessage ? (
-              <Alert
-                type="critical"
-                icon="ErrorOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.global_an_error_occurred,
-                })}
-                description={inlineErrorMessage}
-              />
-            ) : null}
-
-            {showTransactionCountNotice ? (
-              // Each selected asset builds its own transaction (approvals discovered
-              // at build time may add more), so hardware-wallet users know how many
-              // confirmations to expect. Count shown is the business-tx floor.
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                textAlign="center"
-              >
-                {intl.formatMessage(
-                  { id: ETranslations.address_risk_check_txs__msg },
-                  { count: selectedAssets.length },
-                )}
-              </SizableText>
-            ) : null}
-          </YStack>
-        </ScrollView>
-      ) : null}
+      {contentNode}
 
       <Dialog.Footer
         showCancelButton={false}
         showConfirmButton
         onConfirmText={actionLabel}
         onConfirm={handleConfirm}
-        confirmButtonProps={{
-          disabled: isConfirmDisabled || submitting,
-          loading: submitting || isRepayWalletBalancePending,
-        }}
+        confirmButtonProps={confirmButtonProps}
+        extraContent={<ProtocolPositionActionKeyboardDismissFooter />}
       />
     </YStack>
   );
@@ -2194,6 +2326,7 @@ export {
   isUserRejectedErrorMessage,
   ProtocolPositionActionAmountInput,
   ProtocolPositionActionAnchor,
+  ProtocolPositionActionDialogContent,
   showProtocolPositionActionDialog,
   useProtocolPositionActionSubmit,
   type IProtocolPositionActionSuccessParams,

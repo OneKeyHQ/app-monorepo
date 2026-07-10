@@ -1,0 +1,23 @@
+id: stock-channel-autonomous-implementation
+type:
+  - golden
+prompt: "Add a new broker-backed Stock order channel. It must restore the Stock/pay pair after background restart, tolerate one provider failing before another returns a usable quote, submit an order, and reconcile persisted history. Implement it without asking me to map the repo."
+expected:
+  must_include:
+    - "recover current Jira/Slack/server and actual branch/PR file scope before coding"
+    - "map useSwapStockChannel, swapStockChannelUtils, useSwapStockTradeInputs, quoteProgress, ServiceSwap, swapHistoryIdentity, and SimpleDbEntitySwapHistory"
+    - "state main UI/Jotai ownership, bg service/SimpleDB ownership, persistent storage ownership, serialized JS copies, and independent initialization"
+    - "keep an early non-actionable provider error non-terminal until the quote event settles or an actionable quote is selected"
+    - "freeze review/build/order identity and define restart replay and status repair"
+    - "protect ordinary Swap, Bridge, Limit, Market speed-swap, and existing Stock flows"
+    - "provide exact Stock quote, cold-start, identity, and SimpleDB Jest commands"
+    - "define a real background/restart runtime pass with payload and persisted-row evidence"
+  must_not_include:
+    - "treat the first provider error as final while later providers are pending"
+    - "reuse ordinary Swap default-token ownership for restored Stock state"
+    - "claim runtime completion from unit tests only"
+score:
+  pass: 90
+  critical_fail_if:
+    - "omits the main/bg/native-resource/JS-copy/init-order model"
+    - "uses a wrong history writer or loses order identity on restart"

@@ -48,6 +48,30 @@ export function shouldShowPerpsDepositTokenSkeleton({
   );
 }
 
+export function arePerpsDepositSelectedTokenRefreshFieldsEqual({
+  currentToken,
+  nextToken,
+}: {
+  currentToken?: IPerpsDepositToken;
+  nextToken: IPerpsDepositToken;
+}) {
+  return (
+    equalTokenNoCaseSensitive({
+      token1: currentToken,
+      token2: nextToken,
+    }) &&
+    currentToken?.name === nextToken.name &&
+    currentToken?.symbol === nextToken.symbol &&
+    currentToken?.decimals === nextToken.decimals &&
+    currentToken?.networkLogoURI === nextToken.networkLogoURI &&
+    currentToken?.logoURI === nextToken.logoURI &&
+    currentToken?.isNative === nextToken.isNative &&
+    currentToken?.balanceParsed === nextToken.balanceParsed &&
+    currentToken?.fiatValue === nextToken.fiatValue &&
+    currentToken?.price === nextToken.price
+  );
+}
+
 export function mergePerpsDepositTokensPreservingOrder({
   currentTokens,
   nextTokens,

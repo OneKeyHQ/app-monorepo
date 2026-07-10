@@ -48,6 +48,7 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../utils/mobileLayoutTrace';
+import { preloadPerpsDepositSelectTokenModal } from '../utils/preloadPerpsDepositSelectTokenModal';
 import { preloadPerpsDepositWithdrawModal } from '../utils/preloadPerpsDepositWithdrawModal';
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
@@ -109,6 +110,7 @@ function PerpContent() {
     if (platformEnv.isNative) {
       void preloadPerpsMobileTokenSelectorPage();
       void preloadPerpsDepositWithdrawModal();
+      void preloadPerpsDepositSelectTokenModal();
     }
   }, []);
 

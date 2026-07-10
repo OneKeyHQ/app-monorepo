@@ -28,6 +28,7 @@ interface ITradingViewNativeIntervalSelectorProps {
   intervalConfig: ITradingViewIntervalConfigData | null;
   intervalControlMode?: ITradingViewNativeIntervalControlMode;
   onIntervalChange: (interval: string) => void;
+  onControlInteraction?: () => void;
 }
 
 function IntervalMoreTrigger({
@@ -80,6 +81,7 @@ export const TradingViewNativeIntervalSelector = memo(
     intervalConfig,
     intervalControlMode = 'dialog',
     onIntervalChange,
+    onControlInteraction,
   }: ITradingViewNativeIntervalSelectorProps) => {
     const intl = useIntl();
     const [intervalsPopoverSessionKey, setIntervalsPopoverSessionKey] =
@@ -110,14 +112,16 @@ export const TradingViewNativeIntervalSelector = memo(
     const handleIntervalsPopoverOpenChange = useCallback(
       (open: boolean) => {
         if (open) {
+          onControlInteraction?.();
           setIntervalsPopoverSessionKey((key) => key + 1);
         }
         setIsIntervalsPopoverOpen(open);
       },
-      [setIsIntervalsPopoverOpen],
+      [onControlInteraction, setIsIntervalsPopoverOpen],
     );
 
     const showIntervalsDialog = useCallback(() => {
+      onControlInteraction?.();
       closeIntervalsDialog();
       const dialogInstance = Dialog.show({
         title: intl.formatMessage({ id: ETranslations.market_intervals }),
@@ -148,6 +152,7 @@ export const TradingViewNativeIntervalSelector = memo(
       handleIntervalsDialogClose,
       handlePreferredValuesChange,
       intl,
+      onControlInteraction,
       onIntervalChange,
       options,
       preferredIntervalValues,
@@ -227,6 +232,7 @@ export const TradingViewNativeIntervalSelector = memo(
             }
             options={segmentOptions}
             onChange={(value) => {
+              onControlInteraction?.();
               const nextOption = options.find(
                 (option) => option.value === value,
               );
