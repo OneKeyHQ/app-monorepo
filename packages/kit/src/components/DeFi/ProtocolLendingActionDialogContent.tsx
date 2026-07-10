@@ -61,6 +61,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import {
   resolveProtocolLendingDefiFillableAmountState,
+  resolveProtocolLendingInitialAmountState,
   resolveProtocolLendingRemainingDebtState,
   resolveProtocolLendingRepayAmountState,
   resolveProtocolLendingWithdrawAmountState,
@@ -584,18 +585,21 @@ function ProtocolLendingActionDefiContent({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const selectedAsset = assets[selectedIndex];
   const isWithdraw = actionType === 'withdraw';
-  // Withdraw prefills the full balance as an untouched Max default (submit sends
-  // bps=10000, no dust); repay starts empty — the user types how much debt to
-  // pay down.
-  const [amount, setAmount] = useState(() =>
-    isWithdraw
-      ? clampAmountDecimals(
-          assets[0]?.amount ?? '',
-          assets[0]?.asset.meta?.decimals,
-        )
-      : '',
+  const initialAmountState = resolveProtocolLendingInitialAmountState({
+    actionType,
+    availableAmount: clampAmountDecimals(
+      assets[0]?.amount ?? '',
+      assets[0]?.asset.meta?.decimals,
+    ),
+    hasDebts,
+  });
+  // Debt-free withdraw prefills the full balance as an untouched Max default
+  // (submit sends bps=10000, no dust). Debt-backed withdraw and repay start
+  // empty so the user deliberately chooses the amount.
+  const [amount, setAmount] = useState(initialAmountState.amount);
+  const [isMaxAmount, setIsMaxAmount] = useState(
+    initialAmountState.isMaxAmount,
   );
-  const [isMaxAmount, setIsMaxAmount] = useState(isWithdraw);
   const [submitError, setSubmitError] = useState<string | undefined>(undefined);
   const closeRef = useRef<(() => void | Promise<void>) | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
@@ -688,22 +692,23 @@ function ProtocolLendingActionDefiContent({
     maxBN: fillableMaxBN,
   });
 
-  // The withdraw prefill is an untouched Max default; first focus clears it so
-  // the user can type. A Max the user pressed deliberately (preset row) is never
-  // cleared — the ref marks that intent. Mirrors the generic portfolio dialog.
+  // A debt-free withdraw prefill is an untouched Max default; first focus clears
+  // it so the user can type. A Max the user pressed deliberately (preset row) is
+  // never cleared — the ref marks that intent. Mirrors the generic dialog.
   const hasUserSetMaxRef = useRef(false);
 
   const resetAmountForAsset = (asset?: IResolvedDeFiPositionActionAsset) => {
     hasUserSetMaxRef.current = false;
-    if (isWithdraw) {
-      setAmount(
-        clampAmountDecimals(asset?.amount ?? '', asset?.asset.meta?.decimals),
-      );
-      setIsMaxAmount(true);
-    } else {
-      setAmount('');
-      setIsMaxAmount(false);
-    }
+    const nextAmountState = resolveProtocolLendingInitialAmountState({
+      actionType,
+      availableAmount: clampAmountDecimals(
+        asset?.amount ?? '',
+        asset?.asset.meta?.decimals,
+      ),
+      hasDebts,
+    });
+    setAmount(nextAmountState.amount);
+    setIsMaxAmount(nextAmountState.isMaxAmount);
   };
 
   const handleAmountChange = (next: string) => {

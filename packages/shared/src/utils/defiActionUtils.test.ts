@@ -471,9 +471,15 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
       poolAddress: '0xaavepool',
       assets: [
         makeAsset({
+          symbol: 'WETH',
+          address: '0xweth',
+          amount: '0.004836',
+          category: 'collateral',
+        }),
+        makeAsset({
           symbol: 'USDC',
           address: '0xusdc',
-          amount: '100',
+          amount: '0.3265',
           category: 'collateral',
         }),
       ],
@@ -514,6 +520,28 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     const repayAction = actions.find(
       (action) => action.action === EDeFiPositionAction.Repay,
     );
+    const withdrawAction = actions.find(
+      (action) => action.action === EDeFiPositionAction.Withdraw,
+    );
+
+    expect(withdrawAction?.assets).toEqual([
+      expect.objectContaining({
+        amount: '0.004836',
+        symbol: 'WETH',
+        tokenAddress: '0xweth',
+        extraParams: expect.objectContaining({
+          poolAddress: '0xaavepool',
+        }),
+      }),
+      expect.objectContaining({
+        amount: '0.3265',
+        symbol: 'USDC',
+        tokenAddress: '0xusdc',
+        extraParams: expect.objectContaining({
+          poolAddress: '0xaavepool',
+        }),
+      }),
+    ]);
 
     expect(repayAction).toEqual(
       expect.objectContaining({

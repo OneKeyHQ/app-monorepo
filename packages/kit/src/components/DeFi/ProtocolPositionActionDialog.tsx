@@ -60,7 +60,10 @@ import {
   type IDeFiActionTxConfirmDialogResult,
   showDeFiActionTxConfirmDialog,
 } from './DeFiActionTxConfirmResult';
-import { resolveProtocolLendingDefiFillableAmountState } from './protocolLendingActionUtils';
+import {
+  resolveProtocolLendingDefiFillableAmountState,
+  resolveProtocolLendingInitialAmountState,
+} from './protocolLendingActionUtils';
 import { shouldShowProtocolPositionActionInlineSubmitError } from './protocolPositionActionErrorUtils';
 import { resolveProtocolPositionActionDialogLayout } from './protocolPositionActionLayoutUtils';
 import {
@@ -1631,21 +1634,23 @@ function ProtocolPositionActionDialogContent({
   // Manual single-token entry (withdraw / repay). `amount` is human-decimal;
   // `isMaxAmount` flags a full close so submit sends bps=10000 instead.
   //
-  // Withdraw is always non-debt here (Aave debt withdraws route to the manage
-  // page), so it defaults to Max: the full balance pre-filled with isMaxAmount
-  // on, so an untouched submit sends bps=10000 and leaves no dust. Repay is a
-  // debt action, so it stays empty and the user types how much of the loan to
-  // pay down. Remove-liquidity defaults to Max via actionPercent (100%) above.
+  // Debt-free withdraw defaults to Max so an untouched submit sends bps=10000
+  // and leaves no dust. Debt-backed withdraw and repay stay empty so the user
+  // deliberately chooses the amount. Remove-liquidity defaults to Max via
+  // actionPercent (100%) above.
   const isWithdrawAction = action.action === EDeFiPositionAction.Withdraw;
-  const [amount, setAmount] = useState(() =>
-    isWithdrawAction
-      ? clampAmountDecimals(
-          action.assets[0]?.amount ?? '',
-          action.assets[0]?.asset.meta?.decimals,
-        )
-      : '',
+  const initialAmountState = resolveProtocolLendingInitialAmountState({
+    actionType: isWithdrawAction ? 'withdraw' : 'repay',
+    availableAmount: clampAmountDecimals(
+      action.assets[0]?.amount ?? '',
+      action.assets[0]?.asset.meta?.decimals,
+    ),
+    hasDebts,
+  });
+  const [amount, setAmount] = useState(initialAmountState.amount);
+  const [isMaxAmount, setIsMaxAmount] = useState(
+    initialAmountState.isMaxAmount,
   );
-  const [isMaxAmount, setIsMaxAmount] = useState(isWithdrawAction);
   const [selectedAssetIndexes, setSelectedAssetIndexes] = useState<number[]>(
     () => (action.assets[0] ? [0] : []),
   );
@@ -1879,10 +1884,9 @@ function ProtocolPositionActionDialogContent({
     setIsMaxAmount(false);
   };
 
-  // Withdraw prefills the full balance as an untouched Max default. First
-  // focus clears it — the user is here to type a custom amount and would
-  // otherwise delete the prefill by hand. A Max the user pressed deliberately
-  // (preset row) is never cleared; the ref marks that intent.
+  // Debt-free withdraw prefills the full balance as an untouched Max default.
+  // First focus clears it so the user can type a custom amount. A Max the user
+  // pressed deliberately (preset row) is never cleared; the ref marks intent.
   const hasUserSetMaxRef = useRef(false);
   const handleAmountInputFocus = () => {
     if (isMaxAmount && !hasUserSetMaxRef.current) {

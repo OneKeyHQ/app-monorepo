@@ -54,6 +54,22 @@ function resolveRepayValueForMax({
   return referenceBalance;
 }
 
+export function resolveProtocolLendingInitialAmountState({
+  actionType,
+  availableAmount,
+  hasDebts,
+}: {
+  actionType: 'withdraw' | 'repay';
+  availableAmount: string;
+  hasDebts?: boolean;
+}) {
+  const shouldPrefillMax = actionType === 'withdraw' && !hasDebts;
+  return {
+    amount: shouldPrefillMax ? availableAmount : '',
+    isMaxAmount: shouldPrefillMax,
+  };
+}
+
 export function resolveProtocolLendingWithdrawAmountState({
   amount,
   referenceBalance,

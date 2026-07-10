@@ -1,12 +1,39 @@
 import {
   findSupportedBorrowMarket,
   resolveProtocolLendingDefiFillableAmountState,
+  resolveProtocolLendingInitialAmountState,
   resolveProtocolLendingRemainingDebtState,
   resolveProtocolLendingRepayAmountState,
   resolveProtocolLendingWithdrawAmountState,
 } from './protocolLendingActionUtils';
 
 describe('protocolLendingActionUtils', () => {
+  it('leaves debt-backed withdraw empty until the user chooses an amount', () => {
+    expect(
+      resolveProtocolLendingInitialAmountState({
+        actionType: 'withdraw',
+        availableAmount: '0.004836',
+        hasDebts: true,
+      }),
+    ).toEqual({
+      amount: '',
+      isMaxAmount: false,
+    });
+  });
+
+  it('keeps debt-free withdraw prefilled as Max', () => {
+    expect(
+      resolveProtocolLendingInitialAmountState({
+        actionType: 'withdraw',
+        availableAmount: '0.004836',
+        hasDebts: false,
+      }),
+    ).toEqual({
+      amount: '0.004836',
+      isMaxAmount: true,
+    });
+  });
+
   it('marks withdraw amount above the supplied balance as insufficient', () => {
     const state = resolveProtocolLendingWithdrawAmountState({
       amount: '10.0001',
