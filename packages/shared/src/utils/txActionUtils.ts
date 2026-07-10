@@ -66,6 +66,39 @@ export function getDisplayedActions({ decodedTx }: { decodedTx: IDecodedTx }) {
   );
 }
 
+// collect every address that appears in a decoded tx's asset-transfer
+// actions (transfer from/to plus raw UTXO inputs/outputs). Callers that
+// already hold a decoded tx use this to tell vaults which addresses a
+// history detail request actually involves (btc find-address narrowing).
+export function collectDecodedTxInvolvedAddresses({
+  decodedTx,
+}: {
+  decodedTx: IDecodedTx;
+}): string[] {
+  const addresses = new Set<string>();
+  const add = (address: string | undefined) => {
+    if (address) {
+      addresses.add(address);
+    }
+  };
+  for (const action of decodedTx.actions ?? []) {
+    const transfer = action.assetTransfer;
+    if (transfer) {
+      transfer.sends.forEach((send) => {
+        add(send.from);
+        add(send.to);
+      });
+      transfer.receives.forEach((receive) => {
+        add(receive.from);
+        add(receive.to);
+      });
+      transfer.utxoFrom?.forEach((utxo) => add(utxo.address));
+      transfer.utxoTo?.forEach((utxo) => add(utxo.address));
+    }
+  }
+  return Array.from(addresses);
+}
+
 export function mergeAssetTransferActions(actions: IDecodedTxAction[]) {
   const otherActions: IDecodedTxAction[] = [];
   let mergedAssetTransferAction: IDecodedTxAction | null = null;
