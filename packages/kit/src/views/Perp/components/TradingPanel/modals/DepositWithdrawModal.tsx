@@ -91,6 +91,7 @@ import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
 import {
   arePerpsDepositSelectedTokenRefreshFieldsEqual,
+  getPerpsDepositMinimumCheck,
   getPerpsDepositTokenDisplayList,
   mergePerpsDepositTokensPreservingOrder,
   shouldShowPerpsDepositTokenSkeleton,
@@ -320,6 +321,7 @@ function DepositWithdrawContent({
       currentPerpsDepositSelectedToken,
       depositTokenListOwnerKey,
       depositTokenListRevision,
+      depositTokenListSource,
     },
     setPerpsDepositTokensAtom,
   ] = usePerpsDepositTokensAtom();
@@ -693,6 +695,7 @@ function DepositWithdrawContent({
         tokens: result,
         currentToken: previousToken,
         defaultTokens,
+        preserveCurrentToken: depositTokenListSource === 'walletBalance',
       });
       if (selectedToken) {
         setPerpsDepositTokensAtom((prev) => {
@@ -733,7 +736,12 @@ function DepositWithdrawContent({
         });
       }
     }
-  }, [defaultTokens, result, setPerpsDepositTokensAtom]);
+  }, [
+    defaultTokens,
+    depositTokenListSource,
+    result,
+    setPerpsDepositTokensAtom,
+  ]);
 
   const availableBalance = useMemo(() => {
     const rawBalance =
@@ -829,52 +837,17 @@ function DepositWithdrawContent({
   );
 
   const checkFromTokenFiatValue = useMemo(() => {
-    const fromTokenPrice = currentPerpsDepositSelectedToken?.price;
-    const fromTokenPriceBN = new BigNumber(fromTokenPrice || '0');
-    if (fromTokenPriceBN.isZero() || fromTokenPriceBN.isNaN()) {
-      return {
-        value: false,
-        minFromTokenAmount: '-',
-      };
-    }
-    const arbUSDCToken = depositTokensWithPrice.find((token) =>
-      equalTokenNoCaseSensitive({
-        token1: token,
-        token2: {
-          networkId: PERPS_NETWORK_ID,
-          contractAddress: USDC_TOKEN_INFO.address,
-        },
-      }),
-    );
-    const arbUSDCTokenMinAmount = new BigNumber(
-      arbUSDCToken?.price ?? '0',
-    ).multipliedBy(MIN_DEPOSIT_AMOUNT);
-    const minFromTokenAmount =
-      arbUSDCTokenMinAmount.dividedBy(fromTokenPriceBN);
-    if (
-      minFromTokenAmount.isPositive() &&
-      !minFromTokenAmount?.isNaN() &&
-      minFromTokenAmount.lte(tokenAmountBN)
-    ) {
-      return {
-        value: true,
-      };
-    }
-    const minFromTokenAmountFormatted = minFromTokenAmount
-      .decimalPlaces(
-        Math.min(Number(currentPerpsDepositSelectedToken?.decimals ?? 0), 8),
-        BigNumber.ROUND_UP,
-      )
-      .toFixed();
-    return {
-      value: false,
-      minFromTokenAmount: minFromTokenAmountFormatted,
-    };
+    return getPerpsDepositMinimumCheck({
+      inputAmount: amount,
+      isUsdInput,
+      tokenPrice: currentPerpsDepositSelectedToken?.price,
+      tokenDecimals: currentPerpsDepositSelectedToken?.decimals,
+    });
   }, [
-    tokenAmountBN,
+    amount,
+    isUsdInput,
     currentPerpsDepositSelectedToken?.decimals,
     currentPerpsDepositSelectedToken?.price,
-    depositTokensWithPrice,
   ]);
 
   const isValidAmount = useMemo(() => {
