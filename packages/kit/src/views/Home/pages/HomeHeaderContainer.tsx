@@ -5,6 +5,7 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
+import { ENABLE_IMMERSIVE_GLASS_HEADER } from '@onekeyhq/kit/src/components/ImmersiveGlassHeader';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IHomePageViewedState } from '@onekeyhq/shared/src/logger/scopes/account/scenes/wallet';
@@ -62,6 +63,7 @@ function BaseHomeHeaderContainer() {
   if (platformEnv.isNative && !isWalletNotBackedUp) {
     nativeMinHeight = shouldShowBanner ? 312 : 182;
   }
+  const headerBg = ENABLE_IMMERSIVE_GLASS_HEADER ? '$transparent' : '$bgApp';
 
   // Funnel denominator for backup / receive completion rates: log once per
   // (walletId, state) tuple seen this session. Skip `unknown` so we don't
@@ -93,7 +95,7 @@ function BaseHomeHeaderContainer() {
       gap="$5"
       minHeight={nativeMinHeight}
       $gtMd={{ gap: '$8' }}
-      bg="$bgApp"
+      bg={headerBg}
       pointerEvents="box-none"
     >
       <Stack
@@ -104,7 +106,7 @@ function BaseHomeHeaderContainer() {
           pt: '$8',
         }}
         px="$pagePadding"
-        bg="$bgApp"
+        bg={headerBg}
         pointerEvents="box-none"
       >
         <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
