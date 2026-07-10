@@ -17,7 +17,6 @@
 		<string>applinks:perps.onekey.so</string>
 		<string>applinks:perps.onekeytest.com</string>
 		<string>applinks:swap.onekey.so</string>
-		<string>applinks:swap.onekeytest.com</string>
 	</array>
 	<key>com.apple.developer.icloud-container-environment</key>
 	<string>Production</string>

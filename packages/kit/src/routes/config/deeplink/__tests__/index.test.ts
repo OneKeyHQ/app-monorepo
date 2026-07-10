@@ -191,7 +191,7 @@ describe('stocks / perps universal links', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
-  it.each(['https://swap.onekey.so/', 'https://swap.onekeytest.com/any/path'])(
+  it.each(['https://swap.onekey.so/', 'https://swap.onekey.so/any/path'])(
     'routes swap universal link to the Swap tab home: %s',
     async (url) => {
       handleDeepLinkUrl({ url });
@@ -265,6 +265,7 @@ describe('stocks / perps universal links', () => {
     'https://app.onekey.so/market/tokens/btc',
     'https://evil.example/swap?tab=stock',
     'https://stocks.evil.example/',
+    'https://swap.onekeytest.com/',
     'http://stocks.onekey.so/',
     'http://swap.onekey.so/',
   ])('ignores non stocks/perps universal link: %s', async (url) => {

@@ -137,7 +137,6 @@
         <data android:scheme="https" android:host="perps.onekey.so" android:pathPrefix="/" />
         <data android:scheme="https" android:host="perps.onekeytest.com" android:pathPrefix="/" />
         <data android:scheme="https" android:host="swap.onekey.so" android:pathPrefix="/" />
-        <data android:scheme="https" android:host="swap.onekeytest.com" android:pathPrefix="/" />
       </intent-filter>
     </activity>
     <activity
