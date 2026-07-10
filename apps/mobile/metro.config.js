@@ -325,6 +325,12 @@ if (process.env.RN_HARNESS === 'true') {
 }
 
 const buildTimeEnv = require('@onekeyhq/shared/src/buildTimeEnv');
+// Metro does not include environment variables read by Babel plugins in its
+// transform cache key. Keep bundles compiled with different runtime layouts
+// in separate cache namespaces.
+config.cacheVersion = `${config.cacheVersion || 'default'}:native-bg-${
+  buildTimeEnv.enableNativeBackgroundThread ? 'enabled' : 'disabled'
+}`;
 const getMetroRuntimeTarget = (context) =>
   context.customResolverOptions?.runtimeTarget ||
   process.env.METRO_RUNTIME_TARGET ||
