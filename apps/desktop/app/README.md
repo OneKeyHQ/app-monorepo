@@ -37,6 +37,15 @@ Packaging notes:
 - This README is source documentation only. It is explicitly excluded by
   `apps/desktop/electron-builder-files.config.js`.
 
+## Runtime dependency patches
+
+Externalized dependencies are loaded from this app directory at runtime, so a
+root-level `patch-package` patch does not modify the copy installed here.
+`electron-updater` therefore uses a Yarn `patch:` dependency backed by
+`.yarn/patches/`. Keep that patch aligned with the root-level patch whenever the
+dependency changes. `yarn install-app-deps` verifies the installed runtime copy
+before packaging continues.
+
 Security scanner caveat:
 
 Root-level dependency scanners may still report versions from the monorepo root

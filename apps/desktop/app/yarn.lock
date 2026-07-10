@@ -34,7 +34,7 @@ __metadata:
     "@stoprocent/noble": "npm:2.3.16"
     adm-zip: "npm:0.5.17"
     electron-check-biometric-auth-changed: "npm:1.0.0"
-    electron-updater: "npm:6.8.9"
+    electron-updater: "patch:electron-updater@npm%3A6.8.9#~/.yarn/patches/electron-updater-npm-6.8.9-a616c21401.patch"
     iconv-lite: "npm:0.6.3"
     mime-db: "npm:1.52.0"
     passport-desktop: "npm:0.1.2"
@@ -1180,6 +1180,22 @@ __metadata:
     semver: "npm:~7.7.3"
     tiny-typed-emitter: "npm:^2.1.0"
   checksum: 10/656b7a276e2f2df48736de3df55b817f40f8252f10d94d594c98a880287ab495718d2db67f8ee3a84ea178e90283f1e0c0d2a199b3f282bafd020cff1bd67999
+  languageName: node
+  linkType: hard
+
+"electron-updater@patch:electron-updater@npm%3A6.8.9#~/.yarn/patches/electron-updater-npm-6.8.9-a616c21401.patch":
+  version: 6.8.9
+  resolution: "electron-updater@patch:electron-updater@npm%3A6.8.9#~/.yarn/patches/electron-updater-npm-6.8.9-a616c21401.patch::version=6.8.9&hash=cfe57d"
+  dependencies:
+    builder-util-runtime: "npm:9.7.0"
+    fs-extra: "npm:^10.1.0"
+    js-yaml: "npm:^4.1.0"
+    lazy-val: "npm:^1.0.5"
+    lodash.escaperegexp: "npm:^4.1.2"
+    lodash.isequal: "npm:^4.5.0"
+    semver: "npm:~7.7.3"
+    tiny-typed-emitter: "npm:^2.1.0"
+  checksum: 10/e45a13988ff3df3d279a2c7b2ce2358bcd684191a26612166fa37b9fbad48383b40043d469d66c2ee7b69ced926cda87c17507e32ab75aff892cd4bdcbffcaf3
   languageName: node
   linkType: hard
 
