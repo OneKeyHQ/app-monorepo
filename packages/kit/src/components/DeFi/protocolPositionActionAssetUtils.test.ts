@@ -1,6 +1,9 @@
 import { EDeFiPositionAction } from '@onekeyhq/shared/types/defi';
 
-import { resolveProtocolPositionActionAssetPill } from './protocolPositionActionAssetUtils';
+import {
+  resolveProtocolPositionActionAssetBalanceLabel,
+  resolveProtocolPositionActionAssetPill,
+} from './protocolPositionActionAssetUtils';
 
 describe('resolveProtocolPositionActionAssetPill', () => {
   it('builds a liquidity-pool pair identity from underlying assets', () => {
@@ -21,5 +24,15 @@ describe('resolveProtocolPositionActionAssetPill', () => {
       logoURI: 'lp.png',
       logoURIs: ['eth.png', 'usdc.png'],
     });
+  });
+});
+
+describe('resolveProtocolPositionActionAssetBalanceLabel', () => {
+  it('uses the withdraw-specific label for ordinary portfolio withdraw', () => {
+    expect(
+      resolveProtocolPositionActionAssetBalanceLabel(
+        EDeFiPositionAction.Withdraw,
+      ),
+    ).toBe('availableToWithdraw');
   });
 });

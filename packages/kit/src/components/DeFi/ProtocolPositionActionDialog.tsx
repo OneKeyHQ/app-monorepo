@@ -61,7 +61,10 @@ import {
   showDeFiActionTxConfirmDialog,
 } from './DeFiActionTxConfirmResult';
 import { resolveProtocolLendingDefiFillableAmountState } from './protocolLendingActionUtils';
-import { resolveProtocolPositionActionAssetPill } from './protocolPositionActionAssetUtils';
+import {
+  resolveProtocolPositionActionAssetBalanceLabel,
+  resolveProtocolPositionActionAssetPill,
+} from './protocolPositionActionAssetUtils';
 import { shouldShowProtocolPositionActionInlineSubmitError } from './protocolPositionActionErrorUtils';
 import { resolveProtocolPositionActionDialogLayout } from './protocolPositionActionLayoutUtils';
 import {
@@ -1834,8 +1837,14 @@ function ProtocolPositionActionDialogContent({
     intl,
   });
   const maxLabel = intl.formatMessage({ id: ETranslations.global_max });
+  const assetBalanceLabel = resolveProtocolPositionActionAssetBalanceLabel(
+    action.action,
+  );
   const availableLabel = intl.formatMessage({
-    id: ETranslations.global_available,
+    id:
+      assetBalanceLabel === 'availableToWithdraw'
+        ? ETranslations.available_to_withdraw__title
+        : ETranslations.global_available,
   });
   const insufficientLabel = intl.formatMessage({
     id: ETranslations.earn_insufficient_balance,

@@ -14,6 +14,18 @@ type IProtocolPositionActionAssetIdentitySource = Pick<
   }>;
 };
 
+export type IProtocolPositionActionAssetBalanceLabel =
+  | 'available'
+  | 'availableToWithdraw';
+
+export function resolveProtocolPositionActionAssetBalanceLabel(
+  action: EDeFiPositionAction,
+): IProtocolPositionActionAssetBalanceLabel {
+  return action === EDeFiPositionAction.Withdraw
+    ? 'availableToWithdraw'
+    : 'available';
+}
+
 export function resolveProtocolPositionActionAssetPill({
   action,
   selectedAsset,
