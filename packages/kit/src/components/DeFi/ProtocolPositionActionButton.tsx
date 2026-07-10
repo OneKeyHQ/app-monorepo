@@ -95,6 +95,7 @@ type IBorrowManageParams = {
   marketAddress: string;
   reserveAddress: string;
   symbol: string;
+  debtAmount?: string;
   logoURI?: string;
   providerDisplayName?: string;
   providerLogoURI?: string;
@@ -319,6 +320,7 @@ function getAaveBorrowManageParams({
       address: reserveAddress,
     }),
     symbol,
+    debtAmount: actionType === 'repay' ? targetAsset?.amount : undefined,
     logoURI: targetAsset?.meta?.logoUrl,
     providerDisplayName:
       providerDisplayInfo?.providerDisplayName ||
@@ -861,6 +863,7 @@ const ProtocolPositionActionButton = memo(
           marketAddress: params.marketAddress,
           reserveAddress: params.reserveAddress,
           symbol: params.symbol,
+          debtAmount: params.debtAmount,
           logoURI: params.logoURI,
           providerDisplayName: params.providerDisplayName,
           providerLogoURI: params.providerLogoURI,
