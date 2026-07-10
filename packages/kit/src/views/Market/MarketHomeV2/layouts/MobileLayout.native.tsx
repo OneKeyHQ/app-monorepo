@@ -39,6 +39,7 @@ import {
   getDefaultMarketStockCategoryId,
   getMarketStockCategoryRequestParam,
 } from './marketStockCategoryUtils';
+import { getMarketMobileSecondaryHeaderHeight } from './mobileLayoutUtils';
 
 import type {
   ILiquidityFilter,
@@ -90,7 +91,6 @@ interface IMarketHomeTabBarProps extends TabBarProps<string> {
   perpsTabName: string;
 }
 
-const MARKET_MOBILE_SECONDARY_HEADER_HEIGHT = 74;
 const MARKET_TAB_CHANGE_TARGET_GUARD_MS = platformEnv.isNativeIOS ? 1000 : 350;
 const MARKET_TAB_SYNC_JUMP_DEFER_MS = platformEnv.isNativeIOS ? 180 : 0;
 const MARKET_TAB_USER_DRAG_ACCEPT_MS = platformEnv.isNativeIOS ? 700 : 350;
@@ -237,7 +237,11 @@ function MarketHomeTabBar({
         />
       </YStack>
       <YStack
-        height={MARKET_MOBILE_SECONDARY_HEADER_HEIGHT}
+        height={getMarketMobileSecondaryHeaderHeight({
+          isNativeAndroid: Boolean(platformEnv.isNativeAndroid),
+          isWatchlistEmpty: ctx.isWatchlistEmpty,
+          showWatchlistSubHeader,
+        })}
         overflow={platformEnv.isNativeAndroid ? 'hidden' : undefined}
         position="relative"
       >

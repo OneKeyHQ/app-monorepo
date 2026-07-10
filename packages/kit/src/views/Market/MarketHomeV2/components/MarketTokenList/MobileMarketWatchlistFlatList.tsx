@@ -410,7 +410,7 @@ function MobileMarketWatchlistFlatListImpl({
         <Stack
           {...(platformEnv.isNative ? null : { justifyContent: 'center' })}
           alignItems="center"
-          y={-25}
+          paddingTop="$8"
         >
           <MarketRecommendList
             maxSize={8}
