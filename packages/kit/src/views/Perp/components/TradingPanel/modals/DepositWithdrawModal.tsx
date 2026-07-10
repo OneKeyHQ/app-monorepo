@@ -94,6 +94,7 @@ import {
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
 import {
+  arePerpsDepositSelectedTokenRefreshFieldsEqual,
   getPerpsDepositTokenDisplayList,
   mergePerpsDepositTokensPreservingOrder,
   shouldShowPerpsDepositTokenSkeleton,
@@ -877,15 +878,24 @@ function DepositWithdrawContent({
           previousToken: getPerpsDepositTraceToken(previousToken),
           selectedToken: getPerpsDepositTraceToken(selectedToken),
         });
-        setPerpsDepositTokensAtom((prev) =>
-          equalTokenNoCaseSensitive({
-            token1: prev.currentPerpsDepositSelectedToken,
+        setPerpsDepositTokensAtom((prev) => {
+          const currentToken = prev.currentPerpsDepositSelectedToken;
+          if (
+            arePerpsDepositSelectedTokenRefreshFieldsEqual({
+              currentToken,
+              nextToken: selectedToken,
+            })
+          ) {
+            return prev;
+          }
+          return equalTokenNoCaseSensitive({
+            token1: currentToken,
             token2: selectedToken,
           })
             ? {
                 ...prev,
                 currentPerpsDepositSelectedToken: {
-                  ...prev.currentPerpsDepositSelectedToken,
+                  ...currentToken,
                   networkId: selectedToken.networkId,
                   contractAddress: selectedToken.contractAddress,
                   name: selectedToken.name,
@@ -902,8 +912,8 @@ function DepositWithdrawContent({
             : {
                 ...prev,
                 currentPerpsDepositSelectedToken: selectedToken,
-              },
-        );
+              };
+        });
       }
     }
   }, [
