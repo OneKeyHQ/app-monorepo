@@ -429,22 +429,23 @@ function MobileTokenSelectorModal({
   const cachedInitialListRef = useRef<ITokenSelectorListItem[]>(
     getCachedPerpsTokenSelectorInitialList(),
   );
-  const initialListRenderedRef = useRef(!platformEnv.isNativeIOS);
-  const initialListRenderedIndexesRef = useRef<Set<number>>(new Set());
   // iOS only (OK-57864): search interaction permanently ends the cold-start
   // snapshot phase so recycled rows cannot leave a static overlay behind.
-  const initialRowsSnapshotDismissedRef = useRef(!platformEnv.isNativeIOS);
+  const [initialRowsSnapshotDismissed, setInitialRowsSnapshotDismissed] =
+    useState(!platformEnv.isNativeIOS);
+  const initialListRenderedRef = useRef(!platformEnv.isNativeIOS);
+  const initialListRenderedIndexesRef = useRef<Set<number>>(new Set());
   const [hasInitialListRendered, setHasInitialListRendered] = useState(
     !platformEnv.isNativeIOS,
   );
   const dismissInitialRowsSnapshot = useCallback(() => {
-    if (!platformEnv.isNativeIOS || initialRowsSnapshotDismissedRef.current) {
+    if (!platformEnv.isNativeIOS) {
       return;
     }
-    initialRowsSnapshotDismissedRef.current = true;
     initialListRenderedRef.current = true;
     initialListRenderedIndexesRef.current.clear();
     setHasInitialListRendered(true);
+    setInitialRowsSnapshotDismissed(true);
   }, []);
   const fixedTabNames = useMemo(
     () => ({
@@ -1099,7 +1100,7 @@ function MobileTokenSelectorModal({
       DEFAULT_PERP_TOKEN_SORT_DIRECTION;
   const shouldUseCachedInitialList =
     platformEnv.isNativeIOS &&
-    !initialRowsSnapshotDismissedRef.current &&
+    !initialRowsSnapshotDismissed &&
     !searchQuery &&
     isDefaultPerpsSelectorView &&
     mockedListData.length === 0 &&
@@ -1109,13 +1110,13 @@ function MobileTokenSelectorModal({
     : mockedListData;
 
   useEffect(() => {
-    if (!platformEnv.isNativeIOS || initialRowsSnapshotDismissedRef.current) {
+    if (!platformEnv.isNativeIOS || initialRowsSnapshotDismissed) {
       return;
     }
     initialListRenderedRef.current = false;
     initialListRenderedIndexesRef.current.clear();
     setHasInitialListRendered(false);
-  }, [activeTab, shouldUseCachedInitialList]);
+  }, [activeTab, initialRowsSnapshotDismissed, shouldUseCachedInitialList]);
 
   usePerpActiveTabValidation({
     activeTab,
@@ -1227,7 +1228,7 @@ function MobileTokenSelectorModal({
     perpSortedList.length === 0;
   const shouldShowInitialRowsSnapshot =
     platformEnv.isNativeIOS &&
-    !initialRowsSnapshotDismissedRef.current &&
+    !initialRowsSnapshotDismissed &&
     !hasInitialListRendered &&
     !searchQuery &&
     isPerpTokenSelectorPerpsTab(displayPrimaryTab) &&
