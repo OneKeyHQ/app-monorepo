@@ -236,11 +236,7 @@ function MarketHomeTabBar({
         />
       </YStack>
       <YStack
-        height={getMarketMobileSecondaryHeaderHeight({
-          isNativeAndroid: Boolean(platformEnv.isNativeAndroid),
-          isWatchlistEmpty: ctx.isWatchlistEmpty,
-          showWatchlistSubHeader,
-        })}
+        height={getMarketMobileSecondaryHeaderHeight()}
         overflow={platformEnv.isNativeAndroid ? 'hidden' : undefined}
         position="relative"
       >
