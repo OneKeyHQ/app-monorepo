@@ -3,7 +3,6 @@ import {
   memo,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -55,33 +54,11 @@ function BasePullToRefresh({ onRefresh, ...props }: IPullToRefreshProps) {
   const progressViewOffsetFromContext = useContext(
     HomePullToRefreshOffsetContext,
   );
-  const shouldUseContextProgressViewOffset =
+  const shouldUseContextProgressViewVisualOffset =
     platformEnv.isNativeIOS &&
     (props.progressViewOffset === undefined ||
       props.progressViewOffset === 0) &&
     progressViewOffsetFromContext !== undefined;
-  const [
-    deferredContextProgressViewOffset,
-    setDeferredContextProgressViewOffset,
-  ] = useState<number | undefined>();
-
-  useEffect(() => {
-    if (!shouldUseContextProgressViewOffset) {
-      setDeferredContextProgressViewOffset(undefined);
-      return;
-    }
-
-    // Fabric iOS ignores the initial progressViewOffset because the deferred
-    // initial props are compared against themselves. Apply Home's offset after
-    // mount so native sees a real 0 -> offset update before refresh starts.
-    setDeferredContextProgressViewOffset(undefined);
-    const frameId = requestAnimationFrame(() => {
-      setDeferredContextProgressViewOffset(progressViewOffsetFromContext);
-    });
-    return () => {
-      cancelAnimationFrame(frameId);
-    };
-  }, [progressViewOffsetFromContext, shouldUseContextProgressViewOffset]);
 
   const handleRefresh = useCallback(() => {
     onRefresh?.();
@@ -92,21 +69,21 @@ function BasePullToRefresh({ onRefresh, ...props }: IPullToRefreshProps) {
     defaultLogger.account.wallet.walletPullToRefresh();
   }, [onRefresh]);
 
-  const progressViewOffset =
-    shouldUseContextProgressViewOffset &&
-    deferredContextProgressViewOffset !== undefined
-      ? deferredContextProgressViewOffset
-      : props.progressViewOffset;
+  const progressViewVisualOffset = shouldUseContextProgressViewVisualOffset
+    ? progressViewOffsetFromContext
+    : undefined;
   const iosRefreshControlProps: Partial<IRefreshControlType> =
     platformEnv.isNativeIOS
-      ? { tintColor: props.tintColor ?? theme.iconSubdued.val }
+      ? {
+          progressViewVisualOffset,
+          tintColor: props.tintColor ?? theme.iconSubdued.val,
+        }
       : {};
 
   return (
     <RefreshControl
       {...props}
       {...iosRefreshControlProps}
-      progressViewOffset={progressViewOffset}
       refreshing={refreshing}
       onRefresh={handleRefresh}
     />
