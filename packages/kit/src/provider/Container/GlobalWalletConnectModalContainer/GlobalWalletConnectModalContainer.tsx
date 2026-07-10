@@ -1,10 +1,6 @@
 import { Suspense, lazy, useEffect, useRef, useSyncExternalStore } from 'react';
 
-import {
-  ESplitViewType,
-  Page,
-  useSplitViewType,
-} from '@onekeyhq/components';
+import { ESplitViewType, Page, useSplitViewType } from '@onekeyhq/components';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
