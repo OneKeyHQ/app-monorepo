@@ -16,6 +16,8 @@ export const AppUpdateTestIDs = {
 
   // --- Featured carousel ---
   featuredCarouselCloseBtn: 'app-update-featured-carousel-close-btn',
+  featuredCarouselPrevBtn: 'app-update-featured-carousel-prev-btn',
+  featuredCarouselNextBtn: 'app-update-featured-carousel-next-btn',
   featuredFooterCtaBtn: 'app-update-featured-footer-cta-btn',
   featuredFooterViewChangelogBtn:
     'app-update-featured-footer-view-changelog-btn',

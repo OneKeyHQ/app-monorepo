@@ -450,7 +450,7 @@ export const swapDefaultSetTokens: Record<
       'symbol': 'ETH',
       'decimals': 18,
       'logoURI':
-        'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address--1721282106924.png',
+        'https://uni.onekey-asset.com/dashboard/logo/upload_1782996521358.0.27118193195795703.0.png',
       'isNative': true,
       'networkLogoURI':
         'https://uni.onekey-asset.com/static/chain/robinhood.png',

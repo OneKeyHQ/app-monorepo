@@ -11,11 +11,19 @@ import {
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  SizableText,
+  XStack,
+  useInPageDialog,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import defiActionUtils from '@onekeyhq/shared/src/utils/defiActionUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
@@ -76,6 +84,7 @@ type IProtocolPositionActionButtonProps = {
   // localized label still grows rather than truncating.
   actionMinWidth?: number;
   containerProps?: Omit<ComponentProps<typeof XStack>, 'children'>;
+  actionPresentation?: 'dialog' | 'modal-route';
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
   ) => void | Promise<void>;
@@ -520,9 +529,12 @@ const ProtocolPositionActionButton = memo(
     preferLendingDialog = false,
     actionMinWidth,
     containerProps,
+    actionPresentation = 'dialog',
     onSuccess,
   }: IProtocolPositionActionButtonProps) => {
     const intl = useIntl();
+    const navigation = useAppNavigation();
+    const inPageDialog = useInPageDialog();
     const submitProtocolPositionAction = useProtocolPositionActionSubmit({
       accountId: accountId ?? '',
       networkId: protocol.networkId,
@@ -751,19 +763,57 @@ const ProtocolPositionActionButton = memo(
             action.action === EDeFiPositionAction.Repay) &&
           !action.buildAction
         ) {
-          cancelPendingLendingDialogOpenRef.current =
-            showProtocolLendingActionDialog({
+          if (actionPresentation === 'modal-route') {
+            navigation.pushModal(EModalRoutes.MainModal, {
+              screen: EModalAssetDetailRoutes.DeFiProtocolAction,
+              params: {
+                mode: 'lending',
+                accountId,
+                networkId: protocol.networkId,
+                actionType:
+                  action.action === EDeFiPositionAction.Repay
+                    ? 'repay'
+                    : 'withdraw',
+                source: { type: 'defi', action },
+                hasDebts: positionHasDebts,
+                onSuccess,
+              },
+            });
+          } else {
+            cancelPendingLendingDialogOpenRef.current =
+              showProtocolLendingActionDialog({
+                accountId,
+                networkId: protocol.networkId,
+                actionType:
+                  action.action === EDeFiPositionAction.Repay
+                    ? 'repay'
+                    : 'withdraw',
+                source: { type: 'defi', action },
+                hasDebts: positionHasDebts,
+                intl,
+                onSuccess,
+                dialog: inPageDialog,
+              });
+          }
+          return;
+        }
+
+        if (actionPresentation === 'modal-route') {
+          navigation.pushModal(EModalRoutes.MainModal, {
+            screen: EModalAssetDetailRoutes.DeFiProtocolAction,
+            params: {
+              mode: 'position',
               accountId,
               networkId: protocol.networkId,
-              actionType:
-                action.action === EDeFiPositionAction.Repay
-                  ? 'repay'
-                  : 'withdraw',
-              source: { type: 'defi', action },
+              action,
+              // A remapped LP withdraw (buildAction set) does not claim on-chain,
+              // so it must never advertise "& Claim rewards".
+              hasRewards: hasRewards && !action.buildAction,
               hasDebts: positionHasDebts,
-              intl,
+              rewardAssets: defiActionUtils.getPositionRewardAssets(position),
               onSuccess,
-            });
+            },
+          });
           return;
         }
 
@@ -777,12 +827,16 @@ const ProtocolPositionActionButton = memo(
           hasDebts: positionHasDebts,
           rewardAssets: defiActionUtils.getPositionRewardAssets(position),
           onSuccess,
+          dialog: inPageDialog,
         });
       },
       [
         accountId,
+        actionPresentation,
         hasRewards,
+        inPageDialog,
         intl,
+        navigation,
         onSuccess,
         position,
         positionHasDebts,
@@ -801,35 +855,55 @@ const ProtocolPositionActionButton = memo(
             ? repayManageParams
             : withdrawManageParams;
         if (!params) return;
-        cancelPendingLendingDialogOpenRef.current =
-          showProtocolLendingActionDialog({
-            accountId,
-            networkId: protocol.networkId,
-            actionType,
-            source: {
-              type: 'borrow',
-              provider: params.provider,
-              marketAddress: params.marketAddress,
-              reserveAddress: params.reserveAddress,
-              symbol: params.symbol,
-              logoURI: params.logoURI,
-              providerDisplayName: params.providerDisplayName,
-              providerLogoURI: params.providerLogoURI,
-              indexedAccountId: protocol.indexedAccountId ?? indexedAccountId,
-              // A row-scoped button already names the asset (fixed); the
-              // position-level block button lets the dialog's dropdown choose it.
-              selectable: !manageAsset,
+        const source = {
+          type: 'borrow' as const,
+          provider: params.provider,
+          marketAddress: params.marketAddress,
+          reserveAddress: params.reserveAddress,
+          symbol: params.symbol,
+          logoURI: params.logoURI,
+          providerDisplayName: params.providerDisplayName,
+          providerLogoURI: params.providerLogoURI,
+          indexedAccountId: protocol.indexedAccountId ?? indexedAccountId,
+          // A row-scoped button already names the asset (fixed); the
+          // position-level block button lets the dialog's dropdown choose it.
+          selectable: !manageAsset,
+        };
+        if (actionPresentation === 'modal-route') {
+          navigation.pushModal(EModalRoutes.MainModal, {
+            screen: EModalAssetDetailRoutes.DeFiProtocolAction,
+            params: {
+              mode: 'lending',
+              accountId,
+              networkId: protocol.networkId,
+              actionType,
+              source,
+              hasDebts: positionHasDebts,
+              onSuccess,
             },
-            hasDebts: positionHasDebts,
-            intl,
-            onSuccess,
           });
+        } else {
+          cancelPendingLendingDialogOpenRef.current =
+            showProtocolLendingActionDialog({
+              accountId,
+              networkId: protocol.networkId,
+              actionType,
+              source,
+              hasDebts: positionHasDebts,
+              intl,
+              onSuccess,
+              dialog: inPageDialog,
+            });
+        }
       },
       [
         accountId,
+        actionPresentation,
         indexedAccountId,
+        inPageDialog,
         intl,
         manageAsset,
+        navigation,
         onSuccess,
         positionHasDebts,
         protocol.indexedAccountId,

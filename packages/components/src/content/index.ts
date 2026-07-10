@@ -7,6 +7,7 @@ export * from './LinearGradient';
 export * from './BlurView';
 export * from './GlassButtonCapsule';
 export * from './GlassView';
+export * from './ProgressiveBlur';
 export * from './Empty';
 // Markdown removed from barrel — import directly from
 // '@onekeyhq/components/src/content/Markdown' to avoid pulling

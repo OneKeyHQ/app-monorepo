@@ -130,7 +130,6 @@ import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
 import {
   getSwapKLineWalletChartDays,
   normalizeSwapKLineWalletChartData,
-  normalizeSwapKLineWalletChartTimestamp,
 } from '../modal/swapKLineChartUtils';
 
 import SwapActionsState from './SwapActionsState';
@@ -148,6 +147,7 @@ import {
   STOCK_CHART_DEFAULT_RANGE,
   STOCK_CHART_RANGE_ITEMS,
   STOCK_DESKTOP_HEADER_SLOT_PROPS,
+  getStockChartDisplayState,
   getStockDisabledActionButtonProps,
 } from './SwapStockDesktopContainer.utils';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
@@ -157,6 +157,7 @@ import {
   useSwapStockTradeContext,
 } from './SwapStockTradeProvider';
 
+import type { ScrollViewProps } from 'react-native';
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
 interface ISwapStockDesktopContainerProps {
@@ -179,6 +180,11 @@ interface ISwapStockDesktopContainerProps {
     states: ISwapAlertState[];
     quoteId: string;
   };
+  // iOS immersive header: drives the glass nav-bar fade and adds the top inset so
+  // the mobile Stock scroll view starts below the fixed bar and scrolls up under
+  // it. Unused by the desktop layout.
+  onScroll?: ScrollViewProps['onScroll'];
+  contentTopInset?: number;
 }
 
 type IStockMarketTokenDetail = IMarketTokenDetail | undefined;
@@ -200,6 +206,13 @@ type IStockChartHoverData = {
   price: number;
   x: number;
   y: number;
+};
+
+type IStockChartState = {
+  assetScope: string;
+  data: IMarketTokenChart;
+  range: IStockChartRange;
+  scope: string;
 };
 
 function useOpenStockTokenSelector({
@@ -1488,6 +1501,12 @@ function StockPriceChart({
     isNative ? 'native' : 'token'
   }:${normalizedCoinGeckoId ?? ''}`;
   const chartScope = `${chartAssetScope}:${range}`;
+  const [visibleChartState, setVisibleChartState] = useState<IStockChartState>({
+    assetScope: '',
+    data: [],
+    range,
+    scope: '',
+  });
   useEffect(() => {
     setHoverData(null);
   }, [chartScope]);
@@ -1502,6 +1521,7 @@ function StockPriceChart({
         return {
           scope: chartScope,
           assetScope: chartAssetScope,
+          range,
           data: [] as IMarketTokenChart,
         };
       }
@@ -1516,6 +1536,7 @@ function StockPriceChart({
       return {
         scope: chartScope,
         assetScope: chartAssetScope,
+        range,
         data: normalizeSwapKLineWalletChartData({
           chartData: response,
           timeFrom,
@@ -1530,67 +1551,54 @@ function StockPriceChart({
       isNative,
       networkId,
       normalizedCoinGeckoId,
+      range,
       tokenAddress,
     ],
     {
       initResult: {
         scope: '',
         assetScope: '',
+        range,
         data: [] as IMarketTokenChart,
       },
       watchLoading: true,
     },
   );
-  const isChartStateForCurrentScope = chartState.scope === chartScope;
-  const canReusePreviousRangeChartData =
-    chartState.assetScope === chartAssetScope;
+  useEffect(() => {
+    if (
+      chartState.scope === chartScope &&
+      chartState.assetScope === chartAssetScope
+    ) {
+      setVisibleChartState(chartState);
+    }
+  }, [chartAssetScope, chartScope, chartState]);
+  const isVisibleChartStateForCurrentAsset =
+    visibleChartState.assetScope === chartAssetScope;
+  const isVisibleChartStateForCurrentScope =
+    isVisibleChartStateForCurrentAsset &&
+    visibleChartState.scope === chartScope;
+  const visibleRange = isVisibleChartStateForCurrentAsset
+    ? visibleChartState.range
+    : range;
   const baseChartData = useMemo<IMarketTokenChart>(
+    () => (isVisibleChartStateForCurrentAsset ? visibleChartState.data : []),
+    [isVisibleChartStateForCurrentAsset, visibleChartState.data],
+  );
+  const { chartData, shouldShowChartLoading } = useMemo(
     () =>
-      isChartStateForCurrentScope || canReusePreviousRangeChartData
-        ? chartState.data
-        : [],
+      getStockChartDisplayState({
+        baseChartData,
+        isChartStateForCurrentScope: isVisibleChartStateForCurrentScope,
+        isLoading,
+        realtimeChartPoint,
+      }),
     [
-      canReusePreviousRangeChartData,
-      chartState.data,
-      isChartStateForCurrentScope,
+      baseChartData,
+      isLoading,
+      isVisibleChartStateForCurrentScope,
+      realtimeChartPoint,
     ],
   );
-  const chartData = useMemo<IMarketTokenChart>(() => {
-    if (!realtimeChartPoint) {
-      return baseChartData;
-    }
-
-    const [timestamp, price] = realtimeChartPoint;
-    const normalizedTimestamp =
-      normalizeSwapKLineWalletChartTimestamp(timestamp);
-    const normalizedPrice = Number(price);
-    if (
-      !Number.isFinite(normalizedTimestamp) ||
-      !Number.isFinite(normalizedPrice)
-    ) {
-      return baseChartData;
-    }
-
-    const pointsByTimestamp = new Map<number, number>();
-    for (const [pointTimestamp, pointPrice] of baseChartData) {
-      const normalizedPointTimestamp =
-        normalizeSwapKLineWalletChartTimestamp(pointTimestamp);
-      const normalizedPointPrice = Number(pointPrice);
-      if (
-        Number.isFinite(normalizedPointTimestamp) &&
-        Number.isFinite(normalizedPointPrice)
-      ) {
-        pointsByTimestamp.set(normalizedPointTimestamp, normalizedPointPrice);
-      }
-    }
-    pointsByTimestamp.set(normalizedTimestamp, normalizedPrice);
-
-    return Array.from(pointsByTimestamp.entries()).toSorted(
-      (a, b) => a[0] - b[0],
-    );
-  }, [baseChartData, realtimeChartPoint]);
-  const shouldShowChartLoading =
-    chartData.length === 0 && (isLoading || !isChartStateForCurrentScope);
   const priceFormatter = useCallback(
     (price: number) =>
       numberFormat(String(price), {
@@ -1733,6 +1741,7 @@ function StockPriceChart({
           seriesType="dotted-area"
           showPriceScale
           showLastPointMarker={false}
+          preserveChartInstanceOnDataChange
           // Pulse the chart tail only while the market is open (live updating);
           // it stops when the market is closed.
           pulseLastPoint={pulseLastPoint}
@@ -1762,7 +1771,7 @@ function StockPriceChart({
           w={156}
           h="$5"
           fullWidth
-          value={range}
+          value={visibleRange}
           options={rangeOptions}
           onChange={handleRangeChange}
           slotBackgroundColor="$transparent"
@@ -2265,7 +2274,11 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
       keyboardDismissMode="on-drag"
       ref={scrollViewRef}
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingBottom: tabBarHeight }}
+      onScroll={props.onScroll}
+      contentContainerStyle={{
+        paddingTop: props.contentTopInset ?? 0,
+        paddingBottom: tabBarHeight,
+      }}
       bottomOffset={bottomOffset}
     >
       <YStack

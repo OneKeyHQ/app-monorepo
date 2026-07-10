@@ -6,7 +6,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 
 import { PnlCell } from '../components/PnlCell';
@@ -45,17 +47,15 @@ function PortfolioItemNormalBase({
       </XStack>
 
       <YStack w={columnWidth} alignItems="flex-end">
-        <NumberSizeableText
+        <Currency
           size="$bodySm"
           color="$text"
           autoFormatter="price-marketCap"
           autoFormatterThreshold={1000}
-          formatterOptions={{
-            currency: '$',
-          }}
+          sourceCurrency={USD_CURRENCY_ID}
         >
           {item.totalPrice}
-        </NumberSizeableText>
+        </Currency>
         <NumberSizeableText
           size="$bodySm"
           color="$textSubdued"

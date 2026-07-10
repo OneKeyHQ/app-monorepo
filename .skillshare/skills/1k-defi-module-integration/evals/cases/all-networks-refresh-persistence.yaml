@@ -1,0 +1,22 @@
+id: all-networks-refresh-persistence
+type:
+  - verification
+prompt: "After a DeFi action, All Networks must show the updated position, survive restart, and never let Account A's late refresh overwrite Account B after switching accounts. Manual force refresh keeps the 50/day and 15-second policy."
+expected:
+  must_include:
+    - "map DeFiListBlock currentOwnerKey/loadedOwnerKey and events in main"
+    - "map ServiceDeFi immediate plus 40s/80s account-network keyed refresh and SimpleDbEntityDeFi in bg"
+    - "state persistent storage ownership, serialized event/proxy copies, and independent main/bg initialization"
+    - "keep direct per-account/network persistence and reject stale A events after switching to B"
+    - "treat client refresh UX and backend abuse protection as separate owners"
+    - "run exact existing tests, add focused refresh/quota/owner reconciliation tests, and name them in the final command"
+    - "prove cold restart, A to B in-flight switch, success refresh, cancel/failure, matching event, and persisted record"
+  must_not_include:
+    - "use one network-only cache key for concurrent accounts"
+    - "share the UI abort pool with scheduled post-action refresh"
+    - "claim persistence correctness from an updated screen alone"
+score:
+  pass: 90
+  critical_fail_if:
+    - "omits runtime/persistence ownership"
+    - "allows a stale account response to update the current owner"

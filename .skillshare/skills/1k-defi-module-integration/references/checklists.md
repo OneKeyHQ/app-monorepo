@@ -134,3 +134,35 @@ Use this drill for native staking, chain-specific, or provider-backed operations
 - Prefer local adapters over branching shared components for one protocol.
 - When changing shared Staking/Borrow contracts, list affected existing protocols and the regression path.
 - If ABI/native drills cannot be completed, the integration is not ready.
+
+## Recent Failure-Derived Gates
+
+Apply these as durable regression gates; verify current client/server/payload
+truth before assuming the original incident details still apply.
+
+- Action visibility is a three-source decision: portfolio/source metadata,
+  supported-protocol action contract, and build requirements. Do not infer it
+  from layout or one category field.
+- Outer position category and inner asset category have different meanings.
+  Preserve both through grouping and action resolution.
+- Native token may require an empty address while amount and `bps` have
+  different unit rules. Derive payloads from the current handler/DTO/example;
+  never trust an agent-generated field assumption without source proof.
+- ERC20 repay/withdraw can require approval. Complete approval and close or
+  hand off its confirm UI before business confirmation; every terminal callback
+  must release duplicate-submit state.
+- A build response can contain `tx`, `approvalTx`, `permit`, and `orderId`.
+  Broadcast success attaches tx hash to the order; settle updates final status;
+  only successful position-changing outcomes trigger success refresh.
+- Native iOS action pages and extension/desktop dialogs are different hosts.
+  Validate keyboard dismissal, replaceable 100% input, scroll/layout, confirm
+  layering, cancel, failure, and success on their owning hosts.
+- Manual portfolio refresh needs deliberate forced freshness without becoming
+  an abuse bypass. Keep frontend cadence/quota, backend abuse protection, and
+  bg persistence as separate owners.
+- All Networks refresh is account/network scoped. Direct per-account writes,
+  owner-key reconciliation, scheduled-refresh abort independence, and A -> B
+  stale-result rejection are mandatory.
+- Issue/PR titles are not authoritative scope. Inspect late Jira/Slack
+  corrections, attachments, branch-only commits, and actual changed files;
+  adjacent DeFi, Borrow, Stock, or chart changes can be hidden in one squash.

@@ -8,14 +8,18 @@ import {
   ButtonFrame,
   Dialog,
   Icon,
+  Keyboard,
+  Page,
   Popover,
+  ScrollView,
   SizableText,
   Skeleton,
   Stack,
-  Toast,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
+import type { useInPageDialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -44,6 +48,7 @@ import {
   type IResolvedDeFiPositionActionAsset,
 } from '@onekeyhq/shared/types/defi';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import {
   EBorrowActionsEnum,
   EEarnLabels,
@@ -58,17 +63,21 @@ import {
   resolveProtocolLendingDefiFillableAmountState,
   resolveProtocolLendingRemainingDebtState,
   resolveProtocolLendingRepayAmountState,
+  resolveProtocolLendingWithdrawAmountState,
 } from './protocolLendingActionUtils';
 import {
   type IProtocolPositionActionSuccessParams,
   ProtocolPositionActionAmountInput,
   ProtocolPositionActionAnchor,
+  ProtocolPositionActionKeyboardDismissFooter,
   clampAmountDecimals,
   getActionLabel,
   getErrorMessage,
   isUserRejectedErrorMessage,
   useProtocolPositionActionSubmit,
 } from './ProtocolPositionActionDialog';
+import { shouldShowProtocolPositionActionInlineSubmitError } from './protocolPositionActionErrorUtils';
+import { resolveProtocolPositionActionDialogLayout } from './protocolPositionActionLayoutUtils';
 import { getProtocolProviderDisplayName } from './protocolProviderDisplayUtils';
 
 // Withdraw/Repay only — the portfolio dialog is exit-side (Supply/Borrow stay on
@@ -118,6 +127,7 @@ type IShowProtocolLendingActionDialogParams = {
   actionType: IProtocolLendingActionType;
   source: IProtocolLendingActionSource;
   hasDebts?: boolean;
+  dialog?: ReturnType<typeof useInPageDialog>;
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
   ) => void | Promise<void>;
@@ -307,10 +317,12 @@ function LendingSelectorRowContent({ item }: { item: ILendingSelectorItem }) {
   );
 }
 
-// The asset row at the top of the dialog. In `selectable` mode it is the trigger
-// for a popover that lists every asset (supplied for withdraw, borrowed for
-// repay) — the semantics of Borrow's asset-select popover. Fixed mode renders
-// the plain row with no affordance.
+// The asset selector at the top of the dialog. In `selectable` mode it is a
+// compact pill (token + symbol + chevron) that triggers a popover listing every
+// asset (supplied for withdraw, borrowed for repay) — the semantics of Borrow's
+// asset-select popover. Fixed mode renders the same pill with no chevron and no
+// affordance. The per-asset balance is not repeated on the pill; it lives on the
+// "Available" row under the amount field.
 function LendingAssetSelectorRow({
   item,
   items,
@@ -326,11 +338,17 @@ function LendingAssetSelectorRow({
 }) {
   const intl = useIntl();
 
-  const rowInner = (
+  // Pill content: logo + symbol, plus a chevron when it opens the asset list.
+  // The chevron stays a size below the token so it reads as a quiet affordance
+  // rather than competing with the asset identity.
+  const pillInner = (
     <>
-      <LendingSelectorRowContent item={item} />
+      <Token size="sm" tokenImageUri={item.logoURI} bg="$bg" />
+      <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
+        {item.symbol}
+      </SizableText>
       {selectable ? (
-        <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+        <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$4.5" />
       ) : null}
     </>
   );
@@ -338,95 +356,104 @@ function LendingAssetSelectorRow({
   if (!selectable) {
     return (
       <XStack
+        alignSelf="center"
         alignItems="center"
         gap="$2"
-        px="$3"
+        px="$4"
         py="$2.5"
-        borderRadius="$3"
+        borderRadius="$full"
+        borderCurve="continuous"
         bg="$bgSubdued"
       >
-        {rowInner}
+        {pillInner}
       </XStack>
     );
   }
 
   return (
-    <Popover
-      title={intl.formatMessage({ id: ETranslations.token_selector_title })}
-      renderTrigger={
-        // ButtonFrame renders as a native <button> on web, so the asset picker
-        // is keyboard-focusable and Enter/Space opens it — a plain onPress
-        // XStack was mouse-only.
-        <ButtonFrame
-          alignItems="center"
-          justifyContent="flex-start"
-          gap="$2"
-          px="$3"
-          py="$2.5"
-          borderWidth={0}
-          borderRadius="$3"
-          bg="$bgSubdued"
-          hoverStyle={{ bg: '$bgHover' }}
-          pressStyle={{ bg: '$bgActive' }}
-          focusable
-          focusVisibleStyle={LENDING_SELECTOR_FOCUS_STYLE}
-        >
-          {rowInner}
-        </ButtonFrame>
-      }
-      renderContent={({ closePopover }) => (
-        <YStack p="$2">
-          <XStack px="$3" pb="$1">
-            <SizableText size="$bodySmMedium" color="$textSubdued">
-              {columnHeaderLabel}
-            </SizableText>
-          </XStack>
-          {items.map((selectorItem) => {
-            const isSelected = selectorItem.key === item.key;
-            // The current asset is a non-actionable state row (plain XStack);
-            // every other asset is a keyboard-focusable option button.
-            if (isSelected) {
+    // Wrap the popover so its trigger hugs the pill and centers on the dialog's
+    // vertical axis (aligning with the amount hero below). The Popover's internal
+    // Trigger frame is a full-width Stack carrying both the tap target and the
+    // popover anchor, so only a content-sized row parent keeps them on the pill.
+    <XStack alignSelf="center">
+      <Popover
+        title={intl.formatMessage({ id: ETranslations.token_selector_title })}
+        renderTrigger={
+          // ButtonFrame renders as a native <button> on web, so the asset
+          // picker is keyboard-focusable and Enter/Space opens it — a plain
+          // onPress XStack was mouse-only.
+          <ButtonFrame
+            alignItems="center"
+            justifyContent="flex-start"
+            gap="$2"
+            px="$4"
+            py="$2.5"
+            borderWidth={0}
+            borderRadius="$full"
+            borderCurve="continuous"
+            bg="$bgSubdued"
+            hoverStyle={{ bg: '$bgHover' }}
+            pressStyle={{ bg: '$bgActive' }}
+            focusable
+            focusVisibleStyle={LENDING_SELECTOR_FOCUS_STYLE}
+          >
+            {pillInner}
+          </ButtonFrame>
+        }
+        renderContent={({ closePopover }) => (
+          <YStack p="$2">
+            <XStack px="$3" pb="$1">
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                {columnHeaderLabel}
+              </SizableText>
+            </XStack>
+            {items.map((selectorItem) => {
+              const isSelected = selectorItem.key === item.key;
+              // The current asset is a non-actionable state row (plain XStack);
+              // every other asset is a keyboard-focusable option button.
+              if (isSelected) {
+                return (
+                  <XStack
+                    key={selectorItem.key}
+                    alignItems="center"
+                    gap="$2"
+                    px="$3"
+                    py="$2"
+                    borderRadius="$2"
+                    bg="$bgHover"
+                  >
+                    <LendingSelectorRowContent item={selectorItem} />
+                  </XStack>
+                );
+              }
               return (
-                <XStack
+                <ButtonFrame
                   key={selectorItem.key}
                   alignItems="center"
+                  justifyContent="flex-start"
                   gap="$2"
                   px="$3"
                   py="$2"
+                  borderWidth={0}
                   borderRadius="$2"
-                  bg="$bgHover"
+                  bg="$transparent"
+                  hoverStyle={{ bg: '$bgHover' }}
+                  pressStyle={{ bg: '$bgActive' }}
+                  focusable
+                  focusVisibleStyle={LENDING_SELECTOR_FOCUS_STYLE}
+                  onPress={() => {
+                    onSelect(selectorItem.key);
+                    closePopover();
+                  }}
                 >
                   <LendingSelectorRowContent item={selectorItem} />
-                </XStack>
+                </ButtonFrame>
               );
-            }
-            return (
-              <ButtonFrame
-                key={selectorItem.key}
-                alignItems="center"
-                justifyContent="flex-start"
-                gap="$2"
-                px="$3"
-                py="$2"
-                borderWidth={0}
-                borderRadius="$2"
-                bg="$transparent"
-                hoverStyle={{ bg: '$bgHover' }}
-                pressStyle={{ bg: '$bgActive' }}
-                focusable
-                focusVisibleStyle={LENDING_SELECTOR_FOCUS_STYLE}
-                onPress={() => {
-                  onSelect(selectorItem.key);
-                  closePopover();
-                }}
-              >
-                <LendingSelectorRowContent item={selectorItem} />
-              </ButtonFrame>
-            );
-          })}
-        </YStack>
-      )}
-    />
+            })}
+          </YStack>
+        )}
+      />
+    </XStack>
   );
 }
 
@@ -437,10 +464,12 @@ function LendingActionAlerts({
   showLiquidationWarning,
   errorMessage,
   checkAmountAlerts = [],
+  riskOfLiquidationAlert,
 }: {
   showLiquidationWarning: boolean;
   errorMessage?: string;
   checkAmountAlerts?: ICheckAmountAlert[];
+  riskOfLiquidationAlert?: boolean;
 }) {
   const intl = useIntl();
   const liquidationWarningText = intl.formatMessage({
@@ -450,12 +479,24 @@ function LendingActionAlerts({
     if (!showLiquidationWarning) {
       return true;
     }
+    if (riskOfLiquidationAlert && checkAmountAlerts.length === 1) {
+      return false;
+    }
     return ![alert.title?.text, alert.text?.text, alert.description?.text].some(
       (text) => text?.trim() === liquidationWarningText.trim(),
     );
   });
+  const hasVisibleAlert =
+    showLiquidationWarning ||
+    Boolean(errorMessage) ||
+    visibleCheckAmountAlerts.length > 0;
+
+  if (!hasVisibleAlert) {
+    return null;
+  }
+
   return (
-    <>
+    <YStack gap="$3">
       {showLiquidationWarning ? (
         <Alert
           type="warning"
@@ -498,7 +539,7 @@ function LendingActionAlerts({
           }
         />
       ))}
-    </>
+    </YStack>
   );
 }
 
@@ -509,6 +550,7 @@ function ProtocolLendingActionDefiContent({
   source,
   hasDebts,
   onSuccess,
+  renderMode = 'dialog',
 }: {
   accountId: string;
   networkId: string;
@@ -518,8 +560,12 @@ function ProtocolLendingActionDefiContent({
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
   ) => void | Promise<void>;
+  renderMode?: 'dialog' | 'page';
 }) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
+  const { bodyMaxHeight, feedbackMaxHeight } =
+    resolveProtocolPositionActionDialogLayout({ gtMd });
   const submitProtocolPositionAction = useProtocolPositionActionSubmit({
     accountId,
     networkId,
@@ -551,6 +597,14 @@ function ProtocolLendingActionDefiContent({
   );
   const [isMaxAmount, setIsMaxAmount] = useState(isWithdraw);
   const [submitError, setSubmitError] = useState<string | undefined>(undefined);
+  const closeRef = useRef<(() => void | Promise<void>) | undefined>(undefined);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+
+  const releaseSubmitGuard = useCallback(() => {
+    submittingRef.current = false;
+    setSubmitting(false);
+  }, []);
 
   // Editing the amount or switching the asset is a fresh intent — drop any
   // stale build/submit error so it doesn't linger over new input.
@@ -713,38 +767,65 @@ function ProtocolLendingActionDefiContent({
     close?: () => void | Promise<void>;
     preventClose: () => void;
   }) => {
-    if (!selectedAsset) {
-      preventClose();
-      return;
-    }
+    preventClose();
+    if (!selectedAsset || submittingRef.current) return;
+    closeRef.current = close;
+    submittingRef.current = true;
+    setSubmitting(true);
     setSubmitError(undefined);
-    // Keep the dialog open while the server builds the tx (button shows
-    // loading); close it right before any signing/tx-confirm modal opens so the
-    // old dialog doesn't stack above the confirm page.
     let isActionDialogClosed = false;
+    const closeActionDialogBeforeConfirm = async () => {
+      if (isActionDialogClosed) return;
+      isActionDialogClosed = true;
+      await closeRef.current?.();
+    };
+    let submitGuardReleased = false;
+    const releaseSubmitGuardOnce = () => {
+      if (submitGuardReleased) return;
+      submitGuardReleased = true;
+      releaseSubmitGuard();
+    };
+    const releaseSubmitGuardOnceWithError = (error: unknown) => {
+      if (
+        !submitGuardReleased &&
+        !isActionDialogClosed &&
+        !isUserRejectedErrorMessage({ error, intl }) &&
+        shouldShowProtocolPositionActionInlineSubmitError(error)
+      ) {
+        setSubmitError(getErrorMessage(error));
+      }
+      releaseSubmitGuardOnce();
+    };
     try {
+      await Keyboard.dismissWithDelay(80);
       await submitProtocolPositionAction({
         action: source.action,
         selectedAssets: [selectedAsset],
         amount,
         isMaxAmount,
-        isErrorToastSuppressed: () => !isActionDialogClosed,
-        onBeforeNavigateConfirm: () => {
-          if (isActionDialogClosed) return;
-          isActionDialogClosed = true;
-          // Fire the close without awaiting it — Dialog.close resolves on a
-          // fixed 300ms teardown timer that would delay tx-confirm opening.
-          void close?.();
+        isErrorToastSuppressed: (error) =>
+          !isActionDialogClosed &&
+          shouldShowProtocolPositionActionInlineSubmitError(error),
+        onBeforeNavigateConfirm: closeActionDialogBeforeConfirm,
+        onSettleResult: async ({ status }) => {
+          releaseSubmitGuardOnce();
+          await closeActionDialogBeforeConfirm();
+          if (status !== EOnChainHistoryTxStatus.Success) {
+            return false;
+          }
         },
+        onConfirmFail: releaseSubmitGuardOnceWithError,
+        onConfirmCancel: releaseSubmitGuardOnce,
       });
     } catch (error) {
       if (
         !isActionDialogClosed &&
-        !isUserRejectedErrorMessage({ error, intl })
+        !isUserRejectedErrorMessage({ error, intl }) &&
+        shouldShowProtocolPositionActionInlineSubmitError(error)
       ) {
         setSubmitError(getErrorMessage(error));
       }
-      preventClose();
+      releaseSubmitGuardOnce();
     }
   };
 
@@ -783,13 +864,11 @@ function ProtocolLendingActionDefiContent({
     !isRepayWalletBalanceReady ||
     isRepayWalletBalancePending ||
     Boolean(repayWalletBalanceError);
-
-  return (
+  const inlineErrorMessage = submitError ?? repayWalletBalanceError;
+  const showFeedbackRegion =
+    (Boolean(hasDebts) && isWithdraw) || Boolean(inlineErrorMessage);
+  const bodyNode = (
     <YStack gap="$5">
-      <Dialog.Header>
-        <Dialog.Title>{actionLabel}</Dialog.Title>
-      </Dialog.Header>
-
       {selectedAsset && selectedItem ? (
         <>
           <LendingAssetSelectorRow
@@ -819,25 +898,94 @@ function ProtocolLendingActionDefiContent({
       ) : (
         <YStack py="$6" alignItems="center">
           <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.global_select_crypto })}
+            {intl.formatMessage({
+              id: ETranslations.global_select_crypto,
+            })}
           </SizableText>
         </YStack>
       )}
+    </YStack>
+  );
+  const feedbackNode = showFeedbackRegion ? (
+    <LendingActionAlerts
+      showLiquidationWarning={Boolean(hasDebts) && isWithdraw}
+      errorMessage={inlineErrorMessage}
+    />
+  ) : null;
+  const contentNode = (
+    <>
+      <ScrollView
+        maxHeight={bodyMaxHeight}
+        mx="$-5"
+        px="$5"
+        nestedScrollEnabled
+      >
+        {bodyNode}
+      </ScrollView>
 
-      <LendingActionAlerts
-        showLiquidationWarning={Boolean(hasDebts) && isWithdraw}
-        errorMessage={submitError ?? repayWalletBalanceError}
-      />
+      {feedbackNode ? (
+        <ScrollView
+          maxHeight={feedbackMaxHeight}
+          mx="$-5"
+          px="$5"
+          nestedScrollEnabled
+        >
+          {feedbackNode}
+        </ScrollView>
+      ) : null}
+    </>
+  );
+  const confirmButtonProps = {
+    disabled: isConfirmDisabled || submitting,
+    loading: submitting || isRepayWalletBalancePending,
+  };
+
+  if (renderMode === 'page') {
+    return (
+      <>
+        <Page.Header title={actionLabel} />
+        <Page.Body>
+          <ScrollView flex={1} nestedScrollEnabled>
+            <YStack p="$5" gap="$5">
+              {bodyNode}
+              {feedbackNode}
+            </YStack>
+          </ScrollView>
+        </Page.Body>
+        <Page.Footer>
+          <YStack bg="$bgApp">
+            <Page.FooterActions
+              onConfirmText={actionLabel}
+              onConfirm={(close) => {
+                void handleConfirm({
+                  close,
+                  preventClose: () => undefined,
+                });
+              }}
+              confirmButtonProps={confirmButtonProps}
+            />
+            <ProtocolPositionActionKeyboardDismissFooter />
+          </YStack>
+        </Page.Footer>
+      </>
+    );
+  }
+
+  return (
+    <YStack gap="$5">
+      <Dialog.Header>
+        <Dialog.Title>{actionLabel}</Dialog.Title>
+      </Dialog.Header>
+
+      {contentNode}
 
       <Dialog.Footer
         showCancelButton={false}
         showConfirmButton
         onConfirmText={actionLabel}
         onConfirm={handleConfirm}
-        confirmButtonProps={{
-          disabled: isConfirmDisabled,
-          loading: isRepayWalletBalancePending,
-        }}
+        confirmButtonProps={confirmButtonProps}
+        extraContent={<ProtocolPositionActionKeyboardDismissFooter />}
       />
     </YStack>
   );
@@ -850,6 +998,7 @@ function ProtocolLendingActionBorrowContent({
   source,
   hasDebts,
   onSuccess,
+  renderMode = 'dialog',
 }: {
   accountId: string;
   networkId: string;
@@ -859,8 +1008,12 @@ function ProtocolLendingActionBorrowContent({
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
   ) => void | Promise<void>;
+  renderMode?: 'dialog' | 'page';
 }) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
+  const { bodyMaxHeight, feedbackMaxHeight } =
+    resolveProtocolPositionActionDialogLayout({ gtMd });
   const [
     {
       currencyInfo: { symbol: currencySymbol },
@@ -985,6 +1138,7 @@ function ProtocolLendingActionBorrowContent({
   // Footer confirm loading is overridden by confirmButtonProps and released
   // early by preventClose(), so the dialog owns the build spinner and guard.
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const hasUserTouchedRef = useRef(false);
   const prefilledReserveRef = useRef<string | undefined>(undefined);
   // Show the body only after the first load settles; later reserve-switch
@@ -1083,6 +1237,10 @@ function ProtocolLendingActionBorrowContent({
     repayWalletBalance,
     repayAllTargetAmount,
   });
+  const withdrawAmountState = resolveProtocolLendingWithdrawAmountState({
+    amount,
+    referenceBalance,
+  });
   // Max fillable amount: withdraw → the full supplied balance; repay → the
   // server-provided maxRepayBalance first (debt capped by wallet), then direct
   // wallet balance if the server max is unavailable.
@@ -1100,7 +1258,8 @@ function ProtocolLendingActionBorrowContent({
       })
     : repayAmountState.isFullClose;
   const isAmountInsufficient =
-    !isWithdraw && repayAmountState.isAmountInsufficient;
+    (isWithdraw && withdrawAmountState.isAmountInsufficient) ||
+    (!isWithdraw && repayAmountState.isAmountInsufficient);
   const selectedAmountPercent = resolveSelectedAmountPercent({
     isMaxAmount,
     isAmountPositive,
@@ -1171,7 +1330,10 @@ function ProtocolLendingActionBorrowContent({
     reserveAddress,
     amount,
     isDisabled:
-      isBorrowDataLoading || isRepayWalletBalancePending || hasBorrowLoadError,
+      isBorrowDataLoading ||
+      isRepayWalletBalancePending ||
+      hasBorrowLoadError ||
+      isAmountInsufficient,
     repayAll: actionType === 'repay' ? isFullClose : undefined,
   });
 
@@ -1223,83 +1385,122 @@ function ProtocolLendingActionBorrowContent({
   });
   const handleBorrowRepay = useUniversalBorrowRepay({ accountId, networkId });
   const closeRef = useRef<(() => void | Promise<void>) | undefined>(undefined);
-  const isBorrowDialogClosedRef = useRef(false);
-
-  // The dialog stays open (confirm button spinning) while the server builds
-  // the tx; onBeforeNavigate closes it right as tx-confirm opens, so a build
-  // failure lands as an inline alert with the user's input intact.
-  const submitBorrowTx = useCallback(async () => {
-    const { provider, marketAddress } = source;
-    const tags: string[] = [
-      EEarnLabels.Borrow,
-      buildBorrowTag({ provider, action: actionType }),
-    ];
-    if (protocolInfo?.stakeTag) {
-      tags.push(protocolInfo.stakeTag);
+  const isActionDialogClosedRef = useRef(false);
+  const businessSubmitCounterRef = useRef(0);
+  const closeActionDialogBeforeConfirm = useCallback(async () => {
+    if (isActionDialogClosedRef.current) return;
+    isActionDialogClosedRef.current = true;
+    await closeRef.current?.();
+  }, []);
+  const startSubmitGuard = useCallback(() => {
+    submittingRef.current = true;
+    if (!isActionDialogClosedRef.current) {
+      setSubmitting(true);
+      setSubmitError(undefined);
     }
-    const protocolLogoURI =
-      source.providerLogoURI ?? protocolInfo?.providerDetail.logoURI;
-    const protocolLabel = getProtocolProviderDisplayName({
-      provider,
-      providerDisplayName: source.providerDisplayName,
-      providerDetailName: protocolInfo?.providerDetail.name,
-    });
-    if (actionType === 'repay') {
-      await handleBorrowRepay({
+  }, []);
+
+  const releaseSubmitGuard = useCallback(() => {
+    submittingRef.current = false;
+    if (!isActionDialogClosedRef.current) {
+      setSubmitting(false);
+    }
+  }, []);
+
+  const submitBorrowTx = useCallback(async () => {
+    businessSubmitCounterRef.current += 1;
+    startSubmitGuard();
+    let submitGuardReleased = false;
+    const releaseSubmitGuardOnce = () => {
+      if (submitGuardReleased) return;
+      submitGuardReleased = true;
+      releaseSubmitGuard();
+    };
+    const releaseSubmitGuardOnceWithError = (error: unknown) => {
+      if (
+        !submitGuardReleased &&
+        !isActionDialogClosedRef.current &&
+        !isUserRejectedErrorMessage({ error, intl }) &&
+        shouldShowProtocolPositionActionInlineSubmitError(error)
+      ) {
+        setSubmitError(getErrorMessage(error));
+      }
+      releaseSubmitGuardOnce();
+    };
+    try {
+      const { provider, marketAddress } = source;
+      const tags: string[] = [
+        EEarnLabels.Borrow,
+        buildBorrowTag({ provider, action: actionType }),
+      ];
+      if (protocolInfo?.stakeTag) {
+        tags.push(protocolInfo.stakeTag);
+      }
+      const protocolLogoURI =
+        source.providerLogoURI ?? protocolInfo?.providerDetail.logoURI;
+      const protocolLabel = getProtocolProviderDisplayName({
+        provider,
+        providerDisplayName: source.providerDisplayName,
+        providerDetailName: protocolInfo?.providerDetail.name,
+      });
+      if (actionType === 'repay') {
+        await handleBorrowRepay({
+          amount,
+          provider,
+          marketAddress,
+          reserveAddress,
+          repayAll: isFullClose,
+          stakingInfo: effectiveToken
+            ? {
+                label: EEarnLabels.Repay,
+                protocol: protocolLabel,
+                protocolLogoURI,
+                send: { token: effectiveToken, amount },
+                tags,
+              }
+            : undefined,
+          onSuccess: (data) => {
+            releaseSubmitGuardOnce();
+            void onSuccess?.({ accountId, networkId, data });
+          },
+          onSettleResult: async () => {
+            releaseSubmitGuardOnce();
+            await closeActionDialogBeforeConfirm();
+          },
+          onFail: releaseSubmitGuardOnceWithError,
+          onCancel: releaseSubmitGuardOnce,
+        });
+        return;
+      }
+      await handleBorrowWithdraw({
         amount,
         provider,
         marketAddress,
         reserveAddress,
-        repayAll: isFullClose,
+        withdrawAll: isFullClose,
         stakingInfo: effectiveToken
           ? {
-              label: EEarnLabels.Repay,
+              label: EEarnLabels.Withdraw,
               protocol: protocolLabel,
               protocolLogoURI,
-              send: { token: effectiveToken, amount },
+              receive: { token: effectiveToken, amount },
               tags,
             }
           : undefined,
         onSuccess: (data) => {
+          releaseSubmitGuardOnce();
           void onSuccess?.({ accountId, networkId, data });
         },
-        onBeforeNavigate: () => {
-          if (isBorrowDialogClosedRef.current) return;
-          isBorrowDialogClosedRef.current = true;
-          // Fire the close without awaiting it: Dialog.close resolves on a
-          // fixed 300ms teardown timer, which would sit serially between the
-          // build response and tx-confirm opening.
-          void closeRef.current?.();
+        onSettleResult: async () => {
+          releaseSubmitGuardOnce();
+          await closeActionDialogBeforeConfirm();
         },
+        onFail: releaseSubmitGuardOnceWithError,
+        onCancel: releaseSubmitGuardOnce,
       });
-      return;
+    } catch (error) {
+      releaseSubmitGuardOnceWithError(error);
     }
-    await handleBorrowWithdraw({
-      amount,
-      provider,
-      marketAddress,
-      reserveAddress,
-      withdrawAll: isFullClose,
-      stakingInfo: effectiveToken
-        ? {
-            label: EEarnLabels.Withdraw,
-            protocol: protocolLabel,
-            protocolLogoURI,
-            receive: { token: effectiveToken, amount },
-            tags,
-          }
-        : undefined,
-      onSuccess: (data) => {
-        void onSuccess?.({ accountId, networkId, data });
-      },
-      onBeforeNavigate: () => {
-        if (isBorrowDialogClosedRef.current) return;
-        isBorrowDialogClosedRef.current = true;
-        // Same as the repay call: don't serially pay Dialog.close's 300ms
-        // teardown timer before tx-confirm opens.
-        void closeRef.current?.();
-      },
-    });
   }, [
     accountId,
     actionType,
@@ -1308,13 +1509,17 @@ function ProtocolLendingActionBorrowContent({
     handleBorrowRepay,
     handleBorrowWithdraw,
     isFullClose,
+    intl,
     networkId,
     onSuccess,
     protocolInfo?.providerDetail.logoURI,
     protocolInfo?.providerDetail.name,
     protocolInfo?.stakeTag,
     reserveAddress,
+    closeActionDialogBeforeConfirm,
+    releaseSubmitGuard,
     source,
+    startSubmitGuard,
   ]);
 
   const { needsApproval, approveLoading, onApprove } =
@@ -1326,11 +1531,7 @@ function ProtocolLendingActionBorrowContent({
       currentAllowance: protocolInfo?.approve?.allowance,
       amountValue: amount,
       onSubmit: submitBorrowTx,
-      onBeforeNavigateConfirm: () => {
-        if (isBorrowDialogClosedRef.current) return;
-        isBorrowDialogClosedRef.current = true;
-        void closeRef.current?.();
-      },
+      onBeforeNavigateConfirm: closeActionDialogBeforeConfirm,
     });
 
   const handleFooterConfirm = async ({
@@ -1341,30 +1542,34 @@ function ProtocolLendingActionBorrowContent({
     preventClose: () => void;
   }) => {
     closeRef.current = close;
-    isBorrowDialogClosedRef.current = false;
-    // We own the close timing: approval and business confirms both close this
-    // dialog right before tx-confirm opens, so the old dialog never overlays it.
+    isActionDialogClosedRef.current = false;
     preventClose();
-    if (submitting) return;
-    setSubmitting(true);
+    if (submittingRef.current) return;
+    startSubmitGuard();
     setSubmitError(undefined);
     try {
+      await Keyboard.dismissWithDelay(80);
       if (needsApproval) {
+        const businessSubmitCounterBeforeApprove =
+          businessSubmitCounterRef.current;
         await onApprove();
+        if (
+          businessSubmitCounterRef.current ===
+          businessSubmitCounterBeforeApprove
+        ) {
+          releaseSubmitGuard();
+        }
         return;
       }
       await submitBorrowTx();
     } catch (error) {
-      if (!isUserRejectedErrorMessage({ error, intl })) {
-        const errorMessage = getErrorMessage(error);
-        if (isBorrowDialogClosedRef.current) {
-          Toast.error({ title: errorMessage });
-        } else {
-          setSubmitError(errorMessage);
-        }
+      if (
+        !isUserRejectedErrorMessage({ error, intl }) &&
+        shouldShowProtocolPositionActionInlineSubmitError(error)
+      ) {
+        setSubmitError(getErrorMessage(error));
       }
-    } finally {
-      setSubmitting(false);
+      releaseSubmitGuard();
     }
   };
 
@@ -1461,13 +1666,21 @@ function ProtocolLendingActionBorrowContent({
     hasLoadedOnceRef.current = true;
   }
   const isInitialLoading = !hasLoadedOnceRef.current;
-
-  return (
+  const checkAmountAlerts = actionResult.checkAmountAlerts ?? [];
+  const inlineErrorMessage =
+    assetsError ??
+    repayWalletBalanceError ??
+    submitError ??
+    (actionResult.isCheckAmountMessageError
+      ? actionResult.checkAmountMessage
+      : undefined);
+  const showFeedbackRegion =
+    !isInitialLoading &&
+    ((Boolean(hasDebts) && isWithdraw) ||
+      Boolean(inlineErrorMessage) ||
+      checkAmountAlerts.length > 0);
+  const bodyNode = (
     <YStack gap="$5">
-      <Dialog.Header>
-        <Dialog.Title>{actionLabel}</Dialog.Title>
-      </Dialog.Header>
-
       {isInitialLoading ? (
         <YStack gap="$5">
           {source.selectable ? (
@@ -1577,10 +1790,6 @@ function ProtocolLendingActionBorrowContent({
               </XStack>
             </YStack>
           ) : null}
-          {/* Health factor arrives on the (separate) simulate stream after the
-              amount is set — reserve its exact height with a skeleton so the
-              dialog doesn't grow when it lands. Reuses the same anchor + label
-              so the row height matches the loaded state byte-for-byte. */}
           {shouldShowHealthFactorSkeleton ? (
             <YStack gap="$1">
               <ProtocolPositionActionAnchor
@@ -1607,78 +1816,148 @@ function ProtocolLendingActionBorrowContent({
           ) : null}
         </>
       ) : null}
+    </YStack>
+  );
+  const feedbackNode = showFeedbackRegion ? (
+    <LendingActionAlerts
+      showLiquidationWarning={Boolean(hasDebts) && isWithdraw}
+      errorMessage={inlineErrorMessage}
+      checkAmountAlerts={checkAmountAlerts}
+      riskOfLiquidationAlert={actionResult.riskOfLiquidationAlert}
+    />
+  ) : null;
+  const contentNode = (
+    <>
+      <ScrollView
+        maxHeight={bodyMaxHeight}
+        mx="$-5"
+        px="$5"
+        nestedScrollEnabled
+      >
+        {bodyNode}
+      </ScrollView>
 
-      {!isInitialLoading ? (
-        <LendingActionAlerts
-          showLiquidationWarning={Boolean(hasDebts) && isWithdraw}
-          errorMessage={
-            assetsError ??
-            repayWalletBalanceError ??
-            submitError ??
-            (actionResult.isCheckAmountMessageError
-              ? actionResult.checkAmountMessage
-              : undefined)
-          }
-          checkAmountAlerts={actionResult.checkAmountAlerts}
-        />
+      {feedbackNode ? (
+        <ScrollView
+          maxHeight={feedbackMaxHeight}
+          mx="$-5"
+          px="$5"
+          nestedScrollEnabled
+        >
+          {feedbackNode}
+        </ScrollView>
       ) : null}
+    </>
+  );
+  const onConfirmText = needsApproval
+    ? intl.formatMessage({ id: ETranslations.global_approve })
+    : actionLabel;
+  const confirmButtonProps = {
+    disabled: confirmDisabled,
+    loading:
+      approveLoading ||
+      actionResult.checkAmountLoading ||
+      submitting ||
+      isBorrowDataLoading ||
+      isRepayWalletBalancePending,
+  };
+
+  if (renderMode === 'page') {
+    return (
+      <>
+        <Page.Header title={actionLabel} />
+        <Page.Body>
+          <ScrollView flex={1} nestedScrollEnabled>
+            <YStack p="$5" gap="$5">
+              {bodyNode}
+              {feedbackNode}
+            </YStack>
+          </ScrollView>
+        </Page.Body>
+        <Page.Footer>
+          <YStack bg="$bgApp">
+            <Page.FooterActions
+              onConfirmText={onConfirmText}
+              onConfirm={(close) => {
+                void handleFooterConfirm({
+                  close,
+                  preventClose: () => undefined,
+                });
+              }}
+              confirmButtonProps={confirmButtonProps}
+            />
+            <ProtocolPositionActionKeyboardDismissFooter />
+          </YStack>
+        </Page.Footer>
+      </>
+    );
+  }
+
+  return (
+    <YStack gap="$5">
+      <Dialog.Header>
+        <Dialog.Title>{actionLabel}</Dialog.Title>
+      </Dialog.Header>
+
+      {contentNode}
       <Dialog.Footer
         showCancelButton={false}
         showConfirmButton
-        onConfirmText={
-          needsApproval
-            ? intl.formatMessage({ id: ETranslations.global_approve })
-            : actionLabel
-        }
+        onConfirmText={onConfirmText}
         onConfirm={handleFooterConfirm}
-        confirmButtonProps={{
-          disabled: confirmDisabled,
-          loading:
-            approveLoading ||
-            actionResult.checkAmountLoading ||
-            submitting ||
-            isBorrowDataLoading ||
-            isRepayWalletBalancePending,
-        }}
+        confirmButtonProps={confirmButtonProps}
+        extraContent={<ProtocolPositionActionKeyboardDismissFooter />}
       />
     </YStack>
   );
 }
 
-function showProtocolLendingActionDialog({
+function ProtocolLendingActionContent({
   accountId,
   networkId,
   actionType,
   source,
   hasDebts,
   onSuccess,
+  renderMode = 'dialog',
+}: Omit<IShowProtocolLendingActionDialogParams, 'dialog'> & {
+  renderMode?: 'dialog' | 'page';
+}) {
+  return source.type === 'borrow' ? (
+    <ProtocolLendingActionBorrowContent
+      accountId={accountId}
+      networkId={networkId}
+      actionType={actionType}
+      source={source}
+      hasDebts={hasDebts}
+      onSuccess={onSuccess}
+      renderMode={renderMode}
+    />
+  ) : (
+    <ProtocolLendingActionDefiContent
+      accountId={accountId}
+      networkId={networkId}
+      actionType={actionType}
+      source={source}
+      hasDebts={hasDebts}
+      onSuccess={onSuccess}
+      renderMode={renderMode}
+    />
+  );
+}
+
+function showProtocolLendingActionDialog({
+  dialog,
+  ...params
 }: IShowProtocolLendingActionDialogParams) {
-  Dialog.show({
+  const DialogInstance = dialog ?? Dialog;
+  DialogInstance.show({
     showFooter: false,
-    renderContent:
-      source.type === 'borrow' ? (
-        <ProtocolLendingActionBorrowContent
-          accountId={accountId}
-          networkId={networkId}
-          actionType={actionType}
-          source={source}
-          hasDebts={hasDebts}
-          onSuccess={onSuccess}
-        />
-      ) : (
-        <ProtocolLendingActionDefiContent
-          accountId={accountId}
-          networkId={networkId}
-          actionType={actionType}
-          source={source}
-          hasDebts={hasDebts}
-          onSuccess={onSuccess}
-        />
-      ),
+    renderContent: <ProtocolLendingActionContent {...params} />,
   });
 }
 
-export { showProtocolLendingActionDialog };
+export { ProtocolLendingActionContent, showProtocolLendingActionDialog };
 export type {
   IProtocolLendingActionSource,
   IProtocolLendingActionType,
