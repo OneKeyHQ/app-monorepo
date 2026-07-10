@@ -322,6 +322,7 @@ function MobileLayoutComponent({
     handleTabChange,
     getSpotCategoryIdByTabName,
     selectedTabName,
+    isTabSelectionInFlight,
   } = useMarketTabsLogic(onTabChange, {
     spotCategories: filterBarProps.categories,
     selectedSpotCategory: filterBarProps.selectedCategory,
@@ -455,6 +456,14 @@ function MobileLayoutComponent({
   );
   const shouldDeferPageSync = useCallback(
     ({ targetTabName }: { targetTabName: string; currentTabName: string }) => {
+      // A locally-initiated tab selection is still round-tripping through the
+      // bg-synced atom; `selectedTabName` derived from the stale UI mirror
+      // must not drive a pager jump, or it reverts the user's tap (OK-57367).
+      // Keep deferring until the atom echoes the selection back.
+      if (isTabSelectionInFlight()) {
+        return true;
+      }
+
       const now = Date.now();
       const lastPagerDraggingAt = lastPagerDraggingAtRef.current;
       const pagerDragElapsedMs =
@@ -486,7 +495,7 @@ function MobileLayoutComponent({
       }
       return startedAt > 0 && now - startedAt < MARKET_TAB_SYNC_JUMP_DEFER_MS;
     },
-    [],
+    [isTabSelectionInFlight],
   );
 
   useEffect(
