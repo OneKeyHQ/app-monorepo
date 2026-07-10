@@ -169,7 +169,7 @@ export function resolveProtocolLendingRepayDebtState({
   maxRepayBalance?: string;
 }) {
   const repayAllTargetAmount =
-    selectedBorrowAssetDebt ?? sourceDebtAmount ?? protocolDebtBalance;
+    selectedBorrowAssetDebt ?? protocolDebtBalance ?? sourceDebtAmount;
 
   return {
     referenceBalance: repayAllTargetAmount ?? maxRepayBalance ?? '0',

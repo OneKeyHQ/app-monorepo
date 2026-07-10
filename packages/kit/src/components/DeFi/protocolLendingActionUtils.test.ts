@@ -113,6 +113,19 @@ describe('protocolLendingActionUtils', () => {
     });
   });
 
+  it('prefers the refreshed protocol debt over the portfolio snapshot', () => {
+    expect(
+      resolveProtocolLendingRepayDebtState({
+        sourceDebtAmount: '5',
+        protocolDebtBalance: '5.001',
+        maxRepayBalance: '5.001',
+      }),
+    ).toEqual({
+      referenceBalance: '5.001',
+      repayAllTargetAmount: '5.001',
+    });
+  });
+
   it('keeps a wallet-capped repay max non-authoritative when debt is unknown', () => {
     expect(
       resolveProtocolLendingRepayDebtState({

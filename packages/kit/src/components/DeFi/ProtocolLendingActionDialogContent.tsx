@@ -38,13 +38,13 @@ import { useManagePage } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosit
 import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IDeFiProtocolLendingActionSource } from '@onekeyhq/shared/src/routes/assetDetails';
 import defiActionUtils from '@onekeyhq/shared/src/utils/defiActionUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlInDiscovery } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   EDeFiPositionAction,
-  type IResolvedDeFiPositionAction,
   type IResolvedDeFiPositionActionAsset,
 } from '@onekeyhq/shared/types/defi';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
@@ -91,21 +91,7 @@ type IProtocolLendingActionType = 'withdraw' | 'repay';
 // `defi` reuses the resolved-action build path (Compound/Morpho/...); `borrow`
 // drives the Aave manage hooks (simulation, health factor, approve). `selectable`
 // false = a desktop row already named the asset, so no dropdown / assets fetch.
-type IProtocolLendingActionSource =
-  | { type: 'defi'; action: IResolvedDeFiPositionAction }
-  | {
-      type: 'borrow';
-      provider: string;
-      marketAddress: string;
-      reserveAddress: string;
-      symbol: string;
-      debtAmount?: string;
-      logoURI?: string;
-      providerDisplayName?: string;
-      providerLogoURI?: string;
-      indexedAccountId?: string;
-      selectable: boolean;
-    };
+type IProtocolLendingActionSource = IDeFiProtocolLendingActionSource;
 
 // Normalized selector-row data, source-agnostic so the row/popover is shared.
 type ILendingSelectorItem = {
