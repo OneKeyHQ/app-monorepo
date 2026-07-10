@@ -1,0 +1,20 @@
+id: history-hide-not-delete-runtime
+type:
+  - verification
+prompt: "On web and desktop, disconnecting the wallet should hide recent pairs and local Swap/Limit/Stock history. Reconnect must restore the same data, including after a disconnected restart."
+expected:
+  must_include:
+    - "map main visibility predicates and all protected consumers separately from bg persistence"
+    - "keep ServiceSwap and SimpleDbEntitySwapHistory as bg owners and retain persisted rows"
+    - "state that main receives deserialized copies and account-selector readiness is independent from bg storage hydration"
+    - "forbid clean/delete calls for this visibility-only requirement"
+    - "run exact account-readiness, visibility, and SimpleDB Jest commands"
+    - "prove connected, disconnect, disconnected restart, and reconnect with unchanged persisted ids and count"
+  must_not_include:
+    - "clear local history on disconnect"
+    - "use an empty UI list as proof that persistence is correct"
+score:
+  pass: 90
+  critical_fail_if:
+    - "deletes or rewrites persisted rows to implement hiding"
+    - "omits restart and reconnect proof"

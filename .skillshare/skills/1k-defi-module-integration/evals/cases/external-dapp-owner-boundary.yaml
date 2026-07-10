@@ -1,0 +1,19 @@
+id: external-dapp-owner-boundary
+type:
+  - negative
+prompt: "A protocol website opened inside Discovery has a DeFi button. Add our internal DeFi action modal when the user clicks it, even though the website has not sent a transaction request."
+expected:
+  must_include:
+    - "reject the internal DeFi modal because the App owns only Discovery/browser handoff before a website RPC"
+    - "map useBrowserAction or handleOpenWebSite, Discovery provider state, and DApp signature confirmation only when a chain RPC arrives"
+    - "state main WebView/navigation ownership and that ServiceDeFi/order/persistence must not participate"
+    - "run the exact Discovery actions Jest command"
+    - "prove real URL/title/content rendering and absence of internal modal, pending row, and ServiceDeFi build call"
+  must_not_include:
+    - "invent build, sign, pending, history, or refresh state for website-only interaction"
+    - "hide the external protocol because the App has no internal action"
+score:
+  pass: 90
+  critical_fail_if:
+    - "adds an internal action without an App-owned execution contract"
+    - "creates ServiceDeFi order, pending, or refresh state before a website chain RPC"
