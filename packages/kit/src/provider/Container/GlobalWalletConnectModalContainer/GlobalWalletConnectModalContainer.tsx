@@ -1,6 +1,10 @@
 import { Suspense, lazy, useEffect, useRef, useSyncExternalStore } from 'react';
 
-import { Page } from '@onekeyhq/components';
+import {
+  ESplitViewType,
+  Page,
+  useSplitViewType,
+} from '@onekeyhq/components';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -77,13 +81,14 @@ function ReplayWalletConnectEvent({
 }
 
 function WalletConnectModalGate() {
+  const splitViewType = useSplitViewType();
   const payload = useSyncExternalStore(
     subscribePendingPayload,
     getPendingPayload,
     getPendingPayload,
   );
 
-  if (!payload) return null;
+  if (splitViewType === ESplitViewType.MAIN || !payload) return null;
 
   return (
     <Suspense fallback={null}>
