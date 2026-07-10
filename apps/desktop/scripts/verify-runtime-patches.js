@@ -1,6 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 
+const {
+  electronUpdaterRuntimePatchFiles,
+} = require('./electron-updater-runtime-patch-files');
+
 function failVerification(message) {
   process.stderr.write(`${message}\n`);
   process.exit(1);
@@ -69,15 +73,6 @@ const expectedRuntimePatchMarkers = [
     'updateDownloadedFileInfo(downloadedFileInfo)',
   ],
 ];
-const patchedFiles = [
-  'out/AppUpdater.d.ts',
-  'out/AppUpdater.js',
-  'out/BaseUpdater.d.ts',
-  'out/BaseUpdater.js',
-  'out/DownloadedUpdateHelper.d.ts',
-  'out/DownloadedUpdateHelper.js',
-];
-
 for (const [relativePath, marker] of expectedRuntimePatchMarkers) {
   const filePath = path.join(runtimePackageRoot, relativePath);
   const fileContent = readRequiredFile(
@@ -91,7 +86,7 @@ for (const [relativePath, marker] of expectedRuntimePatchMarkers) {
   }
 }
 
-for (const relativePath of patchedFiles) {
+for (const relativePath of electronUpdaterRuntimePatchFiles) {
   const runtimeFilePath = path.join(runtimePackageRoot, relativePath);
   const workspaceFilePath = path.join(workspacePackageRoot, relativePath);
   const runtimeFileContent = readRequiredFile(

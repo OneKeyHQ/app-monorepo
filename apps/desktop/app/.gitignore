@@ -1,4 +1,2 @@
-.yarn/*
-!.yarn/patches/
-!.yarn/patches/**
+.yarn
 dist
