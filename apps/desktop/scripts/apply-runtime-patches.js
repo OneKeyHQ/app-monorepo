@@ -1,112 +1,173 @@
+const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
 const {
-  findInstalledPackageInstances,
-  groupPackageInstancesByName,
-} = require('./packaged-runtime-patch-utils');
-const { packagedRuntimePatches } = require('./packaged-runtime-patches');
+  PATCH_STATE,
+  classifyPatchState,
+  discoverPackagedRuntimePatchTargets,
+  findMatchingPatchDescriptor,
+  normalizeGitPath,
+  runGitApply,
+} = require('./audit-packaged-runtime-patches');
 
-function failPatch(message) {
-  process.stderr.write(`${message}\n`);
-  process.exit(1);
-}
+const PATCH_ACTION = {
+  alreadyPatched: 'ALREADY_PATCHED',
+  applied: 'APPLIED',
+};
 
-function readPackageMetadata(packageJsonPath, description) {
-  if (!fs.existsSync(packageJsonPath)) {
-    failPatch(`${description} is missing: ${packageJsonPath}.`);
-  }
-  try {
-    return JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-  } catch (error) {
-    failPatch(
-      `${description} is invalid: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-  }
-}
-
-const desktopPackageRoot = path.join(__dirname, '..');
-const runtimeAppRoot = path.join(desktopPackageRoot, 'app');
-const runtimeNodeModulesRoot = path.join(runtimeAppRoot, 'node_modules');
-let runtimePackageInstances;
-try {
-  runtimePackageInstances = findInstalledPackageInstances(
-    runtimeNodeModulesRoot,
-    new Set(packagedRuntimePatches.map(({ packageName }) => packageName)),
+function processPackageInstance({
+  packageInstance,
+  patchesByPackageName,
+  repositoryRoot,
+}) {
+  const { packagePatches, patchDescriptor } = findMatchingPatchDescriptor(
+    packageInstance,
+    patchesByPackageName,
   );
-} catch (error) {
-  failPatch(
-    `Cannot inspect runtime dependencies under ${runtimeNodeModulesRoot}: ${
-      error instanceof Error ? error.message : String(error)
-    }`,
+  const relativePackageRoot = normalizeGitPath(
+    path.relative(repositoryRoot, packageInstance.packageRoot),
   );
-}
-const runtimePackageInstancesByName = groupPackageInstancesByName(
-  runtimePackageInstances,
-);
+  if (!patchDescriptor) {
+    return {
+      failure: `${packageInstance.packageName}@${packageInstance.version} at ${relativePackageRoot} does not match committed patch version(s): ${packagePatches
+        .map((candidate) => candidate.version)
+        .join(', ')}.`,
+    };
+  }
 
-for (const { packageName, files } of packagedRuntimePatches) {
-  let workspacePackageJsonPath;
-  try {
-    workspacePackageJsonPath = require.resolve(`${packageName}/package.json`, {
-      paths: [desktopPackageRoot],
+  const patchOptions = {
+    packageName: packageInstance.packageName,
+    packageRoot: packageInstance.packageRoot,
+    patchFilePath: patchDescriptor.patchFilePath,
+    repositoryRoot,
+  };
+  const initialState = classifyPatchState(patchOptions);
+  if (initialState.state === PATCH_STATE.patched) {
+    return {
+      result: {
+        ...packageInstance,
+        action: PATCH_ACTION.alreadyPatched,
+        patchFilePath: patchDescriptor.patchFilePath,
+      },
+    };
+  }
+  if (initialState.state === PATCH_STATE.drifted) {
+    return {
+      failure: `${packageInstance.packageName}@${packageInstance.version} at ${relativePackageRoot} is partially patched or has drifted from ${path.relative(
+        repositoryRoot,
+        patchDescriptor.patchFilePath,
+      )}.`,
+    };
+  }
+
+  const applyResult = runGitApply(patchOptions);
+  if (applyResult.error) {
+    throw applyResult.error;
+  }
+  if (!applyResult.ok) {
+    return {
+      failure: `Failed to apply ${path.relative(
+        repositoryRoot,
+        patchDescriptor.patchFilePath,
+      )} to ${relativePackageRoot}: ${applyResult.output || 'git apply failed'}.`,
+    };
+  }
+
+  const appliedState = classifyPatchState(patchOptions);
+  if (appliedState.state !== PATCH_STATE.patched) {
+    return {
+      failure: `${packageInstance.packageName}@${packageInstance.version} at ${relativePackageRoot} did not pass full patch verification after apply.`,
+    };
+  }
+  return {
+    result: {
+      ...packageInstance,
+      action: PATCH_ACTION.applied,
+      patchFilePath: patchDescriptor.patchFilePath,
+    },
+  };
+}
+
+function applyPackagedRuntimePatches({
+  patchesRoot,
+  repositoryRoot,
+  runtimeNodeModulesRoot,
+}) {
+  assert(
+    fs.existsSync(runtimeNodeModulesRoot),
+    `Runtime node_modules is missing: ${runtimeNodeModulesRoot}. Run electron-builder install-app-deps first.`,
+  );
+
+  const { packageInstances, patchDescriptors, patchesByPackageName } =
+    discoverPackagedRuntimePatchTargets({
+      patchesRoot,
+      runtimeNodeModulesRoot,
     });
-  } catch {
-    failPatch(
-      `Workspace ${packageName} dependency cannot be resolved from ${desktopPackageRoot}. Run yarn install first.`,
-    );
-  }
-  const packageInstances = runtimePackageInstancesByName.get(packageName) || [];
-  if (!packageInstances.length) {
-    failPatch(
-      `Runtime ${packageName} dependency is missing under ${runtimeNodeModulesRoot}. Run electron-builder install-app-deps first.`,
-    );
-  }
-
-  const workspacePackageRoot = path.dirname(workspacePackageJsonPath);
-  const workspacePackage = readPackageMetadata(
-    workspacePackageJsonPath,
-    `Workspace ${packageName} package metadata`,
-  );
+  const failures = [];
+  const results = [];
 
   for (const packageInstance of packageInstances) {
-    const runtimePackageRoot = packageInstance.packageRoot;
-    const runtimePackageJsonPath = path.join(
-      runtimePackageRoot,
-      'package.json',
-    );
-    const runtimePackage = readPackageMetadata(
-      runtimePackageJsonPath,
-      `Runtime ${packageName} package metadata`,
-    );
+    const { failure, result } = processPackageInstance({
+      packageInstance,
+      patchesByPackageName,
+      repositoryRoot,
+    });
+    if (failure) {
+      failures.push(failure);
+    } else if (result) {
+      results.push(result);
+    }
+  }
 
-    if (runtimePackage.version !== workspacePackage.version) {
-      failPatch(
-        `${packageName} version mismatch at ${runtimePackageRoot}: runtime=${runtimePackage.version}, workspace=${workspacePackage.version}.`,
+  assert(
+    failures.length === 0,
+    `Packaged runtime patch application failed:\n${failures
+      .map((failure) => `- ${failure}`)
+      .join('\n')}`,
+  );
+
+  return {
+    packagedPatchCount: results.length,
+    rootPatchCount: patchDescriptors.length,
+    results,
+  };
+}
+
+function main() {
+  const repositoryRoot = path.resolve(__dirname, '../../..');
+  try {
+    const summary = applyPackagedRuntimePatches({
+      patchesRoot: path.join(repositoryRoot, 'patches'),
+      repositoryRoot,
+      runtimeNodeModulesRoot: path.join(
+        repositoryRoot,
+        'apps/desktop/app/node_modules',
+      ),
+    });
+    for (const result of summary.results) {
+      process.stdout.write(
+        `${result.action} ${result.packageName}@${result.version} (${normalizeGitPath(
+          path.relative(repositoryRoot, result.packageRoot),
+        )})\n`,
       );
     }
-
-    for (const relativePath of files) {
-      const sourcePath = path.join(workspacePackageRoot, relativePath);
-      const destinationPath = path.join(runtimePackageRoot, relativePath);
-      if (!fs.existsSync(sourcePath)) {
-        failPatch(`Workspace ${packageName} file is missing: ${sourcePath}.`);
-      }
-      if (!fs.existsSync(destinationPath)) {
-        failPatch(
-          `Runtime ${packageName} file is missing: ${destinationPath}.`,
-        );
-      }
-      fs.copyFileSync(sourcePath, destinationPath);
-    }
-
     process.stdout.write(
-      `Applied ${packageName} ${runtimePackage.version} runtime patch (${path.relative(
-        runtimeAppRoot,
-        runtimePackageRoot,
-      )}).\n`,
+      `Processed ${summary.packagedPatchCount} packaged runtime patch instance(s) from ${summary.rootPatchCount} committed patch(es).\n`,
     );
+  } catch (error) {
+    process.stderr.write(
+      `${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    process.exitCode = 1;
   }
 }
+
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  PATCH_ACTION,
+  applyPackagedRuntimePatches,
+};

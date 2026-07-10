@@ -4,6 +4,10 @@ const os = require('os');
 const path = require('path');
 
 const {
+  PATCH_ACTION,
+  applyPackagedRuntimePatches,
+} = require('./apply-runtime-patches');
+const {
   PATCH_STATE,
   auditPackagedRuntimePatches,
 } = require('./audit-packaged-runtime-patches');
@@ -89,6 +93,14 @@ function runAudit(fixture) {
   });
 }
 
+function runApply(fixture) {
+  return applyPackagedRuntimePatches({
+    patchesRoot: fixture.patchesRoot,
+    repositoryRoot: fixture.repositoryRoot,
+    runtimeNodeModulesRoot: fixture.runtimeNodeModulesRoot,
+  });
+}
+
 function writePackageMetadata(packageRoot, name, version = '1.0.0') {
   fs.mkdirSync(packageRoot, { recursive: true });
   fs.writeFileSync(
@@ -98,6 +110,41 @@ function writePackageMetadata(packageRoot, name, version = '1.0.0') {
 }
 
 describe('packaged runtime patch audit', () => {
+  test('dynamically applies a committed patch without a package allowlist', () => {
+    const fixture = createFixture();
+    try {
+      const applySummary = runApply(fixture);
+      const auditSummary = runAudit(fixture);
+
+      expect(
+        fs.readFileSync(path.join(fixture.packageRoot, 'index.js'), 'utf8'),
+      ).toBe(PATCHED_CONTENT);
+      expect(applySummary.results[0]).toMatchObject({
+        action: PATCH_ACTION.applied,
+        packageName: 'runtime-package',
+      });
+      expect(auditSummary.results[0].state).toBe(PATCH_STATE.patched);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  test('does not reapply a complete runtime patch', () => {
+    const fixture = createFixture();
+    try {
+      runApply(fixture);
+
+      const summary = runApply(fixture);
+
+      expect(summary.results[0].action).toBe(PATCH_ACTION.alreadyPatched);
+      expect(
+        fs.readFileSync(path.join(fixture.packageRoot, 'index.js'), 'utf8'),
+      ).toBe(PATCHED_CONTENT);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   test('rejects an unpatched packaged dependency', () => {
     const fixture = createFixture();
     try {
@@ -166,13 +213,11 @@ describe('packaged runtime patch audit', () => {
       packageName: '@scope/runtime-package',
     });
     try {
-      fs.writeFileSync(
-        path.join(fixture.packageRoot, 'index.js'),
-        PATCHED_CONTENT,
-      );
+      const applySummary = runApply(fixture);
 
       const summary = runAudit(fixture);
 
+      expect(applySummary.results[0].action).toBe(PATCH_ACTION.applied);
       expect(summary.results[0]).toMatchObject({
         packageName: '@scope/runtime-package',
         state: PATCH_STATE.patched,
@@ -242,6 +287,41 @@ describe('packaged runtime patch audit', () => {
       expect(instancesByName.get('runtime-package')).toHaveLength(2);
     } finally {
       fs.rmSync(repositoryRoot, { force: true, recursive: true });
+    }
+  });
+
+  test('applies a committed patch to every top-level and nested instance', () => {
+    const fixture = createFixture();
+    try {
+      const nestedPackageRoot = path.join(
+        fixture.runtimeNodeModulesRoot,
+        'parent-package/node_modules/runtime-package',
+      );
+      writePackageMetadata(
+        path.join(fixture.runtimeNodeModulesRoot, 'parent-package'),
+        'parent-package',
+      );
+      writePackageMetadata(nestedPackageRoot, 'runtime-package');
+      fs.writeFileSync(
+        path.join(nestedPackageRoot, 'index.js'),
+        ORIGINAL_CONTENT,
+      );
+
+      const applySummary = runApply(fixture);
+      const auditSummary = runAudit(fixture);
+
+      expect(applySummary.results).toHaveLength(2);
+      expect(
+        applySummary.results.every(
+          (result) => result.action === PATCH_ACTION.applied,
+        ),
+      ).toBe(true);
+      expect(
+        fs.readFileSync(path.join(nestedPackageRoot, 'index.js'), 'utf8'),
+      ).toBe(PATCHED_CONTENT);
+      expect(auditSummary.packagedPatchCount).toBe(2);
+    } finally {
+      fixture.cleanup();
     }
   });
 });

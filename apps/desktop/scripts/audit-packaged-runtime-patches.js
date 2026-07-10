@@ -64,12 +64,13 @@ function normalizeGitPath(filePath) {
   return filePath.split(path.sep).join('/');
 }
 
-function runGitApplyCheck({
+function runGitApply({
+  check = false,
   packageName,
   packageRoot,
   patchFilePath,
   repositoryRoot,
-  reverse,
+  reverse = false,
 }) {
   const relativePackageRoot = path.relative(repositoryRoot, packageRoot);
   assert(
@@ -84,7 +85,7 @@ function runGitApplyCheck({
   const args = [
     'apply',
     ...(reverse ? ['--reverse'] : []),
-    '--check',
+    ...(check ? ['--check'] : []),
     '--ignore-space-change',
     `-p${stripCount}`,
     `--directory=${normalizeGitPath(relativePackageRoot)}`,
@@ -99,6 +100,10 @@ function runGitApplyCheck({
     ok: result.status === 0,
     output: `${result.stdout || ''}${result.stderr || ''}`.trim(),
   };
+}
+
+function runGitApplyCheck(options) {
+  return runGitApply({ ...options, check: true });
 }
 
 function classifyPatchState(options) {
@@ -125,6 +130,50 @@ function classifyPatchState(options) {
   };
 }
 
+function discoverPackagedRuntimePatchTargets({
+  patchesRoot,
+  runtimeNodeModulesRoot,
+}) {
+  const patchDescriptors = fs
+    .readdirSync(patchesRoot)
+    .filter((fileName) => fileName.endsWith('.patch'))
+    .toSorted()
+    .map((fileName) => parsePatchDescriptor(path.join(patchesRoot, fileName)));
+  const patchesByPackageName = new Map();
+  for (const patchDescriptor of patchDescriptors) {
+    const packagePatches =
+      patchesByPackageName.get(patchDescriptor.packageName) || [];
+    assert(
+      !packagePatches.some(
+        (candidate) => candidate.version === patchDescriptor.version,
+      ),
+      `Multiple committed patches target ${patchDescriptor.packageName}@${patchDescriptor.version}.`,
+    );
+    packagePatches.push(patchDescriptor);
+    patchesByPackageName.set(patchDescriptor.packageName, packagePatches);
+  }
+
+  return {
+    packageInstances: findInstalledPackageInstances(
+      runtimeNodeModulesRoot,
+      new Set(patchesByPackageName.keys()),
+    ),
+    patchDescriptors,
+    patchesByPackageName,
+  };
+}
+
+function findMatchingPatchDescriptor(packageInstance, patchesByPackageName) {
+  const packagePatches =
+    patchesByPackageName.get(packageInstance.packageName) || [];
+  return {
+    packagePatches,
+    patchDescriptor: packagePatches.find(
+      (candidate) => candidate.version === packageInstance.version,
+    ),
+  };
+}
+
 function auditPackagedRuntimePatches({
   patchesRoot,
   repositoryRoot,
@@ -135,32 +184,18 @@ function auditPackagedRuntimePatches({
     `Runtime node_modules is missing: ${runtimeNodeModulesRoot}. Run electron-builder install-app-deps first.`,
   );
 
-  const patchDescriptors = fs
-    .readdirSync(patchesRoot)
-    .filter((fileName) => fileName.endsWith('.patch'))
-    .toSorted()
-    .map((fileName) => parsePatchDescriptor(path.join(patchesRoot, fileName)));
-  const patchesByPackageName = new Map();
-  for (const patchDescriptor of patchDescriptors) {
-    const packagePatches =
-      patchesByPackageName.get(patchDescriptor.packageName) || [];
-    packagePatches.push(patchDescriptor);
-    patchesByPackageName.set(patchDescriptor.packageName, packagePatches);
-  }
-
-  const packageInstances = findInstalledPackageInstances(
-    runtimeNodeModulesRoot,
-    new Set(patchesByPackageName.keys()),
-  );
+  const { packageInstances, patchDescriptors, patchesByPackageName } =
+    discoverPackagedRuntimePatchTargets({
+      patchesRoot,
+      runtimeNodeModulesRoot,
+    });
   const failures = [];
   const results = [];
 
   for (const packageInstance of packageInstances) {
-    const packagePatches = patchesByPackageName.get(
-      packageInstance.packageName,
-    );
-    const patchDescriptor = packagePatches.find(
-      (candidate) => candidate.version === packageInstance.version,
+    const { packagePatches, patchDescriptor } = findMatchingPatchDescriptor(
+      packageInstance,
+      patchesByPackageName,
     );
     const relativePackageRoot = normalizeGitPath(
       path.relative(repositoryRoot, packageInstance.packageRoot),
@@ -252,8 +287,12 @@ module.exports = {
   PATCH_STATE,
   auditPackagedRuntimePatches,
   classifyPatchState,
+  discoverPackagedRuntimePatchTargets,
   findInstalledPackageInstances,
+  findMatchingPatchDescriptor,
   getPackageNameFromPatchPath,
+  normalizeGitPath,
   parsePatchDescriptor,
+  runGitApply,
   runGitApplyCheck,
 };
