@@ -21,6 +21,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
 } from 'react-native-reanimated';
+import { initialWindowMetrics } from 'react-native-safe-area-context';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
@@ -169,10 +170,17 @@ const DIALOG_CONTENT_VISIBILITY_HIDDEN = {
 } as any;
 const DIALOG_HIDDEN_STYLE = { contentVisibility: 'hidden' } as any;
 const EMPTY_DIALOG_STYLE = {} as const;
+const INITIAL_IOS_BOTTOM_INSET = platformEnv.isNativeIOS
+  ? initialWindowMetrics?.insets.bottom || 0
+  : 0;
 
 const DEFAULT_KEYBOARD_HEIGHT = 330;
 const useSafeKeyboardAnimationStyle = () => {
   const { bottom } = useSafeAreaInsets();
+  // Root-sibling portals can report zero before safe-area context propagates.
+  // Preserve the initial iOS inset so custom content and footer actions stay
+  // above the home indicator from the first frame.
+  const safeAreaBottom = bottom || INITIAL_IOS_BOTTOM_INSET;
   const keyboardHeightValue = useSharedValue(0);
   // Keep the dialog clear of both the home indicator and the keyboard.
   // These are two independent concerns collapsed into one paddingBottom:
@@ -181,7 +189,7 @@ const useSafeKeyboardAnimationStyle = () => {
   // They must not stack — once the keyboard is up it already covers the
   // safe area, so take the larger of the two instead of summing them.
   const animatedStyles = useAnimatedStyle(() => ({
-    paddingBottom: Math.max(keyboardHeightValue.value, bottom),
+    paddingBottom: Math.max(keyboardHeightValue.value, safeAreaBottom),
   }));
 
   useKeyboardEventWithoutNavigation({
@@ -199,7 +207,7 @@ const useSafeKeyboardAnimationStyle = () => {
   // clear the home indicator there too — footers only carry their design
   // padding now, and rely on the frame for the inset on every platform.
   if (!platformEnv.isNative) {
-    return bottom ? { paddingBottom: bottom } : undefined;
+    return safeAreaBottom ? { paddingBottom: safeAreaBottom } : undefined;
   }
   return animatedStyles;
 };
