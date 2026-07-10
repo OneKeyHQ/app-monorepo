@@ -156,6 +156,23 @@ const stakingConfig: IStakingConfig = {
           },
         },
       },
+      [EEarnProviderEnum.Spark]: {
+        supportedSymbols: ['USDC', 'USDT'],
+        configs: {
+          USDC: {
+            enabled: true,
+            tokenAddress: EthereumUSDC,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+          USDT: {
+            enabled: true,
+            tokenAddress: EthereumUSDT,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+        },
+      },
       [EEarnProviderEnum.Pendle]: {
         supportedSymbols: [],
         configs: {},

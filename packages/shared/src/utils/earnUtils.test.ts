@@ -1,4 +1,33 @@
+import { EEarnProviderEnum } from '../../types/earn';
+import { normalizeToEarnProvider } from '../../types/earn/earnProvider.constants';
+
 import earnUtils from './earnUtils';
+
+describe('earnUtils Spark provider integration', () => {
+  it('normalizes Spark provider identity for Earn routes and config lookup', () => {
+    expect(normalizeToEarnProvider('spark')).toBe(EEarnProviderEnum.Spark);
+    expect(earnUtils.getEarnProviderEnumKey('spark')).toBe(
+      EEarnProviderEnum.Spark,
+    );
+    expect(earnUtils.getEarnProviderName({ providerName: 'spark' })).toBe(
+      EEarnProviderEnum.Spark,
+    );
+  });
+
+  it('uses the protocol vault for Spark requests and ERC20 approval', () => {
+    const protocolVault = '0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d';
+
+    expect(
+      earnUtils.shouldSendEarnProtocolVault({ providerName: 'spark' }),
+    ).toBe(true);
+    expect(
+      earnUtils.resolveEarnApproveSpenderAddress({
+        providerName: 'spark',
+        protocolVault,
+      }),
+    ).toBe(protocolVault);
+  });
+});
 
 describe('earnUtils borrow address normalization', () => {
   describe('normalizeBorrowAddress', () => {
