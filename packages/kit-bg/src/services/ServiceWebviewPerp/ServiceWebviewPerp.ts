@@ -52,6 +52,8 @@ import { logHyperLiquidApiFailure } from '../ServiceHyperLiquid/utils/logHyperLi
 import {
   buildPerpsDepositTokensByNetwork,
   buildPerpsDepositTokensFromWalletTokenResponses,
+  filterPerpsDepositTokensByNetworkWithPositiveFiatValue,
+  filterPerpsDepositTokensWithPositiveFiatValue,
   resolvePerpsDepositSelectedToken,
 } from './utils/depositTokenListUtils';
 
@@ -740,8 +742,10 @@ class ServiceWebviewPerp extends ServiceBase {
     if (coldCache) {
       const data = {
         ownerKey: coldCache.ownerKey ?? ownerKey,
-        tokens: coldCache.tokens,
-        tokensByNetwork: coldCache.tokensByNetwork,
+        tokens: filterPerpsDepositTokensWithPositiveFiatValue(coldCache.tokens),
+        tokensByNetwork: filterPerpsDepositTokensByNetworkWithPositiveFiatValue(
+          coldCache.tokensByNetwork,
+        ),
       };
       const { selectedToken, isStale } =
         await this.updatePerpsDepositTokenListAtom(data, {
