@@ -19,6 +19,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { prepareSwapProEntryState } from '@onekeyhq/kit/src/views/Swap/utils/swapProEntryState';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   ESwapProJumpTokenDirection,
@@ -129,15 +130,17 @@ export function SwapPanel({
   const [, setSwapProJumpTokenAtom] = useSwapProJumpTokenAtom();
 
   const handleTrade = useCallback(() => {
+    const direction = ESwapProJumpTokenDirection.BUY;
     setSwapProJumpTokenAtom({
       token: swapToken,
-      direction: ESwapProJumpTokenDirection.BUY,
+      direction,
       marketPresetToken: {
         networkId: swapToken.networkId,
         contractAddress: swapToken.contractAddress,
         isNative: swapToken.isNative,
       },
     });
+    prepareSwapProEntryState({ token: swapToken, direction });
     navigation.pop();
     navigation.switchTab(ETabRoutes.Swap);
   }, [setSwapProJumpTokenAtom, swapToken, navigation]);
