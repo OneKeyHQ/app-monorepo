@@ -107,15 +107,15 @@ const networksSupportBulkRevokeApproval =
 // Initial (first-render) estimate for the collapsible header height on native.
 // iOS folds into the collapsible header: the top pass-through padding
 // (~tabPageHeight 118, so content starts below the fixed glass bar) + the
-// wallet-connection row (~44) + balance/actions/banner (~312) + the non-sticky
-// TabBar (~48). Other native platforms keep the original 312. The library
+// wallet-connection row (~44) + balance/actions/banner (~292) + the non-sticky
+// TabBar (~48). Other native platforms keep the original 292. The library
 // re-measures via onLayout; this only minimizes first-frame content shift, so
 // tune against a real device if a first-frame jump appears.
 let NATIVE_HOME_HEADER_HEIGHT: number | undefined;
 if (ENABLE_IMMERSIVE_GLASS_HEADER) {
-  NATIVE_HOME_HEADER_HEIGHT = 522;
+  NATIVE_HOME_HEADER_HEIGHT = 502;
 } else if (platformEnv.isNative) {
-  NATIVE_HOME_HEADER_HEIGHT = 312;
+  NATIVE_HOME_HEADER_HEIGHT = 292;
 }
 
 // Web sticky TabBar is `position: relative` so its absolutely-positioned portal

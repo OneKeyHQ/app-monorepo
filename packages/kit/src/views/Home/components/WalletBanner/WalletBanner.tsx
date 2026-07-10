@@ -53,8 +53,15 @@ import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 const PERPS_REFERRAL_BANNER_ID = 'local-perps-referral';
 
 const BANNER_ITEM_WIDTH = 280;
+// Shared row height: every card in the banner row (standard BannerItem and the
+// leading Tron resource card) uses this so they line up. Passed down to the
+// resource card as a prop rather than duplicated as a literal.
+const BANNER_ITEM_HEIGHT = 88;
 const BANNER_GAP = 12;
 const BANNER_PADDING_H = 20;
+// The leading Tron resource card is intentionally narrower than a standard
+// banner item; WalletBanner needs its width for the scroll-bound math too.
+const TRON_CARD_WIDTH = 220;
 
 const closedBanners: Record<string, boolean> = {};
 
@@ -73,7 +80,7 @@ function BannerItem({
   return (
     <XStack
       w={item.icon ? 200 : BANNER_ITEM_WIDTH}
-      h={108}
+      h={BANNER_ITEM_HEIGHT}
       p="$4"
       my="$px"
       bg="$bgSubdued"
@@ -110,8 +117,8 @@ function BannerItem({
         gap="$3"
       >
         {item.src ? (
-          <YStack w={60} h={60} flexShrink={0}>
-            <Image size={60} source={{ uri: item.src }} />
+          <YStack w={56} h={56} flexShrink={0}>
+            <Image size={56} source={{ uri: item.src }} />
           </YStack>
         ) : null}
         <YStack flex={1} gap="$1">
@@ -778,6 +785,8 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
           key={`${account.id}-${network.id}`}
           accountId={account.id}
           networkId={network.id}
+          width={TRON_CARD_WIDTH}
+          height={BANNER_ITEM_HEIGHT}
         />
       ) : null,
     [vaultSettings?.hasResource, account?.id, network?.id],
@@ -831,7 +840,7 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
         handleBannerOnPress={wrappedHandleBannerOnPress}
         handleDismiss={handleDismiss}
         leadingContent={tronCard}
-        leadingContentWidth={tronCard ? 220 : 0}
+        leadingContentWidth={tronCard ? TRON_CARD_WIDTH : 0}
       />
     );
   }
