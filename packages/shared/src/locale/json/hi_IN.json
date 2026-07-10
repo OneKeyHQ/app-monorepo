@@ -2801,6 +2801,8 @@
   "perp_time_in_force_gtc__desc": "GTC (रद्द होने तक मान्य): ऑर्डर तब तक बनी रहेगी जब तक वह पूरी न हो जाए या रद्द न कर दी जाए।",
   "perp_time_in_force_ioc__desc": "IOC (तुरंत निष्पादित या रद्द): जो भी हिस्सा तुरंत पूरा नहीं होगा, उसे रद्द कर दिया जाएगा।",
   "perp_toast_deposit_success_eta_one_minute__msg": "{amount} {token} जमा प्रस्तुत कर दी गई है। जमा 1 मिनट के भीतर पहुँचेगी।",
+  "perp_toast_modifying_order": "ऑर्डर में बदलाव किया जा रहा है…",
+  "perp_toast_order_modified": "ऑर्डर में बदलाव किया गया",
   "perp_token_info_not_found__msg": "टोकन जानकारी नहीं मिली",
   "perp_trade_account_overview_avbl": "उपलब्ध",
   "perp_trade_deposit_to_trade__action": "ट्रेड करने के लिए जमा करें",

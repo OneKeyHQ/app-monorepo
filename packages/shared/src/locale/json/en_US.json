@@ -2801,6 +2801,8 @@
   "perp_time_in_force_gtc__desc": "GTC (Good Til Cancel): Order will rest until filled or canceled.",
   "perp_time_in_force_ioc__desc": "IOC (Immediate Or Cancel): Any portion that is not immediately filled will be canceled.",
   "perp_toast_deposit_success_eta_one_minute__msg": "{amount} {token} deposit has been submitted. Deposits should arrive within 1 minute.",
+  "perp_toast_modifying_order": "Modifying order…",
+  "perp_toast_order_modified": "Order modified",
   "perp_token_info_not_found__msg": "Token info not found",
   "perp_trade_account_overview_avbl": "Avbl",
   "perp_trade_deposit_to_trade__action": "Deposit to Trade",

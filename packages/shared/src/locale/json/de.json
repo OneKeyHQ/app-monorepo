@@ -2801,6 +2801,8 @@
   "perp_time_in_force_gtc__desc": "GTC (gültig bis zur Stornierung): Die Order bleibt bestehen, bis sie ausgeführt oder storniert wird.",
   "perp_time_in_force_ioc__desc": "IOC (sofort oder stornieren): Jeder Teil, der nicht sofort ausgeführt wird, wird storniert.",
   "perp_toast_deposit_success_eta_one_minute__msg": "{amount} {token}-Einzahlung wurde eingereicht. Einzahlungen sollten innerhalb von 1 Minute eintreffen.",
+  "perp_toast_modifying_order": "Order wird geändert…",
+  "perp_toast_order_modified": "Order geändert",
   "perp_token_info_not_found__msg": "Tokeninformationen nicht gefunden",
   "perp_trade_account_overview_avbl": "Verfügbar",
   "perp_trade_deposit_to_trade__action": "Einzahlen zum Traden",

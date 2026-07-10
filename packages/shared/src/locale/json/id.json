@@ -2801,6 +2801,8 @@
   "perp_time_in_force_gtc__desc": "GTC (Good Til Cancel): Order akan tetap aktif hingga terisi atau dibatalkan.",
   "perp_time_in_force_ioc__desc": "IOC (Immediate Or Cancel): Bagian apa pun yang tidak langsung terisi akan dibatalkan.",
   "perp_toast_deposit_success_eta_one_minute__msg": "{amount} {token} deposit telah dikirim. Deposit seharusnya tiba dalam 1 menit.",
+  "perp_toast_modifying_order": "Mengubah order…",
+  "perp_toast_order_modified": "Order diubah",
   "perp_token_info_not_found__msg": "Informasi token tidak ditemukan",
   "perp_trade_account_overview_avbl": "Tersedia",
   "perp_trade_deposit_to_trade__action": "Deposit untuk Trading",
