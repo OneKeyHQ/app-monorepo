@@ -1031,7 +1031,7 @@ export function LimitOrderForm({
         <XStack justifyContent="space-between" alignItems="center">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
-              id: ETranslations.perp_trade_account_overview_avbl,
+              id: ETranslations.perp_trade_account_overview_available,
             })}
           </SizableText>
           {isSpot ? (

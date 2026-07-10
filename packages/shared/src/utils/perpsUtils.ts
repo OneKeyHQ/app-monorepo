@@ -1679,9 +1679,16 @@ export function findTokensByAlias(
     return [];
   }
 
+  const shouldMatchAliasPrefix = /^[a-z0-9]{1,2}$/.test(query);
+
   return Object.entries(serverAliases)
     .filter(([, item]) =>
-      item.aliases?.some((alias) => alias.toLowerCase().includes(query)),
+      item.aliases?.some((alias) => {
+        const normalizedAlias = alias.toLowerCase();
+        return shouldMatchAliasPrefix
+          ? normalizedAlias.startsWith(query)
+          : normalizedAlias.includes(query);
+      }),
     )
     .map(([symbol]) => symbol);
 }
