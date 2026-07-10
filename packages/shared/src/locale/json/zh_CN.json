@@ -2801,6 +2801,8 @@
   "perp_time_in_force_gtc__desc": "GTC（取消前有效）：订单会一直保留，直到成交或被取消。",
   "perp_time_in_force_ioc__desc": "IOC（立即成交否则取消）：未立即成交的部分会被取消。",
   "perp_toast_deposit_success_eta_one_minute__msg": "{amount} {token} 存款已提交。预计 1 分钟到账",
+  "perp_toast_modifying_order": "正在修改订单…",
+  "perp_toast_order_modified": "订单已修改",
   "perp_token_info_not_found__msg": "未找到代币信息",
   "perp_trade_account_overview_avbl": "Avbl",
   "perp_trade_deposit_to_trade__action": "充值以交易",
