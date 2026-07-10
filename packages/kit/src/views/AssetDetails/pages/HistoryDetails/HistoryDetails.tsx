@@ -617,14 +617,16 @@ function HistoryDetails() {
 
     if (vaultSettings?.isUtxo) {
       // count external parties only: a UTXO account spans many addresses
-      // (rotated receive/change addresses, claimed find-address entries),
-      // so trust the server's isOwn flag and only fall back to the display
-      // address comparison for locally built txs that don't carry it
-      const utxoSends = sends.filter(
-        (send) => !send.isOwn && send.from !== accountAddress,
+      // (rotated receive/change addresses, claimed find-address entries).
+      // When the server's isOwn flag is present, trust it exclusively;
+      // when it is missing (locally built txs before server backfill),
+      // fall back to the display address comparison instead of treating
+      // undefined as external
+      const utxoSends = sends.filter((send) =>
+        isNil(send.isOwn) ? send.from !== accountAddress : !send.isOwn,
       );
-      const utxoReceives = receives.filter(
-        (receive) => !receive.isOwn && receive.to !== accountAddress,
+      const utxoReceives = receives.filter((receive) =>
+        isNil(receive.isOwn) ? receive.to !== accountAddress : !receive.isOwn,
       );
 
       const from =
