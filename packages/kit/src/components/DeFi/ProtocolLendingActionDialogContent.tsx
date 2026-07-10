@@ -38,13 +38,13 @@ import { useManagePage } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosit
 import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IDeFiProtocolLendingActionSource } from '@onekeyhq/shared/src/routes/assetDetails';
 import defiActionUtils from '@onekeyhq/shared/src/utils/defiActionUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlInDiscovery } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   EDeFiPositionAction,
-  type IResolvedDeFiPositionAction,
   type IResolvedDeFiPositionActionAsset,
 } from '@onekeyhq/shared/types/defi';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
@@ -60,9 +60,12 @@ import {
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import {
+  type IProtocolLendingPrimaryBalanceLabel,
+  resolveProtocolLendingBalanceContext,
   resolveProtocolLendingDefiFillableAmountState,
   resolveProtocolLendingRemainingDebtState,
   resolveProtocolLendingRepayAmountState,
+  resolveProtocolLendingRepayDebtState,
   resolveProtocolLendingWithdrawAmountState,
 } from './protocolLendingActionUtils';
 import {
@@ -78,6 +81,7 @@ import {
 } from './ProtocolPositionActionDialog';
 import { shouldShowProtocolPositionActionInlineSubmitError } from './protocolPositionActionErrorUtils';
 import { resolveProtocolPositionActionDialogLayout } from './protocolPositionActionLayoutUtils';
+import { ProtocolPositionAssetPill } from './ProtocolPositionAssetPill';
 import { getProtocolProviderDisplayName } from './protocolProviderDisplayUtils';
 
 // Withdraw/Repay only — the portfolio dialog is exit-side (Supply/Borrow stay on
@@ -87,20 +91,7 @@ type IProtocolLendingActionType = 'withdraw' | 'repay';
 // `defi` reuses the resolved-action build path (Compound/Morpho/...); `borrow`
 // drives the Aave manage hooks (simulation, health factor, approve). `selectable`
 // false = a desktop row already named the asset, so no dropdown / assets fetch.
-type IProtocolLendingActionSource =
-  | { type: 'defi'; action: IResolvedDeFiPositionAction }
-  | {
-      type: 'borrow';
-      provider: string;
-      marketAddress: string;
-      reserveAddress: string;
-      symbol: string;
-      logoURI?: string;
-      providerDisplayName?: string;
-      providerLogoURI?: string;
-      indexedAccountId?: string;
-      selectable: boolean;
-    };
+type IProtocolLendingActionSource = IDeFiProtocolLendingActionSource;
 
 // Normalized selector-row data, source-agnostic so the row/popover is shared.
 type ILendingSelectorItem = {
@@ -163,6 +154,15 @@ const LENDING_ACTION_TO_BORROW_ACTION: Record<
 > = {
   withdraw: EBorrowActionsEnum.Withdraw,
   repay: EBorrowActionsEnum.Repay,
+};
+
+const LENDING_BALANCE_LABEL_TRANSLATION_IDS: Record<
+  IProtocolLendingPrimaryBalanceLabel,
+  ETranslations
+> = {
+  available: ETranslations.global_available,
+  availableToWithdraw: ETranslations.available_to_withdraw__title,
+  remainingDebt: ETranslations.defi_borrow_repay_remaining_debt,
 };
 
 function getLendingColumnHeaderLabel({
@@ -275,7 +275,6 @@ function RemainingDebtChangeRow({
   return (
     <ProtocolPositionActionAnchor
       label={label}
-      iconNode={null}
       valueNode={
         <XStack alignItems="center" gap="$2" flexShrink={0}>
           <LendingAmountValue
@@ -322,7 +321,7 @@ function LendingSelectorRowContent({ item }: { item: ILendingSelectorItem }) {
 // asset (supplied for withdraw, borrowed for repay) — the semantics of Borrow's
 // asset-select popover. Fixed mode renders the same pill with no chevron and no
 // affordance. The per-asset balance is not repeated on the pill; it lives on the
-// "Available" row under the amount field.
+// balance or debt row under the amount field.
 function LendingAssetSelectorRow({
   item,
   items,
@@ -338,35 +337,9 @@ function LendingAssetSelectorRow({
 }) {
   const intl = useIntl();
 
-  // Pill content: logo + symbol, plus a chevron when it opens the asset list.
-  // The chevron stays a size below the token so it reads as a quiet affordance
-  // rather than competing with the asset identity.
-  const pillInner = (
-    <>
-      <Token size="sm" tokenImageUri={item.logoURI} bg="$bg" />
-      <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
-        {item.symbol}
-      </SizableText>
-      {selectable ? (
-        <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$4.5" />
-      ) : null}
-    </>
-  );
-
   if (!selectable) {
     return (
-      <XStack
-        alignSelf="center"
-        alignItems="center"
-        gap="$2"
-        px="$4"
-        py="$2.5"
-        borderRadius="$full"
-        borderCurve="continuous"
-        bg="$bgSubdued"
-      >
-        {pillInner}
-      </XStack>
+      <ProtocolPositionAssetPill symbol={item.symbol} logoURI={item.logoURI} />
     );
   }
 
@@ -379,26 +352,11 @@ function LendingAssetSelectorRow({
       <Popover
         title={intl.formatMessage({ id: ETranslations.token_selector_title })}
         renderTrigger={
-          // ButtonFrame renders as a native <button> on web, so the asset
-          // picker is keyboard-focusable and Enter/Space opens it — a plain
-          // onPress XStack was mouse-only.
-          <ButtonFrame
-            alignItems="center"
-            justifyContent="flex-start"
-            gap="$2"
-            px="$4"
-            py="$2.5"
-            borderWidth={0}
-            borderRadius="$full"
-            borderCurve="continuous"
-            bg="$bgSubdued"
-            hoverStyle={{ bg: '$bgHover' }}
-            pressStyle={{ bg: '$bgActive' }}
-            focusable
-            focusVisibleStyle={LENDING_SELECTOR_FOCUS_STYLE}
-          >
-            {pillInner}
-          </ButtonFrame>
+          <ProtocolPositionAssetPill
+            symbol={item.symbol}
+            logoURI={item.logoURI}
+            interactive
+          />
         }
         renderContent={({ closePopover }) => (
           <YStack p="$2">
@@ -833,8 +791,16 @@ function ProtocolLendingActionDefiContent({
     action: LENDING_ACTION_TO_DEFI_ACTION[actionType],
     intl,
   });
+  const balanceContext = resolveProtocolLendingBalanceContext({
+    isRepay,
+    hasKnownDebt: Boolean(selectedAsset),
+    walletBalance: repayWalletBalance,
+  });
   const availableLabel = intl.formatMessage({
-    id: ETranslations.global_available,
+    id: LENDING_BALANCE_LABEL_TRANSLATION_IDS[balanceContext.primaryLabel],
+  });
+  const walletBalanceLabel = intl.formatMessage({
+    id: ETranslations.global_wallet_balance,
   });
   const maxLabel = intl.formatMessage({ id: ETranslations.global_max });
   const insufficientLabel = intl.formatMessage({
@@ -870,31 +836,32 @@ function ProtocolLendingActionDefiContent({
   const bodyNode = (
     <YStack gap="$5">
       {selectedAsset && selectedItem ? (
-        <>
-          <LendingAssetSelectorRow
-            item={selectedItem}
-            items={selectorItems}
-            selectable={selectable}
-            onSelect={handleSelectAsset}
-            columnHeaderLabel={columnHeaderLabel}
-          />
-          <ProtocolPositionActionAmountInput
-            amount={amount}
-            onChangeAmount={handleAmountChange}
-            onSelectPercent={handleSelectPercent}
-            selectedPercent={selectedAmountPercent}
-            symbol={selectedAsset.symbol}
-            tokenLogoUrl={selectedAsset.asset.meta?.logoUrl}
-            availableAmount={availableAmount}
-            fiatValue={amountFiatValue}
-            currencySymbol={currencySymbol}
-            isInsufficient={isAmountInsufficient}
-            availableLabel={availableLabel}
-            maxLabel={maxLabel}
-            insufficientLabel={insufficientLabel}
-            onFocus={handleAmountInputFocus}
-          />
-        </>
+        <ProtocolPositionActionAmountInput
+          assetSelector={
+            <LendingAssetSelectorRow
+              item={selectedItem}
+              items={selectorItems}
+              selectable={selectable}
+              onSelect={handleSelectAsset}
+              columnHeaderLabel={columnHeaderLabel}
+            />
+          }
+          amount={amount}
+          onChangeAmount={handleAmountChange}
+          onSelectPercent={handleSelectPercent}
+          selectedPercent={selectedAmountPercent}
+          symbol={selectedAsset.symbol}
+          availableAmount={availableAmount}
+          fiatValue={amountFiatValue}
+          currencySymbol={currencySymbol}
+          isInsufficient={isAmountInsufficient}
+          availableLabel={availableLabel}
+          maxLabel={maxLabel}
+          insufficientLabel={insufficientLabel}
+          onFocus={handleAmountInputFocus}
+          secondaryLabel={walletBalanceLabel}
+          secondaryAmount={balanceContext.secondaryWalletBalance}
+        />
       ) : (
         <YStack py="$6" alignItems="center">
           <SizableText size="$bodyMd" color="$textSubdued">
@@ -1115,19 +1082,24 @@ function ProtocolLendingActionBorrowContent({
         : (selectedBorrowAsset.borrowed?.number ??
           selectedBorrowAsset.borrowed?.amount)) ?? '0')
     : (protocolInfo?.activeBalance ?? '0');
-  // For repay the outstanding DEBT is NOT effectiveBalance: in fixed mode
-  // effectiveBalance is the manage-page repay.balance, which is the WALLET
-  // balance. Take the debt from the same fields the manage page's full-repay
-  // uses — the selected asset's borrowed amount (dropdown) or the dedicated
-  // debtBalance (fixed), falling back to maxRepayBalance so a missing debtBalance
-  // never collapses the reference to 0 (which would zero out Max/percent).
-  const debtText = selectedBorrowAsset
+  // Fixed-mode portfolio rows already know the outstanding debt. Preserve that
+  // amount because the manage-page max can be wallet-capped and therefore is not
+  // authoritative for either the Remaining debt label or repayAll detection.
+  const selectedBorrowAssetDebt = selectedBorrowAsset
     ? (selectedBorrowAsset.borrowed?.number ??
       selectedBorrowAsset.borrowed?.amount)
-    : (protocolInfo?.debtBalance ?? protocolInfo?.maxRepayBalance);
+    : undefined;
+  const repayDebtState = resolveProtocolLendingRepayDebtState({
+    selectedBorrowAssetDebt,
+    sourceDebtAmount: source.selectable ? undefined : source.debtAmount,
+    protocolDebtBalance: protocolInfo?.debtBalance,
+    maxRepayBalance: protocolInfo?.maxRepayBalance,
+  });
   // The exit-side balance shown in the hero anchor and used as the full-close
   // target: supplied collateral for withdraw, the outstanding debt for repay.
-  const referenceBalance = isWithdraw ? effectiveBalance : (debtText ?? '0');
+  const referenceBalance = isWithdraw
+    ? effectiveBalance
+    : repayDebtState.referenceBalance;
 
   const [amount, setAmount] = useState('');
   // Withdraw with an open loan starts at 0, not Max: pulling collateral against
@@ -1226,10 +1198,7 @@ function ProtocolLendingActionBorrowContent({
   // Show the wallet balance for repay whenever it has resolved — it tells the
   // user whether they can fully close the loan and why Max may cap below the debt.
   const walletBalanceText = isWithdraw ? undefined : repayWalletBalance;
-  const repayAllTargetAmount = selectedBorrowAsset
-    ? (selectedBorrowAsset.borrowed?.number ??
-      selectedBorrowAsset.borrowed?.amount)
-    : protocolInfo?.debtBalance;
+  const repayAllTargetAmount = repayDebtState.repayAllTargetAmount;
   const repayAmountState = resolveProtocolLendingRepayAmountState({
     amount,
     referenceBalance,
@@ -1577,18 +1546,20 @@ function ProtocolLendingActionBorrowContent({
     action: LENDING_ACTION_TO_DEFI_ACTION[actionType],
     intl,
   });
-  // Withdraw's anchor shows the suppliable "Available" balance; repay's shows the
-  // "Remaining debt" being paid down (matches the manage page), with the wallet
-  // balance as the secondary line beneath it.
+  // Withdraw's anchor shows the supplied balance as "Available to Withdraw";
+  // repay's shows the "Remaining debt" being paid down (matches the manage
+  // page), with the wallet balance as the secondary line beneath it.
   // Only call the reference "Remaining debt" when the real debt is known
   // (repayAllTargetAmount). Otherwise `referenceBalance` is the wallet-capped
   // fill cap — show the neutral "Available" label rather than mislabeling the
   // max repayable as remaining debt. Reuses the existing global_available key.
+  const balanceContext = resolveProtocolLendingBalanceContext({
+    isRepay: !isWithdraw,
+    hasKnownDebt: Boolean(repayAllTargetAmount),
+    walletBalance: walletBalanceText,
+  });
   const availableLabel = intl.formatMessage({
-    id:
-      !isWithdraw && repayAllTargetAmount
-        ? ETranslations.defi_borrow_repay_remaining_debt
-        : ETranslations.global_available,
+    id: LENDING_BALANCE_LABEL_TRANSLATION_IDS[balanceContext.primaryLabel],
   });
   const walletBalanceLabel = intl.formatMessage({
     id: ETranslations.global_wallet_balance,
@@ -1683,9 +1654,7 @@ function ProtocolLendingActionBorrowContent({
     <YStack gap="$5">
       {isInitialLoading ? (
         <YStack gap="$5">
-          {source.selectable ? (
-            <Skeleton height="$11" width="100%" borderRadius="$3" />
-          ) : null}
+          <Skeleton height="$11" width="100%" borderRadius="$3" />
           <Skeleton
             height={BORROW_HERO_SKELETON_HEIGHT}
             width="100%"
@@ -1708,22 +1677,21 @@ function ProtocolLendingActionBorrowContent({
       ) : null}
       {!isInitialLoading && !isEmpty ? (
         <>
-          {selectable ? (
-            <LendingAssetSelectorRow
-              item={selectedItem}
-              items={selectorItems}
-              selectable={selectable}
-              onSelect={handleSelectAsset}
-              columnHeaderLabel={columnHeaderLabel}
-            />
-          ) : null}
           <ProtocolPositionActionAmountInput
+            assetSelector={
+              <LendingAssetSelectorRow
+                item={selectedItem}
+                items={selectorItems}
+                selectable={selectable}
+                onSelect={handleSelectAsset}
+                columnHeaderLabel={columnHeaderLabel}
+              />
+            }
             amount={amount}
             onChangeAmount={handleAmountChange}
             onSelectPercent={handleSelectPercent}
             selectedPercent={selectedAmountPercent}
             symbol={effectiveSymbol}
-            tokenLogoUrl={effectiveLogo}
             availableAmount={referenceBalance}
             fiatValue={amountFiatValue}
             currencySymbol={currencySymbol}
@@ -1733,7 +1701,7 @@ function ProtocolLendingActionBorrowContent({
             insufficientLabel={insufficientLabel}
             onFocus={handleAmountInputFocus}
             secondaryLabel={walletBalanceLabel}
-            secondaryAmount={walletBalanceText}
+            secondaryAmount={balanceContext.secondaryWalletBalance}
           />
           {healthFactor ? (
             <YStack gap="$1">
@@ -1741,7 +1709,6 @@ function ProtocolLendingActionBorrowContent({
                 label={intl.formatMessage({
                   id: ETranslations.defi_health_factor,
                 })}
-                iconNode={null}
                 valueNode={
                   <XStack alignItems="center" gap="$2" flexShrink={0}>
                     <Stack opacity={healthFactor.latest ? 0.5 : 1}>
@@ -1796,7 +1763,6 @@ function ProtocolLendingActionBorrowContent({
                 label={intl.formatMessage({
                   id: ETranslations.defi_health_factor,
                 })}
-                iconNode={null}
                 valueNode={
                   <Skeleton height="$4" width="$16" borderRadius="$1" />
                 }
