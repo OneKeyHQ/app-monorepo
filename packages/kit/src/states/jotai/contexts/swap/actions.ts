@@ -2782,6 +2782,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapSelectToTokenAtom(), currentToToken);
         set(swapFromTokenAmountAtom(), { value: '', isInput: false });
         set(swapToTokenAmountAtom(), { value: '', isInput: false });
+        set(swapSelectedFromTokenBalanceAtom(), '');
         set(swapSelectedTokensColdStartContextAtom(), undefined);
         set(swapInitialSelectedTokensSyncedAtom(), false);
       }
