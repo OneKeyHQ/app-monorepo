@@ -1,6 +1,52 @@
+import BigNumber from 'bignumber.js';
+
 import { sortPerpsDepositTokensByFiatValue } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/utils/depositTokenListUtils';
 import type { IPerpsDepositToken } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { MIN_DEPOSIT_AMOUNT } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+
+export function getPerpsDepositMinimumCheck({
+  inputAmount,
+  isUsdInput,
+  tokenPrice,
+  tokenDecimals,
+}: {
+  inputAmount: string;
+  isUsdInput: boolean;
+  tokenPrice?: string;
+  tokenDecimals?: number;
+}) {
+  const tokenPriceBN = new BigNumber(tokenPrice || '0');
+  if (!tokenPriceBN.isFinite() || tokenPriceBN.lte(0)) {
+    return {
+      value: false,
+      minFromTokenAmount: '-',
+    };
+  }
+
+  const inputAmountBN = new BigNumber(inputAmount || '0');
+  const minimumFiatAmountBN = new BigNumber(MIN_DEPOSIT_AMOUNT);
+  const inputFiatAmountBN = isUsdInput
+    ? inputAmountBN
+    : inputAmountBN.multipliedBy(tokenPriceBN);
+  if (
+    inputFiatAmountBN.isFinite() &&
+    inputFiatAmountBN.gte(minimumFiatAmountBN)
+  ) {
+    return { value: true };
+  }
+
+  const minFromTokenAmount = minimumFiatAmountBN.dividedBy(tokenPriceBN);
+  return {
+    value: false,
+    minFromTokenAmount: minFromTokenAmount
+      .decimalPlaces(
+        Math.min(Number(tokenDecimals ?? 0), 8),
+        BigNumber.ROUND_UP,
+      )
+      .toFixed(),
+  };
+}
 
 export function getPerpsDepositTokenDisplayList(
   tokensByNetwork: Record<string, IPerpsDepositToken[]>,
