@@ -1,5 +1,3 @@
-import { BTC_FIND_ADDRESS_HISTORY_MAX_ADDRESSES } from '@onekeyhq/shared/src/consts/chainConsts';
-
 import {
   appendClaimedAddressPaths,
   buildAccountAddressArrayParam,
@@ -158,13 +156,15 @@ describe('buildAccountAddressArrayParam', () => {
         txInvolvedAddresses: ['bc1q-c', 'bc1q-other'],
       }),
     ).toEqual(['bc1q-c']);
-    // tx involves no claimed address → no param at all
+    // empty intersection may just mean the decoded tx data was incomplete
+    // (e.g. trimmed transfer arrays), fall back to the full claimed set —
+    // it is always a safe superset server-side
     expect(
       buildAccountAddressArrayParam({
         findAddresses,
         txInvolvedAddresses: ['bc1q-other'],
       }),
-    ).toBeUndefined();
+    ).toEqual(['bc1q-b', 'bc1q-a', 'bc1q-c']);
     // empty context means "no context", falls back to the full claimed set
     expect(
       buildAccountAddressArrayParam({
@@ -174,17 +174,17 @@ describe('buildAccountAddressArrayParam', () => {
     ).toEqual(['bc1q-b', 'bc1q-a', 'bc1q-c']);
   });
 
-  test('caps the list keeping the lowest indexes', () => {
+  test('never truncates large claimed sets', () => {
+    // silently dropping claimed addresses would make their txs vanish
+    // from history, so the param is sent in full no matter its size
     const findAddresses: Record<string, string> = {};
-    for (let i = 0; i < BTC_FIND_ADDRESS_HISTORY_MAX_ADDRESSES + 1; i += 1) {
+    for (let i = 0; i < 120; i += 1) {
       findAddresses[`0/${i + 21}`] = `bc1q-${i}`;
     }
     const result = buildAccountAddressArrayParam({ findAddresses }) ?? [];
-    expect(result).toHaveLength(BTC_FIND_ADDRESS_HISTORY_MAX_ADDRESSES);
+    expect(result).toHaveLength(120);
     expect(result[0]).toBe('bc1q-0');
-    expect(result[result.length - 1]).toBe(
-      `bc1q-${BTC_FIND_ADDRESS_HISTORY_MAX_ADDRESSES - 1}`,
-    );
+    expect(result[result.length - 1]).toBe('bc1q-119');
   });
 });
 

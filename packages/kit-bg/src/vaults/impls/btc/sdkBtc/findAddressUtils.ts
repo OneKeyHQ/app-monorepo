@@ -1,5 +1,3 @@
-import { BTC_FIND_ADDRESS_HISTORY_MAX_ADDRESSES } from '@onekeyhq/shared/src/consts/chainConsts';
-
 import type { IUtxoInfo } from '../../../types';
 
 export function buildUtxoKey(utxo: IUtxoInfo): string {
@@ -12,11 +10,14 @@ const FIND_ADDRESS_REL_PATH_REGEX = /^0\/\d+$/;
 
 // build the `accountAddressArray` param attached to history list/detail
 // requests so the server can merge claimed (find-address) addresses into
-// the xpub-derived address set. Sorted by claimed index and capped so the
-// value is deterministic (stable server-side cache key) and bounded. When
-// `txInvolvedAddresses` is provided (detail requests with tx context),
-// only the claimed addresses the tx actually involves are kept; without
-// context the full claimed set is sent as a safe superset.
+// the xpub-derived address set. Sorted by claimed index so the value is
+// deterministic (stable server-side cache key), never truncated: silently
+// dropping claimed addresses makes their txs vanish from history. When
+// `txInvolvedAddresses` is provided (detail requests with tx context) the
+// set is narrowed to the claimed addresses the tx actually involves; an
+// empty intersection falls back to the full claimed set because it may
+// just mean the decoded tx data was incomplete, and the full set is
+// always a safe superset server-side.
 export function buildAccountAddressArrayParam({
   findAddresses,
   txInvolvedAddresses,
@@ -32,13 +33,15 @@ export function buildAccountAddressArrayParam({
     .toSorted(([a], [b]) => Number(a.split('/')[1]) - Number(b.split('/')[1]))
     .map(([, address]) => address);
   addresses = Array.from(new Set(addresses));
-  if (txInvolvedAddresses?.length) {
-    const involvedSet = new Set(txInvolvedAddresses);
-    addresses = addresses.filter((address) => involvedSet.has(address));
-  }
-  addresses = addresses.slice(0, BTC_FIND_ADDRESS_HISTORY_MAX_ADDRESSES);
   if (!addresses.length) {
     return undefined;
+  }
+  if (txInvolvedAddresses?.length) {
+    const involvedSet = new Set(txInvolvedAddresses);
+    const involved = addresses.filter((address) => involvedSet.has(address));
+    if (involved.length) {
+      addresses = involved;
+    }
   }
   return addresses;
 }
