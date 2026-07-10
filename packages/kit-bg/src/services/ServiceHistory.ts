@@ -2662,17 +2662,16 @@ class ServiceHistory extends ServiceBase {
         // pass
       }
 
-      const extraParams = await this.buildFetchHistoryListParams({
-        ...params,
-        accountAddress: accountAddress || '',
-      });
-
+      // the withUTXOs request deliberately carries no account context so
+      // the server returns the tx's raw full input/output breakdown; skip
+      // account-scoped vault extra params there too — the server rejects
+      // `accountAddressArray` unless `accountAddress` accompanies it, and
+      // the raw view needs no account semantics.
       const requestParams: IServerFetchAccountHistoryDetailParams = withUTXOs
         ? {
             accountId,
             networkId,
             txid,
-            ...extraParams,
           }
         : {
             accountId,
@@ -2680,7 +2679,10 @@ class ServiceHistory extends ServiceBase {
             txid,
             xpub,
             accountAddress,
-            ...extraParams,
+            ...(await this.buildFetchHistoryListParams({
+              ...params,
+              accountAddress: accountAddress || '',
+            })),
           };
       const vault = await vaultFactory.getVault({ networkId, accountId });
       const resp = await vault.fetchAccountHistoryDetail(requestParams);
