@@ -2,7 +2,10 @@ import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   BaseUSDC,
+  BinanceSmartChainBTW,
   BinanceSmartChainLISTA,
+  BinanceSmartChainU,
+  BinanceSmartChainUSD1,
   BinanceSmartChainUSDT,
   EMPTY_NATIVE_TOKEN_ADDRESS,
   EthereumCbBTC,
@@ -300,6 +303,43 @@ const stakingConfig: IStakingConfig = {
       [EEarnProviderEnum.Pendle]: {
         supportedSymbols: [],
         configs: {},
+      },
+      [EEarnProviderEnum.Bitway]: {
+        supportedSymbols: ['USDT', 'U', 'BTW', 'USD1'],
+        configs: {
+          USDT: {
+            enabled: true,
+            tokenAddress: BinanceSmartChainUSDT,
+            displayProfit: true,
+            stakingWithApprove: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
+          },
+          U: {
+            enabled: true,
+            tokenAddress: BinanceSmartChainU,
+            displayProfit: true,
+            stakingWithApprove: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
+          },
+          BTW: {
+            enabled: true,
+            tokenAddress: BinanceSmartChainBTW,
+            displayProfit: true,
+            stakingWithApprove: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
+          },
+          USD1: {
+            enabled: true,
+            tokenAddress: BinanceSmartChainUSD1,
+            displayProfit: true,
+            stakingWithApprove: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
+          },
+        },
       },
     },
   },

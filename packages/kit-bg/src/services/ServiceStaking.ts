@@ -1074,10 +1074,11 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     symbol: string;
     provider: string;
+    vault?: string;
   }) {
     const { networkId, accountId, symbol, ...rest } = params;
-    const vault = await vaultFactory.getVault({ networkId, accountId });
-    const acc = await vault.getAccount();
+    const accountVault = await vaultFactory.getVault({ networkId, accountId });
+    const acc = await accountVault.getAccount();
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<{
       data: IClaimableListResponse;

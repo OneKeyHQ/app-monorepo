@@ -107,6 +107,9 @@ export const isSupportStaking = (symbol: string) =>
     'WETH',
     'CBBTC',
     'WBTC',
+    'U',
+    'BTW',
+    'USD1',
   ].includes(symbol.toUpperCase());
 
 export const earnMainnetNetworkIds: string[] = [
@@ -173,6 +176,9 @@ export function normalizeToEarnSymbol(symbol: string): string {
     'stcusd': 'stcUSD',
     'khype': 'kHYPE',
     'lista': 'LISTA',
+    'u': 'U',
+    'btw': 'BTW',
+    'usd1': 'USD1',
   };
   // Known symbols get case-normalized; unknown symbols (e.g. Pendle tokens) pass through
   return symbolMap[symbol.toLowerCase()] ?? symbol;
@@ -194,6 +200,7 @@ export function normalizeToEarnProvider(
     'momentum': EEarnProviderEnum.Momentum,
     'native': EEarnProviderEnum.Native,
     'spark': EEarnProviderEnum.Spark,
+    'bitway': EEarnProviderEnum.Bitway,
     'staked': EEarnProviderEnum.Lista,
   };
   return providerMap[provider.toLowerCase()];
@@ -306,5 +313,8 @@ export function getSymbolSupportedNetworks(): Record<
     'kHYPE': [networkIdsMap.hyperevm],
     'MORPHO': [networkIdsMap.eth],
     'LISTA': [networkIdsMap.bsc],
+    'U': [networkIdsMap.bsc],
+    'BTW': [networkIdsMap.bsc],
+    'USD1': [networkIdsMap.bsc],
   };
 }

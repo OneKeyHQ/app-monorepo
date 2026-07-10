@@ -8,7 +8,11 @@ import {
 import networkUtils from './networkUtils';
 
 import type { IEarnPermitCacheKey } from '../../types/earn';
-import type { IEarnText, IEarnToken } from '../../types/staking';
+import type {
+  IEarnText,
+  IEarnToken,
+  IEarnWithdrawType,
+} from '../../types/staking';
 import type { IToken } from '../../types/token';
 
 function getEarnProviderEnumKey(
@@ -47,6 +51,8 @@ const isPendleProvider = createProviderCheck(EEarnProviderEnum.Pendle);
 
 const isNativeProvider = createProviderCheck(EEarnProviderEnum.Native);
 
+const isBitwayProvider = createProviderCheck(EEarnProviderEnum.Bitway);
+
 const isListaProvider = createProviderCheck(EEarnProviderEnum.Lista);
 
 const isStakefishProvider = createProviderCheck(EEarnProviderEnum.Stakefish);
@@ -63,9 +69,26 @@ const isVaultBasedProvider = ({ providerName }: { providerName: string }) => {
     isSparkProvider({ providerName }) ||
     isPendleProvider({ providerName }) ||
     isListaProvider({ providerName }) ||
-    isMomentumProvider({ providerName })
+    isMomentumProvider({ providerName }) ||
+    isBitwayProvider({ providerName })
   );
 };
+
+const supportsEarnWithdrawPath = ({ providerName }: { providerName: string }) =>
+  isPendleProvider({ providerName }) ||
+  isNativeProvider({ providerName }) ||
+  isBitwayProvider({ providerName });
+
+const isEarnWithdrawPathReady = ({
+  providerName,
+  isLoading,
+  withdrawType,
+}: {
+  providerName: string;
+  isLoading: boolean;
+  withdrawType?: IEarnWithdrawType;
+}) =>
+  !isBitwayProvider({ providerName }) || (!isLoading && Boolean(withdrawType));
 
 const shouldSendEarnProtocolVault = ({
   providerName,
@@ -277,6 +300,7 @@ export default {
   isSparkProvider,
   isPendleProvider,
   isNativeProvider,
+  isBitwayProvider,
   isListaProvider,
   isLidoProvider,
   isBabylonProvider,
@@ -289,6 +313,8 @@ export default {
   getEarnPermitCacheKey,
   isUSDTonETHNetwork,
   isVaultBasedProvider,
+  supportsEarnWithdrawPath,
+  isEarnWithdrawPathReady,
   shouldSendEarnProtocolVault,
   isValidatorProvider,
   resolveEarnApproveSpenderAddress,

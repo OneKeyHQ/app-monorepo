@@ -29,6 +29,47 @@ describe('earnUtils Spark provider integration', () => {
   });
 });
 
+describe('earnUtils Bitway provider behavior', () => {
+  it('normalizes Bitway and forwards its vault-scoped contract identity', () => {
+    expect(earnUtils.getEarnProviderEnumKey('bitway')).toBe('Bitway');
+    expect(earnUtils.isBitwayProvider({ providerName: 'BITWAY' })).toBe(true);
+    expect(earnUtils.supportsEarnWithdrawPath({ providerName: 'bitway' })).toBe(
+      true,
+    );
+    expect(
+      earnUtils.shouldSendEarnProtocolVault({ providerName: 'Bitway' }),
+    ).toBe(true);
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'Bitway',
+        isLoading: true,
+      }),
+    ).toBe(false);
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'Bitway',
+        isLoading: false,
+      }),
+    ).toBe(false);
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'Bitway',
+        isLoading: false,
+        withdrawType: 'queued',
+      }),
+    ).toBe(true);
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'Native',
+        isLoading: false,
+      }),
+    ).toBe(true);
+    expect(earnUtils.getEarnProviderName({ providerName: 'bitway' })).toBe(
+      'Bitway',
+    );
+  });
+});
+
 describe('earnUtils borrow address normalization', () => {
   describe('normalizeBorrowAddress', () => {
     it('lowercases checksum addresses on EVM networks', () => {
