@@ -106,6 +106,11 @@ describe('useWalletConnection', () => {
     await waitFor(() => {
       expect(Dialog.show).toHaveBeenCalledTimes(1);
     });
+    expect(Dialog.show).toHaveBeenCalledWith(
+      expect.objectContaining({
+        useInitialSafeAreaBottomInsetFallback: true,
+      }),
+    );
 
     act(() => {
       onClose?.();
@@ -119,6 +124,30 @@ describe('useWalletConnection', () => {
     expect(mockSetLoading).toHaveBeenCalledWith(false);
 
     closeModalSpy.mockRestore();
+    unmount();
+  });
+
+  it('keeps the initial inset fallback disabled for other native wallets', async () => {
+    const connectionInfo = {} as IExternalConnectionInfo;
+    const { result, unmount } = renderHook(() =>
+      useWalletConnection({
+        name: 'External wallet',
+        connectionInfo,
+      }),
+    );
+
+    act(() => {
+      void result.current.connectToWalletWithDialogShow();
+    });
+
+    await waitFor(() => {
+      expect(Dialog.show).toHaveBeenCalledWith(
+        expect.objectContaining({
+          useInitialSafeAreaBottomInsetFallback: false,
+        }),
+      );
+    });
+
     unmount();
   });
 });

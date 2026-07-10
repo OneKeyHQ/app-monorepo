@@ -124,6 +124,8 @@ export function useWalletConnection({
         ),
         showFooter: false,
         dismissOnOverlayPress: false,
+        useInitialSafeAreaBottomInsetFallback:
+          platformEnv.isNative && isWalletConnect,
         onClose() {
           if (
             platformEnv.isNative &&

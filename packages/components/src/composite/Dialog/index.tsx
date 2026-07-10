@@ -170,17 +170,21 @@ const DIALOG_CONTENT_VISIBILITY_HIDDEN = {
 } as any;
 const DIALOG_HIDDEN_STYLE = { contentVisibility: 'hidden' } as any;
 const EMPTY_DIALOG_STYLE = {} as const;
-const INITIAL_IOS_BOTTOM_INSET = platformEnv.isNativeIOS
-  ? initialWindowMetrics?.insets.bottom || 0
-  : 0;
+const INITIAL_BOTTOM_INSET = initialWindowMetrics?.insets.bottom || 0;
 
 const DEFAULT_KEYBOARD_HEIGHT = 330;
-const useSafeKeyboardAnimationStyle = () => {
+const useSafeKeyboardAnimationStyle = ({
+  useInitialSafeAreaBottomInsetFallback = false,
+}: {
+  useInitialSafeAreaBottomInsetFallback?: boolean;
+}) => {
   const { bottom } = useSafeAreaInsets();
   // Root-sibling portals can report zero before safe-area context propagates.
-  // Preserve the initial iOS inset so custom content and footer actions stay
-  // above the home indicator from the first frame.
-  const safeAreaBottom = bottom || INITIAL_IOS_BOTTOM_INSET;
+  // Opt in only for flows that must preserve the initial window inset.
+  const safeAreaBottom =
+    useInitialSafeAreaBottomInsetFallback && bottom === 0
+      ? INITIAL_BOTTOM_INSET
+      : bottom;
   const keyboardHeightValue = useSharedValue(0);
   // Keep the dialog clear of both the home indicator and the keyboard.
   // These are two independent concerns collapsed into one paddingBottom:
@@ -252,6 +256,7 @@ function DialogFrame({
   isAsync,
   trackID,
   forceMount,
+  useInitialSafeAreaBottomInsetFallback = false,
 }: IDialogProps) {
   const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
@@ -324,7 +329,9 @@ function DialogFrame({
   const media = useMedia();
 
   const zIndex = useOverlayZIndex(open, title);
-  const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
+  const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle({
+    useInitialSafeAreaBottomInsetFallback,
+  });
   const renderDialogContent = (
     <Animated.View style={safeKeyboardAnimationStyle}>
       {showHeader ? (
