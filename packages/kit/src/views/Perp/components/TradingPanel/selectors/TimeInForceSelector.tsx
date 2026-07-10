@@ -145,9 +145,12 @@ const TimeInForceSelector = memo<ITimeInForceSelectorProps>(
                   variant="tertiary"
                   childrenAsText={false}
                   justifyContent="flex-start"
+                  alignItems="stretch"
                   px="$3"
                   py="$2"
                   m="$0"
+                  h="auto"
+                  minHeight={isMobile ? 64 : 72}
                   borderRadius="$2"
                   onPress={() => {
                     if (disabled) {
@@ -159,9 +162,14 @@ const TimeInForceSelector = memo<ITimeInForceSelectorProps>(
                   pressStyle={{ opacity: 0.7 }}
                   hoverStyle={{ bg: '$bgHover' }}
                 >
-                  <XStack alignItems="center">
-                    <YStack flex={1} pr="$3">
-                      <Heading size="$headingSm" lineHeight={20} color="$text">
+                  <XStack width="100%" alignItems="center" gap="$3">
+                    <YStack flex={1} minWidth={0} alignItems="flex-start">
+                      <Heading
+                        size="$headingSm"
+                        lineHeight={20}
+                        color="$text"
+                        textAlign="left"
+                      >
                         {item.label}
                       </Heading>
                       <SizableText
@@ -170,6 +178,8 @@ const TimeInForceSelector = memo<ITimeInForceSelectorProps>(
                         fontSize={isMobile ? 12 : undefined}
                         lineHeight={isMobile ? 18 : undefined}
                         color="$textSubdued"
+                        flexShrink={1}
+                        textAlign="left"
                       >
                         {item.description}
                       </SizableText>
