@@ -36,6 +36,7 @@ import {
   isPrivateSendSwapHistoryItem,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { collectDecodedTxInvolvedAddresses } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressBadge,
   IAddressInfo,
@@ -1348,6 +1349,12 @@ class ServiceHistory extends ServiceBase {
             accountId: tx.decodedTx.accountId,
             networkId: tx.decodedTx.networkId,
             txid: tx.decodedTx.txid,
+            // the locally built decoded tx carries the complete input/output
+            // set, so detail polling can narrow vault extra params to the
+            // addresses this tx actually involves
+            txInvolvedAddresses: collectDecodedTxInvolvedAddresses({
+              decodedTx: tx.decodedTx,
+            }),
           }),
       ),
       { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
@@ -2312,6 +2319,7 @@ class ServiceHistory extends ServiceBase {
     accountId: string;
     networkId: string;
     accountAddress: string;
+    txInvolvedAddresses?: string[];
   }) {
     const { networkId, accountId } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });

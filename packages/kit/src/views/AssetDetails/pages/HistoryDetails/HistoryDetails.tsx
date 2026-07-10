@@ -53,6 +53,7 @@ import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetail
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { collectDecodedTxInvolvedAddresses } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import {
@@ -469,6 +470,14 @@ function HistoryDetails() {
         accountAddress,
         txid,
         fixConfirmedTxStatus: vaultSettings?.fixConfirmedTxEnabled,
+        // narrow vault extra params (btc find-address) to the addresses the
+        // tapped tx involves; deep links have no tx context and fall back
+        // to the vault's full claimed set
+        txInvolvedAddresses: historyTxParam
+          ? collectDecodedTxInvolvedAddresses({
+              decodedTx: historyTxParam.decodedTx,
+            })
+          : undefined,
       });
       historyInit.current = true;
       if (

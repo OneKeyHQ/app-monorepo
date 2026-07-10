@@ -105,8 +105,8 @@ import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { ClientBtc } from './sdkBtc/ClientBtc';
 import {
+  buildAccountAddressArrayParam,
   buildBtcSendUtxoPool,
-  buildFindAddressPathsParam,
   buildUtxoKey,
 } from './sdkBtc/findAddressUtils';
 
@@ -1358,22 +1358,27 @@ export default class VaultBtc extends VaultBase {
   }
 
   // btc find-address feature: claimed off-gap addresses are outside the
-  // server xpub gap scan, attach their relPaths to history list/detail
-  // requests so the server merges them into the account's address set
-  // (direction/amount/dedupe are all computed server-side).
-  override async buildFetchHistoryListParams(_params: {
+  // server xpub gap scan, attach them to history list/detail requests as
+  // `accountAddressArray` so the server merges them into the account's
+  // address set (direction/amount/dedupe are all computed server-side).
+  // Detail requests with tx context carry `txInvolvedAddresses` so only
+  // the claimed addresses the tx touches are sent; list requests and
+  // context-less detail requests send the full claimed set.
+  override async buildFetchHistoryListParams(params: {
     accountId: string;
     networkId: string;
     accountAddress: string;
-  }): Promise<{ findAddressPaths?: string }> {
+    txInvolvedAddresses?: string[];
+  }): Promise<{ accountAddressArray?: string[] }> {
     try {
       const dbAccount = (await this.backgroundApi.serviceAccount.getDBAccount({
         accountId: this.accountId,
       })) as IDBUtxoAccount;
-      const findAddressPaths = buildFindAddressPathsParam({
+      const accountAddressArray = buildAccountAddressArrayParam({
         findAddresses: dbAccount.findAddresses,
+        txInvolvedAddresses: params.txInvolvedAddresses,
       });
-      return findAddressPaths ? { findAddressPaths } : {};
+      return accountAddressArray ? { accountAddressArray } : {};
     } catch {
       // never let a DB read failure break history fetching
       return {};

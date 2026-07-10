@@ -1,4 +1,4 @@
-import { BTC_FIND_ADDRESS_HISTORY_MAX_PATHS } from '@onekeyhq/shared/src/consts/chainConsts';
+import { BTC_FIND_ADDRESS_HISTORY_MAX_ADDRESSES } from '@onekeyhq/shared/src/consts/chainConsts';
 
 import type { IUtxoInfo } from '../../../types';
 
@@ -10,23 +10,37 @@ export function buildUtxoKey(utxo: IUtxoInfo): string {
 // else in the map is stale data and must never reach the server
 const FIND_ADDRESS_REL_PATH_REGEX = /^0\/\d+$/;
 
-// build the `findAddressPaths` param attached to history list/detail
+// build the `accountAddressArray` param attached to history list/detail
 // requests so the server can merge claimed (find-address) addresses into
-// the xpub-derived address set. Sorted ascending and capped so the value
-// is deterministic (stable server-side cache key) and bounded.
-export function buildFindAddressPathsParam({
+// the xpub-derived address set. Sorted by claimed index and capped so the
+// value is deterministic (stable server-side cache key) and bounded. When
+// `txInvolvedAddresses` is provided (detail requests with tx context),
+// only the claimed addresses the tx actually involves are kept; without
+// context the full claimed set is sent as a safe superset.
+export function buildAccountAddressArrayParam({
   findAddresses,
+  txInvolvedAddresses,
 }: {
   findAddresses: Record<string, string> | undefined;
-}): string | undefined {
-  const relPaths = Object.keys(findAddresses || {})
-    .filter((relPath) => FIND_ADDRESS_REL_PATH_REGEX.test(relPath))
-    .toSorted((a, b) => Number(a.split('/')[1]) - Number(b.split('/')[1]))
-    .slice(0, BTC_FIND_ADDRESS_HISTORY_MAX_PATHS);
-  if (!relPaths.length) {
+  txInvolvedAddresses?: string[];
+}): string[] | undefined {
+  let addresses = Object.entries(findAddresses || {})
+    .filter(
+      ([relPath, address]) =>
+        FIND_ADDRESS_REL_PATH_REGEX.test(relPath) && !!address,
+    )
+    .toSorted(([a], [b]) => Number(a.split('/')[1]) - Number(b.split('/')[1]))
+    .map(([, address]) => address);
+  addresses = Array.from(new Set(addresses));
+  if (txInvolvedAddresses?.length) {
+    const involvedSet = new Set(txInvolvedAddresses);
+    addresses = addresses.filter((address) => involvedSet.has(address));
+  }
+  addresses = addresses.slice(0, BTC_FIND_ADDRESS_HISTORY_MAX_ADDRESSES);
+  if (!addresses.length) {
     return undefined;
   }
-  return relPaths.join(',');
+  return addresses;
 }
 
 // merge claimed (find-address) relPath entries into an address→path map
