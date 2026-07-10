@@ -264,6 +264,7 @@ export const useManagePage = ({
       stakeTag: buildLocalTxStatusSyncId({
         providerName: provider,
         tokenSymbol: symbol,
+        protocolVault: resolvedProtocolVault,
       }),
       providerDetail: {
         name: matchingProtocol?.provider.name || provider,

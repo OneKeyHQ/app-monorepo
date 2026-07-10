@@ -619,6 +619,7 @@ const ProtocolDetailsPage = () => {
       stakeTag: buildLocalTxStatusSyncId({
         providerName: provider,
         tokenSymbol: symbol,
+        protocolVault: detailInfo.protocol.vault ?? vault,
       }),
       overflowBalance: detailInfo.nums?.overflow,
       maxUnstakeAmount: detailInfo.nums?.maxUnstakeAmount,
@@ -633,7 +634,7 @@ const ProtocolDetailsPage = () => {
         detailInfo.protocol.morphoTokenRate,
       morphoTokenRate: detailInfo.protocol.morphoTokenRate,
     };
-  }, [detailInfo, earnAccount, provider, symbol]);
+  }, [detailInfo, earnAccount, provider, symbol, vault]);
 
   // Handle unsupported protocol
   useUnsupportedProtocol({

@@ -395,6 +395,17 @@ export function UniversalWithdraw({
     () => earnUtils.isNativeProvider({ providerName: providerName ?? '' }),
     [providerName],
   );
+  const isBitwayProvider = useMemo(
+    () => earnUtils.isBitwayProvider({ providerName: providerName ?? '' }),
+    [providerName],
+  );
+  const supportsWithdrawPath = useMemo(
+    () =>
+      earnUtils.supportsEarnWithdrawPath({
+        providerName: providerName ?? '',
+      }),
+    [providerName],
+  );
   const shouldSendProtocolVault = useMemo(
     () =>
       earnUtils.shouldSendEarnProtocolVault({
@@ -404,11 +415,10 @@ export function UniversalWithdraw({
   );
 
   const withdrawPathConfirmBoxes = useMemo(() => {
-    if (!(isPendleProvider || isNativeProvider)) return [];
+    if (!supportsWithdrawPath) return [];
     return transactionConfirmation?.withdrawPath?.data?.confirmBoxes ?? [];
   }, [
-    isPendleProvider,
-    isNativeProvider,
+    supportsWithdrawPath,
     transactionConfirmation?.withdrawPath?.data?.confirmBoxes,
   ]);
 
@@ -929,6 +939,12 @@ export function UniversalWithdraw({
   const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
     useState(false);
 
+  const isWithdrawPathReady = earnUtils.isEarnWithdrawPathReady({
+    providerName: providerName ?? '',
+    isLoading: transactionConfirmationLoading,
+    withdrawType: selectedWithdrawType,
+  });
+
   const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
 
   const checkAmount = useDebouncedCallback(async (amount: string) => {
@@ -1153,7 +1169,8 @@ export function UniversalWithdraw({
           BigNumber(amountValue).isLessThanOrEqualTo(0))) ||
       isCheckAmountMessageError ||
       checkAmountAlerts.length > 0 ||
-      checkAmountLoading,
+      checkAmountLoading ||
+      !isWithdrawPathReady,
     [
       isDisabled,
       amountValue,
@@ -1161,6 +1178,7 @@ export function UniversalWithdraw({
       checkAmountAlerts.length,
       checkAmountLoading,
       isCancelWithdrawal,
+      isWithdrawPathReady,
       selectedWithdrawPath?.disabled,
     ],
   );
@@ -1334,7 +1352,11 @@ export function UniversalWithdraw({
   const confirmLoading = useMemo(() => {
     if (shouldApprove) return loadingAllowance || approving;
     if (effectiveShowExpiredRefresh) return quoteRefreshing;
-    return loading || checkAmountLoading;
+    return (
+      loading ||
+      checkAmountLoading ||
+      (isBitwayProvider && transactionConfirmationLoading)
+    );
   }, [
     shouldApprove,
     effectiveShowExpiredRefresh,
@@ -1343,6 +1365,8 @@ export function UniversalWithdraw({
     quoteRefreshing,
     loading,
     checkAmountLoading,
+    isBitwayProvider,
+    transactionConfirmationLoading,
   ]);
 
   const confirmDisabled = useMemo(() => {
