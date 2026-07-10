@@ -33,7 +33,7 @@ function ReplayWalletConnectEvent({
   return null;
 }
 
-export function GlobalWalletConnectModalContainer() {
+function WalletConnectModalGate() {
   const [pendingPayload, setPendingPayload] = useState<
     IAppEventBusPayload[EAppEventBusNames.WalletConnectOpenModal] | null
   >(null);
@@ -53,16 +53,23 @@ export function GlobalWalletConnectModalContainer() {
 
   if (!pendingPayload) return null;
 
-  const container = (
+  return (
     <Suspense fallback={null}>
       <WalletConnectModalContainerLazy />
       <ReplayWalletConnectEvent payload={pendingPayload} />
     </Suspense>
   );
+}
 
+export function GlobalWalletConnectModalContainer() {
+  // Page.Every does not notify the active page when its slot is populated later,
+  // so register this lightweight gate on the first render and lazy-load AppKit
+  // only after the background runtime delivers a pairing URI.
   return platformEnv.isNativeIOS ? (
-    <Page.Every>{container}</Page.Every>
+    <Page.Every>
+      <WalletConnectModalGate />
+    </Page.Every>
   ) : (
-    container
+    <WalletConnectModalGate />
   );
 }
