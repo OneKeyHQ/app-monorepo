@@ -11,8 +11,9 @@ import {
 
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
 
-const mockPageEvery = jest.fn(
-  ({ children }: { children: ReactNode }) => children,
+let mockShouldRenderPageEveryChildren = true;
+const mockPageEvery = jest.fn(({ children }: { children: ReactNode }) =>
+  mockShouldRenderPageEveryChildren ? children : null,
 );
 const mockWalletConnectModalContainer = jest.fn(() => null);
 
@@ -39,9 +40,10 @@ jest.mock(
 describe('GlobalWalletConnectModalContainer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockShouldRenderPageEveryChildren = true;
   });
 
-  it('registers the iOS page gate before lazily loading the modal', async () => {
+  it('keeps the pairing payload when the iOS page gate remounts', async () => {
     const view = render(<GlobalWalletConnectModalContainer />);
 
     expect(mockPageEvery).toHaveBeenCalledTimes(1);
@@ -55,6 +57,16 @@ describe('GlobalWalletConnectModalContainer', () => {
 
     await waitFor(() => {
       expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(1);
+    });
+
+    mockShouldRenderPageEveryChildren = false;
+    view.rerender(<GlobalWalletConnectModalContainer />);
+
+    mockShouldRenderPageEveryChildren = true;
+    view.rerender(<GlobalWalletConnectModalContainer />);
+
+    await waitFor(() => {
+      expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(2);
     });
 
     view.unmount();

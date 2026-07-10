@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useSyncExternalStore } from 'react';
 
 import { Page } from '@onekeyhq/components';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -16,10 +16,32 @@ const WalletConnectModalContainerLazy = lazy(() =>
   ),
 );
 
+type IWalletConnectOpenModalPayload =
+  IAppEventBusPayload[EAppEventBusNames.WalletConnectOpenModal];
+
+let pendingPayload: IWalletConnectOpenModalPayload | null = null;
+const pendingPayloadListeners = new Set<() => void>();
+
+function getPendingPayload() {
+  return pendingPayload;
+}
+
+function subscribePendingPayload(listener: () => void) {
+  pendingPayloadListeners.add(listener);
+  return () => {
+    pendingPayloadListeners.delete(listener);
+  };
+}
+
+function updatePendingPayload(payload: IWalletConnectOpenModalPayload) {
+  pendingPayload = payload;
+  pendingPayloadListeners.forEach((listener) => listener());
+}
+
 function ReplayWalletConnectEvent({
   payload,
 }: {
-  payload: IAppEventBusPayload[EAppEventBusNames.WalletConnectOpenModal];
+  payload: IWalletConnectOpenModalPayload;
 }) {
   const replayed = useRef(false);
   useEffect(() => {
@@ -34,37 +56,39 @@ function ReplayWalletConnectEvent({
 }
 
 function WalletConnectModalGate() {
-  const [pendingPayload, setPendingPayload] = useState<
-    IAppEventBusPayload[EAppEventBusNames.WalletConnectOpenModal] | null
-  >(null);
+  const payload = useSyncExternalStore(
+    subscribePendingPayload,
+    getPendingPayload,
+    getPendingPayload,
+  );
 
-  useEffect(() => {
-    if (pendingPayload) return;
-    const onOpen = (
-      p: IAppEventBusPayload[EAppEventBusNames.WalletConnectOpenModal],
-    ) => {
-      setPendingPayload(p);
-    };
-    appEventBus.on(EAppEventBusNames.WalletConnectOpenModal, onOpen);
-    return () => {
-      appEventBus.off(EAppEventBusNames.WalletConnectOpenModal, onOpen);
-    };
-  }, [pendingPayload]);
-
-  if (!pendingPayload) return null;
+  if (!payload) return null;
 
   return (
     <Suspense fallback={null}>
       <WalletConnectModalContainerLazy />
-      <ReplayWalletConnectEvent payload={pendingPayload} />
+      <ReplayWalletConnectEvent payload={payload} />
     </Suspense>
   );
 }
 
 export function GlobalWalletConnectModalContainer() {
+  useEffect(() => {
+    appEventBus.on(
+      EAppEventBusNames.WalletConnectOpenModal,
+      updatePendingPayload,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.WalletConnectOpenModal,
+        updatePendingPayload,
+      );
+    };
+  }, []);
+
   // Page.Every does not notify the active page when its slot is populated later,
-  // so register this lightweight gate on the first render and lazy-load AppKit
-  // only after the background runtime delivers a pairing URI.
+  // so Container renders this registration before its routers. The payload store
+  // remains stable when focused pages remount the visual gate during navigation.
   return platformEnv.isNativeIOS ? (
     <Page.Every>
       <WalletConnectModalGate />
