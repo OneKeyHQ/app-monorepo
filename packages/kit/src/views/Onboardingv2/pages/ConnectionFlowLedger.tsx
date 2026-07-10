@@ -9,12 +9,15 @@ import {
   Button,
   EVideoResizeMode,
   HeightTransition,
+  LottieView,
   SizableText,
+  Stack,
   Toast,
   Video,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import BluetoothSignalSpreading from '@onekeyhq/kit/assets/animations/bluetooth_signal_spreading.json';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { ThirdPartyDevicePermissionDenied } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
@@ -69,6 +72,36 @@ function DeviceVideo({ themeVariant }: { themeVariant: 'light' | 'dark' }) {
   );
 }
 
+function DevicePlaceholder({
+  isBle,
+  themeVariant,
+}: {
+  isBle: boolean;
+  themeVariant: 'light' | 'dark';
+}) {
+  return (
+    <Stack
+      w="100%"
+      h="100%"
+      alignItems="center"
+      justifyContent="center"
+      bg="$bgSubdued"
+    >
+      {isBle ? (
+        <LottieView
+          source={BluetoothSignalSpreading}
+          width={320}
+          height={320}
+          autoPlay
+          loop
+        />
+      ) : (
+        <DeviceVideo themeVariant={themeVariant} />
+      )}
+    </Stack>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Main Ledger connection flow — same structure as USBOrBLEConnectionIndicator
 // ---------------------------------------------------------------------------
@@ -84,7 +117,7 @@ export default function LedgerConnectionFlow() {
   const tabValue = EConnectDeviceChannel.usbOrBle;
   const deviceLabel = 'Ledger';
   // Mobile (iOS/Android) uses BLE; extension and desktop use USB.
-  const isBle = platformEnv.isNative;
+  const isBle = Boolean(platformEnv.isNative);
 
   // --- Device connection state (copied from useDeviceConnection) ---
   const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
@@ -273,13 +306,13 @@ export default function LedgerConnectionFlow() {
     [stopScan],
   );
 
-  // --- Render (1:1 copy of USBOrBLEConnectionIndicator USB branch) ---
+  // --- Render ---
   return (
     <>
       <ConnectionIndicator>
         <ConnectionIndicator.Card>
           <ConnectionIndicator.Animation>
-            <DeviceVideo themeVariant={themeVariant} />
+            <DevicePlaceholder isBle={isBle} themeVariant={themeVariant} />
           </ConnectionIndicator.Animation>
           <ConnectionIndicator.Content gap="$2">
             <ConnectionIndicator.Title>

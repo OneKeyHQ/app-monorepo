@@ -1677,6 +1677,7 @@ function DepositWithdrawContent({
       >
         <YStack flex={1} minWidth={0}>
           <XStack
+            testID="perp-deposit-token-selector"
             alignItems="center"
             gap="$2.5"
             flexShrink={1}

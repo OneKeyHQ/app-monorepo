@@ -1569,7 +1569,8 @@ function MoreButtonWithDot({
     if (isShowUpgradeDot) {
       return (
         <Dot
-          color="$blue8"
+          // Accent (brand green) to match the header "Update now" button.
+          color="$bgAccent"
           top={isDesktopMode ? 0 : '$-2'}
           right={isDesktopMode ? undefined : '$-2.5'}
         />
@@ -1585,7 +1586,9 @@ function MoreButtonWithDot({
       <Stack
         width="$3"
         height="$3"
-        bg={isShowUpgradeDot ? '$iconInfo' : '$bgCriticalStrong'}
+        // Update dot uses accent (brand green) to match the header "Update
+        // now" button; the notification (non-update) dot stays critical red.
+        bg={isShowUpgradeDot ? '$bgAccent' : '$bgCriticalStrong'}
         borderRadius="$full"
         position="absolute"
         right={-4}

@@ -69,6 +69,28 @@ function toOptionalString(value: string | number | undefined) {
   return String(value);
 }
 
+function hasPositiveFiatValue(token: IPerpsDepositToken) {
+  const fiatValue = new BigNumber(token.fiatValue ?? '');
+  return fiatValue.isFinite() && fiatValue.gt(0);
+}
+
+export function filterPerpsDepositTokensWithPositiveFiatValue(
+  tokens: IPerpsDepositToken[],
+) {
+  return tokens.filter(hasPositiveFiatValue);
+}
+
+export function filterPerpsDepositTokensByNetworkWithPositiveFiatValue(
+  tokensByNetwork: Record<string, IPerpsDepositToken[]>,
+) {
+  return Object.fromEntries(
+    Object.entries(tokensByNetwork).map(([networkId, tokens]) => [
+      networkId,
+      filterPerpsDepositTokensWithPositiveFiatValue(tokens),
+    ]),
+  );
+}
+
 function mapWalletTokenToPerpsDepositToken({
   token,
   fiat,
@@ -121,7 +143,9 @@ export function buildPerpsDepositTokensFromWalletTokenResponses({
     }
   }
 
-  return sortPerpsDepositTokensByFiatValue(tokens);
+  return sortPerpsDepositTokensByFiatValue(
+    filterPerpsDepositTokensWithPositiveFiatValue(tokens),
+  );
 }
 
 export function sortPerpsDepositTokensByFiatValue(
