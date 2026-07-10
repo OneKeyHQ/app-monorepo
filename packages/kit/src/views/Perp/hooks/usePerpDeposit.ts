@@ -62,6 +62,8 @@ import type { ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
+import { shouldWaitForPerpsDepositQuoteAccount } from './usePerpDepositUtils';
+
 function hasPositivePerpsDepositTokenAmount(tokenAmount?: string) {
   if (!tokenAmount) {
     return false;
@@ -327,20 +329,13 @@ const usePerpDeposit = (
     token?.networkId,
   ]);
 
-  const hasDepositQuoteAccount = useMemo(
-    () => Boolean(result?.fromUserAddress && result?.perpReceiverAddress),
-    [result?.fromUserAddress, result?.perpReceiverAddress],
-  );
-
   const shouldWaitForDepositQuoteAccount = useMemo(
     () =>
-      hasValidDepositQuoteInput &&
-      (isDepositQuoteAccountLoading === true || !hasDepositQuoteAccount),
-    [
-      hasDepositQuoteAccount,
-      hasValidDepositQuoteInput,
-      isDepositQuoteAccountLoading,
-    ],
+      shouldWaitForPerpsDepositQuoteAccount({
+        hasValidDepositQuoteInput,
+        isDepositQuoteAccountLoading,
+      }),
+    [hasValidDepositQuoteInput, isDepositQuoteAccountLoading],
   );
 
   const getNextQuoteRequestId = useCallback(() => {
