@@ -1,6 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 
+const {
+  findInstalledPackageInstances,
+  groupPackageInstancesByName,
+} = require('./packaged-runtime-patch-utils');
 const { packagedRuntimePatches } = require('./packaged-runtime-patches');
 
 function failVerification(message) {
@@ -30,10 +34,26 @@ function readPackageMetadata(packageJsonPath, description) {
 
 const desktopPackageRoot = path.join(__dirname, '..');
 const runtimeAppRoot = path.join(desktopPackageRoot, 'app');
+const runtimeNodeModulesRoot = path.join(runtimeAppRoot, 'node_modules');
+let runtimePackageInstances;
+try {
+  runtimePackageInstances = findInstalledPackageInstances(
+    runtimeNodeModulesRoot,
+    new Set(packagedRuntimePatches.map(({ packageName }) => packageName)),
+  );
+} catch (error) {
+  failVerification(
+    `Cannot inspect runtime dependencies under ${runtimeNodeModulesRoot}: ${
+      error instanceof Error ? error.message : String(error)
+    }`,
+  );
+}
+const runtimePackageInstancesByName = groupPackageInstancesByName(
+  runtimePackageInstances,
+);
 
 for (const { packageName, files, markers } of packagedRuntimePatches) {
   let workspacePackageJsonPath;
-  let runtimePackageJsonPath;
   try {
     workspacePackageJsonPath = require.resolve(`${packageName}/package.json`, {
       paths: [desktopPackageRoot],
@@ -43,65 +63,72 @@ for (const { packageName, files, markers } of packagedRuntimePatches) {
       `Workspace ${packageName} dependency cannot be resolved from ${desktopPackageRoot}. Run yarn install first.`,
     );
   }
-  try {
-    runtimePackageJsonPath = require.resolve(`${packageName}/package.json`, {
-      paths: [runtimeAppRoot],
-    });
-  } catch {
+  const packageInstances = runtimePackageInstancesByName.get(packageName) || [];
+  if (!packageInstances.length) {
     failVerification(
-      `Runtime ${packageName} dependency cannot be resolved from ${runtimeAppRoot}. Run electron-builder install-app-deps first.`,
+      `Runtime ${packageName} dependency is missing under ${runtimeNodeModulesRoot}. Run electron-builder install-app-deps first.`,
     );
   }
 
   const workspacePackageRoot = path.dirname(workspacePackageJsonPath);
-  const runtimePackageRoot = path.dirname(runtimePackageJsonPath);
-  const runtimePackage = readPackageMetadata(
-    runtimePackageJsonPath,
-    `Runtime ${packageName} package metadata`,
-  );
   const workspacePackage = readPackageMetadata(
     workspacePackageJsonPath,
     `Workspace ${packageName} package metadata`,
   );
 
-  if (runtimePackage.version !== workspacePackage.version) {
-    failVerification(
-      `${packageName} version mismatch: runtime=${runtimePackage.version}, workspace=${workspacePackage.version}.`,
+  for (const packageInstance of packageInstances) {
+    const runtimePackageRoot = packageInstance.packageRoot;
+    const runtimePackageJsonPath = path.join(
+      runtimePackageRoot,
+      'package.json',
     );
-  }
+    const runtimePackage = readPackageMetadata(
+      runtimePackageJsonPath,
+      `Runtime ${packageName} package metadata`,
+    );
 
-  for (const [relativePath, marker] of markers) {
-    const filePath = path.join(runtimePackageRoot, relativePath);
-    const fileContent = readRequiredFile(
-      filePath,
-      `Runtime ${packageName} file ${relativePath}`,
-    );
-    if (!fileContent.includes(marker)) {
+    if (runtimePackage.version !== workspacePackage.version) {
       failVerification(
-        `${packageName} runtime patch is missing marker "${marker}" in ${filePath}.`,
+        `${packageName} version mismatch at ${runtimePackageRoot}: runtime=${runtimePackage.version}, workspace=${workspacePackage.version}.`,
       );
     }
-  }
 
-  for (const relativePath of files) {
-    const runtimeFilePath = path.join(runtimePackageRoot, relativePath);
-    const workspaceFilePath = path.join(workspacePackageRoot, relativePath);
-    const runtimeFileContent = readRequiredFile(
-      runtimeFilePath,
-      `Runtime ${packageName} file ${relativePath}`,
-    );
-    const workspaceFileContent = readRequiredFile(
-      workspaceFilePath,
-      `Workspace ${packageName} file ${relativePath}`,
-    );
-    if (runtimeFileContent !== workspaceFileContent) {
-      failVerification(
-        `Packaged ${packageName} runtime patch differs from the workspace patch: ${relativePath}.`,
+    for (const [relativePath, marker] of markers) {
+      const filePath = path.join(runtimePackageRoot, relativePath);
+      const fileContent = readRequiredFile(
+        filePath,
+        `Runtime ${packageName} file ${relativePath}`,
       );
+      if (!fileContent.includes(marker)) {
+        failVerification(
+          `${packageName} runtime patch is missing marker "${marker}" in ${filePath}.`,
+        );
+      }
     }
-  }
 
-  process.stdout.write(
-    `Verified ${packageName} ${runtimePackage.version} runtime patch.\n`,
-  );
+    for (const relativePath of files) {
+      const runtimeFilePath = path.join(runtimePackageRoot, relativePath);
+      const workspaceFilePath = path.join(workspacePackageRoot, relativePath);
+      const runtimeFileContent = readRequiredFile(
+        runtimeFilePath,
+        `Runtime ${packageName} file ${relativePath}`,
+      );
+      const workspaceFileContent = readRequiredFile(
+        workspaceFilePath,
+        `Workspace ${packageName} file ${relativePath}`,
+      );
+      if (runtimeFileContent !== workspaceFileContent) {
+        failVerification(
+          `Packaged ${packageName} runtime patch differs from the workspace patch at ${runtimePackageRoot}: ${relativePath}.`,
+        );
+      }
+    }
+
+    process.stdout.write(
+      `Verified ${packageName} ${runtimePackage.version} runtime patch (${path.relative(
+        runtimeAppRoot,
+        runtimePackageRoot,
+      )}).\n`,
+    );
+  }
 }

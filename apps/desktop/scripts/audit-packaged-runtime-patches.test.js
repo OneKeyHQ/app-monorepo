@@ -7,6 +7,10 @@ const {
   PATCH_STATE,
   auditPackagedRuntimePatches,
 } = require('./audit-packaged-runtime-patches');
+const {
+  findInstalledPackageInstances,
+  groupPackageInstancesByName,
+} = require('./packaged-runtime-patch-utils');
 
 const ORIGINAL_CONTENT = 'module.exports = "original";\n';
 const PATCHED_CONTENT = 'module.exports = "patched";\n';
@@ -83,6 +87,14 @@ function runAudit(fixture) {
     repositoryRoot: fixture.repositoryRoot,
     runtimeNodeModulesRoot: fixture.runtimeNodeModulesRoot,
   });
+}
+
+function writePackageMetadata(packageRoot, name, version = '1.0.0') {
+  fs.mkdirSync(packageRoot, { recursive: true });
+  fs.writeFileSync(
+    path.join(packageRoot, 'package.json'),
+    `${JSON.stringify({ name, version })}\n`,
+  );
 }
 
 describe('packaged runtime patch audit', () => {
@@ -167,6 +179,69 @@ describe('packaged runtime patch audit', () => {
       });
     } finally {
       fixture.cleanup();
+    }
+  });
+
+  test('does not discover a workspace package above appDir node_modules', () => {
+    const repositoryRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'runtime-patch-scope-'),
+    );
+    try {
+      const runtimeNodeModulesRoot = path.join(
+        repositoryRoot,
+        'apps/desktop/app/node_modules',
+      );
+      fs.mkdirSync(runtimeNodeModulesRoot, { recursive: true });
+      writePackageMetadata(
+        path.join(repositoryRoot, 'node_modules/runtime-package'),
+        'runtime-package',
+      );
+
+      const instances = findInstalledPackageInstances(
+        runtimeNodeModulesRoot,
+        new Set(['runtime-package']),
+      );
+
+      expect(instances).toEqual([]);
+    } finally {
+      fs.rmSync(repositoryRoot, { force: true, recursive: true });
+    }
+  });
+
+  test('discovers and groups every top-level and nested runtime instance', () => {
+    const repositoryRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'runtime-patch-instances-'),
+    );
+    try {
+      const runtimeNodeModulesRoot = path.join(
+        repositoryRoot,
+        'apps/desktop/app/node_modules',
+      );
+      writePackageMetadata(
+        path.join(runtimeNodeModulesRoot, 'runtime-package'),
+        'runtime-package',
+      );
+      writePackageMetadata(
+        path.join(runtimeNodeModulesRoot, 'parent-package'),
+        'parent-package',
+      );
+      writePackageMetadata(
+        path.join(
+          runtimeNodeModulesRoot,
+          'parent-package/node_modules/runtime-package',
+        ),
+        'runtime-package',
+      );
+
+      const instances = findInstalledPackageInstances(
+        runtimeNodeModulesRoot,
+        new Set(['runtime-package']),
+      );
+      const instancesByName = groupPackageInstancesByName(instances);
+
+      expect(instancesByName.get('runtime-package')).toHaveLength(2);
+    } finally {
+      fs.rmSync(repositoryRoot, { force: true, recursive: true });
     }
   });
 });
