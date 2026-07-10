@@ -289,7 +289,6 @@ function RemainingDebtChangeRow({
   return (
     <ProtocolPositionActionAnchor
       label={label}
-      iconNode={null}
       valueNode={
         <XStack alignItems="center" gap="$2" flexShrink={0}>
           <LendingAmountValue
@@ -851,33 +850,32 @@ function ProtocolLendingActionDefiContent({
   const bodyNode = (
     <YStack gap="$5">
       {selectedAsset && selectedItem ? (
-        <>
-          <LendingAssetSelectorRow
-            item={selectedItem}
-            items={selectorItems}
-            selectable={selectable}
-            onSelect={handleSelectAsset}
-            columnHeaderLabel={columnHeaderLabel}
-          />
-          <ProtocolPositionActionAmountInput
-            amount={amount}
-            onChangeAmount={handleAmountChange}
-            onSelectPercent={handleSelectPercent}
-            selectedPercent={selectedAmountPercent}
-            symbol={selectedAsset.symbol}
-            tokenLogoUrl={selectedAsset.asset.meta?.logoUrl}
-            availableAmount={availableAmount}
-            fiatValue={amountFiatValue}
-            currencySymbol={currencySymbol}
-            isInsufficient={isAmountInsufficient}
-            availableLabel={availableLabel}
-            maxLabel={maxLabel}
-            insufficientLabel={insufficientLabel}
-            onFocus={handleAmountInputFocus}
-            secondaryLabel={walletBalanceLabel}
-            secondaryAmount={balanceContext.secondaryWalletBalance}
-          />
-        </>
+        <ProtocolPositionActionAmountInput
+          assetSelector={
+            <LendingAssetSelectorRow
+              item={selectedItem}
+              items={selectorItems}
+              selectable={selectable}
+              onSelect={handleSelectAsset}
+              columnHeaderLabel={columnHeaderLabel}
+            />
+          }
+          amount={amount}
+          onChangeAmount={handleAmountChange}
+          onSelectPercent={handleSelectPercent}
+          selectedPercent={selectedAmountPercent}
+          symbol={selectedAsset.symbol}
+          availableAmount={availableAmount}
+          fiatValue={amountFiatValue}
+          currencySymbol={currencySymbol}
+          isInsufficient={isAmountInsufficient}
+          availableLabel={availableLabel}
+          maxLabel={maxLabel}
+          insufficientLabel={insufficientLabel}
+          onFocus={handleAmountInputFocus}
+          secondaryLabel={walletBalanceLabel}
+          secondaryAmount={balanceContext.secondaryWalletBalance}
+        />
       ) : (
         <YStack py="$6" alignItems="center">
           <SizableText size="$bodyMd" color="$textSubdued">
@@ -1695,22 +1693,21 @@ function ProtocolLendingActionBorrowContent({
       ) : null}
       {!isInitialLoading && !isEmpty ? (
         <>
-          {selectable ? (
-            <LendingAssetSelectorRow
-              item={selectedItem}
-              items={selectorItems}
-              selectable={selectable}
-              onSelect={handleSelectAsset}
-              columnHeaderLabel={columnHeaderLabel}
-            />
-          ) : null}
           <ProtocolPositionActionAmountInput
+            assetSelector={
+              <LendingAssetSelectorRow
+                item={selectedItem}
+                items={selectorItems}
+                selectable={selectable}
+                onSelect={handleSelectAsset}
+                columnHeaderLabel={columnHeaderLabel}
+              />
+            }
             amount={amount}
             onChangeAmount={handleAmountChange}
             onSelectPercent={handleSelectPercent}
             selectedPercent={selectedAmountPercent}
             symbol={effectiveSymbol}
-            tokenLogoUrl={effectiveLogo}
             availableAmount={referenceBalance}
             fiatValue={amountFiatValue}
             currencySymbol={currencySymbol}
@@ -1728,7 +1725,6 @@ function ProtocolLendingActionBorrowContent({
                 label={intl.formatMessage({
                   id: ETranslations.defi_health_factor,
                 })}
-                iconNode={null}
                 valueNode={
                   <XStack alignItems="center" gap="$2" flexShrink={0}>
                     <Stack opacity={healthFactor.latest ? 0.5 : 1}>
@@ -1783,7 +1779,6 @@ function ProtocolLendingActionBorrowContent({
                 label={intl.formatMessage({
                   id: ETranslations.defi_health_factor,
                 })}
-                iconNode={null}
                 valueNode={
                   <Skeleton height="$4" width="$16" borderRadius="$1" />
                 }

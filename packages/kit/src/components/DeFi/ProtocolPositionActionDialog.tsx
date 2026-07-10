@@ -1144,38 +1144,32 @@ function ProtocolPositionActionPercentPresetRow({
   );
 }
 
-// The position/balance context row shared by both flows: an icon + label on the
-// left, the value on the right. Withdraw shows the available token balance;
-// remove-liquidity shows the pool it's drawing from. Going to the full amount is
-// owned by the Max entry in the preset row below, so there's no button here.
+// The position/balance context row shared by amount actions and health-factor
+// feedback. Asset identity lives in the pill above the hero, so these fact rows
+// intentionally carry no leading token icon.
 function ProtocolPositionActionAnchor({
   label,
-  iconNode,
   valueNode,
   secondaryLabel,
   secondaryValueNode,
 }: {
   label: string;
-  iconNode: ReactNode;
   valueNode: ReactNode;
   // Optional second fact rendered inside the same box (e.g. repay shows the
   // remaining debt on top and the spendable wallet balance beneath it).
   secondaryLabel?: string;
   secondaryValueNode?: ReactNode;
 }) {
-  // Icon is a left accent that vertically centres against the whole block; the
-  // label/value rows live in a column beside it, so a second fact (repay's
-  // wallet balance) stacks cleanly under the first and both values right-align.
+  // A second fact (repay's wallet balance) stacks under the first and both
+  // values right-align.
   return (
     <XStack
       alignItems="center"
-      gap="$2"
       bg="$bgSubdued"
       borderRadius="$3"
       px="$3"
       py="$2.5"
     >
-      {iconNode}
       <YStack flex={1} gap="$1.5" minWidth={0}>
         <XStack alignItems="center" justifyContent="space-between" gap="$3">
           <SizableText
@@ -1454,16 +1448,16 @@ function ProtocolPositionActionReceive({
 
 // Borderless "Enter Amount" entry (mirrors the Send flow) for single-token
 // withdraw / repay: the typed amount is the hero, fiat sits beneath, an
-// asset context row shows the available balance or remaining debt, and a
-// 25/50/75/Max preset row quick-fills the field (Max included) — the same
-// control vocabulary as remove-liquidity.
+// top pill identifies the asset, balance rows show availability/debt without
+// repeating its icon, and a 25/50/75/Max preset row quick-fills the field — the
+// same control vocabulary as remove-liquidity.
 function ProtocolPositionActionAmountInput({
+  assetSelector,
   amount,
   onChangeAmount,
   onSelectPercent,
   selectedPercent,
   symbol,
-  tokenLogoUrl,
   availableAmount,
   fiatValue,
   currencySymbol,
@@ -1476,12 +1470,12 @@ function ProtocolPositionActionAmountInput({
   secondaryLabel,
   secondaryAmount,
 }: {
+  assetSelector: ReactNode;
   amount: string;
   onChangeAmount: (value: string) => void;
   onSelectPercent: (percent: number) => void;
   selectedPercent: number;
   symbol: string;
-  tokenLogoUrl?: string;
   availableAmount: string;
   fiatValue: string;
   currencySymbol: string;
@@ -1498,6 +1492,7 @@ function ProtocolPositionActionAmountInput({
 }) {
   return (
     <YStack gap="$5">
+      {assetSelector}
       <SendAutoSizeAmountInput
         minHeight={DEFI_ACTION_HERO_MIN_HEIGHT}
         justifyContent="center"
@@ -1527,7 +1522,6 @@ function ProtocolPositionActionAmountInput({
       />
       <ProtocolPositionActionAnchor
         label={availableLabel}
-        iconNode={<Token size="sm" tokenImageUri={tokenLogoUrl} bg="$bg" />}
         valueNode={
           <XStack alignItems="center" gap="$1" flexShrink={0} minWidth={0}>
             <NumberSizeableTextWrapper
@@ -2072,13 +2066,18 @@ function ProtocolPositionActionDialogContent({
   } else if (useManualAmountInput) {
     actionBody = (
       <ProtocolPositionActionAmountInput
+        assetSelector={
+          <ProtocolPositionAssetPill
+            symbol={manualAmountAsset?.symbol ?? ''}
+            logoURI={manualAmountAsset?.asset.meta?.logoUrl}
+          />
+        }
         amount={amount}
         onChangeAmount={handleAmountChange}
         validator={validateManualAmountInput}
         onSelectPercent={handleSelectPercent}
         selectedPercent={selectedAmountPercent}
         symbol={manualAmountAsset?.symbol ?? ''}
-        tokenLogoUrl={manualAmountAsset?.asset.meta?.logoUrl}
         availableAmount={availableAmount}
         fiatValue={amountFiatValue}
         currencySymbol={currencySymbol}
