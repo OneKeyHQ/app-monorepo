@@ -4074,6 +4074,51 @@ function SendAmountInputContainer() {
             gap="$1"
             flexShrink={1}
             minWidth={0}
+            minHeight={
+              shouldUsePrivateSendQuoteCollapse
+                ? privateSendQuoteSummaryRowMinHeight
+                : undefined
+            }
+            role={shouldUsePrivateSendQuoteCollapse ? 'button' : undefined}
+            aria-expanded={
+              shouldUsePrivateSendQuoteCollapse
+                ? isPrivateSendQuoteDetailsExpanded
+                : undefined
+            }
+            focusable={shouldUsePrivateSendQuoteCollapse || undefined}
+            cursor={shouldUsePrivateSendQuoteCollapse ? 'pointer' : undefined}
+            hoverStyle={
+              shouldUsePrivateSendQuoteCollapse ? { bg: '$bgHover' } : undefined
+            }
+            pressStyle={
+              shouldUsePrivateSendQuoteCollapse
+                ? { bg: '$bgActive' }
+                : undefined
+            }
+            focusVisibleStyle={
+              shouldUsePrivateSendQuoteCollapse
+                ? {
+                    outlineColor: '$focusRing',
+                    outlineWidth: 2,
+                    outlineStyle: 'solid',
+                    outlineOffset: 1,
+                  }
+                : undefined
+            }
+            onPress={
+              shouldUsePrivateSendQuoteCollapse
+                ? handleTogglePrivateSendQuoteDetails
+                : undefined
+            }
+            {...(shouldUsePrivateSendQuoteCollapse &&
+              !platformEnv.isNative && {
+                onKeyDown: (event: KeyboardEvent) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  handleTogglePrivateSendQuoteDetails();
+                },
+              })}
           >
             {showPrivateSendQuoteSkeleton ? (
               <Skeleton h="$4" w="$24" />
@@ -4120,10 +4165,6 @@ function SendAmountInputContainer() {
                 alignItems="center"
                 justifyContent="center"
                 borderRadius="$full"
-                cursor="pointer"
-                hoverStyle={{ bg: '$bgHover' }}
-                pressStyle={{ bg: '$bgActive' }}
-                onPress={handleTogglePrivateSendQuoteDetails}
               >
                 <Stack
                   animation="quick"
