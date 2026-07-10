@@ -1294,11 +1294,15 @@ function PerpsMetric({
   emphasis?: boolean;
 }) {
   const intl = useIntl();
-  let alignItems: 'center' | 'flex-end' | 'flex-start' = 'flex-start';
-  if (column === 'center') {
-    alignItems = 'center';
-  } else if (align === 'right') {
-    alignItems = 'flex-end';
+  const alignItems = align === 'right' ? 'flex-end' : 'flex-start';
+  let columnFlexGrow = 1;
+  let columnGtMdFlexGrow = 1;
+  if (column === 'left') {
+    columnFlexGrow = 1.35;
+    columnGtMdFlexGrow = 1.45;
+  } else if (column === 'center') {
+    columnFlexGrow = 0.65;
+    columnGtMdFlexGrow = 0.55;
   }
   let valueColor = '$text';
   if (positive) {
@@ -1311,47 +1315,54 @@ function PerpsMetric({
 
   return (
     <YStack
-      width={column === 'left' || column === 'right' ? 120 : undefined}
-      $gtMd={{
-        width: column === 'left' || column === 'right' ? 180 : undefined,
-      }}
-      flex={column === 'center' || !column ? 1 : undefined}
-      gap="$1"
-      alignItems={alignItems}
+      flexGrow={columnFlexGrow}
+      flexBasis={0}
+      minWidth={0}
+      $gtMd={{ flexGrow: columnGtMdFlexGrow }}
     >
-      <XStack alignItems="center" gap="$1">
-        <SizableText
-          size="$bodySm"
-          color="$textSubdued"
-          numberOfLines={1}
-          $gtMd={{ size: '$bodySm' }}
-        >
-          {intl.formatMessage({ id: labelId })}
-          {labelExtra}
-        </SizableText>
+      <XStack width="100%" justifyContent={alignItems}>
+        <YStack gap="$1" alignItems={alignItems}>
+          <XStack alignItems="center" gap="$1">
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              numberOfLines={1}
+              $gtMd={{ size: '$bodySm' }}
+            >
+              {intl.formatMessage({ id: labelId })}
+              {labelExtra}
+            </SizableText>
+          </XStack>
+          {formatter ? (
+            <NumberSizeableText
+              size={valueSize}
+              color={valueColor}
+              $gtMd={{ size: valueGtMdSize }}
+              formatter={formatter}
+              formatterOptions={formatterOptions}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+              contentStyle={{ color: valueColor }}
+              decimalTextStyle={{ color: valueColor }}
+              subTextStyle={{ color: valueColor }}
+            >
+              {value}
+            </NumberSizeableText>
+          ) : (
+            <SizableText
+              size={valueSize}
+              color={valueColor}
+              $gtMd={{ size: valueGtMdSize }}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
+              {value}
+            </SizableText>
+          )}
+        </YStack>
       </XStack>
-      {formatter ? (
-        <NumberSizeableText
-          size={valueSize}
-          color={valueColor}
-          $gtMd={{ size: valueGtMdSize }}
-          formatter={formatter}
-          formatterOptions={formatterOptions}
-          contentStyle={{ color: valueColor }}
-          decimalTextStyle={{ color: valueColor }}
-          subTextStyle={{ color: valueColor }}
-        >
-          {value}
-        </NumberSizeableText>
-      ) : (
-        <SizableText
-          size={valueSize}
-          color={valueColor}
-          $gtMd={{ size: valueGtMdSize }}
-        >
-          {value}
-        </SizableText>
-      )}
     </YStack>
   );
 }
@@ -1506,7 +1517,7 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
         </XStack>
 
         <YStack gap="$3">
-          <XStack width="100%" justifyContent="space-between">
+          <XStack width="100%">
             <PerpsMetric
               labelId={ETranslations.perp_position_position_size}
               labelExtra={` (${displayCoin})`}
@@ -1528,7 +1539,7 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
             />
           </XStack>
 
-          <XStack width="100%" justifyContent="space-between">
+          <XStack width="100%">
             {/* fundingUsd > 0 = paid -> red '-$' (mirrors PositionsRow) */}
             <PerpsMetric
               labelId={ETranslations.perp_position_funding_2}
