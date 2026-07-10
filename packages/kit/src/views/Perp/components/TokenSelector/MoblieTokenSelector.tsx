@@ -58,7 +58,6 @@ import {
 import perpsUtils, {
   SPOT_SELECTOR_MIN_VOLUME,
   compareSpotMarketCapValues,
-  formatSpotPairDisplayName,
   getHyperliquidTokenImageUrl,
   getSpotMarketCapValue,
   getSpotTokenDisplayName,
@@ -103,6 +102,7 @@ import {
   buildPerpTokenSelectorCategoryTabs,
   buildPerpTokenSelectorTabs,
   buildPrimaryTabs,
+  filterPerpTokenSelectorSpotItemsBySearch,
   getNextPerpTokenSelectorActiveTabConfig,
   getNextPerpTokenSelectorSortConfig,
   getPerpTokenSelectorDynamicTabItems,
@@ -948,32 +948,27 @@ function MobileTokenSelectorModal({
     const sortField = selectorConfig?.field ?? '';
     const sortDirection = selectorConfig?.direction ?? 'desc';
 
-    const getSpotListBySearch = () => {
-      if (!searchQuery) return spotSortedList;
-      const q = searchQuery.toLowerCase();
-      return spotSortedList.filter((item) => {
-        const u = item.spotUniverse;
-        if (!u) return false;
-        const displayBase = getSpotTokenDisplayName(u.baseName);
-        const pairDisplay = formatSpotPairDisplayName(u.baseName, u.quoteName);
-        return (
-          u.baseName.toLowerCase().includes(q) ||
-          displayBase.toLowerCase().includes(q) ||
-          pairDisplay.toLowerCase().includes(q)
-        );
-      });
-    };
-
     let result: ITokenSelectorListItem[];
 
     if (isPerpTokenSelectorSpotTab(displayPrimaryTab)) {
-      result = getSpotListBySearch();
+      result = filterPerpTokenSelectorSpotItemsBySearch({
+        items: spotSortedList,
+        searchQuery,
+        tokenSearchAliases,
+      });
     } else if (isPerpTokenSelectorFavoritesTab(displayPrimaryTab)) {
       result = getTokenSelectorFavoriteItems({
         favoriteItems,
         favoritesOrder: favoritesOrder.sequence,
         perpItems: perpSortedList,
-        spotItems: spotFavoriteSortedList,
+        // perp favorites follow the search-filtered assets atom, so spot
+        // favorites must be search-filtered here too or unmatched rows
+        // stay visible while searching
+        spotItems: filterPerpTokenSelectorSpotItemsBySearch({
+          items: spotFavoriteSortedList,
+          searchQuery,
+          tokenSearchAliases,
+        }),
       });
       if (sortField) {
         result = sortTokenSelectorFavoriteItems({
@@ -1076,6 +1071,7 @@ function MobileTokenSelectorModal({
     spotPriceSnapshot,
     spotSortedList,
     searchQuery,
+    tokenSearchAliases,
   ]);
 
   useEffect(() => {

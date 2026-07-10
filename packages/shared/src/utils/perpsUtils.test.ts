@@ -19,6 +19,7 @@ import {
   compareSpotMarketCapValues,
   computeMaxTradeSize,
   countDecimalPlaces,
+  findTokensByAlias,
   formatHlPrice,
   formatHlSize,
   formatPriceToSignificantDigits,
@@ -35,6 +36,28 @@ import {
   isPredictionMarketInstrument,
   resolveTradingSizeBN,
 } from './perpsUtils';
+
+describe('findTokensByAlias', () => {
+  /* cspell:disable -- server-provided asset symbols */
+  const aliases = {
+    BTC: { aliases: ['Bitcoin', 'Satoshi', '比特币'] },
+    ZEC: { aliases: ['Zcash', '大零币'] },
+    SKHX: { aliases: ['SK Hynix', '海力士'] },
+    SNDK: { aliases: ['SanDisk', '闪迪'] },
+    SHIB: { aliases: ['Shiba Inu', '柴犬币'] },
+  };
+  /* cspell:enable */
+
+  test('uses prefix matching for short latin alias queries', () => {
+    expect(findTokensByAlias('sh', aliases)).toEqual(['SHIB']);
+    expect(findTokensByAlias('sk', aliases)).toEqual(['SKHX']);
+  });
+
+  test('keeps substring matching for longer latin and non-latin queries', () => {
+    expect(findTokensByAlias('disk', aliases)).toEqual(['SNDK']);
+    expect(findTokensByAlias('特币', aliases)).toEqual(['BTC']);
+  });
+});
 
 describe('getValidPriceDecimals - HyperLiquid Perp Rules', () => {
   // Rule: Integer prices are always allowed, regardless of significant figures
