@@ -11,7 +11,7 @@ const appBuildStaticDir = path.join(appBuildDir, 'static');
 async function postBuild() {
   try {
     // The old script did `mv ./web-build ./app/build`.
-    // We need to move the webpack output from web-build to app/build
+    // Move the Rspack renderer output from web-build to app/build.
     if (await fs.pathExists(webBuildDir)) {
       console.log(`Moving ${webBuildDir} to ${appBuildDir}...`);
       // Remove existing app/build if it exists
@@ -20,7 +20,7 @@ async function postBuild() {
       await fs.move(webBuildDir, appBuildDir);
     } else {
       console.error(
-        `Error: Source directory ${webBuildDir} does not exist. Webpack build might have failed.`,
+        `Error: Source directory ${webBuildDir} does not exist. Rspack build might have failed.`,
       );
       process.exit(1);
     }

@@ -112,7 +112,7 @@ jobs:
         run: |
           cd apps/desktop
           npx cross-env NODE_ENV=production yarn clean:build
-          npx cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 webpack build
+          yarn run -T cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 yarn run -T rspack build
 
       - name: Upload Desktop Snap Sourcemaps to Sentry
         id: upload_desktop_snap_sourcemaps

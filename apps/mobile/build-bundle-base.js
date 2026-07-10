@@ -1,5 +1,5 @@
 /* eslint-disable onekey/no-raw-error */
-/* cspell:ignore debugid */
+/* cspell:ignore debugid postbuild */
 require('../../development/env');
 
 const { execSync, spawn, spawnSync } = require('child_process');
@@ -93,7 +93,7 @@ const cleanBundleOutput = async ({ platform } = {}) => {
   // Only wipe web-embed in legacy "build both platforms" mode. In per-platform
   // CI mode the web-embed bundle is built once by an upstream job and
   // downloaded into webEmbedOutputPath as an artifact — wiping it here would
-  // force every platform to rebuild webpack and defeat the optimization.
+  // force every platform to rebuild web-embed and defeat the optimization.
   if (!platform) {
     fs.rmSync(webEmbedOutputPath, { recursive: true, force: true });
   }
@@ -602,6 +602,19 @@ const cleanupSourceMapsUnder = (directory) => {
   });
 };
 
+const cleanupLicenseFilesUnder = (directory) => {
+  if (!fs.existsSync(directory)) return;
+  const entries = fs.readdirSync(directory, { withFileTypes: true });
+  entries.forEach((entry) => {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      cleanupLicenseFilesUnder(entryPath);
+    } else if (entry.name.endsWith('.LICENSE.txt')) {
+      fs.rmSync(entryPath, { force: true });
+    }
+  });
+};
+
 const buildBackgroundBundle = async ({
   platform,
   buildOutputAssetPath,
@@ -871,12 +884,12 @@ const runUnionBuild = ({
 };
 
 const buildWebEmbed = async () => {
-  // Skip the (~2 min) webpack build if web-build/ is already populated.
+  // Skip the web-embed build if web-build/ is already populated.
   // In CI we run web-embed-build as an upstream job and let each platform
   // job download its `web-build/` as an artifact, so this skip path lets
-  // both iOS and Android jobs share one webpack run instead of duplicating
+  // both iOS and Android jobs share one Rspack run instead of duplicating
   // it. Locally (and in legacy "build both" mode) the directory does not
-  // pre-exist and webpack runs as before.
+  // pre-exist and Rspack runs through the workspace build command.
   if (
     fs.existsSync(webEmbedOutputPath) &&
     fs.readdirSync(webEmbedOutputPath).length > 0
@@ -885,15 +898,57 @@ const buildWebEmbed = async () => {
     return;
   }
   log('build web embed');
-  execSync(`npx webpack build`, {
+  execSync(`yarn workspace @onekeyhq/web-embed build`, {
     stdio: 'inherit',
-    cwd: path.join(projectRootPath, 'apps/web-embed'),
+    cwd: projectRootPath,
     env: {
       ...process.env,
       NODE_OPTIONS: '--max-old-space-size=8192',
       NODE_ENV: 'production',
+      SENTRY_UPLOAD_BY_CLI: 'true',
+      WEB_EMBED_SKIP_POSTBUILD: 'true',
     },
   });
+
+  if (SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT) {
+    const sentryCli = path.join(
+      projectRootPath,
+      'node_modules/@sentry/cli/bin/sentry-cli',
+    );
+    const injectResult = spawnSync(
+      sentryCli,
+      ['sourcemaps', 'inject', webEmbedOutputPath],
+      {
+        stdio: 'inherit',
+        cwd: projectRootPath,
+      },
+    );
+    if (injectResult.status === 0) {
+      execSync(
+        `${nodeExecutablePath} ${path.join(
+          projectRootPath,
+          'apps/web-embed/scripts/check-browser-compat.js',
+        )}`,
+        {
+          stdio: 'inherit',
+          cwd: projectRootPath,
+        },
+      );
+    } else {
+      console.warn(
+        '::warning::Web-embed Sentry debug-id injection failed; falling back to release-based sourcemap upload.',
+      );
+    }
+    uploadDirectoryToSentry({
+      directory: webEmbedOutputPath,
+      label: 'web embed',
+    });
+  }
+
+  // Web-embed is copied into the native OTA zip immediately after this step.
+  // Match the old Sentry Webpack plugin and never ship maps or license files.
+  cleanupSourceMapsUnder(webEmbedOutputPath);
+  cleanupLicenseFilesUnder(webEmbedOutputPath);
   log('build web embed done');
 };
 

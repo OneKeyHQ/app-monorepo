@@ -1,6 +1,6 @@
 name: build-desktop-renderer
 
-# Reusable workflow: builds the desktop renderer (webpack) once on ubuntu,
+# Reusable workflow: builds the desktop renderer (Rspack) once on Ubuntu,
 # then uploads the artifact for downstream platform-specific packaging jobs.
 
 on:
@@ -138,9 +138,9 @@ jobs:
         run: |
           cd apps/desktop
           npx cross-env NODE_ENV=production yarn clean:build
-          npx cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 webpack build
+          yarn run -T cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 yarn run -T rspack build
 
-      # Desktop webpack builds with SRI enabled, so upload sourcemaps after the
+      # Desktop Rspack builds with SRI enabled, so upload sourcemaps after the
       # build without mutating emitted JS files. Sentry failures should not block
       # renderer artifact creation; failed uploads are archived separately before
       # sourcemaps are stripped from the packaged renderer artifact.
