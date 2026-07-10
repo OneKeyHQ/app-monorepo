@@ -134,10 +134,11 @@ function hasSpotVolumeData(
   );
 }
 
-// Disable anchor preservation only for this selector. Filtering and sorting
-// replace the dataset and should reveal the start of the updated results.
+// Disable visible-content anchoring only for this selector:
+// - Android (OK-54946): sorting must restore the list to the first row.
+// - iOS (OK-57864): clearing search must restore a fully scrollable live list.
 const tokenSelectorScrollBehaviorProps: Record<string, unknown> =
-  platformEnv.isNative
+  platformEnv.isNativeAndroid || platformEnv.isNativeIOS
     ? {
         maintainVisibleContentPosition: {
           disabled: true,
@@ -430,6 +431,8 @@ function MobileTokenSelectorModal({
   );
   const initialListRenderedRef = useRef(!platformEnv.isNativeIOS);
   const initialListRenderedIndexesRef = useRef<Set<number>>(new Set());
+  // iOS only (OK-57864): search interaction permanently ends the cold-start
+  // snapshot phase so recycled rows cannot leave a static overlay behind.
   const initialRowsSnapshotDismissedRef = useRef(!platformEnv.isNativeIOS);
   const [hasInitialListRendered, setHasInitialListRendered] = useState(
     !platformEnv.isNativeIOS,
