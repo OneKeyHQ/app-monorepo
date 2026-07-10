@@ -37,6 +37,7 @@ import {
 } from '../../../hooks/usePerpOrderInfoPanel';
 import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
 import { TradesHistoryRow } from '../Components/TradesHistoryRow';
+import { TRADES_HISTORY_SHARE_ACTION_WIDTH } from '../Components/TradesHistoryShareAction';
 import { getPerpFillDirectionType } from '../utils';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
@@ -341,9 +342,10 @@ function PerpTradesHistoryList({
         title: intl.formatMessage({
           id: ETranslations.perp_trades_close_pnl,
         }),
-        minWidth: 80,
+        minWidth: 132,
         flex: 1,
         align: 'right',
+        headerRightPadding: TRADES_HISTORY_SHARE_ACTION_WIDTH,
         fixed: true,
       },
     ],

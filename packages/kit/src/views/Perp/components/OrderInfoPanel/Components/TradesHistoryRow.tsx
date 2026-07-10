@@ -37,7 +37,7 @@ import {
   getFillDirectionDisplayInfo,
 } from '../utils';
 
-import { DesktopActionIconButton } from './DesktopActionIconButton';
+import { TradesHistoryShareAction } from './TradesHistoryShareAction';
 
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
@@ -74,12 +74,12 @@ const TradesHistoryRow = memo(
     builderFeeRate,
   }: ITradesHistoryRowProps) => {
     const canShare = useMemo(() => {
-      return (
+      return Boolean(
         fill.closedPnl &&
         !new BigNumber(fill.closedPnl).isZero() &&
         !isSpotInstrument(fill.coin) &&
         !fill.liquidation &&
-        onShare
+        onShare,
       );
     }, [fill.closedPnl, fill.coin, fill.liquidation, onShare]);
     const actions = useHyperliquidActions();
@@ -486,10 +486,10 @@ const TradesHistoryRow = memo(
             {...getColumnStyle(columnConfigs[7])}
             justifyContent={calcCellAlign(columnConfigs[7].align)}
             alignItems="center"
-            gap="$1"
             cursor="default"
           >
             <SizableText
+              flexShrink={1}
               numberOfLines={1}
               ellipsizeMode="tail"
               size="$bodySm"
@@ -497,16 +497,10 @@ const TradesHistoryRow = memo(
             >
               {`${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
             </SizableText>
-            {canShare ? (
-              <DesktopActionIconButton
-                testID="perp-icon-btn"
-                icon="ShareOutline"
-                iconSize="$4"
-                onPress={() => onShare?.(fill)}
-              />
-            ) : (
-              <XStack width={16} height={16} />
-            )}
+            <TradesHistoryShareAction
+              visible={canShare}
+              onPress={() => onShare?.(fill)}
+            />
           </XStack>
         ) : null}
       </XStack>

@@ -379,6 +379,7 @@ export interface IColumnConfig {
   minWidth?: number;
   flex?: number;
   align?: 'left' | 'center' | 'right';
+  headerRightPadding?: number;
   onPress?: () => void;
   fixed?: boolean;
 }
@@ -822,6 +823,7 @@ export function CommonTableListView<T>({
     <XStack
       key={column.key}
       {...getColumnStyle(column)}
+      pr={column.headerRightPadding}
       justifyContent={calcCellAlign(column.align) as any}
       onPress={column.onPress}
       cursor="default"
