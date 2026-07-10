@@ -39,6 +39,8 @@ import {
   getDefaultMarketStockCategoryId,
   getMarketStockCategoryRequestParam,
 } from './marketStockCategoryUtils';
+import { shouldIgnoreProgrammaticSettlingTab } from './marketTabChangeGuards';
+import { getMarketMobileSecondaryHeaderHeight } from './mobileLayoutUtils';
 
 import type {
   ILiquidityFilter,
@@ -90,16 +92,13 @@ interface IMarketHomeTabBarProps extends TabBarProps<string> {
   perpsTabName: string;
 }
 
-const MARKET_MOBILE_SECONDARY_HEADER_HEIGHT = 74;
 const MARKET_TAB_CHANGE_TARGET_GUARD_MS = platformEnv.isNativeIOS ? 1000 : 350;
 const MARKET_TAB_SYNC_JUMP_DEFER_MS = platformEnv.isNativeIOS ? 180 : 0;
 const MARKET_TAB_USER_DRAG_ACCEPT_MS = platformEnv.isNativeIOS ? 700 : 350;
 const MARKET_TAB_SYNC_USER_DRAG_DEFER_MS = platformEnv.isNativeIOS ? 1200 : 500;
 const MARKET_TAB_ITEM_PRESS_GUARD_MS = MARKET_TAB_USER_DRAG_ACCEPT_MS;
 const MARKET_TAB_ITEM_PRESS_IDLE_GUARD_MS = platformEnv.isNativeIOS ? 180 : 120;
-const MARKET_TAB_PROGRAMMATIC_SETTLE_GUARD_MS = platformEnv.isNativeAndroid
-  ? 500
-  : 0;
+const MARKET_TAB_PROGRAMMATIC_SETTLE_GUARD_MS = 500;
 type IMarketPagerProps = Omit<PagerViewProps, 'onPageScroll' | 'initialPage'>;
 
 function MarketHomeTabBar({
@@ -237,7 +236,11 @@ function MarketHomeTabBar({
         />
       </YStack>
       <YStack
-        height={MARKET_MOBILE_SECONDARY_HEADER_HEIGHT}
+        height={getMarketMobileSecondaryHeaderHeight({
+          isNativeAndroid: Boolean(platformEnv.isNativeAndroid),
+          isWatchlistEmpty: ctx.isWatchlistEmpty,
+          showWatchlistSubHeader,
+        })}
         overflow={platformEnv.isNativeAndroid ? 'hidden' : undefined}
         position="relative"
       >
@@ -374,6 +377,7 @@ function MobileLayoutComponent({
   const lastPagerDraggingAtRef = useRef(0);
   const isPagerUserDraggingRef = useRef(false);
   const lastPagerUserDragEndedAtRef = useRef(0);
+  const pagerScrollStateRef = useRef('idle');
   const lastAcceptedTabChangeNameRef = useRef<string | undefined>(undefined);
   const lastProgrammaticAcceptedTabRef = useRef<
     | {
@@ -399,13 +403,28 @@ function MobileLayoutComponent({
   const scheduleExpectedTabChangeTargetClear = useCallback(
     (tabName: string, delayMs: number) => {
       clearExpectedTabChangeTargetTimer();
-      expectedTabChangeTargetTimerRef.current = setTimeout(() => {
-        if (expectedTabChangeTargetRef.current === tabName) {
-          expectedTabChangeTargetRef.current = undefined;
-          expectedTabChangeTargetStartedAtRef.current = 0;
+      const tryClearExpectedTabChangeTarget = () => {
+        if (expectedTabChangeTargetRef.current !== tabName) {
+          expectedTabChangeTargetTimerRef.current = undefined;
+          return;
         }
+
+        if (pagerScrollStateRef.current !== 'idle') {
+          expectedTabChangeTargetTimerRef.current = setTimeout(
+            tryClearExpectedTabChangeTarget,
+            100,
+          );
+          return;
+        }
+
+        expectedTabChangeTargetRef.current = undefined;
+        expectedTabChangeTargetStartedAtRef.current = 0;
         expectedTabChangeTargetTimerRef.current = undefined;
-      }, delayMs);
+      };
+      expectedTabChangeTargetTimerRef.current = setTimeout(
+        tryClearExpectedTabChangeTarget,
+        delayMs,
+      );
     },
     [clearExpectedTabChangeTargetTimer],
   );
@@ -423,7 +442,7 @@ function MobileLayoutComponent({
     },
     [clearExpectedTabChangeTarget, scheduleExpectedTabChangeTargetClear],
   );
-  const shouldDeferJumpToTab = useCallback(
+  const shouldDeferPageSync = useCallback(
     ({ targetTabName }: { targetTabName: string; currentTabName: string }) => {
       const now = Date.now();
       const lastPagerDraggingAt = lastPagerDraggingAtRef.current;
@@ -439,14 +458,22 @@ function MobileLayoutComponent({
         return true;
       }
 
+      if (
+        platformEnv.isNativeAndroid &&
+        pagerScrollStateRef.current !== 'idle'
+      ) {
+        return true;
+      }
+
       if (expectedTabChangeTargetRef.current !== targetTabName) {
         return false;
       }
 
       const startedAt = expectedTabChangeTargetStartedAtRef.current;
-      return (
-        startedAt > 0 && Date.now() - startedAt < MARKET_TAB_SYNC_JUMP_DEFER_MS
-      );
+      if (platformEnv.isNativeAndroid && startedAt > 0) {
+        return true;
+      }
+      return startedAt > 0 && now - startedAt < MARKET_TAB_SYNC_JUMP_DEFER_MS;
     },
     [],
   );
@@ -460,11 +487,13 @@ function MobileLayoutComponent({
 
   const {
     activeTabName,
+    cancelPageSync,
+    requestPageSync,
     setActiveTabName,
     tabsRef: currentTabsRef,
   } = useSyncedMarketTab(selectedTabName, tabsRef, isFocused, {
     onBeforeJumpToTab: markExpectedTabChangeTarget,
-    shouldDeferJumpToTab,
+    shouldDeferPageSync,
   });
   const setActiveTabNameRef = useRef(setActiveTabName);
   setActiveTabNameRef.current = setActiveTabName;
@@ -472,9 +501,11 @@ function MobileLayoutComponent({
   handleTabChangeRef.current = handleTabChange;
   const latestTabStateRef = useRef({
     activeTabName,
+    selectedTabName,
   });
   latestTabStateRef.current = {
     activeTabName,
+    selectedTabName,
   };
   const useNativeHeaderAnimation = platformEnv.isNativeAndroid
     ? !nestedPager
@@ -536,6 +567,7 @@ function MobileLayoutComponent({
 
   const onTabChangeHandler = useCallback(
     ({ tabName }: { tabName: string }) => {
+      const now = Date.now();
       const latestTabState = latestTabStateRef.current;
       const focusedTab = currentTabsRef.current?.getFocusedTab();
       const expectedTabName = expectedTabChangeTargetRef.current;
@@ -543,7 +575,7 @@ function MobileLayoutComponent({
         expectedTabChangeTargetStartedAtRef.current;
       const lastPagerDraggingAt = lastPagerDraggingAtRef.current;
       const pagerDragElapsedMs =
-        lastPagerDraggingAt > 0 ? Date.now() - lastPagerDraggingAt : undefined;
+        lastPagerDraggingAt > 0 ? now - lastPagerDraggingAt : undefined;
       const isRecentPagerDrag =
         pagerDragElapsedMs !== undefined &&
         pagerDragElapsedMs < MARKET_TAB_USER_DRAG_ACCEPT_MS;
@@ -554,25 +586,25 @@ function MobileLayoutComponent({
       const lastProgrammaticAcceptedTab =
         lastProgrammaticAcceptedTabRef.current;
       const programmaticAcceptedElapsedMs = lastProgrammaticAcceptedTab
-        ? Date.now() - lastProgrammaticAcceptedTab.acceptedAt
+        ? now - lastProgrammaticAcceptedTab.acceptedAt
         : undefined;
-      const shouldIgnoreProgrammaticSettlingTab = Boolean(
-        !expectedTabName &&
-        MARKET_TAB_PROGRAMMATIC_SETTLE_GUARD_MS > 0 &&
-        lastProgrammaticAcceptedTab &&
-        tabName !== lastProgrammaticAcceptedTab.tabName &&
-        programmaticAcceptedElapsedMs !== undefined &&
-        programmaticAcceptedElapsedMs <
-          MARKET_TAB_PROGRAMMATIC_SETTLE_GUARD_MS &&
-        !isRecentPagerDrag &&
-        !wasDraggedAfterExpectedTab,
-      );
+      const shouldIgnoreSettlingTab = shouldIgnoreProgrammaticSettlingTab({
+        expectedTabName,
+        incomingTabName: tabName,
+        lastProgrammaticAcceptedTabName: lastProgrammaticAcceptedTab?.tabName,
+        programmaticAcceptedElapsedMs,
+        programmaticSettleGuardMs: MARKET_TAB_PROGRAMMATIC_SETTLE_GUARD_MS,
+        isRecentPagerDrag,
+        wasDraggedAfterExpectedTab,
+      });
 
-      if (shouldIgnoreProgrammaticSettlingTab && lastProgrammaticAcceptedTab) {
+      if (shouldIgnoreSettlingTab && lastProgrammaticAcceptedTab) {
         const acceptedTabName = lastProgrammaticAcceptedTab.tabName;
-        if (focusedTab !== acceptedTabName) {
-          markExpectedTabChangeTarget(acceptedTabName);
-          currentTabsRef.current?.jumpToTab(acceptedTabName);
+        const shouldRequestPageSync =
+          acceptedTabName === latestTabState.selectedTabName &&
+          focusedTab !== acceptedTabName;
+        if (shouldRequestPageSync) {
+          requestPageSync();
         }
         return;
       }
@@ -605,7 +637,7 @@ function MobileLayoutComponent({
       if (expectedTabName && tabName === expectedTabName) {
         lastProgrammaticAcceptedTabRef.current = {
           tabName,
-          acceptedAt: Date.now(),
+          acceptedAt: now,
         };
         clearExpectedTabChangeTarget();
       }
@@ -613,25 +645,28 @@ function MobileLayoutComponent({
       setActiveTabNameRef.current(tabName);
       handleTabChangeRef.current(tabName);
     },
-    [clearExpectedTabChangeTarget, currentTabsRef, markExpectedTabChangeTarget],
+    [clearExpectedTabChangeTarget, currentTabsRef, requestPageSync],
   );
 
   const handlePagerScrollStateChanged = useCallback(
     (event: PageScrollStateChangedNativeEvent) => {
       const { pageScrollState } = event.nativeEvent;
-      if (pageScrollState !== 'dragging') {
-        if (pageScrollState === 'idle' && isPagerUserDraggingRef.current) {
-          isPagerUserDraggingRef.current = false;
-          lastPagerUserDragEndedAtRef.current = Date.now();
-        }
-        return;
-      }
+      const wasPagerUserDragging = isPagerUserDraggingRef.current;
+      const now = Date.now();
+      pagerScrollStateRef.current = pageScrollState;
 
-      isPagerUserDraggingRef.current = true;
-      lastProgrammaticAcceptedTabRef.current = undefined;
-      lastPagerDraggingAtRef.current = Date.now();
+      if (pageScrollState === 'dragging') {
+        isPagerUserDraggingRef.current = true;
+        lastProgrammaticAcceptedTabRef.current = undefined;
+        lastPagerDraggingAtRef.current = now;
+        clearExpectedTabChangeTarget();
+        cancelPageSync();
+      } else if (pageScrollState === 'idle' && wasPagerUserDragging) {
+        isPagerUserDraggingRef.current = false;
+        lastPagerUserDragEndedAtRef.current = now;
+      }
     },
-    [],
+    [cancelPageSync, clearExpectedTabChangeTarget],
   );
   const tabNames = useMemo(
     () => [

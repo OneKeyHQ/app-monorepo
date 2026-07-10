@@ -1,8 +1,15 @@
 import type { IPerpDynamicTab } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
+import {
+  findTokensByAlias,
+  formatSpotPairDisplayName,
+  getSpotTokenDisplayName,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IPerpTokenSelectorConfig,
   IPerpTokenSortDirection,
   IPerpTokenSortField,
+  ISpotUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
 import {
   DEFAULT_PERP_TOKEN_ACTIVE_TAB,
@@ -21,6 +28,9 @@ type IPerpTokenSelectorSortSnapshotKey = {
 };
 type IPerpTokenSelectorDynamicTabItem = {
   tokenName?: string;
+};
+type IPerpTokenSelectorSpotSearchItem = {
+  spotUniverse?: Pick<ISpotUniverse, 'baseName' | 'quoteName'>;
 };
 
 const PRIMARY_TAB_IDS = ['favorites', 'perps', 'spot'] as const;
@@ -330,6 +340,44 @@ function getPerpTokenSelectorDynamicTabItems<
   }, []);
 }
 
+function filterPerpTokenSelectorSpotItemsBySearch<
+  T extends IPerpTokenSelectorSpotSearchItem,
+>({
+  items,
+  searchQuery,
+  tokenSearchAliases,
+}: {
+  items: T[];
+  searchQuery: string;
+  tokenSearchAliases?: ITokenSearchAliases;
+}): T[] {
+  const query = searchQuery.trim().toLowerCase();
+  if (!query) {
+    return items;
+  }
+  const aliasMatchedSymbols = new Set(
+    findTokensByAlias(query, tokenSearchAliases),
+  );
+  return items.filter((item) => {
+    const spotUniverse = item.spotUniverse;
+    if (!spotUniverse) {
+      return false;
+    }
+    const displayBase = getSpotTokenDisplayName(spotUniverse.baseName);
+    const pairDisplay = formatSpotPairDisplayName(
+      spotUniverse.baseName,
+      spotUniverse.quoteName,
+    );
+    return (
+      spotUniverse.baseName.toLowerCase().includes(query) ||
+      displayBase.toLowerCase().includes(query) ||
+      pairDisplay.toLowerCase().includes(query) ||
+      aliasMatchedSymbols.has(spotUniverse.baseName) ||
+      aliasMatchedSymbols.has(displayBase)
+    );
+  });
+}
+
 function isPerpTokenSelectorSortFieldActive({
   activeTab,
   field,
@@ -453,6 +501,7 @@ export {
   buildPerpTokenSelectorCategoryTabs,
   buildPerpTokenSelectorTabs,
   comparePerpTokenSelectorSortValues,
+  filterPerpTokenSelectorSpotItemsBySearch,
   getPerpTokenSelectorDynamicTabItems,
   getPerpTokenSelectorFallbackTabId,
   getPerpTokenSelectorHotTab,

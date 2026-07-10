@@ -360,9 +360,11 @@ function CalendarGrid({
 export function CalendarPanelPopover({
   chartTimezone,
   onSubmit,
+  onControlInteraction,
 }: {
   chartTimezone: string;
   onSubmit: (payload: ICalendarPanelSubmitPayload) => void;
+  onControlInteraction?: () => void;
 }) {
   const intl = useIntl();
   const today = useMemo(() => startOfDay(new Date()), []);
@@ -440,11 +442,12 @@ export function CalendarPanelPopover({
   const handleOpenChange = useCallback(
     (open: boolean) => {
       if (open) {
+        onControlInteraction?.();
         resetPanelState();
       }
       setIsOpen(open);
     },
-    [resetPanelState],
+    [onControlInteraction, resetPanelState],
   );
 
   const handleDatePress = useCallback(
