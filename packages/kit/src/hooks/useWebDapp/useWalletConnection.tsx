@@ -13,6 +13,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { ConnectToWalletDialogContent } from '../../components/WebDapp/ConnectToWalletDialogContent';
 
 import { useConnectExternalWallet } from './useConnectExternalWallet';
@@ -38,6 +39,7 @@ export function useWalletConnection({
 
   const dialogRef = useRef<IDialogInstance | null>(null);
   const isMountedRef = useRef(true);
+  const shouldAbortWalletConnectOnDialogCloseRef = useRef(false);
 
   useEffect(
     () => () => {
@@ -72,6 +74,7 @@ export function useWalletConnection({
       if (state.open === true && platformEnv.isNative && isWalletConnect) {
         // Dialog component will cover the WalletConnectSDK modal, so we need to manually close the Dialog
         // search: zIndex: 99993173
+        shouldAbortWalletConnectOnDialogCloseRef.current = false;
         await dialogRef.current?.close();
 
         // Wait for React Native Fabric to complete view cleanup
@@ -107,6 +110,8 @@ export function useWalletConnection({
     if (!isMountedRef.current) return;
 
     if (shouldShowDialogLoading) {
+      shouldAbortWalletConnectOnDialogCloseRef.current =
+        !!platformEnv.isNative && isWalletConnect;
       dialogRef.current = Dialog.show({
         title: intl.formatMessage(
           { id: ETranslations.global_connect_to_wallet },
@@ -117,6 +122,14 @@ export function useWalletConnection({
         showFooter: false,
         dismissOnOverlayPress: false,
         onClose() {
+          const shouldAbortWalletConnect =
+            shouldAbortWalletConnectOnDialogCloseRef.current;
+          shouldAbortWalletConnectOnDialogCloseRef.current = false;
+          if (shouldAbortWalletConnect) {
+            void backgroundApiProxy.serviceWalletConnect.abortConnectPairing(
+              {},
+            );
+          }
           if (isMountedRef.current) {
             setLoadingRef.current?.(false);
           }
@@ -124,6 +137,8 @@ export function useWalletConnection({
         renderContent: (
           <ConnectToWalletDialogContent
             onRetryPress={async () => {
+              shouldAbortWalletConnectOnDialogCloseRef.current =
+                !!platformEnv.isNative && isWalletConnect;
               try {
                 const result = await connectToWallet(connectionInfo);
                 if (result !== false) {

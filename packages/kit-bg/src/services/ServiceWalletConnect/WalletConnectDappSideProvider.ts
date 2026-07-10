@@ -2,8 +2,12 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { StorageUtil as StorageUtilCore } from '@reown/appkit-core-react-native';
 import UniversalProvider from '@walletconnect/universal-provider';
+import { engineEvent, parseUri } from '@walletconnect/utils';
 
-import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  OneKeyWalletConnectModalCloseError,
+} from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import {
@@ -42,24 +46,57 @@ export class WalletConnectDappSideProvider extends UniversalProvider {
 
   backgroundApi: IBackgroundApi;
 
+  private rejectPendingConnect:
+    | ((error: OneKeyWalletConnectModalCloseError) => void)
+    | undefined;
+
   override async connect(
     opts: ConnectParams,
   ): Promise<SessionTypes.Struct | undefined> {
-    return super.connect(opts);
+    const cancellation = new Promise<never>((_resolve, reject) => {
+      this.rejectPendingConnect = reject;
+    });
+    try {
+      return await Promise.race([super.connect(opts), cancellation]);
+    } finally {
+      this.rejectPendingConnect = undefined;
+    }
   }
 
   async abortConnectPairing() {
-    // @ts-ignore
-    const events = this.client.engine.events as IEngineEvents;
-    // TODO not working
-    // as sign-client engine generate random session_connect event id,
-    // eg: "session_connect:1756469336854687"
-    events.emit('session_connect', {
-      error: new OneKeyError({
-        code: 8_376_239,
-        message: 'User closed the modal',
-      }),
-    });
+    const closeError = new OneKeyWalletConnectModalCloseError();
+    this.rejectPendingConnect?.(closeError);
+
+    const uri = this.uri;
+    this.uri = undefined;
+    if (!uri) {
+      this.once('display_uri', () => {
+        void this.abortConnectPairing();
+      });
+      return;
+    }
+
+    try {
+      const { topic: pairingTopic } = parseUri(uri);
+      const proposal = this.client.proposal
+        .getAll()
+        .find((item) => item.pairingTopic === pairingTopic);
+
+      if (proposal) {
+        // @ts-ignore
+        const events = this.client.engine.events as IEngineEvents;
+        events.emit(engineEvent('session_connect', proposal.id), {
+          error: closeError.serialize(),
+        });
+        this.client.core.expirer.set(proposal.id, 0);
+      }
+
+      if (this.client.core.pairing.pairings.keys.includes(pairingTopic)) {
+        await this.client.core.pairing.disconnect({ topic: pairingTopic });
+      }
+    } catch (error) {
+      console.warn('Failed to clean up WalletConnect pairing:', error);
+    }
   }
 
   // @ts-ignore

@@ -3,7 +3,10 @@ import { Linking } from 'react-native';
 
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  OneKeyWalletConnectModalCloseError,
+} from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -41,6 +44,11 @@ import { WalletConnectDappSideProvider } from './WalletConnectDappSideProvider';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBExternalAccount } from '../../dbs/local/types';
+
+type IWalletConnectAttempt = {
+  cancelled: boolean;
+  provider?: WalletConnectDappSideProvider;
+};
 
 // https://github.com/WalletConnect/walletconnect-test-wallet
 
@@ -373,19 +381,57 @@ export class WalletConnectDappSide {
     appEventBus.emit(EAppEventBusNames.WalletConnectCloseModal, undefined);
   }
 
+  async abortConnectPairing({ uri }: { uri?: string }) {
+    const attempt = this.activeConnectAttempt;
+    if (!attempt) {
+      return;
+    }
+
+    const provider = attempt.provider;
+    if (uri && provider?.uri && provider.uri !== uri) {
+      return;
+    }
+
+    attempt.cancelled = true;
+    await provider?.abortConnectPairing();
+  }
+
   async activateSession({ topic }: { topic: string }) {
     // refresh account address from walletconnect session
     await this.getOrCreateProvider({ topic, updateDB: true });
   }
 
-  lastConnectToWalletProvider: WalletConnectDappSideProvider | undefined;
+  private activeConnectAttempt: IWalletConnectAttempt | undefined;
 
-  async connectToWallet({ impl }: IWalletConnectConnectToWalletParams) {
+  private throwIfConnectCancelled(attempt: IWalletConnectAttempt) {
+    if (attempt.cancelled) {
+      throw new OneKeyWalletConnectModalCloseError();
+    }
+  }
+
+  async connectToWallet(params: IWalletConnectConnectToWalletParams) {
+    const attempt: IWalletConnectAttempt = { cancelled: false };
+    this.activeConnectAttempt = attempt;
+    try {
+      return await this.connectToWalletInternal(params, attempt);
+    } finally {
+      if (this.activeConnectAttempt === attempt) {
+        this.activeConnectAttempt = undefined;
+      }
+      this.closeModal();
+    }
+  }
+
+  private async connectToWalletInternal(
+    { impl }: IWalletConnectConnectToWalletParams,
+    attempt: IWalletConnectAttempt,
+  ) {
     console.log('WalletConnectDappSide connectToWallet111');
 
     this.closeModal();
 
     const chains = await this.backgroundApi.serviceWalletConnect.getAllChains();
+    this.throwIfConnectCancelled(attempt);
 
     // https://docs.walletconnect.com/advanced/multichain/chain-list
     // const allChains = chains.map((item) => item.wcChain);
@@ -412,6 +458,7 @@ export class WalletConnectDappSide {
       });
 
     let provider = await createNewProvider();
+    this.throwIfConnectCancelled(attempt);
 
     // disconnect previous session
     if (DAPP_SIDE_SINGLE_WALLET_MODE) {
@@ -427,8 +474,11 @@ export class WalletConnectDappSide {
         console.error(error);
       } finally {
         provider = await createNewProvider();
+        this.throwIfConnectCancelled(attempt);
       }
     }
+
+    attempt.provider = provider;
 
     const displayUriHandler = async (uri: string) => {
       console.log('uri', uri);
@@ -485,7 +535,7 @@ export class WalletConnectDappSide {
         }
       }
       console.log('WalletConnectDappSide connectToWallet', connectParams);
-      this.lastConnectToWalletProvider = provider;
+      this.throwIfConnectCancelled(attempt);
       // call connect() to create new session
       await provider.connect(connectParams);
       if (!provider.session || !provider.isWalletConnect) {
@@ -504,8 +554,6 @@ export class WalletConnectDappSide {
       });
       throw error;
     } finally {
-      this.closeModal();
-      this.lastConnectToWalletProvider = undefined;
       provider.off(EWalletConnectSessionEvents.display_uri, displayUriHandler);
       provider.off(
         EWalletConnectSessionEvents.session_delete,

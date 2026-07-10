@@ -38,6 +38,8 @@ import {
 } from '@onekeyhq/shared/src/walletConnect/constant';
 import type { IWalletConnectSession } from '@onekeyhq/shared/src/walletConnect/types';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { StorageUtil as StorageUtilCore } from '@reown/appkit-core-react-native';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -326,6 +328,11 @@ const modal: IWalletConnectModalShared = {
     const closeNativeModalRef = useRef(closeNativeModal);
     closeNativeModalRef.current = closeNativeModal;
     const isMountedRef = useRef(true);
+    const isNativeModalOpenRef = useRef(isNativeModalOpen);
+    isNativeModalOpenRef.current = isNativeModalOpen;
+    const wasNativeModalOpenRef = useRef(false);
+    const isProgrammaticCloseRef = useRef(false);
+    const openRequestIdRef = useRef(0);
 
     useEffect(
       () => () => {
@@ -340,7 +347,12 @@ const modal: IWalletConnectModalShared = {
       useState(false);
 
     const openModal = useCallback(async ({ uri }: { uri: string }) => {
+      const openRequestId = openRequestIdRef.current + 1;
+      openRequestIdRef.current = openRequestId;
       await resetAppKit();
+      if (!isMountedRef.current || openRequestId !== openRequestIdRef.current) {
+        return;
+      }
       pairingUri = uri;
       updateConnectModalUri(uri);
 
@@ -349,7 +361,6 @@ const modal: IWalletConnectModalShared = {
       // // resetApp(); // onSessionDelete
       // ClientCtrl.setInitialized(true);
 
-      if (!isMountedRef.current) return;
       setShouldRenderNativeModal(true);
 
       // try {
@@ -360,7 +371,9 @@ const modal: IWalletConnectModalShared = {
 
       await timerUtils.wait(600); // wait modal render done
 
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current || openRequestId !== openRequestIdRef.current) {
+        return;
+      }
 
       console.log(
         'WalletConnectModalContainer openNativeModalRef: ------------------------ ',
@@ -375,6 +388,10 @@ const modal: IWalletConnectModalShared = {
     }, []);
 
     const closeModal = useCallback(async () => {
+      openRequestIdRef.current += 1;
+      if (isNativeModalOpenRef.current) {
+        isProgrammaticCloseRef.current = true;
+      }
       await closeNativeModalRef.current();
 
       // Wait for React Native Fabric to complete view cleanup
@@ -385,10 +402,24 @@ const modal: IWalletConnectModalShared = {
     useEffect(() => {
       void (async () => {
         if (platformEnv.isNative) {
+          if (isNativeModalOpen) {
+            wasNativeModalOpenRef.current = true;
+          }
           if (!isNativeModalOpen) {
+            const shouldAbortConnect =
+              wasNativeModalOpenRef.current && !isProgrammaticCloseRef.current;
+            const uri = pairingUri;
+            wasNativeModalOpenRef.current = false;
+            isProgrammaticCloseRef.current = false;
+            openRequestIdRef.current += 1;
             await resetAppKit();
             console.log('setShouldRenderNativeModal false');
             // setShouldRenderNativeModal(false);
+            if (shouldAbortConnect) {
+              void backgroundApiProxy.serviceWalletConnect.abortConnectPairing({
+                uri,
+              });
+            }
           }
           if (!isMountedRef.current) return;
           appEventBus.emit(EAppEventBusNames.WalletConnectModalState, {

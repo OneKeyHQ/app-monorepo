@@ -923,6 +923,11 @@ export class TooManyDerivedAccounts extends OneKeyAppError<ITooManyDerivedAccoun
 }
 
 export class OneKeyWalletConnectModalCloseError extends OneKeyAppError {
+  override className =
+    EOneKeyErrorClassNames.OneKeyWalletConnectModalCloseError;
+
+  override name = EOneKeyErrorClassNames.OneKeyWalletConnectModalCloseError;
+
   constructor(props?: IOneKeyError) {
     super(
       normalizeErrorProps(props, {
