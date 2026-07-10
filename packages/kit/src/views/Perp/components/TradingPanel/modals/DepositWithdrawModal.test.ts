@@ -2,10 +2,73 @@ import type { IPerpsDepositToken } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 
 import {
   arePerpsDepositSelectedTokenRefreshFieldsEqual,
+  getPerpsDepositMinimumCheck,
   getPerpsDepositTokenDisplayList,
   mergePerpsDepositTokensPreservingOrder,
   shouldShowPerpsDepositTokenSkeleton,
 } from './depositTokenDisplayUtils';
+
+describe('getPerpsDepositMinimumCheck', () => {
+  it('compares USD input directly with the fixed minimum', () => {
+    expect(
+      getPerpsDepositMinimumCheck({
+        inputAmount: '2',
+        isUsdInput: true,
+        tokenPrice: '0.999',
+        tokenDecimals: 6,
+      }),
+    ).toEqual({
+      value: false,
+      minFromTokenAmount: '5.005006',
+    });
+
+    expect(
+      getPerpsDepositMinimumCheck({
+        inputAmount: '5',
+        isUsdInput: true,
+        tokenPrice: '0.999',
+        tokenDecimals: 6,
+      }),
+    ).toEqual({ value: true });
+  });
+
+  it('converts token input to fiat before checking the minimum', () => {
+    expect(
+      getPerpsDepositMinimumCheck({
+        inputAmount: '0.002',
+        isUsdInput: false,
+        tokenPrice: '2000',
+        tokenDecimals: 8,
+      }),
+    ).toEqual({
+      value: false,
+      minFromTokenAmount: '0.0025',
+    });
+
+    expect(
+      getPerpsDepositMinimumCheck({
+        inputAmount: '0.003',
+        isUsdInput: false,
+        tokenPrice: '2000',
+        tokenDecimals: 8,
+      }),
+    ).toEqual({ value: true });
+  });
+
+  it('rejects inputs when the selected token price is unavailable', () => {
+    expect(
+      getPerpsDepositMinimumCheck({
+        inputAmount: '5',
+        isUsdInput: true,
+        tokenPrice: undefined,
+        tokenDecimals: 6,
+      }),
+    ).toEqual({
+      value: false,
+      minFromTokenAmount: '-',
+    });
+  });
+});
 
 const makeDepositToken = ({
   networkId,
