@@ -2801,6 +2801,8 @@
   "perp_time_in_force_gtc__desc": "GTC (valable jusqu'à annulation) : l'ordre restera actif jusqu'à son exécution ou son annulation.",
   "perp_time_in_force_ioc__desc": "IOC (immédiat ou annulation) : toute partie non exécutée immédiatement sera annulée.",
   "perp_toast_deposit_success_eta_one_minute__msg": "Le dépôt de {amount} {token} a été soumis. Les dépôts devraient arriver dans 1 minute.",
+  "perp_toast_modifying_order": "Modification de l’ordre…",
+  "perp_toast_order_modified": "Ordre modifié",
   "perp_token_info_not_found__msg": "Informations sur le jeton introuvables",
   "perp_trade_account_overview_avbl": "Disp.",
   "perp_trade_deposit_to_trade__action": "Déposer pour trader",

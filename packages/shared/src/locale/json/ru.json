@@ -2801,6 +2801,8 @@
   "perp_time_in_force_gtc__desc": "GTC (действителен до отмены): Ордер будет оставаться активным, пока не исполнится или не будет отменён.",
   "perp_time_in_force_ioc__desc": "IOC (исполнить немедленно или отменить): Любая часть, которая не будет исполнена сразу, будет отменена.",
   "perp_toast_deposit_success_eta_one_minute__msg": "{amount} {token} депозит был отправлен. Депозиты должны поступить в течение 1 минуты.",
+  "perp_toast_modifying_order": "Изменение ордера…",
+  "perp_toast_order_modified": "Ордер изменён",
   "perp_token_info_not_found__msg": "Информация о токене не найдена",
   "perp_trade_account_overview_avbl": "Доступно",
   "perp_trade_deposit_to_trade__action": "Пополнить для торговли",
