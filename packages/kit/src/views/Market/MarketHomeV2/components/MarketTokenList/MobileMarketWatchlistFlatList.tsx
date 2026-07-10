@@ -33,6 +33,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
 import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
+import { getMarketEmptyWatchlistContainerProps } from '../../layouts/mobileLayoutUtils';
 import { MarketRecommendList } from '../MarketRecommendList';
 
 import { InlineActionBar } from './components/InlineActionBar';
@@ -409,8 +410,10 @@ function MobileMarketWatchlistFlatListImpl({
       <Tabs.ScrollView>
         <Stack
           {...(platformEnv.isNative ? null : { justifyContent: 'center' })}
+          {...getMarketEmptyWatchlistContainerProps({
+            isNativeAndroid: Boolean(platformEnv.isNativeAndroid),
+          })}
           alignItems="center"
-          y={-25}
         >
           <MarketRecommendList
             maxSize={8}
