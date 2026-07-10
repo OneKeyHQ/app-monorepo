@@ -1,0 +1,19 @@
+id: receive-wrong-owner
+type:
+  - negative
+prompt: "Receive shows the wrong DeFi-token list. Fix the Swap token selector so Receive stops showing those tokens."
+expected:
+  must_include:
+    - "reject the proposed Swap-selector owner until the failing path reaches Swap"
+    - "trace ReceiveSelector to AssetSelector TokenSelector and shared tokenSelectorFilterUtils"
+    - "treat this as main-runtime route/UI/filter state with no ServiceSwap, Swap history, or SimpleDB mutation"
+    - "run the exact tokenSelectorFilterUtils Jest test and add a Receive route/render test if composition changes"
+    - "protect ordinary Receive, DeFi toggle on/off, ordinary Swap selector, and Receive-to-Swap handoff"
+  must_not_include:
+    - "edit Swap selector state merely because the issue title mentions a token list"
+    - "add a background or persistence migration"
+score:
+  pass: 90
+  critical_fail_if:
+    - "changes the Swap selector without proving it owns the failing state"
+    - "asks the user to locate the owner instead of tracing the available route and code"

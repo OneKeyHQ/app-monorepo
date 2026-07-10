@@ -17,15 +17,20 @@ export const TAP_JUMP_DISTANCE = 40; // px offset for tap-jump enter/exit slides
 
 export const CONTENT_SPRING_CONFIG = {
   stiffness: 220,
-  damping: 22,
+  // Critically damped (ζ≈1) + clamped so switching features settles straight
+  // onto the target slide with no overshoot/rebound.
+  damping: 30,
   mass: 1,
+  overshootClamping: true,
 } as const;
 
 export const HEIGHT_SPRING_CONFIG = {
   stiffness: 130,
-  damping: 18,
+  // Critically damped (ζ≈1) + clamped so the dialog eases to its new height in
+  // one smooth step with no overshoot/bounce when content height changes.
+  damping: 23,
   mass: 1,
-  overshootClamping: false, // allow ~3% overshoot
+  overshootClamping: true,
 } as const;
 
 export const HEIGHT_SPRING_DELAY_MS = 50;

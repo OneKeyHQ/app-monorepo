@@ -14,6 +14,9 @@ const MarketDetail = LazyLoadPage(() => import('../../Market/MarketDetail'));
 const DeFiProtocolDetails = LazyLoadPage(
   () => import('../pages/DeFiProtocolDetails'),
 );
+const DeFiProtocolAction = LazyLoadPage(
+  () => import('../pages/DeFiProtocolAction'),
+);
 const KytRiskDetail = LazyLoadPage(() => import('../pages/KytRiskDetail'));
 
 export const ModalAssetDetailsStack: IModalFlowNavigatorConfig<
@@ -27,6 +30,10 @@ export const ModalAssetDetailsStack: IModalFlowNavigatorConfig<
   {
     name: EModalAssetDetailRoutes.DeFiProtocolDetails,
     component: DeFiProtocolDetails,
+  },
+  {
+    name: EModalAssetDetailRoutes.DeFiProtocolAction,
+    component: DeFiProtocolAction,
   },
   {
     name: EModalAssetDetailRoutes.MarketDetail,
