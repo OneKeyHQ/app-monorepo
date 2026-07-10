@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -8,8 +8,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import {
   useSwapAlertsAtom,
   useSwapFromTokenAmountAtom,
-  useSwapSelectTokenDetailFetchingAtom,
-  useSwapSelectedFromTokenBalanceAtom,
+  useSwapStockSelectedFromTokenBalanceAtom,
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
@@ -33,7 +32,10 @@ import {
 import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 
 import {
+  type IStockBalanceSnapshot,
+  isStockBalanceInitializing,
   isStockPayTokenReadyForTradeInput,
+  resolveStockBalanceSnapshot,
   shouldRenderStockTradeInputSkeleton,
 } from './swapStockChannelUtils';
 import {
@@ -76,6 +78,9 @@ function useStockInputTokenBalance({
 }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [refreshKey, setRefreshKey] = useState(0);
+  const lastValidBalanceStateRef = useRef<IStockBalanceSnapshot | undefined>(
+    undefined,
+  );
   const tokenScope = getStockInputTokenIdentityKey(token);
   const hasActiveAccount = Boolean(
     activeAccount?.indexedAccount?.id || activeAccount?.account?.id,
@@ -84,6 +89,9 @@ function useStockInputTokenBalance({
   const accountNetworkReady = Boolean(
     !hasActiveAccount || activeAccount?.ready,
   );
+  const balanceOwnerScope = `${tokenScope}:${
+    activeAccount?.indexedAccount?.id ?? ''
+  }:${activeAccount?.account?.id ?? ''}`;
   const shouldFetchNetworkAccount = Boolean(
     enabled && tokenNetworkId && hasActiveAccount && accountNetworkReady,
   );
@@ -239,19 +247,37 @@ function useStockInputTokenBalance({
 
   const balanceReady =
     detailState.scope === balanceScope && detailState.balance !== undefined;
+  const balanceState = resolveStockBalanceSnapshot({
+    authoritativeBalance: balanceReady ? detailState.balance : undefined,
+    authoritativeTokenDetail: balanceReady
+      ? detailState.tokenDetail
+      : undefined,
+    ownerScope: balanceOwnerScope,
+    previousSnapshot: lastValidBalanceStateRef.current,
+    seededBalance: enabled ? token?.balanceParsed : undefined,
+    seededTokenDetail: enabled ? token : undefined,
+  });
+  if (balanceState) {
+    lastValidBalanceStateRef.current = balanceState;
+  }
+  const balance = balanceState?.balance;
+  const tokenDetail = balanceState?.tokenDetail;
 
   return {
-    balance: balanceReady ? detailState.balance : undefined,
-    tokenDetail: balanceReady ? detailState.tokenDetail : undefined,
-    loading:
-      enabled &&
-      Boolean(
-        token &&
-        (!balanceReady ||
-          networkAccountLoading ||
-          shouldWaitForNetworkAccount ||
-          detailLoading),
-      ),
+    balance,
+    tokenDetail,
+    loading: isStockBalanceInitializing({
+      balance,
+      requestPending:
+        enabled &&
+        Boolean(
+          token &&
+          (!balanceReady ||
+            networkAccountLoading ||
+            shouldWaitForNetworkAccount ||
+            detailLoading),
+        ),
+    }),
   };
 }
 
@@ -430,8 +456,7 @@ export function useSwapStockAmountInputState({
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapAlerts] = useSwapAlertsAtom();
   const [fromTokenBalance, setFromTokenBalance] =
-    useSwapSelectedFromTokenBalanceAtom();
-  const [swapTokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
+    useSwapStockSelectedFromTokenBalanceAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const {
@@ -592,8 +617,7 @@ export function useSwapStockAmountInputState({
 
   return {
     amountFiatValue,
-    balanceLoading:
-      swapTokenDetailLoading.from || stockInputTokenBalance.loading,
+    balanceLoading: stockInputTokenBalance.loading,
     currencySymbol,
     disableNativePayToken,
     displayBalance,

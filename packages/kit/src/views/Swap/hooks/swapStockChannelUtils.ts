@@ -239,6 +239,57 @@ export function shouldRenderStockTradeInputSkeleton({
   return isBuySide ? !inputTokenVisible : !inputTokenReady;
 }
 
+export function isStockBalanceInitializing({
+  balance,
+  requestPending,
+}: {
+  balance?: string;
+  requestPending: boolean;
+}) {
+  return balance === undefined && requestPending;
+}
+
+export type IStockBalanceSnapshot = {
+  ownerScope: string;
+  balance: string;
+  tokenDetail?: ISwapToken;
+};
+
+export function resolveStockBalanceSnapshot({
+  authoritativeBalance,
+  authoritativeTokenDetail,
+  ownerScope,
+  previousSnapshot,
+  seededBalance,
+  seededTokenDetail,
+}: {
+  authoritativeBalance?: string;
+  authoritativeTokenDetail?: ISwapToken;
+  ownerScope: string;
+  previousSnapshot?: IStockBalanceSnapshot;
+  seededBalance?: string;
+  seededTokenDetail?: ISwapToken;
+}): IStockBalanceSnapshot | undefined {
+  if (authoritativeBalance !== undefined) {
+    return {
+      ownerScope,
+      balance: authoritativeBalance,
+      tokenDetail: authoritativeTokenDetail,
+    };
+  }
+  if (previousSnapshot?.ownerScope === ownerScope) {
+    return previousSnapshot;
+  }
+  if (seededBalance !== undefined) {
+    return {
+      ownerScope,
+      balance: seededBalance,
+      tokenDetail: seededTokenDetail,
+    };
+  }
+  return undefined;
+}
+
 function getStockDefaultPayTokenCandidates(candidates: IToken[]) {
   return filterStockPayTokenCandidates(candidates);
 }

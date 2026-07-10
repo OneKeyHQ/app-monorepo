@@ -5,7 +5,9 @@ import {
   ESwapStockTradeSide,
   buildStockSwapTokenFromMarketListToken,
   filterStockPayTokenCandidates,
+  isStockBalanceInitializing,
   isStockPayTokenReadyForTradeInput,
+  resolveStockBalanceSnapshot,
   resolveStockChannelSwapPair,
   resolveStockKLineToken,
   shouldLoadDefaultStockToken,
@@ -249,6 +251,74 @@ describe('swapStockChannelUtils', () => {
         isBuySide: true,
       }),
     ).toBe(false);
+  });
+
+  it('shows Stock balance loading only before the first scoped balance lands', () => {
+    expect(
+      isStockBalanceInitializing({
+        balance: undefined,
+        requestPending: true,
+      }),
+    ).toBe(true);
+    expect(
+      isStockBalanceInitializing({
+        balance: '12.34',
+        requestPending: true,
+      }),
+    ).toBe(false);
+    expect(
+      isStockBalanceInitializing({
+        balance: '0',
+        requestPending: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps a scoped Stock balance visible from seed through authoritative refresh', () => {
+    const seededSnapshot = resolveStockBalanceSnapshot({
+      ownerScope: 'account-1:usdc',
+      seededBalance: '0.24',
+      seededTokenDetail: usdcToken,
+    });
+    expect(seededSnapshot).toEqual({
+      ownerScope: 'account-1:usdc',
+      balance: '0.24',
+      tokenDetail: usdcToken,
+    });
+
+    expect(
+      resolveStockBalanceSnapshot({
+        ownerScope: 'account-1:usdc',
+        previousSnapshot: seededSnapshot,
+        seededBalance: '0.10',
+      }),
+    ).toBe(seededSnapshot);
+
+    expect(
+      resolveStockBalanceSnapshot({
+        authoritativeBalance: '0.25',
+        authoritativeTokenDetail: usdcToken,
+        ownerScope: 'account-1:usdc',
+        previousSnapshot: seededSnapshot,
+      }),
+    ).toEqual({
+      ownerScope: 'account-1:usdc',
+      balance: '0.25',
+      tokenDetail: usdcToken,
+    });
+  });
+
+  it('does not reuse a Stock balance snapshot across owner scopes', () => {
+    expect(
+      resolveStockBalanceSnapshot({
+        ownerScope: 'account-2:usdc',
+        previousSnapshot: {
+          ownerScope: 'account-1:usdc',
+          balance: '0.24',
+          tokenDetail: usdcToken,
+        },
+      }),
+    ).toBeUndefined();
   });
 
   it('keeps sell-side stock input skeleton tied to full readiness', () => {
