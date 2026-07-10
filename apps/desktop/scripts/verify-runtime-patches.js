@@ -1,9 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const {
-  electronUpdaterRuntimePatchFiles,
-} = require('./electron-updater-runtime-patch-files');
+const { packagedRuntimePatches } = require('./packaged-runtime-patches');
 
 function failVerification(message) {
   process.stderr.write(`${message}\n`);
@@ -31,79 +29,79 @@ function readPackageMetadata(packageJsonPath, description) {
 }
 
 const desktopPackageRoot = path.join(__dirname, '..');
-const runtimePackageRoot = path.join(
-  __dirname,
-  '../app/node_modules/electron-updater',
-);
-const runtimePackageJsonPath = path.join(runtimePackageRoot, 'package.json');
-let workspacePackageJsonPath;
-try {
-  workspacePackageJsonPath = require.resolve('electron-updater/package.json', {
-    paths: [desktopPackageRoot],
-  });
-} catch {
-  failVerification(
-    `Workspace electron-updater dependency cannot be resolved from ${desktopPackageRoot}. Run yarn install first.`,
-  );
-}
-const workspacePackageRoot = path.dirname(workspacePackageJsonPath);
+const runtimeAppRoot = path.join(desktopPackageRoot, 'app');
 
-const runtimePackage = readPackageMetadata(
-  runtimePackageJsonPath,
-  'Runtime electron-updater package metadata',
-);
-const workspacePackage = readPackageMetadata(
-  workspacePackageJsonPath,
-  'Workspace electron-updater package metadata',
-);
-
-if (runtimePackage.version !== workspacePackage.version) {
-  failVerification(
-    `electron-updater version mismatch: runtime=${runtimePackage.version}, workspace=${workspacePackage.version}.`,
-  );
-}
-
-const expectedRuntimePatchMarkers = [
-  ['out/AppUpdater.js', 'this.emit("update-download-fileInfo", fileInfo);'],
-  ['out/BaseUpdater.js', 'isExistInstallerPath()'],
-  ['out/BaseUpdater.js', 'async updateInstallerPath(installerPath)'],
-  ['out/DownloadedUpdateHelper.js', 'updateFile(file)'],
-  [
-    'out/DownloadedUpdateHelper.js',
-    'updateDownloadedFileInfo(downloadedFileInfo)',
-  ],
-];
-for (const [relativePath, marker] of expectedRuntimePatchMarkers) {
-  const filePath = path.join(runtimePackageRoot, relativePath);
-  const fileContent = readRequiredFile(
-    filePath,
-    `Runtime electron-updater file ${relativePath}`,
-  );
-  if (!fileContent.includes(marker)) {
+for (const { packageName, files, markers } of packagedRuntimePatches) {
+  let workspacePackageJsonPath;
+  let runtimePackageJsonPath;
+  try {
+    workspacePackageJsonPath = require.resolve(`${packageName}/package.json`, {
+      paths: [desktopPackageRoot],
+    });
+  } catch {
     failVerification(
-      `electron-updater runtime patch is missing marker "${marker}" in ${filePath}.`,
+      `Workspace ${packageName} dependency cannot be resolved from ${desktopPackageRoot}. Run yarn install first.`,
     );
   }
-}
-
-for (const relativePath of electronUpdaterRuntimePatchFiles) {
-  const runtimeFilePath = path.join(runtimePackageRoot, relativePath);
-  const workspaceFilePath = path.join(workspacePackageRoot, relativePath);
-  const runtimeFileContent = readRequiredFile(
-    runtimeFilePath,
-    `Runtime electron-updater file ${relativePath}`,
-  );
-  const workspaceFileContent = readRequiredFile(
-    workspaceFilePath,
-    `Workspace electron-updater file ${relativePath}`,
-  );
-  if (runtimeFileContent !== workspaceFileContent) {
+  try {
+    runtimePackageJsonPath = require.resolve(`${packageName}/package.json`, {
+      paths: [runtimeAppRoot],
+    });
+  } catch {
     failVerification(
-      `Packaged runtime patch differs from the workspace patch: ${relativePath}.`,
+      `Runtime ${packageName} dependency cannot be resolved from ${runtimeAppRoot}. Run electron-builder install-app-deps first.`,
     );
   }
-}
 
-process.stdout.write(
-  `Verified electron-updater ${runtimePackage.version} runtime patch.\n`,
-);
+  const workspacePackageRoot = path.dirname(workspacePackageJsonPath);
+  const runtimePackageRoot = path.dirname(runtimePackageJsonPath);
+  const runtimePackage = readPackageMetadata(
+    runtimePackageJsonPath,
+    `Runtime ${packageName} package metadata`,
+  );
+  const workspacePackage = readPackageMetadata(
+    workspacePackageJsonPath,
+    `Workspace ${packageName} package metadata`,
+  );
+
+  if (runtimePackage.version !== workspacePackage.version) {
+    failVerification(
+      `${packageName} version mismatch: runtime=${runtimePackage.version}, workspace=${workspacePackage.version}.`,
+    );
+  }
+
+  for (const [relativePath, marker] of markers) {
+    const filePath = path.join(runtimePackageRoot, relativePath);
+    const fileContent = readRequiredFile(
+      filePath,
+      `Runtime ${packageName} file ${relativePath}`,
+    );
+    if (!fileContent.includes(marker)) {
+      failVerification(
+        `${packageName} runtime patch is missing marker "${marker}" in ${filePath}.`,
+      );
+    }
+  }
+
+  for (const relativePath of files) {
+    const runtimeFilePath = path.join(runtimePackageRoot, relativePath);
+    const workspaceFilePath = path.join(workspacePackageRoot, relativePath);
+    const runtimeFileContent = readRequiredFile(
+      runtimeFilePath,
+      `Runtime ${packageName} file ${relativePath}`,
+    );
+    const workspaceFileContent = readRequiredFile(
+      workspaceFilePath,
+      `Workspace ${packageName} file ${relativePath}`,
+    );
+    if (runtimeFileContent !== workspaceFileContent) {
+      failVerification(
+        `Packaged ${packageName} runtime patch differs from the workspace patch: ${relativePath}.`,
+      );
+    }
+  }
+
+  process.stdout.write(
+    `Verified ${packageName} ${runtimePackage.version} runtime patch.\n`,
+  );
+}

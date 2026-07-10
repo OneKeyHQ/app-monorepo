@@ -1,9 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const {
-  electronUpdaterRuntimePatchFiles,
-} = require('./electron-updater-runtime-patch-files');
+const { packagedRuntimePatches } = require('./packaged-runtime-patches');
 
 function failPatch(message) {
   process.stderr.write(`${message}\n`);
@@ -26,49 +24,60 @@ function readPackageMetadata(packageJsonPath, description) {
 }
 
 const desktopPackageRoot = path.join(__dirname, '..');
-const runtimePackageRoot = path.join(
-  desktopPackageRoot,
-  'app/node_modules/electron-updater',
-);
-const runtimePackageJsonPath = path.join(runtimePackageRoot, 'package.json');
-let workspacePackageJsonPath;
-try {
-  workspacePackageJsonPath = require.resolve('electron-updater/package.json', {
-    paths: [desktopPackageRoot],
-  });
-} catch {
-  failPatch(
-    `Workspace electron-updater dependency cannot be resolved from ${desktopPackageRoot}. Run yarn install first.`,
+const runtimeAppRoot = path.join(desktopPackageRoot, 'app');
+
+for (const { packageName, files } of packagedRuntimePatches) {
+  let workspacePackageJsonPath;
+  let runtimePackageJsonPath;
+  try {
+    workspacePackageJsonPath = require.resolve(`${packageName}/package.json`, {
+      paths: [desktopPackageRoot],
+    });
+  } catch {
+    failPatch(
+      `Workspace ${packageName} dependency cannot be resolved from ${desktopPackageRoot}. Run yarn install first.`,
+    );
+  }
+  try {
+    runtimePackageJsonPath = require.resolve(`${packageName}/package.json`, {
+      paths: [runtimeAppRoot],
+    });
+  } catch {
+    failPatch(
+      `Runtime ${packageName} dependency cannot be resolved from ${runtimeAppRoot}. Run electron-builder install-app-deps first.`,
+    );
+  }
+
+  const workspacePackageRoot = path.dirname(workspacePackageJsonPath);
+  const runtimePackageRoot = path.dirname(runtimePackageJsonPath);
+  const workspacePackage = readPackageMetadata(
+    workspacePackageJsonPath,
+    `Workspace ${packageName} package metadata`,
+  );
+  const runtimePackage = readPackageMetadata(
+    runtimePackageJsonPath,
+    `Runtime ${packageName} package metadata`,
+  );
+
+  if (runtimePackage.version !== workspacePackage.version) {
+    failPatch(
+      `${packageName} version mismatch: runtime=${runtimePackage.version}, workspace=${workspacePackage.version}.`,
+    );
+  }
+
+  for (const relativePath of files) {
+    const sourcePath = path.join(workspacePackageRoot, relativePath);
+    const destinationPath = path.join(runtimePackageRoot, relativePath);
+    if (!fs.existsSync(sourcePath)) {
+      failPatch(`Workspace ${packageName} file is missing: ${sourcePath}.`);
+    }
+    if (!fs.existsSync(destinationPath)) {
+      failPatch(`Runtime ${packageName} file is missing: ${destinationPath}.`);
+    }
+    fs.copyFileSync(sourcePath, destinationPath);
+  }
+
+  process.stdout.write(
+    `Applied ${packageName} ${runtimePackage.version} runtime patch.\n`,
   );
 }
-const workspacePackageRoot = path.dirname(workspacePackageJsonPath);
-const workspacePackage = readPackageMetadata(
-  workspacePackageJsonPath,
-  'Workspace electron-updater package metadata',
-);
-const runtimePackage = readPackageMetadata(
-  runtimePackageJsonPath,
-  'Runtime electron-updater package metadata',
-);
-
-if (runtimePackage.version !== workspacePackage.version) {
-  failPatch(
-    `electron-updater version mismatch: runtime=${runtimePackage.version}, workspace=${workspacePackage.version}.`,
-  );
-}
-
-for (const relativePath of electronUpdaterRuntimePatchFiles) {
-  const sourcePath = path.join(workspacePackageRoot, relativePath);
-  const destinationPath = path.join(runtimePackageRoot, relativePath);
-  if (!fs.existsSync(sourcePath)) {
-    failPatch(`Workspace electron-updater file is missing: ${sourcePath}.`);
-  }
-  if (!fs.existsSync(destinationPath)) {
-    failPatch(`Runtime electron-updater file is missing: ${destinationPath}.`);
-  }
-  fs.copyFileSync(sourcePath, destinationPath);
-}
-
-process.stdout.write(
-  `Applied electron-updater ${runtimePackage.version} runtime patch.\n`,
-);

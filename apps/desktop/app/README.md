@@ -42,10 +42,12 @@ Packaging notes:
 Externalized dependencies are loaded from this app directory at runtime, so a
 root-level `patch-package` patch does not modify the copy installed here.
 After Electron Builder installs appDir dependencies, `yarn install-app-deps`
-copies the patched `electron-updater` files from the workspace dependency into
-the packaged runtime dependency and verifies both copies before packaging
-continues. The root-level `patch-package` patch remains the single source of
-truth.
+copies the configured patched files from workspace dependencies into their
+packaged runtime dependencies and verifies both copies before packaging
+continues. It then recursively compares the appDir dependency tree with every
+committed root patch and fails if a packaged dependency is unpatched, partially
+patched, or on a different version. The root-level `patch-package` files remain
+the single source of truth.
 
 Security scanner caveat:
 
