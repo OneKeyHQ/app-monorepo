@@ -1,3 +1,7 @@
+import { useCallback } from 'react';
+
+import { isEqual } from 'lodash';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -6,7 +10,7 @@ export const useFAQListInfo = () => {
   const {
     result: faqList,
     isLoading: isFaqLoading = true,
-    run: refetchFAQ,
+    setResult: setFaqList,
   } = usePromiseResult(
     async () => {
       const result =
@@ -19,6 +23,14 @@ export const useFAQListInfo = () => {
       watchLoading: true,
     },
   );
+
+  const refetchFAQ = useCallback(async () => {
+    const nextFaqList =
+      await backgroundApiProxy.serviceStaking.getFAQListForHome();
+    setFaqList((previousFaqList) =>
+      isEqual(previousFaqList, nextFaqList) ? previousFaqList : nextFaqList,
+    );
+  }, [setFaqList]);
 
   return { faqList, isFaqLoading, refetchFAQ };
 };

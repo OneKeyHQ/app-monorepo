@@ -27,7 +27,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ListItem } from '../../../components/ListItem';
 import { useIsFirstFocused } from '../../../hooks/useIsFirstFocused';
-import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
+import { useRouteIsFocusedRef } from '../../../hooks/useRouteIsFocused';
 import { useTabContainerWidth } from '../../../hooks/useTabContainerWidth';
 import { useEarnHideSmallAssets } from '../hooks/useEarnHideSmallAssets';
 
@@ -234,17 +234,20 @@ const EarnMainTabsComponent = ({
     useDesktopPageScrollTabs,
   ]);
 
-  const isFocused = useRouteIsFocused();
-  const isFocusedRef = useRef(isFocused);
-
-  useEffect(() => {
+  const routeFocusChangeRef = useRef<
+    ((isFocused: boolean) => void) | undefined
+  >(undefined);
+  useRouteIsFocusedRef({ onChangeRef: routeFocusChangeRef });
+  const previousRouteFocusedRef = useRef<boolean | undefined>(undefined);
+  routeFocusChangeRef.current = (isFocused: boolean) => {
+    if (previousRouteFocusedRef.current === undefined) {
+      previousRouteFocusedRef.current = isFocused;
+      return;
+    }
+    previousRouteFocusedRef.current = isFocused;
     if (platformEnv.isNativeIOS) {
       return;
     }
-    if (isFocused === isFocusedRef.current) {
-      return;
-    }
-    isFocusedRef.current = isFocused;
     if (defaultTab) {
       const targetTabName = initialTabName;
       if (!useDesktopPageScrollTabs) {
@@ -256,15 +259,7 @@ const EarnMainTabsComponent = ({
         syncDesktopTabName(targetTabName);
       }
     }
-  }, [
-    defaultTab,
-    desktopTabName,
-    initialTabName,
-    isFocused,
-    syncDesktopTabName,
-    tabsRef,
-    useDesktopPageScrollTabs,
-  ]);
+  };
 
   useEffect(() => {
     const callback = ({ tab }: { tab: 'assets' | 'portfolio' | 'faqs' }) => {
@@ -468,6 +463,6 @@ function ForwardedEarnMainTabs(
 ) {
   const isFocused = useIsFocused();
   const isFirstFocused = useIsFirstFocused(isFocused);
-  return isFirstFocused ? <EarnMainTabsComponent {...props} /> : null;
+  return isFirstFocused ? <MemoizedEarnMainTabs {...props} /> : null;
 }
 export const EarnMainTabs = memo(ForwardedEarnMainTabs);

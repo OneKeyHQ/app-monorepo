@@ -8,7 +8,7 @@ import {
   useDeferredPromise,
   useNetInfo,
 } from '@onekeyhq/components';
-import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useRouteIsFocusedRef } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -157,13 +157,6 @@ export function usePromiseResult<T>(
   }
   const [isLoading, setIsLoading] = useState<boolean | undefined>();
   const isMountedRef = useIsMounted();
-  const _isFocused = useIsFocused({ testID: options.testID });
-  const isFocusedRef = useRef<boolean>(_isFocused);
-  const pollingNonceRef = useRef<number>(0);
-  isFocusedRef.current = _isFocused;
-  if (options?.overrideIsFocused !== undefined) {
-    isFocusedRef.current = options?.overrideIsFocused?.(_isFocused);
-  }
   const methodRef = useRef<typeof method>(method);
   methodRef.current = method;
   const optionsRef = useRef(options);
@@ -175,6 +168,15 @@ export function usePromiseResult<T>(
     alwaysSetState: false,
     ...options,
   };
+  const focusChangeCallbackRef = useRef<
+    ((isFocused: boolean) => void) | undefined
+  >(undefined);
+  const isFocusedRef = useRouteIsFocusedRef({
+    onChangeRef: focusChangeCallbackRef,
+    overrideIsFocused: options.overrideIsFocused,
+    testID: options.testID,
+  });
+  const pollingNonceRef = useRef<number>(0);
   const isDepsChangedOnBlur = useRef(false);
   const nonceRef = useRef(0);
 
@@ -477,9 +479,9 @@ export function usePromiseResult<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, runnerDeps);
 
-  const isFocusedRefValue = isFocusedRef.current;
-  const prevFocusedRef = useRef(isFocusedRefValue);
+  const prevFocusedRef = useRef<boolean | undefined>(undefined);
   const isLoadingRef = useRef(isLoading);
+  isLoadingRef.current = isLoading;
   const runWithPollingNonce = useCallback(() => {
     isDepsChangedOnBlur.current = false;
     void runRef.current({ pollingNonce: pollingNonceRef.current });
@@ -501,58 +503,71 @@ export function usePromiseResult<T>(
     }
   }, [isInternetReachable, runWithPollingNonce]);
 
-  useEffect(() => {
-    if (optionsRef.current.checkIsFocused) {
-      if (isFocusedRefValue) {
-        resolveDefer();
-      } else {
-        resetDefer();
+  const focusIdleHandlesRef = useRef<
+    Set<ReturnType<typeof requestIdleCallback>>
+  >(new Set());
+  const applyFocusedState = useCallback(
+    (isFocused: boolean) => {
+      isFocusedRef.current = isFocused;
+      if (prevFocusedRef.current === isFocused) {
+        return;
       }
-
-      // On native, defer focus-recovery re-execution until the JS thread is
-      // idle so the first render frame after tab switch can paint without
-      // being blocked by data fetching across 40+ hooks.
-      const idleHandles: ReturnType<typeof requestIdleCallback>[] = [];
-      const scheduleRun = () => {
-        if (platformEnv.isNative) {
-          idleHandles.push(requestIdleCallback(runWithPollingNonce));
+      const wasFocused = prevFocusedRef.current;
+      prevFocusedRef.current = isFocused;
+      if (optionsRef.current.checkIsFocused) {
+        if (isFocused) {
+          resolveDefer();
         } else {
-          runWithPollingNonce();
+          resetDefer();
         }
-      };
 
-      // By employing a hack to simulate the recovery from a network disconnection and subsequently make a new network request.
-      if (
-        platformEnv.isNative &&
-        !isLoadingRef.current &&
-        isEmptyResultRef.current &&
-        optionsRef.current.revalidateOnReconnect
-      ) {
-        scheduleRun();
-      }
+        // On native, defer focus-recovery re-execution until the JS thread is
+        // idle so the first render frame after tab switch can paint without
+        // being blocked by data fetching across 40+ hooks.
+        const scheduleRun = () => {
+          if (platformEnv.isNative) {
+            const idleHandle = requestIdleCallback(() => {
+              focusIdleHandlesRef.current.delete(idleHandle);
+              runWithPollingNonce();
+            });
+            focusIdleHandlesRef.current.add(idleHandle);
+          } else {
+            runWithPollingNonce();
+          }
+        };
 
-      if (
-        prevFocusedRef.current === false &&
-        isFocusedRefValue &&
-        optionsRef.current.revalidateOnFocus
-      ) {
-        scheduleRun();
-      } else if (isFocusedRefValue && isDepsChangedOnBlur.current) {
-        scheduleRun();
-      }
-      prevFocusedRef.current = isFocusedRefValue;
-
-      return () => {
-        if (platformEnv.isNative) {
-          idleHandles.forEach(cancelIdleCallback);
+        // By employing a hack to simulate the recovery from a network disconnection and subsequently make a new network request.
+        if (
+          platformEnv.isNative &&
+          !isLoadingRef.current &&
+          isEmptyResultRef.current &&
+          optionsRef.current.revalidateOnReconnect
+        ) {
+          scheduleRun();
         }
-      };
-    }
-  }, [isFocusedRefValue, resetDefer, resolveDefer, runWithPollingNonce]);
+
+        if (
+          wasFocused === false &&
+          isFocused &&
+          optionsRef.current.revalidateOnFocus
+        ) {
+          scheduleRun();
+        } else if (isFocused && isDepsChangedOnBlur.current) {
+          scheduleRun();
+        }
+      }
+    },
+    [isFocusedRef, resetDefer, resolveDefer, runWithPollingNonce],
+  );
+
+  focusChangeCallbackRef.current = applyFocusedState;
 
   useEffect(() => {
+    const focusIdleHandles = focusIdleHandlesRef.current;
     return () => {
       isEffectValid.current = false;
+      focusIdleHandles.forEach(cancelIdleCallback);
+      focusIdleHandles.clear();
     };
   }, []);
 

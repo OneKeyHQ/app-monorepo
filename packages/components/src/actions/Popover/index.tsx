@@ -282,7 +282,13 @@ function RawPopover({
 }: IPopoverProps) {
   const { bottom } = useSafeAreaInsets();
   const triggerRef = useRef<View | null>(null);
-  const placement = getPlacement(placementProp, triggerRef);
+  // Closed Windows popovers are present throughout every tab tree. Measuring
+  // each trigger during a focus render forces repeated synchronous layouts;
+  // the geometry is only needed once the popover is actually opened.
+  const shouldSkipClosedMeasurement = platformEnv.isDesktopWin && !isOpen;
+  const placement = shouldSkipClosedMeasurement
+    ? placementProp || 'bottom-end'
+    : getPlacement(placementProp, triggerRef);
   const transformOrigin = useMemo(() => {
     switch (placement) {
       case 'top':
@@ -398,7 +404,9 @@ function RawPopover({
 
   const isShowNativeKeepChildrenMountedBackdrop =
     platformEnv.isNative && props.keepChildrenMounted;
-  const maxScrollViewHeight = getMaxScrollViewHeight();
+  const maxScrollViewHeight = shouldSkipClosedMeasurement
+    ? undefined
+    : getMaxScrollViewHeight();
   const transformOriginStyle = useMemo(
     () => ({ transformOrigin }),
     [transformOrigin],

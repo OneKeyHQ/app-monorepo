@@ -8,10 +8,24 @@ export default function useListenTabFocusState(
   callback: (isFocus: boolean, isHideByModal: boolean) => void, // do NOT useCallback to wrap the callback
 ) {
   const tabNames = Array.isArray(tabName) ? tabName : [tabName];
+  const previousStateRef = useRef<
+    | {
+        isFocus: boolean;
+        isHideByModal: boolean;
+      }
+    | undefined
+  >(undefined);
   useOnRouterChange((state) => {
     // the state may be undefined when initializing the interface on the Ext.
     if (!state) {
-      callback(tabName === ETabRoutes.Home, false);
+      const isFocus = tabName === ETabRoutes.Home;
+      if (
+        previousStateRef.current?.isFocus !== isFocus ||
+        previousStateRef.current?.isHideByModal !== false
+      ) {
+        previousStateRef.current = { isFocus, isHideByModal: false };
+        callback(isFocus, false);
+      }
       return;
     }
     const rootState = state?.routes.find(
@@ -29,10 +43,18 @@ export default function useListenTabFocusState(
     const currentTabName = rootState?.routeNames
       ? (rootState?.routeNames?.[rootState?.index || 0] as ETabRoutes)
       : (rootState?.routes[0].name as ETabRoutes);
-    callback(
-      tabNames.includes(currentTabName),
-      !!(modalRoutes || fullModalRoutes || fullScreenPushRoutes),
-    );
+    const nextState = {
+      isFocus: tabNames.includes(currentTabName),
+      isHideByModal: !!(modalRoutes || fullModalRoutes || fullScreenPushRoutes),
+    };
+    if (
+      previousStateRef.current?.isFocus === nextState.isFocus &&
+      previousStateRef.current?.isHideByModal === nextState.isHideByModal
+    ) {
+      return;
+    }
+    previousStateRef.current = nextState;
+    callback(nextState.isFocus, nextState.isHideByModal);
   });
 }
 

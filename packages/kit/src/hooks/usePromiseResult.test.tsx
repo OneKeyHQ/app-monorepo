@@ -41,16 +41,19 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => {
   const ReactModule = require('react') as typeof import('react');
   let currentFocus = true;
   const listeners: Array<(v: boolean) => void> = [];
+  const refListeners: Array<(v: boolean) => void> = [];
 
   const __setFocus = (v: boolean) => {
     if (currentFocus === v) return;
     currentFocus = v;
     listeners.slice().forEach((l) => l(v));
+    refListeners.slice().forEach((l) => l(v));
   };
 
   const __resetFocus = () => {
     currentFocus = true;
     listeners.slice().forEach((l) => l(true));
+    refListeners.slice().forEach((l) => l(true));
   };
 
   const useRouteIsFocused = () => {
@@ -67,8 +70,54 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => {
     return v;
   };
 
+  const useRouteIsFocusedRef = ({
+    onChangeRef,
+    overrideIsFocused,
+  }: {
+    onChangeRef: React.MutableRefObject<
+      ((isFocused: boolean) => void) | undefined
+    >;
+    overrideIsFocused?: (isFocused: boolean) => boolean;
+  }) => {
+    const overrideRef = ReactModule.useRef(overrideIsFocused);
+    overrideRef.current = overrideIsFocused;
+    const applyOverride = (isFocused: boolean) =>
+      overrideRef.current?.(isFocused) ?? isFocused;
+    const renderValue = applyOverride(currentFocus);
+    const focusedRef = ReactModule.useRef(renderValue);
+    focusedRef.current = renderValue;
+    const notifiedRef = ReactModule.useRef<boolean | undefined>(undefined);
+
+    ReactModule.useEffect(() => {
+      const listener = (isFocused: boolean) => {
+        const nextValue = applyOverride(isFocused);
+        focusedRef.current = nextValue;
+        if (notifiedRef.current !== nextValue) {
+          notifiedRef.current = nextValue;
+          onChangeRef.current?.(nextValue);
+        }
+      };
+      refListeners.push(listener);
+      listener(currentFocus);
+      return () => {
+        const idx = refListeners.indexOf(listener);
+        if (idx >= 0) refListeners.splice(idx, 1);
+      };
+    }, [onChangeRef]);
+
+    ReactModule.useEffect(() => {
+      if (notifiedRef.current !== renderValue) {
+        notifiedRef.current = renderValue;
+        onChangeRef.current?.(renderValue);
+      }
+    }, [onChangeRef, renderValue]);
+
+    return focusedRef;
+  };
+
   return {
     useRouteIsFocused,
+    useRouteIsFocusedRef,
     __setFocus,
     __resetFocus,
   };
@@ -707,6 +756,27 @@ describe('usePromiseResult', () => {
         expect(result.current.result).toBe('data');
       });
       expect(method).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not rerender the consumer solely because route focus changes', async () => {
+      const method = jest.fn(() => new Promise<string>(() => {}));
+      const { result } = renderHook(() =>
+        usePromiseResultWithRenderCount(method),
+      );
+
+      await waitFor(() => {
+        expect(method).toHaveBeenCalledTimes(1);
+      });
+      const initialRenderCount = result.current.renderCount;
+
+      act(() => {
+        focusControl.__setFocus(false);
+      });
+      act(() => {
+        focusControl.__setFocus(true);
+      });
+
+      expect(result.current.renderCount).toBe(initialRenderCount);
     });
 
     it('does not start fetch when not focused at mount (default checkIsFocused: true)', async () => {
