@@ -17,7 +17,9 @@ import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
+  EModalStakingRoutes,
   ETabEarnRoutes,
+  IModalStakingParamList,
   ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -59,9 +61,10 @@ function ManagersSection({
 
 const ReserveDetailsPage = () => {
   const route = useAppRoute<
-    ITabEarnParamList,
+    ITabEarnParamList & IModalStakingParamList,
     | ETabEarnRoutes.BorrowReserveDetails
     | ETabEarnRoutes.BorrowReserveDetailsShare
+    | EModalStakingRoutes.BorrowReserveDetails
   >();
   const { gtMd } = useMedia();
   const { shareText } = useShare();
@@ -75,6 +78,7 @@ const ReserveDetailsPage = () => {
     reserveAddress: string;
     symbol: string;
     logoURI?: string;
+    providerLogoURI?: string;
     accountId?: string;
     indexedAccountId?: string;
   }>(() => {
@@ -90,6 +94,7 @@ const ReserveDetailsPage = () => {
       reserveAddress: routeParams.reserveAddress,
       symbol: routeParams.symbol,
       logoURI: routeParams.logoURI,
+      providerLogoURI: routeParams.providerLogoURI,
       accountId: routeParams.accountId,
       indexedAccountId: routeParams.indexedAccountId,
     };
@@ -102,6 +107,7 @@ const ReserveDetailsPage = () => {
     reserveAddress,
     symbol,
     logoURI,
+    providerLogoURI,
     accountId: routeAccountId,
     indexedAccountId,
   } = resolvedParams;
@@ -247,6 +253,7 @@ const ReserveDetailsPage = () => {
             reserveAddress={reserveAddress}
             symbol={symbol}
             logoURI={logoURI}
+            providerLogoURI={providerLogoURI}
           />
         </Stack>
       </XStack>

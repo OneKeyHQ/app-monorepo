@@ -67,6 +67,7 @@ const BorrowManagePosition = () => {
       reserveAddress,
       symbol,
       logoURI,
+      providerLogoURI,
       isModal: true,
       accountId: accountId || undefined,
       indexedAccountId,
@@ -79,6 +80,7 @@ const BorrowManagePosition = () => {
     reserveAddress,
     symbol,
     logoURI,
+    providerLogoURI,
     accountId,
     indexedAccountId,
   ]);
