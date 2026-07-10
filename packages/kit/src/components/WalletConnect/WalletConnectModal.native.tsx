@@ -1,4 +1,4 @@
-/* eslint-disable import-js/order */
+/* eslint-disable import-js/order, import/no-duplicates */
 import '@walletconnect/react-native-compat'; // polyfill for react-native
 
 import {
@@ -12,6 +12,7 @@ import {
 import type { ErrorInfo, ReactNode } from 'react';
 
 import { ConstantsUtil } from '@reown/appkit-common-react-native';
+import { EventsController } from '@reown/appkit-core-react-native';
 import {
   AppKit as AppKitModalNative,
   createAppKit,
@@ -37,6 +38,8 @@ import {
   WALLET_CONNECT_V2_PROJECT_ID,
 } from '@onekeyhq/shared/src/walletConnect/constant';
 import type { IWalletConnectSession } from '@onekeyhq/shared/src/walletConnect/types';
+
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { StorageUtil as StorageUtilCore } from '@reown/appkit-core-react-native';
@@ -326,11 +329,26 @@ const modal: IWalletConnectModalShared = {
     const closeNativeModalRef = useRef(closeNativeModal);
     closeNativeModalRef.current = closeNativeModal;
     const isMountedRef = useRef(true);
+    const openRequestIdRef = useRef(0);
+    const isClosingProgrammaticallyRef = useRef(false);
 
     useEffect(
       () => () => {
         isMountedRef.current = false;
       },
+      [],
+    );
+
+    useEffect(
+      () =>
+        EventsController.subscribeEvent('MODAL_CLOSE', () => {
+          openRequestIdRef.current += 1;
+          if (!isClosingProgrammaticallyRef.current) {
+            void backgroundApiProxy.serviceWalletConnect.abortConnectPairing({
+              uri: pairingUri,
+            });
+          }
+        }),
       [],
     );
 
@@ -340,7 +358,12 @@ const modal: IWalletConnectModalShared = {
       useState(false);
 
     const openModal = useCallback(async ({ uri }: { uri: string }) => {
+      const requestId = openRequestIdRef.current + 1;
+      openRequestIdRef.current = requestId;
       await resetAppKit();
+      if (!isMountedRef.current || requestId !== openRequestIdRef.current) {
+        return;
+      }
       pairingUri = uri;
       updateConnectModalUri(uri);
 
@@ -360,7 +383,9 @@ const modal: IWalletConnectModalShared = {
 
       await timerUtils.wait(600); // wait modal render done
 
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current || requestId !== openRequestIdRef.current) {
+        return;
+      }
 
       console.log(
         'WalletConnectModalContainer openNativeModalRef: ------------------------ ',
@@ -369,13 +394,28 @@ const modal: IWalletConnectModalShared = {
         view: 'Connect',
       }); // show modal
 
+      if (isMountedRef.current && requestId !== openRequestIdRef.current) {
+        isClosingProgrammaticallyRef.current = true;
+        try {
+          await closeNativeModalRef.current();
+        } finally {
+          isClosingProgrammaticallyRef.current = false;
+        }
+      }
+
       // await openNativeModal({
       //   route: 'ConnectWallet',
       // });
     }, []);
 
     const closeModal = useCallback(async () => {
-      await closeNativeModalRef.current();
+      openRequestIdRef.current += 1;
+      isClosingProgrammaticallyRef.current = true;
+      try {
+        await closeNativeModalRef.current();
+      } finally {
+        isClosingProgrammaticallyRef.current = false;
+      }
 
       // Wait for React Native Fabric to complete view cleanup
       // This prevents valtio destructuring errors during rapid modal state changes

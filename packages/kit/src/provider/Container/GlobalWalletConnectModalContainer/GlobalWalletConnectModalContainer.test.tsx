@@ -100,4 +100,36 @@ describe('GlobalWalletConnectModalContainer', () => {
 
     view.unmount();
   });
+
+  it('clears the pairing payload when loading is closed before the modal opens', async () => {
+    const view = render(<GlobalWalletConnectModalContainer />);
+
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.WalletConnectOpenModal, {
+        uri: 'wc:cancelled-before-open',
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(1);
+    });
+
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.WalletConnectCloseModal, undefined);
+    });
+
+    mockShouldRenderPageEveryChildren = false;
+    view.rerender(<GlobalWalletConnectModalContainer />);
+
+    mockShouldRenderPageEveryChildren = true;
+    view.rerender(<GlobalWalletConnectModalContainer />);
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(1);
+
+    view.unmount();
+  });
 });

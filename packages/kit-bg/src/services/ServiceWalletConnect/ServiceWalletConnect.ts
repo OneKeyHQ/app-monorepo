@@ -54,14 +54,11 @@ class ServiceWalletConnect extends ServiceBase {
   @backgroundMethod()
   async abortConnectPairing({ uri }: { uri: string }) {
     const providers = this.dappSide.providers;
-    const lastProvider = this.dappSide.lastConnectToWalletProvider;
-    if (lastProvider?.uri === uri) {
-      await lastProvider.abortConnectPairing();
-    }
+    const cancelled = await this.dappSide.abortConnectPairing({ uri });
     console.log(
-      'abortConnectPairing lastProvider: ',
+      'abortConnectPairing current attempt: ',
       uri,
-      lastProvider,
+      cancelled,
       providers,
     );
   }
