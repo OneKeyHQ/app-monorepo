@@ -6,30 +6,56 @@ function failVerification(message) {
   process.exit(1);
 }
 
+function readRequiredFile(filePath, description) {
+  if (!fs.existsSync(filePath)) {
+    failVerification(`${description} is missing: ${filePath}.`);
+  }
+  return fs.readFileSync(filePath, 'utf8');
+}
+
+function readPackageMetadata(packageJsonPath, description) {
+  const packageJson = readRequiredFile(packageJsonPath, description);
+  try {
+    return JSON.parse(packageJson);
+  } catch (error) {
+    failVerification(
+      `${description} is invalid: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+}
+
+const desktopPackageRoot = path.join(__dirname, '..');
 const runtimePackageRoot = path.join(
   __dirname,
   '../app/node_modules/electron-updater',
 );
-const workspacePackageRoot = path.join(
-  __dirname,
-  '../../../node_modules/electron-updater',
-);
 const runtimePackageJsonPath = path.join(runtimePackageRoot, 'package.json');
-
-if (!fs.existsSync(runtimePackageJsonPath)) {
+let workspacePackageJsonPath;
+try {
+  workspacePackageJsonPath = require.resolve('electron-updater/package.json', {
+    paths: [desktopPackageRoot],
+  });
+} catch {
   failVerification(
-    `Runtime dependency is missing: ${runtimePackageJsonPath}. Run yarn install-app-deps first.`,
+    `Workspace electron-updater dependency cannot be resolved from ${desktopPackageRoot}. Run yarn install first.`,
   );
 }
+const workspacePackageRoot = path.dirname(workspacePackageJsonPath);
 
-const runtimePackage = JSON.parse(
-  fs.readFileSync(runtimePackageJsonPath, 'utf8'),
+const runtimePackage = readPackageMetadata(
+  runtimePackageJsonPath,
+  'Runtime electron-updater package metadata',
 );
-const expectedVersion = '6.8.9';
+const workspacePackage = readPackageMetadata(
+  workspacePackageJsonPath,
+  'Workspace electron-updater package metadata',
+);
 
-if (runtimePackage.version !== expectedVersion) {
+if (runtimePackage.version !== workspacePackage.version) {
   failVerification(
-    `Unexpected electron-updater runtime version: ${runtimePackage.version}; expected ${expectedVersion}.`,
+    `electron-updater version mismatch: runtime=${runtimePackage.version}, workspace=${workspacePackage.version}.`,
   );
 }
 
@@ -54,7 +80,10 @@ const patchedFiles = [
 
 for (const [relativePath, marker] of expectedRuntimePatchMarkers) {
   const filePath = path.join(runtimePackageRoot, relativePath);
-  const fileContent = fs.readFileSync(filePath, 'utf8');
+  const fileContent = readRequiredFile(
+    filePath,
+    `Runtime electron-updater file ${relativePath}`,
+  );
   if (!fileContent.includes(marker)) {
     failVerification(
       `electron-updater runtime patch is missing marker "${marker}" in ${filePath}.`,
@@ -65,8 +94,14 @@ for (const [relativePath, marker] of expectedRuntimePatchMarkers) {
 for (const relativePath of patchedFiles) {
   const runtimeFilePath = path.join(runtimePackageRoot, relativePath);
   const workspaceFilePath = path.join(workspacePackageRoot, relativePath);
-  const runtimeFileContent = fs.readFileSync(runtimeFilePath, 'utf8');
-  const workspaceFileContent = fs.readFileSync(workspaceFilePath, 'utf8');
+  const runtimeFileContent = readRequiredFile(
+    runtimeFilePath,
+    `Runtime electron-updater file ${relativePath}`,
+  );
+  const workspaceFileContent = readRequiredFile(
+    workspaceFilePath,
+    `Workspace electron-updater file ${relativePath}`,
+  );
   if (runtimeFileContent !== workspaceFileContent) {
     failVerification(
       `Packaged runtime patch differs from the workspace patch: ${relativePath}.`,
@@ -75,5 +110,5 @@ for (const relativePath of patchedFiles) {
 }
 
 process.stdout.write(
-  `Verified electron-updater ${expectedVersion} runtime patch.\n`,
+  `Verified electron-updater ${runtimePackage.version} runtime patch.\n`,
 );
