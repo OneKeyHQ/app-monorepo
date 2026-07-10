@@ -1,8 +1,10 @@
 import {
   findSupportedBorrowMarket,
+  resolveProtocolLendingBalanceContext,
   resolveProtocolLendingDefiFillableAmountState,
   resolveProtocolLendingRemainingDebtState,
   resolveProtocolLendingRepayAmountState,
+  resolveProtocolLendingRepayDebtState,
   resolveProtocolLendingWithdrawAmountState,
 } from './protocolLendingActionUtils';
 
@@ -99,6 +101,42 @@ describe('protocolLendingActionUtils', () => {
     expect(state.isFullClose).toBe(false);
   });
 
+  it('uses the row-scoped portfolio debt before a wallet-capped repay max', () => {
+    expect(
+      resolveProtocolLendingRepayDebtState({
+        sourceDebtAmount: '5',
+        maxRepayBalance: '2',
+      }),
+    ).toEqual({
+      referenceBalance: '5',
+      repayAllTargetAmount: '5',
+    });
+  });
+
+  it('prefers the refreshed protocol debt over the portfolio snapshot', () => {
+    expect(
+      resolveProtocolLendingRepayDebtState({
+        sourceDebtAmount: '5',
+        protocolDebtBalance: '5.001',
+        maxRepayBalance: '5.001',
+      }),
+    ).toEqual({
+      referenceBalance: '5.001',
+      repayAllTargetAmount: '5.001',
+    });
+  });
+
+  it('keeps a wallet-capped repay max non-authoritative when debt is unknown', () => {
+    expect(
+      resolveProtocolLendingRepayDebtState({
+        maxRepayBalance: '2',
+      }),
+    ).toEqual({
+      referenceBalance: '2',
+      repayAllTargetAmount: undefined,
+    });
+  });
+
   it('keeps defi repay max unavailable before wallet balance resolves', () => {
     const state = resolveProtocolLendingDefiFillableAmountState({
       isRepay: true,
@@ -155,6 +193,45 @@ describe('protocolLendingActionUtils', () => {
     expect(state).toEqual({
       currentDebt: '10',
       remainingDebt: '0',
+    });
+  });
+
+  it('shows remaining debt and wallet balance for repay with known debt', () => {
+    expect(
+      resolveProtocolLendingBalanceContext({
+        isRepay: true,
+        hasKnownDebt: true,
+        walletBalance: '2',
+      }),
+    ).toEqual({
+      primaryLabel: 'remainingDebt',
+      secondaryWalletBalance: '2',
+    });
+  });
+
+  it('uses the withdraw-specific label without a wallet balance row', () => {
+    expect(
+      resolveProtocolLendingBalanceContext({
+        isRepay: false,
+        hasKnownDebt: true,
+        walletBalance: '2',
+      }),
+    ).toEqual({
+      primaryLabel: 'availableToWithdraw',
+      secondaryWalletBalance: undefined,
+    });
+  });
+
+  it('keeps the neutral available label when repay debt is unknown', () => {
+    expect(
+      resolveProtocolLendingBalanceContext({
+        isRepay: true,
+        hasKnownDebt: false,
+        walletBalance: '2',
+      }),
+    ).toEqual({
+      primaryLabel: 'available',
+      secondaryWalletBalance: '2',
     });
   });
 });

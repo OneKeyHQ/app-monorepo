@@ -189,6 +189,7 @@ export enum ETranslations {
   auth_set_passcode = 'auth.set_passcode',
   auth_with_biometric = 'auth.with_biometric',
   auth_server_error_text = 'auth_server_error_text',
+  available_to_withdraw__title = 'available_to_withdraw__title',
   backing_up_desc = 'backing_up_desc',
   backing_up_title = 'backing_up_title',
   backup_address_book_labels = 'backup.address_book_labels',
