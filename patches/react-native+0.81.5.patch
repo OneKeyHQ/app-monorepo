@@ -608,10 +608,47 @@ index 9f50554..23eaaa8 100644
    }
  
 diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ViewGroupDrawingOrderHelper.kt b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ViewGroupDrawingOrderHelper.kt
-index f8dd833..db25f53 100644
+index f8dd833..3dd085c 100644
 --- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ViewGroupDrawingOrderHelper.kt
 +++ b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ViewGroupDrawingOrderHelper.kt
-@@ -67,6 +67,10 @@ public class ViewGroupDrawingOrderHelper(private val viewGroup: ViewGroup) {
+@@ -55,11 +55,34 @@ public class ViewGroupDrawingOrderHelper(private val viewGroup: ViewGroup) {
+    * The index of the child view that should be drawn. This should be used in
+    * [ViewGroup.getChildDrawingOrder].
+    */
++  private fun isInvalidDrawingOrderIndex(childIndex: Int, childCount: Int): Boolean =
++      childIndex < 0 || childIndex >= childCount
++
++  private fun defaultDrawingOrderIndex(childCount: Int, index: Int): Int =
++      if (childCount > 0) index.coerceIn(0, childCount - 1) else 0
++
++  private fun resetAndGetDefaultDrawingOrder(
++      childCount: Int,
++      index: Int,
++      childIndex: Int?,
++  ): Int {
++    FLog.w(
++        ReactConstants.TAG,
++        "getChildDrawingOrder returned invalid index after rebuild. " +
++            "childCount = %d, index = %d, childIndex = %d",
++        childCount,
++        index,
++        childIndex ?: -1)
++    update()
++    return defaultDrawingOrderIndex(childCount, index)
++  }
++
+   public fun getChildDrawingOrder(childCount: Int, index: Int): Int {
+     var currentDrawingOrderIndices = this.drawingOrderIndices
+     if (currentDrawingOrderIndices != null &&
+-        (index >= currentDrawingOrderIndices.size ||
+-            currentDrawingOrderIndices[index] >= childCount)) {
++        (index < 0 ||
++            index >= currentDrawingOrderIndices.size ||
++            isInvalidDrawingOrderIndex(currentDrawingOrderIndices[index], childCount))) {
+       FLog.w(
+           ReactConstants.TAG,
+           "getChildDrawingOrder index out of bounds! Please check any custom view manipulations you" +
+@@ -67,6 +90,10 @@ public class ViewGroupDrawingOrderHelper(private val viewGroup: ViewGroup) {
            childCount,
            index)
        update()
@@ -622,6 +659,39 @@ index f8dd833..db25f53 100644
      }
  
      if (currentDrawingOrderIndices == null) {
+@@ -83,15 +110,30 @@ public class ViewGroupDrawingOrderHelper(private val viewGroup: ViewGroup) {
+       }
+ 
+       currentDrawingOrderIndices = IntArray(childCount)
++      var hasInvalidDrawingOrderIndex = false
+       for (i in 0 until childCount) {
+         val child = viewsToSort[i]
+-        currentDrawingOrderIndices[i] = viewGroup.indexOfChild(child)
++        val childIndex = viewGroup.indexOfChild(child)
++        currentDrawingOrderIndices[i] = childIndex
++        if (isInvalidDrawingOrderIndex(childIndex, childCount)) {
++          hasInvalidDrawingOrderIndex = true
++        }
++      }
++
++      if (hasInvalidDrawingOrderIndex) {
++        return resetAndGetDefaultDrawingOrder(
++            childCount, index, currentDrawingOrderIndices.getOrNull(index))
+       }
+ 
+       this.drawingOrderIndices = currentDrawingOrderIndices
+     }
+ 
+-    return currentDrawingOrderIndices[index]
++    val childIndex = currentDrawingOrderIndices.getOrNull(index)
++    if (childIndex == null || isInvalidDrawingOrderIndex(childIndex, childCount)) {
++      return resetAndGetDefaultDrawingOrder(childCount, index, childIndex)
++    }
++
++    return childIndex
+   }
+ 
+   /** Recheck all children for z-index changes. */
 diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
 index 89b666d..246c9cf 100644
 --- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
