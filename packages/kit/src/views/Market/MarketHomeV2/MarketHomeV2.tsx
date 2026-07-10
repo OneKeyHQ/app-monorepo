@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -33,6 +33,7 @@ import { useMarketRenderCommitProbe } from '../utils/marketReactPerf';
 
 import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
+import { shouldRestoreSpotCategoryFromAtom } from './layouts/marketTabSelectionGuards';
 import { MobileLayout } from './layouts/MobileLayout';
 import { isMarketStockCategory } from './utils';
 
@@ -109,6 +110,14 @@ const useMarketHomeLayoutProps = () => {
   const [selectedCategory, setSelectedCategory] = useState(
     selectedSpotCategory || 'trending',
   );
+  // The category most recently applied by an explicit intent (user tap or
+  // deep link). The bg-synced atom echoes writes back asynchronously, so this
+  // ref is the freshest truth; the atom may lag behind it.
+  const pendingSpotCategoryRef = useRef<string | undefined>(undefined);
+  const applySelectedCategory = useCallback((categoryId: string) => {
+    pendingSpotCategoryRef.current = categoryId;
+    setSelectedCategory(categoryId);
+  }, []);
 
   const categories: IMarketCategoryItem[] = useMemo(() => {
     if (apiSpotCategories.length > 0) {
@@ -157,12 +166,24 @@ const useMarketHomeLayoutProps = () => {
       return;
     }
 
+    // The atom echoes UI writes back after a bg round-trip; until it carries
+    // the latest locally-applied category, restoring from it would revert the
+    // user's selection and make the pager jump back (OK-57367).
+    if (
+      !shouldRestoreSpotCategoryFromAtom({
+        pendingSpotCategoryId: pendingSpotCategoryRef.current,
+        atomSpotCategoryId: selectedSpotCategory,
+      })
+    ) {
+      return;
+    }
+
     const hasSelectedCategory = categories.some(
       (item) => item.id === selectedSpotCategory,
     );
     if (hasSelectedCategory) {
       if (selectedCategory !== selectedSpotCategory) {
-        setSelectedCategory(selectedSpotCategory);
+        applySelectedCategory(selectedSpotCategory);
       }
       return;
     }
@@ -170,7 +191,7 @@ const useMarketHomeLayoutProps = () => {
     if (isMarketBasicConfigLoading === false) {
       const nextSelectedCategory = categories[0]?.id ?? 'trending';
       if (selectedCategory !== nextSelectedCategory) {
-        setSelectedCategory(nextSelectedCategory);
+        applySelectedCategory(nextSelectedCategory);
       }
       setMarketSelectedTab((prev) => {
         if (prev.selectedSpotCategory !== selectedSpotCategory) {
@@ -183,6 +204,7 @@ const useMarketHomeLayoutProps = () => {
       });
     }
   }, [
+    applySelectedCategory,
     categories,
     isMarketBasicConfigLoading,
     selectedCategory,
@@ -215,7 +237,7 @@ const useMarketHomeLayoutProps = () => {
       return;
     }
 
-    setSelectedCategory(spotCategoryToSelect);
+    applySelectedCategory(spotCategoryToSelect);
     setMarketSelectedTab((prev) => ({
       ...prev,
       tab: 'trending',
@@ -223,6 +245,7 @@ const useMarketHomeLayoutProps = () => {
       spotCategoryToSelect: undefined,
     }));
   }, [
+    applySelectedCategory,
     categories,
     isMarketBasicConfigLoading,
     setMarketSelectedTab,
@@ -248,7 +271,7 @@ const useMarketHomeLayoutProps = () => {
         selectedCategory,
         categories,
         stockCategories,
-        onCategoryChange: setSelectedCategory,
+        onCategoryChange: applySelectedCategory,
       },
       selectedNetworkId: effectiveSelectedNetworkId,
       liquidityFilter,
@@ -263,6 +286,7 @@ const useMarketHomeLayoutProps = () => {
       selectedCategory,
       categories,
       stockCategories,
+      applySelectedCategory,
     ],
   );
 
