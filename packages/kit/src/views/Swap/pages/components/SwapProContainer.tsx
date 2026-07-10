@@ -64,7 +64,6 @@ import SwapProTradingPanel from './SwapProTradingPanel';
 import SwapTipsContainer from './SwapTipsContainer';
 
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
-import type { ScrollViewProps } from 'react-native';
 
 interface ISwapProContainerProps {
   pageType?: EPageType;
@@ -78,8 +77,6 @@ interface ISwapProContainerProps {
   onTokenPress: (token: ISwapToken) => void;
   supportNetworksList: IMarketBasicConfigNetwork[];
   marketPresetSettings?: IMarketPresetSettingsState;
-  // iOS immersive header: drives the glass nav-bar fade as this panel scrolls.
-  onScroll?: ScrollViewProps['onScroll'];
   config: {
     isLoading: boolean;
     speedConfig: ISwapProSpeedConfig;
@@ -102,7 +99,6 @@ const SwapProContainer = ({
   onTokenPress,
   supportNetworksList,
   marketPresetSettings,
-  onScroll,
   config,
 }: ISwapProContainerProps) => {
   const {
@@ -286,8 +282,6 @@ const SwapProContainer = ({
       stickyHeaderIndices={[1]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
-      onScroll={onScroll}
-      scrollEventThrottle={16}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
