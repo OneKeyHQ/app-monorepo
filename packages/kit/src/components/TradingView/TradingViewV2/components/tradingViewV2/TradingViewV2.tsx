@@ -239,6 +239,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         type: TRADINGVIEW_INTERVAL_CHANGE_MESSAGE,
         payload: {
           interval,
+          resetPriceScaleRange: true,
         },
       });
     },
@@ -352,7 +353,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     (payload: ICalendarPanelSubmitPayload) => {
       webRef.current?.sendMessageViaInjectedScript({
         type: TRADINGVIEW_CALENDAR_PANEL_SUBMIT_MESSAGE,
-        payload,
+        payload: {
+          ...payload,
+          resetPriceScaleRange: true,
+        },
       });
     },
     [],
