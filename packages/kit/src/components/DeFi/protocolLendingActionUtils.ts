@@ -157,6 +157,26 @@ export function resolveProtocolLendingRepayAmountState({
   };
 }
 
+export function resolveProtocolLendingRepayDebtState({
+  selectedBorrowAssetDebt,
+  sourceDebtAmount,
+  protocolDebtBalance,
+  maxRepayBalance,
+}: {
+  selectedBorrowAssetDebt?: string;
+  sourceDebtAmount?: string;
+  protocolDebtBalance?: string;
+  maxRepayBalance?: string;
+}) {
+  const repayAllTargetAmount =
+    selectedBorrowAssetDebt ?? protocolDebtBalance ?? sourceDebtAmount;
+
+  return {
+    referenceBalance: repayAllTargetAmount ?? maxRepayBalance ?? '0',
+    repayAllTargetAmount,
+  };
+}
+
 export function resolveProtocolLendingRemainingDebtState({
   amount,
   debtAmount,
@@ -174,6 +194,34 @@ export function resolveProtocolLendingRemainingDebtState({
   return {
     currentDebt: debtBN.toFixed(),
     remainingDebt: remainingDebtBN.toFixed(),
+  };
+}
+
+export type IProtocolLendingPrimaryBalanceLabel =
+  | 'available'
+  | 'availableToWithdraw'
+  | 'remainingDebt';
+
+export function resolveProtocolLendingBalanceContext({
+  isRepay,
+  hasKnownDebt,
+  walletBalance,
+}: {
+  isRepay: boolean;
+  hasKnownDebt: boolean;
+  walletBalance?: string;
+}): {
+  primaryLabel: IProtocolLendingPrimaryBalanceLabel;
+  secondaryWalletBalance: string | undefined;
+} {
+  let primaryLabel: IProtocolLendingPrimaryBalanceLabel = 'availableToWithdraw';
+  if (isRepay) {
+    primaryLabel = hasKnownDebt ? 'remainingDebt' : 'available';
+  }
+
+  return {
+    primaryLabel,
+    secondaryWalletBalance: isRepay ? walletBalance : undefined,
   };
 }
 

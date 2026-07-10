@@ -184,6 +184,7 @@
   "auth.set_passcode": "Passcode festlegen",
   "auth.with_biometric": "Authentifizierung mit {biometric}",
   "auth_server_error_text": "Etwas ist schiefgelaufen. Bitte überprüfen Sie Ihre Internetverbindung oder versuchen Sie es später erneut.",
+  "available_to_withdraw__title": "Zum Abheben verfügbar",
   "backing_up_desc": "Schließen Sie dieses Fenster nicht, bis die Sicherung abgeschlossen ist.",
   "backing_up_title": "Sicherung wird erstellt …",
   "backup.address_book_labels": "Adressbuch & Etiketten",
