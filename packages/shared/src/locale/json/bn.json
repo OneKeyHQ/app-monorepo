@@ -2801,6 +2801,8 @@
   "perp_time_in_force_gtc__desc": "GTC (বাতিল না হওয়া পর্যন্ত কার্যকর): অর্ডারটি পূরণ বা বাতিল না হওয়া পর্যন্ত বহাল থাকবে。",
   "perp_time_in_force_ioc__desc": "IOC (তাৎক্ষণিকভাবে সম্পন্ন না হলে বাতিল): যে অংশটি সঙ্গে সঙ্গে পূরণ হবে না তা বাতিল করা হবে。",
   "perp_toast_deposit_success_eta_one_minute__msg": "{amount} {token} জমা দেওয়া হয়েছে। জমাগুলো ১ মিনিটের মধ্যে পৌঁছানো উচিত।",
+  "perp_toast_modifying_order": "অর্ডার পরিবর্তন করা হচ্ছে…",
+  "perp_toast_order_modified": "অর্ডার পরিবর্তন করা হয়েছে",
   "perp_token_info_not_found__msg": "টোকেনের তথ্য পাওয়া যায়নি",
   "perp_trade_account_overview_avbl": "উপলভ্য",
   "perp_trade_deposit_to_trade__action": "ট্রেড করতে ডিপোজিট করুন",
