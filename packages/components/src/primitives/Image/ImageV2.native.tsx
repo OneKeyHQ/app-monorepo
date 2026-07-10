@@ -10,6 +10,7 @@ import { Skeleton } from '../Skeleton';
 import { Stack } from '../Stack';
 
 import { AnimatedExpoImage } from './AnimatedImage';
+import { getAndroidSafeImageLoadOptions } from './safeLoadOptions';
 import { useImage } from './useImage';
 import { isEmptyResolvedSource, useResetError } from './utils';
 
@@ -70,23 +71,36 @@ export function ImageV2({
     autoplay,
     ...imageProps
   } = restProps;
+  const imageLoadOptions = useMemo(
+    () =>
+      getAndroidSafeImageLoadOptions(undefined, {
+        width: style.width,
+        height: style.height,
+      }),
+    [style.height, style.width],
+  );
   const retryTimesLimit = useRef<number>(defaultRetryTimes || 1);
   const retryTimes = useRef<number>(0);
 
   const [hasError, setHasError] = useState(false);
-  const { image, reFetchImage } = useImage((source as ImageSource) || src, {
-    onError(error, retry) {
-      console.error('Loading failed:', error.message);
-      if (canRetry && retryTimes.current < retryTimesLimit.current) {
-        retryTimes.current += 1;
-        setTimeout(() => {
-          retry();
-        }, getRandomRetryTimes());
-      } else {
-        setHasError(true);
-      }
+  const { image, reFetchImage } = useImage(
+    (source as ImageSource) || src,
+    {
+      ...imageLoadOptions,
+      onError(error, retry) {
+        console.error('Loading failed:', error.message);
+        if (canRetry && retryTimes.current < retryTimesLimit.current) {
+          retryTimes.current += 1;
+          setTimeout(() => {
+            retry();
+          }, getRandomRetryTimes());
+        } else {
+          setHasError(true);
+        }
+      },
     },
-  });
+    [imageLoadOptions.maxWidth, imageLoadOptions.maxHeight],
+  );
 
   const onResetError = useCallback((error: boolean) => {
     setHasError(error);

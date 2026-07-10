@@ -6,6 +6,7 @@ import {
   refreshCachedImagePaths,
 } from './cache';
 import { DEFAULT_CACHE_POLICY } from './cachePolicy';
+import { getAndroidSafeImageLoadOptions } from './safeLoadOptions';
 
 import type { IPreloadImageFunc, IPreloadImagesFunc } from './type';
 
@@ -37,8 +38,10 @@ export const loadImage = (source: { uri?: string }) => {
   if (!source.uri) {
     return Promise.resolve(null);
   }
-  return Image.loadAsync(source.uri).then(async (imageRef) => {
-    await refreshCachedImagePath(source.uri);
-    return imageRef;
-  });
+  return Image.loadAsync(source.uri, getAndroidSafeImageLoadOptions()).then(
+    async (imageRef) => {
+      await refreshCachedImagePath(source.uri);
+      return imageRef;
+    },
+  );
 };
