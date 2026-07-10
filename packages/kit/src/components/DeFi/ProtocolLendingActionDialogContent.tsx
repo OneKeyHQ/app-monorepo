@@ -1668,9 +1668,7 @@ function ProtocolLendingActionBorrowContent({
     <YStack gap="$5">
       {isInitialLoading ? (
         <YStack gap="$5">
-          {source.selectable ? (
-            <Skeleton height="$11" width="100%" borderRadius="$3" />
-          ) : null}
+          <Skeleton height="$11" width="100%" borderRadius="$3" />
           <Skeleton
             height={BORROW_HERO_SKELETON_HEIGHT}
             width="100%"

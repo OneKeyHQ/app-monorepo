@@ -16,14 +16,15 @@ type IProtocolPositionActionAssetIdentitySource = Pick<
 
 export type IProtocolPositionActionAssetBalanceLabel =
   | 'available'
-  | 'availableToWithdraw';
+  | 'availableToWithdraw'
+  | 'remainingDebt';
 
 export function resolveProtocolPositionActionAssetBalanceLabel(
   action: EDeFiPositionAction,
 ): IProtocolPositionActionAssetBalanceLabel {
-  return action === EDeFiPositionAction.Withdraw
-    ? 'availableToWithdraw'
-    : 'available';
+  if (action === EDeFiPositionAction.Withdraw) return 'availableToWithdraw';
+  if (action === EDeFiPositionAction.Repay) return 'remainingDebt';
+  return 'available';
 }
 
 export function resolveProtocolPositionActionAssetPill({

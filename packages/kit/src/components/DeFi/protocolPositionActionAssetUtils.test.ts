@@ -35,4 +35,10 @@ describe('resolveProtocolPositionActionAssetBalanceLabel', () => {
       ),
     ).toBe('availableToWithdraw');
   });
+
+  it('uses the remaining-debt label for ordinary portfolio repay', () => {
+    expect(
+      resolveProtocolPositionActionAssetBalanceLabel(EDeFiPositionAction.Repay),
+    ).toBe('remainingDebt');
+  });
 });

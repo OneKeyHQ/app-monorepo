@@ -1834,11 +1834,18 @@ function ProtocolPositionActionDialogContent({
   const assetBalanceLabel = resolveProtocolPositionActionAssetBalanceLabel(
     action.action,
   );
+  let assetBalanceLabelTranslation = ETranslations.global_available;
+  if (assetBalanceLabel === 'remainingDebt') {
+    assetBalanceLabelTranslation =
+      ETranslations.defi_borrow_repay_remaining_debt;
+  } else if (assetBalanceLabel === 'availableToWithdraw') {
+    assetBalanceLabelTranslation = ETranslations.available_to_withdraw__title;
+  }
   const availableLabel = intl.formatMessage({
-    id:
-      assetBalanceLabel === 'availableToWithdraw'
-        ? ETranslations.available_to_withdraw__title
-        : ETranslations.global_available,
+    id: assetBalanceLabelTranslation,
+  });
+  const walletBalanceLabel = intl.formatMessage({
+    id: ETranslations.global_wallet_balance,
   });
   const insufficientLabel = intl.formatMessage({
     id: ETranslations.earn_insufficient_balance,
@@ -2086,6 +2093,8 @@ function ProtocolPositionActionDialogContent({
         maxLabel={maxLabel}
         insufficientLabel={insufficientLabel}
         onFocus={handleAmountInputFocus}
+        secondaryLabel={walletBalanceLabel}
+        secondaryAmount={isRepayAction ? repayWalletBalance : undefined}
       />
     );
   } else if (isPercentAction) {
