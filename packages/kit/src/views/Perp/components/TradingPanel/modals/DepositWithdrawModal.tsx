@@ -320,6 +320,7 @@ function DepositWithdrawContent({
       currentPerpsDepositSelectedToken,
       depositTokenListOwnerKey,
       depositTokenListRevision,
+      depositTokenListSource,
     },
     setPerpsDepositTokensAtom,
   ] = usePerpsDepositTokensAtom();
@@ -693,6 +694,7 @@ function DepositWithdrawContent({
         tokens: result,
         currentToken: previousToken,
         defaultTokens,
+        preserveCurrentToken: depositTokenListSource === 'walletBalance',
       });
       if (selectedToken) {
         setPerpsDepositTokensAtom((prev) => {
@@ -733,7 +735,12 @@ function DepositWithdrawContent({
         });
       }
     }
-  }, [defaultTokens, result, setPerpsDepositTokensAtom]);
+  }, [
+    defaultTokens,
+    depositTokenListSource,
+    result,
+    setPerpsDepositTokensAtom,
+  ]);
 
   const availableBalance = useMemo(() => {
     const rawBalance =

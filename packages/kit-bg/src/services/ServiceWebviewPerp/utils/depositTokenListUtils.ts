@@ -254,10 +254,12 @@ export function resolvePerpsDepositSelectedToken({
   tokens,
   currentToken,
   defaultTokens,
+  preserveCurrentToken = false,
 }: {
   tokens: IPerpsDepositToken[];
   currentToken?: IPerpsDepositToken;
   defaultTokens?: IPerpsDepositToken[];
+  preserveCurrentToken?: boolean;
 }) {
   const matchedCurrentToken = findMatchedPerpsDepositToken({
     tokens,
@@ -267,9 +269,14 @@ export function resolvePerpsDepositSelectedToken({
     getHighestPositiveFiatValuePerpsDepositToken(tokens);
   if (
     matchedCurrentToken &&
-    (!highestFiatValueToken || currentToken?.fiatValue !== undefined)
+    (preserveCurrentToken ||
+      !highestFiatValueToken ||
+      currentToken?.fiatValue !== undefined)
   ) {
     return matchedCurrentToken;
+  }
+  if (preserveCurrentToken && currentToken) {
+    return currentToken;
   }
   if (highestFiatValueToken) {
     return highestFiatValueToken;
