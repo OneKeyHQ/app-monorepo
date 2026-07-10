@@ -1455,9 +1455,9 @@ function ProtocolPositionActionReceive({
 
 // Borderless "Enter Amount" entry (mirrors the Send flow) for single-token
 // withdraw / repay: the typed amount is the hero, fiat sits beneath, an
-// Available context row shows the balance, and a 25/50/75/Max preset row
-// quick-fills the field (Max included) — the same control vocabulary as
-// remove-liquidity.
+// asset context row shows the available balance or remaining debt, and a
+// 25/50/75/Max preset row quick-fills the field (Max included) — the same
+// control vocabulary as remove-liquidity.
 function ProtocolPositionActionAmountInput({
   amount,
   onChangeAmount,

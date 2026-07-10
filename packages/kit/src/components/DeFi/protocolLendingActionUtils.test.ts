@@ -1,5 +1,6 @@
 import {
   findSupportedBorrowMarket,
+  resolveProtocolLendingBalanceContext,
   resolveProtocolLendingDefiFillableAmountState,
   resolveProtocolLendingRemainingDebtState,
   resolveProtocolLendingRepayAmountState,
@@ -155,6 +156,45 @@ describe('protocolLendingActionUtils', () => {
     expect(state).toEqual({
       currentDebt: '10',
       remainingDebt: '0',
+    });
+  });
+
+  it('shows remaining debt and wallet balance for repay with known debt', () => {
+    expect(
+      resolveProtocolLendingBalanceContext({
+        isRepay: true,
+        hasKnownDebt: true,
+        walletBalance: '2',
+      }),
+    ).toEqual({
+      primaryLabel: 'remainingDebt',
+      secondaryWalletBalance: '2',
+    });
+  });
+
+  it('uses the withdraw-specific label without a wallet balance row', () => {
+    expect(
+      resolveProtocolLendingBalanceContext({
+        isRepay: false,
+        hasKnownDebt: true,
+        walletBalance: '2',
+      }),
+    ).toEqual({
+      primaryLabel: 'availableToWithdraw',
+      secondaryWalletBalance: undefined,
+    });
+  });
+
+  it('keeps the neutral available label when repay debt is unknown', () => {
+    expect(
+      resolveProtocolLendingBalanceContext({
+        isRepay: true,
+        hasKnownDebt: false,
+        walletBalance: '2',
+      }),
+    ).toEqual({
+      primaryLabel: 'available',
+      secondaryWalletBalance: '2',
     });
   });
 });

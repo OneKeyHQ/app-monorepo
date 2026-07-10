@@ -177,6 +177,34 @@ export function resolveProtocolLendingRemainingDebtState({
   };
 }
 
+export type IProtocolLendingPrimaryBalanceLabel =
+  | 'available'
+  | 'availableToWithdraw'
+  | 'remainingDebt';
+
+export function resolveProtocolLendingBalanceContext({
+  isRepay,
+  hasKnownDebt,
+  walletBalance,
+}: {
+  isRepay: boolean;
+  hasKnownDebt: boolean;
+  walletBalance?: string;
+}): {
+  primaryLabel: IProtocolLendingPrimaryBalanceLabel;
+  secondaryWalletBalance: string | undefined;
+} {
+  let primaryLabel: IProtocolLendingPrimaryBalanceLabel = 'availableToWithdraw';
+  if (isRepay) {
+    primaryLabel = hasKnownDebt ? 'remainingDebt' : 'available';
+  }
+
+  return {
+    primaryLabel,
+    secondaryWalletBalance: isRepay ? walletBalance : undefined,
+  };
+}
+
 // The server's /earn/v1/borrow/markets list is the per-environment source of
 // truth for which (provider, network, market) combos the borrow stack
 // supports. Fail-closed by design: no markets (still loading, fetch failed,

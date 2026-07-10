@@ -60,6 +60,8 @@ import {
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import {
+  type IProtocolLendingPrimaryBalanceLabel,
+  resolveProtocolLendingBalanceContext,
   resolveProtocolLendingDefiFillableAmountState,
   resolveProtocolLendingRemainingDebtState,
   resolveProtocolLendingRepayAmountState,
@@ -163,6 +165,15 @@ const LENDING_ACTION_TO_BORROW_ACTION: Record<
 > = {
   withdraw: EBorrowActionsEnum.Withdraw,
   repay: EBorrowActionsEnum.Repay,
+};
+
+const LENDING_BALANCE_LABEL_TRANSLATION_IDS: Record<
+  IProtocolLendingPrimaryBalanceLabel,
+  ETranslations
+> = {
+  available: ETranslations.global_available,
+  availableToWithdraw: ETranslations.available_to_withdraw__title,
+  remainingDebt: ETranslations.defi_borrow_repay_remaining_debt,
 };
 
 function getLendingColumnHeaderLabel({
@@ -322,7 +333,7 @@ function LendingSelectorRowContent({ item }: { item: ILendingSelectorItem }) {
 // asset (supplied for withdraw, borrowed for repay) — the semantics of Borrow's
 // asset-select popover. Fixed mode renders the same pill with no chevron and no
 // affordance. The per-asset balance is not repeated on the pill; it lives on the
-// "Available" row under the amount field.
+// balance or debt row under the amount field.
 function LendingAssetSelectorRow({
   item,
   items,
@@ -833,8 +844,16 @@ function ProtocolLendingActionDefiContent({
     action: LENDING_ACTION_TO_DEFI_ACTION[actionType],
     intl,
   });
+  const balanceContext = resolveProtocolLendingBalanceContext({
+    isRepay,
+    hasKnownDebt: Boolean(selectedAsset),
+    walletBalance: repayWalletBalance,
+  });
   const availableLabel = intl.formatMessage({
-    id: ETranslations.global_available,
+    id: LENDING_BALANCE_LABEL_TRANSLATION_IDS[balanceContext.primaryLabel],
+  });
+  const walletBalanceLabel = intl.formatMessage({
+    id: ETranslations.global_wallet_balance,
   });
   const maxLabel = intl.formatMessage({ id: ETranslations.global_max });
   const insufficientLabel = intl.formatMessage({
@@ -893,6 +912,8 @@ function ProtocolLendingActionDefiContent({
             maxLabel={maxLabel}
             insufficientLabel={insufficientLabel}
             onFocus={handleAmountInputFocus}
+            secondaryLabel={walletBalanceLabel}
+            secondaryAmount={balanceContext.secondaryWalletBalance}
           />
         </>
       ) : (
@@ -1577,18 +1598,20 @@ function ProtocolLendingActionBorrowContent({
     action: LENDING_ACTION_TO_DEFI_ACTION[actionType],
     intl,
   });
-  // Withdraw's anchor shows the suppliable "Available" balance; repay's shows the
-  // "Remaining debt" being paid down (matches the manage page), with the wallet
-  // balance as the secondary line beneath it.
+  // Withdraw's anchor shows the supplied balance as "Available to Withdraw";
+  // repay's shows the "Remaining debt" being paid down (matches the manage
+  // page), with the wallet balance as the secondary line beneath it.
   // Only call the reference "Remaining debt" when the real debt is known
   // (repayAllTargetAmount). Otherwise `referenceBalance` is the wallet-capped
   // fill cap — show the neutral "Available" label rather than mislabeling the
   // max repayable as remaining debt. Reuses the existing global_available key.
+  const balanceContext = resolveProtocolLendingBalanceContext({
+    isRepay: !isWithdraw,
+    hasKnownDebt: Boolean(repayAllTargetAmount),
+    walletBalance: walletBalanceText,
+  });
   const availableLabel = intl.formatMessage({
-    id:
-      !isWithdraw && repayAllTargetAmount
-        ? ETranslations.defi_borrow_repay_remaining_debt
-        : ETranslations.global_available,
+    id: LENDING_BALANCE_LABEL_TRANSLATION_IDS[balanceContext.primaryLabel],
   });
   const walletBalanceLabel = intl.formatMessage({
     id: ETranslations.global_wallet_balance,
@@ -1733,7 +1756,7 @@ function ProtocolLendingActionBorrowContent({
             insufficientLabel={insufficientLabel}
             onFocus={handleAmountInputFocus}
             secondaryLabel={walletBalanceLabel}
-            secondaryAmount={walletBalanceText}
+            secondaryAmount={balanceContext.secondaryWalletBalance}
           />
           {healthFactor ? (
             <YStack gap="$1">
