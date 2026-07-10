@@ -1,12 +1,16 @@
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
+import { NO_LOG_OUTPUT } from '../../../types';
 
 import type {
   IPerpDepositInitiateParams,
+  IPerpDepositMinimumDiagnosticParams,
   IPerpUserSelectDepositTokenParams,
 } from '../type';
 
 export class PerpDepositScene extends BaseScene {
+  private readonly minimumDiagnosticKeys = new Set<string>();
+
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public perpDepositInitiate(params: IPerpDepositInitiateParams) {
@@ -29,6 +33,22 @@ export class PerpDepositScene extends BaseScene {
   public perpUserSelectDepositToken(params: IPerpUserSelectDepositTokenParams) {
     const { userAddress, ...rest } = params;
     void userAddress;
+    return rest;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perpDepositMinimumDiagnostic(
+    params: IPerpDepositMinimumDiagnosticParams,
+  ) {
+    const { dedupKey, ...rest } = params;
+    if (
+      this.minimumDiagnosticKeys.has(dedupKey) ||
+      this.minimumDiagnosticKeys.size >= 100
+    ) {
+      return NO_LOG_OUTPUT;
+    }
+    this.minimumDiagnosticKeys.add(dedupKey);
     return rest;
   }
 }

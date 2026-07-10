@@ -35,3 +35,35 @@ export interface IPerpUserSelectDepositTokenParams {
   userAddress: string;
   depositToken: IPerpsDepositToken;
 }
+
+export interface IPerpDepositMinimumDiagnosticParams {
+  dedupKey: string;
+  runtime: 'main' | 'background';
+  phase:
+    | 'tokenListRejected'
+    | 'tokenListUpdated'
+    | 'validation'
+    | 'quoteBlocked'
+    | 'quoteRequest'
+    | 'quoteResult';
+  accountType?: 'indexed' | 'account' | 'none';
+  inputUnit?: 'usd' | 'token';
+  inputAmount?: string;
+  quoteTokenAmount?: string;
+  selectedTokenSymbol?: string;
+  selectedTokenNetworkId?: string;
+  selectedTokenPrice?: string;
+  arbUsdcPrice?: string;
+  minimumTokenAmount?: string;
+  passesMinimum?: boolean;
+  tokenListLength?: number;
+  tokenListRevision?: number;
+  tokenListSource?: 'serverConfig' | 'walletBalance';
+  ownerMatched?: boolean;
+  selectedTokenInList?: boolean;
+  selectedTokenPreserved?: boolean;
+  checkFromTokenFiatValue?: boolean;
+  hasValidQuoteInput?: boolean;
+  quoteRequestId?: number;
+  quoteToAmount?: string;
+}

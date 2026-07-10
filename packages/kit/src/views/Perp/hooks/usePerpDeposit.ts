@@ -361,6 +361,12 @@ const usePerpDeposit = (
   const perpDepositQuoteAction = useCallback(async () => {
     const requestId = getNextQuoteRequestId();
     const amountBN = new BigNumber(amount ?? '0');
+    let accountType: 'indexed' | 'account' | 'none' = 'none';
+    if (indexedAccountId) {
+      accountType = 'indexed';
+    } else if (selectedAccountId) {
+      accountType = 'account';
+    }
     if (
       selectedAction !== 'deposit' ||
       !token ||
@@ -368,6 +374,36 @@ const usePerpDeposit = (
       !checkFromTokenFiatValue ||
       !hasValidDepositQuoteInput
     ) {
+      if (
+        selectedAction === 'deposit' &&
+        token &&
+        amountBN.isFinite() &&
+        amountBN.gt(0)
+      ) {
+        defaultLogger.perp.deposit.perpDepositMinimumDiagnostic({
+          dedupKey: [
+            'main',
+            'quoteBlocked',
+            amountBN.toFixed(),
+            token.networkId,
+            token.symbol,
+            token.price ?? 'none',
+            checkFromTokenFiatValue ? 'minimumPass' : 'minimumFail',
+            hasValidDepositQuoteInput ? 'quoteInputValid' : 'quoteInputInvalid',
+            isArbitrumUsdcToken ? 'arbUsdc' : 'swapToken',
+          ].join(':'),
+          runtime: 'main',
+          phase: 'quoteBlocked',
+          accountType,
+          quoteTokenAmount: amountBN.toFixed(),
+          selectedTokenSymbol: token.symbol,
+          selectedTokenNetworkId: token.networkId,
+          selectedTokenPrice: token.price,
+          checkFromTokenFiatValue: !!checkFromTokenFiatValue,
+          hasValidQuoteInput: hasValidDepositQuoteInput,
+          quoteRequestId: requestId,
+        });
+      }
       await backgroundApiProxy.serviceSwap.cancelFetchPerpDepositQuote();
       resetPerpDepositQuote(requestId);
       return;
@@ -384,6 +420,27 @@ const usePerpDeposit = (
         !amountBN.isNaN()
       ) {
         setPerpDepositQuoteLoading(true);
+        defaultLogger.perp.deposit.perpDepositMinimumDiagnostic({
+          dedupKey: [
+            'main',
+            'quoteRequest',
+            requestId,
+            amountBN.toFixed(),
+            token.networkId,
+            token.symbol,
+            token.price ?? 'none',
+          ].join(':'),
+          runtime: 'main',
+          phase: 'quoteRequest',
+          accountType,
+          quoteTokenAmount: amountBN.toFixed(),
+          selectedTokenSymbol: token.symbol,
+          selectedTokenNetworkId: token.networkId,
+          selectedTokenPrice: token.price,
+          checkFromTokenFiatValue: !!checkFromTokenFiatValue,
+          hasValidQuoteInput: hasValidDepositQuoteInput,
+          quoteRequestId: requestId,
+        });
         const quoteRes =
           await backgroundApiProxy.serviceSwap.fetchPerpDepositQuote({
             fromNetworkId: token.networkId,
@@ -395,6 +452,28 @@ const usePerpDeposit = (
         if (!isActiveQuoteRequest(requestId)) {
           return;
         }
+        defaultLogger.perp.deposit.perpDepositMinimumDiagnostic({
+          dedupKey: [
+            'main',
+            'quoteResult',
+            requestId,
+            amountBN.toFixed(),
+            token.networkId,
+            token.symbol,
+            quoteRes?.result?.toAmount ?? 'none',
+          ].join(':'),
+          runtime: 'main',
+          phase: 'quoteResult',
+          accountType,
+          quoteTokenAmount: amountBN.toFixed(),
+          selectedTokenSymbol: token.symbol,
+          selectedTokenNetworkId: token.networkId,
+          selectedTokenPrice: token.price,
+          checkFromTokenFiatValue: !!checkFromTokenFiatValue,
+          hasValidQuoteInput: hasValidDepositQuoteInput,
+          quoteRequestId: requestId,
+          quoteToAmount: quoteRes?.result?.toAmount,
+        });
         setPerpDepositQuote(quoteRes);
         setPerpDepositQuoteLoading(false);
       } else {
@@ -420,9 +499,11 @@ const usePerpDeposit = (
     isArbitrumUsdcToken,
     checkFromTokenFiatValue,
     hasValidDepositQuoteInput,
+    indexedAccountId,
     resetPerpDepositQuote,
     result?.fromUserAddress,
     result?.perpReceiverAddress,
+    selectedAccountId,
     shouldWaitForDepositQuoteAccount,
     token,
   ]);

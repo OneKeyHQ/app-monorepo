@@ -11,11 +11,13 @@ import {
 import {
   HYPER_LIQUID_CUSTOM_LOCAL_STORAGE_V2_PRESET,
   HYPER_LIQUID_ORIGIN,
+  PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import thirdpartyLocaleConverter from '@onekeyhq/shared/src/locale/thirdpartyLocaleConverter';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale/type';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -28,11 +30,13 @@ import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUti
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { buildTokenSelectorDappTokenFilterParams } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IHyperLiquidSignatureRSV,
   IHyperLiquidTypedDataApproveBuilderFee,
   IHyperLiquidUserBuilderFeeStatus,
 } from '@onekeyhq/shared/types/hyperliquid';
+import { USDC_TOKEN_INFO } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IHyperLiquidErrorLocaleItem,
   IPerpServerBannerConfig,
@@ -624,6 +628,23 @@ class ServiceWebviewPerp extends ServiceBase {
   ) {
     let selectedToken: IPerpsDepositToken | undefined;
     let isStale = false;
+    let minimumDiagnostic:
+      | {
+          dedupKey: string;
+          runtime: 'background';
+          phase: 'tokenListRejected' | 'tokenListUpdated';
+          selectedTokenSymbol?: string;
+          selectedTokenNetworkId?: string;
+          selectedTokenPrice?: string;
+          arbUsdcPrice?: string;
+          tokenListLength: number;
+          tokenListRevision?: number;
+          tokenListSource?: 'serverConfig' | 'walletBalance';
+          ownerMatched: boolean;
+          selectedTokenInList: boolean;
+          selectedTokenPreserved: boolean;
+        }
+      | undefined;
 
     if (
       options &&
@@ -633,25 +654,102 @@ class ServiceWebviewPerp extends ServiceBase {
     }
 
     await perpsDepositTokensAtom.set((prev) => {
+      const currentToken = prev.currentPerpsDepositSelectedToken;
+      const arbUsdcPrice = tokens.find((token) =>
+        equalTokenNoCaseSensitive({
+          token1: token,
+          token2: {
+            networkId: PERPS_NETWORK_ID,
+            contractAddress: USDC_TOKEN_INFO.address,
+          },
+        }),
+      )?.price;
       if (prev.depositTokenListOwnerKey !== ownerKey) {
         isStale = true;
+        minimumDiagnostic = {
+          dedupKey: [
+            'background',
+            'tokenListRejected',
+            prev.depositTokenListRevision ?? 'none',
+            tokens.length,
+            currentToken?.networkId ?? 'none',
+            currentToken?.symbol ?? 'none',
+            currentToken?.price ?? 'none',
+            arbUsdcPrice ?? 'none',
+          ].join(':'),
+          runtime: 'background',
+          phase: 'tokenListRejected',
+          selectedTokenSymbol: currentToken?.symbol,
+          selectedTokenNetworkId: currentToken?.networkId,
+          selectedTokenPrice: currentToken?.price,
+          arbUsdcPrice,
+          tokenListLength: tokens.length,
+          tokenListRevision: prev.depositTokenListRevision,
+          tokenListSource: prev.depositTokenListSource,
+          ownerMatched: false,
+          selectedTokenInList: false,
+          selectedTokenPreserved: false,
+        };
         return prev;
       }
       selectedToken = resolvePerpsDepositSelectedToken({
         tokens,
-        currentToken: prev.currentPerpsDepositSelectedToken,
+        currentToken,
         defaultTokens: prev.defaultTokens,
         preserveCurrentToken: prev.depositTokenListSource === 'walletBalance',
       });
+      const selectedTokenInList = tokens.some((token) =>
+        equalTokenNoCaseSensitive({
+          token1: token,
+          token2: selectedToken,
+        }),
+      );
+      const selectedTokenPreserved = equalTokenNoCaseSensitive({
+        token1: currentToken,
+        token2: selectedToken,
+      });
+      const nextRevision = (prev.depositTokenListRevision ?? 0) + 1;
+      minimumDiagnostic = {
+        dedupKey: [
+          'background',
+          'tokenListUpdated',
+          nextRevision,
+          tokens.length,
+          selectedToken?.networkId ?? 'none',
+          selectedToken?.symbol ?? 'none',
+          selectedToken?.price ?? 'none',
+          arbUsdcPrice ?? 'none',
+          selectedTokenInList ? 'inList' : 'missing',
+          selectedTokenPreserved ? 'preserved' : 'changed',
+        ].join(':'),
+        runtime: 'background',
+        phase: 'tokenListUpdated',
+        selectedTokenSymbol: selectedToken?.symbol,
+        selectedTokenNetworkId: selectedToken?.networkId,
+        selectedTokenPrice: selectedToken?.price,
+        arbUsdcPrice,
+        tokenListLength: tokens.length,
+        tokenListRevision: nextRevision,
+        tokenListSource: 'walletBalance',
+        ownerMatched: true,
+        selectedTokenInList,
+        selectedTokenPreserved,
+      };
       return {
         ...prev,
         tokens: tokensByNetwork,
         currentPerpsDepositSelectedToken: selectedToken,
         depositTokenListOwnerKey: ownerKey,
-        depositTokenListRevision: (prev.depositTokenListRevision ?? 0) + 1,
+        depositTokenListRevision: nextRevision,
         depositTokenListSource: 'walletBalance',
       };
     });
+
+    if (minimumDiagnostic) {
+      defaultLogger.perp.deposit.perpDepositMinimumDiagnostic(
+        minimumDiagnostic,
+      );
+    }
 
     return { selectedToken, isStale };
   }

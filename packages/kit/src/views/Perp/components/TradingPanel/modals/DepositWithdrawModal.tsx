@@ -850,6 +850,96 @@ function DepositWithdrawContent({
     currentPerpsDepositSelectedToken?.price,
   ]);
 
+  useEffect(() => {
+    if (
+      selectedAction !== 'deposit' ||
+      !amount ||
+      !amountBN.isFinite() ||
+      amountBN.lte(0)
+    ) {
+      return;
+    }
+    const arbUsdcPrice = depositTokensWithPrice.find((token) =>
+      equalTokenNoCaseSensitive({
+        token1: token,
+        token2: {
+          networkId: PERPS_NETWORK_ID,
+          contractAddress: USDC_TOKEN_INFO.address,
+        },
+      }),
+    )?.price;
+    const selectedTokenInList = depositTokensWithPrice.some((token) =>
+      equalTokenNoCaseSensitive({
+        token1: token,
+        token2: currentPerpsDepositSelectedToken,
+      }),
+    );
+    const ownerMatched = Boolean(
+      depositTokenListOwnerKey &&
+      depositTokenListOwnerKeyRef.current === depositTokenListOwnerKey,
+    );
+    let accountType: 'indexed' | 'account' | 'none' = 'none';
+    if (selectedAccount.indexedAccountId) {
+      accountType = 'indexed';
+    } else if (selectedAccount.accountId) {
+      accountType = 'account';
+    }
+    const selectedTokenSymbol = currentPerpsDepositSelectedToken?.symbol;
+    const selectedTokenNetworkId = currentPerpsDepositSelectedToken?.networkId;
+    const selectedTokenPrice = currentPerpsDepositSelectedToken?.price;
+    defaultLogger.perp.deposit.perpDepositMinimumDiagnostic({
+      dedupKey: [
+        'main',
+        'validation',
+        depositTokenListRevision ?? 'none',
+        depositTokenListSource ?? 'none',
+        amount,
+        isUsdInput ? 'usd' : 'token',
+        tokenAmount || 'none',
+        selectedTokenNetworkId ?? 'none',
+        selectedTokenSymbol ?? 'none',
+        selectedTokenPrice ?? 'none',
+        arbUsdcPrice ?? 'none',
+        checkFromTokenFiatValue.value ? 'pass' : 'fail',
+        ownerMatched ? 'ownerMatched' : 'ownerMismatch',
+        selectedTokenInList ? 'inList' : 'missing',
+      ].join(':'),
+      runtime: 'main',
+      phase: 'validation',
+      accountType,
+      inputUnit: isUsdInput ? 'usd' : 'token',
+      inputAmount: amount,
+      quoteTokenAmount: tokenAmount,
+      selectedTokenSymbol,
+      selectedTokenNetworkId,
+      selectedTokenPrice,
+      arbUsdcPrice,
+      minimumTokenAmount: checkFromTokenFiatValue.minFromTokenAmount,
+      passesMinimum: checkFromTokenFiatValue.value,
+      tokenListLength: depositTokensWithPrice.length,
+      tokenListRevision: depositTokenListRevision,
+      tokenListSource: depositTokenListSource,
+      ownerMatched,
+      selectedTokenInList,
+      checkFromTokenFiatValue: checkFromTokenFiatValue.value,
+    });
+  }, [
+    amount,
+    amountBN,
+    checkFromTokenFiatValue.minFromTokenAmount,
+    checkFromTokenFiatValue.value,
+    currentPerpsDepositSelectedToken,
+    depositTokenListOwnerKey,
+    depositTokenListRevision,
+    depositTokenListSource,
+    depositTokensWithPrice,
+    isUsdInput,
+    selectedAccount.accountId,
+    selectedAccount.indexedAccountId,
+    selectedAction,
+    tokenAmount,
+  ]);
+
   const isValidAmount = useMemo(() => {
     if (amountBN.isNaN() || amountBN.lte(0)) return false;
 
