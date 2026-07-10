@@ -331,6 +331,20 @@ const buildTimeEnv = require('@onekeyhq/shared/src/buildTimeEnv');
 config.cacheVersion = `${config.cacheVersion || 'default'}:native-bg-${
   buildTimeEnv.enableNativeBackgroundThread ? 'enabled' : 'disabled'
 }`;
+
+if (buildTimeEnv.isDev && buildTimeEnv.enableNativeBackgroundThread) {
+  const configuredMaxWorkers = Number.parseInt(
+    process.env.NATIVE_DEV_METRO_MAX_WORKERS || '',
+    10,
+  );
+  // Native development builds the main and background graphs concurrently.
+  // Cap the transform pool so a full refresh does not exhaust host memory.
+  config.maxWorkers =
+    Number.isInteger(configuredMaxWorkers) && configuredMaxWorkers > 0
+      ? configuredMaxWorkers
+      : 2;
+}
+
 const getMetroRuntimeTarget = (context) =>
   context.customResolverOptions?.runtimeTarget ||
   process.env.METRO_RUNTIME_TARGET ||
