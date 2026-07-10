@@ -616,9 +616,15 @@ function HistoryDetails() {
       historyTx.decodedTx.actions[0]?.assetTransfer?.receives ?? [];
 
     if (vaultSettings?.isUtxo) {
-      const utxoSends = sends.filter((send) => send.from !== accountAddress);
+      // count external parties only: a UTXO account spans many addresses
+      // (rotated receive/change addresses, claimed find-address entries),
+      // so trust the server's isOwn flag and only fall back to the display
+      // address comparison for locally built txs that don't carry it
+      const utxoSends = sends.filter(
+        (send) => !send.isOwn && send.from !== accountAddress,
+      );
       const utxoReceives = receives.filter(
-        (receive) => receive.to !== accountAddress,
+        (receive) => !receive.isOwn && receive.to !== accountAddress,
       );
 
       const from =
