@@ -2801,6 +2801,8 @@
   "perp_time_in_force_gtc__desc": "GTC (vigente hasta cancelar): La orden permanecerá activa hasta ejecutarse o cancelarse.",
   "perp_time_in_force_ioc__desc": "IOC (inmediata o cancelar): Cualquier parte que no se ejecute de inmediato se cancelará.",
   "perp_toast_deposit_success_eta_one_minute__msg": "Se ha enviado el depósito de {amount} {token}. Los depósitos deberían llegar en 1 minuto.",
+  "perp_toast_modifying_order": "Modificando la orden…",
+  "perp_toast_order_modified": "Orden modificada",
   "perp_token_info_not_found__msg": "Información del token no encontrada",
   "perp_trade_account_overview_avbl": "Disp.",
   "perp_trade_deposit_to_trade__action": "Depositar para operar",
