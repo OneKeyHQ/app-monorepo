@@ -56,6 +56,36 @@ export function getPerpsDepositTokenDisplayList(
   );
 }
 
+export function getPerpsDepositTokensWithDefaultFallback({
+  walletTokens,
+  defaultTokens,
+}: {
+  walletTokens: IPerpsDepositToken[];
+  defaultTokens?: IPerpsDepositToken[];
+}) {
+  return walletTokens.length > 0 ? walletTokens : (defaultTokens ?? []);
+}
+
+export function shouldPreservePerpsDepositSelectedToken({
+  depositTokenListSource,
+  currentToken,
+  tokens,
+}: {
+  depositTokenListSource?: 'serverConfig' | 'walletBalance';
+  currentToken?: IPerpsDepositToken;
+  tokens: IPerpsDepositToken[];
+}) {
+  return (
+    depositTokenListSource === 'walletBalance' &&
+    tokens.some((token) =>
+      equalTokenNoCaseSensitive({
+        token1: token,
+        token2: currentToken,
+      }),
+    )
+  );
+}
+
 export function shouldUsePerpsDepositLiveWalletTokens({
   atomOwnerKey,
   routeOwnerKey,
