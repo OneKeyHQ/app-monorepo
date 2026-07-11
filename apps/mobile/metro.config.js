@@ -485,6 +485,17 @@ const applyFixImageAssetsMiddleware = (middleware) => {
 config.server.enhanceMiddleware = (metroMiddleware, _metroServer) =>
   connect().use(applyFixImageAssetsMiddleware(metroMiddleware));
 
+// STORYBOOK_ENABLED gates the app entry via babel env inlining, which Metro's
+// transform-cache key cannot see — flipping modes would serve stale transforms
+// (e.g. the wallet entry inside storybook mode). Namespace the cache per mode
+// so both stay correct and cached without `--clear` on every switch.
+config.cacheVersion = [
+  config.cacheVersion,
+  process.env.STORYBOOK_ENABLED === 'true' ? 'storybook' : 'app',
+]
+  .filter(Boolean)
+  .join('-');
+
 module.exports = withRozenite(
   // On-device Storybook workbench. When STORYBOOK_ENABLED is unset the wrapper
   // strips every storybook module from the bundle via its resolver, so normal

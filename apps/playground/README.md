@@ -189,3 +189,9 @@ Verified 2026-07-11 on an iPhone 16 Pro simulator:
 - First cross-platform diff the native shell caught: `Badge` stretches
   full-width on native (RN's default `alignSelf: stretch`) while hugging its
   content on web — exactly the class of difference this shell exists to show.
+- **Mode switching is cache-safe**: the `STORYBOOK_ENABLED` babel inlining is
+  invisible to Metro's transform-cache key, so flipping modes used to serve the
+  stale entry (wallet inside storybook mode) until `metro.config.js` started
+  namespacing `config.cacheVersion` per mode. Symptom if it regresses: Metro
+  runs with the channel server on `:7007` but the app boots the wallet — no
+  `--clear` needed, just check that cacheVersion line.
