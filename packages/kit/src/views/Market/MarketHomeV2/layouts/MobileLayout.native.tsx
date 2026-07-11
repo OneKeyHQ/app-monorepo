@@ -40,6 +40,7 @@ import {
   getMarketStockCategoryRequestParam,
 } from './marketStockCategoryUtils';
 import { shouldIgnoreProgrammaticSettlingTab } from './marketTabChangeGuards';
+import { shouldIgnoreStalePagerTabChange } from './marketTabSelectionGuards';
 import {
   MARKET_MOBILE_COLUMN_HEADER_HEIGHT,
   getMarketMobileSecondaryHeaderHeight,
@@ -605,6 +606,18 @@ function MobileLayoutComponent({
       const wasDraggedAfterExpectedTab =
         expectedTabNameStartedAt > 0 &&
         lastPagerDraggingAt > expectedTabNameStartedAt;
+
+      if (
+        shouldIgnoreStalePagerTabChange({
+          expectedTabName,
+          incomingTabName: tabName,
+          selectedTabName: latestTabState.selectedTabName,
+          isRecentPagerDrag,
+        })
+      ) {
+        requestPageSync();
+        return;
+      }
 
       const lastProgrammaticAcceptedTab =
         lastProgrammaticAcceptedTabRef.current;
