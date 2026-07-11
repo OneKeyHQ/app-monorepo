@@ -581,7 +581,7 @@
   "defi_lending_permit_sign__hint": "Prima firmerai un’autorizzazione di prelievo, poi confermerai la transazione",
   "defi_lending_step_of_total": "Passaggio {step} di {total}",
   "defi_lending_waiting_approval": "In attesa dell’approvazione…",
-  "defi_native_instant_withdraw_fee__desc": "Il protocollo Native addebita l'<strong>1% del tuo capitale</strong> per saltare il periodo di attesa — nulla va a OneKey. Il prelievo standard richiede circa 3 giorni ma non prevede commissioni.",
+  "defi_native_instant_withdraw_fee__desc": "Il protocollo Native addebita l’<strong>1% del tuo capitale</strong> per saltare il periodo di attesa — nulla va a OneKey. Il prelievo standard richiede circa 3 giorni ma non prevede commissioni.",
   "defi_native_instant_withdraw_fee__title": "Commissione dell'1% per il prelievo istantaneo",
   "derivation_path": "Percorso di derivazione",
   "description_403": "I nostri servizi non sono disponibili nella tua regione.",

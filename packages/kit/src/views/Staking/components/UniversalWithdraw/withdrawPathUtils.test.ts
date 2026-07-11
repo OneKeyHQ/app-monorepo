@@ -2,6 +2,7 @@ import {
   clampWithdrawPathIndex,
   resolveSelectedWithdrawPath,
   shouldConfirmNativeInstantWithdrawFee,
+  shouldWaitForNativeWithdrawPath,
 } from './withdrawPathUtils';
 
 import type { IWithdrawPathBox } from './withdrawPathUtils';
@@ -21,8 +22,13 @@ const queuedBox: IWithdrawPathBox = {
 function selectedWithdrawTypeFor(
   boxes: IWithdrawPathBox[],
   selectedIndex: number,
+  preferredWithdrawType?: IWithdrawPathBox['withdrawType'],
 ) {
-  return resolveSelectedWithdrawPath({ boxes, selectedIndex })?.withdrawType;
+  return resolveSelectedWithdrawPath({
+    boxes,
+    selectedIndex,
+    preferredWithdrawType,
+  })?.withdrawType;
 }
 
 describe('withdrawPathUtils', () => {
@@ -107,7 +113,26 @@ describe('withdrawPathUtils', () => {
       ).toBe(true);
     });
 
-    it('resolves nothing for an empty response and never gates', () => {
+    it('preserves the selected path when the server reorders boxes', () => {
+      const withdrawType = selectedWithdrawTypeFor(
+        [queuedBox, instantBox],
+        1,
+        'queued',
+      );
+      expect(withdrawType).toBe('queued');
+    });
+
+    it('does not substitute another path when the selected type disappears', () => {
+      expect(
+        resolveSelectedWithdrawPath({
+          boxes: [instantBox],
+          selectedIndex: 0,
+          preferredWithdrawType: 'queued',
+        }),
+      ).toBeUndefined();
+    });
+
+    it('blocks Native submission when the response has no path', () => {
       expect(resolveSelectedWithdrawPath({ boxes: [], selectedIndex: 0 })).toBe(
         undefined,
       );
@@ -118,6 +143,14 @@ describe('withdrawPathUtils', () => {
           withdrawType: undefined,
         }),
       ).toBe(false);
+      expect(
+        shouldWaitForNativeWithdrawPath({
+          providerName: 'native',
+          isCancelWithdrawal: false,
+          withdrawType: undefined,
+          isLoading: false,
+        }),
+      ).toBe(true);
     });
   });
 
@@ -173,6 +206,52 @@ describe('withdrawPathUtils', () => {
           withdrawType: 'instant',
         }),
       ).toBe(true);
+    });
+  });
+
+  describe('shouldWaitForNativeWithdrawPath', () => {
+    it.each(['instant', 'queued'] as const)(
+      'allows a resolved %s path when no refresh is pending',
+      (withdrawType) => {
+        expect(
+          shouldWaitForNativeWithdrawPath({
+            providerName: 'native',
+            isCancelWithdrawal: false,
+            withdrawType,
+            isLoading: false,
+          }),
+        ).toBe(false);
+      },
+    );
+
+    it('blocks while the current Native path is refreshing', () => {
+      expect(
+        shouldWaitForNativeWithdrawPath({
+          providerName: 'native',
+          isCancelWithdrawal: false,
+          withdrawType: 'instant',
+          isLoading: true,
+        }),
+      ).toBe(true);
+    });
+
+    it('does not block other providers or cancellation', () => {
+      expect(
+        shouldWaitForNativeWithdrawPath({
+          providerName: 'pendle',
+          isCancelWithdrawal: false,
+          withdrawType: undefined,
+          isLoading: true,
+        }),
+      ).toBe(false);
+      expect(
+        shouldWaitForNativeWithdrawPath({
+          providerName: 'native',
+          isCancelWithdrawal: true,
+          withdrawType: 'cancel',
+          isLoading: true,
+        }),
+      ).toBe(false);
     });
   });
 });

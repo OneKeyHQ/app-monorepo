@@ -97,6 +97,7 @@ import {
   clampWithdrawPathIndex,
   resolveSelectedWithdrawPath,
   shouldConfirmNativeInstantWithdrawFee,
+  shouldWaitForNativeWithdrawPath,
 } from './withdrawPathUtils';
 
 import type { IWithdrawPathBox } from './withdrawPathUtils';
@@ -361,6 +362,9 @@ export function UniversalWithdraw({
     isCancelWithdrawal ? '0' : (initialAmount ?? ''),
   );
   const [selectedWithdrawPathIndex, setSelectedWithdrawPathIndex] = useState(0);
+  const [preferredWithdrawType, setPreferredWithdrawType] = useState<
+    IEarnWithdrawType | undefined
+  >();
   const [withdrawProgressStep, setWithdrawProgressStep] = useState(
     EStakeProgressStep.approve,
   );
@@ -372,6 +376,9 @@ export function UniversalWithdraw({
   const [transactionConfirmation, setTransactionConfirmation] = useState<
     IStakeTransactionConfirmation | undefined
   >();
+  const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
+    useState(false);
+  const transactionConfirmationRequestIdRef = useRef(0);
 
   // Sign message hook and refs for withdraw all signature
   const signPersonalMessage = useEarnSignMessageWithoutVerify();
@@ -392,6 +399,11 @@ export function UniversalWithdraw({
     () => earnUtils.isNativeProvider({ providerName: providerName ?? '' }),
     [providerName],
   );
+  const transactionConfirmationRequestAmount = useMemo(() => {
+    if (!isNativeProvider) return amountValue;
+    const amountBN = new BigNumber(amountValue);
+    return amountBN.isNaN() ? amountValue : amountBN.toFixed();
+  }, [amountValue, isNativeProvider]);
   const shouldSendProtocolVault = useMemo(
     () =>
       earnUtils.shouldSendEarnProtocolVault({
@@ -409,14 +421,29 @@ export function UniversalWithdraw({
     transactionConfirmation?.withdrawPath?.data?.confirmBoxes,
   ]);
 
-  const effectiveSelectedWithdrawPathIndex = useMemo(
+  const selectedWithdrawPath = useMemo(
     () =>
-      clampWithdrawPathIndex({
+      resolveSelectedWithdrawPath({
+        boxes: withdrawPathConfirmBoxes,
         selectedIndex: selectedWithdrawPathIndex,
-        boxesLength: withdrawPathConfirmBoxes.length,
+        preferredWithdrawType,
       }),
-    [selectedWithdrawPathIndex, withdrawPathConfirmBoxes.length],
+    [
+      preferredWithdrawType,
+      selectedWithdrawPathIndex,
+      withdrawPathConfirmBoxes,
+    ],
   );
+
+  const effectiveSelectedWithdrawPathIndex = useMemo(() => {
+    if (!selectedWithdrawPath) return 0;
+    const resolvedIndex =
+      withdrawPathConfirmBoxes.indexOf(selectedWithdrawPath);
+    return clampWithdrawPathIndex({
+      selectedIndex: resolvedIndex,
+      boxesLength: withdrawPathConfirmBoxes.length,
+    });
+  }, [selectedWithdrawPath, withdrawPathConfirmBoxes]);
 
   useEffect(() => {
     if (selectedWithdrawPathIndex !== effectiveSelectedWithdrawPathIndex) {
@@ -424,19 +451,38 @@ export function UniversalWithdraw({
     }
   }, [effectiveSelectedWithdrawPathIndex, selectedWithdrawPathIndex]);
 
-  const selectedWithdrawPath = useMemo(
-    () =>
-      resolveSelectedWithdrawPath({
-        boxes: withdrawPathConfirmBoxes,
-        selectedIndex: effectiveSelectedWithdrawPathIndex,
-      }),
-    [withdrawPathConfirmBoxes, effectiveSelectedWithdrawPathIndex],
-  );
+  useEffect(() => {
+    if (
+      preferredWithdrawType &&
+      withdrawPathConfirmBoxes.length > 0 &&
+      !withdrawPathConfirmBoxes.some(
+        (box) => box.withdrawType === preferredWithdrawType,
+      )
+    ) {
+      setPreferredWithdrawType(undefined);
+    }
+  }, [preferredWithdrawType, withdrawPathConfirmBoxes]);
 
   const selectedWithdrawType = useMemo<IEarnWithdrawType | undefined>(() => {
     if (isCancelWithdrawal) return 'cancel';
     return selectedWithdrawPath?.withdrawType;
   }, [isCancelWithdrawal, selectedWithdrawPath?.withdrawType]);
+
+  const isNativeWithdrawPathPending = useMemo(
+    () =>
+      shouldWaitForNativeWithdrawPath({
+        providerName: providerName ?? '',
+        isCancelWithdrawal,
+        withdrawType: selectedWithdrawType,
+        isLoading: transactionConfirmationLoading,
+      }),
+    [
+      isCancelWithdrawal,
+      providerName,
+      selectedWithdrawType,
+      transactionConfirmationLoading,
+    ],
+  );
 
   const rootTransactionTip = useMemo(
     () =>
@@ -791,13 +837,66 @@ export function UniversalWithdraw({
       setIgnoreAllowanceCheck(false);
       setPendingEthenaCooldownUnstake(false);
       setWithdrawProgressStep(EStakeProgressStep.approve);
+      if (isNativeProvider) {
+        setTransactionConfirmationLoading(true);
+      }
+      setPreferredWithdrawType(targetBox.withdrawType);
       setSelectedWithdrawPathIndex(index);
     },
-    [withdrawPathConfirmBoxes],
+    [isNativeProvider, withdrawPathConfirmBoxes],
   );
+
+  const withdrawSubmissionContext = useMemo(
+    () => ({
+      accountAddress,
+      accountId,
+      amount: transactionConfirmationRequestAmount,
+      networkId,
+      providerName,
+      actionSymbol,
+      protocolVault: shouldSendProtocolVault ? protocolVault : undefined,
+      identity,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
+      pendleSlippage,
+      selectedWithdrawType,
+      isDisabled,
+    }),
+    [
+      accountAddress,
+      accountId,
+      actionSymbol,
+      identity,
+      isDisabled,
+      networkId,
+      pendleSlippage,
+      protocolVault,
+      providerName,
+      selectedWithdrawType,
+      shouldSendProtocolVault,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
+      transactionConfirmationRequestAmount,
+    ],
+  );
+  const withdrawSubmissionContextRef = useRef(withdrawSubmissionContext);
+  withdrawSubmissionContextRef.current = withdrawSubmissionContext;
 
   const onPress = useCallback(async () => {
     try {
+      const submissionContext = withdrawSubmissionContext;
+      const submitAmount = transactionConfirmationRequestAmount;
+      const submitWithdrawAll = withdrawAllRef.current;
+      let nativePreflightRequestId: number | undefined;
+      const isCurrentConfirmationRequest = () =>
+        submissionContext === withdrawSubmissionContextRef.current &&
+        (nativePreflightRequestId === undefined ||
+          nativePreflightRequestId ===
+            transactionConfirmationRequestIdRef.current);
+      const isCurrentSubmission = () =>
+        isCurrentConfirmationRequest() &&
+        submitWithdrawAll === withdrawAllRef.current;
+
       Keyboard.dismiss();
       setLoading(true);
       ethenaCooldownCompletedRef.current = false;
@@ -808,6 +907,80 @@ export function UniversalWithdraw({
         effectiveSelectedWithdrawPathIndex === 0;
       const shouldResumeEthenaCooldownUnstake =
         shouldUseEthenaCooldown && pendingEthenaCooldownUnstake;
+      let confirmedWithdrawType = selectedWithdrawType;
+      let confirmedEffectiveApy = transactionConfirmation?.effectiveApy;
+
+      if (isNativeProvider && !isCancelWithdrawal) {
+        nativePreflightRequestId =
+          transactionConfirmationRequestIdRef.current + 1;
+        transactionConfirmationRequestIdRef.current = nativePreflightRequestId;
+        setTransactionConfirmationLoading(true);
+        let latestTransactionConfirmation:
+          | IStakeTransactionConfirmation
+          | undefined;
+        try {
+          latestTransactionConfirmation =
+            await fetchTransactionConfirmationRef.current?.(submitAmount);
+        } catch {
+          if (
+            nativePreflightRequestId ===
+              transactionConfirmationRequestIdRef.current &&
+            isCurrentConfirmationRequest()
+          ) {
+            setTransactionConfirmation(undefined);
+          }
+          return;
+        } finally {
+          if (
+            nativePreflightRequestId ===
+              transactionConfirmationRequestIdRef.current &&
+            isCurrentConfirmationRequest()
+          ) {
+            setTransactionConfirmationLoading(false);
+          }
+        }
+
+        if (
+          nativePreflightRequestId !==
+            transactionConfirmationRequestIdRef.current ||
+          !isCurrentSubmission()
+        ) {
+          return;
+        }
+
+        setTransactionConfirmation(latestTransactionConfirmation);
+        const latestWithdrawPathConfirmBoxes =
+          latestTransactionConfirmation?.withdrawPath?.data?.confirmBoxes ?? [];
+        const latestSelectedWithdrawPath = resolveSelectedWithdrawPath({
+          boxes: latestWithdrawPathConfirmBoxes,
+          selectedIndex: effectiveSelectedWithdrawPathIndex,
+          preferredWithdrawType: selectedWithdrawType,
+        });
+        confirmedWithdrawType = latestSelectedWithdrawPath?.withdrawType;
+        confirmedEffectiveApy = latestTransactionConfirmation?.effectiveApy;
+
+        if (
+          latestSelectedWithdrawPath?.disabled ||
+          shouldWaitForNativeWithdrawPath({
+            providerName: providerName ?? '',
+            isCancelWithdrawal,
+            withdrawType: confirmedWithdrawType,
+            isLoading: false,
+          })
+        ) {
+          return;
+        }
+
+        const latestSelectedWithdrawPathIndex = latestSelectedWithdrawPath
+          ? latestWithdrawPathConfirmBoxes.indexOf(latestSelectedWithdrawPath)
+          : -1;
+        if (
+          latestSelectedWithdrawPathIndex >= 0 &&
+          latestSelectedWithdrawPathIndex !== effectiveSelectedWithdrawPathIndex
+        ) {
+          setSelectedWithdrawPathIndex(latestSelectedWithdrawPathIndex);
+        }
+      }
 
       // Get signature for withdraw all (Stakefish ETH)
       if (
@@ -863,20 +1036,24 @@ export function UniversalWithdraw({
         shouldConfirmNativeInstantWithdrawFee({
           providerName: providerName ?? '',
           isCancelWithdrawal,
-          withdrawType: selectedWithdrawType,
+          withdrawType: confirmedWithdrawType,
         })
       ) {
         const feeConfirmed = await showNativeInstantWithdrawFeeDialog(intl);
         if (!feeConfirmed) return;
       }
 
+      if (isNativeProvider && !isCancelWithdrawal && !isCurrentSubmission()) {
+        return;
+      }
+
       await onConfirm?.({
-        amount: isCancelWithdrawal ? '0' : amountValue,
-        withdrawAll: withdrawAllRef.current,
+        amount: isCancelWithdrawal ? '0' : submitAmount,
+        withdrawAll: submitWithdrawAll,
         signature: withdrawSignatureRef.current,
         message: withdrawMessageRef.current,
-        effectiveApy: transactionConfirmation?.effectiveApy,
-        withdrawType: selectedWithdrawType,
+        effectiveApy: confirmedEffectiveApy,
+        withdrawType: confirmedWithdrawType,
         useEthenaCooldown: shouldUseEthenaCooldown ? true : undefined,
         resumeEthenaCooldownUnstake: shouldResumeEthenaCooldownUnstake
           ? true
@@ -935,11 +1112,12 @@ export function UniversalWithdraw({
     pendingEthenaCooldownUnstake,
     selectedWithdrawType,
     isCancelWithdrawal,
+    isNativeProvider,
+    transactionConfirmationRequestAmount,
+    withdrawSubmissionContext,
   ]);
 
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
-  const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
-    useState(false);
 
   const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
 
@@ -1020,31 +1198,63 @@ export function UniversalWithdraw({
   fetchTransactionConfirmationRef.current = fetchTransactionConfirmation;
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
-    async (amount?: string) => {
+    async ({ amount, requestId }: { amount?: string; requestId: number }) => {
+      if (requestId !== transactionConfirmationRequestIdRef.current) {
+        return;
+      }
       setTransactionConfirmationLoading(true);
       try {
         const resp = await fetchTransactionConfirmation(amount || '0');
+        if (requestId !== transactionConfirmationRequestIdRef.current) {
+          return;
+        }
         setTransactionConfirmation(resp);
         if (resp && amount && Number(amount) > 0) {
           onQuoteReset?.();
         }
       } catch {
-        // keep stale state
+        if (
+          requestId === transactionConfirmationRequestIdRef.current &&
+          isNativeProvider
+        ) {
+          setTransactionConfirmation(undefined);
+        }
       } finally {
-        setTransactionConfirmationLoading(false);
+        if (requestId === transactionConfirmationRequestIdRef.current) {
+          setTransactionConfirmationLoading(false);
+        }
       }
     },
     350,
   );
 
   useEffect(() => {
-    void debouncedFetchTransactionConfirmation(amountValue);
+    const requestId = transactionConfirmationRequestIdRef.current + 1;
+    transactionConfirmationRequestIdRef.current = requestId;
+    if (isNativeProvider) {
+      setTransactionConfirmationLoading(true);
+    }
+    void debouncedFetchTransactionConfirmation({
+      amount: transactionConfirmationRequestAmount,
+      requestId,
+    });
   }, [
-    amountValue,
     debouncedFetchTransactionConfirmation,
+    fetchTransactionConfirmation,
+    isNativeProvider,
     selectedWithdrawType,
+    transactionConfirmationRequestAmount,
     transactionOutputTokenAddress,
+    withdrawSubmissionContext,
   ]);
+
+  useEffect(
+    () => () => {
+      transactionConfirmationRequestIdRef.current += 1;
+      debouncedFetchTransactionConfirmation.cancel();
+    },
+    [debouncedFetchTransactionConfirmation],
+  );
 
   const { quoteRefreshing, handleLocalRefreshQuote } = useQuoteRefresh({
     enabled: isPendleProvider,
@@ -1089,13 +1299,27 @@ export function UniversalWithdraw({
         setIgnoreAllowanceCheck(false);
         setPendingEthenaCooldownUnstake(false);
         setWithdrawProgressStep(EStakeProgressStep.approve);
+        const nextTransactionConfirmationAmount = valueBN.toFixed();
+        if (
+          isNativeProvider &&
+          nextTransactionConfirmationAmount !==
+            transactionConfirmationRequestAmount
+        ) {
+          setTransactionConfirmationLoading(true);
+        }
         setAmountValue(value);
       }
       withdrawAllRef.current = !!isMax;
       setIsWithdrawAll(!!isMax);
       void checkAmount(value);
     },
-    [checkAmount, decimals, isCancelWithdrawal],
+    [
+      checkAmount,
+      decimals,
+      isCancelWithdrawal,
+      isNativeProvider,
+      transactionConfirmationRequestAmount,
+    ],
   );
 
   // Re-trigger checkAmount when output token changes
@@ -1165,7 +1389,8 @@ export function UniversalWithdraw({
           BigNumber(amountValue).isLessThanOrEqualTo(0))) ||
       isCheckAmountMessageError ||
       checkAmountAlerts.length > 0 ||
-      checkAmountLoading,
+      checkAmountLoading ||
+      isNativeWithdrawPathPending,
     [
       isDisabled,
       amountValue,
@@ -1173,6 +1398,7 @@ export function UniversalWithdraw({
       checkAmountAlerts.length,
       checkAmountLoading,
       isCancelWithdrawal,
+      isNativeWithdrawPathPending,
       selectedWithdrawPath?.disabled,
     ],
   );
@@ -1208,8 +1434,14 @@ export function UniversalWithdraw({
   const effectiveShowExpiredRefresh = showExpiredRefresh && !isTransacting;
 
   const amountInputDisabled = useMemo(() => {
-    return isDisabled || initialAmount !== undefined || isCancelWithdrawal;
-  }, [isDisabled, initialAmount, isCancelWithdrawal]);
+    return (
+      isDisabled ||
+      initialAmount !== undefined ||
+      isCancelWithdrawal ||
+      loading ||
+      approving
+    );
+  }, [approving, initialAmount, isCancelWithdrawal, isDisabled, loading]);
 
   const accordionContent = useMemo(() => {
     const items: ReactElement[] = [];
@@ -1344,10 +1576,13 @@ export function UniversalWithdraw({
   ]);
 
   const confirmLoading = useMemo(() => {
+    if (isNativeProvider && transactionConfirmationLoading) return true;
     if (shouldApprove) return loadingAllowance || approving;
     if (effectiveShowExpiredRefresh) return quoteRefreshing;
     return loading || checkAmountLoading;
   }, [
+    isNativeProvider,
+    transactionConfirmationLoading,
     shouldApprove,
     effectiveShowExpiredRefresh,
     loadingAllowance,
@@ -1470,6 +1705,7 @@ export function UniversalWithdraw({
           userSelect="none"
           cursor="pointer"
           hoverStyle={{ bg: '$bgHover' }}
+          disabled={loading || approving}
           onPress={showWithdrawPathDialog}
         >
           <YStack flex={1} gap="$1">

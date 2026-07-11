@@ -468,6 +468,13 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async buildUnstakeTransaction(params: IWithdrawBaseParams) {
+    if (
+      earnUtils.isNativeProvider({ providerName: params.provider }) &&
+      params.withdrawType === undefined
+    ) {
+      throw new OneKeyLocalError('Native withdrawal type is required');
+    }
+
     const { networkId, accountId, protocolVault, effectiveApy, ...rest } =
       params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);

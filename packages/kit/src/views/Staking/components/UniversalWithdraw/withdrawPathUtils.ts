@@ -29,11 +29,16 @@ export function clampWithdrawPathIndex({
 export function resolveSelectedWithdrawPath({
   boxes,
   selectedIndex,
+  preferredWithdrawType,
 }: {
   boxes: IWithdrawPathBox[];
   selectedIndex: number;
+  preferredWithdrawType?: IEarnWithdrawType;
 }): IWithdrawPathBox | undefined {
   if (!boxes.length) return undefined;
+  if (preferredWithdrawType) {
+    return boxes.find((box) => box.withdrawType === preferredWithdrawType);
+  }
   const effectiveIndex = clampWithdrawPathIndex({
     selectedIndex,
     boxesLength: boxes.length,
@@ -54,5 +59,25 @@ export function shouldConfirmNativeInstantWithdrawFee({
     earnUtils.isNativeProvider({ providerName }) &&
     !isCancelWithdrawal &&
     withdrawType === 'instant'
+  );
+}
+
+export function shouldWaitForNativeWithdrawPath({
+  providerName,
+  isCancelWithdrawal,
+  withdrawType,
+  isLoading,
+}: {
+  providerName: string;
+  isCancelWithdrawal: boolean;
+  withdrawType?: IEarnWithdrawType;
+  isLoading: boolean;
+}): boolean {
+  const hasResolvedWithdrawPath =
+    withdrawType === 'instant' || withdrawType === 'queued';
+  return (
+    earnUtils.isNativeProvider({ providerName }) &&
+    !isCancelWithdrawal &&
+    (isLoading || !hasResolvedWithdrawPath)
   );
 }
