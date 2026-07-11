@@ -69,7 +69,7 @@ import { DefaultLoadingNode } from './DefaultLoadingNode';
 import { type ITickParam } from './tickSizeUtils';
 import { useAggregatedBook } from './useAggregatedBook';
 import { useRafCoalesced } from './useRafCoalesced';
-import { getMidPrice } from './utils';
+import { getOrderBookMidPrice } from './utils';
 
 import type { IFormattedOBLevel, IOrderBookVariant } from './types';
 import type {
@@ -1352,6 +1352,7 @@ export function OrderPairBook({
   onSelectLevel?: (payload: IOrderBookSelection) => void;
 }) {
   const intl = useIntl();
+  const { midPrice: liveMidPrice } = useTradingPrice();
   const aggregatedData = useAggregatedBook(
     variant,
     bids,
@@ -1367,10 +1368,11 @@ export function OrderPairBook({
   const askDepth = useMemo(() => {
     return new BigNumber(aggregatedData.asks.at(-1)?.cumSize ?? '0');
   }, [aggregatedData.asks]);
-  const midPrice = getMidPrice(
-    parseFloat(bids[0]?.px ?? '0'),
-    parseFloat(asks[0]?.px ?? '0'),
-  );
+  const midPrice = getOrderBookMidPrice({
+    liveMidPrice,
+    bestBid: bids[0]?.px,
+    bestAsk: asks[0]?.px,
+  });
   const textColor = useTextColor();
   const blockColors = useBlockColors();
   const isInteractive = Boolean(onSelectLevel);
@@ -1565,13 +1567,20 @@ function MobileSpreadInfoContent({
   if (hasMarkPrice) {
     referencePriceDisplay = isSpot ? `≈$${localizedMarkPrice}` : markPrice;
   }
-  const emptyMidPrice =
-    hasTradingMidPrice && tradingMidPrice
-      ? formatLocalizedNumberString(tradingMidPrice)
-      : localizedMarkPrice;
-  const midPrice = isEmpty
-    ? emptyMidPrice
-    : getMidPrice(parseFloat(bestBidPx ?? '0'), parseFloat(bestAskPx ?? '0'));
+  const fallbackMidPrice = isEmpty ? markPrice : undefined;
+  const resolvedMidPrice = getOrderBookMidPrice({
+    liveMidPrice:
+      hasTradingMidPrice && tradingMidPrice
+        ? tradingMidPrice
+        : fallbackMidPrice,
+    bestBid: bestBidPx,
+    bestAsk: bestAskPx,
+  });
+  const resolvedMidPriceBN = new BigNumber(resolvedMidPrice);
+  const midPrice =
+    resolvedMidPriceBN.isFinite() && resolvedMidPriceBN.gt(0)
+      ? formatLocalizedNumberString(resolvedMidPrice)
+      : '--';
 
   useEffect(() => {
     tracePerpsMobileLayout('orderBook.mobileReferencePrice.state', {
@@ -1690,28 +1699,6 @@ function MobileSpreadInfoContent({
 }
 const MobileSpreadInfoContentMemo = memo(MobileSpreadInfoContent);
 
-const MobileEmptySpreadInfoRow = memo(
-  ({
-    isEmpty,
-    textColor,
-  }: {
-    isEmpty: boolean;
-    textColor: ReturnType<typeof useTextColor>;
-  }) => {
-    const { midPrice: tradingMidPrice, isValid: hasTradingMidPrice } =
-      useTradingPrice();
-    return (
-      <MobileSpreadInfoContentMemo
-        hasTradingMidPrice={hasTradingMidPrice}
-        isEmpty={isEmpty}
-        textColor={textColor}
-        tradingMidPrice={tradingMidPrice}
-      />
-    );
-  },
-);
-MobileEmptySpreadInfoRow.displayName = 'MobileEmptySpreadInfoRow';
-
 const MobileSpreadInfoRow = memo(
   ({
     bestAskPx,
@@ -1724,18 +1711,17 @@ const MobileSpreadInfoRow = memo(
     isEmpty: boolean;
     textColor: ReturnType<typeof useTextColor>;
   }) => {
-    if (isEmpty) {
-      return (
-        <MobileEmptySpreadInfoRow isEmpty={isEmpty} textColor={textColor} />
-      );
-    }
+    const { midPrice: tradingMidPrice, isValid: hasTradingMidPrice } =
+      useTradingPrice();
 
     return (
       <MobileSpreadInfoContentMemo
         bestAskPx={bestAskPx}
         bestBidPx={bestBidPx}
+        hasTradingMidPrice={hasTradingMidPrice}
         isEmpty={isEmpty}
         textColor={textColor}
+        tradingMidPrice={tradingMidPrice}
       />
     );
   },
