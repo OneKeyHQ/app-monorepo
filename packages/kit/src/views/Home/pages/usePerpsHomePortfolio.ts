@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -151,11 +151,12 @@ interface IPerpsHomePortfolioResult {
   requestResolved: boolean;
 }
 
-export function usePerpsHomePortfolio(): {
+export function usePerpsHomePortfolio(options?: { isTabFocused?: boolean }): {
   viewState: 'ready' | 'loading' | 'empty';
   view: IPerpsHomeView | undefined;
   canDeposit: boolean;
   isDepositDisabled: boolean;
+  refresh: () => Promise<void>;
 } {
   const {
     activeAccount: { account },
@@ -167,7 +168,8 @@ export function usePerpsHomePortfolio(): {
     indexedAccountId,
   });
   // Home tabs stay mounted while frozen, so gate polling on the Perps tab being active.
-  const { isFocused: isTabFocused } = useTabIsRefreshingFocused();
+  const { isFocused: contextIsTabFocused } = useTabIsRefreshingFocused();
+  const isTabFocused = options?.isTabFocused ?? contextIsTabFocused;
   const isTabFocusedRef = useRef(isTabFocused);
   isTabFocusedRef.current = isTabFocused;
   const [deriveTypeRevision, setDeriveTypeRevision] = useState(0);
@@ -547,8 +549,11 @@ export function usePerpsHomePortfolio(): {
   }, [result, view]);
 
   const canDeposit = Boolean(result?.address);
+  const refresh = useCallback(async () => {
+    await run({ alwaysSetState: true });
+  }, [run]);
   return useMemo(
-    () => ({ viewState, view, canDeposit, isDepositDisabled }),
-    [canDeposit, isDepositDisabled, viewState, view],
+    () => ({ viewState, view, canDeposit, isDepositDisabled, refresh }),
+    [canDeposit, isDepositDisabled, refresh, viewState, view],
   );
 }

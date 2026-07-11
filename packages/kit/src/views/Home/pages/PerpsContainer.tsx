@@ -1057,6 +1057,42 @@ function PerpsEmptyState({
   );
 }
 
+export function PerpsHomeStateSlot({
+  viewState,
+  canDeposit,
+  isDepositDisabled,
+}: {
+  viewState: 'loading' | 'empty';
+  canDeposit: boolean;
+  isDepositDisabled: boolean;
+}) {
+  const intl = useIntl();
+
+  return (
+    <YStack px="$5" py="$3" pb="$4" gap="$2">
+      {viewState === 'loading' ? <PerpsLoadingState /> : null}
+      {viewState === 'empty' ? (
+        <>
+          <PerpsEmptyState
+            canDeposit={canDeposit}
+            isDepositDisabled={isDepositDisabled}
+          />
+          <PerpsEmptyRecommendSection />
+          <YStack gap="$6" mx="$-5">
+            <Upgrade />
+            <SupportHub
+              helpCenterTitle={intl.formatMessage({
+                id: ETranslations.perp_guide_title,
+              })}
+              helpCenterLink={HOME_PERPS_GUIDE_URL}
+            />
+          </YStack>
+        </>
+      ) : null}
+    </YStack>
+  );
+}
+
 function PerpsMobileHoldingRow({
   holding,
   hyperEvmLogoUri,
@@ -1158,6 +1194,122 @@ function PerpsMobileHoldingRow({
   );
 }
 
+function PerpsMobileSummaryTitle({
+  totalUsd,
+  isDegraded,
+  canDeposit,
+  isDepositDisabled,
+}: {
+  totalUsd: number;
+  isDegraded?: boolean;
+  canDeposit: boolean;
+  isDepositDisabled: boolean;
+}) {
+  const intl = useIntl();
+
+  return (
+    <XStack alignItems="center" justifyContent="space-between" gap="$4">
+      <XStack flex={1} minWidth={0} alignItems="center" gap="$1">
+        <SizableText size="$headingXl" color="$text" numberOfLines={1}>
+          {intl.formatMessage({ id: ETranslations.global_perp })}
+        </SizableText>
+        <SizableText size="$headingXl" color="$textSubdued">
+          ·
+        </SizableText>
+        <PerpsTotalUsd
+          value={totalUsd}
+          isDegraded={isDegraded}
+          size="$headingXl"
+          color="$textSubdued"
+          numberOfLines={1}
+        />
+      </XStack>
+      <PerpsDepositButton
+        testID={HomeTestIDs.perpsDepositButton}
+        canDeposit={canDeposit}
+        isDepositDisabled={isDepositDisabled}
+      />
+    </XStack>
+  );
+}
+
+function PerpsMobileColumnHeader() {
+  const intl = useIntl();
+  const media = useMedia();
+  const tooltipText = media.gtMd
+    ? undefined
+    : intl.formatMessage({
+        id: ETranslations.marketdex_un_pnl,
+      });
+  const tooltipTitle = media.gtMd
+    ? undefined
+    : intl.formatMessage({
+        id: ETranslations.marketdex_unrealized_pnl,
+      });
+
+  return (
+    <XStack alignItems="center" gap="$3" pt="$1.5">
+      <XStack flexGrow={1} flexBasis={0} alignItems="center" gap="$1">
+        <SizableText size="$bodyXs" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.global_name })}
+        </SizableText>
+        <SizableText size="$bodyXs" color="$textSubdued">
+          /
+        </SizableText>
+        <SizableText size="$bodyXs" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.global_balance })}
+        </SizableText>
+      </XStack>
+      <XStack
+        flexGrow={1}
+        flexBasis={0}
+        justifyContent="flex-end"
+        gap="$1"
+        alignItems="center"
+      >
+        <SizableText size="$bodyXs" color="$textSubdued">
+          {`${intl.formatMessage({ id: ETranslations.global_value })} / `}
+        </SizableText>
+        <DashText
+          size="$bodyXs"
+          color="$textSubdued"
+          dashThickness={0.5}
+          tooltip={tooltipText}
+          tooltipTitle={tooltipTitle}
+        >
+          {intl.formatMessage({
+            id: ETranslations.perp_position_pnl_mobile,
+          })}
+        </DashText>
+      </XStack>
+    </XStack>
+  );
+}
+
+export function PerpsHomeHeaderSlot({
+  totalUsd,
+  isDegraded,
+  canDeposit,
+  isDepositDisabled,
+}: {
+  totalUsd: number;
+  isDegraded?: boolean;
+  canDeposit: boolean;
+  isDepositDisabled: boolean;
+}) {
+  return (
+    <YStack flex={1} px="$5" gap="$3" py="$2">
+      <PerpsMobileSummaryTitle
+        totalUsd={totalUsd}
+        isDegraded={isDegraded}
+        canDeposit={canDeposit}
+        isDepositDisabled={isDepositDisabled}
+      />
+      <PerpsMobileColumnHeader />
+    </YStack>
+  );
+}
+
 function PerpsMobileHoldingsSummary({
   totalUsd,
   holdings,
@@ -1171,80 +1323,18 @@ function PerpsMobileHoldingsSummary({
   canDeposit: boolean;
   isDepositDisabled: boolean;
 }) {
-  const intl = useIntl();
-  const media = useMedia();
   const openPerp = useOpenPerpAsset();
-  const tooltipText = media.gtMd
-    ? undefined
-    : intl.formatMessage({
-        id: ETranslations.marketdex_un_pnl,
-      });
-  const tooltipTitle = media.gtMd
-    ? undefined
-    : intl.formatMessage({
-        id: ETranslations.marketdex_unrealized_pnl,
-      });
 
   return (
     <YStack display="flex" $gtMd={{ display: 'none' }} gap="$3" py="$2">
-      <XStack alignItems="center" justifyContent="space-between" gap="$4">
-        <XStack flex={1} minWidth={0} alignItems="center" gap="$1">
-          <SizableText size="$headingXl" color="$text" numberOfLines={1}>
-            {intl.formatMessage({ id: ETranslations.global_perp })}
-          </SizableText>
-          <SizableText size="$headingXl" color="$textSubdued">
-            ·
-          </SizableText>
-          <PerpsTotalUsd
-            value={totalUsd}
-            isDegraded={isDegraded}
-            size="$headingXl"
-            color="$textSubdued"
-            numberOfLines={1}
-          />
-        </XStack>
-        <PerpsDepositButton
-          testID={HomeTestIDs.perpsDepositButton}
-          canDeposit={canDeposit}
-          isDepositDisabled={isDepositDisabled}
-        />
-      </XStack>
+      <PerpsMobileSummaryTitle
+        totalUsd={totalUsd}
+        isDegraded={isDegraded}
+        canDeposit={canDeposit}
+        isDepositDisabled={isDepositDisabled}
+      />
       <YStack gap="$0.5">
-        <XStack alignItems="center" gap="$3" pt="$1.5">
-          <XStack flexGrow={1} flexBasis={0} alignItems="center" gap="$1">
-            <SizableText size="$bodyXs" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.global_name })}
-            </SizableText>
-            <SizableText size="$bodyXs" color="$textSubdued">
-              /
-            </SizableText>
-            <SizableText size="$bodyXs" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.global_balance })}
-            </SizableText>
-          </XStack>
-          <XStack
-            flexGrow={1}
-            flexBasis={0}
-            justifyContent="flex-end"
-            gap="$1"
-            alignItems="center"
-          >
-            <SizableText size="$bodyXs" color="$textSubdued">
-              {`${intl.formatMessage({ id: ETranslations.global_value })} / `}
-            </SizableText>
-            <DashText
-              size="$bodyXs"
-              color="$textSubdued"
-              dashThickness={0.5}
-              tooltip={tooltipText}
-              tooltipTitle={tooltipTitle}
-            >
-              {intl.formatMessage({
-                id: ETranslations.perp_position_pnl_mobile,
-              })}
-            </DashText>
-          </XStack>
-        </XStack>
+        <PerpsMobileColumnHeader />
         <YStack>
           {holdings.map((holding) => (
             <PerpsMobileHoldingRow

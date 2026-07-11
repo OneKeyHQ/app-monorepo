@@ -1,0 +1,17 @@
+{
+  "cxxNamespace": ["onekeynativecomponents"],
+  "ios": {
+    "iosModuleName": "OneKeyNativeComponents"
+  },
+  "android": {
+    "androidNamespace": ["onekeynativecomponents"],
+    "androidCxxLibName": "onekeynativecomponents"
+  },
+  "autolinking": {
+    "HomeContainer": {
+      "swift": "HybridHomeContainer",
+      "kotlin": "HybridHomeContainer"
+    }
+  },
+  "ignorePaths": ["node_modules"]
+}
