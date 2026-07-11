@@ -177,6 +177,11 @@ export type IWsAllMidsParameters = HL.AllMidsWsParameters;
 export type IEventActiveAssetCtxParameters = HL.ActiveAssetCtxWsParameters;
 export type IEventActiveAssetDataParameters = HL.ActiveAssetDataWsParameters;
 export type IEventL2BookParameters = HL.L2BookWsParameters;
+export type IEventFastL2Parameters = {
+  c: string;
+  s?: IEventL2BookParameters['nSigFigs'];
+  m?: IEventL2BookParameters['mantissa'];
+};
 export type IEventBboParameters = HL.BboWsParameters;
 export type IEventWebData2Parameters = HL.WebData2WsParameters;
 export type IEventUserFillsParameters = HL.UserFillsWsParameters;
@@ -202,6 +207,7 @@ export type ISignature = unknown;
 
 export type IPerpsSubscriptionParams = {
   [ESubscriptionType.L2_BOOK]: IEventL2BookParameters;
+  [ESubscriptionType.L2]: IEventFastL2Parameters;
   [ESubscriptionType.BBO]: IEventBboParameters;
   [ESubscriptionType.USER_FILLS]: IEventUserFillsParameters;
   [ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES]: IEventUserNonFundingLedgerUpdatesParameters;
