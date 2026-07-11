@@ -753,6 +753,7 @@
     "packages/core/src/chains/xmr/sdkXmr/moneroCore/moneroCore.js",
     "packages/shared/src/locale/enum/translations.ts",
     "packages/shared/src/locale/localeJsonMap.ts",
+    "apps/mobile/.rnstorybook/storybook.requires.ts",
     "packages/shared/src/locale/json/*",
     "node_modules/**",
     ".history/**",

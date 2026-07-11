@@ -146,3 +146,46 @@ The one remaining console warning — React's "does not recognize the `borderCur
 prop" — is Tamagui's `borderCurve="continuous"` style prop leaking to the DOM.
 It's cosmetic (present in the app itself) and RNW-deprecation-class, so it's
 tolerated per acceptance criterion 7.
+
+## On-device (iOS) spike record
+
+**Verdict: green — the same CSF files run on-device via `@storybook/react-native`
+(10.4.7; peers on storybook core `>=10`, so it coexists with the web shell's
+10.5) with zero story changes.** Parked until story coverage justifies a
+build-out; all wiring lives in `apps/mobile` (`.rnstorybook/`, the
+`withStorybook` wrap in `metro.config.js`, and a root-component swap in
+`index.ts`).
+
+Run it:
+
+```bash
+yarn workspace @onekeyhq/mobile storybook   # Metro in storybook mode on :8081
+# then launch the iOS dev app (an existing simulator Debug build works — the
+# spike needed no pod install / native rebuild)
+```
+
+Verified 2026-07-11 on an iPhone 16 Pro simulator:
+
+- Button/Input/Badge render with correct Tamagui tokens, pill radii and Roobert
+  under the same `ConfigProvider` decorator (no CSS injection needed on native;
+  the theme/locale are fixed to light/en-US until a build-out adds switching).
+- Args updates re-render live (ondevice-controls), and the Input → `useClipboard`
+  → `useIntl` chain works.
+- `STORYBOOK_ENABLED=true` swaps only the registered root in
+  `apps/mobile/index.ts`; bg/native bootstrap stays identical. Without the env,
+  `withStorybook({ enabled: false })` strips every storybook module from the
+  bundle via its resolver (23387 → 22713 modules) — normal dev and production
+  builds are unaffected, verified by a full normal boot.
+- `.rnstorybook/storybook.requires.ts` is regenerated on each storybook-mode
+  Metro start but is content-stable (require.context globs; websocket host
+  pinned to `localhost`), so it is committed for tsc and excluded from
+  oxlint / `lint:staged` as a generated file.
+- The channel WebSocket on `:7007` accepts storybook channel events
+  (`setCurrentStory`, `updateStoryArgs`) — scripted/agent-driven verification
+  without touching the simulator.
+- `@react-native-community/datetimepicker` is present JS-only (an
+  ondevice-controls peer); run `pod install` before using date controls in
+  stories.
+- First cross-platform diff the native shell caught: `Badge` stretches
+  full-width on native (RN's default `alignSelf: stretch`) while hugging its
+  content on web — exactly the class of difference this shell exists to show.

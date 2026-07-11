@@ -96,7 +96,7 @@
     "eslint": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"/.eslintcache",
     "oxlint": "npx oxlint --tsconfig ./tsconfig.json --type-aware . --fix --deny-warnings",
     "lint:only": "npx oxlint --tsconfig ./tsconfig.json --type-aware . --fix --deny-warnings",
-    "lint:staged": "git diff --cached --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx)$' | grep -v '^packages/shared/src/locale/enum/translations.ts$' | grep -v '^packages/shared/src/locale/localeJsonMap.ts$' | xargs -r npx oxlint --tsconfig ./tsconfig.json --type-aware --fix --deny-warnings",
+    "lint:staged": "git diff --cached --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx)$' | grep -v '^packages/shared/src/locale/enum/translations.ts$' | grep -v '^packages/shared/src/locale/localeJsonMap.ts$' | grep -v '^apps/mobile/.rnstorybook/storybook.requires.ts$' | xargs -r npx oxlint --tsconfig ./tsconfig.json --type-aware --fix --deny-warnings",
     "tsc:only": "npx tsgo -p ./tsconfig.json --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache --pretty",
     "tsc:staged": "npx tsgo -p ./tsconfig.json --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache --pretty",
     "test": "yarn jest",

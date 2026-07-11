@@ -10,6 +10,9 @@ const path = require('path');
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 const { withRozenite } = require('@rozenite/metro');
 const { getSentryExpoConfig } = require('@sentry/react-native/metro');
+const {
+  withStorybook,
+} = require('@storybook/react-native/metro/withStorybook');
 const connect = require('connect');
 const fs = require('fs-extra');
 const { resolve } = require('metro-resolver');
@@ -482,8 +485,21 @@ const applyFixImageAssetsMiddleware = (middleware) => {
 config.server.enhanceMiddleware = (metroMiddleware, _metroServer) =>
   connect().use(applyFixImageAssetsMiddleware(metroMiddleware));
 
-module.exports = withRozenite(splitCodePlugin(config, projectRoot), {
-  enabled: process.env.WITH_ROZENITE === 'true',
-  // enhanceMetroConfig: (cfg) => withRozeniteExpoAtlasPlugin(cfg),
-  enhanceMetroConfig: (cfg) => cfg,
-});
+module.exports = withRozenite(
+  // On-device Storybook workbench. When STORYBOOK_ENABLED is unset the wrapper
+  // strips every storybook module from the bundle via its resolver, so normal
+  // and production builds are unaffected.
+  withStorybook(splitCodePlugin(config, projectRoot), {
+    enabled: process.env.STORYBOOK_ENABLED === 'true',
+    configPath: path.resolve(projectRoot, './.rnstorybook'),
+    // Explicit localhost keeps the generated storybook.requires.ts stable —
+    // 'auto' would embed this machine's LAN IP. The iOS simulator reaches the
+    // host's localhost directly.
+    websockets: { host: 'localhost', port: 7007 },
+  }),
+  {
+    enabled: process.env.WITH_ROZENITE === 'true',
+    // enhanceMetroConfig: (cfg) => withRozeniteExpoAtlasPlugin(cfg),
+    enhanceMetroConfig: (cfg) => cfg,
+  },
+);

@@ -174,7 +174,15 @@ const { initSentry } =
   require('@onekeyhq/shared/src/modules3rdParty/sentry') as ISentryModule;
 const { ReactNativeDeviceUtils } =
   require('@onekeyfe/react-native-device-utils') as IReactNativeDeviceUtilsModule;
-const App = (require('./App') as IAppModule).default;
+// On-device Storybook workbench: swap the registered root so the app graph is
+// never evaluated in storybook mode. The withStorybook Metro wrapper stubs the
+// Storybook config dir out of normal bundles (STORYBOOK_ENABLED unset), so
+// this branch adds nothing to production. Main runtime only; bg transport
+// setup above stays identical in both modes.
+const App =
+  process.env.STORYBOOK_ENABLED === 'true'
+    ? (require('./.rnstorybook') as IAppModule).default
+    : (require('./App') as IAppModule).default;
 
 {
   const _e = (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ as number;
