@@ -5,6 +5,16 @@ import { fileURLToPath } from 'node:url';
 
 import type { StorybookConfig } from '@storybook/react-native-web-vite';
 
+// Sidebar "Open in editor" is served by launch-editor inside this dev-server
+// process. Its lookup order is LAUNCH_EDITOR -> running-editor process scan ->
+// VISUAL -> EDITOR; when nothing matches it fails silently in the UI ("Could
+// not open … in the editor." only in the server log). Default the LAST
+// fallback to VS Code's CLI so the button works out of the box without an
+// editor running — any explicit env or a detected running editor still wins.
+if (!process.env.LAUNCH_EDITOR && !process.env.VISUAL && !process.env.EDITOR) {
+  process.env.EDITOR = 'code';
+}
+
 // `.storybook` lives at apps/playground/.storybook, so three levels up is the
 // monorepo root.
 const CONFIG_DIR = dirname(fileURLToPath(import.meta.url));
