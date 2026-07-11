@@ -1,4 +1,4 @@
-import { getOrderBookMidPrice } from './utils';
+import { getOrderBookLiveMidPrice, getOrderBookMidPrice } from './utils';
 
 describe('getOrderBookMidPrice', () => {
   it('keeps the live mid price independent from aggregated order book ticks', () => {
@@ -18,5 +18,15 @@ describe('getOrderBookMidPrice', () => {
         bestAsk: '65000',
       }),
     ).toBe('64500');
+  });
+
+  it('only uses the real spot mid price for spot books', () => {
+    expect(
+      getOrderBookLiveMidPrice({
+        isSpot: true,
+        spotMidPrice: undefined,
+        tradingMidPrice: '99',
+      }),
+    ).toBeUndefined();
   });
 });

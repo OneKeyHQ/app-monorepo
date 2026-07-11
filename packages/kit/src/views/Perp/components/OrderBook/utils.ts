@@ -90,3 +90,15 @@ export function getOrderBookMidPrice({
 
   return getMidPrice(bestBid ?? '0', bestAsk ?? '0');
 }
+
+export function getOrderBookLiveMidPrice({
+  isSpot,
+  spotMidPrice,
+  tradingMidPrice,
+}: {
+  isSpot: boolean;
+  spotMidPrice?: string;
+  tradingMidPrice?: string;
+}): string | undefined {
+  return isSpot ? spotMidPrice : tradingMidPrice;
+}

@@ -69,7 +69,7 @@ import { DefaultLoadingNode } from './DefaultLoadingNode';
 import { type ITickParam } from './tickSizeUtils';
 import { useAggregatedBook } from './useAggregatedBook';
 import { useRafCoalesced } from './useRafCoalesced';
-import { getOrderBookMidPrice } from './utils';
+import { getOrderBookLiveMidPrice, getOrderBookMidPrice } from './utils';
 
 import type { IFormattedOBLevel, IOrderBookVariant } from './types';
 import type {
@@ -1569,11 +1569,13 @@ function MobileSpreadInfoContent({
     referencePriceDisplay = isSpot ? `≈$${localizedMarkPrice}` : markPrice;
   }
   const fallbackMidPrice = isEmpty ? markPrice : undefined;
+  const liveMidPrice = getOrderBookLiveMidPrice({
+    isSpot,
+    spotMidPrice: spotAssetCtx?.ctx?.midPrice,
+    tradingMidPrice: hasTradingMidPrice ? tradingMidPrice : undefined,
+  });
   const resolvedMidPrice = getOrderBookMidPrice({
-    liveMidPrice:
-      hasTradingMidPrice && tradingMidPrice
-        ? tradingMidPrice
-        : fallbackMidPrice,
+    liveMidPrice: liveMidPrice || fallbackMidPrice,
     bestBid: bestBidPx,
     bestAsk: bestAskPx,
   });
