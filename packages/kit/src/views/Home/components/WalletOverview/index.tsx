@@ -1,9 +1,4 @@
-import {
-  PROPORTIONAL_NUMS,
-  SizableText,
-  Skeleton,
-  YStack,
-} from '@onekeyhq/components';
+import { SizableText, Skeleton, YStack } from '@onekeyhq/components';
 
 import { HomeTestIDs } from '../../testIDs';
 
@@ -32,9 +27,7 @@ function WalletOverview(props: IProps) {
         {address}
       </SizableText>
       <Skeleton show={isFetchingValue}>
-        <SizableText size="$heading4xl" fontVariant={PROPORTIONAL_NUMS}>
-          {value}
-        </SizableText>
+        <SizableText size="$heading4xl">{value}</SizableText>
       </Skeleton>
     </YStack>
   );

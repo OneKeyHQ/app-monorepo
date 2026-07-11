@@ -5,32 +5,25 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { TextStyle } from 'react-native';
 
 /**
- * Tabular (equal-width) figures for numeric text.
+ * Tabular (equal-width) figures — OPT-IN, for dense numeric data only.
  *
- * `SizableText` applies this by DEFAULT app-wide, and web mirrors it with an
- * injected `body { font-variant-numeric: tabular-nums }` rule, so most text
- * needs nothing. Reach for the constant directly only for text that bypasses
- * the `SizableText` wrapper — raw React Native `<Text>` / `StyleSheet.create`,
- * or `Badge.Text` — via `getFontVariantStyle(TABULAR_NUMS)`.
+ * Apply as `fontVariant={TABULAR_NUMS}` (or a `fontVariant` StyleSheet entry on
+ * raw React Native `<Text>`) to numbers that are **small, sit in a column, and
+ * tick**: market/perps list columns, order books, trading tables, ticker strips.
+ * Every digit then shares one advance width, so columns stay aligned and a value
+ * doesn't reflow as it updates.
  *
- * Every digit shares one advance width, so number columns stay aligned and a
- * value doesn't reflow as it ticks. Unlike a monospace family (`$monoRegular`),
- * only digits are equalized — letters keep Roobert's natural proportional
- * widths. Roobert ships the `tnum` OpenType feature, so this works on iOS,
- * Android and web.
- *
- * Monospace is still the right choice for addresses / hashes / mnemonics /
- * codes, where character (not just digit) alignment matters — do NOT replace
- * those with tabular-nums.
+ * Do NOT apply it to anything a human reads as words. Text is proportional by
+ * default and that is almost always right:
+ *  - names & identifiers (account "A1787", wallet "OneKey Pro2-1-6")
+ *  - addresses / hashes (mixed hex — tabular equalizes only the digits, leaving
+ *    the letters proportional, which reads worse than either)
+ *  - prose and marketing copy
+ *  - large hero numbers (a single big number has no column to align with, and
+ *    Roobert's tabular `1` is nearly 2x wider and grows a foot serif)
+ *  - amount input fields
  */
 export const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
-
-/**
- * Escape hatch from the app-wide tabular default (`SizableText` defaults
- * `fontVariant` to TABULAR_NUMS): pass `fontVariant={PROPORTIONAL_NUMS}` to
- * restore the font's natural proportional figures for a specific text.
- */
-export const PROPORTIONAL_NUMS: ['proportional-nums'] = ['proportional-nums'];
 
 type IFontVariantStyle = CSSProperties | TextStyle;
 
@@ -51,13 +44,10 @@ function buildFontVariantStyle(
   return Object.freeze(style);
 }
 
-// Web applies tabular figures globally via the `body` rule in web-fonts.css,
-// so the DEFAULT variant needs no inline style — leaving it undefined avoids a
-// redundant style attr on every text node and keeps `style` reference-stable.
-// Native has no CSS inheritance, so it must carry the variant inline.
-const TABULAR_NUMS_STYLE: IFontVariantStyle | undefined = platformEnv.isNative
-  ? buildFontVariantStyle(TABULAR_NUMS)
-  : undefined;
+// Hoisted so the common opt-in path allocates nothing and stays
+// reference-stable. Both platforms carry it inline: there is no global rule to
+// inherit from any more.
+const TABULAR_NUMS_STYLE = buildFontVariantStyle(TABULAR_NUMS);
 
 const fontVariantStyleCache = new WeakMap<
   NonNullable<TextStyle['fontVariant']>,
