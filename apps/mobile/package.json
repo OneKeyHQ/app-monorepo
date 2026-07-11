@@ -82,6 +82,7 @@
     "@onekeyfe/react-native-text-input": "0.3.0",
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
+    "@onekeyhq/native-components": "*",
     "@onekeyhq/shared": "*",
     "@phantom/react-native-juicebox-sdk": "0.3.17",
     "@react-native-async-storage/async-storage": "npm:@onekeyfe/react-native-async-storage@3.0.78",

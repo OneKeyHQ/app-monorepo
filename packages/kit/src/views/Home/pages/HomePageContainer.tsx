@@ -19,6 +19,8 @@ import { NotificationRegisterDaily } from '../../Notifications/components/Notifi
 import { OnboardingOnMount } from '../../Onboarding/components';
 import { KYTIntroOnMount } from '../../Setting/pages/Protection/KYTIntroDialog';
 import { BTCFreshAddressProvider } from '../components/BTCFreshAddressProvider';
+import { isNativeHomeEnabled } from '../nativeHomeFeatureFlag';
+import { NativeHomePageView } from '../NativeHomePageView';
 
 import { HomePageView } from './HomePageView';
 
@@ -57,6 +59,7 @@ function SelectedAccountsMapTest() {
 function HomePageContainer() {
   const [isHide, setIsHide] = useState(false);
   const isDesktopModeUI = useIsDesktopModeUIInTabPages();
+  const nativeHomeEnabled = isNativeHomeEnabled();
 
   useDebugComponentRemountLog({ name: 'HomePageContainer' });
 
@@ -78,11 +81,19 @@ function HomePageContainer() {
           }}
           enabledNum={[0]}
         >
-          <HomePageView
-            key={sceneName}
-            sceneName={sceneName}
-            onPressHide={() => setIsHide((v) => !v)}
-          />
+          {nativeHomeEnabled ? (
+            <NativeHomePageView
+              key={`native-${sceneName}`}
+              sceneName={sceneName}
+              onPressHide={() => setIsHide((v) => !v)}
+            />
+          ) : (
+            <HomePageView
+              key={sceneName}
+              sceneName={sceneName}
+              onPressHide={() => setIsHide((v) => !v)}
+            />
+          )}
           <DAppConnectExtensionFloatingTrigger />
           <OnboardingOnMount />
           <NotificationRegisterDaily />

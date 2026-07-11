@@ -639,6 +639,37 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - OneKeyNativeComponents (0.0.1):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - NitroModules
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-callinvoker
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SDWebImage (~> 5.21.0)
+    - SocketRocket
+    - Yoga
   - OpenSSL-Universal (3.6.2000)
   - Pbkdf2 (3.0.78):
     - boost
@@ -4897,6 +4928,7 @@ DEPENDENCIES:
   - NetworkInfo (from `../../../node_modules/react-native-network-info`)
   - NitroMmkv (from `../../../node_modules/react-native-mmkv`)
   - NitroModules (from `../../../node_modules/react-native-nitro-modules`)
+  - "OneKeyNativeComponents (from `../../../node_modules/@onekeyhq/native-components`)"
   - Pbkdf2 (from `../../../node_modules/react-native-fast-pbkdf2`)
   - "PerpDepthBar (from `../../../node_modules/@onekeyfe/react-native-perp-depth-bar`)"
   - Ping (from `../../../node_modules/react-native-ping`)
@@ -5171,6 +5203,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-mmkv"
   NitroModules:
     :path: "../../../node_modules/react-native-nitro-modules"
+  OneKeyNativeComponents:
+    :path: "../../../node_modules/@onekeyhq/native-components"
   Pbkdf2:
     :path: "../../../node_modules/react-native-fast-pbkdf2"
   PerpDepthBar:
@@ -5495,6 +5529,7 @@ SPEC CHECKSUMS:
   NetworkInfo: 8f477bda9569e9f5cf6ac784df616540037fb4a4
   NitroMmkv: ce1df9b9f0e06dfbde2455d863047e0411fceb6e
   NitroModules: 11bba9d065af151eae51e38a6425e04c3b223ff3
+  OneKeyNativeComponents: 6265bb623a1c18b553fd989e77e77f333ff5283f
   OpenSSL-Universal: ecee7b138fa75a74ecf00d7ffd248fb584739b9e
   Pbkdf2: 76a41c21cebe8b04bd539c0070a7dc6a69f50068
   PerpDepthBar: ea764fd9ca6dde336b3b6ca292e783e2b9c66c69

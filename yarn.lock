@@ -10164,6 +10164,7 @@ __metadata:
   resolution: "@onekeyhq/kit@workspace:packages/kit"
   dependencies:
     "@onekeyhq/components": "npm:*"
+    "@onekeyhq/native-components": "npm:*"
     "@types/d3-scale": "npm:^4.0.3"
     "@types/d3-shape": "npm:^3.1.1"
     "@types/mime": "npm:^3"
@@ -10224,6 +10225,7 @@ __metadata:
     "@onekeyfe/react-native-text-input": "npm:0.3.0"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
+    "@onekeyhq/native-components": "npm:*"
     "@onekeyhq/shared": "npm:*"
     "@phantom/react-native-juicebox-sdk": "npm:0.3.17"
     "@react-native-async-storage/async-storage": "npm:@onekeyfe/react-native-async-storage@3.0.78"
@@ -10332,6 +10334,16 @@ __metadata:
     rimraf: "npm:3.0.2"
     stream-http: "npm:^3.2.0"
     uuid: "npm:^3.0.0"
+  languageName: unknown
+  linkType: soft
+
+"@onekeyhq/native-components@npm:*, @onekeyhq/native-components@workspace:packages/native-components":
+  version: 0.0.0-use.local
+  resolution: "@onekeyhq/native-components@workspace:packages/native-components"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+    react-native-nitro-modules: 0.33.2
   languageName: unknown
   linkType: soft
 
