@@ -10,6 +10,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   XStack,
 } from '@onekeyhq/components';
 import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
@@ -1045,6 +1046,7 @@ function TxFeeContainer(props: IProps) {
       <NumberSizeableText
         size="$bodyMd"
         color="$textSubdued"
+        fontVariant={TABULAR_NUMS}
         formatter="balance"
         formatterOptions={{
           tokenSymbol: txFee?.common.nativeSymbol,
@@ -1063,6 +1065,7 @@ function TxFeeContainer(props: IProps) {
         <NumberSizeableText
           size="$bodyMd"
           color="$textSubdued"
+          fontVariant={TABULAR_NUMS}
           formatter="value"
           formatterOptions={{
             currency: settings.currencyInfo.symbol,

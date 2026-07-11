@@ -87,11 +87,7 @@ export function HardwareRecordCard({ item }: IHardwareRecordCardProps) {
         </XStack>
 
         {/* Order Number */}
-        <SizableText
-          size="$bodyLgMedium"
-          color="$text"
-          fontVariant={TABULAR_NUMS}
-        >
+        <SizableText size="$bodyLgMedium" color="$text">
           {item.orderNumber}
         </SizableText>
 

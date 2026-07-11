@@ -103,11 +103,7 @@ function TableRow({ item }: ITableRowProps) {
 
         {/* Order ID Column */}
         <XStack w={COLUMN_WIDTHS.orderId} ai="center" py="$1">
-          <SizableText
-            size="$bodyMdMedium"
-            color="$text"
-            fontVariant={TABULAR_NUMS}
-          >
+          <SizableText size="$bodyMdMedium" color="$text">
             {item.orderNumber}
           </SizableText>
         </XStack>

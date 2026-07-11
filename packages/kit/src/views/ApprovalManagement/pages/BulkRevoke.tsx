@@ -15,6 +15,7 @@ import {
   Page,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
   getCurrentVisibilityState,
@@ -757,6 +758,7 @@ function BulkRevoke() {
                   formatterOptions={{
                     currency: settings.currencyInfo.symbol,
                   }}
+                  fontVariant={TABULAR_NUMS}
                 >
                   {totalFeeFiat ?? '-'}
                 </NumberSizeableText>

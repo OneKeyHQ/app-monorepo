@@ -13,6 +13,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  TABULAR_NUMS,
   View,
   XStack,
   YStack,
@@ -176,6 +177,7 @@ function BulkRevokeItem(props: IProps) {
               formatterOptions={{
                 tokenSymbol: status.feeSymbol,
               }}
+              fontVariant={TABULAR_NUMS}
               numberOfLines={1}
             >
               {status.feeBalance ?? '-'}
@@ -188,6 +190,7 @@ function BulkRevokeItem(props: IProps) {
                 formatterOptions={{
                   currency: settings.currencyInfo.symbol,
                 }}
+                fontVariant={TABULAR_NUMS}
                 numberOfLines={1}
               >
                 {status.feeFiat ?? '-'}

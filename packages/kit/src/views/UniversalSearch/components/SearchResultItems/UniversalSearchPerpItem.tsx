@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import {
   NumberSizeableText,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   rootNavigationRef,
 } from '@onekeyhq/components';
@@ -186,6 +187,7 @@ export function UniversalSearchPerpItem({
         formatterOptions={{ currency: '$' }}
         size="$bodyLgMedium"
         color="$text"
+        fontVariant={TABULAR_NUMS}
       >
         {midPx}
       </NumberSizeableText>

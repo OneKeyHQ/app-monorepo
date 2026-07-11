@@ -11,6 +11,7 @@ import {
   NumberSizeableText,
   SizableText,
   Spinner,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useClipboard,
@@ -189,6 +190,7 @@ function PerpsSection({
       <NumberSizeableText
         size="$bodyMdMedium"
         color="$text"
+        fontVariant={TABULAR_NUMS}
         formatter="value"
         formatterOptions={{ currency: '$' }}
       >

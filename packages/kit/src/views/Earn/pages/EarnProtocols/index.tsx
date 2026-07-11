@@ -8,6 +8,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useMedia,
@@ -417,7 +418,11 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         },
         render: (item) => (
           <SizableText size="$bodyLgMedium">
-            <EarnText size="$bodyLg" text={item?.tvl} />
+            <EarnText
+              size="$bodyLg"
+              text={item?.tvl}
+              fontVariant={TABULAR_NUMS}
+            />
           </SizableText>
         ),
       },
@@ -439,7 +444,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                 parseFormattedLiquidityValue(a.provider.liquidity) -
                 parseFormattedLiquidityValue(b.provider.liquidity),
               render: (item: IStakeProtocolListItem) => (
-                <SizableText size="$bodyLgMedium">
+                <SizableText size="$bodyLgMedium" fontVariant={TABULAR_NUMS}>
                   {item.provider.liquidity || '-'}
                 </SizableText>
               ),

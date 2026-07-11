@@ -1,4 +1,9 @@
-import { NumberSizeableText, SizableText, Stack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  Stack,
+  TABULAR_NUMS,
+} from '@onekeyhq/components';
 
 export const ValuePriceListItem = ({
   amount,
@@ -28,6 +33,7 @@ export const ValuePriceListItem = ({
       <NumberSizeableText
         size="$bodyLgMedium"
         textAlign="right"
+        fontVariant={TABULAR_NUMS}
         formatter="balance"
         formatterOptions={{ tokenSymbol }}
       >
@@ -46,6 +52,7 @@ export const ValuePriceListItem = ({
           <NumberSizeableText
             textAlign="right"
             size="$bodyLgMedium"
+            fontVariant={TABULAR_NUMS}
             formatter="value"
             color="$textSubdued"
             formatterOptions={{ currency: fiatSymbol }}

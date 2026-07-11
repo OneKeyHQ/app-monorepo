@@ -8,6 +8,7 @@ import {
   Icon,
   NumberSizeableText,
   Stack,
+  TABULAR_NUMS,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
@@ -132,6 +133,7 @@ function ApprovedTokenItem(props: IProps) {
               numberOfLines={1}
               textAlign="right"
               size="$bodyLgMedium"
+              fontVariant={TABULAR_NUMS}
               autoFormatter="balance-marketCap"
             >
               {approval.allowanceParsed}

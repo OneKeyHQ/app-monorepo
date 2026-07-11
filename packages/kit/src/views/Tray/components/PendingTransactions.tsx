@@ -3,7 +3,7 @@ import type { ComponentProps } from 'react';
 import BigNumber from 'bignumber.js';
 import { type IntlShape, useIntl } from 'react-intl';
 
-import { SizableText, Stack } from '@onekeyhq/components';
+import { SizableText, Stack, TABULAR_NUMS } from '@onekeyhq/components';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -315,6 +315,7 @@ function TxRow({
       <NumberSizeableTextWrapper
         size={size}
         color={color}
+        fontVariant={TABULAR_NUMS}
         formatter="balance"
         formatterOptions={{ tokenSymbol: value.symbol }}
         subTextStyle={TRAY_AMOUNT_SUB_TEXT_STYLE}

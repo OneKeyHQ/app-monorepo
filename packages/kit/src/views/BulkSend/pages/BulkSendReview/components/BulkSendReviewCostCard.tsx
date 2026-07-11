@@ -8,6 +8,7 @@ import {
   NumberSizeableText,
   SizableText,
   Skeleton,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -116,6 +117,7 @@ function BulkSendReviewCostCard({
                             formatterOptions={{
                               tokenSymbol: nativeSymbol,
                             }}
+                            fontVariant={TABULAR_NUMS}
                           >
                             {singleTxFeeNative ?? '0'}
                           </NumberSizeableText>
@@ -131,6 +133,7 @@ function BulkSendReviewCostCard({
                           size="$bodyMdMedium"
                           formatter="balance"
                           formatterOptions={{ tokenSymbol: nativeSymbol }}
+                          fontVariant={TABULAR_NUMS}
                         >
                           {networkFee}
                         </NumberSizeableText>
@@ -144,6 +147,7 @@ function BulkSendReviewCostCard({
                             currency: settings.currencyInfo.symbol,
                             showPlusMinusSigns: false,
                           }}
+                          fontVariant={TABULAR_NUMS}
                         >
                           {networkFeeFiat}
                         </NumberSizeableText>
@@ -238,6 +242,7 @@ function BulkSendReviewCostCard({
                   size="$bodyMdMedium"
                   formatter="balance"
                   formatterOptions={{ tokenSymbol: nativeSymbol }}
+                  fontVariant={TABULAR_NUMS}
                 >
                   {ataRentFeeNative}
                 </NumberSizeableText>
