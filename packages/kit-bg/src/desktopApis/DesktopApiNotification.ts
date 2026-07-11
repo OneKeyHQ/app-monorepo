@@ -376,8 +376,9 @@ class DesktopApiNotification {
     if (isWin) {
       const win = globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
       if (win) {
-        if (!isNil(count) && count > 0) {
-          this.win32TaskBarBadge?.update(count);
+        const badgeCount = !isNil(count) && count > 0 ? count : 0;
+        if (this.win32TaskBarBadge) {
+          this.win32TaskBarBadge.update(badgeCount);
         } else {
           win.setOverlayIcon(null, '');
         }

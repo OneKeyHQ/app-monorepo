@@ -1,3 +1,85 @@
+diff --git a/node_modules/electron-taskbar-badge/lib/cjs/index.js b/node_modules/electron-taskbar-badge/lib/cjs/index.js
+index 0677a54..3241e49 100644
+--- a/node_modules/electron-taskbar-badge/lib/cjs/index.js
++++ b/node_modules/electron-taskbar-badge/lib/cjs/index.js
+@@ -43,6 +43,8 @@ module.exports = class Badge {
+ 		if (process.platform !== 'win32') console.warn('Only win32 environments are supported!');
+ 		this.win = win;
+ 		this.opts = opts;
++		// OneKey patch: invalidate badge renders that finish after a newer update.
++		this.updateVersion = 0;
+ 		const accentColor = getLightAccentColor(powershell);
+ 		this.generator = new BadgeGenerator(win, opts, accentColor);
+ 		systemPreferences.on('accent-color-changed', () => {
+@@ -66,15 +68,19 @@ module.exports = class Badge {
+ 		if (typeof badgeNumber !== 'number' && badgeNumber != null) {
+ 			throw new TypeError(`Invalid badgeNumber specified.\nExpected: number\nGot: ${typeof badgeNumber}`);
+ 		}
++		const updateVersion = ++this.updateVersion;
++		// OneKey patch: keep show and accent-color listeners in sync when clearing.
++		currentNumber = badgeNumber;
+ 		if (badgeNumber) {
+ 			this.generator.generate(badgeNumber).then((base64) => {
++				// OneKey patch: do not restore a stale badge after clear or window close.
++				if (updateVersion !== this.updateVersion || !this.win) return;
+ 				const image = nativeImage.createFromDataURL(base64);
+ 				currentOverlayIcon = {
+ 					image,
+ 					badgeDescription,
+ 				};
+ 				this.win.setOverlayIcon(currentOverlayIcon.image, currentOverlayIcon.badgeDescription);
+-				currentNumber = badgeNumber;
+ 			});
+ 		} else {
+ 			currentOverlayIcon = {
+@@ -125,4 +131,4 @@ function rgbToHex(r, g, b) {
+ 
+ 	const rgb = blue | (green << 8) | (red << 16);
+ 	return '#' + rgb.toString(16);
+-}
+\ No newline at end of file
++}
+diff --git a/node_modules/electron-taskbar-badge/lib/esm/index.mjs b/node_modules/electron-taskbar-badge/lib/esm/index.mjs
+index 2eecb35..27a9fd4 100644
+--- a/node_modules/electron-taskbar-badge/lib/esm/index.mjs
++++ b/node_modules/electron-taskbar-badge/lib/esm/index.mjs
+@@ -43,6 +43,8 @@ export default class Badge {
+ 		if (process.platform !== 'win32') console.warn('Only win32 environments are supported!');
+ 		this.win = win;
+ 		this.opts = opts;
++		// OneKey patch: invalidate badge renders that finish after a newer update.
++		this.updateVersion = 0;
+ 		const accentColor = getLightAccentColor(powershell);
+ 		this.generator = new BadgeGenerator(win, opts, accentColor);
+ 		systemPreferences.on('accent-color-changed', () => {
+@@ -66,15 +68,19 @@ export default class Badge {
+ 		if (typeof badgeNumber !== 'number' && badgeNumber != null) {
+ 			throw new TypeError(`Invalid badgeNumber specified.\nExpected: number\nGot: ${typeof badgeNumber}`);
+ 		}
++		const updateVersion = ++this.updateVersion;
++		// OneKey patch: keep show and accent-color listeners in sync when clearing.
++		currentNumber = badgeNumber;
+ 		if (badgeNumber) {
+ 			this.generator.generate(badgeNumber).then((base64) => {
++				// OneKey patch: do not restore a stale badge after clear or window close.
++				if (updateVersion !== this.updateVersion || !this.win) return;
+ 				const image = nativeImage.createFromDataURL(base64);
+ 				currentOverlayIcon = {
+ 					image,
+ 					badgeDescription,
+ 				};
+ 				this.win.setOverlayIcon(currentOverlayIcon.image, currentOverlayIcon.badgeDescription);
+-				currentNumber = badgeNumber;
+ 			});
+ 		} else {
+ 			currentOverlayIcon = {
+@@ -124,4 +130,4 @@ function rgbToHex(r, g, b) {
+ 
+ 	const rgb = blue | (green << 8) | (red << 16);
+ 	return '#' + rgb.toString(16);
+-}
+\ No newline at end of file
++}
 diff --git a/node_modules/electron-taskbar-badge/package.json b/node_modules/electron-taskbar-badge/package.json
 index dea130a..c081e53 100644
 --- a/node_modules/electron-taskbar-badge/package.json
