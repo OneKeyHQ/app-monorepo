@@ -641,6 +641,7 @@ class ServiceWebviewPerp extends ServiceBase {
         tokens,
         currentToken: prev.currentPerpsDepositSelectedToken,
         defaultTokens: prev.defaultTokens,
+        preserveCurrentToken: prev.depositTokenListSource === 'walletBalance',
       });
       return {
         ...prev,

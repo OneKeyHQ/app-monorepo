@@ -2806,6 +2806,8 @@ export enum ETranslations {
   perp_time_in_force_gtc__desc = 'perp_time_in_force_gtc__desc',
   perp_time_in_force_ioc__desc = 'perp_time_in_force_ioc__desc',
   perp_toast_deposit_success_eta_one_minute__msg = 'perp_toast_deposit_success_eta_one_minute__msg',
+  perp_toast_modifying_order = 'perp_toast_modifying_order',
+  perp_toast_order_modified = 'perp_toast_order_modified',
   perp_token_info_not_found__msg = 'perp_token_info_not_found__msg',
   perp_trade_account_overview_avbl = 'perp_trade_account_overview_avbl',
   perp_trade_deposit_to_trade__action = 'perp_trade_deposit_to_trade__action',
