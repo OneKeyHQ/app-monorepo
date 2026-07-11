@@ -315,6 +315,8 @@ export const {
   receivingAddress?: string;
 }>({ actionLock: false });
 
+export const { atom: swapQuoteRequestIdAtom } = contextAtom<number>(0);
+
 export const {
   atom: swapQuoteIntervalCountAtom,
   use: useSwapQuoteIntervalCountAtom,
@@ -784,6 +786,8 @@ export const {
   atom: swapSpeedQuoteFetchingAtom,
   use: useSwapSpeedQuoteFetchingAtom,
 } = contextAtom<boolean>(false);
+
+export const { atom: swapSpeedQuoteRequestIdAtom } = contextAtom<number>(0);
 
 export const {
   atom: swapSpeedQuoteResultAtom,

@@ -48,7 +48,6 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapToTokenAmountAtom,
-  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { BaseMarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import {
@@ -163,7 +162,7 @@ interface ISwapStockDesktopContainerProps {
   headerContent?: ReactNode;
   storeName: EJotaiContextStoreNames;
   onSelectToken: (type: ESwapDirectionType) => void;
-  onTokenPress?: (token: ISwapToken) => void;
+  onSwitchToSwapTokenPress?: (token: ISwapToken) => void;
   supportNetworksList: (IMarketBasicConfigNetwork | ISwapNetwork)[];
   fetchLoading: boolean;
   onSelectPercentageStage: (stage: number) => void;
@@ -1791,18 +1790,17 @@ function StockPriceChart({
 }
 
 function StockMobilePositionsSection({
-  onTokenPress,
+  onSwitchToSwapTokenPress,
   supportNetworksList,
   storeName,
 }: {
-  onTokenPress?: (token: ISwapToken) => void;
+  onSwitchToSwapTokenPress?: (token: ISwapToken) => void;
   supportNetworksList: (IMarketBasicConfigNetwork | ISwapNetwork)[];
   storeName: EJotaiContextStoreNames;
 }) {
   const intl = useIntl();
   const stockChannel = useSwapStockTradeContext();
   const [swapProEnableCurrentSymbol] = useSwapProEnableCurrentSymbolAtom();
-  const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapFromToken] = useSwapSelectFromTokenAtom();
   const [swapToToken] = useSwapSelectToTokenAtom();
   const { selectStockSwapToken } = stockChannel;
@@ -1826,10 +1824,9 @@ function StockMobilePositionsSection({
         selectStockSwapToken(token, { resetReceiveAmount: true });
         return;
       }
-      void setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
-      onTokenPress?.(token);
+      onSwitchToSwapTokenPress?.(token);
     },
-    [onTokenPress, selectStockSwapToken, setSwapTypeSwitch],
+    [onSwitchToSwapTokenPress, selectStockSwapToken],
   );
 
   const [activeStockTab, setActiveStockTab] = useState<'position' | 'history'>(
@@ -2307,7 +2304,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
         {isDesktopModalPage ? null : (
           <YStack mt="$2">
             <StockMobilePositionsSection
-              onTokenPress={props.onTokenPress}
+              onSwitchToSwapTokenPress={props.onSwitchToSwapTokenPress}
               supportNetworksList={props.supportNetworksList}
               storeName={props.storeName}
             />

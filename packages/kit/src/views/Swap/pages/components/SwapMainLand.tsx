@@ -176,8 +176,13 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
   const [fromTokenAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapQuoteIntervalCount] = useSwapQuoteIntervalCountAtom();
-  const { selectFromToken, selectToToken, quoteAction, cleanQuoteInterval } =
-    useSwapActions().current;
+  const {
+    selectFromToken,
+    selectToToken,
+    quoteAction,
+    cleanQuoteInterval,
+    switchStockPositionToSwapAction,
+  } = useSwapActions().current;
   const [{ actionLock }] = useSwapQuoteActionLockAtom();
   const [swapFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
@@ -511,8 +516,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         token1: fromTokenPair,
         token2: toTokenPair,
       });
-      void selectFromToken(fromTokenPair, true, undefined, skipCheckEqualToken);
-      void selectToToken(toTokenPair, undefined, skipCheckEqualToken);
+      void selectFromToken(fromTokenPair, true, skipCheckEqualToken);
+      void selectToToken(toTokenPair, skipCheckEqualToken);
       defaultLogger.swap.selectToken.selectToken({
         selectFrom: ESwapSelectTokenSource.RECENT_SELECT,
         tokenListType: getSwapAnalyticsTokenListType({
@@ -1163,6 +1168,16 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       setSwapSelectToToken,
     ],
   );
+  const onSwitchToSwapTokenPress = useCallback(
+    (token: ISwapToken) => {
+      void switchStockPositionToSwapAction(token);
+      scrollViewRef.current?.scrollTo({
+        y: 0,
+        animated: true,
+      });
+    },
+    [switchStockPositionToSwapAction],
+  );
 
   const { networkList: SwapProSupportNetworksList } = useSwapProInit();
   const [swapNetworks] = useSwapNetworksAtom();
@@ -1216,7 +1231,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         <SwapStockDesktopContainer
           storeName={storeName}
           onSelectToken={onSelectToken}
-          onTokenPress={onTokenPress}
+          onSwitchToSwapTokenPress={onSwitchToSwapTokenPress}
           supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
           fetchLoading={fetchLoading}
           onSelectPercentageStage={onSelectPercentageStage}
@@ -1246,7 +1261,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         <SwapStockMobileContainer
           storeName={storeName}
           onSelectToken={onSelectToken}
-          onTokenPress={onTokenPress}
+          onSwitchToSwapTokenPress={onSwitchToSwapTokenPress}
           supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
           fetchLoading={fetchLoading}
           onSelectPercentageStage={onSelectPercentageStage}
@@ -1337,6 +1352,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     quoteLoading,
     quoteEventFetching,
     alerts,
+    onSwitchToSwapTokenPress,
     onTokenPress,
     onSelectRecentTokenPairs,
     onOpenOrdersClick,

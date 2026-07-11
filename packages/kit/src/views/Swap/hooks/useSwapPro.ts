@@ -99,18 +99,15 @@ const SWAP_PRO_SEARCH_RESULTS_REFRESH_INTERVAL = timerUtils.getTimeDurationMs({
 });
 
 export function useSwapProInit() {
-  const [, setSwapSwitchType] = useSwapTypeSwitchAtom();
-  const [, setSwapProDirection] = useSwapProDirectionAtom();
   const { networkList } = useMarketBasicConfig();
-  const { setSwapProSelectToken } = useSwapActions().current;
+  const { prepareSwapProEntryAction } = useSwapActions().current;
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProJumpToken, setSwapProJumpToken] = useSwapProJumpTokenAtom();
   const swapSwitchProToken = useCallback(
-    (payload: { token: ISwapToken }) => {
-      setSwapSwitchType(ESwapTabSwitchType.LIMIT);
-      void setSwapProSelectToken(payload.token);
+    (payload: { direction: ESwapDirection; token: ISwapToken }) => {
+      void prepareSwapProEntryAction(payload);
     },
-    [setSwapSwitchType, setSwapProSelectToken],
+    [prepareSwapProEntryAction],
   );
   const swapProSelectTokenRef = useRef<ISwapToken | undefined>(
     swapProSelectToken,
@@ -126,24 +123,20 @@ export function useSwapProInit() {
   }
   useEffect(() => {
     if (swapProJumpToken.token) {
-      swapSwitchProToken({ token: swapProJumpToken.token });
-      if (swapProJumpToken.direction === ESwapProJumpTokenDirection.SELL) {
-        setSwapProDirection(ESwapDirection.SELL);
-      } else {
-        setSwapProDirection(ESwapDirection.BUY);
-      }
+      swapSwitchProToken({
+        direction:
+          swapProJumpToken.direction === ESwapProJumpTokenDirection.SELL
+            ? ESwapDirection.SELL
+            : ESwapDirection.BUY,
+        token: swapProJumpToken.token,
+      });
       setSwapProJumpToken({
         token: undefined,
         direction: ESwapProJumpTokenDirection.BUY,
         marketPresetToken: undefined,
       });
     }
-  }, [
-    swapProJumpToken,
-    swapSwitchProToken,
-    setSwapProJumpToken,
-    setSwapProDirection,
-  ]);
+  }, [swapProJumpToken, swapSwitchProToken, setSwapProJumpToken]);
   return {
     networkList,
   };
@@ -1572,8 +1565,7 @@ export function useSwapBuildTxInfo() {
 }
 
 export function useSwapProActionsQuote() {
-  const { quoteSpeedAction, cancelSpeedQuote, cleanSpeedQuote } =
-    useSwapActions().current;
+  const { quoteSpeedAction, cleanSpeedQuote } = useSwapActions().current;
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
   const [swapTradeType] = useSwapProTradeTypeAtom();
   const [swapProInputAmount, setSwapProInputAmount] =
@@ -1637,10 +1629,9 @@ export function useSwapProActionsQuote() {
   useEffect(() => {
     const debounceInputAmountBN = new BigNumber(debounceInputAmount || '0');
     if (debounceInputAmountBN.isNaN() || debounceInputAmountBN.lte(0)) {
-      cancelSpeedQuote();
       void cleanSpeedQuote();
     }
-  }, [cancelSpeedQuote, cleanSpeedQuote, debounceInputAmount]);
+  }, [cleanSpeedQuote, debounceInputAmount]);
 
   useEffect(() => {
     if (

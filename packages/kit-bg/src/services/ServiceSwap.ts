@@ -489,6 +489,8 @@ export default class ServiceSwap extends ServiceBase {
 
   private _quoteEventSourcePolyfill?: EventSourcePolyfill;
 
+  private _quoteEventRequestId = 0;
+
   private _tokenDetailAbortControllerMap: Record<
     ESwapDirectionType,
     AbortController | undefined
@@ -574,6 +576,7 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async cancelFetchQuoteEvents() {
+    this._quoteEventRequestId += 1;
     if (this._quoteEventSource) {
       this._quoteEventSource.close();
       this._quoteEventSource = undefined;
@@ -979,19 +982,26 @@ export default class ServiceSwap extends ServiceBase {
     toTokenAmount,
     userMarketPriceRate,
   }: IFetchSwapQuoteParams) {
+    const requestId = this._quoteEventRequestId + 1;
+    this._quoteEventRequestId = requestId;
+    const isCurrentRequest = () => this._quoteEventRequestId === requestId;
     await this.removeQuoteEventSourceListeners();
+    if (!isCurrentRequest()) return;
     const denyCrossChainProvider = await this.getDenyCrossChainProvider(
       fromToken.networkId,
       toToken.networkId,
     );
+    if (!isCurrentRequest()) return;
     const denySingleSwapProvider = await this.getDenySingleSwapProvider(
       fromToken.networkId,
       toToken.networkId,
     );
+    if (!isCurrentRequest()) return;
     const walletDevice =
       await this.backgroundApi.serviceAccount.getAccountDeviceSafe({
         accountId: accountId ?? '',
       });
+    if (!isCurrentRequest()) return;
     const params: IFetchQuotesParams = {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
@@ -1014,17 +1024,19 @@ export default class ServiceSwap extends ServiceBase {
       walletDeviceType: walletDevice?.deviceType,
       ...(incognito ? { incognito } : {}),
     };
-    const swapEventUrl = (
-      await this.getClient(EServiceEndpointEnum.Swap)
-    ).getUri({
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
+    if (!isCurrentRequest()) return;
+    const swapEventUrl = client.getUri({
       url: '/swap/v1/quote/events',
       params,
     });
     let headers = await getRequestHeaders();
+    if (!isCurrentRequest()) return;
     const walletType =
       await this.backgroundApi.serviceAccountProfile._getRequestWalletType({
         accountId,
       });
+    if (!isCurrentRequest()) return;
     headers = {
       ...headers,
       ...(accountId
@@ -1037,6 +1049,7 @@ export default class ServiceSwap extends ServiceBase {
       swapEventUrl,
       headers as Record<string, string>,
     );
+    if (!isCurrentRequest()) return;
     if (platformEnv.isExtension) {
       if (this._quoteEventSourcePolyfill) {
         this._quoteEventSourcePolyfill.close();
@@ -1046,6 +1059,7 @@ export default class ServiceSwap extends ServiceBase {
         headers: headers as Record<string, string>,
       });
       this._quoteEventSourcePolyfill.onmessage = (event) => {
+        if (!isCurrentRequest()) return;
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'message',
           event: {
@@ -1060,6 +1074,7 @@ export default class ServiceSwap extends ServiceBase {
         });
       };
       this._quoteEventSourcePolyfill.onerror = async (event) => {
+        if (!isCurrentRequest()) return;
         const errorEvent = event as {
           error?: string;
           type: string;
@@ -1090,6 +1105,7 @@ export default class ServiceSwap extends ServiceBase {
         await this.cancelFetchQuoteEvents();
       };
       this._quoteEventSourcePolyfill.onopen = () => {
+        if (!isCurrentRequest()) return;
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'open',
           event: { type: 'open' },
@@ -1110,6 +1126,7 @@ export default class ServiceSwap extends ServiceBase {
         timeout: swapQuoteEventTimeout,
       });
       this._quoteEventSource.addEventListener('open', (event) => {
+        if (!isCurrentRequest()) return;
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'open',
           event,
@@ -1119,6 +1136,7 @@ export default class ServiceSwap extends ServiceBase {
         });
       });
       this._quoteEventSource.addEventListener('message', (event) => {
+        if (!isCurrentRequest()) return;
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'message',
           event,
@@ -1128,6 +1146,7 @@ export default class ServiceSwap extends ServiceBase {
         });
       });
       this._quoteEventSource.addEventListener('done', (event) => {
+        if (!isCurrentRequest()) return;
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'done',
           event,
@@ -1137,6 +1156,7 @@ export default class ServiceSwap extends ServiceBase {
         });
       });
       this._quoteEventSource.addEventListener('close', (event) => {
+        if (!isCurrentRequest()) return;
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'close',
           event,
@@ -1146,6 +1166,7 @@ export default class ServiceSwap extends ServiceBase {
         });
       });
       this._quoteEventSource.addEventListener('error', (event) => {
+        if (!isCurrentRequest()) return;
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'error',
           event,

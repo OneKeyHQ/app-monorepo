@@ -24,7 +24,6 @@ import {
   useSwapProSellToTokenAtom,
   useSwapProTradeTypeAtom,
   useSwapProUseSelectBuyTokenAtom,
-  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -36,7 +35,6 @@ import {
 import type { ISwapTokenBase } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapProTradeType,
-  ESwapTabSwitchType,
   SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -74,7 +72,6 @@ const SwapProInputContainer = ({
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
-  const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [swapProInputAmount, setSwapProInputAmount] =
     useSwapProInputAmountAtom();
@@ -283,9 +280,6 @@ const SwapProInputContainer = ({
           onOpenChange={setIsPopoverOpen}
           tokens={defaultTokensFromType as IToken[]}
           onTokenPress={handleTokenSelect}
-          onTradePress={() => {
-            setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
-          }}
           disabledOnSwitchToTrade
         />
       </XStack>

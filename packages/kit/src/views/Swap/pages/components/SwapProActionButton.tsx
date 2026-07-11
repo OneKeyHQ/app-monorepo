@@ -16,18 +16,11 @@ import {
   useSwapProTokenMarketDetailInfoAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
-  useSwapSelectFromTokenAtom,
-  useSwapSelectToTokenAtom,
   useSwapSpeedQuoteFetchingAtom,
   useSwapSpeedQuoteResultAtom,
-  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import {
-  ESwapProTradeType,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import {
@@ -273,68 +266,23 @@ const SwapProActionButton = ({
     limitPriceUseRate?.rate,
   ]);
 
-  const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
-  const { selectToToken, selectFromToken } = useSwapActions().current;
-  const [swapSelectToken, setSwapSelectFromToken] =
-    useSwapSelectFromTokenAtom();
-  const [swapSelectToToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
-  const [, setSwapFromInputAmount] = useSwapFromTokenAmountAtom();
+  const { switchSwapProToSwapAction } = useSwapActions().current;
 
   const handleJumpToSwapAction = useCallback(() => {
-    void setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
-    if (swapProDirection === ESwapDirection.BUY) {
-      if (
-        equalTokenNoCaseSensitive({
-          token1: swapSelectToken,
-          token2: swapProSelectToken,
-        }) &&
-        swapProSelectToken
-      ) {
-        void setSwapSelectFromToken(undefined);
-      }
-      if (inputToken) {
-        void setSwapSelectFromToken(inputToken);
-      }
-      if (swapProSelectToken) {
-        void selectToToken(swapProSelectToken);
-      }
-    } else {
-      if (
-        equalTokenNoCaseSensitive({
-          token1: swapSelectToToken,
-          token2: swapProSelectToken,
-        }) &&
-        swapProSelectToken
-      ) {
-        void setSwapSelectToToken(undefined);
-      }
-      if (toToken) {
-        void setSwapSelectToToken(toToken);
-      }
-      if (swapProSelectToken) {
-        void selectFromToken(swapProSelectToken);
-      }
-    }
-    if (swapProInputAmount) {
-      void setSwapFromInputAmount({
-        value: swapProInputAmount,
-        isInput: true,
-      });
-    }
+    void switchSwapProToSwapAction({
+      direction: swapProDirection,
+      inputAmount: swapProInputAmount,
+      inputToken,
+      outputToken: toToken,
+      selectedToken: swapProSelectToken,
+    });
   }, [
+    inputToken,
     swapProDirection,
     swapProInputAmount,
-    setSwapTypeSwitch,
-    swapSelectToken,
     swapProSelectToken,
-    inputToken,
-    setSwapSelectFromToken,
-    selectToToken,
-    swapSelectToToken,
+    switchSwapProToSwapAction,
     toToken,
-    setSwapSelectToToken,
-    selectFromToken,
-    setSwapFromInputAmount,
   ]);
   const onPressActionButton = useCallback(() => {
     if (!supportSpeedSwap) {
