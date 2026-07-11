@@ -66,6 +66,9 @@ export function useSyncedMarketTab(
         if (cancelledTargetTabNameRef.current === targetTabName) {
           return;
         }
+        // Keep header ownership aligned with the latest external target while
+        // the pager finishes its asynchronous correction.
+        setActiveTabName(targetTabName);
         pendingPageSyncRef.current = true;
         return;
       }

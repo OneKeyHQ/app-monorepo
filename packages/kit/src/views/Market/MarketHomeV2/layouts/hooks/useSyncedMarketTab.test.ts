@@ -129,4 +129,33 @@ describe('useSyncedMarketTab', () => {
 
     unmount();
   });
+
+  it('updates the header tab before a cold-start pager correction settles', () => {
+    const focusedTab = 'Perps';
+    const tabContainerRef: ITabContainerRef = {
+      getCurrentIndex: jest.fn(() => 3),
+      getFocusedTab: jest.fn(() => focusedTab),
+      jumpToTab: jest.fn(),
+      setIndex: jest.fn(),
+      syncCurrentPage: jest.fn(),
+    };
+    const tabsRef = { current: tabContainerRef };
+
+    const { result, rerender, unmount } = renderHook(
+      ({ targetTabName }: { targetTabName: string }) =>
+        useSyncedMarketTab(targetTabName, tabsRef, true),
+      {
+        initialProps: { targetTabName: 'Perps' },
+      },
+    );
+
+    expect(result.current.activeTabName).toBe('Perps');
+
+    rerender({ targetTabName: 'Stocks' });
+
+    expect(focusedTab).toBe('Perps');
+    expect(result.current.activeTabName).toBe('Stocks');
+
+    unmount();
+  });
 });
