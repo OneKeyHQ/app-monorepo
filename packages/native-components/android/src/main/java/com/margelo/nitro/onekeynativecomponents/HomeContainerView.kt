@@ -1,7 +1,9 @@
 package com.margelo.nitro.onekeynativecomponents
 
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -1018,6 +1020,7 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
   private val actionViews = mutableMapOf<String, HomeActionView>()
   private val balanceActionViews = mutableMapOf<String, TextView>()
   private val bannerViews = mutableMapOf<String, HomeBannerView>()
+  private var bannersContentWidth = 0
   private var accountImageRequest: HomeContainerImageLoader.Request? = null
   private var networkImageRequest: HomeContainerImageLoader.Request? = null
   private var networkSecondaryImageRequest: HomeContainerImageLoader.Request? = null
@@ -1187,6 +1190,7 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
       balanceActionViews[action.id]?.apply {
         text = "${action.title} ⓘ"
         setTextColor(parseHomeContainerColor(theme.secondaryTextColor, Color.DKGRAY))
+        setOnClickListener { onAction?.invoke(action.actionId, action.id) }
       }
     }
     balanceActionsContent.visibility = if (actions.isEmpty()) GONE else VISIBLE
@@ -1226,6 +1230,20 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     }
     banners.forEach { banner ->
       bannerViews[banner.id]?.bind(banner, theme)
+    }
+    bannersContentWidth = banners.size * (dp(246) + dp(10))
+    bannersContent.layoutParams = bannersContent.layoutParams.apply {
+      width = bannersContentWidth
+      height = dp(84)
+    }
+    bannersContent.requestLayout()
+    bannersContent.post {
+      if (bannersContentWidth <= 0) return@post
+      bannersContent.measure(
+        MeasureSpec.makeMeasureSpec(bannersContentWidth, MeasureSpec.EXACTLY),
+        MeasureSpec.makeMeasureSpec(dp(84), MeasureSpec.EXACTLY),
+      )
+      bannersContent.layout(0, 0, bannersContentWidth, dp(84))
     }
   }
 
@@ -1441,6 +1459,7 @@ private class HomeTabsView(context: Context) : FrameLayout(context) {
   private val buttons = mutableMapOf<String, TextView>()
   private var tabsById = emptyMap<String, HomeContainerTab>()
   private var selectedTabId = ""
+  private var contentWidth = 0
   private var theme: HomeContainerTheme? = null
   private var mountedSlotKeys = emptySet<String>()
 
@@ -1497,15 +1516,37 @@ private class HomeTabsView(context: Context) : FrameLayout(context) {
       content.addView(
         button,
         LinearLayout.LayoutParams(
-          dp(if (tab.title.length > 3) 72 else 44),
+          LayoutParams.WRAP_CONTENT,
           LayoutParams.MATCH_PARENT,
         ).apply {
-          marginEnd = dp(12)
+          marginEnd = dp(24)
         },
       )
     }
+    contentWidth = dp(32) + tabs.sumOf { tab ->
+      val button = buttons.getValue(tab.id)
+      button.paint.measureText(tab.title).toInt() + dp(24)
+    }
+    requestLayout()
+    content.post {
+      val contentHeight = height.takeIf { it > 0 } ?: dp(52)
+      content.measure(
+        MeasureSpec.makeMeasureSpec(contentWidth, MeasureSpec.EXACTLY),
+        MeasureSpec.makeMeasureSpec(contentHeight, MeasureSpec.EXACTLY),
+      )
+      content.layout(0, 0, contentWidth, contentHeight)
+    }
     updateColors()
     updateToolbar()
+  }
+
+  override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+    super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+    if (contentWidth <= 0 || measuredHeight <= 0) return
+    content.measure(
+      MeasureSpec.makeMeasureSpec(contentWidth, MeasureSpec.EXACTLY),
+      MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY),
+    )
   }
 
   fun setSelectedTab(tabId: String) {
@@ -1608,9 +1649,6 @@ private class HomeHorizontalView(context: Context) : AxisLockHorizontalScrollVie
       content.removeAllViews()
       items.forEach { item ->
         val card = HomeHorizontalCardView(context)
-        card.setOnClickListener {
-          item.actionId.takeIf { it.isNotEmpty() }?.let { onAction?.invoke(it, item.id) }
-        }
         content.addView(
           card,
           LinearLayout.LayoutParams(
@@ -1623,7 +1661,22 @@ private class HomeHorizontalView(context: Context) : AxisLockHorizontalScrollVie
       }
     }
     items.forEachIndexed { index, item ->
-      (content.getChildAt(index) as? HomeHorizontalCardView)?.bind(item, theme)
+      (content.getChildAt(index) as? HomeHorizontalCardView)?.apply {
+        layoutParams = (layoutParams as LinearLayout.LayoutParams).apply {
+          width = if (isSupportPromo) {
+            resources.displayMetrics.widthPixels - dp(32)
+          } else {
+            dp(250)
+          }
+          height = dp(if (isSupportPromo) 151 else 120)
+        }
+        setOnClickListener {
+          item.actionId.takeIf { it.isNotEmpty() }?.let { actionId ->
+            onAction?.invoke(actionId, item.id)
+          }
+        }
+        bind(item, theme)
+      }
     }
   }
 
@@ -1922,7 +1975,8 @@ private class HomeSectionTitleView(context: Context) : LinearLayout(context) {
         Color.BLACK,
       ),
     )
-    action.text = if (row.actionTitle.isEmpty()) "" else "${row.actionTitle}  ›"
+    val chevron = if (layoutDirection == LAYOUT_DIRECTION_RTL) "‹" else "›"
+    action.text = if (row.actionTitle.isEmpty()) "" else "${row.actionTitle}  $chevron"
     action.visibility = if (row.actionTitle.isEmpty()) GONE else VISIBLE
     action.setTextColor(parseHomeContainerColor(theme.secondaryTextColor, Color.DKGRAY))
     action.setOnClickListener {
@@ -1956,6 +2010,8 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
   private var representedImageUrl: String? = null
   private var representedSecondaryImageUrl: String? = null
   private var representedBadgeImageUrl: String? = null
+  private val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+  private var drawsDivider = true
 
   init {
     orientation = HORIZONTAL
@@ -1963,6 +2019,7 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
     setPadding(dp(16), 0, dp(16), 0)
     isClickable = true
     isFocusable = true
+    setWillNotDraw(false)
 
     iconImage.scaleType = ImageView.ScaleType.CENTER_CROP
     iconContainer.addView(
@@ -2001,6 +2058,8 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
         addView(subtitleDetail, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
           marginStart = dp(4)
         })
+      }, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+        topMargin = dp(3)
       })
     }
     addView(left, LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply {
@@ -2015,7 +2074,9 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
       value.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
       detail.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
       addView(value)
-      addView(detail)
+      addView(detail, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+        topMargin = dp(3)
+      })
     }
     addView(right, LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
     chevron.text = "›"
@@ -2029,6 +2090,7 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
   }
 
   fun bind(item: HomeContainerItem, theme: HomeContainerTheme) {
+    alpha = if (item.renderer == "empty" || item.renderer == "loading") 0f else 1f
     setBackgroundColor(parseHomeContainerColor(theme.backgroundColor, Color.WHITE))
     icon.text = when (item.leadingIcon) {
       "star" -> "★"
@@ -2096,6 +2158,8 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
       value.setPadding(0, 0, 0, 0)
       value.background = null
     }
+    chevron.text = if (layoutDirection == LAYOUT_DIRECTION_RTL) "‹" else "›"
+    chevron.setTextColor(parseHomeContainerColor(theme.secondaryTextColor, Color.DKGRAY))
     chevron.visibility = if (item.showChevron) VISIBLE else GONE
     val isCentered = item.renderer == "showMore" || item.renderer == "marketTabs"
     iconContainer.visibility = if (isCentered) GONE else VISIBLE
@@ -2104,7 +2168,9 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
     chevron.visibility = if (!isCentered && item.showChevron) VISIBLE else GONE
     centerButton.visibility = if (isCentered) VISIBLE else GONE
     if (item.renderer == "showMore") {
-      centerButton.text = if (item.showChevron) "${item.title}  ›" else item.title
+      val centerChevron = if (layoutDirection == LAYOUT_DIRECTION_RTL) "‹" else "›"
+      centerButton.gravity = Gravity.CENTER
+      centerButton.text = if (item.showChevron) "${item.title}  $centerChevron" else item.title
       centerButton.setTextColor(parseHomeContainerColor(theme.primaryTextColor, Color.BLACK))
       centerButton.background = GradientDrawable().apply {
         setColor(parseHomeContainerColor(theme.cardColor, Color.LTGRAY))
@@ -2117,6 +2183,9 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
       centerButton.background = null
     }
     val usesCard = item.renderer == "supportAction" || item.renderer == "upgrade"
+    drawsDivider = !isCentered && !usesCard
+    dividerPaint.color = parseHomeContainerColor(theme.dividerColor, Color.GRAY)
+    dividerPaint.strokeWidth = (resources.displayMetrics.density * 0.5f).coerceAtLeast(1f)
     layoutParams = RecyclerView.LayoutParams(
       LayoutParams.MATCH_PARENT,
       dp(
@@ -2146,6 +2215,18 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
         cornerRadius = dp(12).toFloat()
       }
     }
+    invalidate()
+  }
+
+  override fun onDraw(canvas: Canvas) {
+    super.onDraw(canvas)
+    if (!drawsDivider) return
+    val inset = dp(16).toFloat()
+    val contentInset = dp(68).toFloat()
+    val startX = if (layoutDirection == LAYOUT_DIRECTION_RTL) inset else contentInset
+    val endX = if (layoutDirection == LAYOUT_DIRECTION_RTL) width - contentInset else width - inset
+    val y = height - dividerPaint.strokeWidth / 2f
+    canvas.drawLine(startX, y, endX, y, dividerPaint)
   }
 
   fun recycle() {
@@ -2228,7 +2309,9 @@ private open class AxisLockHorizontalScrollView(context: Context) : HorizontalSc
         downX = event.x
         downY = event.y
         horizontalGesture = false
-        parent?.requestDisallowInterceptTouchEvent(false)
+        parent?.requestDisallowInterceptTouchEvent(true)
+        super.onInterceptTouchEvent(event)
+        return false
       }
       MotionEvent.ACTION_MOVE -> {
         val dx = abs(event.x - downX)

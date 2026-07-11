@@ -241,7 +241,14 @@ internal object HomeContainerJson {
 
 internal fun parseHomeContainerColor(value: String, fallback: Int): Int =
   try {
-    Color.parseColor(value)
+    // Theme values come from React Native as CSS colors, where eight-digit hex
+    // colors are #RRGGBBAA. Android Color.parseColor expects #AARRGGBB.
+    val androidColor = if (value.length == 9 && value.startsWith('#')) {
+      "#${value.substring(7, 9)}${value.substring(1, 7)}"
+    } else {
+      value
+    }
+    Color.parseColor(androidColor)
   } catch (_: IllegalArgumentException) {
     fallback
   }
