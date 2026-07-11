@@ -184,6 +184,7 @@
   "auth.set_passcode": "Atur kode sandi",
   "auth.with_biometric": "Otentikasi dengan {biometric}",
   "auth_server_error_text": "Sesuatu yang salah. Silakan periksa koneksi internet Anda atau coba lagi nanti.",
+  "available_to_withdraw__title": "Tersedia untuk ditarik",
   "backing_up_desc": "Jangan tutup jendela ini sampai pencadangan selesai.",
   "backing_up_title": "Mencadangkan…",
   "backup.address_book_labels": "Buku alamat & label",
