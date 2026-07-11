@@ -1339,6 +1339,7 @@ export function OrderPairBook({
   symbol: _symbol,
   bids,
   asks,
+  liveMidPrice,
   maxLevelsPerSide = 30,
   selectedTickOption,
   onSelectLevel,
@@ -1348,11 +1349,11 @@ export function OrderPairBook({
   maxLevelsPerSide?: number;
   bids: IBookLevel[];
   asks: IBookLevel[];
+  liveMidPrice?: string;
   selectedTickOption?: ITickParam;
   onSelectLevel?: (payload: IOrderBookSelection) => void;
 }) {
   const intl = useIntl();
-  const { midPrice: liveMidPrice } = useTradingPrice();
   const aggregatedData = useAggregatedBook(
     variant,
     bids,
