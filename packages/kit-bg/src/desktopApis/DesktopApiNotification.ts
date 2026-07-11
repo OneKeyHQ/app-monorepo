@@ -1,6 +1,5 @@
-import { Notification, app, ipcMain, systemPreferences } from 'electron';
+import { Notification, app, systemPreferences } from 'electron';
 import logger from 'electron-log/main';
-import TaskBarBadgeWindows from 'electron-taskbar-badge';
 import { isNil } from 'lodash';
 
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
@@ -12,6 +11,16 @@ import type {
 import { ENotificationPermission } from '@onekeyhq/shared/types/notification';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
+
+// The package's ESM entry incorrectly resolves BadgeGenerator under Rspack.
+// Use the CommonJS entry, whose export shape is compatible with Electron's main process.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const TaskBarBadgeWindows = require('electron-taskbar-badge') as new (
+  win: object,
+  options: object,
+) => {
+  update(badgeNumber: number): void;
+};
 
 const isWin = process.platform === 'win32';
 const isMac = process.platform === 'darwin';
@@ -298,6 +307,10 @@ class DesktopApiNotification {
 
   desktopApi: IDesktopApi;
 
+  private win32TaskBarBadge?: {
+    update(badgeNumber: number): void;
+  };
+
   private initWin32TaskBarBadge(APP_NAME: string) {
     if (process.platform === 'win32') {
       app.setAppUserModelId(APP_NAME);
@@ -307,7 +320,7 @@ class DesktopApiNotification {
       if (safelyMainWindow) {
         // TODO not working on Windows 11 (UTM)
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        const badge = new TaskBarBadgeWindows(safelyMainWindow, {
+        this.win32TaskBarBadge = new TaskBarBadgeWindows(safelyMainWindow, {
           fontColor: '#000000',
           font: '62px Microsoft Yahei',
           color: '#000000',
@@ -322,7 +335,7 @@ class DesktopApiNotification {
             console.log(`Received ${count} new notifications!`);
           },
         });
-        console.log('TaskBarBadgeWindows init', badge);
+        console.log('TaskBarBadgeWindows init');
       }
     }
   }
@@ -364,22 +377,11 @@ class DesktopApiNotification {
       const win = globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
       if (win) {
         if (!isNil(count) && count > 0) {
-          // TaskBarBadgeWindows will handle badge count render
+          this.win32TaskBarBadge?.update(count);
         } else {
           win.setOverlayIcon(null, '');
         }
       }
-
-      /* 
-      // If invokeType is set to "handle"
-      // Replace 8 with whatever number you want the badge to display
-      ipcRenderer.invoke('notificationCount', 8); 
-      */
-      // handle -> ipcRenderer.invoke
-      void ipcMain.emit(
-        ipcMessageKeys.NOTIFICATION_SET_BADGE_WINDOWS,
-        params.count ?? 0,
-      );
     }
   }
 
