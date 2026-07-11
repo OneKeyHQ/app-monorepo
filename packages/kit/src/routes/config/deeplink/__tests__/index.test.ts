@@ -2,6 +2,7 @@ import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   ERootRoutes,
+  ETabMarketRoutes,
   ETabRoutes,
   ETabSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -138,14 +139,14 @@ describe('handleDeepLinkUrl', () => {
 
 describe('stocks / perps universal links', () => {
   const navigate = jest.fn();
-  const switchTab = jest.fn();
+  const switchTabAsync = jest.fn(async () => {});
   const originalRootAppNavigation = appGlobals.$rootAppNavigation;
 
   beforeEach(() => {
     jest.clearAllMocks();
     appGlobals.$rootAppNavigation = {
       navigate,
-      switchTab,
+      switchTabAsync,
     } as unknown as typeof appGlobals.$rootAppNavigation;
     mockedPerpsCommonConfigGet.mockResolvedValue({
       perpConfigCommon: {},
@@ -175,7 +176,7 @@ describe('stocks / perps universal links', () => {
         },
       },
     });
-    expect(switchTab).not.toHaveBeenCalled();
+    expect(switchTabAsync).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -187,7 +188,7 @@ describe('stocks / perps universal links', () => {
     handleDeepLinkUrl({ url });
     await flushAsyncTasks();
 
-    expect(switchTab).toHaveBeenCalledWith(ETabRoutes.Perp);
+    expect(switchTabAsync).toHaveBeenCalledWith(ETabRoutes.Perp);
     expect(navigate).not.toHaveBeenCalled();
   });
 
@@ -206,19 +207,26 @@ describe('stocks / perps universal links', () => {
           },
         },
       });
-      expect(switchTab).not.toHaveBeenCalled();
+      expect(switchTabAsync).not.toHaveBeenCalled();
     },
   );
 
   it.each([
     'https://app.onekey.so/market',
     'https://app.onekeytest.com/market/',
-  ])('routes market universal link to the Market tab: %s', async (url) => {
+  ])('routes market universal link to the Market tab home: %s', async (url) => {
     handleDeepLinkUrl({ url });
     await flushAsyncTasks();
 
-    expect(switchTab).toHaveBeenCalledWith(ETabRoutes.Market);
-    expect(navigate).not.toHaveBeenCalled();
+    // jest runs as web (non-native), which lands on the Market tab directly;
+    // the native branch converges into Discovery's market sub tab instead.
+    expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+      screen: ETabRoutes.Market,
+      params: {
+        screen: ETabMarketRoutes.TabMarket,
+      },
+    });
+    expect(switchTabAsync).not.toHaveBeenCalled();
   });
 
   it('routes perps universal link to the web Perps tab when usePerpWeb is on', async () => {
@@ -230,7 +238,7 @@ describe('stocks / perps universal links', () => {
     handleDeepLinkUrl({ url: 'https://perps.onekey.so/?web=1' });
     await flushAsyncTasks();
 
-    expect(switchTab).toHaveBeenCalledWith(ETabRoutes.WebviewPerpTrade);
+    expect(switchTabAsync).toHaveBeenCalledWith(ETabRoutes.WebviewPerpTrade);
   });
 
   it('skips perps navigation when the loaded config disables perps', async () => {
@@ -242,7 +250,7 @@ describe('stocks / perps universal links', () => {
     handleDeepLinkUrl({ url: 'https://perps.onekeytest.com/?disabled=1' });
     await flushAsyncTasks();
 
-    expect(switchTab).not.toHaveBeenCalled();
+    expect(switchTabAsync).not.toHaveBeenCalled();
     expect(navigate).not.toHaveBeenCalled();
   });
 
@@ -255,7 +263,7 @@ describe('stocks / perps universal links', () => {
     handleDeepLinkUrl({ url: 'https://perps.onekey.so/?loading=1' });
     await flushAsyncTasks();
 
-    expect(switchTab).toHaveBeenCalledWith(ETabRoutes.Perp);
+    expect(switchTabAsync).toHaveBeenCalledWith(ETabRoutes.Perp);
   });
 
   it.each([
@@ -273,6 +281,6 @@ describe('stocks / perps universal links', () => {
     await flushAsyncTasks();
 
     expect(navigate).not.toHaveBeenCalled();
-    expect(switchTab).not.toHaveBeenCalled();
+    expect(switchTabAsync).not.toHaveBeenCalled();
   });
 });

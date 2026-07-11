@@ -21,9 +21,17 @@ import {
   WalletConnectUniversalLinkPath,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
+  ETabDiscoveryRoutes,
+  ETabMarketRoutes,
   ETabReferFriendsRoutes,
   ETabRoutes,
   ETabSwapRoutes,
@@ -244,12 +252,39 @@ async function processOneKeyAppUniversalLink(
     return true;
   }
   if (target.type === 'market') {
-    navigation.switchTab(ETabRoutes.Market);
+    // Mirrors useNavigateToMarketTab: on native the Market tab is hidden and
+    // merged into Discovery, so land on Discovery's market sub tab there;
+    // elsewhere reset the Market tab stack back to TabMarket.
+    if (platformEnv.isNative) {
+      navigation.navigate(ERootRoutes.Main, {
+        screen: ETabRoutes.Discovery,
+        params: {
+          screen: ETabDiscoveryRoutes.TabDiscovery,
+          params: {
+            defaultTab: ETranslations.global_market,
+          },
+        },
+      });
+      setTimeout(() => {
+        appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+          tab: ETranslations.global_market,
+        });
+      }, 150);
+    } else {
+      navigation.navigate(ERootRoutes.Main, {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.TabMarket,
+        },
+      });
+    }
     return true;
   }
   const perpsTabRoute = await getPerpsAppLinkTabRoute();
   if (perpsTabRoute) {
-    navigation.switchTab(perpsTabRoute);
+    // switchTabAsync serializes overlay dismiss and tab switch; the sync
+    // switchTab is deprecated for the iOS RNSScreenStack orphan freeze.
+    await navigation.switchTabAsync(perpsTabRoute);
   }
   return true;
 }
