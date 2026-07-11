@@ -542,12 +542,14 @@ const ActionField = ({
             mr="$1"
             size="$bodyMdMedium"
             text={reward.title ?? { text: '-' }}
+            fontVariant={TABULAR_NUMS}
           />
           <EarnText
             mr="$2"
             size="$bodyMd"
             color="$textSubdued"
             text={reward.description}
+            fontVariant={TABULAR_NUMS}
           />
           {reward?.tooltip ? (
             <XStack mr="$2">
@@ -992,16 +994,19 @@ const PortfolioItemComponent = ({
                               <EarnText
                                 size="$bodyLgMedium"
                                 text={asset.metadata.netPnlFiatValue}
+                                fontVariant={TABULAR_NUMS}
                               />
                               <EarnText
                                 size="$bodyMd"
                                 text={asset.metadata.netPnl}
+                                fontVariant={TABULAR_NUMS}
                               />
                             </>
                           ) : (
                             <EarnText
                               size="$bodyLgMedium"
                               text={asset.earnings24h?.title}
+                              fontVariant={TABULAR_NUMS}
                             />
                           )}
                           <SizableText size="$bodyMd" color="$textSubdued">
@@ -1048,11 +1053,13 @@ const PortfolioItemComponent = ({
                               <EarnText
                                 size="$bodyMdMedium"
                                 text={reward.title}
+                                fontVariant={TABULAR_NUMS}
                               />
                               <EarnText
                                 size="$bodyMd"
                                 color="$textSubdued"
                                 text={reward.description}
+                                fontVariant={TABULAR_NUMS}
                               />
                               <EarnTooltip tooltip={reward.tooltip} />
                             </XStack>

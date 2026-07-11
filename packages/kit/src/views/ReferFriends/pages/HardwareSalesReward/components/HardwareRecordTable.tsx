@@ -9,6 +9,7 @@ import {
   Icon,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -91,14 +92,22 @@ function TableRow({ item }: ITableRowProps) {
               color="$iconSubdued"
             />
           </Stack>
-          <SizableText size="$bodyMdMedium" color="$text">
+          <SizableText
+            size="$bodyMdMedium"
+            color="$text"
+            fontVariant={TABULAR_NUMS}
+          >
             {formattedDate}
           </SizableText>
         </XStack>
 
         {/* Order ID Column */}
         <XStack w={COLUMN_WIDTHS.orderId} ai="center" py="$1">
-          <SizableText size="$bodyMdMedium" color="$text">
+          <SizableText
+            size="$bodyMdMedium"
+            color="$text"
+            fontVariant={TABULAR_NUMS}
+          >
             {item.orderNumber}
           </SizableText>
         </XStack>
@@ -124,6 +133,7 @@ function TableRow({ item }: ITableRowProps) {
             color={rewardColor}
             formatter="value"
             size="$bodyMdMedium"
+            fontVariant={TABULAR_NUMS}
             formatterOptions={{
               showPlusMinusSigns: true,
             }}

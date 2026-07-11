@@ -15,6 +15,7 @@ import {
   ScrollView,
   SizableText,
   Skeleton,
+  TABULAR_NUMS,
   Tooltip,
   XStack,
   YStack,
@@ -843,6 +844,7 @@ function TokenAmountLines({ tokens }: { tokens: IDisplayPoolToken[] }) {
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 flexShrink={1}
+                fontVariant={TABULAR_NUMS}
               >
                 {token.amount}
               </NumberSizeableText>
@@ -1003,13 +1005,23 @@ function TokenLiquidityPoolsDesktop({ pools }: { pools: IDisplayPool[] }) {
             <YStack {...styles.pool}>
               <PoolIdentity item={item} textSize="$bodyMd" />
             </YStack>
-            <SizableText size="$bodyMd" color="$text" {...styles.liquidity}>
+            <SizableText
+              size="$bodyMd"
+              color="$text"
+              fontVariant={TABULAR_NUMS}
+              {...styles.liquidity}
+            >
               {item.liquidity}
             </SizableText>
             <YStack {...styles.tokenAmount}>
               <TokenAmountLines tokens={item.tokenAmounts} />
             </YStack>
-            <SizableText size="$bodyMd" color="$text" {...styles.feeRate}>
+            <SizableText
+              size="$bodyMd"
+              color="$text"
+              fontVariant={TABULAR_NUMS}
+              {...styles.feeRate}
+            >
               {item.feeRate}
             </SizableText>
             <YStack {...styles.poolAddress}>
@@ -1062,6 +1074,7 @@ function DetailTokenRows({ tokens }: { tokens: IDisplayPoolToken[] }) {
               autoFormatterThreshold={TOKEN_AMOUNT_COMPACT_THRESHOLD}
               numberOfLines={1}
               ellipsizeMode="tail"
+              fontVariant={TABULAR_NUMS}
             >
               {token.amount}
             </NumberSizeableText>
@@ -1213,6 +1226,7 @@ function MobilePoolRow({ item }: { item: IDisplayPool }) {
         color="$text"
         textAlign="right"
         numberOfLines={1}
+        fontVariant={TABULAR_NUMS}
         {...MOBILE_COLUMN_STYLE.liquidity}
       >
         {item.liquidity}
@@ -1228,6 +1242,7 @@ function MobilePoolRow({ item }: { item: IDisplayPool }) {
           color="$text"
           textAlign="right"
           numberOfLines={1}
+          fontVariant={TABULAR_NUMS}
         >
           {item.feeRate}
         </SizableText>

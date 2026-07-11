@@ -8,6 +8,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -61,10 +62,18 @@ function AssetRow({
       </XStack>
 
       <YStack alignItems="flex-end" flexShrink={0}>
-        <NumberSizeableText size="$bodyMd" formatter="balance">
+        <NumberSizeableText
+          size="$bodyMd"
+          formatter="balance"
+          fontVariant={TABULAR_NUMS}
+        >
           {item.balanceParsed || '0'}
         </NumberSizeableText>
-        <SizableText size="$bodySm" color="$textSubdued">
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          fontVariant={TABULAR_NUMS}
+        >
           {formatFiatValue(item.fiatValue)}
         </SizableText>
       </YStack>

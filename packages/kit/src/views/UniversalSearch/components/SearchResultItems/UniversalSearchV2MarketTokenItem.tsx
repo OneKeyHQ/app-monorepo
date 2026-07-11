@@ -8,6 +8,7 @@ import {
   NumberSizeableText,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
   rootNavigationRef,
@@ -370,6 +371,7 @@ export function UniversalSearchV2MarketTokenItem({
             size="$bodyMd"
             tokenName={name}
             tokenSymbol={symbol}
+            fontVariant={TABULAR_NUMS}
           />
           {priceChange24hPercent ? (
             <NumberSizeableText
@@ -379,6 +381,7 @@ export function UniversalSearchV2MarketTokenItem({
               formatterOptions={{
                 showPlusMinusSigns: priceChangeStyle.showPlusMinusSigns,
               }}
+              fontVariant={TABULAR_NUMS}
             >
               {priceChange24hPercent}
             </NumberSizeableText>
@@ -392,6 +395,7 @@ export function UniversalSearchV2MarketTokenItem({
               size="$bodyMd"
               formatter="marketCap"
               formatterOptions={{ capAtMaxT: true }}
+              fontVariant={TABULAR_NUMS}
             >
               {BigNumber(liquidity).gt(0) ? liquidity : '--'}
             </NumberSizeableText>
@@ -405,6 +409,7 @@ export function UniversalSearchV2MarketTokenItem({
               size="$bodyMd"
               formatter="marketCap"
               formatterOptions={{ capAtMaxT: true }}
+              fontVariant={TABULAR_NUMS}
             >
               {BigNumber(volume24h).gt(0) ? volume24h : '--'}
             </NumberSizeableText>

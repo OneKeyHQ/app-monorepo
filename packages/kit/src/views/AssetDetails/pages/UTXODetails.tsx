@@ -11,6 +11,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  TABULAR_NUMS,
   YStack,
 } from '@onekeyhq/components';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -164,6 +165,7 @@ function UTXODetails() {
                 size: '$bodySm',
               }}
               mt="$1.5"
+              fontVariant={TABULAR_NUMS}
             >
               {`${utxo.balance} ${network?.symbol ?? ''}`}
             </SizableText>

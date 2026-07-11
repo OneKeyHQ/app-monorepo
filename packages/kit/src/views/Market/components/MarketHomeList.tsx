@@ -327,6 +327,7 @@ function MarketMdColumn({
               formatter="marketCap"
               color="$textSubdued"
               formatterOptions={{ currency }}
+              fontVariant={TABULAR_NUMS}
             >
               {item.totalVolume}
             </NumberSizeableText>
@@ -353,6 +354,7 @@ function MarketMdColumn({
             size="$bodyLgMedium"
             formatter="marketCap"
             formatterOptions={{ currency }}
+            fontVariant={TABULAR_NUMS}
           >
             {item[mdColumnKeys[0]] as string}
           </NumberSizeableText>
@@ -378,6 +380,7 @@ function MarketMdColumn({
               formatterOptions={{
                 showPlusMinusSigns: true,
               }}
+              fontVariant={TABULAR_NUMS}
             >
               {item[mdColumnKeys[1]] as string}
             </NumberSizeableText>
@@ -664,6 +667,7 @@ function BasicMarketHomeList({
                   size="$bodyMd"
                   color="$textSubdued"
                   userSelect="none"
+                  fontVariant={TABULAR_NUMS}
                 >
                   {serialNumber ?? '-'}
                 </SizableText>
@@ -814,6 +818,7 @@ function BasicMarketHomeList({
                       size="$bodyMd"
                       formatter="marketCap"
                       formatterOptions={{ currency }}
+                      fontVariant={TABULAR_NUMS}
                     >
                       {totalVolume || '-'}
                     </NumberSizeableText>
@@ -838,6 +843,7 @@ function BasicMarketHomeList({
                       size="$bodyMd"
                       formatter="marketCap"
                       formatterOptions={{ currency }}
+                      fontVariant={TABULAR_NUMS}
                     >
                       {marketCap || '-'}
                     </NumberSizeableText>

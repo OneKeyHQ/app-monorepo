@@ -19,6 +19,7 @@ import {
   Page,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -128,6 +129,7 @@ const OptionItem = ({
               <NumberSizeableText
                 size="$bodyLgMedium"
                 formatter="balance"
+                fontVariant={TABULAR_NUMS}
                 formatterOptions={{
                   tokenSymbol: token?.symbol,
                 }}
@@ -138,6 +140,7 @@ const OptionItem = ({
                 size="$bodyMd"
                 color="$textSubdued"
                 formatter="value"
+                fontVariant={TABULAR_NUMS}
                 formatterOptions={{ currency: symbol }}
               >
                 {item.fiatValue}

@@ -12,6 +12,7 @@ import {
   SectionList,
   Select,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -163,6 +164,7 @@ const HistoryItem = ({
           <NumberSizeableText
             size="$bodyLgMedium"
             formatter="balance"
+            fontVariant={TABULAR_NUMS}
             color={item.direction === 'receive' ? '$textSuccess' : undefined}
             formatterOptions={{
               tokenSymbol: token?.symbol,

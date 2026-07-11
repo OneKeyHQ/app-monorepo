@@ -99,6 +99,7 @@ export function TokenDetailHeaderRight({
             <NumberSizeableText
               size="$headingXs"
               color="$text"
+              fontVariant={TABULAR_NUMS}
               formatter="marketCap"
               formatterOptions={{
                 capAtMaxT: true,
@@ -118,6 +119,7 @@ export function TokenDetailHeaderRight({
             <NumberSizeableText
               size="$headingXs"
               color="$text"
+              fontVariant={TABULAR_NUMS}
               formatter="marketCap"
               formatterOptions={{
                 currency: '$',
@@ -134,7 +136,11 @@ export function TokenDetailHeaderRight({
             id: ETranslations.dexmarket_stock_pe_ttm,
           })}
           value={
-            <SizableText size="$headingXs" color="$text">
+            <SizableText
+              size="$headingXs"
+              color="$text"
+              fontVariant={TABULAR_NUMS}
+            >
               {formatRatioValue(tokenDetail?.stock?.tradingActivity?.peRatio)}
             </SizableText>
           }
@@ -152,6 +158,7 @@ export function TokenDetailHeaderRight({
             <NumberSizeableText
               size="$headingXs"
               color="$text"
+              fontVariant={TABULAR_NUMS}
               formatter="marketCap"
               formatterOptions={{
                 capAtMaxT: true,
@@ -170,6 +177,7 @@ export function TokenDetailHeaderRight({
             <NumberSizeableText
               size="$headingXs"
               color="$text"
+              fontVariant={TABULAR_NUMS}
               formatter="marketCap"
               formatterOptions={{
                 currency: '$',
@@ -187,6 +195,7 @@ export function TokenDetailHeaderRight({
             <NumberSizeableText
               size="$headingXs"
               color="$text"
+              fontVariant={TABULAR_NUMS}
               formatter="marketCap"
             >
               {btcMetadata.circulatingSupply}
@@ -206,6 +215,7 @@ export function TokenDetailHeaderRight({
             <NumberSizeableText
               size="$headingXs"
               color="$text"
+              fontVariant={TABULAR_NUMS}
               formatter="marketCap"
               formatterOptions={{
                 capAtMaxT: true,
@@ -224,6 +234,7 @@ export function TokenDetailHeaderRight({
             <NumberSizeableText
               size="$headingXs"
               color="$text"
+              fontVariant={TABULAR_NUMS}
               formatter="marketCap"
               formatterOptions={{
                 currency: '$',
@@ -241,6 +252,7 @@ export function TokenDetailHeaderRight({
             <NumberSizeableText
               size="$headingXs"
               color="$text"
+              fontVariant={TABULAR_NUMS}
               formatter="marketCap"
             >
               {holdersValue}
@@ -285,6 +297,7 @@ export function TokenDetailHeaderRight({
                 color="$textSubdued"
                 formatter="price"
                 formatterOptions={{ currency: currencyInfo.symbol }}
+                fontVariant={TABULAR_NUMS}
               >
                 {priceConverted}
               </NumberSizeableText>

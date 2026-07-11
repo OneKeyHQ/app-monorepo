@@ -1,5 +1,4 @@
 import { SizableText, TABULAR_NUMS } from '@onekeyhq/components';
-
 import type { ISizableTextProps } from '@onekeyhq/components';
 
 /**

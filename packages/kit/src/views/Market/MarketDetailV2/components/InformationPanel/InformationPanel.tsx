@@ -226,11 +226,17 @@ export function InformationPanel() {
               color="$textSubdued"
               formatter="price"
               formatterOptions={{ currency: currencyInfo.symbol }}
+              fontVariant={TABULAR_NUMS}
             >
               {priceConverted}
             </NumberSizeableText>
           ) : null}
-          <SizableText pt="$1" size="$bodyLgMedium" color={priceChangeColor}>
+          <SizableText
+            pt="$1"
+            size="$bodyLgMedium"
+            color={priceChangeColor}
+            fontVariant={TABULAR_NUMS}
+          >
             {priceChangeDisplay}
           </SizableText>
         </YStack>

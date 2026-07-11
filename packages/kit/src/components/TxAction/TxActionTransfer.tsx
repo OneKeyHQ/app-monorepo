@@ -10,6 +10,7 @@ import {
   Icon,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -456,6 +457,7 @@ function buildExpandedTransferView({
           numberOfLines={1}
           size="$bodyMd"
           color={color}
+          fontVariant={TABULAR_NUMS}
         >
           {`${prefix === 'r' ? '+' : '-'}${transfer.amount}`}
         </NumberSizeableTextWrapper>
@@ -467,6 +469,7 @@ function buildExpandedTransferView({
             size="$bodyMd"
             color="$textSubdued"
             numberOfLines={1}
+            fontVariant={TABULAR_NUMS}
           >
             {fiatValue}
           </NumberSizeableTextWrapper>
@@ -795,6 +798,7 @@ function TxActionTransferListView(props: ITxActionProps) {
         }}
         numberOfLines={1}
         size="$bodyLgMedium"
+        fontVariant={TABULAR_NUMS}
         {...(isStackedLayout && {
           minWidth: 0,
           maxWidth: '100%',
@@ -829,6 +833,7 @@ function TxActionTransferListView(props: ITxActionProps) {
         color="$textSubdued"
         numberOfLines={1}
         maxWidth={isStackedLayout ? '100%' : '$40'}
+        fontVariant={TABULAR_NUMS}
         {...(isStackedLayout && {
           minWidth: 0,
           textAlign: 'right',

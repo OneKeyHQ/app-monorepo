@@ -1,4 +1,10 @@
-import { Alert, Icon, XStack, YStack } from '@onekeyhq/components';
+import {
+  Alert,
+  Icon,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   IEarnActionIcon,
@@ -75,13 +81,21 @@ export function GridItem({
             cursor="pointer"
             onPress={() => openUrlExternal(actionIcon?.data?.link)}
           >
-            <EarnText text={description} size="$bodyLgMedium" />
+            <EarnText
+              text={description}
+              size="$bodyLgMedium"
+              fontVariant={TABULAR_NUMS}
+            />
             {descriptionComponent ?? null}
             <Icon name="OpenOutline" size="$4.5" color="$iconSubdued" />
           </XStack>
         ) : (
           <>
-            <EarnText text={description} size="$bodyLgMedium" />
+            <EarnText
+              text={description}
+              size="$bodyLgMedium"
+              fontVariant={TABULAR_NUMS}
+            />
             {descriptionComponent ?? null}
             <EarnActionIcon title={title.text} actionIcon={actionIcon} />
           </>

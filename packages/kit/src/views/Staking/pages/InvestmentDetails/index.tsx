@@ -15,6 +15,7 @@ import {
   SectionList,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -312,6 +313,7 @@ function BasicInvestmentDetails() {
               <NumberSizeableText
                 size="$bodyLgMedium"
                 formatter="balance"
+                fontVariant={TABULAR_NUMS}
                 formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
               >
                 {staked}
@@ -320,6 +322,7 @@ function BasicInvestmentDetails() {
                 size="$bodyMd"
                 color="$textSubdued"
                 formatter="balance"
+                fontVariant={TABULAR_NUMS}
                 formatterOptions={{
                   currency: settings.currencyInfo.symbol,
                 }}

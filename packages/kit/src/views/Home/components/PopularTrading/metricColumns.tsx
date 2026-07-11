@@ -3,6 +3,7 @@ import type { ComponentProps, ReactNode } from 'react';
 import {
   NumberSizeableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -85,6 +86,7 @@ function renderPopularTradingChangeText(
       formatter="priceChange"
       color={changeColor}
       formatterOptions={{ showPlusMinusSigns }}
+      fontVariant={TABULAR_NUMS}
     >
       {record.priceChange24h ?? '-'}
     </NumberSizeableText>
@@ -99,6 +101,7 @@ function renderPopularTradingPriceWithChange(record: IFavoriteTokenDisplay) {
         size="$bodyLgMedium"
         formatter="price"
         formatterOptions={{ currency: '$' }}
+        fontVariant={TABULAR_NUMS}
       >
         {record.price ?? '-'}
       </NumberSizeableText>
@@ -121,6 +124,7 @@ function getPopularTradingDesktopMetricColumns(
           size="$bodyLgMedium"
           formatter="price"
           formatterOptions={{ currency: '$' }}
+          fontVariant={TABULAR_NUMS}
         >
           {record.price ?? '-'}
         </NumberSizeableText>
@@ -140,6 +144,7 @@ function getPopularTradingDesktopMetricColumns(
           size="$bodyLgMedium"
           formatter="marketCap"
           formatterOptions={{ currency: '$' }}
+          fontVariant={TABULAR_NUMS}
         >
           {record.volume24h ? record.volume24h : EMPTY_MARKET_VALUE}
         </NumberSizeableText>

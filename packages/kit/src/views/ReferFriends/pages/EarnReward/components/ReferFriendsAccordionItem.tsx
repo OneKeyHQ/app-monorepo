@@ -1,6 +1,12 @@
 import type { ComponentProps, ReactNode } from 'react';
 
-import { Accordion, Icon, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Accordion,
+  Icon,
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+} from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -63,6 +69,7 @@ export function ReferFriendsAccordionItem({
                 color="$textSuccess"
                 formatter="value"
                 size="$bodyLgMedium"
+                fontVariant={TABULAR_NUMS}
                 formatterOptions={{
                   showPlusMinusSigns: true,
                 }}

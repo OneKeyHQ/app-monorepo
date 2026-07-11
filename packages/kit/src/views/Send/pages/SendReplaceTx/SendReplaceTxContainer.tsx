@@ -16,6 +16,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  TABULAR_NUMS,
   Toast,
   XStack,
 } from '@onekeyhq/components';
@@ -396,6 +397,7 @@ function SendReplaceTxContainer() {
             tokenSymbol: network?.symbol,
           }}
           size="$bodyLg"
+          fontVariant={TABULAR_NUMS}
         >
           {historyTx.decodedTx.totalFeeInNative}
         </NumberSizeableText>
@@ -406,6 +408,7 @@ function SendReplaceTxContainer() {
           }}
           size="$bodyLg"
           color="$textSubdued"
+          fontVariant={TABULAR_NUMS}
         >
           {historyTx.decodedTx.totalFeeFiatValue}
         </NumberSizeableText>
@@ -428,6 +431,7 @@ function SendReplaceTxContainer() {
             tokenSymbol: network?.symbol,
           }}
           size="$bodyLg"
+          fontVariant={TABULAR_NUMS}
         >
           {newFeeInfo?.totalNative}
         </NumberSizeableText>
@@ -438,6 +442,7 @@ function SendReplaceTxContainer() {
           }}
           size="$bodyLg"
           color="$textSubdued"
+          fontVariant={TABULAR_NUMS}
         >
           {newFeeInfo?.totalFiat}
         </NumberSizeableText>

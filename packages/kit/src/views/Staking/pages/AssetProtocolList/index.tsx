@@ -13,6 +13,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -211,6 +212,7 @@ function AssetProtocolListContent({
                 userSelect="none"
                 color="$textSubdued"
                 size="$bodyMd"
+                fontVariant={TABULAR_NUMS}
                 formatterOptions={{ currency: currencySymbol }}
                 formatter="marketCap"
               >
@@ -228,6 +230,9 @@ function AssetProtocolListContent({
                   }`
                 : null
             }
+            primaryTextProps={{
+              fontVariant: TABULAR_NUMS,
+            }}
             secondary={
               item.provider.isStaking
                 ? intl.formatMessage({

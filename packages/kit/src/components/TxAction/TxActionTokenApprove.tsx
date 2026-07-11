@@ -3,7 +3,12 @@ import { useEffect, useMemo, useRef } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EApproveType } from '@onekeyhq/shared/types/tx';
@@ -169,6 +174,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
             }}
             size="$bodyMd"
             numberOfLines={1}
+            fontVariant={TABULAR_NUMS}
           >
             {approveAmount}
           </NumberSizeableTextWrapper>
@@ -211,6 +217,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
             size="$bodyMd"
             color="$textSubdued"
             numberOfLines={1}
+            fontVariant={TABULAR_NUMS}
           >
             {approveAmount}
           </NumberSizeableTextWrapper>
@@ -227,6 +234,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
           size="$bodyMd"
           color="$textSubdued"
           numberOfLines={1}
+          fontVariant={TABULAR_NUMS}
         >
           {approveAmount}
         </NumberSizeableTextWrapper>

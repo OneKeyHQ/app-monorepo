@@ -109,6 +109,7 @@ const SwapProPositionItem = ({
           <NumberSizeableText
             size="$bodyMd"
             color="$textSubdued"
+            fontVariant={TABULAR_NUMS}
             formatter="balance"
             numberOfLines={1}
           >

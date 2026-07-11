@@ -8,6 +8,7 @@ import {
   Anchor,
   Icon,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -71,7 +72,7 @@ function ApyLineItem({
           {label}
         </SizableText>
       </XStack>
-      <SizableText size="$bodyMdMedium">
+      <SizableText size="$bodyMdMedium" fontVariant={TABULAR_NUMS}>
         {valuePrefix}
         {formatApy(value)}%
       </SizableText>
@@ -146,7 +147,11 @@ function VaultBasedApyInternal({
               id: ETranslations.earn_last_day,
             })}
           </SizableText>
-          <SizableText color="$text" size="$bodyMdMedium">
+          <SizableText
+            color="$text"
+            size="$bodyMdMedium"
+            fontVariant={TABULAR_NUMS}
+          >
             {isPositiveNumber(apys?.dailyNetApy)
               ? `${formatApy(apys?.dailyNetApy)}%`
               : '-'}
@@ -158,7 +163,11 @@ function VaultBasedApyInternal({
               id: ETranslations.earn_last_week,
             })}
           </SizableText>
-          <SizableText color="$text" size="$bodyMdMedium">
+          <SizableText
+            color="$text"
+            size="$bodyMdMedium"
+            fontVariant={TABULAR_NUMS}
+          >
             {isPositiveNumber(apys?.weeklyNetApy)
               ? `${formatApy(apys?.weeklyNetApy)}%`
               : '-'}
@@ -170,7 +179,11 @@ function VaultBasedApyInternal({
               id: ETranslations.earn_last_month,
             })}
           </SizableText>
-          <SizableText color="$text" size="$bodyMdMedium">
+          <SizableText
+            color="$text"
+            size="$bodyMdMedium"
+            fontVariant={TABULAR_NUMS}
+          >
             {isPositiveNumber(apys?.monthlyNetApy)
               ? `${formatApy(apys?.monthlyNetApy)}%`
               : '-'}
