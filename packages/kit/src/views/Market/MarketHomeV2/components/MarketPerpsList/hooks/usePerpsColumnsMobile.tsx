@@ -6,6 +6,7 @@ import {
   NumberSizeableText,
   SizableText,
   Skeleton,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -67,6 +68,7 @@ export function usePerpsColumnsMobile(): ITableColumn<IMarketPerpsToken>[] {
                   numberOfLines={1}
                   formatter="marketCap"
                   userSelect="none"
+                  fontVariant={TABULAR_NUMS}
                 >
                   {record.volume24h ?? '0'}
                 </NumberSizeableText>
@@ -107,6 +109,7 @@ export function usePerpsColumnsMobile(): ITableColumn<IMarketPerpsToken>[] {
                   size="$bodyLgMedium"
                   formatter="price"
                   formatterOptions={{ currency: '$' }}
+                  fontVariant={TABULAR_NUMS}
                 >
                   {record.markPrice ?? '0'}
                 </NumberSizeableText>
@@ -115,6 +118,7 @@ export function usePerpsColumnsMobile(): ITableColumn<IMarketPerpsToken>[] {
                   color={changeColor}
                   formatter="priceChange"
                   formatterOptions={{ showPlusMinusSigns: true }}
+                  fontVariant={TABULAR_NUMS}
                 >
                   {record.change24hPercent ?? 0}
                 </NumberSizeableText>

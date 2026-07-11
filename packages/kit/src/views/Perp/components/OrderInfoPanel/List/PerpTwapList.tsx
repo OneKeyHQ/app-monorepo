@@ -51,6 +51,7 @@ import { usePerpTwapHistoryViewAllUrl } from '../../../hooks/usePerpOrderInfoPan
 import { PerpTestIDs } from '../../../testIDs';
 import { buildHelpUrl, openGuideUrl } from '../../Guide/perpGuideData';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
+import { PerpTableCellText } from '../Components/PerpTableCellText';
 import {
   calcCellAlign,
   getColumnStyle,
@@ -278,7 +279,7 @@ function MobileTwapHistoryInfoRow({
       <SizableText size="$bodySm" color="$textSubdued">
         {label}
       </SizableText>
-      <SizableText
+      <PerpTableCellText
         size="$bodySm"
         color={valueColor}
         numberOfLines={1}
@@ -287,7 +288,7 @@ function MobileTwapHistoryInfoRow({
         maxWidth="60%"
       >
         {value}
-      </SizableText>
+      </PerpTableCellText>
     </XStack>
   );
 }
@@ -507,34 +508,36 @@ function TwapActiveRow({
             justifyContent={calcCellAlign(columnConfigs[1].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm" color={sideInfo.color}>
+            <PerpTableCellText size="$bodySm" color={sideInfo.color}>
               {baseInfo.sizeWithSymbol}
-            </SizableText>
+            </PerpTableCellText>
           </XStack>
           <XStack
             {...getColumnStyle(columnConfigs[2])}
             justifyContent={calcCellAlign(columnConfigs[2].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm" color={sideInfo.color}>
+            <PerpTableCellText size="$bodySm" color={sideInfo.color}>
               {baseInfo.executedSizeWithSymbol}
-            </SizableText>
+            </PerpTableCellText>
           </XStack>
           <XStack
             {...getColumnStyle(columnConfigs[3])}
             justifyContent={calcCellAlign(columnConfigs[3].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm">
+            <PerpTableCellText size="$bodySm">
               {baseInfo.avgPriceFormatted}
-            </SizableText>
+            </PerpTableCellText>
           </XStack>
           <YStack
             {...getColumnStyle(columnConfigs[4])}
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[4].align)}
           >
-            <SizableText size="$bodySm">{baseInfo.runningTimeText}</SizableText>
+            <PerpTableCellText size="$bodySm">
+              {baseInfo.runningTimeText}
+            </PerpTableCellText>
           </YStack>
           <XStack
             {...getColumnStyle(columnConfigs[5])}
@@ -555,7 +558,9 @@ function TwapActiveRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[7].align)}
           >
-            <SizableText size="$bodySm">{creationTime.inline}</SizableText>
+            <PerpTableCellText size="$bodySm">
+              {creationTime.inline}
+            </PerpTableCellText>
           </YStack>
         </>
       ) : null}
@@ -700,9 +705,9 @@ function TwapHistoryRow({
                 {sideInfo.text}
               </SizableText>
             </XStack>
-            <SizableText size="$bodySm" color="$textSubdued">
+            <PerpTableCellText size="$bodySm" color="$textSubdued">
               {historyTime.inline}
-            </SizableText>
+            </PerpTableCellText>
           </YStack>
           <YStack
             alignItems="flex-end"
@@ -793,10 +798,12 @@ function TwapHistoryRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[0].align)}
           >
-            <SizableText size="$bodySm">{historyTime.date}</SizableText>
-            <SizableText size="$bodySm" color="$textSubdued">
+            <PerpTableCellText size="$bodySm">
+              {historyTime.date}
+            </PerpTableCellText>
+            <PerpTableCellText size="$bodySm" color="$textSubdued">
               {historyTime.time}
-            </SizableText>
+            </PerpTableCellText>
           </YStack>
           <YStack
             {...getColumnStyle(columnConfigs[1])}
@@ -812,39 +819,39 @@ function TwapHistoryRow({
             justifyContent={calcCellAlign(columnConfigs[2].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm" color={sideInfo.color}>
+            <PerpTableCellText size="$bodySm" color={sideInfo.color}>
               {baseInfo.sizeWithSymbol}
-            </SizableText>
+            </PerpTableCellText>
           </XStack>
           <XStack
             {...getColumnStyle(columnConfigs[3])}
             justifyContent={calcCellAlign(columnConfigs[3].align)}
             alignItems="center"
           >
-            <SizableText
+            <PerpTableCellText
               size="$bodySm"
               color={isActivated ? undefined : sideInfo.color}
             >
               {historyDisplayInfo.executedSize}
-            </SizableText>
+            </PerpTableCellText>
           </XStack>
           <XStack
             {...getColumnStyle(columnConfigs[4])}
             justifyContent={calcCellAlign(columnConfigs[4].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm">
+            <PerpTableCellText size="$bodySm">
               {historyDisplayInfo.averagePrice}
-            </SizableText>
+            </PerpTableCellText>
           </XStack>
           <YStack
             {...getColumnStyle(columnConfigs[5])}
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[5].align)}
           >
-            <SizableText size="$bodySm">
+            <PerpTableCellText size="$bodySm">
               {historyDisplayInfo.totalRuntime}
-            </SizableText>
+            </PerpTableCellText>
           </YStack>
           <XStack
             {...getColumnStyle(columnConfigs[6])}
@@ -960,14 +967,14 @@ function TwapFillRow({
     return (
       <YStack gap="$3">
         <YStack gap="$1.5">
-          <SizableText size="$bodySm">
+          <PerpTableCellText size="$bodySm">
             {intl.formatMessage({ id: ETranslations.perps_fee_title })}
             {feeRatePercentage}
-          </SizableText>
-          <SizableText size="$bodySm">
+          </PerpTableCellText>
+          <PerpTableCellText size="$bodySm">
             {intl.formatMessage({ id: ETranslations.perps_fee_total })}
             {fillInfo.feeFormatted}
-          </SizableText>
+          </PerpTableCellText>
         </YStack>
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.perps_fee_desc })}
@@ -1004,9 +1011,9 @@ function TwapFillRow({
                 {directionInfo.text}
               </SizableText>
             </XStack>
-            <SizableText size="$bodySm" color="$textSubdued">
+            <PerpTableCellText size="$bodySm" color="$textSubdued">
               {dateInfo.date} {dateInfo.time}
-            </SizableText>
+            </PerpTableCellText>
           </YStack>
           <YStack gap="$1" alignItems="flex-end">
             <SizableText size="$bodySm" color="$textSubdued">
@@ -1014,9 +1021,9 @@ function TwapFillRow({
                 id: ETranslations.perp_trades_close_pnl,
               })}
             </SizableText>
-            <SizableText size="$bodySm" color={fillInfo.closePnlColor}>
+            <PerpTableCellText size="$bodySm" color={fillInfo.closePnlColor}>
               {`${fillInfo.closePnlPlusOrMinus}${fillInfo.closePnlFormatted}`}
-            </SizableText>
+            </PerpTableCellText>
           </YStack>
         </XStack>
         <Divider width="100%" borderColor="$borderSubdued" />
@@ -1034,7 +1041,9 @@ function TwapFillRow({
                 id: ETranslations.perp_trades_history_price,
               })}
             </SizableText>
-            <SizableText size="$bodySm">{fillInfo.priceFormatted}</SizableText>
+            <PerpTableCellText size="$bodySm">
+              {fillInfo.priceFormatted}
+            </PerpTableCellText>
           </YStack>
           <YStack gap="$1" flex={1} alignItems="flex-start">
             <SizableText size="$bodySm" color="$textSubdued">
@@ -1042,7 +1051,9 @@ function TwapFillRow({
                 id: ETranslations.perp_position_position_size,
               })}
             </SizableText>
-            <SizableText size="$bodySm">{fillInfo.sizeFormatted}</SizableText>
+            <PerpTableCellText size="$bodySm">
+              {fillInfo.sizeFormatted}
+            </PerpTableCellText>
           </YStack>
           <YStack gap="$1" flex={1} alignItems="flex-start">
             <SizableText size="$bodySm" color="$textSubdued">
@@ -1050,7 +1061,9 @@ function TwapFillRow({
                 id: ETranslations.perp_trades_history_trade_value,
               })}
             </SizableText>
-            <SizableText size="$bodySm">{fillInfo.valueFormatted}</SizableText>
+            <PerpTableCellText size="$bodySm">
+              {fillInfo.valueFormatted}
+            </PerpTableCellText>
           </YStack>
           <YStack gap="$1" flex={1} alignItems="flex-end">
             <SizableText size="$bodySm" color="$textSubdued">
@@ -1104,10 +1117,12 @@ function TwapFillRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[0].align)}
           >
-            <SizableText size="$bodySm">{dateInfo.date}</SizableText>
-            <SizableText size="$bodySm" color="$textSubdued">
+            <PerpTableCellText size="$bodySm">
+              {dateInfo.date}
+            </PerpTableCellText>
+            <PerpTableCellText size="$bodySm" color="$textSubdued">
               {dateInfo.time}
-            </SizableText>
+            </PerpTableCellText>
           </YStack>
           <XStack
             {...getColumnStyle(columnConfigs[1])}
@@ -1130,21 +1145,27 @@ function TwapFillRow({
             justifyContent={calcCellAlign(columnConfigs[3].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm">{fillInfo.priceFormatted}</SizableText>
+            <PerpTableCellText size="$bodySm">
+              {fillInfo.priceFormatted}
+            </PerpTableCellText>
           </XStack>
           <XStack
             {...getColumnStyle(columnConfigs[4])}
             justifyContent={calcCellAlign(columnConfigs[4].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm">{fillInfo.sizeFormatted}</SizableText>
+            <PerpTableCellText size="$bodySm">
+              {fillInfo.sizeFormatted}
+            </PerpTableCellText>
           </XStack>
           <XStack
             {...getColumnStyle(columnConfigs[5])}
             justifyContent={calcCellAlign(columnConfigs[5].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm">{fillInfo.valueFormatted}</SizableText>
+            <PerpTableCellText size="$bodySm">
+              {fillInfo.valueFormatted}
+            </PerpTableCellText>
           </XStack>
           <XStack
             {...getColumnStyle(columnConfigs[6])}
@@ -1173,14 +1194,14 @@ function TwapFillRow({
           justifyContent={calcCellAlign(columnConfigs[7].align)}
           alignItems="center"
         >
-          <SizableText
+          <PerpTableCellText
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
             color={fillInfo.closePnlColor}
           >
             {`${fillInfo.closePnlPlusOrMinus}${fillInfo.closePnlFormatted}`}
-          </SizableText>
+          </PerpTableCellText>
         </XStack>
       ) : null}
     </XStack>

@@ -18,6 +18,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useMedia,
@@ -338,11 +339,16 @@ const DepositField = ({
       />
       <FieldWrapper ml="$3" mr="$2" flex={1} asset={asset}>
         <XStack gap="$1" maxWidth={200} flexWrap="wrap">
-          <EarnText size="$bodyMdMedium" text={asset.deposit?.title} />
+          <EarnText
+            size="$bodyMdMedium"
+            text={asset.deposit?.title}
+            fontVariant={TABULAR_NUMS}
+          />
           <EarnText
             size="$bodySm"
             color="$textSubdued"
             text={asset.deposit?.description}
+            fontVariant={TABULAR_NUMS}
           />
         </XStack>
         {asset.metadata.protocol.vaultName ? (
@@ -373,11 +379,13 @@ const EarningsField = ({
             size="$bodySm"
             color="$textSubdued"
             text={asset.totalReward.title}
+            fontVariant={TABULAR_NUMS}
           />
           <EarnText
             size="$bodySm"
             color="$textSubdued"
             text={asset.totalReward.description}
+            fontVariant={TABULAR_NUMS}
           />
         </XStack>
       );
@@ -389,8 +397,12 @@ const EarningsField = ({
     return (
       <FieldWrapper asset={asset}>
         <YStack jc="center" flex={1} gap="$1">
-          <EarnText size="$bodyMdMedium" text={netPnlFiatValue} />
-          <EarnText size="$bodySm" text={netPnl} />
+          <EarnText
+            size="$bodyMdMedium"
+            text={netPnlFiatValue}
+            fontVariant={TABULAR_NUMS}
+          />
+          <EarnText size="$bodySm" text={netPnl} fontVariant={TABULAR_NUMS} />
         </YStack>
       </FieldWrapper>
     );
@@ -399,7 +411,11 @@ const EarningsField = ({
   return (
     <FieldWrapper asset={asset}>
       <YStack jc="center" flex={1} gap="$1">
-        <EarnText size="$bodyMdMedium" text={asset.earnings24h?.title} />
+        <EarnText
+          size="$bodyMdMedium"
+          text={asset.earnings24h?.title}
+          fontVariant={TABULAR_NUMS}
+        />
         {secondLine}
       </YStack>
     </FieldWrapper>
@@ -414,8 +430,12 @@ const MobilePnlSection = memo(
     if (netPnl) {
       return (
         <XStack ai="center" gap="$1">
-          <EarnText size="$bodySm" text={netPnlFiatValue} />
-          <EarnText size="$bodySm" text={netPnl} />
+          <EarnText
+            size="$bodySm"
+            text={netPnlFiatValue}
+            fontVariant={TABULAR_NUMS}
+          />
+          <EarnText size="$bodySm" text={netPnl} fontVariant={TABULAR_NUMS} />
         </XStack>
       );
     }
@@ -426,7 +446,9 @@ const MobilePnlSection = memo(
             size="$bodySm"
             color="$textSubdued"
             text={asset.totalReward.description}
+            fontVariant={TABULAR_NUMS}
           />
+          {/* Localized "Total earned" label — prose, stays proportional. */}
           <EarnText
             size="$bodySm"
             color="$textSubdued"
@@ -546,6 +568,7 @@ const PositionValueField = ({ totalFiatValue }: { totalFiatValue: string }) => {
       size="$bodyMdMedium"
       formatter="value"
       formatterOptions={{ currency: currencyInfo.symbol }}
+      fontVariant={TABULAR_NUMS}
     >
       {totalFiatValue}
     </NumberSizeableText>

@@ -1,6 +1,10 @@
 import { memo } from 'react';
 
-import { type ISizableTextProps, SizableText } from '@onekeyhq/components';
+import {
+  type ISizableTextProps,
+  SizableText,
+  TABULAR_NUMS,
+} from '@onekeyhq/components';
 import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
 import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
@@ -23,13 +27,18 @@ function TokenBalanceView(props: IProps) {
   const balanceParsed = useTokenBalanceParsed($key || '');
 
   if (balanceParsed === undefined) {
-    return <SizableText {...rest}>-</SizableText>;
+    return (
+      <SizableText fontVariant={TABULAR_NUMS} {...rest}>
+        -
+      </SizableText>
+    );
   }
 
   return (
     <NumberSizeableTextWrapper
       formatter="balance"
       formatterOptions={{ tokenSymbol: symbol }}
+      fontVariant={TABULAR_NUMS}
       {...rest}
     >
       {displayOrUnavailable(balanceParsed)}

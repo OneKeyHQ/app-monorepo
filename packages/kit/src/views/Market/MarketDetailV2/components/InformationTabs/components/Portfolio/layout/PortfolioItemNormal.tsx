@@ -3,6 +3,7 @@ import { memo } from 'react';
 import {
   NumberSizeableText,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -53,6 +54,7 @@ function PortfolioItemNormalBase({
           autoFormatter="price-marketCap"
           autoFormatterThreshold={1000}
           sourceCurrency={USD_CURRENCY_ID}
+          fontVariant={TABULAR_NUMS}
         >
           {item.totalPrice}
         </Currency>
@@ -61,6 +63,7 @@ function PortfolioItemNormalBase({
           color="$textSubdued"
           autoFormatter="price-marketCap"
           autoFormatterThreshold={1000}
+          fontVariant={TABULAR_NUMS}
         >
           {item.amount}
         </NumberSizeableText>

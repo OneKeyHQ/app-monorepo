@@ -1,5 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 
+import { TABULAR_NUMS } from '@onekeyhq/components';
+
 import type { IAggregationBtn } from './types';
 
 const styles = StyleSheet.create({
@@ -21,6 +23,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.4)',
     fontSize: 11,
     fontWeight: '600',
+    fontVariant: TABULAR_NUMS,
   },
   btnLabelSelected: {
     color: 'rgba(255,255,255,0.7)',

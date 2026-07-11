@@ -14,6 +14,8 @@ import type { IUserNonFundingLedgerUpdate } from '@onekeyhq/shared/types/hyperli
 
 import { calcCellAlign, getColumnStyle } from '../utils';
 
+import { PerpTableCellText } from './PerpTableCellText';
+
 import type { IColumnConfig } from '../List/CommonTableListView';
 import type { IntlShape } from 'react-intl';
 
@@ -375,18 +377,18 @@ const AccountRow = memo(
           <YStack flex={1} gap="$1">
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMdMedium">{typeConfig.text}</SizableText>
-              <SizableText size="$bodyMdMedium" color={textColor}>
+              <PerpTableCellText size="$bodyMdMedium" color={textColor}>
                 {signPrefix}
                 {numberFormat(totalAmount, balanceFormatter)}
-              </SizableText>
+              </PerpTableCellText>
             </XStack>
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodySm" color={statusInfo.color}>
                 {statusInfo.text}
               </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
+              <PerpTableCellText size="$bodySm" color="$textSubdued">
                 {dateInfo.date} {dateInfo.time}
-              </SizableText>
+              </PerpTableCellText>
             </XStack>
           </YStack>
         </ListItem>
@@ -412,17 +414,21 @@ const AccountRow = memo(
           justifyContent="center"
           alignItems={calcCellAlign(columnConfigs[0].align)}
         >
-          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+          <PerpTableCellText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+          >
             {dateInfo.date}
-          </SizableText>
-          <SizableText
+          </PerpTableCellText>
+          <PerpTableCellText
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
             color="$textSubdued"
           >
             {dateInfo.time}
-          </SizableText>
+          </PerpTableCellText>
         </YStack>
 
         {/* Status */}
@@ -458,7 +464,7 @@ const AccountRow = memo(
           justifyContent={calcCellAlign(columnConfigs[3].align)}
           alignItems="center"
         >
-          <SizableText
+          <PerpTableCellText
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
@@ -466,7 +472,7 @@ const AccountRow = memo(
           >
             {signPrefix}
             {numberFormat(amount, balanceFormatter)}
-          </SizableText>
+          </PerpTableCellText>
         </XStack>
 
         {/* Fee */}
@@ -475,7 +481,7 @@ const AccountRow = memo(
           justifyContent={calcCellAlign(columnConfigs[4].align)}
           alignItems="center"
         >
-          <SizableText
+          <PerpTableCellText
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
@@ -484,7 +490,7 @@ const AccountRow = memo(
             {fee && Number(fee) !== 0
               ? numberFormat(fee, balanceFormatter)
               : '-'}
-          </SizableText>
+          </PerpTableCellText>
         </XStack>
       </XStack>
     );

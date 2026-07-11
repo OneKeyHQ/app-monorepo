@@ -1,6 +1,7 @@
 import { memo } from 'react';
 
 import type { ISizableTextProps } from '@onekeyhq/components';
+import { TABULAR_NUMS } from '@onekeyhq/components';
 import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
 import { Currency } from '../Currency';
@@ -20,6 +21,7 @@ function TokenPriceView(props: IProps) {
     <Currency
       formatter="price"
       sourceCurrency={currency}
+      fontVariant={TABULAR_NUMS}
       {...(rest as React.ComponentProps<typeof Currency>)}
     >
       {displayOrUnavailable(price)}

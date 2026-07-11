@@ -1,7 +1,7 @@
 import { memo } from 'react';
 
 import type { ISizableTextProps } from '@onekeyhq/components';
-import { NumberSizeableText } from '@onekeyhq/components';
+import { NumberSizeableText, TABULAR_NUMS } from '@onekeyhq/components';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   UNAVAILABLE_DISPLAY,
@@ -24,6 +24,7 @@ function TokenPriceChangeView(props: IProps) {
       <NumberSizeableText
         formatter="priceChange"
         color="$textSubdued"
+        fontVariant={TABULAR_NUMS}
         {...rest}
       >
         {UNAVAILABLE_DISPLAY}
@@ -40,6 +41,7 @@ function TokenPriceChangeView(props: IProps) {
       formatter="priceChange"
       formatterOptions={{ showPlusMinusSigns }}
       color={changeColor}
+      fontVariant={TABULAR_NUMS}
       {...rest}
     >
       {price24h}

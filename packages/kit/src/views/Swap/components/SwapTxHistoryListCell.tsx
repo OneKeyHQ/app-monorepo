@@ -7,6 +7,7 @@ import {
   Badge,
   NumberSizeableText,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -275,6 +276,7 @@ const SwapTxHistoryListCell = ({
             <NumberSizeableText
               size="$bodyMdMedium"
               color="$textSuccess"
+              fontVariant={TABULAR_NUMS}
               formatter="balance"
               pointerEvents="none"
             >
@@ -298,6 +300,7 @@ const SwapTxHistoryListCell = ({
             <NumberSizeableText
               size="$bodySm"
               color="$textSubdued"
+              fontVariant={TABULAR_NUMS}
               formatter="balance"
               pointerEvents="none"
             >

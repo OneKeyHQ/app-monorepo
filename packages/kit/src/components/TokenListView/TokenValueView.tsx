@@ -1,6 +1,10 @@
 import { memo } from 'react';
 
-import { type ISizableTextProps, SizableText } from '@onekeyhq/components';
+import {
+  type ISizableTextProps,
+  SizableText,
+  TABULAR_NUMS,
+} from '@onekeyhq/components';
 import { displayFiatValueOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
 import { Currency } from '../Currency';
@@ -20,13 +24,18 @@ function TokenValueView(props: IProps) {
   const { has, fiatValue, balanceParsed, currency } = useTokenValueSlice($key);
 
   if (!has) {
-    return <SizableText {...rest}>-</SizableText>;
+    return (
+      <SizableText fontVariant={TABULAR_NUMS} {...rest}>
+        -
+      </SizableText>
+    );
   }
 
   return (
     <Currency
       formatter="value"
       sourceCurrency={currency}
+      fontVariant={TABULAR_NUMS}
       {...(rest as React.ComponentProps<typeof Currency>)}
     >
       {displayFiatValueOrUnavailable(fiatValue, balanceParsed)}

@@ -37,6 +37,7 @@ import {
   getFillDirectionDisplayInfo,
 } from '../utils';
 
+import { PerpTableCellText } from './PerpTableCellText';
 import { TradesHistoryShareAction } from './TradesHistoryShareAction';
 
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
@@ -178,14 +179,14 @@ const TradesHistoryRow = memo(
       return (
         <YStack gap="$3">
           <YStack gap="$1.5">
-            <SizableText size={isMobile ? '$bodyMd' : '$bodySm'}>
+            <PerpTableCellText size={isMobile ? '$bodyMd' : '$bodySm'}>
               {intl.formatMessage({ id: ETranslations.perps_fee_title })}
               {feeRatePercentage}
-            </SizableText>
-            <SizableText size={isMobile ? '$bodyMd' : '$bodySm'}>
+            </PerpTableCellText>
+            <PerpTableCellText size={isMobile ? '$bodyMd' : '$bodySm'}>
               {intl.formatMessage({ id: ETranslations.perps_fee_total })}
               {tradeBaseInfo.feeFormatted}
-            </SizableText>
+            </PerpTableCellText>
           </YStack>
           <SizableText
             size={isMobile ? '$bodyMd' : '$bodySm'}
@@ -237,9 +238,9 @@ const TradesHistoryRow = memo(
                   {directionInfo.directionStr}
                 </SizableText>
               </XStack>
-              <SizableText size="$bodySm" color="$textSubdued">
+              <PerpTableCellText size="$bodySm" color="$textSubdued">
                 {dateInfo.date} {dateInfo.time}
-              </SizableText>
+              </PerpTableCellText>
             </YStack>
             <XStack gap="$2" alignItems="center">
               <YStack gap="$1" alignItems="flex-end">
@@ -249,12 +250,12 @@ const TradesHistoryRow = memo(
                   })}
                 </SizableText>
                 <XStack gap="$1" alignItems="center">
-                  <SizableText
+                  <PerpTableCellText
                     size="$bodySm"
                     color={closePnlInfo.closePnlColor}
                   >
                     {`${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
-                  </SizableText>
+                  </PerpTableCellText>
                   {canShare ? (
                     <IconButton
                       testID="perp-icon-btn"
@@ -287,9 +288,9 @@ const TradesHistoryRow = memo(
                   id: ETranslations.perp_trades_history_price,
                 })}
               </SizableText>
-              <SizableText size="$bodySm">
+              <PerpTableCellText size="$bodySm">
                 {tradeBaseInfo.priceFormatted}
-              </SizableText>
+              </PerpTableCellText>
             </YStack>
             <YStack gap="$1" flex={1} alignItems="flex-start">
               <SizableText size="$bodySm" color="$textSubdued">
@@ -297,7 +298,9 @@ const TradesHistoryRow = memo(
                   id: ETranslations.perp_position_position_size,
                 })}
               </SizableText>
-              <SizableText size="$bodySm">{tradeBaseInfo.size}</SizableText>
+              <PerpTableCellText size="$bodySm">
+                {tradeBaseInfo.size}
+              </PerpTableCellText>
             </YStack>
             <YStack gap="$1" flex={1} alignItems="flex-start">
               <SizableText size="$bodySm" color="$textSubdued">
@@ -305,9 +308,9 @@ const TradesHistoryRow = memo(
                   id: ETranslations.perp_trades_history_trade_value,
                 })}
               </SizableText>
-              <SizableText size="$bodySm">
+              <PerpTableCellText size="$bodySm">
                 {tradeBaseInfo.tradeValueFormatted}
-              </SizableText>
+              </PerpTableCellText>
             </YStack>
             <YStack gap="$1" flex={1} alignItems="flex-end">
               <SizableText size="$bodySm" color="$textSubdued">
@@ -361,21 +364,21 @@ const TradesHistoryRow = memo(
               justifyContent="center"
               alignItems={calcCellAlign(columnConfigs[0].align)}
             >
-              <SizableText
+              <PerpTableCellText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
               >
                 {dateInfo.date}
-              </SizableText>
-              <SizableText
+              </PerpTableCellText>
+              <PerpTableCellText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
                 color="$textSubdued"
               >
                 {dateInfo.time}
-              </SizableText>
+              </PerpTableCellText>
             </YStack>
             {/* Asset symbol */}
             <XStack
@@ -420,13 +423,13 @@ const TradesHistoryRow = memo(
               justifyContent={calcCellAlign(columnConfigs[3].align)}
               alignItems="center"
             >
-              <SizableText
+              <PerpTableCellText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
               >
                 {tradeBaseInfo.priceFormatted}
-              </SizableText>
+              </PerpTableCellText>
             </XStack>
 
             {/* Position size */}
@@ -435,11 +438,11 @@ const TradesHistoryRow = memo(
               justifyContent={calcCellAlign(columnConfigs[4].align)}
               alignItems="center"
             >
-              <SizableText
+              <PerpTableCellText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
-              >{`${tradeBaseInfo.size} ${assetSymbol}`}</SizableText>
+              >{`${tradeBaseInfo.size} ${assetSymbol}`}</PerpTableCellText>
             </XStack>
 
             {/* Trade value */}
@@ -448,13 +451,13 @@ const TradesHistoryRow = memo(
               justifyContent={calcCellAlign(columnConfigs[5].align)}
               alignItems="center"
             >
-              <SizableText
+              <PerpTableCellText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
               >
                 {tradeBaseInfo.tradeValueFormatted}
-              </SizableText>
+              </PerpTableCellText>
             </XStack>
 
             {/* Fee */}
@@ -488,7 +491,7 @@ const TradesHistoryRow = memo(
             alignItems="center"
             cursor="default"
           >
-            <SizableText
+            <PerpTableCellText
               flexShrink={1}
               numberOfLines={1}
               ellipsizeMode="tail"
@@ -496,7 +499,7 @@ const TradesHistoryRow = memo(
               color={closePnlInfo.closePnlColor}
             >
               {`${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
-            </SizableText>
+            </PerpTableCellText>
             <TradesHistoryShareAction
               visible={canShare}
               onPress={() => onShare?.(fill)}

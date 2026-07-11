@@ -21,6 +21,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
   usePageMounted,
@@ -298,7 +299,11 @@ const InitialRowsSnapshotRow = memo(
               <SubtitleText subtitle={subtitle} maxWidth={80} />
             ) : null}
             {hasDisplayAssetCtx ? (
-              <SizableText size="$bodySm" color="$textSubdued">
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                fontVariant={TABULAR_NUMS}
+              >
                 ${volumeDisplay}
               </SizableText>
             ) : (
@@ -319,6 +324,7 @@ const InitialRowsSnapshotRow = memo(
                 size="$bodyMdMedium"
                 color="$text"
                 alignSelf="flex-end"
+                fontVariant={TABULAR_NUMS}
               >
                 {assetCtx?.markPrice}
               </NumberSizeableText>
@@ -330,6 +336,7 @@ const InitialRowsSnapshotRow = memo(
                 }
                 formatter="priceChange"
                 formatterOptions={{ showPlusMinusSigns: true }}
+                fontVariant={TABULAR_NUMS}
               >
                 {assetCtx?.change24hPercent.toString()}
               </NumberSizeableText>

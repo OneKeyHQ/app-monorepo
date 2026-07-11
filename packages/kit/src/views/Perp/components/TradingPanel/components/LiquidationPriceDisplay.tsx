@@ -1,6 +1,10 @@
 import { memo } from 'react';
 
-import { NumberSizeableText, SizableText } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  TABULAR_NUMS,
+} from '@onekeyhq/components';
 
 import { useLiquidationPrice } from '../../../hooks/useLiquidationPrice';
 
@@ -30,6 +34,7 @@ const LiquidationPriceDisplay = memo(
         }}
         formatter="price"
         formatterOptions={{ currency: '$' }}
+        fontVariant={TABULAR_NUMS}
       >
         {liquidationPrice.toNumber()}
       </NumberSizeableText>

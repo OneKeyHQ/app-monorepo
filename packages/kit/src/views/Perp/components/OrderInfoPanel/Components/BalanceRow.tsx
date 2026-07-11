@@ -27,6 +27,8 @@ import {
   getColumnStyle,
 } from '../utils';
 
+import { PerpTableCellText } from './PerpTableCellText';
+
 import type { IColumnConfig } from '../List/CommonTableListView';
 import type { IBalanceDisplayItem } from '../List/SpotBalanceList';
 
@@ -209,9 +211,13 @@ function BalanceRowMobile({ item, onChangeAsset }: IBalanceRowProps) {
                 />
               ) : null}
             </XStack>
-            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            <PerpTableCellText
+              size="$bodySm"
+              color="$textSubdued"
+              numberOfLines={1}
+            >
               {balanceText}
-            </SizableText>
+            </PerpTableCellText>
           </YStack>
         </XStack>
         <YStack flexShrink={0} alignItems="flex-end" gap="$0.5">
@@ -226,14 +232,14 @@ function BalanceRowMobile({ item, onChangeAsset }: IBalanceRowProps) {
           </NumberSizeableText>
           {pnlText ? (
             <XStack gap="$1" alignItems="center" justifyContent="flex-end">
-              <SizableText
+              <PerpTableCellText
                 size="$bodySm"
                 color={pnlColor}
                 numberOfLines={1}
                 textAlign="right"
               >
                 {pnlText}
-              </SizableText>
+              </PerpTableCellText>
               {canShare ? (
                 <IconButton
                   testID={PerpTestIDs.BalanceRowShareButton}
@@ -322,9 +328,13 @@ function BalanceRowDesktop({
     if (cell.key === 'pnl') {
       return (
         <XStack minWidth={0} alignItems="center" gap="$1">
-          <SizableText size="$bodySmMedium" color={pnlColor} numberOfLines={1}>
+          <PerpTableCellText
+            size="$bodySmMedium"
+            color={pnlColor}
+            numberOfLines={1}
+          >
             {cell.cellValue}
-          </SizableText>
+          </PerpTableCellText>
           {canShare ? (
             <IconButton
               testID={PerpTestIDs.BalanceRowShareButton}
@@ -345,12 +355,12 @@ function BalanceRowDesktop({
     }
 
     return (
-      <SizableText
+      <PerpTableCellText
         size="$bodySmMedium"
         color={cell.key === 'pnl' ? pnlColor : undefined}
       >
         {cell.cellValue}
-      </SizableText>
+      </PerpTableCellText>
     );
   };
 

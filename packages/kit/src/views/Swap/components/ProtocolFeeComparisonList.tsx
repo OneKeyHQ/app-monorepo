@@ -1,6 +1,12 @@
 import { useCallback, useMemo } from 'react';
 
-import { Image, SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  Image,
+  SizableText,
+  Stack,
+  TABULAR_NUMS,
+  XStack,
+} from '@onekeyhq/components';
 import type { IImageProps } from '@onekeyhq/components';
 import { otherWalletFeeData } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
@@ -36,6 +42,7 @@ export function ProtocolFeeComparisonList({
         <SizableText
           size="$bodySm"
           color={item.name === 'oneKey' ? '$textSuccess' : '$text'}
+          fontVariant={TABULAR_NUMS}
           textAlign="right"
         >
           {item.fee}%

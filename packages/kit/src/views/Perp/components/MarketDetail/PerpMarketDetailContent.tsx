@@ -15,6 +15,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  TABULAR_NUMS,
   Tooltip,
   XStack,
   YStack,
@@ -225,7 +226,9 @@ function DetailStatItem({ label, value }: { label: string; value: string }) {
       <SizableText size="$bodySm" color="$textSubdued">
         {label}
       </SizableText>
-      <SizableText size="$bodyMdMedium">{value}</SizableText>
+      <SizableText size="$bodyMdMedium" fontVariant={TABULAR_NUMS}>
+        {value}
+      </SizableText>
     </YStack>
   );
 }
@@ -316,6 +319,7 @@ function DetailInfoTable({
               size="$bodyMdMedium"
               textAlign="right"
               numberOfLines={1}
+              fontVariant={TABULAR_NUMS}
             >
               {item.value}
             </SizableText>
@@ -326,6 +330,7 @@ function DetailInfoTable({
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 textAlign="right"
+                fontVariant={TABULAR_NUMS}
               >
                 {item.secondaryValue}
               </SizableText>

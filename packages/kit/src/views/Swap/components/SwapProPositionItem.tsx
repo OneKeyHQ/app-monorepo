@@ -8,6 +8,7 @@ import {
   NumberSizeableText,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -119,6 +120,7 @@ const SwapProPositionItem = ({
       <YStack alignItems="flex-end" flexShrink={0}>
         <NumberSizeableText
           size="$bodyLgMedium"
+          fontVariant={TABULAR_NUMS}
           formatter="value"
           formatterOptions={{ currency: currencyInfo.symbol }}
           numberOfLines={1}
@@ -140,6 +142,7 @@ const SwapProPositionItem = ({
               <Currency
                 size="$bodyMd"
                 color={pnlDisplay.color}
+                fontVariant={TABULAR_NUMS}
                 formatter="value"
                 sourceCurrency="usd"
                 numberOfLines={1}
@@ -150,6 +153,7 @@ const SwapProPositionItem = ({
             <SizableText
               size="$bodyMd"
               color={pnlDisplay.color}
+              fontVariant={TABULAR_NUMS}
               numberOfLines={1}
             >
               {`(${pnlDisplay.percent}%)`}

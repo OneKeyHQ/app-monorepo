@@ -8,6 +8,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useMedia,
@@ -100,7 +101,12 @@ function formatLightweightMarketValue(value: unknown) {
 
 function renderLightweightText(value: unknown) {
   return (
-    <SizableText size="$bodyMd" numberOfLines={1} ellipsizeMode="tail">
+    <SizableText
+      size="$bodyMd"
+      numberOfLines={1}
+      ellipsizeMode="tail"
+      fontVariant={TABULAR_NUMS}
+    >
       {formatLightweightMarketValue(value)}
     </SizableText>
   );
@@ -298,6 +304,7 @@ export const useColumnsDesktop = (
               size="$bodyMd"
               formatter={Number(text) > 1_000_000 ? 'marketCap' : 'price'}
               formatterOptions={{ currency: '$', capAtMaxT: true }}
+              fontVariant={TABULAR_NUMS}
             >
               {text}
             </NumberSizeableText>
@@ -339,6 +346,7 @@ export const useColumnsDesktop = (
               formatterOptions={{
                 showPlusMinusSigns,
               }}
+              fontVariant={TABULAR_NUMS}
             >
               {text}
             </NumberSizeableText>
@@ -366,6 +374,7 @@ export const useColumnsDesktop = (
                   size="$bodyMd"
                   formatter="marketCap"
                   formatterOptions={{ currency: '$', capAtMaxT: true }}
+                  fontVariant={TABULAR_NUMS}
                 >
                   {value}
                 </NumberSizeableText>
@@ -397,6 +406,7 @@ export const useColumnsDesktop = (
                   size="$bodyMd"
                   formatter="marketCap"
                   formatterOptions={{ currency: '$' }}
+                  fontVariant={TABULAR_NUMS}
                 >
                   {value}
                 </NumberSizeableText>
@@ -426,6 +436,7 @@ export const useColumnsDesktop = (
               formatterOptions={
                 useStockMetadataColumns ? undefined : { currency: '$' }
               }
+              fontVariant={TABULAR_NUMS}
             >
               {value}
             </NumberSizeableText>
@@ -462,7 +473,11 @@ export const useColumnsDesktop = (
             columnProps: { flex: 1 },
             render: (text: number, _record: IMarketToken, index?: number) =>
               shouldRenderRichCell(index) ? (
-                <NumberSizeableText size="$bodyMd" formatter="marketCap">
+                <NumberSizeableText
+                  size="$bodyMd"
+                  formatter="marketCap"
+                  fontVariant={TABULAR_NUMS}
+                >
                   {text === 0 ? '--' : text}
                 </NumberSizeableText>
               ) : (
@@ -478,7 +493,11 @@ export const useColumnsDesktop = (
             columnProps: { flex: 1 },
             render: (text: number, _record: IMarketToken, index?: number) =>
               shouldRenderRichCell(index) ? (
-                <NumberSizeableText size="$bodyMd" formatter="marketCap">
+                <NumberSizeableText
+                  size="$bodyMd"
+                  formatter="marketCap"
+                  fontVariant={TABULAR_NUMS}
+                >
                   {text === 0 ? '--' : text}
                 </NumberSizeableText>
               ) : (
@@ -510,7 +529,11 @@ export const useColumnsDesktop = (
                 { amount: ageInfo.amount },
               );
 
-              return <SizableText size="$bodyMd">{ageLabel}</SizableText>;
+              return (
+                <SizableText size="$bodyMd" fontVariant={TABULAR_NUMS}>
+                  {ageLabel}
+                </SizableText>
+              );
             },
             renderSkeleton: () => <Skeleton width={60} height={16} />,
           }

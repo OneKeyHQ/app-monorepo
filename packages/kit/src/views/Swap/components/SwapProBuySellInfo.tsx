@@ -6,6 +6,7 @@ import {
   NumberSizeableText,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -45,6 +46,7 @@ const SwapProBuySellInfo = ({
       <NumberSizeableText
         size="$bodySm"
         color="$textSuccess"
+        fontVariant={TABULAR_NUMS}
         formatter={isAboveThreshold ? 'marketCap' : 'value'}
         formatterOptions={{ currency: '$' }}
       >
@@ -68,6 +70,7 @@ const SwapProBuySellInfo = ({
       <NumberSizeableText
         size="$bodySm"
         color="$textCritical"
+        fontVariant={TABULAR_NUMS}
         formatter={isAboveThreshold ? 'marketCap' : 'value'}
         formatterOptions={{ currency: '$' }}
       >
@@ -143,7 +146,12 @@ const SwapProBuySellInfo = ({
               B
             </SizableText>
           </Stack>
-          <SizableText size="$bodyXs" color="$textSuccess" ml="$0.5">
+          <SizableText
+            size="$bodyXs"
+            color="$textSuccess"
+            fontVariant={TABULAR_NUMS}
+            ml="$0.5"
+          >
             {!supportSpeedSwap ? '--' : buyPercentage.toFixed(2)}%
           </SizableText>
         </XStack>
@@ -154,7 +162,12 @@ const SwapProBuySellInfo = ({
           position="relative"
           zIndex={1}
         >
-          <SizableText size="$bodyXs" color="$textCritical" mr="$0.5">
+          <SizableText
+            size="$bodyXs"
+            color="$textCritical"
+            fontVariant={TABULAR_NUMS}
+            mr="$0.5"
+          >
             {!supportSpeedSwap ? '--' : sellPercentage.toFixed(2)}%
           </SizableText>
           <Stack

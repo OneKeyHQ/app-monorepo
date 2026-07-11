@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { TABULAR_NUMS } from '@onekeyhq/components';
 import type { IEarnText } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
@@ -16,9 +17,19 @@ export const AmountField = ({ title, description }: IAmountFieldProps) => {
 
   return (
     <FieldWrapper ai="flex-end">
-      <EarnText text={title} size="$bodyMdMedium" color="$text" />
+      <EarnText
+        text={title}
+        size="$bodyMdMedium"
+        color="$text"
+        fontVariant={TABULAR_NUMS}
+      />
       {!isZero ? (
-        <EarnText text={description} size="$bodySm" color="$textSubdued" />
+        <EarnText
+          text={description}
+          size="$bodySm"
+          color="$textSubdued"
+          fontVariant={TABULAR_NUMS}
+        />
       ) : null}
     </FieldWrapper>
   );

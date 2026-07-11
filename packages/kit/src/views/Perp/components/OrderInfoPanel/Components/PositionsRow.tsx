@@ -42,6 +42,7 @@ import { showSetTpslDialog } from '../SetTpslModal';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 import { DesktopActionIconButton } from './DesktopActionIconButton';
+import { PerpTableCellText } from './PerpTableCellText';
 
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
@@ -107,11 +108,15 @@ function MarkPrice({ coin }: { coin: string }) {
   return useMemo(
     () => (
       <DebugRenderTracker position="bottom-right" name="MarkPrice" offsetY={10}>
-        <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+        <PerpTableCellText
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          size="$bodySm"
+        >
           {midFormattedByDecimals
             ? formatLocalizedNumberString(midFormattedByDecimals)
             : midFormattedByDecimals}
-        </SizableText>
+        </PerpTableCellText>
       </DebugRenderTracker>
     ),
     [midFormattedByDecimals],
@@ -198,17 +203,21 @@ const PositionRowDesktopPositionSize = memo(
           justifyContent="center"
           alignItems={calcCellAlign(columnConfig.align)}
         >
-          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+          <PerpTableCellText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+          >
             {`${sizeInfo.sizeAbsFormatted}`}
-          </SizableText>
-          <SizableText
+          </PerpTableCellText>
+          <PerpTableCellText
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
             color="$textSubdued"
           >
             {`${sizeInfo.sizeValue}`}
-          </SizableText>
+          </PerpTableCellText>
         </YStack>
       </DebugRenderTracker>
     );
@@ -234,9 +243,13 @@ const PositionRowDesktopEntryPrice = memo(
           justifyContent={calcCellAlign(columnConfig.align)}
           alignItems="center"
         >
-          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+          <PerpTableCellText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+          >
             {priceInfo.entryPriceFormatted}
-          </SizableText>
+          </PerpTableCellText>
         </XStack>
       </DebugRenderTracker>
     );
@@ -258,11 +271,15 @@ const PositionRowDesktopMarkPrice = memo(
           name="MarkPrice"
           offsetY={10}
         >
-          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+          <PerpTableCellText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+          >
             {midFormattedByDecimals
               ? formatLocalizedNumberString(midFormattedByDecimals)
               : midFormattedByDecimals}
-          </SizableText>
+          </PerpTableCellText>
         </DebugRenderTracker>
       </XStack>
     );
@@ -288,9 +305,13 @@ const PositionRowDesktopLiqPrice = memo(
           justifyContent={calcCellAlign(columnConfig.align)}
           alignItems="center"
         >
-          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+          <PerpTableCellText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+          >
             {priceInfo.liquidationPriceFormatted}
-          </SizableText>
+          </PerpTableCellText>
         </XStack>
       </DebugRenderTracker>
     );
@@ -316,14 +337,14 @@ const PositionRowDesktopPnL = memo(
           alignItems="center"
           gap="$1"
         >
-          <SizableText
+          <PerpTableCellText
             size="$bodySm"
             color={otherInfo.pnlColor}
             numberOfLines={1}
             ellipsizeMode="tail"
           >
             {`${otherInfo.pnlPlusOrMinus}${otherInfo.unrealizedPnl}(${otherInfo.pnlPlusOrMinus}${otherInfo.roiPercent}%)`}
-          </SizableText>
+          </PerpTableCellText>
           <DesktopActionIconButton
             testID="perp-position-row-desktop-pn-l-icon-btn"
             icon="ShareOutline"
@@ -361,11 +382,11 @@ const PositionRowDesktopMargin = memo(
           alignItems="center"
         >
           <XStack alignItems="center" gap="$1">
-            <SizableText
+            <PerpTableCellText
               numberOfLines={1}
               ellipsizeMode="tail"
               size="$bodySm"
-            >{`${otherInfo.marginUsedFormatted}`}</SizableText>
+            >{`${otherInfo.marginUsedFormatted}`}</PerpTableCellText>
             {isIsolatedMode ? (
               <DesktopActionIconButton
                 testID="perp-position-row-desktop-margin-icon-btn"
@@ -405,12 +426,12 @@ const PositionRowDesktopFunding = memo(
         >
           <Tooltip
             renderTrigger={
-              <SizableText
+              <PerpTableCellText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
                 color={otherInfo.fundingSinceOpenColor}
-              >{`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}</SizableText>
+              >{`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}</PerpTableCellText>
             }
             renderContent={
               <YStack gap="$2">
@@ -424,12 +445,12 @@ const PositionRowDesktopFunding = memo(
                     )}
                     {': '}
                   </SizableText>
-                  <SizableText
+                  <PerpTableCellText
                     size="$bodySm"
                     color={otherInfo.fundingAllTimeColor}
                   >
                     {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}{' '}
-                  </SizableText>
+                  </PerpTableCellText>
                 </XStack>
                 <XStack>
                   <SizableText size="$bodySm">
@@ -441,12 +462,12 @@ const PositionRowDesktopFunding = memo(
                     )}
                     {': '}
                   </SizableText>
-                  <SizableText
+                  <PerpTableCellText
                     size="$bodySm"
                     color={otherInfo.fundingAllTimeColor}
                   >
                     {`${otherInfo.fundingAllPlusOrMinus}$${otherInfo.fundingAllTimeFormatted}`}{' '}
-                  </SizableText>
+                  </PerpTableCellText>
                 </XStack>
                 <XStack>
                   <SizableText size="$bodySm">
@@ -455,12 +476,12 @@ const PositionRowDesktopFunding = memo(
                     })}
                     {': '}
                   </SizableText>
-                  <SizableText
+                  <PerpTableCellText
                     size="$bodySm"
                     color={otherInfo.fundingSinceChangeColor}
                   >
                     {`${otherInfo.fundingSinceChangePlusOrMinus}$${otherInfo.fundingSinceChangeFormatted}`}
-                  </SizableText>
+                  </PerpTableCellText>
                 </XStack>
               </YStack>
             }
@@ -559,13 +580,13 @@ const PositionRowDesktopTPSL = memo(
               cursor="default"
               onPress={onSetTpsl}
             >
-              <SizableText
+              <PerpTableCellText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySmMedium"
               >
                 {tpslInfo.tpsl}
-              </SizableText>
+              </PerpTableCellText>
               <DesktopActionIconButton
                 testID="perp-icon-btn"
                 icon="HighlightOutline"
@@ -845,7 +866,7 @@ const PositionRowMobilePnLAndROE = memo(
               id: ETranslations.perp_position_pnl_mobile,
             })}
           </SizableText>
-          <SizableText
+          <PerpTableCellText
             size="$bodyLgMedium"
             color={otherInfo.pnlColor}
             flexShrink={1}
@@ -855,7 +876,7 @@ const PositionRowMobilePnLAndROE = memo(
             minimumFontScale={0.7}
           >
             {`${otherInfo.pnlPlusOrMinus}${otherInfo.unrealizedPnl}`}
-          </SizableText>
+          </PerpTableCellText>
         </YStack>
         <YStack
           gap="$1"
@@ -869,7 +890,7 @@ const PositionRowMobilePnLAndROE = memo(
               id: ETranslations.perp_share_roe,
             })}
           </SizableText>
-          <SizableText
+          <PerpTableCellText
             size="$bodyLgMedium"
             color={otherInfo.pnlColor}
             flexShrink={1}
@@ -879,7 +900,7 @@ const PositionRowMobilePnLAndROE = memo(
             minimumFontScale={0.7}
           >
             {`${otherInfo.pnlPlusOrMinus}${otherInfo.roiPercent}%`}
-          </SizableText>
+          </PerpTableCellText>
         </YStack>
       </XStack>
     );
@@ -928,7 +949,7 @@ const PositionRowMobilePositionSize = memo(
           <Icon name="RepeatOutline" size="$3" color="$textSubdued" />
         </XStack>
         <XStack alignItems="center" gap="$1">
-          <SizableText
+          <PerpTableCellText
             size="$bodyMdMedium"
             flexShrink={1}
             minWidth={0}
@@ -939,7 +960,7 @@ const PositionRowMobilePositionSize = memo(
             {isSizeViewChange
               ? `$${sizeInfo.sizeValue}`
               : sizeInfo.sizeAbsFormatted}
-          </SizableText>
+          </PerpTableCellText>
         </XStack>
       </YStack>
     );
@@ -974,7 +995,7 @@ const PositionRowMobileMargin = memo(
           })}
         </SizableText>
         <XStack alignItems="center" gap="$1">
-          <SizableText
+          <PerpTableCellText
             size="$bodyMdMedium"
             flexShrink={1}
             minWidth={0}
@@ -983,7 +1004,7 @@ const PositionRowMobileMargin = memo(
             minimumFontScale={0.7}
           >
             {`${otherInfo.marginUsedFormatted}`}
-          </SizableText>
+          </PerpTableCellText>
           {isIsolatedMode ? (
             <IconButton
               testID="perp-intl-icon-btn"
@@ -1020,7 +1041,7 @@ const PositionRowMobileEntryPrice = memo(
             id: ETranslations.perp_position_entry_price,
           })}
         </SizableText>
-        <SizableText
+        <PerpTableCellText
           size="$bodyMdMedium"
           flexShrink={1}
           minWidth={0}
@@ -1029,7 +1050,7 @@ const PositionRowMobileEntryPrice = memo(
           minimumFontScale={0.7}
         >
           {priceInfo.entryPriceFormatted}
-        </SizableText>
+        </PerpTableCellText>
       </YStack>
     );
   },
@@ -1081,12 +1102,12 @@ const PositionRowMobileFunding = memo(
                       id: ETranslations.perp_position_funding_since_open,
                     })}
                   </SizableText>
-                  <SizableText
+                  <PerpTableCellText
                     size="$bodyMdMedium"
                     color={otherInfo.fundingSinceOpenColor}
                   >
                     {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}
-                  </SizableText>
+                  </PerpTableCellText>
                 </YStack>
 
                 <YStack w="50%">
@@ -1095,12 +1116,12 @@ const PositionRowMobileFunding = memo(
                       id: ETranslations.perp_position_funding_since_change,
                     })}
                   </SizableText>
-                  <SizableText
+                  <PerpTableCellText
                     size="$bodyMdMedium"
                     color={otherInfo.fundingSinceChangeColor}
                   >
                     {`${otherInfo.fundingSinceChangePlusOrMinus}$${otherInfo.fundingSinceChangeFormatted}`}
-                  </SizableText>
+                  </PerpTableCellText>
                 </YStack>
               </XStack>
               <XStack alignItems="center" justifyContent="space-between">
@@ -1113,12 +1134,12 @@ const PositionRowMobileFunding = memo(
                       { token: assetInfo.assetSymbol },
                     )}
                   </SizableText>
-                  <SizableText
+                  <PerpTableCellText
                     size="$bodyMdMedium"
                     color={otherInfo.fundingAllTimeColor}
                   >
                     {`${otherInfo.fundingAllPlusOrMinus}$${otherInfo.fundingAllTimeFormatted}`}
-                  </SizableText>
+                  </PerpTableCellText>
                 </YStack>
               </XStack>
               <Divider />
@@ -1143,7 +1164,7 @@ const PositionRowMobileFunding = memo(
           }
         />
 
-        <SizableText
+        <PerpTableCellText
           size="$bodyMdMedium"
           color={otherInfo.fundingSinceOpenColor}
           flexShrink={1}
@@ -1153,7 +1174,7 @@ const PositionRowMobileFunding = memo(
           minimumFontScale={0.7}
         >
           {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}
-        </SizableText>
+        </PerpTableCellText>
       </YStack>
     );
   },
@@ -1202,7 +1223,7 @@ const PositionRowMobileTPSL = memo(({ coin }: { coin: string }) => {
           id: ETranslations.perp_position_tp_sl,
         })}
       </SizableText>
-      <SizableText
+      <PerpTableCellText
         size="$bodyMdMedium"
         flexShrink={1}
         minWidth={0}
@@ -1211,7 +1232,7 @@ const PositionRowMobileTPSL = memo(({ coin }: { coin: string }) => {
         minimumFontScale={0.7}
       >
         {tpslInfo.tpsl}
-      </SizableText>
+      </PerpTableCellText>
     </YStack>
   );
 });
@@ -1238,7 +1259,7 @@ const PositionRowMobileMarkPrice = memo(({ coin }: { coin: string }) => {
           id: ETranslations.perp_position_mark_price,
         })}
       </SizableText>
-      <SizableText
+      <PerpTableCellText
         size="$bodyMdMedium"
         flexShrink={1}
         minWidth={0}
@@ -1247,7 +1268,7 @@ const PositionRowMobileMarkPrice = memo(({ coin }: { coin: string }) => {
         minimumFontScale={0.7}
       >
         {formatLocalizedNumberString(midFormattedByDecimals || '--')}
-      </SizableText>
+      </PerpTableCellText>
     </YStack>
   );
 });
@@ -1270,7 +1291,7 @@ const PositionRowMobileLiqPrice = memo(
             id: ETranslations.perp_position_liq_price,
           })}
         </SizableText>
-        <SizableText
+        <PerpTableCellText
           size="$bodyMdMedium"
           flexShrink={1}
           minWidth={0}
@@ -1279,7 +1300,7 @@ const PositionRowMobileLiqPrice = memo(
           minimumFontScale={0.7}
         >
           {priceInfo.liquidationPriceFormatted}
-        </SizableText>
+        </PerpTableCellText>
       </YStack>
     );
   },

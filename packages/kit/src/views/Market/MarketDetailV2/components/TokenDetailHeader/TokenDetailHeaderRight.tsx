@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 import {
   NumberSizeableText,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -266,6 +267,7 @@ export function TokenDetailHeaderRight({
                 price={currentPrice}
                 tokenName={name}
                 tokenSymbol={symbol}
+                fontVariant={TABULAR_NUMS}
               />
             ) : (
               <MarketTokenPrice
@@ -274,6 +276,7 @@ export function TokenDetailHeaderRight({
                 tokenName={name}
                 tokenSymbol={symbol}
                 lastUpdated={tokenDetail?.lastUpdated?.toString()}
+                fontVariant={TABULAR_NUMS}
               />
             )}
             {priceConverted ? (

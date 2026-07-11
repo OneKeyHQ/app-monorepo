@@ -4,6 +4,7 @@ import {
   Image,
   NumberSizeableText,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -75,6 +76,7 @@ function TransactionItemSmallBase({ item }: ITransactionItemSmallProps) {
             capAtMaxT: true,
             currency: '$',
           }}
+          fontVariant={TABULAR_NUMS}
         >
           {value}
         </NumberSizeableText>
@@ -88,6 +90,7 @@ function TransactionItemSmallBase({ item }: ITransactionItemSmallProps) {
             capAtMaxT: true,
             currency: '$',
           }}
+          fontVariant={TABULAR_NUMS}
         >
           {price}
         </NumberSizeableText>

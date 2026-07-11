@@ -7,6 +7,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useMedia,
@@ -106,6 +107,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
               size="$bodyMd"
               formatter="price"
               formatterOptions={{ currency: '$' }}
+              fontVariant={TABULAR_NUMS}
             >
               {record.markPrice ?? '--'}
             </NumberSizeableText>
@@ -146,6 +148,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
                     showPlusMinusSigns: true,
                     currency: '',
                   }}
+                  fontVariant={TABULAR_NUMS}
                 >
                   {absChange}
                 </NumberSizeableText>
@@ -157,6 +160,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
                   color={color}
                   formatter="priceChange"
                   formatterOptions={{ showPlusMinusSigns: true }}
+                  fontVariant={TABULAR_NUMS}
                 >
                   {record.change24hPercent}
                 </NumberSizeableText>
@@ -178,6 +182,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
               size="$bodyMd"
               formatter="marketCap"
               formatterOptions={{ currency: '$' }}
+              fontVariant={TABULAR_NUMS}
             >
               {record.volume24h ?? '--'}
             </NumberSizeableText>
@@ -197,6 +202,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
               size="$bodyMd"
               formatter="marketCap"
               formatterOptions={{ currency: '$' }}
+              fontVariant={TABULAR_NUMS}
             >
               {record.openInterest ?? '--'}
             </NumberSizeableText>
@@ -225,6 +231,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
                   <SizableText
                     size="$bodyMd"
                     color={rate >= 0 ? '$textSuccess' : '$textCritical'}
+                    fontVariant={TABULAR_NUMS}
                   >
                     {`${rate >= 0 ? '+' : ''}${rate.toFixed(4)}%`}
                   </SizableText>

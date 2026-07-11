@@ -19,6 +19,7 @@ import {
   Skeleton,
   Spinner,
   Stack,
+  TABULAR_NUMS,
   Table,
   View,
   XStack,
@@ -342,6 +343,7 @@ function MarketMdColumn({
             tokenName={item.name}
             tokenSymbol={item.symbol}
             lastUpdated={item.lastUpdated}
+            fontVariant={TABULAR_NUMS}
           />
         ) : (
           <NumberSizeableText
@@ -733,6 +735,7 @@ function BasicMarketHomeList({
                   tokenName={record.name}
                   tokenSymbol={record.symbol}
                   lastUpdated={record.lastUpdated}
+                  fontVariant={TABULAR_NUMS}
                 />
               ),
               renderSkeleton: () => <Skeleton w="$20" h="$3" />,

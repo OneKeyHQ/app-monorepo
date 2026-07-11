@@ -10,6 +10,7 @@ import {
   IconButton,
   SearchBar,
   SizableText,
+  TABULAR_NUMS,
   Tabs,
   XStack,
   YStack,
@@ -324,7 +325,7 @@ export function AvailableAssetsTabViewList({
           parseFormattedLiquidityValue(a.liquidity) -
           parseFormattedLiquidityValue(b.liquidity),
         render: (asset) => (
-          <SizableText size="$bodyLgMedium">
+          <SizableText size="$bodyLgMedium" fontVariant={TABULAR_NUMS}>
             {asset.liquidity || '-'}
           </SizableText>
         ),

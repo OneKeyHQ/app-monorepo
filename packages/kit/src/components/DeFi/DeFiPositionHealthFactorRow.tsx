@@ -1,10 +1,14 @@
 import { useIntl } from 'react-intl';
 
-import { Popover, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Popover,
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { ColorTokens } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 type IHealthFactorRisk = 'critical' | 'warning' | 'success';
 

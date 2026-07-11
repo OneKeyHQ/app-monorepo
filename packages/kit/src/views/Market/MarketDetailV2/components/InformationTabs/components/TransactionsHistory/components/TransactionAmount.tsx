@@ -3,6 +3,7 @@ import { type ComponentProps, memo } from 'react';
 import {
   NumberSizeableText,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -42,6 +43,7 @@ function TransactionAmountBase({
             size="$bodyMd"
             autoFormatter="value-marketCap"
             color={typeColor}
+            fontVariant={TABULAR_NUMS}
           >
             {baseToken.amount}
           </NumberSizeableText>
@@ -52,7 +54,11 @@ function TransactionAmountBase({
             {quoteSign}
           </SizableText>
 
-          <NumberSizeableText autoFormatter="value-marketCap" size="$bodyMd">
+          <NumberSizeableText
+            autoFormatter="value-marketCap"
+            size="$bodyMd"
+            fontVariant={TABULAR_NUMS}
+          >
             {quoteToken.amount}
           </NumberSizeableText>
         </XStack>

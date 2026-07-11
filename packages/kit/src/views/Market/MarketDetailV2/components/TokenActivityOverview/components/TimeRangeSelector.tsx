@@ -1,4 +1,10 @@
-import { ButtonFrame, SizableText, Stack, YStack } from '@onekeyhq/components';
+import {
+  ButtonFrame,
+  SizableText,
+  Stack,
+  TABULAR_NUMS,
+  YStack,
+} from '@onekeyhq/components';
 
 import { MarketTestIDs } from '../../../testIDs';
 
@@ -54,6 +60,7 @@ export function TimeRangeSelector({
             <SizableText
               size="$bodySm"
               color={isLoading ? '$textSubdued' : getPercentageColor(opt)}
+              fontVariant={TABULAR_NUMS}
             >
               {isLoading ? '--' : opt.percentageChange}
             </SizableText>

@@ -1,6 +1,11 @@
 import BigNumber from 'bignumber.js';
 
-import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+} from '@onekeyhq/components';
 
 import { ITEM_VALUE_PROPS } from './constants';
 
@@ -24,6 +29,7 @@ export function renderCurrencyValue(
   return (
     <NumberSizeableText
       size={ITEM_VALUE_PROPS.size}
+      fontVariant={TABULAR_NUMS}
       formatter={
         options?.forceMarketCapFormatter || isAboveThreshold
           ? 'marketCap'
@@ -42,6 +48,7 @@ export function renderAmountValue(value?: string | number) {
   return (
     <NumberSizeableText
       size={ITEM_VALUE_PROPS.size}
+      fontVariant={TABULAR_NUMS}
       formatter={isAboveThreshold ? 'marketCap' : 'value'}
     >
       {normalizedValue}
@@ -60,7 +67,11 @@ export function renderRatioValue(value?: string | number | null) {
   }
 
   return (
-    <NumberSizeableText size={ITEM_VALUE_PROPS.size} formatter="value">
+    <NumberSizeableText
+      size={ITEM_VALUE_PROPS.size}
+      fontVariant={TABULAR_NUMS}
+      formatter="value"
+    >
       {normalizedValue}
     </NumberSizeableText>
   );
@@ -78,7 +89,11 @@ export function renderPercentValue(value?: string | number | null) {
 
   return (
     <XStack alignItems="center">
-      <NumberSizeableText size={ITEM_VALUE_PROPS.size} formatter="marketCap">
+      <NumberSizeableText
+        size={ITEM_VALUE_PROPS.size}
+        fontVariant={TABULAR_NUMS}
+        formatter="marketCap"
+      >
         {normalizedValue}
       </NumberSizeableText>
       <SizableText size={ITEM_VALUE_PROPS.size}>%</SizableText>
@@ -98,6 +113,7 @@ export function renderHoldersValue({
   return (
     <NumberSizeableText
       size={ITEM_VALUE_PROPS.size}
+      fontVariant={TABULAR_NUMS}
       formatter={isAboveThreshold ? 'marketCap' : 'value'}
     >
       {isNative ? '-' : holderValue}

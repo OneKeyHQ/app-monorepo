@@ -2,7 +2,12 @@ import { memo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 
@@ -47,6 +52,7 @@ function PnlCellBase({
             autoFormatter="price-marketCap"
             autoFormatterThreshold={1000}
             sourceCurrency={USD_CURRENCY_ID}
+            fontVariant={TABULAR_NUMS}
           >
             {valueBN.abs().toFixed()}
           </Currency>
@@ -56,7 +62,11 @@ function PnlCellBase({
           --
         </SizableText>
       )}
-      <SizableText size="$bodySm" color={displayColor}>
+      <SizableText
+        size="$bodySm"
+        color={displayColor}
+        fontVariant={TABULAR_NUMS}
+      >
         {isValid ? `${percent}%` : '--'}
       </SizableText>
     </YStack>

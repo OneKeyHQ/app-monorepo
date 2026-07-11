@@ -1,7 +1,12 @@
 import type { FC } from 'react';
 import { useMemo } from 'react';
 
-import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+} from '@onekeyhq/components';
 
 interface IPriceChangeBadgeProps {
   change: number | string;
@@ -41,6 +46,7 @@ export const PriceChangeBadge: FC<IPriceChangeBadgeProps> = ({ change }) => {
           formatterOptions={{
             showPlusMinusSigns: true,
           }}
+          fontVariant={TABULAR_NUMS}
         >
           {change}
         </NumberSizeableText>

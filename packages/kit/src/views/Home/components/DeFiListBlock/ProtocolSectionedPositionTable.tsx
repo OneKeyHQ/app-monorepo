@@ -34,8 +34,6 @@ import {
 // The Supplied segment uses "Positions" in the first header cell to align with
 // the unified table; Borrowed and Rewards keep their semantic labels.
 
-const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
-
 function getTableSectionActionPlacement(
   assetType: ILocalizedProtocolPositionItem['sections'][number]['assetType'],
 ): 'balance' | 'rewards' | 'debt' | undefined {
@@ -205,7 +203,6 @@ const ProtocolSectionedPositionTable = memo(
                       size="$bodyMdMedium"
                       textAlign="right"
                       numberOfLines={1}
-                      fontVariant={TABULAR_NUMS}
                     />
                   </Stack>
                 </XStack>

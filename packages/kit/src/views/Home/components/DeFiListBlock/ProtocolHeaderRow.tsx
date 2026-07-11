@@ -4,6 +4,7 @@ import {
   Icon,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   View,
   XStack,
   YStack,
@@ -18,8 +19,6 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { formatPortfolioTotal } from './formatPortfolioTotal';
-
-const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 // Mirrors the DeFi detail page: open the protocol's site in the in-app
 // discovery browser on desktop/native, or a new tab on web.

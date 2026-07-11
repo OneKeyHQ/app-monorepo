@@ -1,6 +1,11 @@
 import { memo } from 'react';
 
-import { NumberSizeableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
@@ -24,6 +29,7 @@ function PortfolioItemSmallBase({ item }: IPortfolioItemSmallProps) {
           autoFormatter="price-marketCap"
           autoFormatterThreshold={1000}
           sourceCurrency={USD_CURRENCY_ID}
+          fontVariant={TABULAR_NUMS}
         >
           {item.totalPrice}
         </Currency>
@@ -32,6 +38,7 @@ function PortfolioItemSmallBase({ item }: IPortfolioItemSmallProps) {
           color="$textSubdued"
           autoFormatter="price-marketCap"
           autoFormatterThreshold={1000}
+          fontVariant={TABULAR_NUMS}
         >
           {item.amount}
         </NumberSizeableText>
