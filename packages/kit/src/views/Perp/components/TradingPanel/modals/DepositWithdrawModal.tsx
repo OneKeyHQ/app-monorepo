@@ -99,6 +99,7 @@ import {
   shouldShowPerpsDepositTokenSkeleton,
 } from './depositTokenDisplayUtils';
 import { DepositTokenSelectionContent } from './DepositTokenSelectionContent';
+import { usePerpsNativeAmountKeypad } from './usePerpsNativeAmountKeypad';
 
 import type { RouteProp } from '@react-navigation/native';
 import type { IntlShape } from 'react-intl';
@@ -1005,62 +1006,29 @@ function DepositWithdrawContent({
     shouldEnableDepositQuote && !isArbitrumUsdcToken;
   const canSwitchDepositInputUnit =
     shouldEnableDepositQuote && tokenPriceBN.gt(0);
+  const amountInputDecimals =
+    selectedAction === 'deposit' && depositInputUnit === 'usd'
+      ? 2
+      : currentPerpsDepositSelectedToken?.decimals;
 
   const handleAmountChange = useCallback(
     (value: string) => {
-      const decimals =
-        selectedAction === 'deposit' && depositInputUnit === 'usd'
-          ? 2
-          : currentPerpsDepositSelectedToken?.decimals;
-      if (validateAmountInput(value, decimals)) {
+      if (validateAmountInput(value, amountInputDecimals)) {
         setAmount(value);
       }
     },
-    [
-      currentPerpsDepositSelectedToken?.decimals,
-      selectedAction,
-      depositInputUnit,
-    ],
+    [amountInputDecimals],
   );
 
-  const handleNativeAmountKeyPress = useCallback(
-    (key: string) => {
-      if (
-        !shouldUseNativeAmountKeypad ||
-        isSubmitting ||
-        !checkAccountSupport
-      ) {
-        return;
-      }
-      if (key === 'backspace') {
-        setAmount((prev) => prev.slice(0, -1));
-        return;
-      }
-      if (key === '.') {
-        if (amount.includes('.')) {
-          return;
-        }
-        handleAmountChange(amount ? `${amount}.` : '0.');
-        return;
-      }
-      const nextValue = amount === '0' ? key : `${amount}${key}`;
-      handleAmountChange(nextValue);
-    },
-    [
-      amount,
-      checkAccountSupport,
-      handleAmountChange,
-      isSubmitting,
-      shouldUseNativeAmountKeypad,
-    ],
-  );
-
-  const handleNativeAmountBackspaceLongPress = useCallback(() => {
-    if (!shouldUseNativeAmountKeypad || isSubmitting || !checkAccountSupport) {
-      return;
-    }
-    setAmount('');
-  }, [checkAccountSupport, isSubmitting, shouldUseNativeAmountKeypad]);
+  const {
+    onBackspaceLongPress: handleNativeAmountBackspaceLongPress,
+    onKeyPress: handleNativeAmountKeyPress,
+  } = usePerpsNativeAmountKeypad({
+    decimals: amountInputDecimals,
+    disabled:
+      !shouldUseNativeAmountKeypad || isSubmitting || !checkAccountSupport,
+    setAmount,
+  });
   const handleAmountBlur = useCallback(() => {
     if (amount && !amountBN.isNaN() && amountBN.gt(0)) {
       if (selectedAction === 'deposit' && !checkFromTokenFiatValue.value) {
