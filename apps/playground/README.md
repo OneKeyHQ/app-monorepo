@@ -1,0 +1,148 @@
+# @onekeyhq/playground
+
+A **web-only Storybook component workbench** for `@onekeyhq/components`. It boots
+in seconds under the real app constraints (Tamagui theme, i18n, `@onekeyhq/shared`)
+without booting the full app — no `@onekeyhq/kit`, no `backgroundApiProxy`, no
+navigation, no jotai.
+
+## Run it
+
+```bash
+yarn app:playground        # → http://localhost:6006
+```
+
+(equivalently `yarn workspace @onekeyhq/playground sb:dev`.)
+
+Build a static site:
+
+```bash
+yarn workspace @onekeyhq/playground sb:build   # → apps/playground/dist
+```
+
+## What this is (and isn't)
+
+- **Is:** a fast Vite + Storybook shell that renders individual components with
+  live Controls, a theme/locale toolbar, autodocs, and viewport presets.
+- **Isn't:** the app. There is no wallet state, no background services, no
+  navigation. Stories that need those belong in the kit Gallery, not here.
+
+## How to add a story
+
+1. **Colocate** the story next to the component:
+   `packages/components/src/**/MyComponent.stories.tsx`.
+2. **Import via direct path**, never the barrel:
+   `import { Button } from '@onekeyhq/components/src/primitives/Button'`.
+   The barrel (`@onekeyhq/components`) drags layouts / Navigation / the whole
+   library into the graph and will break the fast build.
+3. Use CSF: a default `meta` (`satisfies Meta<typeof X>`) plus named
+   `StoryObj` exports. `fn()` for action args comes from `storybook/test`.
+4. Story/renderer types come from `@storybook/react-native-web-vite`.
+
+The `stories` glob in `.storybook/main.ts` already picks up every
+`packages/components/src/**/*.stories.@(ts|tsx)` — no registration step.
+
+## The decorator contract
+
+`.storybook/preview.tsx` wraps every story in `ConfigProvider`
+(`packages/components/src/hocs/Provider`), which supplies:
+
+- **Tamagui** theme + config (`theme` global: light / dark)
+- **i18n** (`AppIntlProvider`; `locale` global: en-US / zh-CN / zh-TW) — this is
+  what lets components that call `useIntl()` (e.g. `Input` via `useClipboard`)
+  render.
+- SafeArea + Portal + fonts.
+
+`ConfigProvider` also requires a `HyperlinkText` component prop (normally from
+`@onekeyhq/kit`). We pass a local no-op stub
+(`.storybook/HyperlinkTextStub.tsx`) so kit stays out of the graph — none of the
+v1 components consume it.
+
+The decorator remounts on theme/locale change (via `key`) to avoid stale Tamagui
+theme state.
+
+## How the fast build works
+
+Storybook runs on Vite (`@storybook/react-native-web-vite`). `.storybook/main.ts`
+ports the web resolution rules from `development/rspack/rspack.base.config.ts`:
+
+- `react-native` → `react-native-web`, plus the `react-native/Libraries/*` and
+  native-only-module aliases.
+- Node polyfills (`crypto` → cross-crypto, `stream` → stream-browserify,
+  `buffer`; other builtins → empty stub) and `Buffer` / `process` globals
+  (`.storybook/polyfills.ts`).
+- `define` for the load-bearing `process.env.ONEKEY_PLATFORM='web'` and friends.
+- `resolve.mainFields = ['browser','module','main']` and `react-native` removed
+  from `resolve.conditions` — **hard-overridden after `mergeConfig`** because the
+  RNW-vite framework re-adds them, which would make `moti` / `react-native-svg`
+  resolve untranspiled RN source and crash.
+- `resolve.extensions` = the rspack web order **minus `.wasm` / `.d.ts`** (those
+  must not be runtime-resolvable under Vite).
+
+## Troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| `require is not defined` | A runtime `require()` in `packages/{components,shared}`. Widen the `viteCommonjs({ include })` glob in `main.ts`. |
+| `moti` / `react-native-svg` resolve errors | The `conditions` / `mainFields` override didn't take. `console.log(merged.resolve)` in `viteFinal`. |
+| `global is not defined` | Already defined via `define.global = 'globalThis'`; check it wasn't dropped. |
+| "new dependency discovered, reloading" flicker | Add the package to `optimizeDeps.include` in `main.ts`. |
+| An icon doesn't render | Icon keys live in `packages/components/src/primitives/Icon/Icons.tsx` (e.g. `PlusCircleOutline`, `ArrowRightOutline`, `SearchOutline`). |
+
+## Spike decision record
+
+**Winner: Plan A — `@storybook/react-native-web-vite` (Storybook 10.5.0, Vite 6;
+spiked on 9.1.20, upgraded via `npx storybook@latest upgrade` the same day).**
+The upgrade's automigrations added `@storybook/addon-mcp` (agent tooling),
+`eslint-plugin-storybook` (root `.eslintrc.js` extends), wrapped
+framework/addons in `getAbsolutePath()` (monorepo resolution), and converted
+`main.ts` to real ESM (`import.meta.url`-derived `CONFIG_DIR` — SB10 no longer
+provides `__dirname`).
+All 7 acceptance criteria passed with Button, Input and Badge rendering under the
+real ConfigProvider (Tamagui theme + i18n): correct Roobert font and token
+colors, live Controls (args), light/dark theme toggle, working i18n chain (Input
+→ `useClipboard` → `useIntl`), and `<2s` HMR with no full reload. Plan B
+(`@storybook/react-vite` + hand-rolled Vite) was **not needed**.
+
+Four fixes beyond the original plan were required to get Plan A green — all live
+in `.storybook/main.ts` / `injectTamaguiCss.ts`:
+
+1. **`react-native/Libraries/*` stub plugin.** The framework's own broad
+   `react-native → react-native-web` string alias rewrites deep
+   `react-native/Libraries/*` ids into non-existent
+   `react-native-web/Libraries/...` files (RNW ships no `Libraries/` dir) and
+   crashes the esbuild dep-optimize scan — first hit was the bundled on-device
+   network devtools (`@rozenite/network-activity-plugin`) importing
+   `WebSocketInterceptor`. Fixed with an `enforce: 'pre'` `resolveId` plugin
+   (order-independent) that stubs the whole class except the handful of ids
+   with a real RNW counterpart (`RNW_LIBRARIES_REMAPS`), plus
+   `optimizeDeps.exclude` for the devtools package.
+
+2. **Manual `config.getCSS()` injection (`.storybook/injectTamaguiCss.ts`, the
+   first import in preview.tsx).** `tamagui.config` is
+   created with `disableSSR: true` + `themeClassNameOnRoot: false`, so Tamagui
+   expects a compiler/SSR step to emit the theme-variable blocks
+   (`.t_light { --bgApp: … }`, tokens, fonts). A pure-runtime Storybook has no
+   such step, so atomic classes landed but every `var(--…)` resolved to
+   transparent/0/Arial. Injecting the full CSS once (the documented "no compiler"
+   path) makes themes/tokens/fonts resolve.
+
+3. **`@onekeyfe/react-native-text-input` excluded from optimizeDeps.** It's a raw
+   TS-source package (`export enum …`); esbuild pre-bundling mangled its named
+   export into a default-only interop and broke Input. Excluding it lets Vite
+   transform the TS source directly.
+
+4. **`@babel/plugin-syntax-decorators` (legacy, syntax-only) for `sb:build`.**
+   The production build's babel pass parses raw workspace TS and died on the
+   logger-scope method decorators in `@onekeyhq/shared`. Syntax-only is
+   deliberate: esbuild compiles the decorators later via tsconfig
+   `experimentalDecorators` (same as dev). The full
+   `@babel/plugin-proposal-decorators` transform emits an `abstract class`
+   expression that crashes the downstream react-docgen plugin, and adding
+   `plugin-transform-class-properties` (as the rspack chain does) breaks on
+   `declare` fields in node_modules RN packages (e.g. `expo-image`) that this
+   babel pass also covers.
+
+The one remaining console warning — React's "does not recognize the `borderCurve`
+prop" — is Tamagui's `borderCurve="continuous"` style prop leaking to the DOM.
+It's cosmetic (present in the app itself) and RNW-deprecation-class, so it's
+tolerated per acceptance criterion 7.
