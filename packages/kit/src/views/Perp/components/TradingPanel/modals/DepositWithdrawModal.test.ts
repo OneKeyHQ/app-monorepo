@@ -6,6 +6,7 @@ import {
   getPerpsDepositTokenDisplayList,
   getPerpsDepositTokensWithDefaultFallback,
   mergePerpsDepositTokensPreservingOrder,
+  shouldPreservePerpsDepositSelectedToken,
   shouldShowPerpsDepositTokenSkeleton,
 } from './depositTokenDisplayUtils';
 
@@ -136,6 +137,30 @@ describe('getPerpsDepositTokensWithDefaultFallback', () => {
         defaultTokens: [defaultToken],
       }),
     ).toEqual([defaultToken]);
+  });
+});
+
+describe('shouldPreservePerpsDepositSelectedToken', () => {
+  it('does not preserve an empty-wallet fallback after live wallet tokens arrive', () => {
+    const fallbackUsdc = makeDepositToken({
+      networkId: 'evm--42161',
+      contractAddress: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
+      symbol: 'USDC',
+    });
+    const liveEth = makeDepositToken({
+      networkId: 'evm--1',
+      contractAddress: '',
+      symbol: 'ETH',
+      fiatValue: '100',
+    });
+
+    expect(
+      shouldPreservePerpsDepositSelectedToken({
+        depositTokenListSource: 'walletBalance',
+        currentToken: fallbackUsdc,
+        tokens: [liveEth],
+      }),
+    ).toBe(false);
   });
 });
 

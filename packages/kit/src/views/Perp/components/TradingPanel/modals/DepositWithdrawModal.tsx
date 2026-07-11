@@ -95,6 +95,7 @@ import {
   getPerpsDepositTokenDisplayList,
   getPerpsDepositTokensWithDefaultFallback,
   mergePerpsDepositTokensPreservingOrder,
+  shouldPreservePerpsDepositSelectedToken,
   shouldShowPerpsDepositTokenSkeleton,
 } from './depositTokenDisplayUtils';
 import { DepositTokenSelectionContent } from './DepositTokenSelectionContent';
@@ -496,7 +497,7 @@ function DepositWithdrawContent({
     [],
   );
 
-  const { result, isLoading: balanceLoading } = usePromiseResult(
+  const { isLoading: balanceLoading } = usePromiseResult(
     async () => {
       const requestKey = depositTokenRequestKey;
       if (
@@ -703,57 +704,61 @@ function DepositWithdrawContent({
   }, [currentDepositTokenIdentity, selectedAction]);
 
   useEffect(() => {
-    if (result) {
-      const previousToken = currentPerpsDepositSelectedTokenRef.current;
-      const selectedToken = resolvePerpsDepositSelectedToken({
-        tokens: result,
+    if (depositTokensWithPrice.length === 0) return;
+
+    const previousToken = currentPerpsDepositSelectedTokenRef.current;
+    const selectedToken = resolvePerpsDepositSelectedToken({
+      tokens: depositTokensWithPrice,
+      currentToken: previousToken,
+      defaultTokens,
+      preserveCurrentToken: shouldPreservePerpsDepositSelectedToken({
+        depositTokenListSource,
         currentToken: previousToken,
-        defaultTokens,
-        preserveCurrentToken: depositTokenListSource === 'walletBalance',
-      });
-      if (selectedToken) {
-        setPerpsDepositTokensAtom((prev) => {
-          const currentToken = prev.currentPerpsDepositSelectedToken;
-          if (
-            arePerpsDepositSelectedTokenRefreshFieldsEqual({
-              currentToken,
-              nextToken: selectedToken,
-            })
-          ) {
-            return prev;
-          }
-          return equalTokenNoCaseSensitive({
-            token1: currentToken,
-            token2: selectedToken,
+        tokens: depositTokensWithPrice,
+      }),
+    });
+    if (selectedToken) {
+      setPerpsDepositTokensAtom((prev) => {
+        const currentToken = prev.currentPerpsDepositSelectedToken;
+        if (
+          arePerpsDepositSelectedTokenRefreshFieldsEqual({
+            currentToken,
+            nextToken: selectedToken,
           })
-            ? {
-                ...prev,
-                currentPerpsDepositSelectedToken: {
-                  ...currentToken,
-                  networkId: selectedToken.networkId,
-                  contractAddress: selectedToken.contractAddress,
-                  name: selectedToken.name,
-                  symbol: selectedToken.symbol,
-                  decimals: selectedToken.decimals,
-                  networkLogoURI: selectedToken.networkLogoURI,
-                  logoURI: selectedToken.logoURI,
-                  isNative: selectedToken.isNative,
-                  balanceParsed: selectedToken.balanceParsed,
-                  fiatValue: selectedToken.fiatValue,
-                  price: selectedToken.price,
-                },
-              }
-            : {
-                ...prev,
-                currentPerpsDepositSelectedToken: selectedToken,
-              };
-        });
-      }
+        ) {
+          return prev;
+        }
+        return equalTokenNoCaseSensitive({
+          token1: currentToken,
+          token2: selectedToken,
+        })
+          ? {
+              ...prev,
+              currentPerpsDepositSelectedToken: {
+                ...currentToken,
+                networkId: selectedToken.networkId,
+                contractAddress: selectedToken.contractAddress,
+                name: selectedToken.name,
+                symbol: selectedToken.symbol,
+                decimals: selectedToken.decimals,
+                networkLogoURI: selectedToken.networkLogoURI,
+                logoURI: selectedToken.logoURI,
+                isNative: selectedToken.isNative,
+                balanceParsed: selectedToken.balanceParsed,
+                fiatValue: selectedToken.fiatValue,
+                price: selectedToken.price,
+              },
+            }
+          : {
+              ...prev,
+              currentPerpsDepositSelectedToken: selectedToken,
+            };
+      });
     }
   }, [
     defaultTokens,
+    depositTokensWithPrice,
     depositTokenListSource,
-    result,
     setPerpsDepositTokensAtom,
   ]);
 
