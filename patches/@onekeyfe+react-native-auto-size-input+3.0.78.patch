@@ -89,10 +89,10 @@ index 0000000..fddf46b
 +}
 diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/android/src/test/java/com/margelo/nitro/autosizeinput/TextUpdateEventCounterTest.kt b/node_modules/@onekeyfe/react-native-auto-size-input/android/src/test/java/com/margelo/nitro/autosizeinput/TextUpdateEventCounterTest.kt
 new file mode 100644
-index 0000000..f76826d
+index 0000000..001f908
 --- /dev/null
 +++ b/node_modules/@onekeyfe/react-native-auto-size-input/android/src/test/java/com/margelo/nitro/autosizeinput/TextUpdateEventCounterTest.kt
-@@ -0,0 +1,46 @@
+@@ -0,0 +1,76 @@
 +package com.margelo.nitro.autosizeinput
 +
 +import org.junit.Assert.assertEquals
@@ -137,6 +137,36 @@ index 0000000..f76826d
 +    }
 +
 +    assertEquals(10, counter.nativeEventCount)
++  }
++
++  @Test
++  fun allowsAnAcknowledgedDeletionWithoutNewerInput() {
++    val counter = TextUpdateEventCounter()
++    repeat(4) {
++      counter.recordNativeChange()
++    }
++    counter.mostRecentEventCount = 4
++    counter.recordNativeChange()
++    counter.mostRecentEventCount = 5
++
++    assertTrue(counter.canApplyJsUpdate())
++  }
++
++  @Test
++  fun rejectsAStaleDeletionUpdateAfterTheNextDigit() {
++    val counter = TextUpdateEventCounter()
++    repeat(4) {
++      counter.recordNativeChange()
++    }
++    counter.mostRecentEventCount = 4
++    counter.recordNativeChange()
++    counter.recordNativeChange()
++    counter.mostRecentEventCount = 5
++
++    assertFalse(counter.canApplyJsUpdate())
++
++    counter.mostRecentEventCount = 6
++    assertTrue(counter.canApplyJsUpdate())
 +  }
 +}
 diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/ios/AutoSizeInput.swift b/node_modules/@onekeyfe/react-native-auto-size-input/ios/AutoSizeInput.swift
