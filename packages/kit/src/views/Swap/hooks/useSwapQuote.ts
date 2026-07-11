@@ -708,7 +708,7 @@ export function useSwapQuote() {
         );
       } else if (enableFilled) {
         if (swapTabSwitchTypeRef.current !== swapType) {
-          await swapTypeSwitchAction(swapType);
+          swapTypeSwitchAction(swapType);
         }
         setSwapSelectFromToken(fromTokenInfo);
         setSwapSelectToToken(toTokenInfo);
