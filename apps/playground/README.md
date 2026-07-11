@@ -57,6 +57,14 @@ The `stories` glob in `.storybook/main.ts` already picks up every
 (`.storybook/HyperlinkTextStub.tsx`) so kit stays out of the graph — none of the
 v1 components consume it.
 
+The decorator also mounts a
+`<Portal.Container name={FULL_WINDOW_OVERLAY_PORTAL}>` **inside**
+`ConfigProvider` — the minimal slice of the app's `FullWindowOverlayContainer`
+— so portal-based components (`Dialog.show`, Popover/Select sheets) have a
+mount point and their portaled content keeps theme/intl context. The native
+shell's `.rnstorybook/preview.tsx` does the same, wrapped in `OverlayContainer`
+(iOS `FullWindowOverlay`).
+
 The decorator remounts on theme/locale change (via `key`) to avoid stale Tamagui
 theme state.
 
@@ -195,3 +203,23 @@ Verified 2026-07-11 on an iPhone 16 Pro simulator:
   namespacing `config.cacheVersion` per mode. Symptom if it regresses: Metro
   runs with the channel server on `:7007` but the app boots the wallet — no
   `--clear` needed, just check that cacheVersion line.
+- **The shell mirrors two wallet boot duties** (`.rnstorybook/index.tsx`),
+  discovered when the story graph grew beyond the original three components:
+  `content/Splash` (pulled in via the content barrel from e.g. Checkbox) calls
+  expo-splash-screen's `preventAutoHideAsync` at module scope, so the shell
+  must `hideAsync()` after mount or the UI stays behind the launch screen; and
+  the native AppDelegate watchdog counts every launch as failed until
+  `BootRecovery.markBootSuccess()` — without the shell's 5s-delayed call, a
+  few storybook relaunches trip the "We hit a snag" recovery screen (clear it
+  by reinstalling the app; `simctl spawn defaults write` does NOT work — the
+  counter lives in the app container's own preferences plist).
+- Second cross-platform catch: `ListView` (FlashList) collapses to zero height
+  on native inside an unbounded container (its wrapper is `flex: 1`) while web
+  auto-sizes — bound the parent (`<Stack h={...}>`) in stories that render
+  lists.
+- `Checkbox.Group` has zero production call sites (only the frozen Gallery
+  demo) and hits the ListView collapse above through its own unbounded
+  `YStack`, so it deliberately has no story — deletion candidate.
+- Platform-behavior diff surfaced by Switch stories: iOS renders the on-state
+  track in brand green (`$bgAccent`, per the component's intent) while web
+  uses monochrome `$bgPrimary`.

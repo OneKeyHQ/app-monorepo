@@ -1,4 +1,6 @@
+import { Portal } from '@onekeyhq/components/src/hocs/Portal';
 import { ConfigProvider } from '@onekeyhq/components/src/hocs/Provider';
+import { OverlayContainer } from '@onekeyhq/components/src/layouts/OverlayContainer';
 import { Stack } from '@onekeyhq/components/src/primitives/Stack';
 
 import { HyperlinkTextStub } from './HyperlinkTextStub';
@@ -26,6 +28,13 @@ const preview: Preview = {
         <Stack bg="$bgApp" p="$5" flex={1}>
           <Story />
         </Stack>
+        {/* Overlay mount point for portal-based components (Dialog.show,
+            Popover/Select sheets) — the minimal slice of the app's
+            FullWindowOverlayContainer. OverlayContainer puts it on the iOS
+            FullWindowOverlay layer, above the Storybook UI. */}
+        <OverlayContainer>
+          <Portal.Container name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL} />
+        </OverlayContainer>
       </ConfigProvider>
     ),
   ],
