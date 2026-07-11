@@ -381,6 +381,25 @@ export function useSwapInit(params?: ISwapInitParams) {
     [swapTypeSwitchAction],
   );
 
+  const lastRouteSwapTabSwitchTypeRef = useRef(params?.swapTabSwitchType);
+  useEffect(() => {
+    // Cold mount is owned by SwapHeaderContainer's mount-time switch (which
+    // delays to avoid racing default-token init). This effect only serves warm
+    // navigation: the tab route param changing while the Swap page is already
+    // mounted, e.g. a stocks universal link arriving with the app alive.
+    if (lastRouteSwapTabSwitchTypeRef.current === params?.swapTabSwitchType) {
+      return;
+    }
+    lastRouteSwapTabSwitchTypeRef.current = params?.swapTabSwitchType;
+    if (!params?.swapTabSwitchType) {
+      return;
+    }
+    switchSwapTypeIfNeeded(
+      params.swapTabSwitchType,
+      swapAddressInfoRef.current?.networkId ?? fromTokenRef.current?.networkId,
+    );
+  }, [params?.swapTabSwitchType, switchSwapTypeIfNeeded]);
+
   const validateSelectedTokensColdStartContext = useCallback(() => {
     if (!fromTokenRef.current && !toTokenRef.current) {
       return true;
