@@ -56,6 +56,14 @@ export function getPerpsDepositTokenDisplayList(
   );
 }
 
+export function getPerpsDepositTokensIdentityKey(
+  tokens?: IPerpsDepositToken[],
+) {
+  return (tokens ?? [])
+    .map((token) => `${token.networkId}:${token.contractAddress.toLowerCase()}`)
+    .join('|');
+}
+
 export function getPerpsDepositTokensWithDefaultFallback({
   walletTokens,
   defaultTokens,

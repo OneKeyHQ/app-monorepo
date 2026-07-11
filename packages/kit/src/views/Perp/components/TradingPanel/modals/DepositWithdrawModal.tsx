@@ -93,6 +93,7 @@ import {
   arePerpsDepositSelectedTokenRefreshFieldsEqual,
   getPerpsDepositMinimumCheck,
   getPerpsDepositTokenDisplayList,
+  getPerpsDepositTokensIdentityKey,
   getPerpsDepositTokensWithDefaultFallback,
   mergePerpsDepositTokensPreservingOrder,
   shouldPreservePerpsDepositSelectedToken,
@@ -332,6 +333,12 @@ function DepositWithdrawContent({
     () => getPerpsDepositTokenDisplayList(tokens),
     [tokens],
   );
+  const defaultTokenIdentitiesKey = useMemo(
+    () => getPerpsDepositTokensIdentityKey(defaultTokens),
+    [defaultTokens],
+  );
+  const defaultTokensRef = useRef(defaultTokens);
+  defaultTokensRef.current = defaultTokens;
   const currentDepositTokenIdentity = useMemo(
     () =>
       currentPerpsDepositSelectedToken
@@ -500,6 +507,7 @@ function DepositWithdrawContent({
   const { isLoading: balanceLoading } = usePromiseResult(
     async () => {
       const requestKey = depositTokenRequestKey;
+      const requestDefaultTokenIdentitiesKey = defaultTokenIdentitiesKey;
       if (
         !selectedAccount.accountId ||
         !selectedAccount.accountAddress ||
@@ -520,13 +528,18 @@ function DepositWithdrawContent({
             indexedAccountId: selectedAccount.indexedAccountId ?? undefined,
           },
         );
-        if (isStale || depositTokenRequestKeyRef.current !== requestKey) {
+        if (
+          isStale ||
+          depositTokenRequestKeyRef.current !== requestKey ||
+          getPerpsDepositTokensIdentityKey(defaultTokensRef.current) !==
+            requestDefaultTokenIdentitiesKey
+        ) {
           return [];
         }
         depositTokenListOwnerKeyRef.current = ownerKey;
         const displayDepositTokens = getPerpsDepositTokensWithDefaultFallback({
           walletTokens: depositTokens,
-          defaultTokens,
+          defaultTokens: defaultTokensRef.current,
         });
         const didSync = await syncDepositTokenBalances({
           depositTokens: displayDepositTokens,
@@ -560,7 +573,7 @@ function DepositWithdrawContent({
       selectedAccount.indexedAccountId,
       depositTokenRequestKey,
       checkAccountSupport,
-      defaultTokens,
+      defaultTokenIdentitiesKey,
       setPerpsDepositTokensAtom,
       syncDepositTokenBalances,
     ],
