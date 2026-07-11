@@ -64,3 +64,23 @@ export function getIsMarketTabSelectionInFlight({
   }
   return false;
 }
+
+interface IShouldIgnoreStalePagerTabChangeParams {
+  expectedTabName?: string;
+  incomingTabName: string;
+  selectedTabName: string;
+  isRecentPagerDrag: boolean;
+}
+
+export function shouldIgnoreStalePagerTabChange({
+  expectedTabName,
+  incomingTabName,
+  selectedTabName,
+  isRecentPagerDrag,
+}: IShouldIgnoreStalePagerTabChangeParams): boolean {
+  return Boolean(
+    !expectedTabName &&
+    incomingTabName !== selectedTabName &&
+    !isRecentPagerDrag,
+  );
+}

@@ -1,5 +1,6 @@
 import {
   getIsMarketTabSelectionInFlight,
+  shouldIgnoreStalePagerTabChange,
   shouldRestoreSpotCategoryFromAtom,
 } from './marketTabSelectionGuards';
 
@@ -90,6 +91,39 @@ describe('getIsMarketTabSelectionInFlight', () => {
         lastWrittenSelection: { tab: 'perps' },
         atomTab: 'perps',
         atomSpotCategoryId: 'stock',
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('shouldIgnoreStalePagerTabChange', () => {
+  it('ignores an old pager callback after an external atom selection', () => {
+    expect(
+      shouldIgnoreStalePagerTabChange({
+        incomingTabName: 'Favorites',
+        selectedTabName: 'Stocks',
+        isRecentPagerDrag: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('accepts a tab change backed by a user drag', () => {
+    expect(
+      shouldIgnoreStalePagerTabChange({
+        incomingTabName: 'Favorites',
+        selectedTabName: 'Stocks',
+        isRecentPagerDrag: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('accepts the expected programmatic target', () => {
+    expect(
+      shouldIgnoreStalePagerTabChange({
+        expectedTabName: 'Favorites',
+        incomingTabName: 'Favorites',
+        selectedTabName: 'Stocks',
+        isRecentPagerDrag: false,
       }),
     ).toBe(false);
   });
