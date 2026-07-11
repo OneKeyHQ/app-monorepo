@@ -4,6 +4,7 @@ import {
   arePerpsDepositSelectedTokenRefreshFieldsEqual,
   getPerpsDepositMinimumCheck,
   getPerpsDepositTokenDisplayList,
+  getPerpsDepositTokensWithDefaultFallback,
   mergePerpsDepositTokensPreservingOrder,
   shouldShowPerpsDepositTokenSkeleton,
 } from './depositTokenDisplayUtils';
@@ -118,6 +119,23 @@ describe('getPerpsDepositTokenDisplayList', () => {
     });
 
     expect(result.map((token) => token.symbol)).toEqual(['POL', 'USDC', 'ETH']);
+  });
+});
+
+describe('getPerpsDepositTokensWithDefaultFallback', () => {
+  it('keeps a server default token selectable for an empty wallet', () => {
+    const defaultToken = makeDepositToken({
+      networkId: 'evm--42161',
+      contractAddress: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
+      symbol: 'USDC',
+    });
+
+    expect(
+      getPerpsDepositTokensWithDefaultFallback({
+        walletTokens: [],
+        defaultTokens: [defaultToken],
+      }),
+    ).toEqual([defaultToken]);
   });
 });
 

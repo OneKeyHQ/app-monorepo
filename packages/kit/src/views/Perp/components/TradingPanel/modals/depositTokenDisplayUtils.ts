@@ -56,6 +56,16 @@ export function getPerpsDepositTokenDisplayList(
   );
 }
 
+export function getPerpsDepositTokensWithDefaultFallback({
+  walletTokens,
+  defaultTokens,
+}: {
+  walletTokens: IPerpsDepositToken[];
+  defaultTokens?: IPerpsDepositToken[];
+}) {
+  return walletTokens.length > 0 ? walletTokens : (defaultTokens ?? []);
+}
+
 export function shouldUsePerpsDepositLiveWalletTokens({
   atomOwnerKey,
   routeOwnerKey,

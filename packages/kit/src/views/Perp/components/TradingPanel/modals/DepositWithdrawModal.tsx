@@ -93,6 +93,7 @@ import {
   arePerpsDepositSelectedTokenRefreshFieldsEqual,
   getPerpsDepositMinimumCheck,
   getPerpsDepositTokenDisplayList,
+  getPerpsDepositTokensWithDefaultFallback,
   mergePerpsDepositTokensPreservingOrder,
   shouldShowPerpsDepositTokenSkeleton,
 } from './depositTokenDisplayUtils';
@@ -522,15 +523,19 @@ function DepositWithdrawContent({
           return [];
         }
         depositTokenListOwnerKeyRef.current = ownerKey;
+        const displayDepositTokens = getPerpsDepositTokensWithDefaultFallback({
+          walletTokens: depositTokens,
+          defaultTokens,
+        });
         const didSync = await syncDepositTokenBalances({
-          depositTokens,
+          depositTokens: displayDepositTokens,
           requestKey,
           preserveCurrentOrder: depositTokensWithPriceRef.current.length > 0,
         });
         if (!didSync) {
           return [];
         }
-        return depositTokens;
+        return displayDepositTokens;
       } catch (error) {
         if (depositTokenRequestKeyRef.current !== requestKey) {
           return [];
@@ -554,6 +559,7 @@ function DepositWithdrawContent({
       selectedAccount.indexedAccountId,
       depositTokenRequestKey,
       checkAccountSupport,
+      defaultTokens,
       setPerpsDepositTokensAtom,
       syncDepositTokenBalances,
     ],
@@ -591,7 +597,10 @@ function DepositWithdrawContent({
       }
       depositTokenListOwnerKeyRef.current = ownerKey;
       await syncDepositTokenBalances({
-        depositTokens,
+        depositTokens: getPerpsDepositTokensWithDefaultFallback({
+          walletTokens: depositTokens,
+          defaultTokens,
+        }),
         requestKey,
         preserveCurrentOrder: true,
       });
@@ -610,6 +619,7 @@ function DepositWithdrawContent({
     selectedAccount.indexedAccountId,
     depositTokenRequestKey,
     checkAccountSupport,
+    defaultTokens,
     syncDepositTokenBalances,
   ]);
 
@@ -626,13 +636,17 @@ function DepositWithdrawContent({
 
     lastSyncedDepositTokenListRevisionRef.current = depositTokenListRevision;
     void syncDepositTokenBalances({
-      depositTokens: cachedDepositTokens,
+      depositTokens: getPerpsDepositTokensWithDefaultFallback({
+        walletTokens: cachedDepositTokens,
+        defaultTokens,
+      }),
       requestKey: depositTokenRequestKeyRef.current,
       preserveCurrentOrder: depositTokensWithPriceRef.current.length > 0,
     });
   }, [
     cachedDepositTokens,
     checkAccountSupport,
+    defaultTokens,
     depositTokenListOwnerKey,
     depositTokenListRevision,
     syncDepositTokenBalances,
