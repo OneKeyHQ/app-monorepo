@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { SizableText, XStack } from '@onekeyhq/components';
+import { PROPORTIONAL_NUMS, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -260,7 +260,11 @@ export function UniversalSearchAddressItem({
             {...textProps}
             flex={1}
             primary={
-              <SizableText size="$bodyLgMedium" numberOfLines={1}>
+              <SizableText
+                size="$bodyLgMedium"
+                numberOfLines={1}
+                fontVariant={PROPORTIONAL_NUMS}
+              >
                 {item.payload.accountInfo?.formattedName}
               </SizableText>
             }

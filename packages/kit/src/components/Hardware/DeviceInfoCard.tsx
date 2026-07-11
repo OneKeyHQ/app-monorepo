@@ -1,5 +1,10 @@
 import type { IXStackProps } from '@onekeyhq/components';
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  PROPORTIONAL_NUMS,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 
 import { DeviceAvatar } from '../DeviceAvatar/DeviceAvatar';
 
@@ -36,7 +41,12 @@ export function DeviceInfoCard({
       <DeviceAvatar deviceType={deviceType} size="$7" />
       <YStack maxWidth="$28">
         {walletName ? (
-          <SizableText size="$bodySmMedium" color="$text" numberOfLines={1}>
+          <SizableText
+            size="$bodySmMedium"
+            color="$text"
+            numberOfLines={1}
+            fontVariant={PROPORTIONAL_NUMS}
+          >
             {walletName}
           </SizableText>
         ) : null}

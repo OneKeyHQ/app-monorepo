@@ -2,7 +2,13 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Icon, SizableText, XStack } from '@onekeyhq/components';
+import {
+  ActionList,
+  Icon,
+  PROPORTIONAL_NUMS,
+  SizableText,
+  XStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
 import type {
@@ -197,7 +203,11 @@ export function AccountRenameInlineButton({
       }}
       onPress={showAccountRenameDialog}
     >
-      <SizableText size="$bodyLgMedium" numberOfLines={1}>
+      <SizableText
+        size="$bodyLgMedium"
+        numberOfLines={1}
+        fontVariant={PROPORTIONAL_NUMS}
+      >
         {name}
       </SizableText>
       <Icon flexShrink={0} name="PencilSolid" size="$4" color="$iconSubdued" />

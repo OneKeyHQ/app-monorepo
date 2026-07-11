@@ -1,6 +1,12 @@
 import { useIntl } from 'react-intl';
 
-import { Badge, Dialog, Stack, XStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Dialog,
+  PROPORTIONAL_NUMS,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -162,7 +168,9 @@ function AddressInfo(props: IProps) {
 
     const badge = (
       <Badge badgeType="success" badgeSize="sm">
-        {addressQueryResult.walletAccountName}
+        <Badge.Text userSelect="none" fontVariant={PROPORTIONAL_NUMS}>
+          {addressQueryResult.walletAccountName}
+        </Badge.Text>
       </Badge>
     );
 

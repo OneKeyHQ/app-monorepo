@@ -98,19 +98,23 @@ const BadgeTextStyled = styled(SizableText, {
   } as const,
 });
 
-// Badge.Text is styled from raw tamagui text, so it bypasses the SizableText
-// wrapper's app-wide tabular default. Re-apply it here (computed once) so badge
-// digits (countdowns, rates, counts) stay equal-width on native. On web the
-// web-fonts.css body rule already covers it, so getFontVariantStyle returns
-// undefined and this is a passthrough.
-const BADGE_TABULAR_STYLE = getFontVariantStyle(TABULAR_NUMS);
-
-function BadgeText({ style, ...props }: GetProps<typeof BadgeTextStyled>) {
+// Badge.Text is styled from raw tamagui text, which BOTH bypasses the
+// SizableText wrapper's app-wide tabular default AND silently drops the
+// `fontVariant` prop. Translate it into a real style here so badge digits stay
+// equal-width by default (countdowns, rates, counts) while a caller can still
+// opt out — e.g. `fontVariant={PROPORTIONAL_NUMS}` on a badge holding a NAME.
+// On web the web-fonts.css body rule already supplies the default, so
+// getFontVariantStyle returns undefined there and the default is a passthrough.
+function BadgeText({
+  style,
+  fontVariant = TABULAR_NUMS,
+  ...props
+}: GetProps<typeof BadgeTextStyled>) {
   // Merge (not overwrite) so a caller-provided `style` still wins.
-  const mergedStyle = useMemo(
-    () => (BADGE_TABULAR_STYLE ? [BADGE_TABULAR_STYLE, style] : style),
-    [style],
-  );
+  const mergedStyle = useMemo(() => {
+    const variantStyle = getFontVariantStyle(fontVariant);
+    return variantStyle ? [variantStyle, style] : style;
+  }, [fontVariant, style]);
   return <BadgeTextStyled {...props} style={mergedStyle} />;
 }
 

@@ -15,6 +15,7 @@ import {
   IconButton,
   Image,
   MatchSizeableText,
+  PROPORTIONAL_NUMS,
   SizableText,
   Spinner,
   Stack,
@@ -167,11 +168,17 @@ const ListItemText = (props: IListItemTextProps) => {
     if (isValidElement(primary)) {
       return primary;
     }
+    // A list item's primary text is a NAME (wallet, account, token, setting),
+    // not numeric data — so it opts out of the app-wide tabular default: the
+    // tabular `1` is much wider and gains a foot serif, which reads wrong in a
+    // name like "A1787". Numeric data lives in `secondary`, which stays
+    // tabular. Callers can still override via `primaryTextProps`.
     if (primaryMatch) {
       return (
         <MatchSizeableText
           textAlign={align}
           size="$bodyLgMedium"
+          fontVariant={PROPORTIONAL_NUMS}
           match={primaryMatch}
           {...primaryTextProps}
         >
@@ -180,7 +187,12 @@ const ListItemText = (props: IListItemTextProps) => {
       );
     }
     return (
-      <SizableText textAlign={align} size="$bodyLgMedium" {...primaryTextProps}>
+      <SizableText
+        textAlign={align}
+        size="$bodyLgMedium"
+        fontVariant={PROPORTIONAL_NUMS}
+        {...primaryTextProps}
+      >
         {primary}
       </SizableText>
     );

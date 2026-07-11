@@ -1,6 +1,13 @@
 import { useIntl } from 'react-intl';
 
-import { Badge, Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Icon,
+  PROPORTIONAL_NUMS,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
@@ -55,7 +62,12 @@ function AddressListItem(props: IAddressListItemProps) {
         })}
     >
       {shouldDisplayAccount ? (
-        <SizableText size="$bodyMd" color="$textPrimary" numberOfLines={1}>
+        <SizableText
+          size="$bodyMd"
+          color="$textPrimary"
+          numberOfLines={1}
+          fontVariant={PROPORTIONAL_NUMS}
+        >
           {accountName}
         </SizableText>
       ) : null}

@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import type { IButtonProps } from '@onekeyhq/components';
 import {
   IconButton,
+  PROPORTIONAL_NUMS,
   SizableText,
   Stack,
   XStack,
@@ -389,7 +390,11 @@ export function AccountSelectorAccountListItem({
             overflow="hidden"
             pr="$8"
             primary={
-              <SizableText size="$bodyLg" numberOfLines={1}>
+              <SizableText
+                size="$bodyLg"
+                numberOfLines={1}
+                fontVariant={PROPORTIONAL_NUMS}
+              >
                 {item.name}
               </SizableText>
             }

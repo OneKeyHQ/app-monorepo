@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import type { IXStackProps } from '@onekeyhq/components';
 import {
   Icon,
+  PROPORTIONAL_NUMS,
   SizableText,
   Skeleton,
   View,
@@ -75,7 +76,12 @@ const InterWalletAndAccountName = ({
   return (
     <XStack>
       <XStack maxWidth="$40">
-        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          numberOfLines={1}
+          fontVariant={PROPORTIONAL_NUMS}
+        >
           {walletName}
         </SizableText>
       </XStack>
@@ -83,7 +89,12 @@ const InterWalletAndAccountName = ({
         /
       </SizableText>
       <XStack maxWidth="$40">
-        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          numberOfLines={1}
+          fontVariant={PROPORTIONAL_NUMS}
+        >
           {accountName}
         </SizableText>
       </XStack>
@@ -356,10 +367,19 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
       {media.gtMd ? (
         <>
           <View pl="$2" pr="$1" minWidth={0} maxWidth="$24">
-            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              numberOfLines={1}
+              fontVariant={PROPORTIONAL_NUMS}
+            >
               {wallet?.name}
             </SizableText>
-            <SizableText size="$bodyMdMedium" numberOfLines={1}>
+            <SizableText
+              size="$bodyMdMedium"
+              numberOfLines={1}
+              fontVariant={PROPORTIONAL_NUMS}
+            >
               {accountName}
             </SizableText>
           </View>

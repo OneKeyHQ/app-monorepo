@@ -2,7 +2,13 @@ import { type ComponentProps, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Icon,
+  PROPORTIONAL_NUMS,
+  SizableText,
+  XStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -139,7 +145,12 @@ export function WalletRenameButton({
         })}
         {...rest}
       >
-        <SizableText size={textSize} pr="$1.5" numberOfLines={1}>
+        <SizableText
+          size={textSize}
+          pr="$1.5"
+          numberOfLines={1}
+          fontVariant={PROPORTIONAL_NUMS}
+        >
           {wallet?.name}
         </SizableText>
         {canRename ? (

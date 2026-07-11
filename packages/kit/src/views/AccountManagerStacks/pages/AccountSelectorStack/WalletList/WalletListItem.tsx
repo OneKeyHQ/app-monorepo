@@ -7,6 +7,7 @@ import { Pressable } from 'react-native';
 import type { IStackProps } from '@onekeyhq/components';
 import {
   Icon,
+  PROPORTIONAL_NUMS,
   SizableText,
   Stack,
   Tooltip,
@@ -110,6 +111,7 @@ function WalletListItemBaseView({
         size="$bodySm"
         color={selected ? '$text' : '$textSubdued'}
         textAlign="center"
+        fontVariant={PROPORTIONAL_NUMS}
       >
         {name}
       </SizableText>

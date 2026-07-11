@@ -6,6 +6,7 @@ import {
   Button,
   DebugRenderTracker,
   Icon,
+  PROPORTIONAL_NUMS,
   SizableText,
   Stack,
   XStack,
@@ -156,6 +157,7 @@ export function AccountSelectorTriggerBase({
               numberOfLines={1}
               flexShrink={1}
               maxWidth="$40"
+              fontVariant={PROPORTIONAL_NUMS}
             >
               {showWalletName
                 ? `${walletName} / ${displayLabel}`
@@ -168,6 +170,7 @@ export function AccountSelectorTriggerBase({
                 color="$text"
                 numberOfLines={horizontalLayout ? undefined : 1}
                 flexShrink={1}
+                fontVariant={PROPORTIONAL_NUMS}
               >
                 {walletName}
               </SizableText>
@@ -176,6 +179,7 @@ export function AccountSelectorTriggerBase({
                 numberOfLines={horizontalLayout ? undefined : 1}
                 flexShrink={1}
                 testID="account-name"
+                fontVariant={PROPORTIONAL_NUMS}
               >
                 {displayLabel}
               </SizableText>

@@ -9,6 +9,7 @@ import {
   Divider,
   Icon,
   ListView,
+  PROPORTIONAL_NUMS,
   Page,
   SizableText,
   Spinner,
@@ -249,6 +250,7 @@ function DeviceListItem({
               color="$text"
               numberOfLines={1}
               flexShrink={1}
+              fontVariant={PROPORTIONAL_NUMS}
             >
               {item.wallet.name}
             </SizableText>

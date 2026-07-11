@@ -12,6 +12,7 @@ import {
   Form,
   Icon,
   IconButton,
+  PROPORTIONAL_NUMS,
   Select,
   SizableText,
   Spinner,
@@ -238,7 +239,7 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
               {result.walletId ? (
                 <WalletAvatarById walletId={result.walletId} size="$4" />
               ) : null}
-              <Badge.Text numberOfLines={1}>
+              <Badge.Text numberOfLines={1} fontVariant={PROPORTIONAL_NUMS}>
                 {result.walletAccountName}
               </Badge.Text>
             </XStack>
@@ -248,7 +249,7 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
           <Badge badgeType="success" badgeSize="sm" maxWidth="100%">
             <XStack gap="$1.5" alignItems="center" maxWidth="100%">
               <Icon name="BookOpenOutline" size="$4" color="$textSuccess" />
-              <Badge.Text numberOfLines={1}>
+              <Badge.Text numberOfLines={1} fontVariant={PROPORTIONAL_NUMS}>
                 {result.addressBookName}
               </Badge.Text>
             </XStack>
