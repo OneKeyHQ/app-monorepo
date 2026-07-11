@@ -48,7 +48,6 @@ import {
 import type {
   ICheckAmountAlert,
   IEarnEstimateFeeResp,
-  IEarnText,
   IEarnTokenInfo,
   IEarnTransactionTip,
   IEarnWithdrawType,
@@ -94,6 +93,13 @@ import {
 } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 
+import {
+  clampWithdrawPathIndex,
+  resolveSelectedWithdrawPath,
+  shouldConfirmNativeInstantWithdrawFee,
+} from './withdrawPathUtils';
+
+import type { IWithdrawPathBox } from './withdrawPathUtils';
 import type { FontSizeTokens } from 'tamagui';
 
 type IFooterActionOverride = {
@@ -185,16 +191,6 @@ type IUniversalWithdrawProps = {
 };
 
 const WITHDRAW_ACCORDION_KEY = 'withdraw-accordion-content';
-
-type IWithdrawPathBox = {
-  title: IEarnText;
-  description: IEarnText;
-  subtitle?: IEarnText;
-  subtitleDescription?: IEarnText;
-  withdrawType?: IEarnWithdrawType;
-  disabled?: boolean;
-  tip?: IEarnTransactionTip;
-};
 
 type IWithdrawPathDialogContentProps = {
   boxes: IWithdrawPathBox[];
@@ -413,13 +409,14 @@ export function UniversalWithdraw({
     transactionConfirmation?.withdrawPath?.data?.confirmBoxes,
   ]);
 
-  const effectiveSelectedWithdrawPathIndex = useMemo(() => {
-    if (withdrawPathConfirmBoxes.length <= 1) return 0;
-    return Math.min(
-      Math.max(selectedWithdrawPathIndex, 0),
-      withdrawPathConfirmBoxes.length - 1,
-    );
-  }, [selectedWithdrawPathIndex, withdrawPathConfirmBoxes.length]);
+  const effectiveSelectedWithdrawPathIndex = useMemo(
+    () =>
+      clampWithdrawPathIndex({
+        selectedIndex: selectedWithdrawPathIndex,
+        boxesLength: withdrawPathConfirmBoxes.length,
+      }),
+    [selectedWithdrawPathIndex, withdrawPathConfirmBoxes.length],
+  );
 
   useEffect(() => {
     if (selectedWithdrawPathIndex !== effectiveSelectedWithdrawPathIndex) {
@@ -427,13 +424,14 @@ export function UniversalWithdraw({
     }
   }, [effectiveSelectedWithdrawPathIndex, selectedWithdrawPathIndex]);
 
-  const selectedWithdrawPath = useMemo(() => {
-    if (!withdrawPathConfirmBoxes.length) return undefined;
-    return (
-      withdrawPathConfirmBoxes[effectiveSelectedWithdrawPathIndex] ??
-      withdrawPathConfirmBoxes[0]
-    );
-  }, [withdrawPathConfirmBoxes, effectiveSelectedWithdrawPathIndex]);
+  const selectedWithdrawPath = useMemo(
+    () =>
+      resolveSelectedWithdrawPath({
+        boxes: withdrawPathConfirmBoxes,
+        selectedIndex: effectiveSelectedWithdrawPathIndex,
+      }),
+    [withdrawPathConfirmBoxes, effectiveSelectedWithdrawPathIndex],
+  );
 
   const selectedWithdrawType = useMemo<IEarnWithdrawType | undefined>(() => {
     if (isCancelWithdrawal) return 'cancel';
@@ -862,9 +860,11 @@ export function UniversalWithdraw({
       // Native charges a protocol fee on instant withdrawals; require an
       // explicit confirmation whether instant is the default or user-picked.
       if (
-        isNativeProvider &&
-        !isCancelWithdrawal &&
-        selectedWithdrawType === 'instant'
+        shouldConfirmNativeInstantWithdrawFee({
+          providerName: providerName ?? '',
+          isCancelWithdrawal,
+          withdrawType: selectedWithdrawType,
+        })
       ) {
         const feeConfirmed = await showNativeInstantWithdrawFeeDialog(intl);
         if (!feeConfirmed) return;
@@ -935,7 +935,6 @@ export function UniversalWithdraw({
     pendingEthenaCooldownUnstake,
     selectedWithdrawType,
     isCancelWithdrawal,
-    isNativeProvider,
   ]);
 
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
