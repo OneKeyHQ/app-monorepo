@@ -5,6 +5,7 @@ import { StyleSheet } from 'react-native';
 import {
   Icon,
   Image,
+  PROPORTIONAL_NUMS,
   SizableText,
   Stack,
   XStack,
@@ -148,6 +149,7 @@ function MarketBannerItemComponent({
             flexShrink={1}
             minWidth={0}
             ellipsizeMode="tail"
+            fontVariant={PROPORTIONAL_NUMS}
           >
             {title}
           </SizableText>

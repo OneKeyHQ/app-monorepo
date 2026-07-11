@@ -10,6 +10,7 @@ import {
   Empty,
   Icon,
   LottieView,
+  PROPORTIONAL_NUMS,
   ScrollView,
   Select,
   SizableText,
@@ -494,6 +495,7 @@ const SwapProviderListPanel = ({
             <YStack>
               <SizableText
                 color="$text"
+                fontVariant={PROPORTIONAL_NUMS}
                 style={{
                   fontSize: 32,
                   fontWeight: '900',
@@ -511,6 +513,7 @@ const SwapProviderListPanel = ({
               </SizableText>
               <SizableText
                 color="$text"
+                fontVariant={PROPORTIONAL_NUMS}
                 style={{
                   fontSize: 32,
                   fontWeight: '900',
@@ -532,6 +535,7 @@ const SwapProviderListPanel = ({
             <SizableText
               size="$bodyMd"
               color="$textSubdued"
+              fontVariant={PROPORTIONAL_NUMS}
               style={{ lineHeight: 20 }}
             >
               {intl.formatMessage({
@@ -560,6 +564,7 @@ const SwapProviderListPanel = ({
                 />
                 <SizableText
                   color="$textSuccess"
+                  fontVariant={PROPORTIONAL_NUMS}
                   style={{
                     fontSize: 10,
                     fontWeight: '700',
@@ -584,6 +589,7 @@ const SwapProviderListPanel = ({
               >
                 <SizableText
                   color="$textSubdued"
+                  fontVariant={PROPORTIONAL_NUMS}
                   style={{
                     fontSize: 10,
                     fontWeight: '700',
@@ -608,6 +614,7 @@ const SwapProviderListPanel = ({
               >
                 <SizableText
                   color="$textSubdued"
+                  fontVariant={PROPORTIONAL_NUMS}
                   style={{
                     fontSize: 10,
                     fontWeight: '700',

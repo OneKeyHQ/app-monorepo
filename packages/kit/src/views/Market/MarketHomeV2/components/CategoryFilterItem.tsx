@@ -3,6 +3,7 @@ import { memo, useMemo } from 'react';
 import {
   Icon,
   Image,
+  PROPORTIONAL_NUMS,
   SizableText,
   Stack,
   XStack,
@@ -79,6 +80,7 @@ export const CategoryFilterItem = memo(
             numberOfLines={1}
             color={isSelected ? '$text' : '$textSubdued'}
             size="$bodyMdMedium"
+            fontVariant={PROPORTIONAL_NUMS}
           >
             {name}
           </SizableText>
