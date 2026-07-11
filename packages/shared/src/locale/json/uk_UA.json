@@ -581,6 +581,8 @@
   "defi_lending_permit_sign__hint": "Спочатку ви підпишете дозвіл на виведення, а потім підтвердите транзакцію",
   "defi_lending_step_of_total": "Крок {step} із {total}",
   "defi_lending_waiting_approval": "Очікування схвалення…",
+  "defi_native_instant_withdraw_fee__desc": "Протокол Native стягує <strong>1% від основної суми</strong> за пропуск періоду очікування — OneKey нічого з цього не отримує. Стандартне виведення триває близько 3 днів, але без комісії.",
+  "defi_native_instant_withdraw_fee__title": "Комісія 1% за миттєве виведення",
   "derivation_path": "Шлях похідного",
   "description_403": "Наші послуги недоступні у вашому регіоні.",
   "device.btc_only_coming_soon": "Ця функція буде доступна в наступному випуску прошивки BTC-Only.",

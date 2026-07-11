@@ -581,6 +581,8 @@
   "defi_lending_permit_sign__hint": "Sie signieren zuerst eine Auszahlungsberechtigung und bestätigen dann die Transaktion",
   "defi_lending_step_of_total": "Schritt {step} von {total}",
   "defi_lending_waiting_approval": "Warten auf Genehmigung…",
+  "defi_native_instant_withdraw_fee__desc": "Das Native-Protokoll erhebt <strong>1 % Ihres Kapitals</strong> für das Überspringen der Wartezeit — nichts davon geht an OneKey. Die Standard-Abhebung dauert etwa 3 Tage, ist aber gebührenfrei.",
+  "defi_native_instant_withdraw_fee__title": "1 % Gebühr für sofortige Abhebung",
   "derivation_path": "Ableitungspfad",
   "description_403": "Unsere Dienstleistungen sind in Ihrer Region nicht verfügbar.",
   "device.btc_only_coming_soon": "Dieses Feature wird in einer späteren BTC-Only-Firmware-Version verfügbar sein.",

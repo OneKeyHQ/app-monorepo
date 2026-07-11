@@ -581,6 +581,8 @@
   "defi_lending_permit_sign__hint": "먼저 출금 권한에 서명한 다음 트랜잭션을 확인합니다",
   "defi_lending_step_of_total": "{total}단계 중 {step}단계",
   "defi_lending_waiting_approval": "승인 대기 중…",
+  "defi_native_instant_withdraw_fee__desc": "대기 기간을 건너뛰는 대가로 Native 프로토콜이 <strong>원금의 1%</strong>를 수수료로 부과하며, OneKey는 어떠한 수수료도 받지 않습니다. 일반 인출은 약 3일이 걸리지만 수수료가 없습니다.",
+  "defi_native_instant_withdraw_fee__title": "즉시 인출 시 1% 수수료",
   "derivation_path": "유도 경로",
   "description_403": "귀하의 지역에서는 당사 서비스를 이용할 수 없습니다.",
   "device.btc_only_coming_soon": "이 기능은 이후에 출시될 BTC 전용 펌웨어에서 제공될 예정입니다.",

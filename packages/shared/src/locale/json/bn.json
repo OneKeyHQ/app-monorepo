@@ -581,6 +581,8 @@
   "defi_lending_permit_sign__hint": "প্রথমে একটি উত্তোলনের অনুমতি স্বাক্ষর করবেন, তারপর লেনদেন নিশ্চিত করবেন",
   "defi_lending_step_of_total": "ধাপ {step} / {total}",
   "defi_lending_waiting_approval": "অনুমোদনের জন্য অপেক্ষা করা হচ্ছে…",
+  "defi_native_instant_withdraw_fee__desc": "অপেক্ষার সময় এড়াতে Native প্রোটোকল আপনার <strong>মূলধনের 1%</strong> ফি নেয় — এর কোনো অংশ OneKey পায় না। সাধারণ প্রত্যাহারে প্রায় 3 দিন লাগে, তবে কোনো ফি নেই।",
+  "defi_native_instant_withdraw_fee__title": "তাৎক্ষণিক প্রত্যাহারে 1% ফি",
   "derivation_path": "উৎপত্তি পথ",
   "description_403": "আমাদের সেবাগুলি আপনার অঞ্চলে পাওয়া যায় না।",
   "device.btc_only_coming_soon": "এই ফিচারটি পরবর্তী BTC-Only ফার্মওয়্যার রিলিজে উপলভ্য হবে।",

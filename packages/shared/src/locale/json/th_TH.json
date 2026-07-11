@@ -581,6 +581,8 @@
   "defi_lending_permit_sign__hint": "คุณจะลงนามอนุญาตการถอนก่อน จากนั้นจึงยืนยันธุรกรรม",
   "defi_lending_step_of_total": "ขั้นตอนที่ {step} จาก {total}",
   "defi_lending_waiting_approval": "กำลังรอการอนุมัติ…",
+  "defi_native_instant_withdraw_fee__desc": "โปรโตคอล Native เรียกเก็บ<strong>1% ของเงินต้น</strong>เพื่อข้ามระยะเวลารอ โดย OneKey ไม่ได้รับส่วนแบ่งใด ๆ การถอนแบบปกติใช้เวลาประมาณ 3 วันแต่ไม่มีค่าธรรมเนียม",
+  "defi_native_instant_withdraw_fee__title": "ค่าธรรมเนียม 1% สำหรับการถอนทันที",
   "derivation_path": "เส้นทางการสืบทอด",
   "description_403": "บริการของเราไม่มีให้บริการในภูมิภาคของคุณ",
   "device.btc_only_coming_soon": "ฟีเจอร์นี้จะพร้อมใช้งานในการอัปเดตเฟิร์มแวร์แบบ BTC-Only รุ่นถัดไป",

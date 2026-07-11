@@ -86,6 +86,7 @@ import {
   calcPriceImpactInfo,
   showHighPriceImpactDialog,
 } from '../showHighPriceImpactDialog';
+import { showNativeInstantWithdrawFeeDialog } from '../showNativeInstantWithdrawFeeDialog';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import {
   StakingAmountInput,
@@ -858,6 +859,17 @@ export function UniversalWithdraw({
         }
       }
 
+      // Native charges a protocol fee on instant withdrawals; require an
+      // explicit confirmation whether instant is the default or user-picked.
+      if (
+        isNativeProvider &&
+        !isCancelWithdrawal &&
+        selectedWithdrawType === 'instant'
+      ) {
+        const feeConfirmed = await showNativeInstantWithdrawFeeDialog(intl);
+        if (!feeConfirmed) return;
+      }
+
       await onConfirm?.({
         amount: isCancelWithdrawal ? '0' : amountValue,
         withdrawAll: withdrawAllRef.current,
@@ -923,6 +935,7 @@ export function UniversalWithdraw({
     pendingEthenaCooldownUnstake,
     selectedWithdrawType,
     isCancelWithdrawal,
+    isNativeProvider,
   ]);
 
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);

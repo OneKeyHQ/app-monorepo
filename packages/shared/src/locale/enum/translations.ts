@@ -586,6 +586,8 @@ export enum ETranslations {
   defi_lending_permit_sign__hint = 'defi_lending_permit_sign__hint',
   defi_lending_step_of_total = 'defi_lending_step_of_total',
   defi_lending_waiting_approval = 'defi_lending_waiting_approval',
+  defi_native_instant_withdraw_fee__desc = 'defi_native_instant_withdraw_fee__desc',
+  defi_native_instant_withdraw_fee__title = 'defi_native_instant_withdraw_fee__title',
   derivation_path = 'derivation_path',
   description_403 = 'description_403',
   device_btc_only_coming_soon = 'device.btc_only_coming_soon',

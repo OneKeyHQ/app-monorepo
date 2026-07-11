@@ -581,6 +581,8 @@
   "defi_lending_permit_sign__hint": "आप पहले निकासी अनुमति पर हस्ताक्षर करेंगे, फिर लेनदेन की पुष्टि करेंगे",
   "defi_lending_step_of_total": "कुल {total} में से चरण {step}",
   "defi_lending_waiting_approval": "स्वीकृति की प्रतीक्षा है…",
+  "defi_native_instant_withdraw_fee__desc": "प्रतीक्षा अवधि छोड़ने के लिए Native प्रोटोकॉल आपकी <strong>मूल राशि का 1%</strong> शुल्क लेता है — इसका कोई हिस्सा OneKey को नहीं मिलता। सामान्य निकासी में लगभग 3 दिन लगते हैं, लेकिन कोई शुल्क नहीं है।",
+  "defi_native_instant_withdraw_fee__title": "तत्काल निकासी पर 1% शुल्क",
   "derivation_path": "व्युत्पन्न पथ",
   "description_403": "हमारी सेवाएं आपके क्षेत्र में उपलब्ध नहीं हैं।",
   "device.btc_only_coming_soon": "यह सुविधा बाद में BTC-Only फर्मवेयर रिलीज़ में उपलब्ध होगी।",

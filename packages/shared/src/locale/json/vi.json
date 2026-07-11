@@ -581,6 +581,8 @@
   "defi_lending_permit_sign__hint": "Trước tiên bạn sẽ ký quyền rút tiền, sau đó xác nhận giao dịch",
   "defi_lending_step_of_total": "Bước {step} trên {total}",
   "defi_lending_waiting_approval": "Đang chờ phê duyệt…",
+  "defi_native_instant_withdraw_fee__desc": "Giao thức Native thu <strong>1% tiền gốc của bạn</strong> để bỏ qua thời gian chờ — OneKey không nhận bất kỳ khoản nào. Rút tiền thông thường mất khoảng 3 ngày nhưng không mất phí.",
+  "defi_native_instant_withdraw_fee__title": "Phí 1% cho rút tiền ngay",
   "derivation_path": "Đường dẫn xuất phát",
   "description_403": "Dịch vụ của chúng tôi không có sẵn ở khu vực của bạn.",
   "device.btc_only_coming_soon": "Tính năng này sẽ có sẵn trong bản phát hành firmware BTC-Only sau này.",

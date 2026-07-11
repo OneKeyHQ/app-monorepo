@@ -581,6 +581,8 @@
   "defi_lending_permit_sign__hint": "Anda akan menandatangani izin penarikan terlebih dahulu, lalu mengonfirmasi transaksi",
   "defi_lending_step_of_total": "Langkah {step} dari {total}",
   "defi_lending_waiting_approval": "Menunggu persetujuan…",
+  "defi_native_instant_withdraw_fee__desc": "Protokol Native mengenakan <strong>1% dari pokok Anda</strong> untuk melewati masa tunggu — tidak ada yang diterima OneKey. Penarikan standar memakan waktu sekitar 3 hari tetapi tanpa biaya.",
+  "defi_native_instant_withdraw_fee__title": "Biaya 1% untuk Penarikan Instan",
   "derivation_path": "Jalur derivasi",
   "description_403": "Layanan kami tidak tersedia di wilayah Anda.",
   "device.btc_only_coming_soon": "Fitur ini akan tersedia dalam rilis firmware BTC-Only selanjutnya.",

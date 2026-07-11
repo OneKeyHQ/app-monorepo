@@ -581,6 +581,8 @@
   "defi_lending_permit_sign__hint": "Você assinará uma permissão de saque primeiro e depois confirmará a transação",
   "defi_lending_step_of_total": "Passo {step} de {total}",
   "defi_lending_waiting_approval": "Aguardando aprovação…",
+  "defi_native_instant_withdraw_fee__desc": "O protocolo Native cobra <strong>1% do seu principal</strong> para pular o período de espera — nada disso vai para a OneKey. O saque padrão leva cerca de 3 dias, mas não tem taxa.",
+  "defi_native_instant_withdraw_fee__title": "Taxa de 1% para saque instantâneo",
   "derivation_path": "Caminho de derivação",
   "description_403": "Nossos serviços não estão disponíveis em sua região.",
   "device.btc_only_coming_soon": "Este recurso estará disponível em uma versão futura do firmware BTC-Only.",

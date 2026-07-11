@@ -581,6 +581,8 @@
   "defi_lending_permit_sign__hint": "You'll sign a withdrawal permission first, then confirm the transaction",
   "defi_lending_step_of_total": "Step {step} of {total}",
   "defi_lending_waiting_approval": "Waiting for approval…",
+  "defi_native_instant_withdraw_fee__desc": "The Native protocol charges <strong>1% of your principal</strong> for skipping the waiting period — none of it goes to OneKey. Standard withdrawal takes about 3 days but has no fee.",
+  "defi_native_instant_withdraw_fee__title": "1% Fee for Instant Withdrawal",
   "derivation_path": "Derivation path",
   "description_403": "Our services are not available in your region.",
   "device.btc_only_coming_soon": "This feature will be available in a later BTC-Only firmware release.",

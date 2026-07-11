@@ -581,6 +581,8 @@
   "defi_lending_permit_sign__hint": "你将先签署提现许可，然后确认交易",
   "defi_lending_step_of_total": "第 {step} 步，共 {total} 步",
   "defi_lending_waiting_approval": "等待授权…",
+  "defi_native_instant_withdraw_fee__desc": "Native 协议将收取<strong>本金 1%</strong>作为免排队费用，OneKey 不收取任何费用。普通赎回需要等待约 3 天，但没有手续费。",
+  "defi_native_instant_withdraw_fee__title": "立即赎回收取 1% 手续费",
   "derivation_path": "派生路径",
   "description_403": "我们的服务在您的地区无法使用",
   "device.btc_only_coming_soon": "此功能将在后续的 BTC-Only 固件上线后提供。",
