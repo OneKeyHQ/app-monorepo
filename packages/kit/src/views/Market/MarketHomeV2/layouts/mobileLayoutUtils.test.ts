@@ -42,8 +42,10 @@ describe('getMarketNativeCompactListStyle', () => {
     });
   });
 
-  it('does not transform tabs that render secondary controls', () => {
-    expect(getMarketNativeCompactListStyle(false)).toEqual({});
+  it('resets the compact offset when secondary controls are rendered', () => {
+    expect(getMarketNativeCompactListStyle(false)).toEqual({
+      transform: [{ translateY: 0 }],
+    });
   });
 });
 

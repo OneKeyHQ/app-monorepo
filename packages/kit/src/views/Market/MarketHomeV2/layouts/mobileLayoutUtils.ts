@@ -25,11 +25,13 @@ export function getMarketMobileSecondaryHeaderHeight() {
 }
 
 export function getMarketNativeCompactListStyle(isCompact: boolean) {
-  return isCompact
-    ? ({
-        transform: [{ translateY: MARKET_MOBILE_COMPACT_HEADER_OFFSET }],
-      } as const)
-    : ({} as const);
+  return {
+    transform: [
+      {
+        translateY: isCompact ? MARKET_MOBILE_COMPACT_HEADER_OFFSET : 0,
+      },
+    ],
+  } as const;
 }
 
 interface IGetMarketRecommendContainerPaddingTopParams {
