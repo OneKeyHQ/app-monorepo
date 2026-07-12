@@ -4,35 +4,25 @@ const os = require('node:os');
 const path = require('node:path');
 const readline = require('node:readline');
 
+const {
+  getPackagedExecutableCandidates,
+  resolvePackagedExecutable,
+} = require('./node-runtime-harness-paths');
+
 const desktopDir = path.join(__dirname, '..');
 
 class HarnessError extends Error {}
 
-const getExecutable = () => {
-  if (process.platform === 'win32') {
-    return path.join(
-      desktopDir,
-      'build-electron',
-      'win-unpacked',
-      'OneKey.exe',
-    );
-  }
-  if (process.platform === 'linux') {
-    return path.join(
-      desktopDir,
-      'build-electron',
-      'linux-unpacked',
-      'onekey-wallet',
-    );
-  }
-  return null;
-};
+const executable = resolvePackagedExecutable({ desktopDir });
 
-const executable = getExecutable();
-
-if (!executable || !fs.existsSync(executable)) {
+if (!executable) {
+  const expectedPaths = getPackagedExecutableCandidates({
+    arch: process.arch,
+    desktopDir,
+    platform: process.platform,
+  }).join(', ');
   throw new HarnessError(
-    'A packaged desktop build is required before running the Node runtime integrity harness.',
+    `A packaged desktop build for ${process.platform}/${process.arch} is required. Expected one of: ${expectedPaths}`,
   );
 }
 
@@ -87,9 +77,14 @@ child.once('exit', (code) => {
       throw new HarnessError(`Harness fatal error: ${report.fatalError}`);
     }
     const pass =
+      report.arch === process.arch &&
+      report.platform === process.platform &&
+      report.isPackaged === true &&
       report.processType === 'browser' &&
       report.canonicalDriftsBeforeAppLoad.length === 0 &&
       report.canonicalDriftsAfterRepair.length === 0 &&
+      report.driftsBeforeRepair.length === 0 &&
+      report.repairs.length === 0 &&
       report.driftsAfterRepair.length === 0 &&
       report.autoDownload === false &&
       report.checkForUpdatesCalled === false &&
@@ -101,6 +96,7 @@ child.once('exit', (code) => {
     process.stdout.write(
       `${JSON.stringify(
         {
+          arch: report.arch,
           autoDownload: report.autoDownload,
           canonicalDriftsAfterRepair: report.canonicalDriftsAfterRepair,
           canonicalDriftsBeforeAppLoad: report.canonicalDriftsBeforeAppLoad,
@@ -108,8 +104,10 @@ child.once('exit', (code) => {
           driftsAfterRepair: report.driftsAfterRepair,
           driftsBeforeRepair: report.driftsBeforeRepair,
           electron: report.electron,
+          isPackaged: report.isPackaged,
           node: report.node,
           pass,
+          platform: report.platform,
           processType: report.processType,
           repairs: report.repairs,
           stagingResult: report.stagingResult,

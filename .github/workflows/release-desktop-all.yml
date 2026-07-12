@@ -220,8 +220,14 @@ jobs:
         run: |
           rm -f ~/Library/MobileDevice/Provisioning\ Profiles/OneKey_Desktop_DeveloperId.provisionprofile
 
-      - name: Upload Mac autoupdate metadata
+      - name: Verify packaged Electron Node runtime integrity (macOS)
+        id: mac_runtime_integrity
         if: steps.phase1_dmg.outcome == 'success'
+        timeout-minutes: 2
+        run: yarn workspace @onekeyhq/desktop harness:node-runtime
+
+      - name: Upload Mac autoupdate metadata
+        if: steps.phase1_dmg.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-mac-autoupdate-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -229,7 +235,7 @@ jobs:
             ./apps/desktop/build-electron/*.yml
 
       - name: Upload universal Mac DMG
-        if: steps.phase1_dmg.outcome == 'success'
+        if: steps.phase1_dmg.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-mac-universal-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -237,7 +243,7 @@ jobs:
             ./apps/desktop/build-electron/*-universal.dmg
 
       - name: Upload x64 Mac DMG
-        if: steps.phase1_dmg.outcome == 'success'
+        if: steps.phase1_dmg.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-mac-x64-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -245,7 +251,7 @@ jobs:
             ./apps/desktop/build-electron/*-x64.dmg
 
       - name: Upload arm64 Mac DMG
-        if: steps.phase1_dmg.outcome == 'success'
+        if: steps.phase1_dmg.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-mac-arm64-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -253,7 +259,7 @@ jobs:
             ./apps/desktop/build-electron/*-arm64.dmg
 
       - name: Upload all Mac ZIPs
-        if: steps.phase1_dmg.outcome == 'success'
+        if: steps.phase1_dmg.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-mac-zips-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -261,7 +267,7 @@ jobs:
             ./apps/desktop/build-electron/*.zip
 
       - name: 'Notify to Slack - Mac DMG'
-        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase1_dmg.outcome == 'success'
+        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase1_dmg.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
@@ -331,7 +337,7 @@ jobs:
           rm -f ~/Library/MobileDevice/Provisioning\ Profiles/OneKey_Mac_App.provisionprofile
 
       - name: Upload MAS Artifacts
-        if: always() && steps.build_main.outcome == 'success' && steps.phase2_mas.outcome == 'success'
+        if: always() && steps.build_main.outcome == 'success' && steps.phase2_mas.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-mas-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -339,7 +345,7 @@ jobs:
             ./apps/desktop/build-electron/mas-universal/*.pkg
 
       - name: Validate MAS for Testflight
-        if: always() && steps.build_main.outcome == 'success' && steps.phase2_mas.outcome == 'success' && env.UPLOAD_MAS_TO_TESTFLIGHT == 'true'
+        if: always() && steps.build_main.outcome == 'success' && steps.phase2_mas.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success' && env.UPLOAD_MAS_TO_TESTFLIGHT == 'true'
         env:
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
@@ -349,7 +355,7 @@ jobs:
           xcrun altool --validate-app --file "$PKG_FILE" -t macOS -u "$APPLEID" -p "$APPLEIDPASS" --show-progress
 
       - name: Upload MAS to Testflight
-        if: always() && steps.build_main.outcome == 'success' && steps.phase2_mas.outcome == 'success' && env.UPLOAD_MAS_TO_TESTFLIGHT == 'true'
+        if: always() && steps.build_main.outcome == 'success' && steps.phase2_mas.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success' && env.UPLOAD_MAS_TO_TESTFLIGHT == 'true'
         continue-on-error: true
         env:
           APPLEID: ${{ secrets.APPLEID }}
@@ -360,7 +366,7 @@ jobs:
           xcrun altool --upload-app --file "$PKG_FILE" -t macOS -u "$APPLEID" -p "$APPLEIDPASS" --show-progress
 
       - name: 'Notify to Slack - MAS'
-        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase2_mas.outcome == 'success'
+        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase2_mas.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
@@ -379,6 +385,7 @@ jobs:
         shell: bash
         run: |
           [[ "${{ steps.phase1_dmg.outcome }}" == "failure" ]] && exit 1
+          [[ "${{ steps.mac_runtime_integrity.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase2_mas.outcome }}" == "failure" ]] && exit 1
           exit 0
 
@@ -502,6 +509,12 @@ jobs:
           cd apps/desktop
           npx electron-builder build -w --config electron-builder-win.config.js --publish never
 
+      - name: Verify packaged Electron Node runtime integrity (NSIS)
+        id: phase1_runtime_integrity
+        if: steps.phase1_nsis.outcome == 'success'
+        timeout-minutes: 2
+        run: yarn workspace @onekeyhq/desktop harness:node-runtime
+
       - name: Upload x64 Windows exe
         if: steps.phase1_nsis.outcome == 'success'
         uses: actions/upload-artifact@v4
@@ -584,7 +597,7 @@ jobs:
           npx electron-builder build -w --config electron-builder-ms.config.js --publish never
 
       - name: Upload WinMS exe
-        if: always() && steps.phase2_winms.outcome == 'success'
+        if: always() && steps.phase2_winms.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-winms-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -594,7 +607,7 @@ jobs:
             !./apps/desktop/build-electron/*-arm64.exe
 
       - name: 'Notify to Slack - WinMS'
-        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase2_winms.outcome == 'success'
+        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase2_winms.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
@@ -613,6 +626,7 @@ jobs:
         shell: bash
         run: |
           [[ "${{ steps.phase1_nsis.outcome }}" == "failure" ]] && exit 1
+          [[ "${{ steps.phase1_runtime_integrity.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase2_winms.outcome }}" == "failure" ]] && exit 1
           exit 0
 
@@ -645,7 +659,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libudev-dev
+          sudo apt-get install -y libudev-dev xvfb
 
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
@@ -751,7 +765,14 @@ jobs:
           cd apps/desktop
           npx electron-builder build -l --config electron-builder.config.js ${{ matrix.build-flag }} --publish never
 
+      - name: Verify packaged Electron Node runtime integrity (Linux)
+        id: linux_runtime_integrity
+        if: steps.phase1_appimage.outcome == 'success'
+        timeout-minutes: 2
+        run: xvfb-run -a yarn workspace @onekeyhq/desktop harness:node-runtime
+
       - name: Upload AppImage
+        if: steps.phase1_appimage.outcome == 'success' && steps.linux_runtime_integrity.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-linux-appimage-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -759,6 +780,7 @@ jobs:
             ./apps/desktop/build-electron/*.AppImage
 
       - name: Upload Linux autoupdate metadata
+        if: steps.phase1_appimage.outcome == 'success' && steps.linux_runtime_integrity.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-linux-autoupdate-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -766,7 +788,7 @@ jobs:
             ./apps/desktop/build-electron/*.yml
 
       - name: 'Notify to Slack - Linux AppImage'
-        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase1_appimage.outcome == 'success' && matrix.arch == 'amd64'
+        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase1_appimage.outcome == 'success' && steps.linux_runtime_integrity.outcome == 'success' && matrix.arch == 'amd64'
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
@@ -807,7 +829,7 @@ jobs:
           npx electron-builder build -l --config electron-builder-snap.config.js ${{ matrix.build-flag }} --publish never
 
       - name: Upload Snap
-        if: always() && steps.phase2_snap.outcome == 'success'
+        if: always() && steps.phase2_snap.outcome == 'success' && steps.linux_runtime_integrity.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-snap-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -815,7 +837,7 @@ jobs:
             ./apps/desktop/build-electron/*.snap
 
       - name: Upload Snap to Snap Store
-        if: always() && steps.phase2_snap.outcome == 'success' && env.UPLOAD_SNAP_TO_STORE == 'true'
+        if: always() && steps.phase2_snap.outcome == 'success' && steps.linux_runtime_integrity.outcome == 'success' && env.UPLOAD_SNAP_TO_STORE == 'true'
         continue-on-error: true
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
@@ -823,7 +845,7 @@ jobs:
           snapcraft push ./apps/desktop/build-electron/*.snap --release edge
 
       - name: 'Notify to Slack - Linux Snap'
-        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase2_snap.outcome == 'success' && matrix.arch == 'amd64'
+        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase2_snap.outcome == 'success' && steps.linux_runtime_integrity.outcome == 'success' && matrix.arch == 'amd64'
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
@@ -842,6 +864,7 @@ jobs:
         shell: bash
         run: |
           [[ "${{ steps.phase1_appimage.outcome }}" == "failure" ]] && exit 1
+          [[ "${{ steps.linux_runtime_integrity.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase2_snap.outcome }}" == "failure" ]] && exit 1
           exit 0
 
