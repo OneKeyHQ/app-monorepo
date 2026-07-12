@@ -68,6 +68,18 @@ export function MarketDetailHeader({
     });
   }, [navigation, showFavoriteButton]);
 
+  const handleCopyAddress = useCallback(() => {
+    const address = tokenDetail?.address;
+    if (!address) {
+      return;
+    }
+    copyText(address);
+    defaultLogger.dex.actions.dexCopyCA({
+      copyFrom: ECopyFrom.Detail,
+      copiedContent: address,
+    });
+  }, [copyText, tokenDetail?.address]);
+
   // Stabilize logoUrls to prevent re-renders from polling returning fresh array references
   const logoUrls = tokenDetail?.logoUrls;
   const logoUrlsCacheKey = useMemo(() => logoUrls?.join('|') ?? '', [logoUrls]);
@@ -92,18 +104,6 @@ export function MarketDetailHeader({
   );
 
   const customHeaderRight = useMemo(() => null, []);
-
-  const handleCopyAddressNativeIOS26 = useCallback(() => {
-    const address = tokenDetail?.address;
-    if (!address) {
-      return;
-    }
-    copyText(address);
-    defaultLogger.dex.actions.dexCopyCA({
-      copyFrom: ECopyFrom.Detail,
-      copiedContent: address,
-    });
-  }, [copyText, tokenDetail?.address]);
 
   // iOS 26+ mobile: render via the native UINavigationBar so the header
   // gets the system Liquid Glass material and the back chevron sits in
@@ -169,7 +169,7 @@ export function MarketDetailHeader({
                     cursor="pointer"
                     hoverStyle={{ opacity: 0.8 }}
                     pressStyle={{ opacity: 0.6 }}
-                    onPress={handleCopyAddressNativeIOS26}
+                    onPress={handleCopyAddress}
                   >
                     {accountUtils.shortenAddress({
                       address: tokenDetail.address,
@@ -181,7 +181,7 @@ export function MarketDetailHeader({
                     testID="market-icon"
                     icon="Copy3Outline"
                     size="$4"
-                    onPress={handleCopyAddressNativeIOS26}
+                    onPress={handleCopyAddress}
                   />
                 </XStack>
               ) : null}
@@ -200,7 +200,7 @@ export function MarketDetailHeader({
       networkLogoUri,
       isOverlayPage,
       onPressTokenSelector,
-      handleCopyAddressNativeIOS26,
+      handleCopyAddress,
     ],
   );
 
@@ -341,13 +341,7 @@ export function MarketDetailHeader({
                       cursor="pointer"
                       hoverStyle={{ opacity: 0.8 }}
                       pressStyle={{ opacity: 0.6 }}
-                      onPress={() => {
-                        copyText(tokenDetail.address);
-                        defaultLogger.dex.actions.dexCopyCA({
-                          copyFrom: ECopyFrom.Detail,
-                          copiedContent: tokenDetail.address,
-                        });
-                      }}
+                      onPress={handleCopyAddress}
                     >
                       {accountUtils.shortenAddress({
                         address: tokenDetail.address,
@@ -359,13 +353,7 @@ export function MarketDetailHeader({
                       testID="market-icon"
                       icon="Copy3Outline"
                       size="$4"
-                      onPress={() => {
-                        copyText(tokenDetail.address);
-                        defaultLogger.dex.actions.dexCopyCA({
-                          copyFrom: ECopyFrom.Detail,
-                          copiedContent: tokenDetail.address,
-                        });
-                      }}
+                      onPress={handleCopyAddress}
                     />
                   </XStack>
                 ) : null}
