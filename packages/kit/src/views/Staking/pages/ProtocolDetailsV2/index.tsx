@@ -629,6 +629,7 @@ const ProtocolDetailsPage = () => {
       protocolInputDecimals: detailInfo.protocolInputDecimals,
       withdrawApprove: detailInfo.withdrawApprove,
       receiptTokenRate:
+        detailInfo.withdrawApprove?.receiptTokenRate ??
         detailInfo.protocol.receiptTokenRate ??
         detailInfo.protocol.morphoTokenRate,
       morphoTokenRate: detailInfo.protocol.morphoTokenRate,
