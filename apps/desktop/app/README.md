@@ -34,18 +34,11 @@ Packaging notes:
   `dist/**/*`, `build/**/*`, and `package.json`.
 - If a module is listed as `external` in `apps/desktop/scripts/build.js` and is
   required at runtime, add it to this package's `dependencies`.
+- `electron-updater` is intentionally bundled into `dist/app.js`. Keeping it out
+  of this package ensures the workspace `patch-package` changes and transitive
+  dependencies ship as one version-locked runtime copy.
 - This README is source documentation only. It is explicitly excluded by
   `apps/desktop/electron-builder-files.config.js`.
-
-## Runtime dependency patches
-
-Externalized dependencies are loaded from this app directory at runtime, so a
-root-level `patch-package` patch does not modify the copy installed here.
-After Electron Builder installs appDir dependencies, `yarn install-app-deps`
-copies the patched `electron-updater` files from the workspace dependency into
-the packaged runtime dependency and verifies both copies before packaging
-continues. The root-level `patch-package` patch remains the single source of
-truth.
 
 Security scanner caveat:
 

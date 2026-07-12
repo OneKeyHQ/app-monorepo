@@ -151,10 +151,8 @@ build({
     '@sentry/electron',
     'systeminformation',
     'iconv-lite',
-    // Tier 1: post-boot only (auto-update + archive extraction) — pulled via the
-    // kit-bg desktopApi surface; keep their subtrees (builder-util-runtime, the
-    // XML stack, js-yaml) out of app.js parse.
-    'electron-updater',
+    // Tier 1: post-boot only archive extraction pulled via the kit-bg desktopApi
+    // surface.
     'adm-zip',
     // Tier 2: large lookup-table deps reached transitively via node-fetch /
     // whatwg-url (tr46 IDNA table) and the local HTTP server (mime-db, validator).
@@ -167,7 +165,11 @@ build({
     'tr46',
     'mime-db',
     'validator',
-    ...Object.keys(pkg.dependencies),
+    // Bundle electron-updater so its patch-package changes and transitive
+    // dependencies cannot drift from the workspace version used by this code.
+    ...Object.keys(pkg.dependencies).filter(
+      (dependency) => dependency !== 'electron-updater',
+    ),
   ],
   tsconfig: path.join(electronSource, 'tsconfig.json'),
   outdir: path.join(__dirname, '..', 'app/dist'),
