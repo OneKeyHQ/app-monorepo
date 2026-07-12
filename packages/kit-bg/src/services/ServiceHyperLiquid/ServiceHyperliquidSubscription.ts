@@ -85,6 +85,7 @@ import {
   calculateRequiredSubscriptionsMap,
 } from './utils/SubscriptionConfig';
 import { PerKeyMutationQueue } from './utils/SubscriptionMutationQueue';
+import { LatestSubscriptionReconcileQueue } from './utils/SubscriptionReconcileQueue';
 
 import type {
   ISubscriptionSpec,
@@ -252,6 +253,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _subscriptionLifecycleVersion = 0;
 
   private _subscriptionMutationQueue = new PerKeyMutationQueue();
+
+  private _subscriptionReconcileQueue = new LatestSubscriptionReconcileQueue();
 
   private _destroyingSubscriptionKeys = new Set<string>();
 
@@ -600,26 +603,25 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._applyStateUpdates(newState, requiredSubInfo.params);
 
     this._currentState = newState;
-    const orderBookSpec = Object.values(
-      requiredSubInfo.requiredSubSpecsMap,
-    ).find(
-      (spec) =>
-        spec.type === ESubscriptionType.L2 ||
-        spec.type === ESubscriptionType.L2_BOOK,
-    );
+    const requiredSpecs = Object.values(requiredSubInfo.requiredSubSpecsMap);
+    const fastL2Spec = requiredSpecs.find(
+      (spec) => spec.type === ESubscriptionType.L2,
+    ) as ISubscriptionSpec<ESubscriptionType.L2> | undefined;
+    const l2BookSpec = requiredSpecs.find(
+      (spec) => spec.type === ESubscriptionType.L2_BOOK,
+    ) as ISubscriptionSpec<ESubscriptionType.L2_BOOK> | undefined;
+    const orderBookSpec = fastL2Spec ?? l2BookSpec;
+    const orderBookCoin = fastL2Spec?.params.c ?? l2BookSpec?.params.coin;
+    const orderBookNSigFigs = fastL2Spec
+      ? (fastL2Spec.params.s ?? null)
+      : (l2BookSpec?.params.nSigFigs ?? null);
+    const orderBookMantissa = fastL2Spec
+      ? (fastL2Spec.params.m ?? null)
+      : (l2BookSpec?.params.mantissa ?? null);
     this._logFastL2Diagnostic('reconcile-target', {
-      coin:
-        orderBookSpec?.type === ESubscriptionType.L2
-          ? orderBookSpec.params.c
-          : orderBookSpec?.params.coin,
-      nSigFigs:
-        orderBookSpec?.type === ESubscriptionType.L2
-          ? (orderBookSpec.params.s ?? null)
-          : (orderBookSpec?.params.nSigFigs ?? null),
-      mantissa:
-        orderBookSpec?.type === ESubscriptionType.L2
-          ? (orderBookSpec.params.m ?? null)
-          : (orderBookSpec?.params.mantissa ?? null),
+      coin: orderBookCoin,
+      nSigFigs: orderBookNSigFigs,
+      mantissa: orderBookMantissa,
       subscriptionKey: orderBookSpec?.key,
       detail: `${reconcileSequence}:${orderBookSpec?.type ?? 'none'}`,
     });
@@ -631,9 +633,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     });
   }
 
+  private async _enqueueSubscriptionReconcile(source: string): Promise<void> {
+    this._logFastL2Diagnostic('reconcile-queued', { detail: source });
+    await this._subscriptionReconcileQueue.enqueue(async () => {
+      this._logFastL2Diagnostic('reconcile-dequeued', { detail: source });
+      await this._updateSubscriptionsCore();
+    });
+  }
+
   _updateSubscriptionsDebounced = debounce(
     async () => {
-      await this._updateSubscriptionsCore();
+      await this._enqueueSubscriptionReconcile('debounced');
     },
     300,
     {
@@ -668,12 +678,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     // Skip debounce on first subscription to speed up initial load
     if (!this._hasInitialSubscription) {
       this._hasInitialSubscription = true;
-      const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
-      if (!requiredSubInfo) {
-        return;
-      }
       markPerpsColdStartPerf('service_update_subscriptions_core_first_start');
-      await this._updateSubscriptionsCore(requiredSubInfo);
+      await this._enqueueSubscriptionReconcile('initial');
       markPerpsColdStartPerf('service_update_subscriptions_core_first_end');
       return;
     }
@@ -685,7 +691,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     if (this._shouldUpdateSubscriptionsImmediately(requiredSubInfo.params)) {
       this._updateSubscriptionsDebounced.cancel();
       this._hasInitialSubscription = true;
-      await this._updateSubscriptionsCore(requiredSubInfo);
+      await this._enqueueSubscriptionReconcile('immediate');
       markPerpsColdStartPerf('service_update_subscriptions_end');
       return;
     }
@@ -1868,16 +1874,15 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     try {
       const lifecycleVersion = this._subscriptionLifecycleVersion;
       if (spec.type === ESubscriptionType.L2) {
+        const fastL2Spec = spec as ISubscriptionSpec<ESubscriptionType.L2>;
         this._logFastL2Diagnostic('subscribe-start', {
-          coin: spec.params.c,
-          nSigFigs: spec.params.s ?? null,
-          mantissa: spec.params.m ?? null,
-          subscriptionKey: spec.key,
-          pending: this._isSubscriptionSpecPending(spec),
+          coin: fastL2Spec.params.c,
+          nSigFigs: fastL2Spec.params.s ?? null,
+          mantissa: fastL2Spec.params.m ?? null,
+          subscriptionKey: fastL2Spec.key,
+          pending: this._isSubscriptionSpecPending(fastL2Spec),
         });
-        this._prepareFastL2Book(
-          spec as ISubscriptionSpec<ESubscriptionType.L2>,
-        );
+        this._prepareFastL2Book(fastL2Spec);
       }
       const client = await this._createSubscriptionDirect(spec);
       const isCreateResultStale =
@@ -1904,10 +1909,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         isActive: true,
       });
       if (spec.type === ESubscriptionType.L2) {
+        const fastL2Spec = spec as ISubscriptionSpec<ESubscriptionType.L2>;
         this._logFastL2Diagnostic('subscribe-complete', {
-          coin: spec.params.c,
-          subscriptionKey: spec.key,
-          pending: this._isSubscriptionSpecPending(spec),
+          coin: fastL2Spec.params.c,
+          subscriptionKey: fastL2Spec.key,
+          pending: this._isSubscriptionSpecPending(fastL2Spec),
           hasSnapshot: this._fastL2Book?.hasSnapshot ?? false,
         });
         this._startFastL2SnapshotTimer(spec.key);
@@ -1951,11 +1957,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     try {
       if (spec) {
         if (spec.type === ESubscriptionType.L2) {
+          const fastL2Spec = spec as ISubscriptionSpec<ESubscriptionType.L2>;
           this._logFastL2Diagnostic('unsubscribe-start', {
-            coin: spec.params.c,
-            nSigFigs: spec.params.s ?? null,
-            mantissa: spec.params.m ?? null,
-            subscriptionKey: spec.key,
+            coin: fastL2Spec.params.c,
+            nSigFigs: fastL2Spec.params.s ?? null,
+            mantissa: fastL2Spec.params.m ?? null,
+            subscriptionKey: fastL2Spec.key,
           });
           this._resetFastL2Book(spec.key);
         }
@@ -1977,9 +1984,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           // await sdkSub.unsubscribe();
           await client.unsubscribe(spec.type, spec.params);
           if (spec.type === ESubscriptionType.L2) {
+            const fastL2Spec = spec as ISubscriptionSpec<ESubscriptionType.L2>;
             this._logFastL2Diagnostic('unsubscribe-complete', {
-              coin: spec.params.c,
-              subscriptionKey: spec.key,
+              coin: fastL2Spec.params.c,
+              subscriptionKey: fastL2Spec.key,
             });
           }
           removeSubCache();
