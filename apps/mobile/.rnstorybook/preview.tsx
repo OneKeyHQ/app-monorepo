@@ -1,3 +1,7 @@
+import {
+  ShowToastProvider,
+  Toaster,
+} from '@onekeyhq/components/src/actions/Toast';
 import { Portal } from '@onekeyhq/components/src/hocs/Portal';
 import { ConfigProvider } from '@onekeyhq/components/src/hocs/Provider';
 import { OverlayContainer } from '@onekeyhq/components/src/layouts/OverlayContainer';
@@ -28,12 +32,18 @@ const preview: Preview = {
         <Stack bg="$bgApp" p="$5" flex={1}>
           <Story />
         </Stack>
-        {/* Overlay mount point for portal-based components (Dialog.show,
-            Popover/Select sheets) — the minimal slice of the app's
-            FullWindowOverlayContainer. OverlayContainer puts it on the iOS
-            FullWindowOverlay layer, above the Storybook UI. */}
+        {/* Overlay mount points for portal-based components — the minimal
+            slice of the app's FullWindowOverlayContainer, in the same order:
+            the FULL_WINDOW_OVERLAY portal (Dialog.show, Popover/Select
+            sheets), ShowToastProvider (Toast.show custom toasts), and
+            Toaster (Toast.success/error/… via backpackapp; it needs the
+            GestureHandlerRootView the shell root mounts). OverlayContainer
+            puts them on the iOS FullWindowOverlay layer, above the
+            Storybook UI. */}
         <OverlayContainer>
           <Portal.Container name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL} />
+          <ShowToastProvider />
+          <Toaster />
         </OverlayContainer>
       </ConfigProvider>
     ),

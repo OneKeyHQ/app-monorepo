@@ -53,17 +53,27 @@ The `stories` glob in `.storybook/main.ts` already picks up every
 - SafeArea + Portal + fonts.
 
 `ConfigProvider` also requires a `HyperlinkText` component prop (normally from
-`@onekeyhq/kit`). We pass a local no-op stub
-(`.storybook/HyperlinkTextStub.tsx`) so kit stays out of the graph — none of the
-v1 components consume it.
+`@onekeyhq/kit`). We pass a local stub (`.storybook/HyperlinkTextStub.tsx`) so
+kit stays out of the graph. The stub must render
+`children ?? defaultMessage ?? translationId` — Toast's `RenderLines` (and
+other intl-formatting callers) pass `translationId`/`defaultMessage` with NO
+children, so a children-only stub silently renders empty toasts.
 
-The decorator also mounts a
-`<Portal.Container name={FULL_WINDOW_OVERLAY_PORTAL}>` **inside**
-`ConfigProvider` — the minimal slice of the app's `FullWindowOverlayContainer`
-— so portal-based components (`Dialog.show`, Popover/Select sheets) have a
-mount point and their portaled content keeps theme/intl context. The native
-shell's `.rnstorybook/preview.tsx` does the same, wrapped in `OverlayContainer`
-(iOS `FullWindowOverlay`).
+The decorator also mounts — **inside** `ConfigProvider`, in the app's order —
+the minimal slice of the app's `FullWindowOverlayContainer`:
+
+- `<Portal.Container name={FULL_WINDOW_OVERLAY_PORTAL}>` — mount point for
+  `Dialog.show`, `ActionList`, Popover/Select sheets; being inside
+  `ConfigProvider` is what keeps portaled content themed/intl'd.
+- `<ShowToastProvider />` — `Toast.show` custom toasts.
+- `<Toaster />` — `Toast.success/error/…` (sonner on web, backpackapp on
+  native; sonner renders no DOM until the first toast, so an "empty" toaster
+  is normal).
+
+The native shell's `.rnstorybook/preview.tsx` mounts the same three, wrapped
+in `OverlayContainer` (iOS `FullWindowOverlay`); the backpackapp `Toaster`
+additionally needs the `GestureHandlerRootView` that `.rnstorybook/index.tsx`
+mounts at the shell root (the wallet gets one from kit's provider tree).
 
 The decorator remounts on theme/locale change (via `key`) to avoid stale Tamagui
 theme state.
@@ -217,9 +227,22 @@ Verified 2026-07-11 on an iPhone 16 Pro simulator:
   on native inside an unbounded container (its wrapper is `flex: 1`) while web
   auto-sizes — bound the parent (`<Stack h={...}>`) in stories that render
   lists.
-- `Checkbox.Group` has zero production call sites (only the frozen Gallery
-  demo) and hits the ListView collapse above through its own unbounded
-  `YStack`, so it deliberately has no story — deletion candidate.
+- `Checkbox.Group` has zero production call sites and hits the ListView
+  collapse above through its own unbounded `YStack`, so it deliberately has no
+  story — deletion candidate. Its Gallery demo section (its last usage) was
+  removed in batch 3.
 - Platform-behavior diff surfaced by Switch stories: iOS renders the on-state
   track in brand green (`$bgAccent`, per the component's intent) while web
   uses monochrome `$bgPrimary`.
+- Story-layout trap from batch 3 (Toast/Popover/ActionList/Radio/Alert/
+  IconButton): in the preview's full-width column, `ActionList`'s internal
+  Trigger wrapper stretches to the row, so the gtMd floating panel anchors to
+  the full-width box and pins to the right edge. App layouts always put
+  triggers in content-sized containers; the story meta adds an `<XStack>`
+  decorator to restore that. Popover does not stretch (its trigger wrapper
+  hugs) — only ActionList needs it.
+- Rebase hygiene: `patches/*` changes ride in without `yarn.lock` changing, so
+  a rebase can leave `node_modules` unpatched (symptom: tsc errors in files
+  you never touched, e.g. a missing prop that the patch adds). `git apply
+  patches/<pkg>.patch` for a brand-new patch, or reverse-apply the old version
+  first (`git show <old-sha>:patches/… | git apply -R -`) for a modified one.

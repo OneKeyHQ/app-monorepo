@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 
 import { hideAsync } from 'expo-splash-screen';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
 
@@ -13,6 +14,8 @@ const StorybookUIRoot = view.getStorybookUI({
   // Deterministic cold launches for the spike; revisit for daily use.
   shouldPersistSelection: false,
 });
+
+const rootStyle = { flex: 1 } as const;
 
 function StorybookRoot() {
   useEffect(() => {
@@ -36,7 +39,14 @@ function StorybookRoot() {
     }, 5000);
     return () => clearTimeout(timer);
   }, []);
-  return <StorybookUIRoot />;
+  return (
+    // Gesture context for swipe-driven overlay components (backpackapp
+    // toasts, sheets). The wallet mounts its GestureHandlerRootView in kit's
+    // provider tree, which this shell doesn't use, so it owns one here.
+    <GestureHandlerRootView style={rootStyle}>
+      <StorybookUIRoot />
+    </GestureHandlerRootView>
+  );
 }
 
 export default StorybookRoot;

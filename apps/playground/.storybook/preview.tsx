@@ -7,6 +7,10 @@ import './injectTamaguiCss';
 import '@onekeyhq/components/src/hocs/Provider/web-fonts.css';
 import '@onekeyhq/shared/src/web/index.css';
 
+import {
+  ShowToastProvider,
+  Toaster,
+} from '@onekeyhq/components/src/actions/Toast';
 import { Portal } from '@onekeyhq/components/src/hocs/Portal';
 import { ConfigProvider } from '@onekeyhq/components/src/hocs/Provider';
 import { Stack } from '@onekeyhq/components/src/primitives/Stack';
@@ -93,11 +97,16 @@ const preview: Preview = {
           <Stack bg="$bgApp" p="$5" minHeight="100%">
             <Story />
           </Stack>
-          {/* Overlay mount point for portal-based components (Dialog.show,
-              ActionList, native-mode Popover) — the minimal slice of the
-              app's FullWindowOverlayContainer. It must live inside
-              ConfigProvider so portaled content keeps theme/intl context. */}
+          {/* Overlay mount points for portal-based components — the minimal
+              slice of the app's FullWindowOverlayContainer, in the same
+              order: the FULL_WINDOW_OVERLAY portal (Dialog.show, ActionList,
+              native-mode Popover), ShowToastProvider (Toast.show custom
+              toasts), and Toaster (Toast.success/error/… via sonner). They
+              must live inside ConfigProvider so portaled content keeps
+              theme/intl context. */}
           <Portal.Container name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL} />
+          <ShowToastProvider />
+          <Toaster />
         </ConfigProvider>
       );
     },
