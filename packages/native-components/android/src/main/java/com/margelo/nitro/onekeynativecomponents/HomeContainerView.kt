@@ -280,11 +280,14 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   fun slotFrame(key: String): Rect? {
     val statePrefix = "content.state."
     val contentHeaderPrefix = "content.header."
+    val footerPrefix = "content.footer.$selectedTabId."
     val target = when {
       key.startsWith(statePrefix) && key.removePrefix(statePrefix) == selectedTabId ->
         adapter.pageForTab(selectedTabId)?.stateSlotTarget()
       key.startsWith(contentHeaderPrefix) && key.removePrefix(contentHeaderPrefix) == selectedTabId ->
         adapter.pageForTab(selectedTabId)?.contentHeaderSlotTarget()
+      key.startsWith(footerPrefix) ->
+        adapter.pageForTab(selectedTabId)?.footerSlotTarget(key)
       key.startsWith("header.") -> headerView.slotTarget(key)
       key.startsWith("tab.") -> tabsView.slotTarget(key)
       else -> null
@@ -710,6 +713,12 @@ private class HomePageView(context: Context) : FrameLayout(context) {
     return recycler.findViewHolderForAdapterPosition(position)?.itemView
   }
 
+  fun footerSlotTarget(key: String): View? {
+    val position = listAdapter.footerSlotPosition(key)
+    if (position == RecyclerView.NO_POSITION) return null
+    return recycler.findViewHolderForAdapterPosition(position)?.itemView
+  }
+
   private fun currentScrollOffset(): Int {
     val layoutManager = recycler.layoutManager as? LinearLayoutManager ?: return 0
     val firstPosition = layoutManager.findFirstVisibleItemPosition()
@@ -735,6 +744,7 @@ private data class HomeListRow(
   val actionId: String = "",
   val item: HomeContainerItem? = null,
   val horizontalItems: List<HomeContainerItem> = emptyList(),
+  val slotKey: String = "",
 )
 
 private class HomeListAdapter : ListAdapter<HomeListRow, RecyclerView.ViewHolder>(RowDiffCallback()) {
@@ -796,6 +806,13 @@ private class HomeListAdapter : ListAdapter<HomeListRow, RecyclerView.ViewHolder
 
   fun contentHeaderPosition(): Int {
     val position = currentList.indexOfFirst { it.kind == VIEW_CONTENT_HEADER }
+    return if (position >= 0) position else RecyclerView.NO_POSITION
+  }
+
+  fun footerSlotPosition(key: String): Int {
+    val position = currentList.indexOfFirst { row ->
+      row.kind == VIEW_FOOTER_SLOT && row.slotKey == key
+    }
     return if (position >= 0) position else RecyclerView.NO_POSITION
   }
 
@@ -898,6 +915,19 @@ private class HomeListAdapter : ListAdapter<HomeListRow, RecyclerView.ViewHolder
           }
         }
       }
+      FOOTER_SLOT_IDS.forEach { footerId ->
+        val key = "content.footer.$tabId.$footerId"
+        if (mountedSlotKeys.contains(key)) {
+          add(
+            HomeListRow(
+              VIEW_FOOTER_SLOT,
+              "footer-slot:$key",
+              "footer-slot:$key",
+              slotKey = key,
+            ),
+          )
+        }
+      }
     }
 
   override fun getItemId(position: Int): Long = getItem(position).stableId.hashCode().toLong()
@@ -917,10 +947,10 @@ private class HomeListAdapter : ListAdapter<HomeListRow, RecyclerView.ViewHolder
     val row = getItem(position)
     when (holder) {
       is SpacerHolder -> {
-        val height = if (row.kind == VIEW_CONTENT_HEADER) {
-          holder.itemView.dp(contentHeaderHeight(tabId))
-        } else {
-          topSpacerHeight
+        val height = when (row.kind) {
+          VIEW_CONTENT_HEADER -> holder.itemView.dp(contentHeaderHeight(tabId))
+          VIEW_FOOTER_SLOT -> holder.itemView.dp(footerSlotHeight(row.slotKey))
+          else -> topSpacerHeight
         }
         holder.itemView.layoutParams = RecyclerView.LayoutParams(
           ViewGroup.LayoutParams.MATCH_PARENT,
@@ -972,6 +1002,12 @@ private class HomeListAdapter : ListAdapter<HomeListRow, RecyclerView.ViewHolder
     else -> 0
   }
 
+  private fun footerSlotHeight(key: String): Int = when {
+    key.endsWith(".upgrade") -> 152
+    key.endsWith(".support") -> 371
+    else -> 0
+  }
+
   private class SpacerHolder(view: View) : RecyclerView.ViewHolder(view)
   private class SectionHolder(val view: HomeSectionTitleView) : RecyclerView.ViewHolder(view)
   private class ItemHolder(val view: HomeItemView) : RecyclerView.ViewHolder(view)
@@ -985,7 +1021,9 @@ private class HomeListAdapter : ListAdapter<HomeListRow, RecyclerView.ViewHolder
     private const val VIEW_ITEM = 3
     private const val VIEW_HORIZONTAL = 4
     private const val VIEW_GRID = 5
+    private const val VIEW_FOOTER_SLOT = 6
     private const val PAYLOAD_THEME = "theme"
+    private val FOOTER_SLOT_IDS = listOf("upgrade", "support")
   }
 
   private class RowDiffCallback : DiffUtil.ItemCallback<HomeListRow>() {

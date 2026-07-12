@@ -84,6 +84,14 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 320,
   },
+  footerUpgradeSlot: {
+    width: '100%',
+    height: 152,
+  },
+  footerSupportSlot: {
+    width: '100%',
+    height: 371,
+  },
   slotContent: {
     flex: 1,
   },
@@ -123,6 +131,12 @@ function getSlotLayoutStyle(key: string) {
   }
   if (key.startsWith('content.state.')) {
     return styles.contentStateSlot;
+  }
+  if (key.endsWith('.upgrade') && key.startsWith('content.footer.')) {
+    return styles.footerUpgradeSlot;
+  }
+  if (key.endsWith('.support') && key.startsWith('content.footer.')) {
+    return styles.footerSupportSlot;
   }
   if (key.startsWith('tab.accessory.')) {
     return styles.tabAccessorySlot;
@@ -317,6 +331,18 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
           values.push({ key: `content.state.${tabId}`, slot });
         }
       });
+      Object.entries(slots.contentFooters ?? {}).forEach(
+        ([tabId, footerSlots]) => {
+          Object.entries(footerSlots ?? {}).forEach(([footerId, slot]) => {
+            if (slot) {
+              values.push({
+                key: `content.footer.${tabId}.${footerId}`,
+                slot,
+              });
+            }
+          });
+        },
+      );
       Object.entries(slots.tabAccessories ?? {}).forEach(([tabId, slot]) => {
         if (slot) {
           values.push({ key: `tab.accessory.${tabId}`, slot });

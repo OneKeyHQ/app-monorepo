@@ -7,6 +7,7 @@ private enum HomeContainerMetrics {
   static let emptyRowHeight: CGFloat = 108
   static let horizontalRowHeight: CGFloat = 132
   static let sectionTitleHeight: CGFloat = 56
+  static let footerSlotIds = ["upgrade", "support"]
 
   static func contentHeaderHeight(tabId: String) -> CGFloat? {
     switch tabId {
@@ -14,6 +15,12 @@ private enum HomeContainerMetrics {
     case "perps": return 88
     default: return nil
     }
+  }
+
+  static func footerSlotHeight(key: String) -> CGFloat? {
+    if key.hasSuffix(".upgrade") { return 152 }
+    if key.hasSuffix(".support") { return 371 }
+    return nil
   }
 }
 
@@ -37,6 +44,7 @@ private struct HomeContainerRow {
     case item(HomeContainerItem)
     case sectionTitle(HomeContainerSection)
     case contentHeader(String)
+    case footerSlot(String)
   }
 
   let id: String
@@ -73,6 +81,8 @@ private struct HomeContainerRow {
       return "section|\(section.title ?? "")|\(section.actionTitle ?? "")|\(section.actionId ?? "")"
     case .contentHeader(let tabId):
       return "content-header|\(tabId)"
+    case .footerSlot(let key):
+      return "footer-slot|\(key)"
     case .item(let item):
       return [
         item.renderer,
@@ -204,6 +214,9 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
       ? abs(direction.x) > abs(direction.y)
       : horizontalScrollView != nil
     if prefersHorizontal {
+      if footerSlotKey(at: location) != nil {
+        return false
+      }
       if let scrollView = horizontalScrollView {
         interactionPanMode = .horizontal(
           scrollView: scrollView,
@@ -230,6 +243,18 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
     }
     interactionPanMode = .vertical(page: page)
     return true
+  }
+
+  private func footerSlotKey(at location: CGPoint) -> String? {
+    guard let page = pages.first(where: { $0.tabId == selectedTabId }) else {
+      return nil
+    }
+    let prefix = "content.footer.\(selectedTabId)."
+    return mountedSlotKeys.first { key in
+      guard key.hasPrefix(prefix),
+            let localFrame = page.footerSlotFrame(key: key) else { return false }
+      return page.convert(localFrame, to: self).contains(location)
+    }
   }
 
   @objc private func handleInteractionPan(_ gestureRecognizer: UIPanGestureRecognizer) {
@@ -437,6 +462,12 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
        String(key.dropFirst(contentHeaderPrefix.count)) == selectedTabId,
        let page = pages.first(where: { $0.tabId == selectedTabId }),
        let localFrame = page.contentHeaderSlotFrame() {
+      return NSValue(cgRect: page.convert(localFrame, to: self))
+    }
+    let footerPrefix = "content.footer.\(selectedTabId)."
+    if key.hasPrefix(footerPrefix),
+       let page = pages.first(where: { $0.tabId == selectedTabId }),
+       let localFrame = page.footerSlotFrame(key: key) {
       return NSValue(cgRect: page.convert(localFrame, to: self))
     }
     if key.hasPrefix("header."),
@@ -803,6 +834,12 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
       }
       return result
     })
+    HomeContainerMetrics.footerSlotIds.forEach { footerId in
+      let key = "content.footer.\(tabId).\(footerId)"
+      if mountedSlotKeys.contains(key), HomeContainerMetrics.footerSlotHeight(key: key) != nil {
+        rows.append(HomeContainerRow(id: "footer-slot:\(key)", kind: .footerSlot(key)))
+      }
+    }
     let previousRows = rowsById
     rowsById = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, $0) })
     var nextSnapshot = NSDiffableDataSourceSnapshot<Int, String>()
@@ -847,6 +884,14 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
 
   func contentHeaderSlotFrame() -> CGRect? {
     let rowId = "content-header:\(tabId)"
+    guard let indexPath = dataSource.indexPath(for: rowId) else { return nil }
+    let frame = tableView.rectForRow(at: indexPath)
+    guard frame.width > 0, frame.height > 0 else { return nil }
+    return tableView.convert(frame, to: self)
+  }
+
+  func footerSlotFrame(key: String) -> CGRect? {
+    let rowId = "footer-slot:\(key)"
     guard let indexPath = dataSource.indexPath(for: rowId) else { return nil }
     let frame = tableView.rectForRow(at: indexPath)
     guard frame.width > 0, frame.height > 0 else { return nil }
@@ -928,6 +973,8 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     switch row.kind {
     case .contentHeader(let tabId):
       return HomeContainerMetrics.contentHeaderHeight(tabId: tabId) ?? 0
+    case .footerSlot(let key):
+      return HomeContainerMetrics.footerSlotHeight(key: key) ?? 0
     case .grid:
       return tableView.bounds.width / 2 + 54
     case .horizontal(let section):
@@ -1008,7 +1055,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
             let row = self.rowsById[rowId],
             let theme = self.theme else { return UITableViewCell() }
       switch row.kind {
-      case .contentHeader:
+      case .contentHeader, .footerSlot:
         let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
         cell.backgroundColor = .clear
         cell.contentView.backgroundColor = .clear

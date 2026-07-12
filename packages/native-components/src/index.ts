@@ -11,6 +11,7 @@ export type {
   IHomeContainerAction,
   IHomeContainerBanner,
   IHomeContainerCapabilities,
+  IHomeContainerFooterSlotId,
   IHomeContainerHeader,
   IHomeContainerItem,
   IHomeContainerItemRenderer,
