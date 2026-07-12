@@ -229,7 +229,12 @@ class ServiceKeylessWallet extends ServiceBase {
   // definitive-rejection handler can delete a blob the winner just refilled
   // with a valid rotated token. Every read-blob → HTTP exchange →
   // save-rotated-token / delete-blob sequence must therefore run while
-  // holding this semaphore.
+  // holding this semaphore — as must every OTHER blob reader/writer:
+  // updateKeylessDataPasscode (re-encrypting the blob during a passcode
+  // change must not interleave with a decrypt/save using the other
+  // passcode) and the cleanup sweeps (cleanupKeylessWalletStorage /
+  // cleanupLocalKeylessOAuthTokens — an in-flight exchange must not save a
+  // rotated token back after the sweep and resurrect a retired credential).
   legacyKeylessOAuthTokenExchangeMutex = new Semaphore(1);
 
   private passiveBackendShareV2MigrationPromise:
@@ -1759,6 +1764,30 @@ class ServiceKeylessWallet extends ServiceBase {
             };
           }
 
+          if (tokenInfo.refreshToken) {
+            // The access token came from the legacy blob and Supabase rotates
+            // refresh tokens on use — the exchange above already consumed the
+            // stored single-use token, so persist the rotated one back
+            // immediately after the LOCAL wallet validation passes and BEFORE
+            // any Prime API call (mirroring the interactive migration path).
+            // The rotated token is an identity-equivalent replacement of what
+            // the blob already held, so the server-side owner check below
+            // gates only the v2 migration itself, never this save. If the
+            // save ran after the Prime calls instead, a transient Prime
+            // failure (5xx / timeout / Prime-only outage) would drop the
+            // rotated token while the blob still held the consumed one, and
+            // the next attempt's definitive GoTrue rejection would delete the
+            // blob — permanently destroying the legacy credential over a
+            // network blip. The save is never rolled back when a later
+            // migration step fails, because the previous refresh token was
+            // already consumed by the exchange.
+            await this.saveLegacyKeylessOAuthRefreshToken({
+              ownerId,
+              refreshToken: tokenInfo.refreshToken,
+              password,
+            });
+          }
+
           const current = await this.apiGetKeylessBackendShareMeta({ token });
           if (!current.backendShare) {
             await this.markKeylessBackendShareV2MigrationFailed({
@@ -1793,22 +1822,6 @@ class ServiceKeylessWallet extends ServiceBase {
               skipped: true,
               reason: 'owner_id_mismatch',
             };
-          }
-
-          if (tokenInfo.refreshToken) {
-            // The access token came from the legacy blob and Supabase rotates
-            // refresh tokens on use — persist the rotated token back (only after
-            // it has been validated against the local wallet and the server
-            // owner id, mirroring the pre-v2 behavior) so the blob stays usable
-            // for future passive attempts and for the interactive OneKey ID
-            // login flow (which migrates + removes it). The save itself is never
-            // rolled back when a later migration step fails, because the
-            // previous refresh token was already consumed by the exchange.
-            await this.saveLegacyKeylessOAuthRefreshToken({
-              ownerId,
-              refreshToken: tokenInfo.refreshToken,
-              password,
-            });
           }
 
           if (current.canonicalFormat === 'v2') {
@@ -2903,12 +2916,27 @@ class ServiceKeylessWallet extends ServiceBase {
         resultEncoding: 'utf8',
         allowRawPassword: true,
       });
-    } catch (_error) {
-      defaultLogger.wallet.keyless.dataCorruptedError({
-        reason:
-          'getLegacyKeylessOAuthRefreshToken: failed to decrypt refreshToken by decryptionKey',
-      });
-      throw new KeylessDataCorruptedError();
+    } catch (error) {
+      // Callers delete the blob on KeylessDataCorruptedError, so only a
+      // DEFINITIVE wrong-key / tampered-payload verdict may map to it:
+      // decryptAsync collapses every AES-stage failure (bad key, bad IV/tag,
+      // truncated payload) into IncorrectPassword. Anything else (e.g. a KDF
+      // or bridge failure before the AES stage) is not proof the blob is
+      // dead — rethrow it raw so the attempt fails without deleting the
+      // credential.
+      if (
+        errorUtils.isErrorByClassName({
+          error,
+          className: EOneKeyErrorClassNames.IncorrectPassword,
+        })
+      ) {
+        defaultLogger.wallet.keyless.dataCorruptedError({
+          reason:
+            'getLegacyKeylessOAuthRefreshToken: failed to decrypt refreshToken by decryptionKey',
+        });
+        throw new KeylessDataCorruptedError();
+      }
+      throw error;
     }
   }
 
@@ -3498,8 +3526,10 @@ class ServiceKeylessWallet extends ServiceBase {
       throw new OneKeyLocalError('Dev settings is not enabled');
     }
 
-    await this.removeLegacyKeylessOAuthTokens({
-      ownerId: params.ownerId,
+    await this.legacyKeylessOAuthTokenExchangeMutex.runExclusive(async () => {
+      await this.removeLegacyKeylessOAuthTokens({
+        ownerId: params.ownerId,
+      });
     });
 
     return { success: true };
@@ -3514,11 +3544,19 @@ class ServiceKeylessWallet extends ServiceBase {
       return;
     }
 
-    await keylessMnemonicPasswordStorage.removeMnemonicPasswordFromStorage({
-      ownerId,
-    });
+    // Delete under the legacy-blob exchange lock: an in-flight passive
+    // attempt that already exchanged the blob token would otherwise persist
+    // the rotated token back AFTER this delete, resurrecting a credential
+    // the user just removed with the wallet.
+    await this.legacyKeylessOAuthTokenExchangeMutex.runExclusive(async () => {
+      await keylessMnemonicPasswordStorage.removeMnemonicPasswordFromStorage({
+        ownerId,
+      });
 
-    await this.removeLegacyKeylessOAuthTokens({ ownerId });
+      await this.removeLegacyKeylessOAuthTokens({ ownerId });
+    });
+    // Session clear stays outside the lock: it touches a different resource
+    // (the shared Supabase session slot) and can perform network I/O.
     await this.clearKeylessAuthSessionAndLoginState();
   }
 
@@ -3557,11 +3595,17 @@ class ServiceKeylessWallet extends ServiceBase {
         .filter((ownerId): ownerId is string => Boolean(ownerId)),
     );
 
-    await Promise.all(
-      Array.from(ownerIds).map((ownerId) =>
-        this.removeLegacyKeylessOAuthTokens({ ownerId }),
-      ),
-    );
+    // Delete under the legacy-blob exchange lock so an in-flight passive
+    // attempt cannot save a rotated token back after this sweep and
+    // resurrect a blob the successful OneKey ID login/bind/logout above
+    // decided to retire.
+    await this.legacyKeylessOAuthTokenExchangeMutex.runExclusive(async () => {
+      await Promise.all(
+        Array.from(ownerIds).map((ownerId) =>
+          this.removeLegacyKeylessOAuthTokens({ ownerId }),
+        ),
+      );
+    });
   }
 
   fixedKeylessProviderMap: {
@@ -3680,91 +3724,108 @@ class ServiceKeylessWallet extends ServiceBase {
       legacyOAuthRefreshToken: string | null;
     }> = [];
 
-    for (const wallet of keylessWallets) {
-      const ownerId = wallet.keylessDetailsInfo?.keylessOwnerId;
-      // eslint-disable-next-line no-continue
-      if (!ownerId) continue;
+    // Hold the legacy-blob exchange lock across the whole read → re-encrypt
+    // sweep: a concurrent passive migration (fired by setCachedPassword)
+    // otherwise races the passcode change on the same blob — reading an
+    // old-passcode blob with the new passcode (a spurious corrupted verdict
+    // that deletes a healthy credential) or refilling a re-encrypted blob
+    // with an old-passcode payload. The passive path fast-yields while this
+    // lock is held, and the interactive path queues behind it.
+    await this.legacyKeylessOAuthTokenExchangeMutex.runExclusive(async () => {
+      for (const wallet of keylessWallets) {
+        const ownerId = wallet.keylessDetailsInfo?.keylessOwnerId;
+        // eslint-disable-next-line no-continue
+        if (!ownerId) continue;
 
-      const mnemonicPassword =
-        await keylessMnemonicPasswordStorage.getMnemonicPasswordFromStorageWithPassword(
-          {
-            ownerId,
-            password: oldPassword,
-            backgroundApi: this.backgroundApi,
-          },
-        );
+        const mnemonicPassword =
+          await keylessMnemonicPasswordStorage.getMnemonicPasswordFromStorageWithPassword(
+            {
+              ownerId,
+              password: oldPassword,
+              backgroundApi: this.backgroundApi,
+            },
+          );
 
-      // Legacy keyless OAuth refresh tokens are encrypted with a
-      // passcode-derived key, so they must be re-encrypted with the new
-      // passcode as well, otherwise they can no longer be decrypted after
-      // the passcode change.
-      let legacyOAuthRefreshToken: string | null = null;
-      try {
-        legacyOAuthRefreshToken = await this.getLegacyKeylessOAuthRefreshToken({
+        // Legacy keyless OAuth refresh tokens are encrypted with a
+        // passcode-derived key, so they must be re-encrypted with the new
+        // passcode as well, otherwise they can no longer be decrypted after
+        // the passcode change.
+        let legacyOAuthRefreshToken: string | null = null;
+        try {
+          legacyOAuthRefreshToken =
+            await this.getLegacyKeylessOAuthRefreshToken({
+              ownerId,
+              password: oldPassword,
+            });
+        } catch (error) {
+          if (this.isKeylessDataCorruptedError(error)) {
+            // The legacy blob already fails to decrypt with the current
+            // passcode (e.g. left stale by an old build). It is unrecoverable,
+            // so drop it instead of failing the passcode change.
+            await this.removeLegacyKeylessOAuthTokens({ ownerId });
+          } else {
+            throw error;
+          }
+        }
+
+        backupData.push({
           ownerId,
-          password: oldPassword,
+          mnemonicPassword,
+          legacyOAuthRefreshToken,
         });
-      } catch (error) {
-        if (this.isKeylessDataCorruptedError(error)) {
-          // The legacy blob already fails to decrypt with the current
-          // passcode (e.g. left stale by an old build). It is unrecoverable,
-          // so drop it instead of failing the passcode change.
-          await this.removeLegacyKeylessOAuthTokens({ ownerId });
-        } else {
-          throw error;
+      }
+
+      for (const backup of backupData) {
+        if (backup.mnemonicPassword) {
+          await keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorageWithPassword(
+            {
+              ownerId: backup.ownerId,
+              mnemonicPassword: backup.mnemonicPassword,
+              password: newPassword,
+              backgroundApi: this.backgroundApi,
+            },
+          );
+        }
+
+        if (backup.legacyOAuthRefreshToken) {
+          await this.saveLegacyKeylessOAuthRefreshToken({
+            ownerId: backup.ownerId,
+            refreshToken: backup.legacyOAuthRefreshToken,
+            password: newPassword,
+          });
         }
       }
-
-      backupData.push({
-        ownerId,
-        mnemonicPassword,
-        legacyOAuthRefreshToken,
-      });
-    }
-
-    for (const backup of backupData) {
-      if (backup.mnemonicPassword) {
-        await keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorageWithPassword(
-          {
-            ownerId: backup.ownerId,
-            mnemonicPassword: backup.mnemonicPassword,
-            password: newPassword,
-            backgroundApi: this.backgroundApi,
-          },
-        );
-      }
-
-      if (backup.legacyOAuthRefreshToken) {
-        await this.saveLegacyKeylessOAuthRefreshToken({
-          ownerId: backup.ownerId,
-          refreshToken: backup.legacyOAuthRefreshToken,
-          password: newPassword,
-        });
-      }
-    }
+    });
 
     return {
       rollback: async () => {
-        for (const backup of backupData) {
-          if (backup.mnemonicPassword) {
-            await keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorageWithPassword(
-              {
-                ownerId: backup.ownerId,
-                mnemonicPassword: backup.mnemonicPassword,
-                password: oldPassword,
-                backgroundApi: this.backgroundApi,
-              },
-            );
-          }
+        // Same lock rationale as above: the rollback runs from the passcode
+        // change failure path, where rollbackPassword re-caches the OLD
+        // passcode and thereby fires another passive migration.
+        await this.legacyKeylessOAuthTokenExchangeMutex.runExclusive(
+          async () => {
+            for (const backup of backupData) {
+              if (backup.mnemonicPassword) {
+                await keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorageWithPassword(
+                  {
+                    ownerId: backup.ownerId,
+                    mnemonicPassword: backup.mnemonicPassword,
+                    password: oldPassword,
+                    backgroundApi: this.backgroundApi,
+                  },
+                );
+              }
 
-          if (backup.legacyOAuthRefreshToken) {
-            await this.saveLegacyKeylessOAuthRefreshToken({
-              ownerId: backup.ownerId,
-              refreshToken: backup.legacyOAuthRefreshToken,
-              password: oldPassword,
-            });
-          }
-        }
+              if (backup.legacyOAuthRefreshToken) {
+                await this.saveLegacyKeylessOAuthRefreshToken({
+                  ownerId: backup.ownerId,
+                  refreshToken: backup.legacyOAuthRefreshToken,
+                  password: oldPassword,
+                });
+              }
+            }
+          },
+        );
       },
     };
   }

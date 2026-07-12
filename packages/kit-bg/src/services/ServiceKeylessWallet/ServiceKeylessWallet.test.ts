@@ -542,6 +542,53 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     });
   });
 
+  test('persists the rotated legacy token before the Prime meta call so a transient meta failure cannot burn it', async () => {
+    const { service, serviceAny } = createService();
+    mockPassiveV1HappyPath(serviceAny);
+    delete serviceAny.getAccessTokenForKeylessBackendShareV2MigrationPassive;
+    mockLegacyRefreshTokenFallback(serviceAny);
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        access_token: TOKEN,
+        refresh_token: 'rotated-refresh-token',
+      }),
+    } as any);
+    // The refresh-grant exchange above already consumed the single-use blob
+    // token. If the Prime meta call (different host from GoTrue) then fails
+    // transiently, the rotated token must already be persisted — otherwise
+    // the blob keeps the consumed token and the next attempt's definitive
+    // GoTrue rejection deletes the credential for good.
+    serviceAny.apiGetKeylessBackendShareMeta = jest.fn(async () => {
+      const error: Error & { className?: string } = new Error('Network Error');
+      error.className = 'AxiosNetworkError';
+      throw error;
+    });
+
+    await expect(
+      service.tryMigrateLocalExistingKeylessBackendShareToV2(),
+    ).resolves.toMatchObject({
+      skipped: true,
+      reason: 'network_unavailable',
+    });
+
+    expect(serviceAny.saveLegacyKeylessOAuthRefreshToken).toHaveBeenCalledWith({
+      ownerId: OWNER_ID,
+      refreshToken: 'rotated-refresh-token',
+      password: PASSWORD,
+    });
+    expect(
+      serviceAny.saveLegacyKeylessOAuthRefreshToken.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      serviceAny.apiGetKeylessBackendShareMeta.mock.invocationCallOrder[0],
+    );
+    expect(serviceAny.removeLegacyKeylessOAuthTokens).not.toHaveBeenCalled();
+    // Throttle rolled back so the next natural trigger retries promptly with
+    // the freshly persisted rotated token.
+    expect(migrationPersist.byWalletId[WALLET_ID]).toBeUndefined();
+  });
+
   test('does not consume the 24-hour throttle when the legacy refresh is rate limited with 429', async () => {
     const { service, serviceAny } = createService();
     mockLegacyRefreshTokenFallback(serviceAny);

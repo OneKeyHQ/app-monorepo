@@ -24,6 +24,52 @@ let keylessClient: SupabaseClient | undefined;
 const storage = supabaseStorageInstance;
 
 /**
+ * Transient-failure guard for the two persistent Supabase auth clients.
+ *
+ * Verified against @supabase/auth-js@2.86.2: the SDK classifies only
+ * fetch-level rejections and HTTP 502/503/504 as retryable
+ * (`AuthRetryableFetchError`). Every other token-refresh failure — 500, 408,
+ * 429, other 5xx, or a proxy/CDN challenge page whose non-JSON body becomes
+ * a non-retryable `AuthUnknownError` — makes `_callRefreshToken()` /
+ * `_recoverAndRefresh()` call `_removeSession()`, permanently destroying the
+ * persisted single-use rotating refresh token over a transient outage (our
+ * own `isRetryableSupabaseAuthError` treats all of these as retryable, but
+ * it only guards OUR call sites — the SDK removes the session internally
+ * before any wrapper sees the error). Reject such responses at the fetch
+ * layer instead: auth-js `_handleRequest()` converts fetcher rejections into
+ * `AuthRetryableFetchError`, so the SDK keeps the session and retries later.
+ * Definitive GoTrue verdicts (4xx with a parseable JSON body, e.g.
+ * invalid_grant) pass through untouched — destroying a session stays
+ * constrained to the issuer's explicit rejection or an explicit sign-out.
+ */
+const isTransientSupabaseHttpStatus = (status: number) =>
+  status === 408 || status === 429 || (status >= 500 && status < 600);
+
+const sessionPreservingSupabaseFetch: typeof fetch = async (input, init) => {
+  const response = await fetch(input, init);
+  if (response.ok) {
+    return response;
+  }
+  if (isTransientSupabaseHttpStatus(response.status)) {
+    throw new TypeError(
+      `Supabase transient HTTP ${response.status} treated as network failure to preserve the persisted session`,
+    );
+  }
+  // A non-OK response whose body is not JSON is an intermediary error page
+  // (corporate proxy / CDN bot challenge), never a GoTrue verdict on the
+  // credential — treat it as transient too, otherwise auth-js turns it into
+  // a non-retryable AuthUnknownError and drops the persisted session.
+  try {
+    await response.clone().json();
+  } catch {
+    throw new TypeError(
+      `Supabase non-JSON HTTP ${response.status} error response treated as network failure to preserve the persisted session`,
+    );
+  }
+  return response;
+};
+
+/**
  * Whether THIS JS runtime is allowed to perform Supabase refresh-token
  * rotations (the auth-js auto-refresh ticker and the initialize-time
  * `_recoverAndRefresh` refresh).
@@ -105,6 +151,12 @@ export function getSupabaseClient() {
       SUPABASE_PROJECT_URL ?? '',
       SUPABASE_PUBLIC_API_KEY ?? '',
       {
+        global: {
+          // See sessionPreservingSupabaseFetch: transient HTTP failures must
+          // reach auth-js as fetch rejections, or its internal
+          // _removeSession() destroys the persisted session.
+          fetch: sessionPreservingSupabaseFetch,
+        },
         auth: {
           storage,
           storageKey: getSupabaseAuthSessionKey(),
@@ -127,6 +179,12 @@ export function getKeylessSupabaseClient() {
       KEYLESS_SUPABASE_PROJECT_URL ?? '',
       KEYLESS_SUPABASE_PUBLIC_API_KEY ?? '',
       {
+        global: {
+          // See sessionPreservingSupabaseFetch: transient HTTP failures must
+          // reach auth-js as fetch rejections, or its internal
+          // _removeSession() destroys the persisted session.
+          fetch: sessionPreservingSupabaseFetch,
+        },
         auth: {
           storage,
           storageKey: getKeylessSupabaseAuthSessionKey(),
