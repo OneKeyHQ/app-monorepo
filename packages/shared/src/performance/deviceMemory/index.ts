@@ -6,9 +6,9 @@
 //   isLowEndMemory        — the ONE low-memory predicate (<= LOW_END_THRESHOLD)
 //   IS_LOW_END_DEVICE     — that predicate evaluated once at module load
 //
-// Consumers (device performance tier, DApp WebView alive-count cap, the iOS
-// cold-start-lock defer guard) all classify memory through here so they can
-// never disagree on which devices count as low-end.
+// Consumers (capability profiles, DApp WebView retention, and the iOS
+// cold-start-lock defer guard) all use this predicate so they agree on which
+// devices are memory constrained.
 
 import { getDeviceMemoryGBSync } from './getMemorySync';
 
@@ -26,10 +26,9 @@ export function isLowEndMemory(memoryGB: number): boolean {
 
 // Low-end-device flag, computed once at module load from device RAM.
 //
-// Intentionally NOT derived from `getDevicePerformanceTier()`: that returns
-// `medium` until a post-launch calibration has run and persisted, but the
-// cold-start-lock guard this flag powers must work on the very first boot after
-// upgrade (no calibration yet). So it reads memory synchronously every launch.
+// Intentionally derived directly from physical memory. The cold-start-lock
+// guard this flag powers must work on the first boot after an upgrade without
+// waiting for another capability or runtime signal.
 //
 // On web/desktop the value is inert: the only consumer additionally gates on
 // `platformEnv.isNative`.

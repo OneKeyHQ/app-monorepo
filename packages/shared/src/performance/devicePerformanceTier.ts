@@ -1,7 +1,11 @@
 /**
- * Device Performance Tier Detection
+ * Non-native device performance tier detection.
  *
- * Classifies the device into high / medium / low tiers based on:
+ * Native iOS and Android use the deterministic benchmark-based implementation
+ * in devicePerformanceTier.native.ts. Web and desktop retain the existing
+ * runtime calibration behavior here.
+ *
+ * This implementation classifies the device based on:
  *   A) Cached tier from previous launch (sync, instant)
  *   B) Runtime calibration via UI-visible time after first render (async)
  *   C) Device memory (>= 4GB high, 3.5–4GB medium, <= 3.5GB low; skipped if unavailable)
@@ -30,16 +34,16 @@ import {
   getDeviceMemoryGBSync,
   isLowEndMemory,
 } from './deviceMemory';
+import { resolveMemoryClass } from './devicePerformanceTierResolver';
+import {
+  EDeviceCpuTier,
+  EDeviceMemoryClass,
+  EDevicePerformanceTier,
+  type IDevicePerformanceProfile,
+} from './devicePerformanceTierTypes';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export enum EDevicePerformanceTier {
-  high = 'high',
-  medium = 'medium',
-  low = 'low',
-}
+export { EDeviceCpuTier, EDeviceMemoryClass, EDevicePerformanceTier };
+export type { IDevicePerformanceProfile };
 
 // ---------------------------------------------------------------------------
 // Thresholds (ms) — UIVisibleTime: startup → UI visible
@@ -132,6 +136,24 @@ export function getDevicePerformanceTier(): EDevicePerformanceTier {
   cachedTier =
     memoryGB !== null ? getMemoryTier(memoryGB) : EDevicePerformanceTier.medium;
   return cachedTier;
+}
+
+export function getDevicePerformanceProfile(): IDevicePerformanceProfile {
+  const memoryGB = getDeviceMemoryGBSync();
+  const isMemoryConstrained =
+    memoryGB !== null ? isLowEndMemory(memoryGB) : false;
+  return {
+    cpu: {
+      tier: EDeviceCpuTier.unknown,
+      source: 'legacyRuntime',
+      confidence: 'none',
+    },
+    memory: {
+      class: resolveMemoryClass({ memoryGB, isMemoryConstrained }),
+      totalGB: memoryGB,
+    },
+    dataVersion: 'legacy-runtime-v1',
+  };
 }
 
 /**
