@@ -10,10 +10,21 @@ const {
 } = require('./node-runtime-harness-paths');
 
 const desktopDir = path.join(__dirname, '..');
+const useInstalledSnap =
+  process.env.ONEKEY_NODE_RUNTIME_INTEGRITY_HARNESS_SNAP === 'true';
 
 class HarnessError extends Error {}
 
-const executable = resolvePackagedExecutable({ desktopDir });
+if (useInstalledSnap && process.platform !== 'linux') {
+  throw new HarnessError(
+    'The installed Snap harness is only supported on Linux.',
+  );
+}
+
+const executable = useInstalledSnap
+  ? 'snap'
+  : resolvePackagedExecutable({ desktopDir });
+const executableArgs = useInstalledSnap ? ['run', 'onekey-wallet'] : [];
 
 if (!executable) {
   const expectedPaths = getPackagedExecutableCandidates({
@@ -26,14 +37,18 @@ if (!executable) {
   );
 }
 
+const tempParent = useInstalledSnap
+  ? path.join(os.homedir(), 'snap', 'onekey-wallet', 'common')
+  : os.tmpdir();
+fs.mkdirSync(tempParent, { recursive: true });
 const tempRoot = fs.mkdtempSync(
-  path.join(os.tmpdir(), 'onekey-node-runtime-integrity-'),
+  path.join(tempParent, 'onekey-node-runtime-integrity-'),
 );
 const userDataDir = path.join(tempRoot, 'user-data');
 const reportFile = path.join(tempRoot, 'report.json');
 fs.mkdirSync(userDataDir, { recursive: true });
 
-const child = childProcess.spawn(executable, [], {
+const child = childProcess.spawn(executable, executableArgs, {
   env: {
     ...process.env,
     DESKTOP_E2E_MODE: 'true',
@@ -127,9 +142,9 @@ child.once('exit', (code) => {
     }
   } finally {
     const resolvedTempRoot = path.resolve(tempRoot);
-    const resolvedSystemTemp = `${path.resolve(os.tmpdir())}${path.sep}`;
+    const resolvedTempParent = `${path.resolve(tempParent)}${path.sep}`;
     if (
-      resolvedTempRoot.startsWith(resolvedSystemTemp) &&
+      resolvedTempRoot.startsWith(resolvedTempParent) &&
       path
         .basename(resolvedTempRoot)
         .startsWith('onekey-node-runtime-integrity-')

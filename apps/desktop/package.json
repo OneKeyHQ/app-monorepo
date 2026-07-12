@@ -26,6 +26,7 @@
     "build:electron:mas": "electron-builder build -m --config electron-builder-mas.config.js",
     "build:electron:snap": "electron-builder build -l --config electron-builder-snap.config.js",
     "harness:node-runtime": "node scripts/run-node-runtime-integrity-harness.js",
+    "harness:node-runtime:snap": "cross-env ONEKEY_NODE_RUNTIME_INTEGRITY_HARNESS_SNAP=true node scripts/run-node-runtime-integrity-harness.js",
     "bundle:build": "yarn build:renderer",
     "build": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron --publish never",
     "build:snap": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:snap --publish never",

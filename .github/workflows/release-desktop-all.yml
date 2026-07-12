@@ -12,42 +12,42 @@ on:
   workflow_dispatch:
     inputs:
       build_number:
-        description: "Build number from upstream CI (e.g. daily-build). Defaults to 1 if not provided."
+        description: 'Build number from upstream CI (e.g. daily-build). Defaults to 1 if not provided.'
         required: false
         type: string
         default: ''
       build_bundle_version:
-        description: "Bundle version from upstream CI. Auto-generated if not provided."
+        description: 'Bundle version from upstream CI. Auto-generated if not provided.'
         required: false
         type: string
         default: ''
       source_ref_name:
-        description: "Original source ref name to use for build metadata when running from a temporary CI tag."
+        description: 'Original source ref name to use for build metadata when running from a temporary CI tag.'
         required: false
         type: string
         default: ''
       ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
-        description: "Allow skipping GPG verification for bundle updates (default: false)"
+        description: 'Allow skipping GPG verification for bundle updates (default: false)'
         required: false
         type: boolean
         default: false
       notify_release:
-        description: "Notify Slack after packaging artifacts"
+        description: 'Notify Slack after packaging artifacts'
         required: false
         type: boolean
         default: false
       upload_mas_to_testflight:
-        description: "Validate and upload MAS package to TestFlight"
+        description: 'Validate and upload MAS package to TestFlight'
         required: false
         type: boolean
         default: true
       upload_snap_to_store:
-        description: "Upload Snap package to Snap Store edge"
+        description: 'Upload Snap package to Snap Store edge'
         required: false
         type: boolean
         default: false
       cleanup_release_ref:
-        description: "Delete the temporary CI release tag after completion"
+        description: 'Delete the temporary CI release tag after completion'
         required: false
         type: boolean
         default: false
@@ -772,42 +772,14 @@ jobs:
           cd apps/desktop
           npx electron-builder build -l --config electron-builder.config.js ${{ matrix.build-flag }} --publish never
 
-      - name: Verify packaged Electron Node runtime integrity (Linux)
-        id: linux_runtime_integrity
+      - name: Preserve AppImage artifacts until Snap runtime verification
         if: steps.phase1_appimage.outcome == 'success'
-        timeout-minutes: 2
-        run: xvfb-run -a yarn workspace @onekeyhq/desktop harness:node-runtime
-
-      - name: Upload AppImage
-        if: steps.phase1_appimage.outcome == 'success' && steps.linux_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
-        with:
-          name: onekey-desktop-linux-appimage-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
-          path: |
-            ./apps/desktop/build-electron/*.AppImage
-
-      - name: Upload Linux autoupdate metadata
-        if: steps.phase1_appimage.outcome == 'success' && steps.linux_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
-        with:
-          name: onekey-desktop-linux-autoupdate-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
-          path: |
-            ./apps/desktop/build-electron/*.yml
-
-      - name: 'Notify to Slack - Linux AppImage'
-        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase1_appimage.outcome == 'success' && steps.linux_runtime_integrity.outcome == 'success' && matrix.arch == 'amd64'
-        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
-        with:
-          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
-          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
-          artifact-type: Desktop
-          artifact-name: OneKey-Desktop-Linux-AppImage
-          artifact-bundle-id: 'so.onekey.wallet.desktop'
-          artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
-          artifact-version-code: '${{ env.BUILD_NUMBER }}'
-          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
-          artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
-          artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apps/desktop/build-electron-appimage
+          cp apps/desktop/build-electron/*.AppImage apps/desktop/build-electron-appimage/
+          cp apps/desktop/build-electron/*.yml apps/desktop/build-electron-appimage/
 
       # ── Phase 2: Snap ──
 
@@ -834,6 +806,48 @@ jobs:
         run: |
           cd apps/desktop
           npx electron-builder build -l --config electron-builder-snap.config.js ${{ matrix.build-flag }} --publish never
+
+      - name: Install packaged Snap for runtime verification
+        id: install_snap_runtime_integrity
+        if: always() && steps.phase2_snap.outcome == 'success'
+        run: sudo snap install ./apps/desktop/build-electron/*.snap --dangerous
+
+      - name: Verify packaged Electron Node runtime integrity (Snap)
+        id: linux_runtime_integrity
+        if: always() && steps.install_snap_runtime_integrity.outcome == 'success'
+        timeout-minutes: 2
+        run: xvfb-run -a yarn workspace @onekeyhq/desktop harness:node-runtime:snap
+
+      - name: Upload AppImage
+        if: always() && steps.phase1_appimage.outcome == 'success' && steps.linux_runtime_integrity.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-linux-appimage-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/desktop/build-electron-appimage/*.AppImage
+
+      - name: Upload Linux autoupdate metadata
+        if: always() && steps.phase1_appimage.outcome == 'success' && steps.linux_runtime_integrity.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-linux-autoupdate-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/desktop/build-electron-appimage/*.yml
+
+      - name: 'Notify to Slack - Linux AppImage'
+        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase1_appimage.outcome == 'success' && steps.linux_runtime_integrity.outcome == 'success' && matrix.arch == 'amd64'
+        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
+        with:
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+          artifact-type: Desktop
+          artifact-name: OneKey-Desktop-Linux-AppImage
+          artifact-bundle-id: 'so.onekey.wallet.desktop'
+          artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
+          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+          artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
+          artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
 
       - name: Upload Snap
         if: always() && steps.phase2_snap.outcome == 'success' && steps.linux_runtime_integrity.outcome == 'success'
@@ -871,8 +885,9 @@ jobs:
         shell: bash
         run: |
           [[ "${{ steps.phase1_appimage.outcome }}" == "failure" ]] && exit 1
-          [[ "${{ steps.linux_runtime_integrity.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase2_snap.outcome }}" == "failure" ]] && exit 1
+          [[ "${{ steps.phase2_snap.outcome }}" == "success" && "${{ steps.install_snap_runtime_integrity.outcome }}" != "success" ]] && exit 1
+          [[ "${{ steps.phase2_snap.outcome }}" == "success" && "${{ steps.linux_runtime_integrity.outcome }}" != "success" ]] && exit 1
           exit 0
 
   cleanup-release-ref:
