@@ -240,7 +240,16 @@ Verified 2026-07-11 on an iPhone 16 Pro simulator:
   the full-width box and pins to the right edge. App layouts always put
   triggers in content-sized containers; the story meta adds an `<XStack>`
   decorator to restore that. Popover does not stretch (its trigger wrapper
-  hugs) — only ActionList needs it.
+  hugs) — only ActionList needs it. Batch 4 found `Tooltip` stretches the
+  same way (tooltip centers on the full row instead of the button) — same
+  XStack-decorator fix in its meta.
+- Component gap surfaced by batch 4 (Slider/TextArea/SegmentControl/Tooltip/
+  Spinner/Skeleton): `SegmentControl`'s option-level `disabled` is visual-only
+  (opacity + no keyboard focus) — press still fires and selection moves. No
+  production call site passes it today; the WithDisabledOption story documents
+  the trap until the component guards its press handler.
+- `Tooltip` is web/desktop-only by design: `index.native.tsx` renders just the
+  trigger, so its stories show a bare button on the on-device shell.
 - Rebase hygiene: `patches/*` changes ride in without `yarn.lock` changing, so
   a rebase can leave `node_modules` unpatched (symptom: tsc errors in files
   you never touched, e.g. a missing prop that the patch adds). `git apply
