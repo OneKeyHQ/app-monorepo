@@ -10,7 +10,15 @@ index 449df36..d592976 100644
      "update-not-available": (info: UpdateInfo) => void;
      "update-available": (info: UpdateInfo) => void;
      "update-downloaded": (event: UpdateDownloadedEvent) => void;
-@@ -204,6 +205,8 @@ export declare abstract class AppUpdater extends AppUpdater_base {
+@@ -161,6 +162,7 @@ export declare abstract class AppUpdater extends AppUpdater_base {
+      * @param options If you want to override configuration in the `app-update.yml`.
+      */
+     setFeedURL(options: PublishConfiguration | AllPublishOptions | string): void;
++    resetForRetry(): boolean;
+     /**
+      * Asks the server whether there is an update.
+      * @returns null if the updater is disabled, otherwise info about the latest version
+@@ -204,6 +206,8 @@ export declare abstract class AppUpdater extends AppUpdater_base {
      private getOrCreateDownloadHelper;
      protected executeDownload(taskOptions: DownloadExecutorTask): Promise<Array<string>>;
      protected differentialDownloadInstaller(fileInfo: ResolvedUpdateFileInfo, downloadUpdateOptions: DownloadUpdateOptions, installerPath: string, provider: Provider<any>, oldInstallerFileName: string): Promise<boolean>;
@@ -23,7 +31,24 @@ diff --git a/node_modules/electron-updater/out/AppUpdater.js b/node_modules/elec
 index d6d5deb..31a3efe 100644
 --- a/node_modules/electron-updater/out/AppUpdater.js
 +++ b/node_modules/electron-updater/out/AppUpdater.js
-@@ -558,6 +558,8 @@ class AppUpdater extends events_1.EventEmitter {
+@@ -245,6 +245,16 @@ class AppUpdater extends events_1.EventEmitter {
+         }
+         this.clientPromise = Promise.resolve(provider);
+     }
++    resetForRetry() {
++        if (this.checkForUpdatesPromise != null || this.downloadPromise != null) {
++            this._logger.info("Skipping updater retry reset because an operation is in progress");
++            return false;
++        }
++        this.clientPromise = null;
++        this.stagingUserIdPromise = new lazy_val_1.Lazy(() => this.getOrCreateStagingUserId());
++        this.updateInfoAndProvider = null;
++        return true;
++    }
+     /**
+      * Asks the server whether there is an update.
+      * @returns null if the updater is disabled, otherwise info about the latest version
+@@ -558,6 +568,8 @@ class AppUpdater extends events_1.EventEmitter {
      }
      async executeDownload(taskOptions) {
          const fileInfo = taskOptions.fileInfo;

@@ -351,6 +351,12 @@ class DesktopApiAppUpdate {
       `Update checking request (manual: ${b2t(this.isManualCheck)})`,
     );
 
+    const didResetForRetry = autoUpdater.resetForRetry();
+    logger.info(
+      'auto-updater',
+      `Reset updater state for retry: ${b2t(didResetForRetry)}`,
+    );
+
     const updateSettings = store.getUpdateSettings();
 
     const feedUrl = buildFeedUrl(updateSettings.useTestFeedUrl, latestVersion);

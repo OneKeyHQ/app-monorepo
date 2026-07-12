@@ -2,9 +2,52 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+const { AppUpdater } = require('electron-updater/out/AppUpdater');
 const { BaseUpdater } = require('electron-updater/out/BaseUpdater');
 
 describe('electron-updater runtime patch', () => {
+  test('resets cached update-check state before a retry', async () => {
+    const getOrCreateStagingUserId = jest.fn().mockResolvedValue('staging-id');
+    const previousStagingPromise = {};
+    const updater = {
+      checkForUpdatesPromise: null,
+      clientPromise: Promise.resolve({}),
+      downloadPromise: null,
+      getOrCreateStagingUserId,
+      stagingUserIdPromise: previousStagingPromise,
+      updateInfoAndProvider: {},
+      _logger: { info: jest.fn() },
+    };
+
+    expect(AppUpdater.prototype.resetForRetry.call(updater)).toBe(true);
+    expect(updater.clientPromise).toBeNull();
+    expect(updater.stagingUserIdPromise).not.toBe(previousStagingPromise);
+    expect(updater.updateInfoAndProvider).toBeNull();
+    await expect(updater.stagingUserIdPromise.value).resolves.toBe(
+      'staging-id',
+    );
+    expect(getOrCreateStagingUserId).toHaveBeenCalledTimes(1);
+  });
+
+  test('does not reset updater state while a check is active', () => {
+    const clientPromise = Promise.resolve({});
+    const stagingUserIdPromise = {};
+    const updateInfoAndProvider = {};
+    const updater = {
+      checkForUpdatesPromise: Promise.resolve(null),
+      clientPromise,
+      downloadPromise: null,
+      stagingUserIdPromise,
+      updateInfoAndProvider,
+      _logger: { info: jest.fn() },
+    };
+
+    expect(AppUpdater.prototype.resetForRetry.call(updater)).toBe(false);
+    expect(updater.clientPromise).toBe(clientPromise);
+    expect(updater.stagingUserIdPromise).toBe(stagingUserIdPromise);
+    expect(updater.updateInfoAndProvider).toBe(updateInfoAndProvider);
+  });
+
   test('rehydrates the persisted installer metadata after an app restart', async () => {
     const cacheDir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'electron-updater-test-'),

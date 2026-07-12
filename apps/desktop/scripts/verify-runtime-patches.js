@@ -64,6 +64,7 @@ if (runtimePackage.version !== workspacePackage.version) {
 }
 
 const expectedRuntimePatchMarkers = [
+  ['out/AppUpdater.js', 'resetForRetry()'],
   ['out/AppUpdater.js', 'this.emit("update-download-fileInfo", fileInfo);'],
   ['out/BaseUpdater.js', 'isExistInstallerPath()'],
   ['out/BaseUpdater.js', 'async updateInstallerPath(installerPath)'],
