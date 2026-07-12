@@ -27,6 +27,22 @@ describe('earnUtils Spark provider integration', () => {
       }),
     ).toBe(protocolVault);
   });
+
+  it('fails closed until Spark returns a withdrawal path', () => {
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'Spark',
+        isLoading: false,
+      }),
+    ).toBe(false);
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'Spark',
+        isLoading: false,
+        withdrawType: 'instant',
+      }),
+    ).toBe(true);
+  });
 });
 
 describe('earnUtils Bitway provider behavior', () => {

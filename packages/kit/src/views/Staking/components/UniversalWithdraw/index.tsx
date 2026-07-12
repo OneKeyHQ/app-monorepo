@@ -391,8 +391,11 @@ export function UniversalWithdraw({
     () => earnUtils.isPendleProvider({ providerName: providerName ?? '' }),
     [providerName],
   );
-  const isBitwayProvider = useMemo(
-    () => earnUtils.isBitwayProvider({ providerName: providerName ?? '' }),
+  const requiresEarnWithdrawPath = useMemo(
+    () =>
+      earnUtils.requiresEarnWithdrawPath({
+        providerName: providerName ?? '',
+      }),
     [providerName],
   );
   const shouldSendProtocolVault = useMemo(
@@ -1338,7 +1341,7 @@ export function UniversalWithdraw({
     return (
       loading ||
       checkAmountLoading ||
-      (isBitwayProvider && transactionConfirmationLoading)
+      (requiresEarnWithdrawPath && transactionConfirmationLoading)
     );
   }, [
     shouldApprove,
@@ -1348,7 +1351,7 @@ export function UniversalWithdraw({
     quoteRefreshing,
     loading,
     checkAmountLoading,
-    isBitwayProvider,
+    requiresEarnWithdrawPath,
     transactionConfirmationLoading,
   ]);
 

@@ -74,6 +74,9 @@ const isVaultBasedProvider = ({ providerName }: { providerName: string }) => {
   );
 };
 
+const requiresEarnWithdrawPath = ({ providerName }: { providerName: string }) =>
+  isSparkProvider({ providerName }) || isBitwayProvider({ providerName });
+
 const isEarnWithdrawPathReady = ({
   providerName,
   isLoading,
@@ -83,7 +86,8 @@ const isEarnWithdrawPathReady = ({
   isLoading: boolean;
   withdrawType?: IEarnWithdrawType;
 }) =>
-  !isBitwayProvider({ providerName }) || (!isLoading && Boolean(withdrawType));
+  !requiresEarnWithdrawPath({ providerName }) ||
+  (!isLoading && Boolean(withdrawType));
 
 const shouldSendEarnProtocolVault = ({
   providerName,
@@ -308,6 +312,7 @@ export default {
   getEarnPermitCacheKey,
   isUSDTonETHNetwork,
   isVaultBasedProvider,
+  requiresEarnWithdrawPath,
   isEarnWithdrawPathReady,
   shouldSendEarnProtocolVault,
   isValidatorProvider,
