@@ -12,7 +12,7 @@ internal class HomeContainerSurfaceView(context: Context) : FrameLayout(context)
   private val reactChildren = mutableListOf<View>()
   private var engine: HomeContainerView? = null
   private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
-  private var slotGestureCandidate = false
+  private var slotGestureCandidate: HomeContainerSlotView? = null
   private var forwardingSlotGesture = false
   private var horizontalSlotGesture = false
   private var slotDownX = 0f
@@ -65,19 +65,25 @@ internal class HomeContainerSurfaceView(context: Context) : FrameLayout(context)
     when (event.actionMasked) {
       MotionEvent.ACTION_DOWN -> {
         resetSlotGesture()
-        slotGestureCandidate = interactiveSlotAt(event.x, event.y) != null
-        if (slotGestureCandidate) {
+        slotGestureCandidate = interactiveSlotAt(event.x, event.y)
+        if (slotGestureCandidate != null) {
           slotDownX = event.x
           slotDownY = event.y
           slotDownEvent = MotionEvent.obtain(event)
         }
       }
       MotionEvent.ACTION_MOVE -> {
-        if (!slotGestureCandidate) return false
+        val candidate = slotGestureCandidate ?: return false
         val dx = abs(event.x - slotDownX)
         val dy = abs(event.y - slotDownY)
         if (dx > touchSlop || dy > touchSlop) {
           horizontalSlotGesture = dx > dy
+          if (
+            horizontalSlotGesture &&
+            candidate.slotKey.startsWith("content.footer.")
+          ) {
+            return false
+          }
           forwardingSlotGesture = true
           return true
         }
@@ -176,7 +182,7 @@ internal class HomeContainerSurfaceView(context: Context) : FrameLayout(context)
   private fun resetSlotGesture() {
     slotDownEvent?.recycle()
     slotDownEvent = null
-    slotGestureCandidate = false
+    slotGestureCandidate = null
     forwardingSlotGesture = false
     horizontalSlotGesture = false
   }

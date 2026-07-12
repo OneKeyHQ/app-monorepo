@@ -140,9 +140,11 @@ function SupportHubBannerItem({
 function SupportHub({
   helpCenterTitle,
   helpCenterLink,
+  nativeSlot = false,
 }: {
   helpCenterTitle?: string;
   helpCenterLink?: string;
+  nativeSlot?: boolean;
 } = {}) {
   const intl = useIntl();
   const themeVariant = useThemeVariant();
@@ -219,13 +221,14 @@ function SupportHub({
   const renderContent = useCallback(() => {
     return (
       <Stack
-        flexDirection="row"
+        flexDirection={nativeSlot ? 'column' : 'row'}
         $md={{ flexDirection: 'column' }}
         gap="$3"
         width="100%"
       >
         <Stack
-          flex={1}
+          flex={nativeSlot ? undefined : 1}
+          height={nativeSlot ? 151 : undefined}
           $gtMd={{ flexBasis: 0 }}
           overflow="hidden"
           onLayout={(e) => setBannerWidth(e.nativeEvent.layout.width)}
@@ -268,12 +271,14 @@ function SupportHub({
         <Stack
           flexDirection="column"
           gap="$3"
-          flex={1}
+          flex={nativeSlot ? undefined : 1}
+          height={nativeSlot ? 132 : undefined}
           $gtMd={{ flexBasis: 0 }}
         >
           <RichBlock
             blockContainerProps={{
-              flex: 1,
+              flex: nativeSlot ? undefined : 1,
+              height: nativeSlot ? 60 : undefined,
             }}
             content={
               <SupportHubItem
@@ -294,7 +299,8 @@ function SupportHub({
           />
           <RichBlock
             blockContainerProps={{
-              flex: 1,
+              flex: nativeSlot ? undefined : 1,
+              height: nativeSlot ? 60 : undefined,
             }}
             content={
               <SupportHubItem
@@ -317,6 +323,7 @@ function SupportHub({
     resolvedHelpCenterTitle,
     resolvedHelpCenterLink,
     bannerData,
+    nativeSlot,
     renderBannerItem,
     bannerWidth,
   ]);

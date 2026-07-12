@@ -41,7 +41,6 @@ import {
 } from '@onekeyhq/kit/src/components/Loading';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
-import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
@@ -61,10 +60,6 @@ import {
   type IHomeContainerTabId,
   type IHomeContainerTheme,
 } from '@onekeyhq/native-components';
-import {
-  ONEKEY_SIFU_URL,
-  ONEKEY_URL,
-} from '@onekeyhq/shared/src/config/appConfig';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   EAppEventBusNames,
@@ -72,7 +67,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import {
   EModalAssetDetailRoutes,
   EModalAssetListRoutes,
@@ -82,7 +76,6 @@ import {
   EModalSignatureConfirmRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   AllWalletAvatarImages,
@@ -119,12 +112,13 @@ import {
 import { usePerpsNavigation } from '../Market/hooks/usePerpsNavigation';
 import { usePrimeAvailable } from '../Prime/hooks/usePrimeAvailable';
 import { maybeOpenPrivateSendHistoryDetail } from '../Swap/utils/privateSendHistory';
-import { openWebView } from '../WebView/utils/webViewNavigation';
 
 import { showBalanceDetailsDialog } from './components/BalanceDetailsDialog';
 import { formatPortfolioTotal } from './components/DeFiListBlock/formatPortfolioTotal';
 import { onHomePageRefresh } from './components/PullToRefresh';
 import { RichBlockHeader } from './components/RichBlock/RichBlockHeader';
+import { SupportHub } from './components/SupportHub';
+import { Upgrade } from './components/Upgrade';
 import { ActionItem } from './components/WalletActions/RawActions';
 import {
   NATIVE_HOME_ACTION_IDS,
@@ -215,13 +209,6 @@ function formatNativeEarnApr(
   );
 }
 
-const supportQuizImageUrl = Image.resolveAssetSource(
-  require('@onekeyhq/kit/assets/web3_quiz_challange_bg.jpg'),
-)?.uri;
-const supportSifuImageUrl = Image.resolveAssetSource(
-  require('@onekeyhq/kit/assets/sifu_bg.jpg'),
-)?.uri;
-
 export function NativeHomePage({
   debugOverlayEnabled,
   onAction,
@@ -266,7 +253,6 @@ export function NativeHomePage({
     indexedAccountId: indexedAccount?.id,
     isOthersWallet,
   });
-  const helpCenterLink = useHelpLink({ path: '' });
   const { isPrimeAvailable } = usePrimeAvailable();
   const { user } = useOneKeyAuth();
   const isWalletNotBackedUp = Boolean(
@@ -673,79 +659,6 @@ export function NativeHomePage({
       })),
     });
 
-    if (
-      isPrimeAvailable &&
-      !(user?.primeSubscription?.isActive && user.onekeyUserId)
-    ) {
-      sections.push({
-        id: 'portfolio-upgrade',
-        title: intl.formatMessage({ id: ETranslations.global_upgrade }),
-        items: [
-          {
-            id: 'upgrade-prime',
-            renderer: 'upgrade',
-            title: intl.formatMessage({ id: ETranslations.global_prime }),
-            subtitle: intl.formatMessage({
-              id: ETranslations.settings_cloud_sync_bulk_tools_and_more,
-            }),
-            leadingIcon: 'prime',
-            buttonTitle: intl.formatMessage({
-              id: ETranslations.prime_get_prime,
-            }),
-            actionId: 'home.widget.prime',
-          },
-        ],
-      });
-    }
-
-    sections.push(
-      {
-        id: 'portfolio-support-promos',
-        title: intl.formatMessage({ id: ETranslations.settings_support_hub }),
-        layout: 'horizontal',
-        items: [
-          {
-            id: 'support-quiz',
-            renderer: 'supportPromo',
-            title: intl.formatMessage({ id: ETranslations.quiz_time__title }),
-            subtitle: intl.formatMessage({ id: ETranslations.quiz_time__desc }),
-            imageUrl: supportQuizImageUrl,
-            actionId: 'home.support.quiz',
-          },
-          {
-            id: 'support-sifu',
-            renderer: 'supportPromo',
-            title: intl.formatMessage({ id: ETranslations.wallet_onekey_sifu }),
-            subtitle: intl.formatMessage({
-              id: ETranslations.wallet_get_one_on_one_hardware_wallet_setup_help,
-            }),
-            imageUrl: supportSifuImageUrl,
-            actionId: 'home.support.sifu',
-          },
-        ],
-      },
-      {
-        id: 'portfolio-support-actions',
-        items: [
-          {
-            id: 'support-contact',
-            renderer: 'supportAction',
-            title: intl.formatMessage({ id: ETranslations.global_contact_us }),
-            leadingIcon: 'support',
-            actionId: 'home.support.contact',
-          },
-          {
-            id: 'support-help',
-            renderer: 'supportAction',
-            title: intl.formatMessage({
-              id: ETranslations.settings_help_center,
-            }),
-            leadingIcon: 'book',
-            actionId: 'home.support.help',
-          },
-        ],
-      },
-    );
     return sections;
   }, [
     deFi.initialized,
@@ -753,7 +666,6 @@ export function NativeHomePage({
     deFi.protocols,
     formatters,
     intl,
-    isPrimeAvailable,
     portfolioAssetSections,
     supplemental.earn,
     supplemental.market,
@@ -761,8 +673,6 @@ export function NativeHomePage({
     tabTitles.defi,
     theme.textCritical.val,
     theme.textSuccess.val,
-    user?.onekeyUserId,
-    user?.primeSubscription?.isActive,
     visiblePortfolioTokens.length,
   ]);
 
@@ -1292,11 +1202,35 @@ export function NativeHomePage({
     perps.viewState,
     settings.currencyInfo.symbol,
   ]);
+  const contentFooterSlots = useMemo<
+    NonNullable<IHomeContainerSlots['contentFooters']>
+  >(() => {
+    const shouldShowUpgrade =
+      isPrimeAvailable &&
+      !(user?.primeSubscription?.isActive && user.onekeyUserId);
+    return {
+      portfolio: {
+        ...(shouldShowUpgrade
+          ? {
+              upgrade: {
+                interaction: 'tap' as const,
+                content: <Upgrade />,
+              },
+            }
+          : {}),
+        support: {
+          interaction: 'tap',
+          content: <SupportHub nativeSlot />,
+        },
+      },
+    };
+  }, [isPrimeAvailable, user?.onekeyUserId, user?.primeSubscription?.isActive]);
   const homeSlots = useMemo<IHomeContainerSlots>(
     () => ({
       backgroundColor: nativeTheme.backgroundColor,
       accountRow: accountRowSlot,
       balance: balanceSlot,
+      contentFooters: contentFooterSlots,
       headerActionRow: headerActionRowSlot,
       contentHeaders: contentHeaderSlots,
       contentStates: contentStateSlots,
@@ -1305,6 +1239,7 @@ export function NativeHomePage({
     [
       accountRowSlot,
       balanceSlot,
+      contentFooterSlots,
       contentHeaderSlots,
       contentStateSlots,
       headerActionRowSlot,
@@ -1500,34 +1435,12 @@ export function NativeHomePage({
         if (banner) await banners.dismiss(banner);
         return;
       }
-      if (actionId === 'home.support.contact') {
-        await showIntercom();
-        return;
-      }
-      if (actionId === 'home.support.help') {
-        openWebView({ url: helpCenterLink, source: 'in-app' });
-        return;
-      }
-      if (actionId === 'home.support.quiz') {
-        openWebView({ url: `${ONEKEY_URL}/quiz-challenge`, source: 'in-app' });
-        return;
-      }
-      if (actionId === 'home.support.sifu') {
-        openWebView({ url: ONEKEY_SIFU_URL, source: 'in-app' });
-        return;
-      }
       if (actionId === 'home.widget.market') {
         navigation.switchTab(ETabRoutes.Discovery);
         return;
       }
       if (actionId === 'home.widget.earn') {
         navigation.switchTab(ETabRoutes.Earn);
-        return;
-      }
-      if (actionId === 'home.widget.prime') {
-        navigation.pushFullModal(EModalRoutes.PrimeModal, {
-          screen: EPrimePages.PrimeDashboard,
-        });
         return;
       }
       if (actionId === NATIVE_HOME_ACTION_IDS.openDeFiOverview) {
@@ -1912,7 +1825,6 @@ export function NativeHomePage({
       deriveInfoItems,
       deriveType,
       handleOnManageToken,
-      helpCenterLink,
       history.data,
       hideValue,
       indexedAccount?.id,
