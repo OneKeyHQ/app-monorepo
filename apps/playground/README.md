@@ -267,3 +267,14 @@ Verified 2026-07-11 on an iPhone 16 Pro simulator:
 - `Progress` mounts its web indicator lazily (two 300ms steps) so the bar
   animates in from 0 — give screenshots ~1s. Native renders the value
   immediately.
+- Notes from batch 6 (Form/OTPInput/ColorPicker/Accordion/Stepper/
+  DescriptionList): `Banner` was excluded — it calls `useIsFocused()` from
+  `@react-navigation/native` at the top level, so it throws outside a
+  NavigationContainer; a story needs a navigation decorator first.
+  `Form.Field` clones its child with `error`/`hasError` injected — children
+  that don't declare `hasError` (e.g. `Switch`) pass it through to the DOM on
+  web and React logs an unknown-prop warning (pre-existing, app-wide, not
+  story-induced). Styled-component default trap: passing an explicit
+  `gap={undefined}` to `DescriptionList` overrides (drops) the styled frame's
+  `$4` default instead of falling back to it — demo wrappers should default
+  the prop themselves.
