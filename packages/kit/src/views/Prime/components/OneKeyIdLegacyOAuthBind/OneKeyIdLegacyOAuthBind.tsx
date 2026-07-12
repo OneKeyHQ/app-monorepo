@@ -18,6 +18,7 @@ import {
   redirectOneKeyIdAuthToExtExpandTab,
   shouldRunOneKeyIdAuthInExtExpandTab,
 } from '@onekeyhq/kit/src/components/OneKeyAuth/extOneKeyIdAuthExpandTab';
+import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import {
   EOneKeyIdLogoutDialogSource,
   useShowOneKeyIdLogoutDialog,
@@ -27,6 +28,10 @@ import {
   EExtOneKeyIdAuthFlow,
   EOAuthSocialLoginProvider,
 } from '@onekeyhq/shared/src/consts/authConsts';
+import {
+  EOneKeyErrorClassNames,
+  type IOneKeyError,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EOneKeyIdLoginWithLocalKeylessPrepareStatus,
@@ -43,7 +48,10 @@ import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/sr
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EOneKeyIdOAuthProvider } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { showOneKeyIdLoginSuccessToast } from '../oneKeyIdLoginToastUtils';
 import { useOneKeyIdLocalKeylessOAuth } from '../useOneKeyIdLocalKeylessOAuth';
+
+import type { IntlShape } from 'react-intl';
 
 export const ONEKEY_ID_BIND_OAUTH_TITLE = 'Add Google or Apple Sign-In';
 export const ONEKEY_ID_BIND_OAUTH_DESC =
@@ -62,6 +70,68 @@ function getBindOAuthDescription(provider?: EOAuthSocialLoginProvider) {
         provider,
       )} sign-in method to keep access to your OneKey ID.`
     : ONEKEY_ID_BIND_OAUTH_DESC;
+}
+
+function isOneKeyIdOAuthIdentityAlreadyBoundError(error: unknown): boolean {
+  const err = error as IOneKeyError | undefined;
+  return (
+    err?.className ===
+      EOneKeyErrorClassNames.OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound ||
+    err?.name ===
+      EOneKeyErrorClassNames.OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound
+  );
+}
+
+/**
+ * Server-side identity ownership conflict (oauth_identity_already_bound): the
+ * OAuth identity belongs to a DIFFERENT OneKey ID, and server-side binding is
+ * monotonic (identities are only ever added), so retrying this bind can never
+ * succeed. The only in-app recovery is switching to the OneKey ID that owns
+ * the identity; ask for explicit confirmation because it logs the current
+ * legacy email account out (recoverable via email re-login).
+ */
+async function showOneKeyIdOAuthIdentityAlreadyBoundSwitchDialog({
+  intl,
+  provider,
+  hasLocalKeylessWallet,
+}: {
+  intl: IntlShape;
+  provider: EOAuthSocialLoginProvider;
+  hasLocalKeylessWallet: boolean;
+}): Promise<boolean> {
+  const providerName = getOAuthSocialLoginProviderName(provider);
+  let displayEmail: string | undefined;
+  try {
+    const userInfo = await backgroundApiProxy.servicePrime.getLocalUserInfo();
+    displayEmail = userInfo?.displayEmail;
+  } catch {
+    // keep the localized "Unknown" fallback from getDisplayEmailOrUnknown
+  }
+  const emailText = getDisplayEmailOrUnknown({ intl, displayEmail });
+  return new Promise<boolean>((resolve) => {
+    let isSettled = false;
+    const settle = (value: boolean) => {
+      if (!isSettled) {
+        isSettled = true;
+        resolve(value);
+      }
+    };
+    Dialog.show({
+      icon: 'ErrorOutline',
+      // TODO: i18n
+      title: 'Already Linked to Another OneKey ID',
+      // TODO: i18n
+      description: `This ${providerName} account is already linked to another OneKey ID, so it can't be added to ${emailText}. Continue to log out of ${emailText} and sign in with the OneKey ID linked to this ${providerName} account instead. You can log back in to ${emailText} with email verification at any time${
+        hasLocalKeylessWallet ? '; the Keyless wallet stays untouched' : ''
+      }.`,
+      showCancelButton: true,
+      onConfirmText: intl.formatMessage({ id: ETranslations.global_continue }),
+      onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
+      onConfirm: () => settle(true),
+      onCancel: () => settle(false),
+      onClose: () => settle(false),
+    });
+  });
 }
 
 function OneKeyIdLegacyOAuthBindHeader({
@@ -102,17 +172,20 @@ function OneKeyIdLegacyOAuthBindActions({
   fullWidth,
   onBindSuccess,
   onBindError,
-  onBeforeShowKeylessLogoutDialog,
+  onBeforeShowNestedDialog,
 }: {
   bindProvider?: EOAuthSocialLoginProvider;
   buttonSize?: 'small' | 'large';
   fullWidth?: boolean;
   onBindSuccess?: () => void | Promise<void>;
   onBindError?: (error: unknown) => void;
-  onBeforeShowKeylessLogoutDialog?: () => void | Promise<void>;
+  // Called when the flow hands off to another dialog (keyless logout, switch
+  // account): the host bind dialog should close itself and settle as
+  // not-bound before the nested dialog shows.
+  onBeforeShowNestedDialog?: () => void | Promise<void>;
 }) {
   const intl = useIntl();
-  const { legacySupabaseSignOut } = useOneKeyAuth();
+  const { legacySupabaseSignOut, logout } = useOneKeyAuth();
   const showOneKeyIdLogoutDialog = useShowOneKeyIdLogoutDialog();
   const [bindingProvider, setBindingProvider] =
     useState<EOAuthSocialLoginProvider | null>(null);
@@ -159,6 +232,49 @@ function OneKeyIdLegacyOAuthBindActions({
     };
   }, []);
 
+  const handleSwitchToBoundOneKeyId = useCallback(
+    async ({
+      provider,
+      oauthAccessToken,
+      didUseOAuthSignIn,
+    }: {
+      provider: EOAuthSocialLoginProvider;
+      oauthAccessToken: string;
+      didUseOAuthSignIn: boolean;
+    }) => {
+      const confirmed = await showOneKeyIdOAuthIdentityAlreadyBoundSwitchDialog(
+        {
+          intl,
+          provider,
+          hasLocalKeylessWallet: isLocalKeylessOAuthMode,
+        },
+      );
+      if (!confirmed) {
+        if (didUseOAuthSignIn) {
+          await clearOAuthSignInTempSession();
+        }
+        return;
+      }
+      try {
+        // Same switch sequence as useKeylessLocalExistenceLogin: log the
+        // legacy email OneKey ID out first (recoverable via email re-login;
+        // keyless auth artifacts are preserved), then log in with the OAuth
+        // session that owns the conflicting identity.
+        await logout({ preserveLocalKeylessAuth: true });
+        await backgroundApiProxy.servicePrime.apiOAuthLogin({
+          accessToken: oauthAccessToken,
+        });
+      } catch (error) {
+        if (didUseOAuthSignIn) {
+          await clearOAuthSignInTempSession();
+        }
+        throw error;
+      }
+      showOneKeyIdLoginSuccessToast(intl);
+    },
+    [clearOAuthSignInTempSession, intl, isLocalKeylessOAuthMode, logout],
+  );
+
   const handleBindOAuth = useCallback(
     async (provider: EOAuthSocialLoginProvider) => {
       if (bindingProviderRef.current) {
@@ -182,16 +298,39 @@ function OneKeyIdLegacyOAuthBindActions({
         setShowKeylessLogoutAction(false);
         await errorToastUtils.withErrorAutoToast(async () => {
           let didUseOAuthSignIn = false;
+          let oauthAccessToken = '';
           try {
             const result = await getOAuthAccessToken({
               provider,
               missingTokenMessage: 'OAuth bind failed: access token not found',
             });
             didUseOAuthSignIn = result.didUseOAuthSignIn;
+            oauthAccessToken = result.accessToken;
             await backgroundApiProxy.servicePrime.apiBindLegacyOneKeyIdOAuth({
-              oauthAccessToken: result.accessToken,
+              oauthAccessToken,
             });
           } catch (error) {
+            if (
+              oauthAccessToken &&
+              isOneKeyIdOAuthIdentityAlreadyBoundError(error)
+            ) {
+              // BackgroundApiProxyBase schedules the auto toast for this
+              // bridged error in a delayed setTimeout; clearing autoToast on
+              // the same object reference cancels it — the switch-account
+              // dialog is the user-facing feedback for this error instead.
+              // The temp OAuth session is intentionally NOT cleared here: the
+              // switch flow needs it, and handleSwitchToBoundOneKeyId cleans
+              // it up on cancel/failure.
+              errorToastUtils.toastIfErrorDisable(error);
+              await onBeforeShowNestedDialog?.();
+              await timerUtils.wait(300);
+              await handleSwitchToBoundOneKeyId({
+                provider,
+                oauthAccessToken,
+                didUseOAuthSignIn,
+              });
+              return;
+            }
             if (didUseOAuthSignIn) {
               await clearOAuthSignInTempSession();
             }
@@ -213,8 +352,10 @@ function OneKeyIdLegacyOAuthBindActions({
     [
       clearOAuthSignInTempSession,
       getOAuthAccessToken,
+      handleSwitchToBoundOneKeyId,
       intl,
       legacySupabaseSignOut,
+      onBeforeShowNestedDialog,
       onBindError,
       onBindSuccess,
     ],
@@ -230,14 +371,14 @@ function OneKeyIdLegacyOAuthBindActions({
       return;
     }
 
-    await onBeforeShowKeylessLogoutDialog?.();
+    await onBeforeShowNestedDialog?.();
     await timerUtils.wait(300);
     void showOneKeyIdLogoutDialog({
       source: EOneKeyIdLogoutDialogSource.KeylessWallet,
       keylessWallet,
       isOneKeyIdLoggedIn: false,
     });
-  }, [onBeforeShowKeylessLogoutDialog, showOneKeyIdLogoutDialog]);
+  }, [onBeforeShowNestedDialog, showOneKeyIdLogoutDialog]);
 
   const googleButton = (
     <Button
@@ -344,12 +485,12 @@ function OneKeyIdLegacyOAuthBindDialogContent({
   bindProvider,
   onBindSuccess,
   onBindError,
-  onBeforeShowKeylessLogoutDialog,
+  onBeforeShowNestedDialog,
 }: {
   bindProvider?: EOAuthSocialLoginProvider;
   onBindSuccess?: () => void | Promise<void>;
   onBindError?: (error: unknown) => void;
-  onBeforeShowKeylessLogoutDialog?: () => void | Promise<void>;
+  onBeforeShowNestedDialog?: () => void | Promise<void>;
 }) {
   return (
     <Stack>
@@ -360,7 +501,7 @@ function OneKeyIdLegacyOAuthBindDialogContent({
         fullWidth
         onBindSuccess={onBindSuccess}
         onBindError={onBindError}
-        onBeforeShowKeylessLogoutDialog={onBeforeShowKeylessLogoutDialog}
+        onBeforeShowNestedDialog={onBeforeShowNestedDialog}
       />
       <Dialog.Footer showFooter={false} />
     </Stack>
@@ -542,7 +683,7 @@ export async function showOneKeyIdLegacyOAuthBindDialog({
                 resolve(true);
               }
             }}
-            onBeforeShowKeylessLogoutDialog={async () => {
+            onBeforeShowNestedDialog={async () => {
               if (!isSettled) {
                 isSettled = true;
                 await dialog.close();
