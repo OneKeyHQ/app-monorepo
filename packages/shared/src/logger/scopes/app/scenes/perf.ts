@@ -108,4 +108,17 @@ export class AppPerfScene extends BaseScene {
   }) {
     return params;
   }
+
+  @LogToLocal()
+  public deviceCapabilityDetected(params: {
+    cpuTier: string;
+    cpuSource: string;
+    cpuConfidence: string;
+    memoryClass: string;
+    tabPreloadMode: string;
+    tabPreloadReason: string;
+    dataVersion: string;
+  }) {
+    return params;
+  }
 }
