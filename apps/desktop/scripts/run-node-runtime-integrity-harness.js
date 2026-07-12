@@ -62,7 +62,7 @@ forwardSanitizedLines(child.stderr, process.stderr);
 
 const timeout = setTimeout(() => {
   child.kill();
-}, 30_000);
+}, 90_000);
 
 child.once('exit', (code) => {
   clearTimeout(timeout);

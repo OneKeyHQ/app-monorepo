@@ -596,8 +596,14 @@ jobs:
           cd apps/desktop
           npx electron-builder build -w --config electron-builder-ms.config.js --publish never
 
+      - name: Verify packaged Electron Node runtime integrity (WinMS)
+        id: phase2_runtime_integrity
+        if: always() && steps.phase2_winms.outcome == 'success'
+        timeout-minutes: 2
+        run: yarn workspace @onekeyhq/desktop harness:node-runtime
+
       - name: Upload WinMS exe
-        if: always() && steps.phase2_winms.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
+        if: always() && steps.phase2_winms.outcome == 'success' && steps.phase2_runtime_integrity.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-winms-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -607,7 +613,7 @@ jobs:
             !./apps/desktop/build-electron/*-arm64.exe
 
       - name: 'Notify to Slack - WinMS'
-        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase2_winms.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
+        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase2_winms.outcome == 'success' && steps.phase2_runtime_integrity.outcome == 'success'
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
@@ -628,6 +634,7 @@ jobs:
           [[ "${{ steps.phase1_nsis.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase1_runtime_integrity.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase2_winms.outcome }}" == "failure" ]] && exit 1
+          [[ "${{ steps.phase2_runtime_integrity.outcome }}" == "failure" ]] && exit 1
           exit 0
 
   # ═══════════════════════════════════════════════════

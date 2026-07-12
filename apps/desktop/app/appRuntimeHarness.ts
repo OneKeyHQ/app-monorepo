@@ -1,6 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { setImmediate as nodeSetImmediate } from 'node:timers';
+import {
+  clearTimeout as nodeClearTimeout,
+  setImmediate as nodeSetImmediate,
+  setTimeout as nodeSetTimeout,
+} from 'node:timers';
 
 import {
   auditCanonicalNodeGlobals,
@@ -20,12 +24,75 @@ interface IHarnessStagingResult {
   success: boolean;
 }
 
+class RuntimeHarnessError extends Error {}
+
 const summarizeNames = (items: Array<{ name: string }>): string =>
   items.map(({ name }) => name).join(',');
+
+const rendererReadyTimeoutMs = 30_000;
+const updateCheckFallbackDelayMs = 15_000;
+const rendererInitializationAllowanceMs = 15_000;
+
+const waitForTimeout = (timeoutMs: number): Promise<void> =>
+  new Promise((resolve) => {
+    nodeSetTimeout(resolve, timeoutMs);
+  });
+
+const waitForRendererReady = async (
+  rendererReadyPromise: Promise<void>,
+): Promise<void> => {
+  let timeout: ReturnType<typeof nodeSetTimeout> | undefined;
+  try {
+    await Promise.race([
+      rendererReadyPromise,
+      new Promise<never>((_resolve, reject) => {
+        timeout = nodeSetTimeout(() => {
+          reject(
+            new Error(
+              `Renderer did not reach dom-ready within ${rendererReadyTimeoutMs}ms`,
+            ),
+          );
+        }, rendererReadyTimeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) {
+      nodeClearTimeout(timeout);
+    }
+  }
+};
 
 export async function runAppRuntimeHarness(outputFile: string): Promise<void> {
   const baseline = captureNodeRuntimeBaseline();
   const canonicalDriftsBeforeAppLoad = auditCanonicalNodeGlobals();
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { app } = require('electron') as typeof import('electron');
+  const isolatedUserDataDir = process.env.DESKTOP_E2E_USER_DATA_DIR;
+  if (!isolatedUserDataDir) {
+    throw new RuntimeHarnessError(
+      'DESKTOP_E2E_USER_DATA_DIR is required by the harness',
+    );
+  }
+  // app.ts imports the persistent store before its executable statements run.
+  // Establish the isolated path here so those module constructors cannot read
+  // the host profile (including its boot-failure counter) during evaluation.
+  app.setPath('userData', isolatedUserDataDir);
+
+  let resolveRendererReady: (() => void) | undefined;
+  const rendererReadyPromise = new Promise<void>((resolve) => {
+    resolveRendererReady = resolve;
+  });
+  const onWebContentsCreated = (
+    _event: Electron.Event,
+    webContents: Electron.WebContents,
+  ): void => {
+    webContents.once('dom-ready', () => {
+      resolveRendererReady?.();
+      resolveRendererReady = undefined;
+    });
+  };
+  app.on('web-contents-created', onWebContentsCreated);
+
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { autoUpdater } =
     require('electron-updater') as typeof import('electron-updater');
@@ -56,13 +123,17 @@ export async function runAppRuntimeHarness(outputFile: string): Promise<void> {
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { app } = require('electron') as typeof import('electron');
-
   await app.whenReady();
-  await new Promise<void>((resolve) => {
-    nodeSetImmediate(resolve);
-  });
+  await waitForRendererReady(rendererReadyPromise);
+  // AppUpdateForeground can mount after dom-ready and then schedules its
+  // cold-start check through runAfterTokensDone(), whose fallback is another
+  // 15 seconds. Allow both phases so the harness cannot report success before
+  // a delayed startup update check or late runtime mutation occurs.
+  await waitForTimeout(
+    rendererInitializationAllowanceMs + updateCheckFallbackDelayMs,
+  );
+  await new Promise<void>((resolve) => nodeSetImmediate(resolve));
+  app.removeListener('web-contents-created', onWebContentsCreated);
   const driftsAfterAppInit = auditNodeRuntime(baseline);
   const canonicalDriftsAfterAppInit = auditCanonicalNodeGlobals();
   const stagingIdUpdater = autoUpdater as unknown as {
