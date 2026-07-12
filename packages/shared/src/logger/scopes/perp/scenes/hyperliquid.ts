@@ -367,6 +367,21 @@ export class HyperLiquidScene extends BaseScene {
     return params;
   }
 
+  @LogToLocal({ level: 'info' })
+  public subscriptionFastL2Diagnostic(params: {
+    event: string;
+    sequence: number;
+    coin?: string;
+    nSigFigs?: number | null;
+    mantissa?: number | null;
+    subscriptionKey?: string | null;
+    pending?: boolean;
+    hasSnapshot?: boolean;
+    detail?: string;
+  }) {
+    return params;
+  }
+
   /**
    * Defensive log for inner SDK SubscriptionClient dispose errors.
    */
