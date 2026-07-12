@@ -255,3 +255,15 @@ Verified 2026-07-11 on an iPhone 16 Pro simulator:
   you never touched, e.g. a missing prop that the patch adds). `git apply
   patches/<pkg>.patch` for a brand-new patch, or reverse-apply the old version
   first (`git show <old-sha>:patches/… | git apply -R -`) for a modified one.
+- Doc gaps surfaced by batch 5 (Empty/Progress/Divider/NumberSizeableText/
+  QRCode/SearchBar): `QRCode`'s `logoSvg` value is ignored — `BasicQRCode`
+  hardcodes `<Icon name="OnekeyBrand" />`, so the prop is an on/off switch
+  today (nothing outside the old Gallery ever passed it). The type comment
+  claiming "if drawType is line, the logo will not be displayed" is stale —
+  the logo renders in line mode with a rounded wrapper. Also note `QRCode`
+  wraps itself in `Theme name="light"` (scannability in dark mode), and the
+  `animated` drawType needs a `valueUr` from `@onekeyhq/qr-wallet-sdk`, so
+  stories cover `line`/`dot` only.
+- `Progress` mounts its web indicator lazily (two 300ms steps) so the bar
+  animates in from 0 — give screenshots ~1s. Native renders the value
+  immediately.
