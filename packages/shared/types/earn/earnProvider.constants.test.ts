@@ -13,12 +13,11 @@ describe('Bitway Earn provider constants', () => {
   it.each([
     ['u', 'U'],
     ['btw', 'BTW'],
-    ['usd1', 'USD1'],
   ])('normalizes the Bitway symbol %s to %s', (input, expected) => {
     expect(normalizeToEarnSymbol(input)).toBe(expected);
   });
 
-  it.each(['U', 'BTW', 'USD1'])(
+  it.each(['U', 'BTW'])(
     'exposes the %s Market token as Earn-capable',
     (symbol) => {
       expect(isSupportStaking(symbol)).toBe(true);

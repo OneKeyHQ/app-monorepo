@@ -54,8 +54,7 @@ export type ISupportedSymbol =
   | 'stcUSD'
   | 'kHYPE'
   | 'U'
-  | 'BTW'
-  | 'USD1';
+  | 'BTW';
 
 export interface IStakingFlowConfig {
   enabled: boolean;
