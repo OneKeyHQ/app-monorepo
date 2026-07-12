@@ -89,6 +89,7 @@ child.once('exit', (code) => {
       report.driftsAfterRepair.length === 0 &&
       report.driftsAfterAppInit.length === 0 &&
       report.autoDownload === false &&
+      report.checkForUpdatesCallCount === 0 &&
       report.checkForUpdatesCalled === false &&
       report.stagingResult.success === true &&
       report.stagingResult.idLength === 36 &&
@@ -103,6 +104,7 @@ child.once('exit', (code) => {
           canonicalDriftsAfterAppInit: report.canonicalDriftsAfterAppInit,
           canonicalDriftsAfterRepair: report.canonicalDriftsAfterRepair,
           canonicalDriftsBeforeAppLoad: report.canonicalDriftsBeforeAppLoad,
+          checkForUpdatesCallCount: report.checkForUpdatesCallCount,
           checkForUpdatesCalled: report.checkForUpdatesCalled,
           driftsAfterAppInit: report.driftsAfterAppInit,
           driftsAfterRepair: report.driftsAfterRepair,

@@ -26,6 +26,16 @@ const summarizeNames = (items: Array<{ name: string }>): string =>
 export async function runAppRuntimeHarness(outputFile: string): Promise<void> {
   const baseline = captureNodeRuntimeBaseline();
   const canonicalDriftsBeforeAppLoad = auditCanonicalNodeGlobals();
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { autoUpdater } =
+    require('electron-updater') as typeof import('electron-updater');
+  let checkForUpdatesCallCount = 0;
+  autoUpdater.checkForUpdates = () => {
+    checkForUpdatesCallCount += 1;
+    return Promise.resolve(null);
+  };
+  autoUpdater.logger = null;
+  autoUpdater.autoDownload = false;
 
   // The full application graph loads only after the pristine runtime snapshot.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -55,13 +65,6 @@ export async function runAppRuntimeHarness(outputFile: string): Promise<void> {
   });
   const driftsAfterAppInit = auditNodeRuntime(baseline);
   const canonicalDriftsAfterAppInit = auditCanonicalNodeGlobals();
-
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { autoUpdater } =
-    require('electron-updater') as typeof import('electron-updater');
-
-  autoUpdater.logger = null;
-  autoUpdater.autoDownload = false;
   const stagingIdUpdater = autoUpdater as unknown as {
     getOrCreateStagingUserId: () => Promise<string>;
   };
@@ -110,7 +113,8 @@ export async function runAppRuntimeHarness(outputFile: string): Promise<void> {
     canonicalDriftsAfterAppInit,
     canonicalDriftsAfterRepair,
     canonicalDriftsBeforeAppLoad,
-    checkForUpdatesCalled: false,
+    checkForUpdatesCallCount,
+    checkForUpdatesCalled: checkForUpdatesCallCount > 0,
     driftsAfterAppInit,
     driftsAfterRepair,
     driftsBeforeRepair,
@@ -134,6 +138,7 @@ export async function runAppRuntimeHarness(outputFile: string): Promise<void> {
     driftsAfterAppInit.length > 0 ||
     !stagingResult.success ||
     !stagingResult.fileUuidFormat ||
+    checkForUpdatesCallCount > 0 ||
     autoUpdater.autoDownload;
   app.exit(failed ? 2 : 0);
 }
