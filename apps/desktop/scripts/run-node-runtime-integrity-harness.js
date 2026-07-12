@@ -8,6 +8,11 @@ const {
   getPackagedExecutableCandidates,
   resolvePackagedExecutable,
 } = require('./node-runtime-harness-paths');
+const {
+  evaluateHarnessReport,
+  formatConsoleSummary,
+  formatGitHubStepSummary,
+} = require('./node-runtime-harness-summary');
 
 const desktopDir = path.join(__dirname, '..');
 const useInstalledSnap =
@@ -75,71 +80,38 @@ const forwardSanitizedLines = (stream, destination) => {
 forwardSanitizedLines(child.stdout, process.stdout);
 forwardSanitizedLines(child.stderr, process.stderr);
 
+let spawnError = null;
+let timedOut = false;
+child.once('error', (error) => {
+  spawnError = error;
+});
+
 const timeout = setTimeout(() => {
+  timedOut = true;
   child.kill();
 }, 90_000);
 
-child.once('exit', (code) => {
+child.once('close', (code, signal) => {
   clearTimeout(timeout);
+  let fatalError = null;
+  let report = null;
   try {
-    if (!fs.existsSync(reportFile)) {
-      throw new HarnessError(
-        `Harness exited without a report (exit code ${code}).`,
-      );
+    if (spawnError) {
+      fatalError = `Failed to start packaged Electron: ${spawnError.message}`;
+    } else if (timedOut) {
+      fatalError = 'Packaged Electron exceeded the 90 second harness timeout';
+    } else if (!fs.existsSync(reportFile)) {
+      fatalError = `Harness exited without a report (exit code ${code}, signal ${
+        signal ?? 'none'
+      })`;
+    } else {
+      report = JSON.parse(fs.readFileSync(reportFile, 'utf8'));
+      if (report.fatalError) {
+        fatalError = `Harness fatal error: ${report.fatalError}`;
+      }
     }
-    const report = JSON.parse(fs.readFileSync(reportFile, 'utf8'));
-    if (report.fatalError) {
-      throw new HarnessError(`Harness fatal error: ${report.fatalError}`);
-    }
-    const pass =
-      report.arch === process.arch &&
-      report.platform === process.platform &&
-      report.isPackaged === true &&
-      report.processType === 'browser' &&
-      report.canonicalDriftsBeforeAppLoad.length === 0 &&
-      report.canonicalDriftsAfterRepair.length === 0 &&
-      report.canonicalDriftsAfterAppInit.length === 0 &&
-      report.driftsBeforeRepair.length === 0 &&
-      report.repairs.length === 0 &&
-      report.driftsAfterRepair.length === 0 &&
-      report.driftsAfterAppInit.length === 0 &&
-      report.autoDownload === false &&
-      report.checkForUpdatesCallCount === 0 &&
-      report.checkForUpdatesCalled === false &&
-      report.stagingResult.success === true &&
-      report.stagingResult.idLength === 36 &&
-      report.stagingResult.fileByteLength === 36 &&
-      report.stagingResult.fileUuidFormat === true;
-
-    process.stdout.write(
-      `${JSON.stringify(
-        {
-          arch: report.arch,
-          autoDownload: report.autoDownload,
-          canonicalDriftsAfterAppInit: report.canonicalDriftsAfterAppInit,
-          canonicalDriftsAfterRepair: report.canonicalDriftsAfterRepair,
-          canonicalDriftsBeforeAppLoad: report.canonicalDriftsBeforeAppLoad,
-          checkForUpdatesCallCount: report.checkForUpdatesCallCount,
-          checkForUpdatesCalled: report.checkForUpdatesCalled,
-          driftsAfterAppInit: report.driftsAfterAppInit,
-          driftsAfterRepair: report.driftsAfterRepair,
-          driftsBeforeRepair: report.driftsBeforeRepair,
-          electron: report.electron,
-          isPackaged: report.isPackaged,
-          node: report.node,
-          pass,
-          platform: report.platform,
-          processType: report.processType,
-          repairs: report.repairs,
-          stagingResult: report.stagingResult,
-        },
-        null,
-        2,
-      )}\n`,
-    );
-    if (!pass || code !== 0) {
-      process.exitCode = 1;
-    }
+  } catch (error) {
+    fatalError = `Failed to read harness report: ${error.message}`;
   } finally {
     const resolvedTempRoot = path.resolve(tempRoot);
     const resolvedTempParent = `${path.resolve(tempParent)}${path.sep}`;
@@ -151,5 +123,46 @@ child.once('exit', (code) => {
     ) {
       fs.rmSync(resolvedTempRoot, { force: true, recursive: true });
     }
+  }
+
+  let result;
+  try {
+    result = evaluateHarnessReport({
+      childExitCode: code,
+      expectedArch: process.arch,
+      expectedPlatform: process.platform,
+      fatalError,
+      report,
+    });
+  } catch (error) {
+    result = evaluateHarnessReport({
+      childExitCode: code,
+      expectedArch: process.arch,
+      expectedPlatform: process.platform,
+      fatalError: `Harness report schema was invalid: ${error.message}`,
+      report: null,
+    });
+  }
+  const consoleSummary = redactIdentifiers(formatConsoleSummary(result));
+
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    try {
+      fs.appendFileSync(
+        process.env.GITHUB_STEP_SUMMARY,
+        redactIdentifiers(formatGitHubStepSummary(result)),
+        'utf8',
+      );
+    } catch (error) {
+      process.stderr.write(
+        `${redactIdentifiers(
+          `[NODE_RUNTIME_INTEGRITY] Unable to write GitHub Step Summary: ${error.message}`,
+        )}\n`,
+      );
+    }
+  }
+
+  process.stdout.write(consoleSummary);
+  if (!result.pass) {
+    process.exitCode = 1;
   }
 });

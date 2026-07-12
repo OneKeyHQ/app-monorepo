@@ -141,6 +141,39 @@ const runtimeChecks = (): IRuntimeCheck[] => [
   },
 ];
 
+const canonicalNodeGlobalChecks = (): Array<
+  [name: string, current: unknown, expected: unknown]
+> => [
+  ['global.Buffer', getGlobalValue('Buffer'), NativeBuffer],
+  ['global.process', getGlobalValue('process'), nodeProcess],
+  ['global.TextEncoder', getGlobalValue('TextEncoder'), NodeTextEncoder],
+  ['global.TextDecoder', getGlobalValue('TextDecoder'), NodeTextDecoder],
+  ['global.URL', getGlobalValue('URL'), NodeURL],
+  [
+    'global.URLSearchParams',
+    getGlobalValue('URLSearchParams'),
+    NodeURLSearchParams,
+  ],
+  [
+    'global.setImmediate',
+    getGlobalValue('setImmediate'),
+    nodeTimers.setImmediate,
+  ],
+  [
+    'global.clearImmediate',
+    getGlobalValue('clearImmediate'),
+    nodeTimers.clearImmediate,
+  ],
+];
+
+export function getNodeRuntimeCheckNames(): string[] {
+  return runtimeChecks().map(({ name }) => name);
+}
+
+export function getCanonicalNodeGlobalCheckNames(): string[] {
+  return canonicalNodeGlobalChecks().map(([name]) => name);
+}
+
 export function captureNodeRuntimeBaseline(): INodeRuntimeBaseline {
   return {
     bufferDescriptor: Object.getOwnPropertyDescriptor(globalThis, 'Buffer'),
@@ -159,30 +192,7 @@ export function auditNodeRuntime(
 }
 
 export function auditCanonicalNodeGlobals(): INodeRuntimeDrift[] {
-  const canonicalChecks: Array<[string, unknown, unknown]> = [
-    ['global.Buffer', getGlobalValue('Buffer'), NativeBuffer],
-    ['global.process', getGlobalValue('process'), nodeProcess],
-    ['global.TextEncoder', getGlobalValue('TextEncoder'), NodeTextEncoder],
-    ['global.TextDecoder', getGlobalValue('TextDecoder'), NodeTextDecoder],
-    ['global.URL', getGlobalValue('URL'), NodeURL],
-    [
-      'global.URLSearchParams',
-      getGlobalValue('URLSearchParams'),
-      NodeURLSearchParams,
-    ],
-    [
-      'global.setImmediate',
-      getGlobalValue('setImmediate'),
-      nodeTimers.setImmediate,
-    ],
-    [
-      'global.clearImmediate',
-      getGlobalValue('clearImmediate'),
-      nodeTimers.clearImmediate,
-    ],
-  ];
-
-  return canonicalChecks.flatMap(([name, current, expected]) =>
+  return canonicalNodeGlobalChecks().flatMap(([name, current, expected]) =>
     Object.is(current, expected) ? [] : [{ name }],
   );
 }

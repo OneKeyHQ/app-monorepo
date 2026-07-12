@@ -6,6 +6,8 @@ import {
   auditCanonicalNodeGlobals,
   auditNodeRuntime,
   captureNodeRuntimeBaseline,
+  getCanonicalNodeGlobalCheckNames,
+  getNodeRuntimeCheckNames,
   repairProtectedNodeRuntime,
 } from './nodeRuntimeIntegrity';
 
@@ -25,6 +27,15 @@ describe('nodeRuntimeIntegrity', () => {
 
   it('starts from canonical Node globals', () => {
     expect(auditCanonicalNodeGlobals()).toEqual([]);
+    expect(getCanonicalNodeGlobalCheckNames()).toContain('global.Buffer');
+    expect(getNodeRuntimeCheckNames()).toEqual(
+      expect.arrayContaining([
+        'global.Buffer',
+        'node:crypto.randomBytes',
+        'node:fs.readFile',
+        'node:module.createRequire',
+      ]),
+    );
   });
 
   it('detects and repairs a foreign global Buffer implementation', () => {

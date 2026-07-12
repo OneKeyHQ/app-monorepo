@@ -10,6 +10,8 @@ import {
   auditCanonicalNodeGlobals,
   auditNodeRuntime,
   captureNodeRuntimeBaseline,
+  getCanonicalNodeGlobalCheckNames,
+  getNodeRuntimeCheckNames,
   repairProtectedNodeRuntime,
 } from './libs/nodeRuntimeIntegrity';
 
@@ -192,6 +194,8 @@ export async function runAppRuntimeHarness(outputFile: string): Promise<void> {
     electron: process.versions.electron,
     isPackaged: app.isPackaged,
     node: process.versions.node,
+    canonicalNodeGlobalCheckNames: getCanonicalNodeGlobalCheckNames(),
+    nodeRuntimeCheckNames: getNodeRuntimeCheckNames(),
     platform: process.platform,
     processType: process.type,
     repairs,
@@ -208,6 +212,8 @@ export async function runAppRuntimeHarness(outputFile: string): Promise<void> {
     driftsAfterRepair.length > 0 ||
     driftsAfterAppInit.length > 0 ||
     !stagingResult.success ||
+    stagingResult.beforeExists ||
+    !stagingResult.afterExists ||
     !stagingResult.fileUuidFormat ||
     checkForUpdatesCallCount > 0 ||
     autoUpdater.autoDownload;
