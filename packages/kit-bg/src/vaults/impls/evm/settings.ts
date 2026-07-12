@@ -5,7 +5,6 @@ import {
   BinanceSmartChainBTW,
   BinanceSmartChainLISTA,
   BinanceSmartChainU,
-  BinanceSmartChainUSD1,
   BinanceSmartChainUSDT,
   EMPTY_NATIVE_TOKEN_ADDRESS,
   EthereumCbBTC,
@@ -305,7 +304,7 @@ const stakingConfig: IStakingConfig = {
         configs: {},
       },
       [EEarnProviderEnum.Bitway]: {
-        supportedSymbols: ['USDT', 'U', 'BTW', 'USD1'],
+        supportedSymbols: ['USDT', 'U', 'BTW'],
         configs: {
           USDT: {
             enabled: true,
@@ -326,14 +325,6 @@ const stakingConfig: IStakingConfig = {
           BTW: {
             enabled: true,
             tokenAddress: BinanceSmartChainBTW,
-            displayProfit: true,
-            stakingWithApprove: true,
-            claimWithTx: true,
-            allowPartialWithdraw: true,
-          },
-          USD1: {
-            enabled: true,
-            tokenAddress: BinanceSmartChainUSD1,
             displayProfit: true,
             stakingWithApprove: true,
             claimWithTx: true,

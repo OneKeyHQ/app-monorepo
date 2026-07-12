@@ -109,7 +109,6 @@ export const isSupportStaking = (symbol: string) =>
     'WBTC',
     'U',
     'BTW',
-    'USD1',
   ].includes(symbol.toUpperCase());
 
 export const earnMainnetNetworkIds: string[] = [
@@ -178,7 +177,6 @@ export function normalizeToEarnSymbol(symbol: string): string {
     'lista': 'LISTA',
     'u': 'U',
     'btw': 'BTW',
-    'usd1': 'USD1',
   };
   // Known symbols get case-normalized; unknown symbols (e.g. Pendle tokens) pass through
   return symbolMap[symbol.toLowerCase()] ?? symbol;
@@ -315,6 +313,5 @@ export function getSymbolSupportedNetworks(): Record<
     'LISTA': [networkIdsMap.bsc],
     'U': [networkIdsMap.bsc],
     'BTW': [networkIdsMap.bsc],
-    'USD1': [networkIdsMap.bsc],
   };
 }
