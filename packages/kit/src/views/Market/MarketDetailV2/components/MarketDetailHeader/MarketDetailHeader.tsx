@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useRef } from 'react';
 
+import { isEqual } from 'lodash';
+
 import {
   HeaderIconButton,
   Icon,
@@ -79,6 +81,13 @@ export function MarketDetailHeader({
   }
   const stableLogoUrls = stableLogoUrlsRef.current;
 
+  const stock = tokenDetail?.stock;
+  const stableStockRef = useRef(stock);
+  if (!isEqual(stableStockRef.current, stock)) {
+    stableStockRef.current = stock;
+  }
+  const stableStock = stableStockRef.current;
+
   const customHeaderLeft = useMemo(
     () => (
       <XStack gap="$3" ai="center">
@@ -93,17 +102,26 @@ export function MarketDetailHeader({
 
   const customHeaderRight = useMemo(() => null, []);
 
+  const handleCopyTokenAddress = useCallback(() => {
+    const address = tokenDetail?.address;
+    if (!address) {
+      return;
+    }
+    copyText(address);
+    defaultLogger.dex.actions.dexCopyCA({
+      copyFrom: ECopyFrom.Detail,
+      copiedContent: address,
+    });
+  }, [copyText, tokenDetail?.address]);
+
   // iOS 26+ mobile: render via the native UINavigationBar so the header
   // gets the system Liquid Glass material and the back chevron sits in
   // its proper iOS 26 circular glass container. The token symbol +
-  // dropdown chevron live in headerTitle; Star + Share live in
-  // headerRight. The address-copy secondary label that the custom pill
-  // used to render below the symbol is dropped here — single-row
-  // navigation bars can't host it cleanly. Pages that need the address
-  // can surface it in the body content.
+  // dropdown chevron and address-copy action live in headerTitle; Star +
+  // Share live in headerRight.
   const renderNativeHeaderTitle = useCallback(
     () => (
-      <XStack ai="center" gap="$2" flex={1}>
+      <XStack ai="center" gap="$2" flex={1} minWidth={0}>
         <Token
           size="sm"
           tokenImageUri={tokenDetail?.logoUrl}
@@ -111,33 +129,88 @@ export function MarketDetailHeader({
           networkImageUri={networkLogoUri}
           fallbackIcon="CryptoCoinOutline"
         />
-        <XStack
-          ai="center"
-          gap="$1"
-          flexShrink={1}
-          {...(!isOverlayPage && {
-            onPress: onPressTokenSelector,
-            hoverStyle: { opacity: 0.8 },
-            pressStyle: { opacity: 0.6 },
-            cursor: 'pointer',
-          })}
-        >
-          <SizableText size="$headingLg" numberOfLines={1}>
-            {tokenDetail?.symbol || ''}
-          </SizableText>
-          {!isOverlayPage ? (
-            <Icon
-              name="ChevronDownSmallOutline"
-              size="$4"
-              color="$iconSubdued"
-            />
+        <YStack flexShrink={1} minWidth={0}>
+          <XStack
+            ai="center"
+            gap="$1"
+            flexShrink={1}
+            minWidth={0}
+            {...(!isOverlayPage && {
+              onPress: onPressTokenSelector,
+              hoverStyle: { opacity: 0.8 },
+              pressStyle: { opacity: 0.6 },
+              cursor: 'pointer',
+            })}
+          >
+            <SizableText size="$headingLg" numberOfLines={1} flexShrink={1}>
+              {tokenDetail?.symbol || ''}
+            </SizableText>
+            {!isOverlayPage ? (
+              <Icon
+                name="ChevronDownSmallOutline"
+                size="$4"
+                color="$iconSubdued"
+              />
+            ) : null}
+          </XStack>
+          {tokenDetail?.communityRecognized || tokenDetail?.address ? (
+            <XStack
+              testID="market-detail-header-address"
+              ai="center"
+              gap="$1"
+              minWidth={0}
+            >
+              {tokenDetail.communityRecognized ? (
+                <TokenTagsPopover
+                  communityRecognized={tokenDetail.communityRecognized}
+                  stock={stableStock}
+                  customTrigger={
+                    <Icon
+                      name="BadgeRecognizedSolid"
+                      size="$4"
+                      color="$iconSuccess"
+                    />
+                  }
+                />
+              ) : null}
+              {tokenDetail.address ? (
+                <>
+                  <SizableText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    numberOfLines={1}
+                    flexShrink={1}
+                    cursor="pointer"
+                    hoverStyle={{ opacity: 0.8 }}
+                    pressStyle={{ opacity: 0.6 }}
+                    onPress={handleCopyTokenAddress}
+                  >
+                    {accountUtils.shortenAddress({
+                      address: tokenDetail.address,
+                      leadingLength: 6,
+                      trailingLength: 4,
+                    })}
+                  </SizableText>
+                  <InteractiveIcon
+                    testID="market-detail-header-copy-address"
+                    icon="Copy3Outline"
+                    size="$4"
+                    onPress={handleCopyTokenAddress}
+                  />
+                </>
+              ) : null}
+            </XStack>
           ) : null}
-        </XStack>
+        </YStack>
       </XStack>
     ),
     [
+      handleCopyTokenAddress,
+      tokenDetail?.address,
+      tokenDetail?.communityRecognized,
       tokenDetail?.logoUrl,
       tokenDetail?.symbol,
+      stableStock,
       stableLogoUrls,
       networkLogoUri,
       isOverlayPage,
@@ -282,13 +355,7 @@ export function MarketDetailHeader({
                       cursor="pointer"
                       hoverStyle={{ opacity: 0.8 }}
                       pressStyle={{ opacity: 0.6 }}
-                      onPress={() => {
-                        copyText(tokenDetail.address);
-                        defaultLogger.dex.actions.dexCopyCA({
-                          copyFrom: ECopyFrom.Detail,
-                          copiedContent: tokenDetail.address,
-                        });
-                      }}
+                      onPress={handleCopyTokenAddress}
                     >
                       {accountUtils.shortenAddress({
                         address: tokenDetail.address,
@@ -300,13 +367,7 @@ export function MarketDetailHeader({
                       testID="market-icon"
                       icon="Copy3Outline"
                       size="$4"
-                      onPress={() => {
-                        copyText(tokenDetail.address);
-                        defaultLogger.dex.actions.dexCopyCA({
-                          copyFrom: ECopyFrom.Detail,
-                          copiedContent: tokenDetail.address,
-                        });
-                      }}
+                      onPress={handleCopyTokenAddress}
                     />
                   </XStack>
                 ) : null}
