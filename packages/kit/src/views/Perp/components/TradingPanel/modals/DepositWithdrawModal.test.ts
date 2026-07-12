@@ -4,7 +4,10 @@ import {
   arePerpsDepositSelectedTokenRefreshFieldsEqual,
   getPerpsDepositMinimumCheck,
   getPerpsDepositTokenDisplayList,
+  getPerpsDepositTokensIdentityKey,
+  getPerpsDepositTokensWithDefaultFallback,
   mergePerpsDepositTokensPreservingOrder,
+  shouldPreservePerpsDepositSelectedToken,
   shouldShowPerpsDepositTokenSkeleton,
 } from './depositTokenDisplayUtils';
 
@@ -118,6 +121,87 @@ describe('getPerpsDepositTokenDisplayList', () => {
     });
 
     expect(result.map((token) => token.symbol)).toEqual(['POL', 'USDC', 'ETH']);
+  });
+});
+
+describe('getPerpsDepositTokensWithDefaultFallback', () => {
+  it('keeps a server default token selectable for an empty wallet', () => {
+    const defaultToken = makeDepositToken({
+      networkId: 'evm--42161',
+      contractAddress: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
+      symbol: 'USDC',
+    });
+
+    expect(
+      getPerpsDepositTokensWithDefaultFallback({
+        walletTokens: [],
+        defaultTokens: [defaultToken],
+      }),
+    ).toEqual([defaultToken]);
+  });
+});
+
+describe('getPerpsDepositTokensIdentityKey', () => {
+  it('keeps the balance-fetch dependency stable across cloned atom values', () => {
+    const defaultTokens = [
+      makeDepositToken({
+        networkId: 'evm--42161',
+        contractAddress: '0xAF88D065E77C8CC2239327C5EDB3A432268E5831',
+        symbol: 'USDC',
+      }),
+      makeDepositToken({
+        networkId: 'evm--1',
+        contractAddress: '',
+        symbol: 'ETH',
+      }),
+    ];
+
+    expect(getPerpsDepositTokensIdentityKey(defaultTokens)).toBe(
+      getPerpsDepositTokensIdentityKey(
+        defaultTokens.map((token) => ({ ...token })),
+      ),
+    );
+  });
+
+  it('changes when the fallback token identities change', () => {
+    const usdc = makeDepositToken({
+      networkId: 'evm--42161',
+      contractAddress: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
+      symbol: 'USDC',
+    });
+
+    expect(getPerpsDepositTokensIdentityKey([usdc])).not.toBe(
+      getPerpsDepositTokensIdentityKey([
+        {
+          ...usdc,
+          contractAddress: '0xff970a61a04b1ca14834a43f5de4533ebddb5cc8',
+        },
+      ]),
+    );
+  });
+});
+
+describe('shouldPreservePerpsDepositSelectedToken', () => {
+  it('does not preserve an empty-wallet fallback after live wallet tokens arrive', () => {
+    const fallbackUsdc = makeDepositToken({
+      networkId: 'evm--42161',
+      contractAddress: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
+      symbol: 'USDC',
+    });
+    const liveEth = makeDepositToken({
+      networkId: 'evm--1',
+      contractAddress: '',
+      symbol: 'ETH',
+      fiatValue: '100',
+    });
+
+    expect(
+      shouldPreservePerpsDepositSelectedToken({
+        depositTokenListSource: 'walletBalance',
+        currentToken: fallbackUsdc,
+        tokens: [liveEth],
+      }),
+    ).toBe(false);
   });
 });
 

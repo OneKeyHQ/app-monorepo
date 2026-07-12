@@ -93,7 +93,10 @@ import {
   arePerpsDepositSelectedTokenRefreshFieldsEqual,
   getPerpsDepositMinimumCheck,
   getPerpsDepositTokenDisplayList,
+  getPerpsDepositTokensIdentityKey,
+  getPerpsDepositTokensWithDefaultFallback,
   mergePerpsDepositTokensPreservingOrder,
+  shouldPreservePerpsDepositSelectedToken,
   shouldShowPerpsDepositTokenSkeleton,
 } from './depositTokenDisplayUtils';
 import { DepositTokenSelectionContent } from './DepositTokenSelectionContent';
@@ -330,6 +333,12 @@ function DepositWithdrawContent({
     () => getPerpsDepositTokenDisplayList(tokens),
     [tokens],
   );
+  const defaultTokenIdentitiesKey = useMemo(
+    () => getPerpsDepositTokensIdentityKey(defaultTokens),
+    [defaultTokens],
+  );
+  const defaultTokensRef = useRef(defaultTokens);
+  defaultTokensRef.current = defaultTokens;
   const currentDepositTokenIdentity = useMemo(
     () =>
       currentPerpsDepositSelectedToken
@@ -495,9 +504,10 @@ function DepositWithdrawContent({
     [],
   );
 
-  const { result, isLoading: balanceLoading } = usePromiseResult(
+  const { isLoading: balanceLoading } = usePromiseResult(
     async () => {
       const requestKey = depositTokenRequestKey;
+      const requestDefaultTokenIdentitiesKey = defaultTokenIdentitiesKey;
       if (
         !selectedAccount.accountId ||
         !selectedAccount.accountAddress ||
@@ -518,19 +528,28 @@ function DepositWithdrawContent({
             indexedAccountId: selectedAccount.indexedAccountId ?? undefined,
           },
         );
-        if (isStale || depositTokenRequestKeyRef.current !== requestKey) {
+        if (
+          isStale ||
+          depositTokenRequestKeyRef.current !== requestKey ||
+          getPerpsDepositTokensIdentityKey(defaultTokensRef.current) !==
+            requestDefaultTokenIdentitiesKey
+        ) {
           return [];
         }
         depositTokenListOwnerKeyRef.current = ownerKey;
+        const displayDepositTokens = getPerpsDepositTokensWithDefaultFallback({
+          walletTokens: depositTokens,
+          defaultTokens: defaultTokensRef.current,
+        });
         const didSync = await syncDepositTokenBalances({
-          depositTokens,
+          depositTokens: displayDepositTokens,
           requestKey,
           preserveCurrentOrder: depositTokensWithPriceRef.current.length > 0,
         });
         if (!didSync) {
           return [];
         }
-        return depositTokens;
+        return displayDepositTokens;
       } catch (error) {
         if (depositTokenRequestKeyRef.current !== requestKey) {
           return [];
@@ -554,6 +573,7 @@ function DepositWithdrawContent({
       selectedAccount.indexedAccountId,
       depositTokenRequestKey,
       checkAccountSupport,
+      defaultTokenIdentitiesKey,
       setPerpsDepositTokensAtom,
       syncDepositTokenBalances,
     ],
@@ -591,7 +611,10 @@ function DepositWithdrawContent({
       }
       depositTokenListOwnerKeyRef.current = ownerKey;
       await syncDepositTokenBalances({
-        depositTokens,
+        depositTokens: getPerpsDepositTokensWithDefaultFallback({
+          walletTokens: depositTokens,
+          defaultTokens,
+        }),
         requestKey,
         preserveCurrentOrder: true,
       });
@@ -610,6 +633,7 @@ function DepositWithdrawContent({
     selectedAccount.indexedAccountId,
     depositTokenRequestKey,
     checkAccountSupport,
+    defaultTokens,
     syncDepositTokenBalances,
   ]);
 
@@ -626,13 +650,17 @@ function DepositWithdrawContent({
 
     lastSyncedDepositTokenListRevisionRef.current = depositTokenListRevision;
     void syncDepositTokenBalances({
-      depositTokens: cachedDepositTokens,
+      depositTokens: getPerpsDepositTokensWithDefaultFallback({
+        walletTokens: cachedDepositTokens,
+        defaultTokens,
+      }),
       requestKey: depositTokenRequestKeyRef.current,
       preserveCurrentOrder: depositTokensWithPriceRef.current.length > 0,
     });
   }, [
     cachedDepositTokens,
     checkAccountSupport,
+    defaultTokens,
     depositTokenListOwnerKey,
     depositTokenListRevision,
     syncDepositTokenBalances,
@@ -689,57 +717,61 @@ function DepositWithdrawContent({
   }, [currentDepositTokenIdentity, selectedAction]);
 
   useEffect(() => {
-    if (result) {
-      const previousToken = currentPerpsDepositSelectedTokenRef.current;
-      const selectedToken = resolvePerpsDepositSelectedToken({
-        tokens: result,
+    if (depositTokensWithPrice.length === 0) return;
+
+    const previousToken = currentPerpsDepositSelectedTokenRef.current;
+    const selectedToken = resolvePerpsDepositSelectedToken({
+      tokens: depositTokensWithPrice,
+      currentToken: previousToken,
+      defaultTokens,
+      preserveCurrentToken: shouldPreservePerpsDepositSelectedToken({
+        depositTokenListSource,
         currentToken: previousToken,
-        defaultTokens,
-        preserveCurrentToken: depositTokenListSource === 'walletBalance',
-      });
-      if (selectedToken) {
-        setPerpsDepositTokensAtom((prev) => {
-          const currentToken = prev.currentPerpsDepositSelectedToken;
-          if (
-            arePerpsDepositSelectedTokenRefreshFieldsEqual({
-              currentToken,
-              nextToken: selectedToken,
-            })
-          ) {
-            return prev;
-          }
-          return equalTokenNoCaseSensitive({
-            token1: currentToken,
-            token2: selectedToken,
+        tokens: depositTokensWithPrice,
+      }),
+    });
+    if (selectedToken) {
+      setPerpsDepositTokensAtom((prev) => {
+        const currentToken = prev.currentPerpsDepositSelectedToken;
+        if (
+          arePerpsDepositSelectedTokenRefreshFieldsEqual({
+            currentToken,
+            nextToken: selectedToken,
           })
-            ? {
-                ...prev,
-                currentPerpsDepositSelectedToken: {
-                  ...currentToken,
-                  networkId: selectedToken.networkId,
-                  contractAddress: selectedToken.contractAddress,
-                  name: selectedToken.name,
-                  symbol: selectedToken.symbol,
-                  decimals: selectedToken.decimals,
-                  networkLogoURI: selectedToken.networkLogoURI,
-                  logoURI: selectedToken.logoURI,
-                  isNative: selectedToken.isNative,
-                  balanceParsed: selectedToken.balanceParsed,
-                  fiatValue: selectedToken.fiatValue,
-                  price: selectedToken.price,
-                },
-              }
-            : {
-                ...prev,
-                currentPerpsDepositSelectedToken: selectedToken,
-              };
-        });
-      }
+        ) {
+          return prev;
+        }
+        return equalTokenNoCaseSensitive({
+          token1: currentToken,
+          token2: selectedToken,
+        })
+          ? {
+              ...prev,
+              currentPerpsDepositSelectedToken: {
+                ...currentToken,
+                networkId: selectedToken.networkId,
+                contractAddress: selectedToken.contractAddress,
+                name: selectedToken.name,
+                symbol: selectedToken.symbol,
+                decimals: selectedToken.decimals,
+                networkLogoURI: selectedToken.networkLogoURI,
+                logoURI: selectedToken.logoURI,
+                isNative: selectedToken.isNative,
+                balanceParsed: selectedToken.balanceParsed,
+                fiatValue: selectedToken.fiatValue,
+                price: selectedToken.price,
+              },
+            }
+          : {
+              ...prev,
+              currentPerpsDepositSelectedToken: selectedToken,
+            };
+      });
     }
   }, [
     defaultTokens,
+    depositTokensWithPrice,
     depositTokenListSource,
-    result,
     setPerpsDepositTokensAtom,
   ]);
 
