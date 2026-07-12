@@ -303,3 +303,23 @@ Verified 2026-07-11 on an iPhone 16 Pro simulator:
   `Markdown`'s own `bullet_list` rule is missing `key={node.key}`, so every
   bullet list logs React's unique-key dev warning on both platforms
   (component bug, not story-induced; fix task spawned).
+- Notes from batches 9-12 (primitives sweep + layouts list components +
+  content sweep, 22 components): stories must not import `@onekeyhq/kit`
+  (package hierarchy), so the LottieView story inlines a tiny animation JSON
+  instead of requiring a kit asset. `Image` has no `circular` prop (use
+  `borderRadius="$full"`) and no default dimensions — always pass w/h.
+  `SwipeableCell` mouse-drag works on web (RNGH web support; the native
+  storybook shell already mounts `GestureHandlerRootView`). Web `Swiper`
+  with `autoplay` deterministically mounts at the LAST slide before the loop
+  wraps back to the first and cycles normally — component bug, fix task
+  spawned; `autoplay: false` mounts correctly. `SortableListView` web engine
+  (react-beautiful-dnd) needs `getItemLayout` to position rows, and its
+  `dragProps` dataSet triggers a dev-only React `data-on-drag-start` warning.
+  Several stories log a dev-only `borderCurve` unknown-DOM-prop warning on
+  web — RN style key leaking through react-native-web, component/tamagui
+  level, not story-induced. `NetworkStatusBadge` stretches to the row width
+  without an `XStack` hugging decorator. Exclusions: `ImageCrop` (native
+  component renders `null`; imperative `openPicker` API only), `OneKeyLogo`
+  (zero app usages — dead-code candidate, story would legitimize it),
+  `RefreshControl` (pull gesture is not verifiable on desktop web),
+  `NativeSectionList` (one-line re-export of RN SectionList).
