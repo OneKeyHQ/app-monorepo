@@ -289,3 +289,17 @@ Verified 2026-07-11 on an iPhone 16 Pro simulator:
   name it there. If Browser-pane screenshots suddenly go black around the
   story canvas, the pane followed the OS into dark mode — the iframe body is
   transparent; force it back with `resize_window {colorScheme: 'light'}`.
+- Notes from batch 8 (Table/Carousel/SegmentSlider/InteractiveIcon/
+  MatchSizeableText/Markdown): `Table` renders outside a Tabs container
+  fine — `TabsContext`/`TabNameContext` ship full default values — but its
+  internal virtualized ListView needs a bounded-height parent on native
+  (same trap as ListView itself); the demo wraps it in `YStack h={360}`.
+  `Carousel` measures its own layout, so pass a `containerStyle` with an
+  explicit height or nothing paints. `SegmentSlider` is two implementations:
+  a DOM-only web slider and the `@onekeyfe/react-native-segment-slider`
+  nitro view on native — both storybook shells render it. `Shortcut` was
+  excluded: its non-desktop entry renders `null` on web and native alike.
+  `RichSizeableText` was excluded as `@deprecated` (use kit's HyperlinkText).
+  `Markdown`'s own `bullet_list` rule is missing `key={node.key}`, so every
+  bullet list logs React's unique-key dev warning on both platforms
+  (component bug, not story-induced; fix task spawned).
