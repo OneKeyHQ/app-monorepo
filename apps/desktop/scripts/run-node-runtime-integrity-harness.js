@@ -83,9 +83,11 @@ child.once('exit', (code) => {
       report.processType === 'browser' &&
       report.canonicalDriftsBeforeAppLoad.length === 0 &&
       report.canonicalDriftsAfterRepair.length === 0 &&
+      report.canonicalDriftsAfterAppInit.length === 0 &&
       report.driftsBeforeRepair.length === 0 &&
       report.repairs.length === 0 &&
       report.driftsAfterRepair.length === 0 &&
+      report.driftsAfterAppInit.length === 0 &&
       report.autoDownload === false &&
       report.checkForUpdatesCalled === false &&
       report.stagingResult.success === true &&
@@ -98,9 +100,11 @@ child.once('exit', (code) => {
         {
           arch: report.arch,
           autoDownload: report.autoDownload,
+          canonicalDriftsAfterAppInit: report.canonicalDriftsAfterAppInit,
           canonicalDriftsAfterRepair: report.canonicalDriftsAfterRepair,
           canonicalDriftsBeforeAppLoad: report.canonicalDriftsBeforeAppLoad,
           checkForUpdatesCalled: report.checkForUpdatesCalled,
+          driftsAfterAppInit: report.driftsAfterAppInit,
           driftsAfterRepair: report.driftsAfterRepair,
           driftsBeforeRepair: report.driftsBeforeRepair,
           electron: report.electron,

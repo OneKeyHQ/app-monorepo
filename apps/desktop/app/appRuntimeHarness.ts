@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { setImmediate as nodeSetImmediate } from 'node:timers';
 
 import {
   auditCanonicalNodeGlobals,
@@ -47,6 +48,14 @@ export async function runAppRuntimeHarness(outputFile: string): Promise<void> {
 
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { app } = require('electron') as typeof import('electron');
+
+  await app.whenReady();
+  await new Promise<void>((resolve) => {
+    nodeSetImmediate(resolve);
+  });
+  const driftsAfterAppInit = auditNodeRuntime(baseline);
+  const canonicalDriftsAfterAppInit = auditCanonicalNodeGlobals();
+
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { autoUpdater } =
     require('electron-updater') as typeof import('electron-updater');
@@ -98,9 +107,11 @@ export async function runAppRuntimeHarness(outputFile: string): Promise<void> {
   const report = {
     arch: process.arch,
     autoDownload: autoUpdater.autoDownload,
+    canonicalDriftsAfterAppInit,
     canonicalDriftsAfterRepair,
     canonicalDriftsBeforeAppLoad,
     checkForUpdatesCalled: false,
+    driftsAfterAppInit,
     driftsAfterRepair,
     driftsBeforeRepair,
     electron: process.versions.electron,
@@ -116,9 +127,11 @@ export async function runAppRuntimeHarness(outputFile: string): Promise<void> {
   const failed =
     canonicalDriftsBeforeAppLoad.length > 0 ||
     canonicalDriftsAfterRepair.length > 0 ||
+    canonicalDriftsAfterAppInit.length > 0 ||
     driftsBeforeRepair.length > 0 ||
     repairs.length > 0 ||
     driftsAfterRepair.length > 0 ||
+    driftsAfterAppInit.length > 0 ||
     !stagingResult.success ||
     !stagingResult.fileUuidFormat ||
     autoUpdater.autoDownload;

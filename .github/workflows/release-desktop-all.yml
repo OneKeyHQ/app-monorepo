@@ -516,7 +516,7 @@ jobs:
         run: yarn workspace @onekeyhq/desktop harness:node-runtime
 
       - name: Upload x64 Windows exe
-        if: steps.phase1_nsis.outcome == 'success'
+        if: steps.phase1_nsis.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-win-x64-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -524,7 +524,7 @@ jobs:
             ./apps/desktop/build-electron/*-x64.exe
 
       - name: Upload arm64 Windows exe
-        if: steps.phase1_nsis.outcome == 'success'
+        if: steps.phase1_nsis.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-win-arm64-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -532,7 +532,7 @@ jobs:
             ./apps/desktop/build-electron/*-arm64.exe
 
       - name: Upload universal Windows exe
-        if: steps.phase1_nsis.outcome == 'success'
+        if: steps.phase1_nsis.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-win-universal-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -542,7 +542,7 @@ jobs:
             !./apps/desktop/build-electron/*-arm64.exe
 
       - name: Upload Windows autoupdate metadata
-        if: steps.phase1_nsis.outcome == 'success'
+        if: steps.phase1_nsis.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-win-autoupdate-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -550,7 +550,7 @@ jobs:
             ./apps/desktop/build-electron/*.yml
 
       - name: 'Notify to Slack - Win NSIS'
-        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase1_nsis.outcome == 'success'
+        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase1_nsis.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}

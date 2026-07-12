@@ -92,6 +92,24 @@ function auditDesktopMainBundle(source) {
     }
   }
 
+  const reflectDefinePropertyPattern = new RegExp(
+    `\\bReflect\\.defineProperty\\(\\s*(globalThis|global|globalScope)\\s*,\\s*["'](${protectedNames})["']`,
+    'g',
+  );
+  for (const match of source.matchAll(reflectDefinePropertyPattern)) {
+    errors.push(
+      `Unprotected Electron main Reflect.defineProperty write: ${match[1]}.${match[2]}`,
+    );
+  }
+
+  const definePropertiesPattern =
+    /\bObject\.defineProperties\(\s*(globalThis|global|globalScope)\b/g;
+  for (const match of source.matchAll(definePropertiesPattern)) {
+    errors.push(
+      `Unprotected Electron main defineProperties write: ${match[1]}`,
+    );
+  }
+
   const reflectSetPattern = new RegExp(
     `\\bReflect\\.set\\(\\s*(globalThis|global|globalScope)\\s*,\\s*["'](${protectedNames})["']`,
     'g',

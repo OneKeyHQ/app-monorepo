@@ -41,12 +41,18 @@ describe('desktop Electron main runtime integrity lint', () => {
   it('rejects reflective writes and deletes of protected globals', () => {
     const source = `${bootstrapMarkers}
       Object.defineProperty(globalThis, 'crypto', { value: cryptoPolyfill });
+      Reflect.defineProperty(globalScope, 'Buffer', { value: RuntimeBuffer });
+      Object.defineProperties(globalThis, {
+        process: { value: processPolyfill },
+      });
       Reflect.set(global, 'process', processPolyfill);
       delete globalThis.fetch;
     `;
     expect(auditDesktopMainBundle(source)).toEqual(
       expect.arrayContaining([
         'Unprotected Electron main defineProperty write: globalThis.crypto',
+        'Unprotected Electron main Reflect.defineProperty write: globalScope.Buffer',
+        'Unprotected Electron main defineProperties write: globalThis',
         'Unprotected Electron main Reflect.set write: global.process',
         'Unprotected Electron main global delete: globalThis.fetch',
       ]),
