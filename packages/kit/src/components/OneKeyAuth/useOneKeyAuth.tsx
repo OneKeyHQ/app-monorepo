@@ -8,6 +8,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { useSupabaseAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/useSupabaseAuth';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
+import { EExtOneKeyIdAuthFlow } from '@onekeyhq/shared/src/consts/authConsts';
 import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
 import {
@@ -25,6 +26,10 @@ import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { logoutPurchasesSdk } from '../../views/Prime/hooks/purchasesSdkLogout';
 
+import {
+  redirectOneKeyIdAuthToExtExpandTab,
+  shouldRunOneKeyIdAuthInExtExpandTab,
+} from './extOneKeyIdAuthExpandTab';
 import { getDisplayEmailOrUnknown } from './oneKeyIdDisplayEmailUtils';
 
 // import PrimeLoginEmailDialogV2 from '../../views/Prime/components/PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2';
@@ -254,6 +259,18 @@ export function useOneKeyAuth() {
         return;
       }
 
+      // The extension action popup dies on focus loss, which destroys the
+      // pending launchWebAuthFlow OAuth flow (see extOneKeyIdAuthExpandTab).
+      // Hand the whole login flow off to the expand tab before touching any
+      // local auth state, and settle this call as a user cancel.
+      if (shouldRunOneKeyIdAuthInExtExpandTab()) {
+        await redirectOneKeyIdAuthToExtExpandTab({
+          flow: EExtOneKeyIdAuthFlow.Login,
+          toOneKeyIdPageOnLoginSuccess,
+        });
+        throw new PrimeLoginDialogCancelError();
+      }
+
       if (preserveLocalKeylessAuth) {
         defaultLogger.prime.subscription.onekeyIdLogout({
           reason:
@@ -336,6 +353,7 @@ export function useOneKeyAuth() {
             onLoginSuccess={onLoginSuccess}
             onCancel={onCancel}
             localKeylessLoginPrepareResult={localKeylessLoginPrepareResult}
+            toOneKeyIdPageOnLoginSuccess={toOneKeyIdPageOnLoginSuccess}
           />
         ),
       });

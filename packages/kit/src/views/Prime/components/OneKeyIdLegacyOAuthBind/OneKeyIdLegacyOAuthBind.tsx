@@ -15,11 +15,18 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
+  redirectOneKeyIdAuthToExtExpandTab,
+  shouldRunOneKeyIdAuthInExtExpandTab,
+} from '@onekeyhq/kit/src/components/OneKeyAuth/extOneKeyIdAuthExpandTab';
+import {
   EOneKeyIdLogoutDialogSource,
   useShowOneKeyIdLogoutDialog,
 } from '@onekeyhq/kit/src/components/OneKeyAuth/OneKeyIdLogoutDialog';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import {
+  EExtOneKeyIdAuthFlow,
+  EOAuthSocialLoginProvider,
+} from '@onekeyhq/shared/src/consts/authConsts';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EOneKeyIdLoginWithLocalKeylessPrepareStatus,
@@ -155,6 +162,18 @@ function OneKeyIdLegacyOAuthBindActions({
   const handleBindOAuth = useCallback(
     async (provider: EOAuthSocialLoginProvider) => {
       if (bindingProviderRef.current) {
+        return;
+      }
+      // launchWebAuthFlow can never complete in the ext action popup (Chrome
+      // destroys it on focus loss), so hand the bind flow off to the expand
+      // tab. Guarding the button press (not the mount) keeps the passive
+      // upgrade prompt (PrimeGlobalEffect) from opening tabs without an
+      // explicit user gesture, and also covers the inline bind prompt on the
+      // OneKey ID page.
+      if (shouldRunOneKeyIdAuthInExtExpandTab()) {
+        await redirectOneKeyIdAuthToExtExpandTab({
+          flow: EExtOneKeyIdAuthFlow.LegacyOAuthBind,
+        });
         return;
       }
       bindingProviderRef.current = provider;

@@ -46,6 +46,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { showOneKeyIdLegacyOAuthBindDialog } from '../../views/Prime/components/OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
+import { shouldRunOneKeyIdAuthInExtExpandTab } from '../OneKeyAuth/extOneKeyIdAuthExpandTab';
 import { getDisplayEmailOrUnknown } from '../OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 
@@ -820,6 +821,22 @@ export function useKeylessWallet() {
             return;
           }
         }
+      }
+
+      // The OneKey ID login onboarding page runs launchWebAuthFlow, which
+      // can never complete in the ext action popup (Chrome destroys it on
+      // focus loss). Open the page in the expand tab instead of navigating
+      // inside the popup.
+      if (shouldRunOneKeyIdAuthInExtExpandTab()) {
+        const expandTabParams: Record<string, string> = { mode };
+        if (keylessProvider) {
+          expandTabParams.provider = keylessProvider;
+        }
+        await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+          path: `/onboarding/${EOnboardingPagesV2.OneKeyIDLogin}`,
+          params: expandTabParams,
+        });
+        return;
       }
 
       navigation.navigate(ERootRoutes.Onboarding, {

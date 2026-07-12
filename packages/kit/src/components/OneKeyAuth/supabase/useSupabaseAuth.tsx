@@ -9,6 +9,7 @@ import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/auth
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { OAuthPopup } from '../OAuthPopup';
 import { ensureOneKeyOAuthState } from '../oauthUtils';
@@ -105,6 +106,16 @@ export function useSupabaseAuth() {
       provider: EOAuthSocialLoginProvider,
       options?: IOAuthSignInOptions,
     ): Promise<IOAuthSignInResult> => {
+      // Last-resort guard: Chrome destroys the action popup on focus loss,
+      // so the launchWebAuthFlow window opened below would silently kill
+      // this whole pending flow. Callers must redirect to the expand tab
+      // first (see extOneKeyIdAuthExpandTab); fail loudly if one slips
+      // through instead of dying without any feedback.
+      if (platformEnv.isExtensionUiPopup) {
+        throw new OneKeyLocalError(
+          'OAuth sign-in cannot run in the extension popup. Please continue in the expanded view.',
+        );
+      }
       const { persistSession } = options ?? {};
       const clientTemp: SupabaseClient = await createTemporarySupabaseClient();
 

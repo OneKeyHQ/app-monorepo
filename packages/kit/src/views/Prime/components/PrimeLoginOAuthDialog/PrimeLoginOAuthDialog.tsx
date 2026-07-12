@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,11 +13,18 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  redirectOneKeyIdAuthToExtExpandTab,
+  shouldRunOneKeyIdAuthInExtExpandTab,
+} from '@onekeyhq/kit/src/components/OneKeyAuth/extOneKeyIdAuthExpandTab';
+import {
   EOneKeyIdLogoutDialogSource,
   useShowOneKeyIdLogoutDialog,
 } from '@onekeyhq/kit/src/components/OneKeyAuth/OneKeyIdLogoutDialog';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import {
+  EExtOneKeyIdAuthFlow,
+  EOAuthSocialLoginProvider,
+} from '@onekeyhq/shared/src/consts/authConsts';
 import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyIdLoginWithLocalKeylessPrepareResult } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -34,12 +41,14 @@ function PrimeLoginOAuthDialog(props: {
   onLoginSuccess?: () => void | Promise<void>;
   onCancel?: () => void | Promise<void>;
   localKeylessLoginPrepareResult?: IOneKeyIdLoginWithLocalKeylessPrepareResult;
+  toOneKeyIdPageOnLoginSuccess?: boolean;
 }) {
   const {
     onComplete,
     onLoginSuccess,
     onCancel,
     localKeylessLoginPrepareResult,
+    toOneKeyIdPageOnLoginSuccess,
   } = props;
   const intl = useIntl();
   const { loginOneKeyIdWithLegacyEmail, supabaseSignOut } = useOneKeyAuth();
@@ -73,6 +82,36 @@ function PrimeLoginOAuthDialog(props: {
   const shouldShowAppleButton = shouldShowProvider(
     EOAuthSocialLoginProvider.Apple,
   );
+
+  // Fallback guard: the showOneKeyIdLoginDialog funnel already redirects the
+  // ext action popup to the expand tab, but this dialog can also be rendered
+  // directly. launchWebAuthFlow can never complete in the action popup
+  // (Chrome destroys it on focus loss), so hand the flow off to the expand
+  // tab on mount instead of showing the buttons.
+  const shouldRedirectToExtExpandTab = shouldRunOneKeyIdAuthInExtExpandTab();
+  const hasRedirectedToExtExpandTabRef = useRef(false);
+  useEffect(() => {
+    if (
+      !shouldRedirectToExtExpandTab ||
+      hasRedirectedToExtExpandTabRef.current
+    ) {
+      return;
+    }
+    hasRedirectedToExtExpandTabRef.current = true;
+    void (async () => {
+      await redirectOneKeyIdAuthToExtExpandTab({
+        flow: EExtOneKeyIdAuthFlow.Login,
+        toOneKeyIdPageOnLoginSuccess,
+      });
+      onComplete?.();
+      void onCancel?.();
+    })();
+  }, [
+    onCancel,
+    onComplete,
+    shouldRedirectToExtExpandTab,
+    toOneKeyIdPageOnLoginSuccess,
+  ]);
 
   const handleSocialLogin = useCallback(
     async (provider: EOAuthSocialLoginProvider) => {
@@ -211,6 +250,11 @@ function PrimeLoginOAuthDialog(props: {
   const hideLegacyEmailLoginConfirm = useCallback(() => {
     setIsLegacyEmailConfirmMode(false);
   }, []);
+
+  if (shouldRedirectToExtExpandTab) {
+    // Render nothing while the expand-tab handoff closes this dialog.
+    return null;
+  }
 
   if (isLegacyEmailConfirmMode) {
     return (
