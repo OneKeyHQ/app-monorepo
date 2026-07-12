@@ -33,9 +33,6 @@ describe('earnUtils Bitway provider behavior', () => {
   it('normalizes Bitway and forwards its vault-scoped contract identity', () => {
     expect(earnUtils.getEarnProviderEnumKey('bitway')).toBe('Bitway');
     expect(earnUtils.isBitwayProvider({ providerName: 'BITWAY' })).toBe(true);
-    expect(earnUtils.supportsEarnWithdrawPath({ providerName: 'bitway' })).toBe(
-      true,
-    );
     expect(
       earnUtils.shouldSendEarnProtocolVault({ providerName: 'Bitway' }),
     ).toBe(true);

@@ -391,19 +391,8 @@ export function UniversalWithdraw({
     () => earnUtils.isPendleProvider({ providerName: providerName ?? '' }),
     [providerName],
   );
-  const isNativeProvider = useMemo(
-    () => earnUtils.isNativeProvider({ providerName: providerName ?? '' }),
-    [providerName],
-  );
   const isBitwayProvider = useMemo(
     () => earnUtils.isBitwayProvider({ providerName: providerName ?? '' }),
-    [providerName],
-  );
-  const supportsWithdrawPath = useMemo(
-    () =>
-      earnUtils.supportsEarnWithdrawPath({
-        providerName: providerName ?? '',
-      }),
     [providerName],
   );
   const shouldSendProtocolVault = useMemo(
@@ -415,12 +404,8 @@ export function UniversalWithdraw({
   );
 
   const withdrawPathConfirmBoxes = useMemo(() => {
-    if (!supportsWithdrawPath) return [];
     return transactionConfirmation?.withdrawPath?.data?.confirmBoxes ?? [];
-  }, [
-    supportsWithdrawPath,
-    transactionConfirmation?.withdrawPath?.data?.confirmBoxes,
-  ]);
+  }, [transactionConfirmation?.withdrawPath?.data?.confirmBoxes]);
 
   const effectiveSelectedWithdrawPathIndex = useMemo(() => {
     if (withdrawPathConfirmBoxes.length <= 1) return 0;
@@ -463,8 +448,7 @@ export function UniversalWithdraw({
     [rootTransactionTip, selectedWithdrawPath?.tip],
   );
 
-  const isNativeQueuedWithdraw =
-    isNativeProvider && selectedWithdrawType === 'queued';
+  const isQueuedWithdraw = selectedWithdrawType === 'queued';
 
   const handleTipAction = useCallback(
     async (tip?: IEarnTransactionTip) => {
@@ -489,7 +473,7 @@ export function UniversalWithdraw({
   );
 
   const approveAmountValue = useMemo(() => {
-    if (!isNativeQueuedWithdraw || !receiptTokenRate) {
+    if (!isQueuedWithdraw || !receiptTokenRate) {
       return amountValue;
     }
 
@@ -522,15 +506,14 @@ export function UniversalWithdraw({
     amountValue,
     approveTarget?.token?.decimals,
     decimals,
-    isNativeQueuedWithdraw,
+    isQueuedWithdraw,
     isWithdrawAll,
     receiptTokenRate,
   ]);
 
-  // --- Approve logic (Pendle sell and Native queued withdraw) ---
+  // --- Approve logic (Pendle sell and server-declared queued withdraw) ---
   const useApprove =
-    (isPendleProvider || isNativeQueuedWithdraw) &&
-    !!approveTarget?.spenderAddress;
+    (isPendleProvider || isQueuedWithdraw) && !!approveTarget?.spenderAddress;
   const [approving, setApproving] = useState(false);
   const allowanceAbortRef = useRef<AbortController | undefined>(undefined);
 

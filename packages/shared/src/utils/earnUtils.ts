@@ -74,11 +74,6 @@ const isVaultBasedProvider = ({ providerName }: { providerName: string }) => {
   );
 };
 
-const supportsEarnWithdrawPath = ({ providerName }: { providerName: string }) =>
-  isPendleProvider({ providerName }) ||
-  isNativeProvider({ providerName }) ||
-  isBitwayProvider({ providerName });
-
 const isEarnWithdrawPathReady = ({
   providerName,
   isLoading,
@@ -313,7 +308,6 @@ export default {
   getEarnPermitCacheKey,
   isUSDTonETHNetwork,
   isVaultBasedProvider,
-  supportsEarnWithdrawPath,
   isEarnWithdrawPathReady,
   shouldSendEarnProtocolVault,
   isValidatorProvider,
