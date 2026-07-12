@@ -101,10 +101,8 @@ export const TOAST_CONFIGS: Record<EActionType, IToastConfig> = {
   },
 
   [EActionType.MODIFY_ORDER]: {
-    // TODO(i18n): swap for ETranslations.perp_toast_modifying_order once PM adds the key.
-    loading: 'Modifying order…',
-    // TODO(i18n): swap for ETranslations.perp_toast_order_modified once PM adds the key.
-    successTitle: 'Order modified',
+    loading: t(ETranslations.perp_toast_modifying_order),
+    successTitle: t(ETranslations.perp_toast_order_modified),
   },
 
   [EActionType.WITHDRAW]: {

@@ -129,6 +129,13 @@ const DesktopWebView = forwardRef(
   ) => {
     const [isWebviewReady, setIsWebviewReady] = useState(false);
     const [isDomReady, setIsDomReady] = useState(false);
+    // Parents hold wrapper closures across renders, so dom-ready must be read
+    // from a ref, not a render snapshot.
+    const isDomReadyRef = useRef(false);
+    const updateIsDomReady = useCallback((value: boolean) => {
+      isDomReadyRef.current = value;
+      setIsDomReady(value);
+    }, []);
     const webviewRef = useRef<IElectronWebView | null>(null);
     const pendingScriptsRef = useRef<string[]>([]);
     const [devToolsAtLeft, setDevToolsAtLeft] = useState(false);
@@ -293,7 +300,7 @@ const DesktopWebView = forwardRef(
             lastMainFrameLoadErrorRef.current = undefined;
             setDesktopLoadError(false);
             setDesktopLoadErrorCode(undefined);
-            setIsDomReady(false);
+            updateIsDomReady(false);
             startLoadTimeout();
           }
           checkGoogleOauth(url);
@@ -351,7 +358,7 @@ const DesktopWebView = forwardRef(
         webview.addEventListener('page-favicon-updated', onPageFaviconUpdated);
         webview.addEventListener('new-window', onNewWindow);
         const handleDomReady = (event: Event) => {
-          setIsDomReady(true);
+          updateIsDomReady(true);
           onDomReady?.(event);
         };
 
@@ -386,8 +393,12 @@ const DesktopWebView = forwardRef(
         console.error(error);
       }
     }, [
+      // the first run can precede <webview> mount when the preload URL
+      // resolves async, leaving every load listener unregistered.
+      isWebviewReady,
       clearLoadTimeout,
       startLoadTimeout,
+      updateIsDomReady,
       onDidFailLoad,
       onDidFinishLoad,
       onDidStartLoading,
@@ -433,7 +444,9 @@ const DesktopWebView = forwardRef(
       ref as Ref<unknown>,
       (): IWebViewWrapperRef => {
         const wrapper = {
-          innerRef: webviewRef.current,
+          // deferred preload mounts the node after the first create; the
+          // isWebviewReady dep re-snapshots innerRef once it exists.
+          innerRef: isWebviewReady ? webviewRef.current : null,
           jsBridge: jsBridgeHost,
           reload: () => {
             webviewRef.current?.reload();
@@ -445,7 +458,7 @@ const DesktopWebView = forwardRef(
           },
           sendMessageViaInjectedScript: (message: unknown) => {
             const script = createMessageInjectedScript(message);
-            if (!isDomReady || !webviewRef.current) {
+            if (!isDomReadyRef.current || !webviewRef.current) {
               pendingScriptsRef.current.push(script);
               if (pendingScriptsRef.current.length > 50) {
                 console.warn(
@@ -470,14 +483,19 @@ const DesktopWebView = forwardRef(
         jsBridgeHost.webviewWrapper = wrapper;
         return wrapper as IWebViewRef;
       },
-      [isDomReady, jsBridgeHost],
+      // dom-ready is read via isDomReadyRef so a parent holding an old
+      // wrapper still delivers.
+      [isWebviewReady, jsBridgeHost],
     );
 
-    const initWebviewByRef = useCallback(($ref: any) => {
-      webviewRef.current = $ref;
-      setIsDomReady(false);
-      setIsWebviewReady(Boolean($ref));
-    }, []);
+    const initWebviewByRef = useCallback(
+      ($ref: any) => {
+        webviewRef.current = $ref;
+        updateIsDomReady(false);
+        setIsWebviewReady(Boolean($ref));
+      },
+      [updateIsDomReady],
+    );
 
     useEffect(() => {
       const webview = webviewRef.current;

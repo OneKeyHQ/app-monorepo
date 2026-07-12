@@ -265,6 +265,10 @@ export type IFetchHistoryTxDetailsParams = {
   accountAddress?: string;
   xpub?: string;
   fixConfirmedTxStatus?: boolean;
+  // addresses the tx involves (collected from the already-decoded tx the
+  // caller holds), lets vaults narrow per-request extra params such as the
+  // btc find-address `accountAddressArray`
+  txInvolvedAddresses?: string[];
 };
 
 export type IFetchTxDetailsParams = {
@@ -308,6 +312,11 @@ export interface IServerFetchAccountHistoryDetailParams {
   txid: string;
   accountAddress?: string;
   xpub?: string;
+  // btc find-address feature: claimed addresses the server merges into the
+  // account's address set before computing direction/amounts. Detail
+  // requests carry only the addresses the tx involves when the caller has
+  // tx context; otherwise the full claimed set is sent as a safe superset.
+  accountAddressArray?: string[];
 }
 
 export interface IChangedPendingTxInfo {

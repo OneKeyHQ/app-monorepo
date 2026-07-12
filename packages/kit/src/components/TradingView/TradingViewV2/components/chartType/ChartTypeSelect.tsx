@@ -17,11 +17,13 @@ export function ChartTypeSelect({
   chartTypes,
   activeChartType,
   onChartTypeChange,
+  onControlInteraction,
 }: {
   title: string;
   chartTypes: ITradingViewChartTypeOption[];
   activeChartType: number | undefined;
   onChartTypeChange: (chartType: number) => void;
+  onControlInteraction?: () => void;
 }) {
   const intl = useIntl();
   const items = useMemo(
@@ -67,7 +69,10 @@ export function ChartTypeSelect({
           iconSize="$5"
           title={title}
           disabled={disabled}
-          onPress={onPress}
+          onPress={(event) => {
+            onControlInteraction?.();
+            onPress?.(event);
+          }}
           {...HEADER_ICON_BUTTON_STYLE_PROPS}
         />
       )}
