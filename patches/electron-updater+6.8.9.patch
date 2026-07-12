@@ -48,7 +48,15 @@ index d6d5deb..31a3efe 100644
      /**
       * Asks the server whether there is an update.
       * @returns null if the updater is disabled, otherwise info about the latest version
-@@ -558,6 +568,8 @@ class AppUpdater extends events_1.EventEmitter {
+@@ -267,6 +277,7 @@ class AppUpdater extends events_1.EventEmitter {
+         })
+             .catch((e) => {
+             nullizePromise();
++            this.resetForRetry();
+             this.emit("error", e, `Cannot check for updates: ${(e.stack || e).toString()}`);
+             throw e;
+         });
+@@ -558,6 +569,8 @@ class AppUpdater extends events_1.EventEmitter {
      }
      async executeDownload(taskOptions) {
          const fileInfo = taskOptions.fileInfo;

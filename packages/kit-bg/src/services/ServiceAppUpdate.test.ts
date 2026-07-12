@@ -20,6 +20,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 // ---------------------------------------------------------------------------
@@ -3851,6 +3852,7 @@ describe('computeUpdateTargetKey consistency', () => {
     jest.useFakeTimers();
     resetAtom();
     resetPendingTask();
+    resetSyncStorageBackingMap();
     jest.clearAllMocks();
     service = createService();
   });
@@ -4001,6 +4003,46 @@ describe('computeUpdateTargetKey consistency', () => {
       });
       expect(aAfter.attemptCount).toBe(0);
       expect(aAfter.givenUp).toBe(false);
+    });
+
+    test('a new desktop native runtime does not inherit an exhausted budget', async () => {
+      const { BundleUpdate: bundleUpdateMock } = jest.requireMock(
+        '@onekeyhq/shared/src/modules3rdParty/auto-update',
+      ) as {
+        BundleUpdate: {
+          getNativeAppVersion: jest.Mock;
+          getNativeBuildNumber: jest.Mock;
+        };
+      };
+      platformEnv.isDesktop = true;
+      bundleUpdateMock.getNativeAppVersion.mockResolvedValue('6.5.0');
+      bundleUpdateMock.getNativeBuildNumber.mockResolvedValue('100');
+
+      try {
+        for (let i = 1; i <= 8; i += 1) {
+          // eslint-disable-next-line no-await-in-loop
+          await service.recordDownloadAttempt({ targetKey: TARGET_A });
+        }
+        expect(
+          (await service.getDownloadAttemptBudget({ targetKey: TARGET_A }))
+            .givenUp,
+        ).toBe(true);
+
+        bundleUpdateMock.getNativeBuildNumber.mockResolvedValue('101');
+        const freshEntry = await service.getDownloadAttemptBudget({
+          targetKey: TARGET_A,
+        });
+        expect(freshEntry.attemptCount).toBe(0);
+        expect(freshEntry.givenUp).toBe(false);
+
+        const firstNewRuntimeAttempt = await service.recordDownloadAttempt({
+          targetKey: TARGET_A,
+        });
+        expect(firstNewRuntimeAttempt.attemptCount).toBe(1);
+        expect(firstNewRuntimeAttempt.givenUp).toBe(false);
+      } finally {
+        platformEnv.isDesktop = false;
+      }
     });
 
     test('a long idle gap does NOT give up — only the attempt count matters (resume-friendly)', async () => {

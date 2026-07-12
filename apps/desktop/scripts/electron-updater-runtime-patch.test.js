@@ -48,6 +48,43 @@ describe('electron-updater runtime patch', () => {
     expect(updater.updateInfoAndProvider).toBe(updateInfoAndProvider);
   });
 
+  test('rebuilds a rejected staging ID cache so the next check succeeds', async () => {
+    const failure = new Error('staging ID failed');
+    const getOrCreateStagingUserId = jest
+      .fn()
+      .mockRejectedValueOnce(failure)
+      .mockResolvedValueOnce('staging-id');
+    const updater = {
+      checkForUpdatesPromise: null,
+      clientPromise: null,
+      doCheckForUpdates: jest.fn(() => updater.stagingUserIdPromise.value),
+      downloadPromise: null,
+      emit: jest.fn(),
+      getOrCreateStagingUserId,
+      isUpdaterActive: jest.fn().mockReturnValue(true),
+      resetForRetry: AppUpdater.prototype.resetForRetry,
+      stagingUserIdPromise: null,
+      updateInfoAndProvider: null,
+      _logger: { info: jest.fn() },
+    };
+    AppUpdater.prototype.resetForRetry.call(updater);
+
+    await expect(
+      AppUpdater.prototype.checkForUpdates.call(updater),
+    ).rejects.toBe(failure);
+    expect(updater.emit).toHaveBeenCalledWith(
+      'error',
+      failure,
+      expect.stringContaining('Cannot check for updates'),
+    );
+    expect(updater.checkForUpdatesPromise).toBeNull();
+
+    await expect(
+      AppUpdater.prototype.checkForUpdates.call(updater),
+    ).resolves.toBe('staging-id');
+    expect(getOrCreateStagingUserId).toHaveBeenCalledTimes(2);
+  });
+
   test('rehydrates the persisted installer metadata after an app restart', async () => {
     const cacheDir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'electron-updater-test-'),
