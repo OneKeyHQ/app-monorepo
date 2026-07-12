@@ -278,3 +278,14 @@ Verified 2026-07-11 on an iPhone 16 Pro simulator:
   `gap={undefined}` to `DescriptionList` overrides (drops) the styled frame's
   `$4` default instead of falling back to it — demo wrappers should default
   the prop themselves.
+- Notes from batch 7 (DatePicker/Tabs/Pagination/Breadcrumb/UnorderedList/
+  DashText): `Tabs.Container` requires children, so CSF demands story args —
+  wrap it in a demo component instead of rendering it inline. On native the
+  collapsible-tab-view TabBar logs `[Reanimated] Reading from 'value' during
+  component render` warnings in dev — the component's own upstream pattern,
+  visible wherever Tabs mounts (Market), not story-induced. DatePicker stories
+  pin fixed 2026 dates so the opened calendar is deterministic; the cspell
+  gate rejects the calendar dependency's package name in comments, so don't
+  name it there. If Browser-pane screenshots suddenly go black around the
+  story canvas, the pane followed the OS into dark mode — the iframe body is
+  transparent; force it back with `resize_window {colorScheme: 'light'}`.
