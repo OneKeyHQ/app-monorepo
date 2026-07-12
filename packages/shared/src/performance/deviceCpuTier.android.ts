@@ -1,17 +1,22 @@
 import { manufacturer, modelName } from 'expo-device';
 
-import { ANDROID_DEVICE_CPU_TIER_BY_KEY } from './deviceCpuTierData/android';
-import { buildAndroidDeviceCpuTierKey } from './deviceCpuTierUtils';
+import { getAndroidDeviceCpuTier } from './deviceCpuTierData/android';
+import { normalizeDeviceCpuTierKeyPart } from './deviceCpuTierUtils';
+import { isKnownDeviceCpuTier } from './devicePerformanceTierTypes';
 
 import type { IDeviceCpuTierMatch } from './devicePerformanceTierTypes';
 
 export function getDeviceCpuTierMatch(): IDeviceCpuTierMatch | null {
-  const key = buildAndroidDeviceCpuTierKey({
-    manufacturer,
-    model: modelName,
+  const normalizedManufacturer = normalizeDeviceCpuTierKeyPart(manufacturer);
+  const normalizedModel = normalizeDeviceCpuTierKeyPart(modelName);
+  if (!normalizedManufacturer || !normalizedModel) {
+    return null;
+  }
+  const tier = getAndroidDeviceCpuTier({
+    manufacturer: normalizedManufacturer,
+    model: normalizedModel,
   });
-  const tier = key ? ANDROID_DEVICE_CPU_TIER_BY_KEY[key] : undefined;
-  if (tier === undefined) {
+  if (!isKnownDeviceCpuTier(tier)) {
     return null;
   }
   return {

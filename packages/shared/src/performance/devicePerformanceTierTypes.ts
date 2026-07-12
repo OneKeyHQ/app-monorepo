@@ -19,6 +19,16 @@ export type TKnownDeviceCpuTier = Exclude<
   typeof EDeviceCpuTier.unknown
 >;
 
+export function isKnownDeviceCpuTier(
+  value: unknown,
+): value is TKnownDeviceCpuTier {
+  return (
+    value === EDeviceCpuTier.high ||
+    value === EDeviceCpuTier.medium ||
+    value === EDeviceCpuTier.low
+  );
+}
+
 export enum EDeviceMemoryClass {
   constrained = 'constrained',
   standard = 'standard',
@@ -28,7 +38,6 @@ export enum EDeviceMemoryClass {
 
 export type IDevicePerformanceProfileSource =
   | 'iosModelId'
-  | 'iosModelName'
   | 'androidModel'
   | 'developerOverride'
   | 'legacyRuntime'

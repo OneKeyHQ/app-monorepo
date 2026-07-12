@@ -39,7 +39,7 @@ describe('devicePerformanceTierResolver', () => {
     const profile = resolveDevicePerformanceProfile({
       cpuTierMatch: {
         tier: EDeviceCpuTier.high,
-        source: 'iosModelName',
+        source: 'iosModelId',
         confidence: 'high',
       },
       memoryGB: 8,

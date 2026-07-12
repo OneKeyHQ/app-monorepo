@@ -32,7 +32,7 @@ describe('devicePerformanceTier.native', () => {
     storage.set('onekey_device_performance_tier', 'medium');
     getDeviceCpuTierMatchMock.mockReturnValue({
       tier: 'high',
-      source: 'iosModelName',
+      source: 'iosModelId',
       confidence: 'high',
     });
 
