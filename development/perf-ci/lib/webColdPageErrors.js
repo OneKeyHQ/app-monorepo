@@ -1,6 +1,13 @@
 function isNetworkRequestPageError(error) {
+  if (error?.name !== 'AxiosError') {
+    return false;
+  }
+
   const stack = typeof error?.stack === 'string' ? error.stack : '';
-  return /\bAxios\.request\b/.test(stack);
+  const stackFrames = stack.split('\n').slice(1);
+  return stackFrames.some((line) =>
+    /^\s*at\s+(?:async\s+)?Axios\.request\b/.test(line),
+  );
 }
 
 function classifyPageErrors(pageErrors) {
