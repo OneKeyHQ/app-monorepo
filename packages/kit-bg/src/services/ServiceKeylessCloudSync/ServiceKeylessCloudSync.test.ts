@@ -68,7 +68,9 @@ describe('ServiceKeylessCloudSync', () => {
       .mockReturnValue(true);
 
     jest.spyOn(service, 'prepareCloudSyncKeyless').mockRejectedValue(error);
-    jest.spyOn(service, 'setCloudSyncEnabledKeyless').mockResolvedValue(false);
+    const setCloudSyncEnabledKeyless = jest
+      .spyOn(service, 'setCloudSyncEnabledKeyless')
+      .mockResolvedValue(false);
 
     await expect(
       service.toggleCloudSyncKeyless({
@@ -77,7 +79,7 @@ describe('ServiceKeylessCloudSync', () => {
     ).rejects.toBe(error);
 
     expect(showDialog).toHaveBeenCalledWith(error);
-    expect(service.setCloudSyncEnabledKeyless).toHaveBeenCalledWith(false);
+    expect(setCloudSyncEnabledKeyless).toHaveBeenCalledWith(false);
   });
 
   test('silent keyless sync enable does not surface local secret envelope recovery dialog', async () => {
@@ -94,7 +96,9 @@ describe('ServiceKeylessCloudSync', () => {
       .mockReturnValue(true);
 
     jest.spyOn(service, 'prepareCloudSyncKeyless').mockRejectedValue(error);
-    jest.spyOn(service, 'setCloudSyncEnabledKeyless').mockResolvedValue(true);
+    const setCloudSyncEnabledKeyless = jest
+      .spyOn(service, 'setCloudSyncEnabledKeyless')
+      .mockResolvedValue(true);
 
     await expect(
       service.toggleCloudSyncKeyless({
@@ -105,7 +109,44 @@ describe('ServiceKeylessCloudSync', () => {
     ).rejects.toBe(error);
 
     expect(showDialog).not.toHaveBeenCalled();
-    expect(service.setCloudSyncEnabledKeyless).toHaveBeenCalledWith(true);
+    expect(setCloudSyncEnabledKeyless).toHaveBeenCalledWith(true);
+  });
+
+  test('explicit keyless migration surfaces local secret envelope recovery without force-enabling', async () => {
+    const service = new ServiceKeylessCloudSync({
+      backgroundApi: {
+        servicePrime: {
+          apiFetchPrimeUserInfo: jest.fn(),
+        },
+      },
+    });
+    const error = new LocalSecretEnvelopeUnavailable();
+    const showDialog = jest
+      .spyOn(errorToastUtils, 'showLocalSecretEnvelopeErrorDialogIfNeeded')
+      .mockReturnValue(true);
+
+    const prepareCloudSyncKeyless = jest
+      .spyOn(service, 'prepareCloudSyncKeyless')
+      .mockRejectedValue(error);
+    const setCloudSyncEnabledKeyless = jest
+      .spyOn(service, 'setCloudSyncEnabledKeyless')
+      .mockResolvedValue(false);
+
+    await expect(
+      service.toggleCloudSyncKeyless({
+        enabled: true,
+        silentEnable: true,
+        forceEnable: true,
+        handleLocalSecretEnvelopeUnavailable: true,
+      }),
+    ).rejects.toBe(error);
+
+    expect(prepareCloudSyncKeyless).toHaveBeenCalledWith({
+      silentEnable: true,
+      throwOnLocalSecretEnvelopeUnavailable: true,
+    });
+    expect(showDialog).toHaveBeenCalledWith(error);
+    expect(setCloudSyncEnabledKeyless).toHaveBeenCalledWith(false);
   });
 
   test('prepare keyless sync does not swallow local secret envelope repair errors', async () => {
@@ -145,10 +186,10 @@ describe('ServiceKeylessCloudSync', () => {
     jest
       .spyOn(service, 'getCurrentCloudSyncKeylessWalletId')
       .mockResolvedValue('hd-keyless-wallet-id');
-    jest.mocked(keylessSyncCredentialStorage.getCredential).mockResolvedValue(
-      null,
-    );
-    jest.mocked(localDb.getCredentialInner).mockRejectedValue(error);
+    jest
+      .mocked(keylessSyncCredentialStorage.getCredential)
+      .mockResolvedValue(null);
+    jest.spyOn(localDb, 'getCredentialInner').mockRejectedValue(error);
 
     await expect(
       service.repairKeylessSyncCredentialIfNeeded({

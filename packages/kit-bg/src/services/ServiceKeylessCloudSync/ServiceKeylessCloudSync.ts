@@ -688,15 +688,19 @@ class ServiceKeylessCloudSync extends ServiceBase {
     enabled,
     silentEnable = false,
     forceEnable = false,
+    handleLocalSecretEnvelopeUnavailable = !silentEnable,
   }: {
     enabled: boolean;
     silentEnable?: boolean;
     forceEnable?: boolean;
+    handleLocalSecretEnvelopeUnavailable?: boolean;
   }) {
     try {
       if (enabled) {
         const { success } = await this.prepareCloudSyncKeyless({
           silentEnable,
+          throwOnLocalSecretEnvelopeUnavailable:
+            handleLocalSecretEnvelopeUnavailable,
         });
         const shouldEnable = success || forceEnable;
         await this.setCloudSyncEnabledKeyless(shouldEnable);
@@ -735,12 +739,23 @@ class ServiceKeylessCloudSync extends ServiceBase {
         await this.setCloudSyncEnabledKeyless(false);
       }
     } catch (error) {
-      if (enabled && forceEnable) {
+      const shouldHandleLocalSecretEnvelopeUnavailable =
+        enabled &&
+        handleLocalSecretEnvelopeUnavailable &&
+        errorUtils.isErrorByClassName({
+          error,
+          className: EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable,
+        });
+      if (
+        enabled &&
+        forceEnable &&
+        !shouldHandleLocalSecretEnvelopeUnavailable
+      ) {
         await this.setCloudSyncEnabledKeyless(true);
       } else {
         await this.setCloudSyncEnabledKeyless(false);
       }
-      if (enabled && !silentEnable && !forceEnable) {
+      if (shouldHandleLocalSecretEnvelopeUnavailable) {
         errorToastUtils.showLocalSecretEnvelopeErrorDialogIfNeeded(error);
       }
       throw error;
@@ -753,9 +768,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
   async enableKeylessCloudSyncWithMigrationIfNeeded({
     showLoading = false,
     ignorePreMigrationSyncError = false,
+    handleLocalSecretEnvelopeUnavailable = false,
   }: {
     showLoading?: boolean;
     ignorePreMigrationSyncError?: boolean;
+    handleLocalSecretEnvelopeUnavailable?: boolean;
   } = {}) {
     const runMigration = async () => {
       const { isCloudSyncEnabled } = await primeCloudSyncPersistAtom.get();
@@ -778,6 +795,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         enabled: true,
         silentEnable: true,
         forceEnable: true,
+        handleLocalSecretEnvelopeUnavailable,
       });
       await this.backgroundApi.servicePrimeCloudSync.updateLastSyncTime({
         syncMode: ECloudSyncMode.Keyless,
@@ -849,8 +867,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
   async prepareCloudSyncKeyless({
     silentEnable = false,
+    throwOnLocalSecretEnvelopeUnavailable = !silentEnable,
   }: {
     silentEnable?: boolean;
+    throwOnLocalSecretEnvelopeUnavailable?: boolean;
   } = {}): Promise<{
     success: boolean;
   }> {
@@ -883,7 +903,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     // Ensure credential exists before proceeding (auto-repair if missing)
     await this.repairKeylessSyncCredentialIfNeeded({
       password,
-      throwOnLocalSecretEnvelopeUnavailable: !silentEnable,
+      throwOnLocalSecretEnvelopeUnavailable,
     });
 
     const keylessCredential = await this.getKeylessCloudSyncCredential();

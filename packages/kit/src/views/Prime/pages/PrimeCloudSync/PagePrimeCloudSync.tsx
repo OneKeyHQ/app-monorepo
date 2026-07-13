@@ -512,6 +512,7 @@ function AppDataSection() {
       await backgroundApiProxy.serviceKeylessCloudSync.enableKeylessCloudSyncWithMigrationIfNeeded(
         {
           showLoading: true,
+          handleLocalSecretEnvelopeUnavailable: true,
         },
       );
     } finally {

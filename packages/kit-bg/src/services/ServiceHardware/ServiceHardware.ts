@@ -2372,6 +2372,11 @@ class ServiceHardware extends ServiceBase {
       return;
     }
 
+    const currentTransportType = await this.getCurrentTransportType();
+    if (currentTransportType !== EHardwareTransportType.BLE) {
+      return;
+    }
+
     const hasBlePermission = !!(await checkBLEPermissions());
     if (!hasBlePermission) {
       appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
@@ -2380,7 +2385,6 @@ class ServiceHardware extends ServiceBase {
       throw new deviceErrors.NeedBluetoothPermissions({
         payload: {
           connectId,
-          inBluetoothCommunication: true,
         },
       });
     }
@@ -2393,7 +2397,6 @@ class ServiceHardware extends ServiceBase {
       throw new deviceErrors.NeedBluetoothTurnedOn({
         payload: {
           connectId,
-          inBluetoothCommunication: true,
         },
       });
     }
@@ -2539,11 +2542,6 @@ class ServiceHardware extends ServiceBase {
       throw new OneKeyLocalError('connectId is required');
     }
 
-    await this.ensureNativeBleReadyForHardwareCall({
-      connectId,
-      hardwareCallContext,
-    });
-
     // Try to get device from DB first. Keep the default OneKey vendor filter:
     // broadening it would pull shipped Ledger devices into the third-party
     // branch below and change a working flow.
@@ -2587,6 +2585,11 @@ class ServiceHardware extends ServiceBase {
         return device.connectId || connectId;
       }
     }
+
+    await this.ensureNativeBleReadyForHardwareCall({
+      connectId,
+      hardwareCallContext,
+    });
 
     if (!platformEnv.isSupportDesktopBle) {
       return device?.connectId || connectId;

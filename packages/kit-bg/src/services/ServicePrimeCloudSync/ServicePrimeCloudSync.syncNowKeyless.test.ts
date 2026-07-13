@@ -144,7 +144,15 @@ function buildService({
     isCloudSyncEnabledKeyless,
   });
   service.getSyncCredentialSafe = jest.fn(async () => syncCredential);
-  service.initLocalSyncItemsDB = jest.fn(async () => undefined);
+  const emptyLocalSyncItems: Awaited<
+    ReturnType<ServicePrimeCloudSync['initLocalSyncItemsDB']>
+  > = {
+    allWallets: [],
+    allDevices: undefined,
+    allAccounts: [],
+    allIndexedAccounts: [],
+  };
+  service.initLocalSyncItemsDB = jest.fn(async () => emptyLocalSyncItems);
   service.startServerSyncFlow = jest.fn(async () => undefined);
   service.updateLastSyncTime = jest.fn(async () => undefined);
 
@@ -203,9 +211,8 @@ describe('ServicePrimeCloudSync.syncNowKeyless', () => {
   });
 
   test('manual keyless sync returns false without success side effects when sync cannot run', async () => {
-    const { service, repairKeylessSyncCredentialIfNeeded } = buildService({
-      syncCredential: undefined,
-    });
+    const { service, repairKeylessSyncCredentialIfNeeded } = buildService();
+    service.getSyncCredentialSafe = jest.fn(async () => undefined);
 
     await expect(
       service.syncNowKeyless({
