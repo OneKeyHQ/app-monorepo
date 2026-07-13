@@ -23,6 +23,7 @@ export function OkxChartColorSettingsPanel({
   onColorModeChange,
   onPriceColorModeChange,
   onClose,
+  isDisabled = false,
 }: {
   colorMode: ITradingViewChartSettingsColorMode;
   priceColorMode: ITradingViewChartSettingsPriceColorMode;
@@ -31,6 +32,7 @@ export function OkxChartColorSettingsPanel({
     value: ITradingViewChartSettingsPriceColorMode,
   ) => void;
   onClose: () => void;
+  isDisabled?: boolean;
 }) {
   return (
     <YStack
@@ -45,6 +47,7 @@ export function OkxChartColorSettingsPanel({
       borderColor="$borderStrong"
       borderRadius={7}
       bg={OKX_CHART_BG}
+      pointerEvents={isDisabled ? 'none' : 'auto'}
     >
       <XStack
         h={49}

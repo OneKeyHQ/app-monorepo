@@ -265,21 +265,18 @@ export function useSettingsDraftValue<TValue>({
   const committedValue = value ?? innerCommittedValue;
   const committedValueRef = useRef(committedValue);
   const draftValueRef = useRef(committedValue);
-  const isDraftDirtyRef = useRef(false);
+  const [isDraftDirty, setIsDraftDirty] = useState(false);
   const [draftValue, setDraftValue] = useState(committedValue);
 
   useEffect(() => {
-    if (
-      isDraftDirtyRef.current ||
-      Object.is(committedValueRef.current, committedValue)
-    ) {
+    if (isDraftDirty || Object.is(committedValueRef.current, committedValue)) {
       return;
     }
 
     committedValueRef.current = committedValue;
     draftValueRef.current = committedValue;
     setDraftValue(committedValue);
-  }, [committedValue]);
+  }, [committedValue, isDraftDirty]);
 
   const updateDraftValue = useCallback(
     (updater: ISettingsValueUpdater<TValue>) => {
@@ -287,7 +284,7 @@ export function useSettingsDraftValue<TValue>({
       if (Object.is(nextValue, draftValueRef.current)) {
         return;
       }
-      isDraftDirtyRef.current = true;
+      setIsDraftDirty(true);
       draftValueRef.current = nextValue;
       setDraftValue(nextValue);
       onChange?.(nextValue);
@@ -296,7 +293,7 @@ export function useSettingsDraftValue<TValue>({
   );
 
   const commitDraftValue = useCallback(() => {
-    isDraftDirtyRef.current = false;
+    setIsDraftDirty(false);
     committedValueRef.current = draftValueRef.current;
     if (value === undefined) {
       setInnerCommittedValue(draftValueRef.current);
@@ -305,7 +302,7 @@ export function useSettingsDraftValue<TValue>({
 
   const cancelDraftValue = useCallback(() => {
     const restoredValue = committedValueRef.current;
-    isDraftDirtyRef.current = false;
+    setIsDraftDirty(false);
     draftValueRef.current = restoredValue;
     setDraftValue(restoredValue);
     onChange?.(restoredValue);

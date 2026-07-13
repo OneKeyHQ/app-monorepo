@@ -238,60 +238,62 @@ export function OkxIndicatorSettingsDialog({
           <Icon name="CrossedSmallOutline" size="$5" color="$icon" />
         </Stack>
       </XStack>
-      <OkxIndicatorScopeTabs
-        value={selectedIndicatorScope}
-        indicators={value.indicators}
-        maxActiveSubIndicators={maxActiveSubIndicators}
-        onChange={onScopeChange}
-      />
-      <XStack h={OKX_INDICATOR_BODY_HEIGHT} minHeight={0}>
-        <Stack
-          w={OKX_INDICATOR_SIDEBAR_WIDTH}
-          minWidth={OKX_INDICATOR_SIDEBAR_WIDTH}
-          maxWidth={OKX_INDICATOR_SIDEBAR_WIDTH}
-          flexShrink={0}
-          position="relative"
-          zIndex={1}
-          bg={OKX_CHART_BG}
-        >
-          <OkxIndicatorSidebar
-            indicators={visibleIndicators}
-            selectedIndicatorId={selectedIndicatorId}
-            onSelect={onSelectIndicator}
-            onToggle={onToggleIndicator}
-          />
+      <YStack pointerEvents={isSubmitting ? 'none' : 'auto'}>
+        <OkxIndicatorScopeTabs
+          value={selectedIndicatorScope}
+          indicators={value.indicators}
+          maxActiveSubIndicators={maxActiveSubIndicators}
+          onChange={onScopeChange}
+        />
+        <XStack h={OKX_INDICATOR_BODY_HEIGHT} minHeight={0}>
           <Stack
-            position="absolute"
-            top={0}
-            right={0}
-            bottom={0}
-            w={1}
+            w={OKX_INDICATOR_SIDEBAR_WIDTH}
+            minWidth={OKX_INDICATOR_SIDEBAR_WIDTH}
+            maxWidth={OKX_INDICATOR_SIDEBAR_WIDTH}
+            flexShrink={0}
+            position="relative"
+            zIndex={1}
+            bg={OKX_CHART_BG}
+          >
+            <OkxIndicatorSidebar
+              indicators={visibleIndicators}
+              selectedIndicatorId={selectedIndicatorId}
+              onSelect={onSelectIndicator}
+              onToggle={onToggleIndicator}
+            />
+            <Stack
+              position="absolute"
+              top={0}
+              right={0}
+              bottom={0}
+              w={1}
+              zIndex={2}
+              bg={OKX_CHART_DIVIDER}
+              pointerEvents="none"
+            />
+          </Stack>
+          <Stack
+            flex={1}
+            minWidth={0}
+            position="relative"
             zIndex={2}
-            bg={OKX_CHART_DIVIDER}
-            pointerEvents="none"
-          />
-        </Stack>
-        <Stack
-          flex={1}
-          minWidth={0}
-          position="relative"
-          zIndex={2}
-          overflow="visible"
-          bg={OKX_CHART_BG}
-        >
-          <OkxIndicatorContent
-            indicator={selectedIndicator}
-            onToggleLine={onToggleLine}
-            onLinePeriodChange={onLinePeriodChange}
-            onLineStyleChange={onLineStyleChange}
-            onLineSecondaryStyleChange={onLineSecondaryStyleChange}
-            onLineColorChange={onLineColorChange}
-            onOpacityChange={onOpacityChange}
-            onOpacityColorChange={onOpacityColorChange}
-            onParameterChange={onParameterChange}
-          />
-        </Stack>
-      </XStack>
+            overflow="visible"
+            bg={OKX_CHART_BG}
+          >
+            <OkxIndicatorContent
+              indicator={selectedIndicator}
+              onToggleLine={onToggleLine}
+              onLinePeriodChange={onLinePeriodChange}
+              onLineStyleChange={onLineStyleChange}
+              onLineSecondaryStyleChange={onLineSecondaryStyleChange}
+              onLineColorChange={onLineColorChange}
+              onOpacityChange={onOpacityChange}
+              onOpacityColorChange={onOpacityColorChange}
+              onParameterChange={onParameterChange}
+            />
+          </Stack>
+        </XStack>
+      </YStack>
       <XStack
         h={OKX_INDICATOR_FOOTER_HEIGHT}
         alignItems="center"

@@ -319,7 +319,11 @@ export function TradingViewChartSettings({
         </Stack>
       </XStack>
 
-      <XStack h={OKX_CHART_BODY_HEIGHT} minHeight={0}>
+      <XStack
+        h={OKX_CHART_BODY_HEIGHT}
+        minHeight={0}
+        pointerEvents={submitInProgress ? 'none' : 'auto'}
+      >
         <Stack
           w={OKX_CHART_SIDEBAR_WIDTH}
           position="relative"
@@ -373,6 +377,7 @@ export function TradingViewChartSettings({
             );
           }}
           onClose={() => setIsColorSettingsPanelOpen(false)}
+          isDisabled={submitInProgress}
         />
       ) : null}
 
