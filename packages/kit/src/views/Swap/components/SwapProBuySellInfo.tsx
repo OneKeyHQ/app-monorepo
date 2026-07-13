@@ -45,7 +45,6 @@ const SwapProBuySellInfo = ({
       <NumberSizeableText
         size="$bodySm"
         color="$textSuccess"
-        fontFamily="$monoRegular"
         formatter={isAboveThreshold ? 'marketCap' : 'value'}
         formatterOptions={{ currency: '$' }}
       >
@@ -69,7 +68,6 @@ const SwapProBuySellInfo = ({
       <NumberSizeableText
         size="$bodySm"
         color="$textCritical"
-        fontFamily="$monoRegular"
         formatter={isAboveThreshold ? 'marketCap' : 'value'}
         formatterOptions={{ currency: '$' }}
       >
@@ -145,12 +143,7 @@ const SwapProBuySellInfo = ({
               B
             </SizableText>
           </Stack>
-          <SizableText
-            size="$bodyXs"
-            color="$textSuccess"
-            ml="$0.5"
-            fontFamily="$monoRegular"
-          >
+          <SizableText size="$bodyXs" color="$textSuccess" ml="$0.5">
             {!supportSpeedSwap ? '--' : buyPercentage.toFixed(2)}%
           </SizableText>
         </XStack>
@@ -161,12 +154,7 @@ const SwapProBuySellInfo = ({
           position="relative"
           zIndex={1}
         >
-          <SizableText
-            size="$bodyXs"
-            color="$textCritical"
-            mr="$0.5"
-            fontFamily="$monoRegular"
-          >
+          <SizableText size="$bodyXs" color="$textCritical" mr="$0.5">
             {!supportSpeedSwap ? '--' : sellPercentage.toFixed(2)}%
           </SizableText>
           <Stack

@@ -1,9 +1,13 @@
 import { getStockMarketClosedDescription } from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert/getStockMarketClosedDescription';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
-import { ESwapAlertLevel } from '@onekeyhq/shared/types/swap/types';
+import {
+  EStockTradeAlertType,
+  ESwapAlertLevel,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   getStockErrorAlertLevel,
+  getStockTradeAlertType,
   isCurrentStockQuoteEventError,
 } from './SwapStockTradeAlertUtils';
 
@@ -116,5 +120,41 @@ describe('SwapStockTradeAlert utils', () => {
         notAvailableInRegionMessage: 'Not available in region',
       }),
     ).toBe(ESwapAlertLevel.ERROR);
+  });
+
+  it('maps Stock alert messages to analytics alertType values', () => {
+    expect(getStockTradeAlertType({ isMarketClosed: true })).toBe(
+      EStockTradeAlertType.MARKET_CLOSED,
+    );
+    expect(
+      getStockTradeAlertType({
+        message: 'Min amount/request 10 USDC',
+        notAvailableInRegionMessage: 'Not available in region',
+      }),
+    ).toBe(EStockTradeAlertType.MIN_AMOUNT);
+    expect(
+      getStockTradeAlertType({
+        message: 'Price impact is too large. Please lower the amount.',
+        notAvailableInRegionMessage: 'Not available in region',
+      }),
+    ).toBe(EStockTradeAlertType.MAX_AMOUNT);
+    expect(
+      getStockTradeAlertType({
+        message: 'Not available in region',
+        notAvailableInRegionMessage: 'Not available in region',
+      }),
+    ).toBe(EStockTradeAlertType.REGION_RESTRICTED);
+    expect(
+      getStockTradeAlertType({
+        message: 'Unknown stock quote error',
+        notAvailableInRegionMessage: 'Not available in region',
+      }),
+    ).toBe(EStockTradeAlertType.UNKNOWN);
+    expect(
+      getStockTradeAlertType({
+        message: 'Provider temporarily unavailable',
+        notAvailableInRegionMessage: 'Not available in region',
+      }),
+    ).toBe(EStockTradeAlertType.OTHER);
   });
 });

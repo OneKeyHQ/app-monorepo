@@ -58,6 +58,7 @@ import {
   EModalSettingRoutes,
   ERootRoutes,
   ESettingsTabNames,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
@@ -1226,8 +1227,15 @@ const MoreActionWalletGrid = () => {
   );
 };
 
+// Ext popup/side panel hides the bottom tab bar, so the Developer tab loses its
+// only entry point there; surface it in this More menu in dev builds instead.
+const showDevModeEntryInMoreMenu =
+  platformEnv.isDev &&
+  (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel);
+
 const MoreActionMoreGrid = () => {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const { closePopover } = usePopoverContext();
   const handleHelpAndSupport = useCallback(() => {
     void showIntercom();
@@ -1244,6 +1252,11 @@ const MoreActionMoreGrid = () => {
       await import('../../views/Redemption/components/RedemptionCenterDialog');
     showRedemptionCenterDialog({ source: 'more_action' });
   }, [closePopover]);
+
+  const handleDevMode = useCallback(async () => {
+    await closePopover?.();
+    navigation.switchTab(ETabRoutes.Developer);
+  }, [closePopover, navigation]);
 
   const items = useMemo(() => {
     return [
@@ -1267,6 +1280,16 @@ const MoreActionMoreGrid = () => {
         onPress: handleRedeem,
         trackID: 'wallet-redeem',
       },
+      ...(showDevModeEntryInMoreMenu
+        ? [
+            {
+              title: intl.formatMessage({ id: ETranslations.global_dev_mode }),
+              icon: 'CodeBracketsOutline' as const,
+              onPress: handleDevMode,
+              trackID: 'wallet-dev-mode',
+            },
+          ]
+        : []),
     ];
   }, [
     handleHelpAndSupport,
@@ -1274,6 +1297,7 @@ const MoreActionMoreGrid = () => {
     intl,
     themeVariant,
     handleReferFriends,
+    handleDevMode,
   ]);
   return (
     <BaseMoreActionGrid
@@ -1545,7 +1569,8 @@ function MoreButtonWithDot({
     if (isShowUpgradeDot) {
       return (
         <Dot
-          color="$blue8"
+          // Accent (brand green) to match the header "Update now" button.
+          color="$bgAccent"
           top={isDesktopMode ? 0 : '$-2'}
           right={isDesktopMode ? undefined : '$-2.5'}
         />
@@ -1561,7 +1586,9 @@ function MoreButtonWithDot({
       <Stack
         width="$3"
         height="$3"
-        bg={isShowUpgradeDot ? '$iconInfo' : '$bgCriticalStrong'}
+        // Update dot uses accent (brand green) to match the header "Update
+        // now" button; the notification (non-update) dot stays critical red.
+        bg={isShowUpgradeDot ? '$bgAccent' : '$bgCriticalStrong'}
         borderRadius="$full"
         position="absolute"
         right={-4}

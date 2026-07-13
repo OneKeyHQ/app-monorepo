@@ -5,7 +5,7 @@
 const _global = typeof globalThis !== 'undefined' ? globalThis : (self as any);
 
 if (typeof _global.requestIdleCallback !== 'function') {
-  _global.requestIdleCallback = (
+  const requestIdleCallbackShim = ((
     cb: IdleRequestCallback,
     _options?: IdleRequestOptions,
   ): number =>
@@ -15,7 +15,11 @@ if (typeof _global.requestIdleCallback !== 'function') {
         didTimeout: false,
         timeRemaining: () => Math.max(0, 50 - (Date.now() - start)),
       });
-    }, 1) as unknown as number;
+    }, 1) as unknown as number) as typeof requestIdleCallback & {
+    __ONEKEY_REQUEST_IDLE_CALLBACK_SHIM__?: true;
+  };
+  requestIdleCallbackShim.__ONEKEY_REQUEST_IDLE_CALLBACK_SHIM__ = true;
+  _global.requestIdleCallback = requestIdleCallbackShim;
 }
 
 if (typeof _global.cancelIdleCallback !== 'function') {

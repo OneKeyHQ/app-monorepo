@@ -832,18 +832,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const handleTokenPress = useCallback(
     (record: IFavoriteTokenDisplay) => {
       if (record.perpsCoin) {
-        if (
-          platformEnv.isExtensionUiPopup ||
-          platformEnv.isExtensionUiSidePanel
-        ) {
-          void backgroundApiProxy.serviceApp.openExtensionExpandTab({
-            path: '/perp',
-            params: {
-              coin: record.perpsCoin,
-            },
-          });
-          return;
-        }
+        // Mirror Home > Perps tab: switchTab(Perp) makes ExtPerp open the expand
+        // tab in the extension popup/side panel, so no ext-only branch is needed.
         navigateToPerps(record.perpsCoin);
         return;
       }
@@ -974,10 +964,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             <Button
               testID="home-show-view-more-button-btn"
               variant="secondary"
-              iconAfter="ChevronRightSmallOutline"
               onPress={handleViewMore}
               flexGrow={1}
               flexBasis={0}
+              childrenAsText={false}
               $md={
                 {
                   borderRadius: '$full',
@@ -986,7 +976,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                 } as any
               }
             >
-              {intl.formatMessage({ id: ETranslations.global_view_more })}
+              <XStack alignItems="center" gap="$2">
+                <SizableText size="$bodyMdMedium">
+                  {intl.formatMessage({ id: ETranslations.global_view_more })}
+                </SizableText>
+                <Icon name="ChevronRightSmallOutline" size="$5.5" />
+              </XStack>
             </Button>
           </XStack>
         ) : null}

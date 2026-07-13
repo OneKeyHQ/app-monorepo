@@ -155,3 +155,27 @@ Complete this drill before wiring a stock-like protocol:
   judging the target hook.
 - Propose the smallest App-side change that preserves the canonical flow.
 - Before patching a Stock/order review flag, check whether the behavior is already owned by a channel state, service adapter, backend DTO, generated workflow, or pending/history filter.
+
+## Recent Failure-Derived Gates
+
+Apply these as durable regression gates; recover current source before assuming
+the original incident details still apply.
+
+- Background/restart Stock failures require first-frame owner tracing: account
+  readiness, restored `swapType`, Stock/pay pair, token-detail freshness, quote
+  event, and ordinary Swap default sync are separate transitions.
+- A provider minimum/error can render before another provider settles. Do not
+  display a terminal error or zero result until quote-event progress proves no
+  actionable quote remains.
+- Fiat display must identify which token/currency owns the price. Never reuse a
+  source amount with an unrelated target price or treat missing conversion as
+  already converted.
+- Disconnect is a visibility transition. Recent pairs and Swap/Limit/Stock
+  history hide in `main`; persisted rows remain in bg SimpleDB and must return
+  after reconnect, including after restart.
+- Chart fixes must scope instance, token identity, currency/source currency,
+  readiness, and cleanup. A mounted chart container is not proof that data or
+  WebView events are current.
+- Issue/PR titles are not authoritative scope. Inspect late Jira/Slack
+  corrections, attachments, branch-only commits, and the actual PR file list;
+  adjacent Stock, Market, Swap, or DeFi changes can be hidden in one squash.

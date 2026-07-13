@@ -1557,3 +1557,116 @@ describe('defiActionUtils.resolveDeFiActionTxAmount', () => {
     ).toEqual({});
   });
 });
+
+describe('defiActionUtils.positionHasDebts', () => {
+  it('detects positive debt on the position and ignores zero amounts', () => {
+    expect(
+      defiActionUtils.positionHasDebts(makePosition(makeSourcePosition())),
+    ).toBe(false);
+
+    expect(
+      defiActionUtils.positionHasDebts(
+        makePosition(
+          makeSourcePosition({
+            debts: [
+              makeAsset({ symbol: 'USDT', address: '0xusdt', amount: '5' }),
+            ],
+          }),
+        ),
+      ),
+    ).toBe(true);
+
+    expect(
+      defiActionUtils.positionHasDebts(
+        makePosition(
+          makeSourcePosition({
+            debts: [
+              makeAsset({ symbol: 'USDT', address: '0xusdt', amount: '0' }),
+            ],
+          }),
+        ),
+      ),
+    ).toBe(false);
+  });
+
+  it('detects debt held only on a source position', () => {
+    const position = makePosition(
+      makeSourcePosition({
+        debts: [makeAsset({ symbol: 'USDT', address: '0xusdt', amount: '5' })],
+      }),
+    );
+    position.debts = [];
+    expect(defiActionUtils.positionHasDebts(position)).toBe(true);
+  });
+});
+
+describe('defiActionUtils.getPositionRewardAssets', () => {
+  it('returns position-level rewards once, not doubled with source copies', () => {
+    const position = makePosition(
+      makeSourcePosition({
+        rewards: [makeAsset({ symbol: 'CRV', address: '0xcrv', amount: '2' })],
+      }),
+    );
+    // makePosition mirrors the same reward at both levels; the helper must
+    // prefer the position-level aggregate and return it exactly once.
+    const rewards = defiActionUtils.getPositionRewardAssets(position);
+    expect(rewards).toHaveLength(1);
+    expect(rewards[0].symbol).toBe('CRV');
+  });
+
+  it('falls back to source-position rewards and drops zero amounts', () => {
+    const position = makePosition(
+      makeSourcePosition({
+        rewards: [
+          makeAsset({ symbol: 'CRV', address: '0xcrv', amount: '2' }),
+          makeAsset({ symbol: 'ZERO', address: '0xzero', amount: '0' }),
+        ],
+      }),
+    );
+    position.rewards = [];
+    const rewards = defiActionUtils.getPositionRewardAssets(position);
+    expect(rewards).toHaveLength(1);
+    expect(rewards[0].symbol).toBe('CRV');
+  });
+
+  it('returns an empty array when nothing is claimable', () => {
+    expect(
+      defiActionUtils.getPositionRewardAssets(
+        makePosition(makeSourcePosition()),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('defiActionUtils.filterPositiveActionAssets', () => {
+  it('keeps only assets with a positive finite amount', () => {
+    const assets = [
+      {
+        asset: makeAsset({ address: '0xweth', symbol: 'WETH' }),
+        amount: '0.0001659',
+        symbol: 'WETH',
+      },
+      {
+        asset: makeAsset({ address: '0xusdc', symbol: 'USDC' }),
+        amount: '0',
+        symbol: 'USDC',
+      },
+      {
+        asset: makeAsset({ address: '0xdai', symbol: 'DAI' }),
+        amount: '',
+        symbol: 'DAI',
+      },
+      {
+        asset: makeAsset({ address: '0xusdt', symbol: 'USDT' }),
+        amount: 'not-a-number',
+        symbol: 'USDT',
+      },
+    ];
+    const result = defiActionUtils.filterPositiveActionAssets(assets);
+    expect(result.map((item) => item.symbol)).toEqual(['WETH']);
+  });
+
+  it('returns an empty array for empty input', () => {
+    expect(defiActionUtils.filterPositiveActionAssets([])).toEqual([]);
+  });
+});

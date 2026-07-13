@@ -41,6 +41,7 @@ jest.mock('@onekeyhq/components', () => ({
       navigate: jest.fn(),
     },
   },
+  useMedia: jest.fn(() => ({ gtLg: false })),
   useSplitViewType: jest.fn(() => 'UNKNOWN'),
 }));
 

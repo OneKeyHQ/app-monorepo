@@ -5,10 +5,8 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
-  Badge,
   Button,
   DashText,
-  Empty,
   Icon,
   Image,
   NumberSizeableText,
@@ -27,8 +25,16 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import {
+  LeverageBadge,
+  SubtitleText,
+} from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import { useNavigateToMarketTab } from '@onekeyhq/kit/src/views/Market/hooks';
+import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
+import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
+import { getTradingButtonStyleValues } from '@onekeyhq/kit/src/views/Perp/utils/styleUtils';
+import {
+  perpsPendingInfoPanelTabAtom,
   spotActiveAssetAtom,
   tradingModeAtom,
   useCurrencyPersistAtom,
@@ -44,13 +50,18 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
-import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  type INumberFormatProps,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IPerpsHomeHolding,
   IPerpsHomePosition,
 } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
 import {
+  formatPriceToSignificantDigits,
   getHyperliquidTokenImageUrl,
+  getValidPriceDecimals,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
@@ -60,8 +71,14 @@ import {
   buildOverviewGridStyle,
 } from '../components/DeFiListBlock/DeFiOverviewLayout';
 import { resolveOverviewCols } from '../components/DeFiListBlock/overviewColsResolver';
+import {
+  HOME_PERPS_GUIDE_URL,
+  HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
+} from '../components/PopularTrading/constants';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { RichBlock } from '../components/RichBlock';
+import { SupportHub } from '../components/SupportHub/SupportHub';
+import { Upgrade } from '../components/Upgrade/Upgrade';
 import { HomeTestIDs } from '../testIDs';
 
 import { usePerpsHomePortfolio } from './usePerpsHomePortfolio';
@@ -69,8 +86,20 @@ import { usePerpsHomePortfolio } from './usePerpsHomePortfolio';
 const HYPER_EVM_LOGO_URI =
   'https://uni.onekey-asset.com/static/chain/hyper-evm.png';
 const SPAN_1: React.CSSProperties = { gridColumnEnd: 'span 1' };
+const HOT_MARKETS_DESKTOP_GRID: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr) 160px 160px 180px',
+  columnGap: 24,
+  alignItems: 'center',
+  width: '100%',
+};
 const noop = () => undefined;
 type IPerpsTradeMode = 'perp' | 'spot';
+type IPerpsInfoPanelTab = 'Positions' | 'Balances';
+const VALUE_FORMATTER: INumberFormatProps['formatter'] = 'value';
+const VALUE_FORMATTER_OPTIONS: INumberFormatProps['formatterOptions'] = {
+  currency: '$',
+};
 
 function isTradableSpotHolding(holding: IPerpsHomeHolding) {
   return Boolean(
@@ -105,7 +134,12 @@ function useOpenPerpAsset() {
   const navigation = useAppNavigation();
   const ensureHomePerpsAccount = useEnsureHomePerpsAccount();
   return useCallback(
-    (coin?: string, mode: IPerpsTradeMode = 'perp', openMarket = true) => {
+    (
+      coin?: string,
+      mode: IPerpsTradeMode = 'perp',
+      openMarket = true,
+      infoPanelTab?: IPerpsInfoPanelTab,
+    ) => {
       void (async () => {
         const activePerpsAccount = await ensureHomePerpsAccount();
         if (!activePerpsAccount) {
@@ -131,6 +165,9 @@ function useOpenPerpAsset() {
         } catch {
           return;
         }
+        if (infoPanelTab) {
+          await perpsPendingInfoPanelTabAtom.set(infoPanelTab);
+        }
         navigation.switchTab(ETabRoutes.Perp);
         if (!coin) {
           return;
@@ -140,6 +177,13 @@ function useOpenPerpAsset() {
             mode,
             coin,
           });
+          if (infoPanelTab) {
+            setTimeout(() => {
+              appEventBus.emit(EAppEventBusNames.PerpSwitchInfoPanelTab, {
+                tab: infoPanelTab,
+              });
+            }, 0);
+          }
         } catch {
           return;
         }
@@ -377,7 +421,13 @@ function PerpsHoldingsBlock({
             hyperEvmLogoUri={hyperEvmLogoUri}
             onPress={
               isTradableSpotHolding(holding)
-                ? () => openPerp(holding.spotUniverseName, 'spot', false)
+                ? () =>
+                    openPerp(
+                      holding.spotUniverseName,
+                      'spot',
+                      false,
+                      'Balances',
+                    )
                 : undefined
             }
           />
@@ -448,21 +498,33 @@ function PerpsPositionSkeletonCard() {
           <Skeleton.BodyLg w={80} />
           <Skeleton.BodySm w={48} />
         </XStack>
-        <Skeleton w="$4" h="$4" />
+        <Skeleton.BodySm w={40} />
       </XStack>
       <XStack justifyContent="space-between">
         <Skeleton.BodyLg w={96} />
         <Skeleton.BodyLg w={72} />
       </XStack>
       <XStack justifyContent="space-between">
-        <Skeleton.BodyMd w={100} />
-        <Skeleton.BodyMd w={88} />
-        <Skeleton.BodyMd w={104} />
+        <XStack width={120}>
+          <Skeleton.BodyMd w={100} />
+        </XStack>
+        <XStack flex={1} alignItems="center">
+          <Skeleton.BodyMd w={88} />
+        </XStack>
+        <XStack width={120} alignItems="flex-end">
+          <Skeleton.BodyMd w={104} />
+        </XStack>
       </XStack>
       <XStack justifyContent="space-between">
-        <Skeleton.BodyMd w={80} />
-        <Skeleton.BodyMd w={88} />
-        <Skeleton.BodyMd w={104} />
+        <XStack width={120}>
+          <Skeleton.BodyMd w={80} />
+        </XStack>
+        <XStack flex={1} alignItems="center">
+          <Skeleton.BodyMd w={88} />
+        </XStack>
+        <XStack width={120} alignItems="flex-end">
+          <Skeleton.BodyMd w={104} />
+        </XStack>
       </XStack>
     </YStack>
   );
@@ -516,12 +578,7 @@ function PerpsLoadingState() {
           title={<Skeleton.BodyLg w={120} />}
           subTitle={<Skeleton.HeadingXl w={120} />}
           headerContainerProps={{ px: 0, pb: 0 }}
-          headerActions={
-            <XStack alignItems="center" gap="$2">
-              <Skeleton w={84} h={28} borderRadius="$full" />
-              <Skeleton w={64} h={28} borderRadius="$full" />
-            </XStack>
-          }
+          headerActions={<Skeleton w={84} h={28} borderRadius="$full" />}
           content={null}
           plainContentContainer
         />
@@ -536,24 +593,420 @@ function PerpsLoadingState() {
   );
 }
 
-function PerpsPositionsEmptyContent() {
+function PerpsEmptyRecommendSection() {
   const intl = useIntl();
+  const media = useMedia();
+  const openPerp = useOpenPerpAsset();
+  const navigateToMarketTab = useNavigateToMarketTab();
+  const { tokens, isLoading } = useMarketPerpsTokenList({
+    selectedCategoryId: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
+  });
+
+  const displayTokens = useMemo(
+    () => tokens.slice(0, media.gtMd ? 6 : 5),
+    [media.gtMd, tokens],
+  );
+
+  if (!isLoading && displayTokens.length === 0) {
+    return null;
+  }
 
   return (
-    <Empty
-      py="$8"
-      illustration="Orders"
-      title={intl.formatMessage({
-        id: ETranslations.perp_position_empty,
-      })}
-      description={intl.formatMessage({
-        id: ETranslations.perp_position_empty_desc,
-      })}
-    />
+    <YStack mt="$6" gap="$3">
+      <XStack alignItems="center" justifyContent="space-between" gap="$3">
+        <SizableText size="$headingLg" $gtMd={{ size: '$headingLg' }}>
+          {intl.formatMessage({
+            id: ETranslations.perp_home_hot_markets__title,
+          })}
+        </SizableText>
+        <Button
+          display="none"
+          $gtMd={{ display: 'flex' }}
+          size="small"
+          variant="tertiary"
+          color="$textSubdued"
+          iconAfter="ChevronRightSmallOutline"
+          iconProps={{ color: '$iconSubdued' }}
+          testID={HomeTestIDs.popularViewMoreBtn}
+          onPress={() =>
+            navigateToMarketTab({
+              tabToSelect: 'perps',
+              perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
+            })
+          }
+          cursor="pointer"
+        >
+          {intl.formatMessage({ id: ETranslations.global_view_more })}
+        </Button>
+      </XStack>
+      <YStack display="none" $gtMd={{ display: 'flex' }}>
+        <XStack mx="$-3" px="$3" pb="$2.5">
+          <Stack style={HOT_MARKETS_DESKTOP_GRID}>
+            <SizableText
+              size="$headingXs"
+              color="$textSubdued"
+              textTransform="uppercase"
+            >
+              {intl.formatMessage({ id: ETranslations.global_name })}
+            </SizableText>
+            <SizableText
+              size="$headingXs"
+              color="$textSubdued"
+              textTransform="uppercase"
+              textAlign="right"
+            >
+              {intl.formatMessage({ id: ETranslations.global_price })}
+            </SizableText>
+            <SizableText
+              size="$headingXs"
+              color="$textSubdued"
+              textTransform="uppercase"
+              textAlign="right"
+            >
+              {`${intl.formatMessage({
+                id: ETranslations.dexmarket_token_change,
+              })}(%)`}
+            </SizableText>
+            <SizableText
+              size="$headingXs"
+              color="$textSubdued"
+              textTransform="uppercase"
+              textAlign="right"
+            >
+              {intl.formatMessage({ id: ETranslations.dexmarket_turnover })}
+            </SizableText>
+          </Stack>
+        </XStack>
+        {displayTokens.map((token) => (
+          <XStack
+            key={token.name}
+            hoverStyle={{ bg: '$bgHover' }}
+            pressStyle={{ bg: '$bgActive' }}
+            onPress={() => openPerp(token.name, 'perp', false)}
+            cursor="pointer"
+            role="button"
+            borderRadius="$3"
+            mx="$-3"
+            px="$3"
+            py="$2"
+          >
+            <Stack style={HOT_MARKETS_DESKTOP_GRID}>
+              <XStack alignItems="center" gap="$3" minWidth={0}>
+                <Token
+                  size="md"
+                  borderRadius="$full"
+                  tokenImageUri={token.tokenImageUrl}
+                  fallbackIcon="CryptoCoinOutline"
+                />
+                <YStack flex={1} minWidth={0}>
+                  <XStack
+                    alignItems="center"
+                    gap="$1"
+                    minWidth={0}
+                    overflow="hidden"
+                  >
+                    <SizableText
+                      size="$bodyLgMedium"
+                      numberOfLines={1}
+                      flexShrink={1}
+                      ellipsizeMode="tail"
+                      userSelect="none"
+                    >
+                      {token.displayName}
+                    </SizableText>
+                    <LeverageBadge leverage={token.maxLeverage} />
+                  </XStack>
+                  {token.subtitle ? (
+                    <SubtitleText subtitle={token.subtitle} />
+                  ) : null}
+                </YStack>
+              </XStack>
+              {token.markPrice ? (
+                <NumberSizeableText
+                  numberOfLines={1}
+                  size="$bodyLgMedium"
+                  textAlign="right"
+                  formatter="price"
+                  formatterOptions={{ currency: '$' }}
+                >
+                  {token.markPrice}
+                </NumberSizeableText>
+              ) : (
+                <SizableText
+                  size="$bodyLgMedium"
+                  color="$textSubdued"
+                  textAlign="right"
+                >
+                  --
+                </SizableText>
+              )}
+              {token.change24hPercent === undefined ? (
+                <SizableText
+                  size="$bodyLgMedium"
+                  color="$textSubdued"
+                  textAlign="right"
+                >
+                  --
+                </SizableText>
+              ) : (
+                <NumberSizeableText
+                  numberOfLines={1}
+                  size="$bodyLgMedium"
+                  textAlign="right"
+                  color={
+                    token.change24hPercent >= 0
+                      ? '$textSuccess'
+                      : '$textCritical'
+                  }
+                  formatter="priceChange"
+                  formatterOptions={{ showPlusMinusSigns: true }}
+                >
+                  {token.change24hPercent}
+                </NumberSizeableText>
+              )}
+              {token.volume24h ? (
+                <NumberSizeableText
+                  numberOfLines={1}
+                  size="$bodyLgMedium"
+                  textAlign="right"
+                  formatter="marketCap"
+                  formatterOptions={{ currency: '$' }}
+                >
+                  {token.volume24h}
+                </NumberSizeableText>
+              ) : (
+                <SizableText
+                  size="$bodyLgMedium"
+                  color="$textSubdued"
+                  textAlign="right"
+                >
+                  --
+                </SizableText>
+              )}
+            </Stack>
+          </XStack>
+        ))}
+      </YStack>
+      <YStack display="flex" $gtMd={{ display: 'none' }}>
+        {displayTokens.map((token) => {
+          const hasChange24hPercent =
+            token.change24hPercent !== undefined &&
+            token.change24hPercent !== null;
+          let change24hPercentColor = '$textSubdued';
+          if (hasChange24hPercent) {
+            change24hPercentColor =
+              token.change24hPercent >= 0 ? '$textSuccess' : '$textCritical';
+          }
+          return (
+            <Stack key={token.name}>
+              <XStack
+                hoverStyle={{ bg: '$bgHover' }}
+                pressStyle={{ bg: '$bgActive' }}
+                onPress={() => openPerp(token.name, 'perp', false)}
+                cursor="pointer"
+                role="button"
+                borderRadius="$3"
+                mx="$-3"
+                px="$3"
+                py="$3"
+                alignItems="center"
+                alignSelf="stretch"
+              >
+                <XStack flex={1} alignItems="center" gap="$3" minWidth={0}>
+                  <Token
+                    size="md"
+                    borderRadius="$full"
+                    tokenImageUri={token.tokenImageUrl}
+                    fallbackIcon="CryptoCoinOutline"
+                  />
+                  <YStack flex={1} minWidth={0}>
+                    <XStack
+                      alignItems="center"
+                      gap="$1"
+                      minWidth={0}
+                      overflow="hidden"
+                    >
+                      <SizableText
+                        size="$bodyLgMedium"
+                        numberOfLines={1}
+                        flexShrink={1}
+                        ellipsizeMode="tail"
+                        userSelect="none"
+                      >
+                        {token.displayName}
+                      </SizableText>
+                      <LeverageBadge leverage={token.maxLeverage} />
+                    </XStack>
+                    <XStack alignItems="center" gap="$1" minWidth={0}>
+                      {token.subtitle ? (
+                        <SubtitleText subtitle={token.subtitle} />
+                      ) : null}
+                      <NumberSizeableText
+                        size="$bodyMd"
+                        color="$textSubdued"
+                        numberOfLines={1}
+                        flexShrink={0}
+                        formatter="marketCap"
+                        formatterOptions={{ currency: '$' }}
+                        userSelect="none"
+                      >
+                        {token.volume24h ?? '0'}
+                      </NumberSizeableText>
+                    </XStack>
+                  </YStack>
+                </XStack>
+
+                <YStack alignItems="flex-end">
+                  <NumberSizeableText
+                    userSelect="none"
+                    flexShrink={1}
+                    numberOfLines={1}
+                    size="$bodyLgMedium"
+                    formatter="price"
+                    formatterOptions={{ currency: '$' }}
+                  >
+                    {token.markPrice ?? '-'}
+                  </NumberSizeableText>
+                  <NumberSizeableText
+                    size="$bodyMd"
+                    color={change24hPercentColor}
+                    formatter="priceChange"
+                    formatterOptions={{ showPlusMinusSigns: true }}
+                  >
+                    {token.change24hPercent ?? '-'}
+                  </NumberSizeableText>
+                </YStack>
+              </XStack>
+            </Stack>
+          );
+        })}
+        <XStack
+          px="$0"
+          pt="$2"
+          pb="$5"
+          width="100%"
+          display="flex"
+          $gtMd={{ display: 'none' }}
+        >
+          <Button
+            size="medium"
+            variant="secondary"
+            width="100%"
+            cursor="pointer"
+            testID={HomeTestIDs.popularViewMoreBtn}
+            onPress={() =>
+              navigateToMarketTab({
+                tabToSelect: 'perps',
+                perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
+              })
+            }
+            childrenAsText={false}
+          >
+            <XStack alignItems="center" gap="$2">
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage({ id: ETranslations.global_view_more })}
+              </SizableText>
+              <Icon name="ChevronRightSmallOutline" size="$5.5" />
+            </XStack>
+          </Button>
+        </XStack>
+      </YStack>
+    </YStack>
   );
 }
 
-function PerpsEmptyState({ canDeposit }: { canDeposit: boolean }) {
+function PerpsDepositButton({
+  testID,
+  canDeposit,
+  isDepositDisabled,
+}: {
+  testID: string;
+  canDeposit: boolean;
+  isDepositDisabled: boolean;
+}) {
+  const intl = useIntl();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const ensureHomePerpsAccount = useEnsureHomePerpsAccount();
+  const buttonStyles = getTradingButtonStyleValues('long', isDepositDisabled);
+
+  const handleDeposit = useCallback(async () => {
+    if (!canDeposit || isDepositDisabled) {
+      return;
+    }
+    const activePerpsAccount = await ensureHomePerpsAccount();
+    if (!activePerpsAccount?.accountId || !activePerpsAccount.accountAddress) {
+      return;
+    }
+    await showDepositWithdrawModal('deposit');
+  }, [
+    canDeposit,
+    ensureHomePerpsAccount,
+    isDepositDisabled,
+    showDepositWithdrawModal,
+  ]);
+
+  if (!canDeposit) {
+    return null;
+  }
+
+  return (
+    <Button
+      testID={testID}
+      size="small"
+      variant="primary"
+      bg="$bgAccent"
+      minHeight={32}
+      color={buttonStyles.textColor}
+      cursor={isDepositDisabled ? 'default' : 'pointer'}
+      disabled={isDepositDisabled}
+      hoverStyle={{ bg: '$bgAccentHover' }}
+      pressStyle={{ bg: '$bgAccentActive' }}
+      onPress={() => void handleDeposit()}
+      childrenAsText={false}
+    >
+      <XStack alignItems="center" gap="$2">
+        <Icon
+          name="AlignBottomOutline"
+          size="$4"
+          color={buttonStyles.textColor}
+        />
+        <SizableText size="$bodyMdMedium" color={buttonStyles.textColor}>
+          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+        </SizableText>
+      </XStack>
+    </Button>
+  );
+}
+
+function PerpsHeaderActions({
+  canDeposit,
+  isDepositDisabled,
+}: {
+  canDeposit: boolean;
+  isDepositDisabled: boolean;
+}) {
+  if (!canDeposit) {
+    return null;
+  }
+
+  return (
+    <XStack alignItems="center" gap="$2">
+      <PerpsDepositButton
+        testID={HomeTestIDs.perpsDesktopDepositButton}
+        canDeposit={canDeposit}
+        isDepositDisabled={isDepositDisabled}
+      />
+    </XStack>
+  );
+}
+
+function PerpsEmptyState({
+  canDeposit,
+  isDepositDisabled,
+}: {
+  canDeposit: boolean;
+  isDepositDisabled: boolean;
+}) {
   const intl = useIntl();
 
   return (
@@ -578,6 +1031,7 @@ function PerpsEmptyState({ canDeposit }: { canDeposit: boolean }) {
           <PerpsDepositButton
             testID={HomeTestIDs.perpsDepositButton}
             canDeposit={canDeposit}
+            isDepositDisabled={isDepositDisabled}
           />
         </XStack>
       </YStack>
@@ -589,78 +1043,17 @@ function PerpsEmptyState({ canDeposit }: { canDeposit: boolean }) {
           })}
           subTitle="$0.00"
           headerContainerProps={{ px: 0, pb: 0 }}
-          headerActions={<PerpsHeaderActions canDeposit={canDeposit} />}
+          headerActions={
+            <PerpsHeaderActions
+              canDeposit={canDeposit}
+              isDepositDisabled={isDepositDisabled}
+            />
+          }
           content={null}
           plainContentContainer
         />
       </YStack>
-      <PerpsPositionsEmptyContent />
     </>
-  );
-}
-
-function PerpsDepositButton({
-  testID,
-  canDeposit,
-}: {
-  testID: string;
-  canDeposit: boolean;
-}) {
-  const intl = useIntl();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
-  const ensureHomePerpsAccount = useEnsureHomePerpsAccount();
-
-  const handleDeposit = useCallback(async () => {
-    if (!canDeposit) {
-      return;
-    }
-    const activePerpsAccount = await ensureHomePerpsAccount();
-    if (!activePerpsAccount?.accountId || !activePerpsAccount.accountAddress) {
-      return;
-    }
-    await showDepositWithdrawModal('deposit');
-  }, [canDeposit, ensureHomePerpsAccount, showDepositWithdrawModal]);
-
-  if (!canDeposit) {
-    return null;
-  }
-
-  return (
-    <Badge
-      testID={testID}
-      onPress={() => void handleDeposit()}
-      borderRadius="$full"
-      size="medium"
-      variant="primary"
-      alignItems="center"
-      justifyContent="center"
-      flexDirection="row"
-      gap="$2"
-      px="$3"
-      h={28}
-      bg="$brand8"
-      cursor="pointer"
-    >
-      <Icon name="AlignBottomOutline" size="$4" color="$iconOnColor" />
-      <SizableText size="$bodySmMedium" color="$textOnColor">
-        {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-      </SizableText>
-    </Badge>
-  );
-}
-
-function PerpsHeaderActions({ canDeposit }: { canDeposit: boolean }) {
-  if (!canDeposit) {
-    return null;
-  }
-
-  return (
-    <XStack alignItems="center" gap="$2">
-      <PerpsDepositButton
-        testID={HomeTestIDs.perpsDesktopDepositButton}
-        canDeposit={canDeposit}
-      />
-    </XStack>
   );
 }
 
@@ -770,14 +1163,27 @@ function PerpsMobileHoldingsSummary({
   holdings,
   isDegraded,
   canDeposit,
+  isDepositDisabled,
 }: {
   totalUsd: number;
   holdings: IPerpsHomeHolding[];
   isDegraded?: boolean;
   canDeposit: boolean;
+  isDepositDisabled: boolean;
 }) {
   const intl = useIntl();
+  const media = useMedia();
   const openPerp = useOpenPerpAsset();
+  const tooltipText = media.gtMd
+    ? undefined
+    : intl.formatMessage({
+        id: ETranslations.marketdex_un_pnl,
+      });
+  const tooltipTitle = media.gtMd
+    ? undefined
+    : intl.formatMessage({
+        id: ETranslations.marketdex_unrealized_pnl,
+      });
 
   return (
     <YStack display="flex" $gtMd={{ display: 'none' }} gap="$3" py="$2">
@@ -800,6 +1206,7 @@ function PerpsMobileHoldingsSummary({
         <PerpsDepositButton
           testID={HomeTestIDs.perpsDepositButton}
           canDeposit={canDeposit}
+          isDepositDisabled={isDepositDisabled}
         />
       </XStack>
       <YStack gap="$0.5">
@@ -825,7 +1232,13 @@ function PerpsMobileHoldingsSummary({
             <SizableText size="$bodyXs" color="$textSubdued">
               {`${intl.formatMessage({ id: ETranslations.global_value })} / `}
             </SizableText>
-            <DashText size="$bodyXs" color="$textSubdued" dashThickness={0.5}>
+            <DashText
+              size="$bodyXs"
+              color="$textSubdued"
+              dashThickness={0.5}
+              tooltip={tooltipText}
+              tooltipTitle={tooltipTitle}
+            >
               {intl.formatMessage({
                 id: ETranslations.perp_position_pnl_mobile,
               })}
@@ -840,7 +1253,13 @@ function PerpsMobileHoldingsSummary({
               hyperEvmLogoUri={HYPER_EVM_LOGO_URI}
               onPress={
                 isTradableSpotHolding(holding)
-                  ? () => openPerp(holding.spotUniverseName, 'spot', false)
+                  ? () =>
+                      openPerp(
+                        holding.spotUniverseName,
+                        'spot',
+                        false,
+                        'Balances',
+                      )
                   : undefined
               }
             />
@@ -875,11 +1294,15 @@ function PerpsMetric({
   emphasis?: boolean;
 }) {
   const intl = useIntl();
-  let alignItems: 'center' | 'flex-end' | 'flex-start' = 'flex-start';
-  if (column === 'center') {
-    alignItems = 'center';
-  } else if (align === 'right') {
-    alignItems = 'flex-end';
+  const alignItems = align === 'right' ? 'flex-end' : 'flex-start';
+  let columnFlexGrow = 1;
+  let columnGtMdFlexGrow = 1;
+  if (column === 'left') {
+    columnFlexGrow = 1.35;
+    columnGtMdFlexGrow = 1.45;
+  } else if (column === 'center') {
+    columnFlexGrow = 0.65;
+    columnGtMdFlexGrow = 0.55;
   }
   let valueColor = '$text';
   if (positive) {
@@ -887,48 +1310,63 @@ function PerpsMetric({
   } else if (negative) {
     valueColor = '$red11';
   }
-  const valueSize = emphasis ? '$bodyMdMedium' : '$bodySmMedium';
+  const valueSize = emphasis ? '$bodyLgMedium' : '$bodyMdMedium';
   const valueGtMdSize = emphasis ? '$bodyLgMedium' : '$bodyMdMedium';
 
   return (
     <YStack
-      width={column === 'left' || column === 'right' ? 120 : undefined}
-      flex={column === 'center' || !column ? 1 : undefined}
-      gap="$1"
-      alignItems={alignItems}
+      flexGrow={columnFlexGrow}
+      flexBasis={0}
+      minWidth={0}
+      $gtMd={{ flexGrow: columnGtMdFlexGrow }}
     >
-      <XStack alignItems="center" gap="$1">
-        <SizableText
-          size="$bodySm"
-          color="$textSubdued"
-          $gtMd={{ size: '$bodySm' }}
-        >
-          {intl.formatMessage({ id: labelId })}
-          {labelExtra}
-        </SizableText>
+      <XStack width="100%" justifyContent={alignItems}>
+        <YStack width="100%" minWidth={0} gap="$1" alignItems={alignItems}>
+          <XStack alignItems="center" gap="$1">
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              numberOfLines={1}
+              $gtMd={{ size: '$bodySm' }}
+            >
+              {intl.formatMessage({ id: labelId })}
+              {labelExtra}
+            </SizableText>
+          </XStack>
+          {formatter ? (
+            <NumberSizeableText
+              size={valueSize}
+              color={valueColor}
+              $gtMd={{ size: valueGtMdSize }}
+              formatter={formatter}
+              formatterOptions={formatterOptions}
+              flexShrink={1}
+              minWidth={0}
+              numberOfLines={platformEnv.isNative ? 1 : 2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+              contentStyle={{ color: valueColor }}
+              decimalTextStyle={{ color: valueColor }}
+              subTextStyle={{ color: valueColor }}
+            >
+              {value}
+            </NumberSizeableText>
+          ) : (
+            <SizableText
+              size={valueSize}
+              color={valueColor}
+              $gtMd={{ size: valueGtMdSize }}
+              flexShrink={1}
+              minWidth={0}
+              numberOfLines={platformEnv.isNative ? 1 : 2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
+              {value}
+            </SizableText>
+          )}
+        </YStack>
       </XStack>
-      {formatter ? (
-        <NumberSizeableText
-          size={valueSize}
-          color={valueColor}
-          $gtMd={{ size: valueGtMdSize }}
-          formatter={formatter}
-          formatterOptions={formatterOptions}
-          contentStyle={{ color: valueColor }}
-          decimalTextStyle={{ color: valueColor }}
-          subTextStyle={{ color: valueColor }}
-        >
-          {value}
-        </NumberSizeableText>
-      ) : (
-        <SizableText
-          size={valueSize}
-          color={valueColor}
-          $gtMd={{ size: valueGtMdSize }}
-        >
-          {value}
-        </SizableText>
-      )}
     </YStack>
   );
 }
@@ -939,9 +1377,10 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
   const openPerp = useOpenPerpAsset();
   const isLong = position.side === 'long';
   const isCardPressable = media.gtMd;
-  const sideColor = isLong ? '$green11' : '$red11';
+  const assetBadgeBgColor = isLong ? '$bgAccent' : '$bgCriticalStrong';
+  const assetBadgeTextColor = isLong ? '$textInverse' : '$textOnColor';
   const handleOpenPerp = useCallback(() => {
-    openPerp(position.coin, 'perp', false);
+    openPerp(position.coin, 'perp', false, 'Positions');
   }, [openPerp, position.coin]);
   const leverageTypeText = intl.formatMessage({
     id:
@@ -949,13 +1388,37 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
         ? ETranslations.perp_trade_cross
         : ETranslations.perp_trade_isolated,
   });
-  // priceChange formatter is fixed at 2 decimals; PositionsRow shows ROE at 1.
   const roiPercent = new BigNumber(position.roi).times(100).abs().toFixed(1);
   const displayCoin = parseDexCoin(position.coin).displayName;
-  const positionSizeUsd = new BigNumber(position.sizeCoin)
-    .times(position.markPx)
-    .abs()
-    .toFixed();
+  const priceDecimals = useMemo(
+    () => getValidPriceDecimals(position.entryPx || '0'),
+    [position.entryPx],
+  );
+  const positionSizeFormatted = useMemo(
+    () =>
+      numberFormat(position.sizeCoin, {
+        formatter: 'balance',
+      }),
+    [position.sizeCoin],
+  );
+  const entryPriceFormatted = useMemo(
+    () => new BigNumber(position.entryPx || '0').toFixed(priceDecimals),
+    [position.entryPx, priceDecimals],
+  );
+  const liquidationPriceFormatted = useMemo(() => {
+    const liquidationPrice = new BigNumber(position.liqPx || '0');
+    return liquidationPrice.isZero()
+      ? 'N/A'
+      : liquidationPrice.toFixed(priceDecimals);
+  }, [position.liqPx, priceDecimals]);
+  const markPriceFormatted = useMemo(
+    () => formatPriceToSignificantDigits(position.markPx || '0'),
+    [position.markPx],
+  );
+  const fundingAmount = useMemo(
+    () => new BigNumber(position.fundingUsd).abs().toFixed(2),
+    [position.fundingUsd],
+  );
 
   return (
     <YStack
@@ -986,7 +1449,7 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
       <XStack justifyContent="space-between" flex={1} position="relative">
         <XStack flex={1} gap="$2" alignItems="center">
           <XStack
-            bg={sideColor}
+            bg={assetBadgeBgColor}
             borderRadius={2}
             w="$4"
             h="$4"
@@ -995,7 +1458,7 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
           >
             <SizableText
               size="$bodySmMedium"
-              color="$textOnColor"
+              color={assetBadgeTextColor}
               $gtMd={{ size: '$bodyMdMedium' }}
             >
               {intl.formatMessage({
@@ -1006,7 +1469,7 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
             </SizableText>
           </XStack>
           <SizableText
-            size="$headingSm"
+            size="$bodyMdMedium"
             color="$text"
             $gtMd={{ size: '$headingMd' }}
           >
@@ -1026,7 +1489,7 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
         <SizableText
           testID={HomeTestIDs.perpsManageButton}
           display="none"
-          size="$bodyXs"
+          size="$bodySm"
           color="$textSubdued"
           $gtMd={{ display: 'flex', size: '$bodySm' }}
         >
@@ -1039,8 +1502,10 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
           <PerpsMetric
             labelId={ETranslations.perp_position_pnl_mobile}
             value={new BigNumber(position.pnlUsd).abs().toFixed()}
-            formatter="value"
-            formatterOptions={{ currency: position.pnlUsd < 0 ? '-$' : '+$' }}
+            formatter={VALUE_FORMATTER}
+            formatterOptions={{
+              currency: position.pnlUsd < 0 ? '-$' : '+$',
+            }}
             positive={position.pnlUsd >= 0}
             negative={position.pnlUsd < 0}
             emphasis
@@ -1056,38 +1521,34 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
         </XStack>
 
         <YStack gap="$3">
-          <XStack width="100%" justifyContent="space-between">
+          <XStack width="100%">
             <PerpsMetric
               labelId={ETranslations.perp_position_position_size}
-              labelExtra=" (USDC)"
-              value={positionSizeUsd}
-              formatter="value"
-              formatterOptions={{ currency: '$' }}
+              labelExtra={` (${displayCoin})`}
+              value={positionSizeFormatted}
               column="left"
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_margin}
               value={position.marginUsd}
-              formatter="value"
-              formatterOptions={{ currency: '$' }}
+              formatter={VALUE_FORMATTER}
+              formatterOptions={VALUE_FORMATTER_OPTIONS}
               column="center"
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_entry_price}
-              value={position.entryPx}
-              formatter="price"
-              formatterOptions={{ currency: '$' }}
+              value={entryPriceFormatted}
               align="right"
               column="right"
             />
           </XStack>
 
-          <XStack width="100%" justifyContent="space-between">
+          <XStack width="100%">
             {/* fundingUsd > 0 = paid -> red '-$' (mirrors PositionsRow) */}
             <PerpsMetric
               labelId={ETranslations.perp_position_funding_2}
-              value={new BigNumber(position.fundingUsd).abs().toFixed()}
-              formatter="value"
+              value={fundingAmount}
+              formatter={VALUE_FORMATTER}
               formatterOptions={{
                 currency: position.fundingUsd > 0 ? '-$' : '+$',
               }}
@@ -1097,16 +1558,12 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_mark_price}
-              value={position.markPx}
-              formatter="price"
-              formatterOptions={{ currency: '$' }}
+              value={markPriceFormatted}
               column="center"
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_liq_price}
-              value={position.liqPx ?? '--'}
-              formatter={position.liqPx ? 'price' : undefined}
-              formatterOptions={position.liqPx ? { currency: '$' } : undefined}
+              value={liquidationPriceFormatted}
               align="right"
               column="right"
             />
@@ -1129,7 +1586,8 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
 export function PerpsContainer() {
   const intl = useIntl();
   const tabBarHeight = useScrollContentTabBarOffset();
-  const { viewState, view, canDeposit } = usePerpsHomePortfolio();
+  const { viewState, view, canDeposit, isDepositDisabled } =
+    usePerpsHomePortfolio();
 
   return (
     <Stack flex={1}>
@@ -1152,7 +1610,10 @@ export function PerpsContainer() {
         >
           {viewState === 'loading' ? <PerpsLoadingState /> : null}
           {viewState === 'empty' ? (
-            <PerpsEmptyState canDeposit={canDeposit} />
+            <PerpsEmptyState
+              canDeposit={canDeposit}
+              isDepositDisabled={isDepositDisabled}
+            />
           ) : null}
           {viewState === 'ready' && view ? (
             <>
@@ -1161,6 +1622,7 @@ export function PerpsContainer() {
                 holdings={view.holdings}
                 isDegraded={view.isDegraded}
                 canDeposit={canDeposit}
+                isDepositDisabled={isDepositDisabled}
               />
               <YStack display="none" $gtMd={{ display: 'flex' }}>
                 <RichBlock
@@ -1177,7 +1639,12 @@ export function PerpsContainer() {
                     />
                   }
                   headerContainerProps={{ px: 0, pb: 0 }}
-                  headerActions={<PerpsHeaderActions canDeposit={canDeposit} />}
+                  headerActions={
+                    <PerpsHeaderActions
+                      canDeposit={canDeposit}
+                      isDepositDisabled={isDepositDisabled}
+                    />
+                  }
                   content={null}
                   plainContentContainer
                 />
@@ -1186,17 +1653,33 @@ export function PerpsContainer() {
                   hyperEvmLogoUri={HYPER_EVM_LOGO_URI}
                 />
               </YStack>
-              <YStack gap="$2">
-                {view.positions.length > 0 ? (
-                  view.positions.map((position) => (
+              {view.positions.length > 0 ? (
+                <YStack gap="$2">
+                  {view.positions.map((position) => (
                     <PerpsPositionCard
                       key={`${position.coin}-${position.side}`}
                       position={position}
                     />
-                  ))
-                ) : (
-                  <PerpsPositionsEmptyContent />
-                )}
+                  ))}
+                </YStack>
+              ) : null}
+            </>
+          ) : null}
+          {viewState !== 'loading' ? (
+            <>
+              <PerpsEmptyRecommendSection />
+              <YStack
+                gap="$6"
+                mx="$-5"
+                $gtMd={{ gap: '$8', mx: '$-pagePadding' }}
+              >
+                <Upgrade />
+                <SupportHub
+                  helpCenterTitle={intl.formatMessage({
+                    id: ETranslations.perp_guide_title,
+                  })}
+                  helpCenterLink={HOME_PERPS_GUIDE_URL}
+                />
               </YStack>
             </>
           ) : null}

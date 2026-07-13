@@ -13,6 +13,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBasicConfigToken } from '@onekeyhq/shared/types/marketV2';
 
 import { useWatchListV2Action } from '../../../components/watchListHooksV2';
+import { getMarketRecommendContainerPaddingTop } from '../../layouts/mobileLayoutUtils';
 
 import { RecommendItem } from './RecommendItem';
 
@@ -42,11 +43,12 @@ export function MarketRecommendList({
     platformEnv.isWeb ||
     platformEnv.isDesktop ||
     platformEnv.isExtensionUiExpandTab;
-  let containerPaddingTop = 0;
-
-  if (!platformEnv.isExtensionUiPopup) {
-    containerPaddingTop = Math.max(0, (windowHeight - 800) * 0.5);
-  }
+  const containerPaddingTop = platformEnv.isExtensionUiPopup
+    ? 0
+    : getMarketRecommendContainerPaddingTop({
+        isNative: Boolean(platformEnv.isNative),
+        windowHeight,
+      });
 
   const uniqueTokens = useMemo(() => {
     if (!recommendedTokens?.length) return [];

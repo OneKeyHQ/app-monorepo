@@ -3,15 +3,18 @@ import {
   buildPerpTokenSelectorTabs,
   buildPrimaryTabs,
   comparePerpTokenSelectorSortValues,
+  filterPerpTokenSelectorSpotItemsBySearch,
   getNextPerpTokenSelectorActiveTabConfig,
   getNextPerpTokenSelectorSortConfig,
   getPerpTokenSelectorDynamicTabItems,
   getPerpTokenSelectorFallbackTabId,
+  getPerpTokenSelectorHotTab,
   getPerpTokenSelectorPrimaryTabId,
   getPerpTokenSelectorSortAssetCtxsByDex,
   isPerpTokenSelectorAllTab,
   isPerpTokenSelectorDynamicTabUserSort,
   isPerpTokenSelectorFavoritesTab,
+  isPerpTokenSelectorHotTab,
   isPerpTokenSelectorPerpsTab,
   isPerpTokenSelectorPrimaryTab,
   isPerpTokenSelectorSortFieldActive,
@@ -136,6 +139,21 @@ describe('tokenSelectorTabs', () => {
     expect(isPerpTokenSelectorSpotTab('spot')).toBe(true);
     expect(isPerpTokenSelectorPrimaryTab('favorites')).toBe(true);
     expect(isPerpTokenSelectorPrimaryTab('all')).toBe(false);
+  });
+
+  it('finds the server hot tab by id or label', () => {
+    expect(
+      isPerpTokenSelectorHotTab({
+        tabId: ' hot ',
+        name: 'Custom',
+      }),
+    ).toBe(true);
+    expect(
+      getPerpTokenSelectorHotTab([
+        { tabId: 'stocks', name: 'Stocks', tokens: ['AAPL'] },
+        { tabId: 'server-1', name: '热门', tokens: ['BTC', 'ETH'] },
+      ]),
+    ).toEqual({ tabId: 'server-1', name: '热门', tokens: ['BTC', 'ETH'] });
   });
 
   it('maps legacy and category tab ids back to a primary tab', () => {
@@ -518,5 +536,70 @@ describe('tokenSelectorTabs', () => {
         direction: 'desc',
       }).map((item) => item.id),
     ).toEqual(['spot-eth', 'spot-sol', 'perp-btc', 'perp-doge']);
+  });
+
+  describe('filterPerpTokenSelectorSpotItemsBySearch', () => {
+    const spotItems = [
+      { id: 'purr', spotUniverse: { baseName: 'PURR', quoteName: 'USDC' } },
+      { id: 'hype', spotUniverse: { baseName: 'HYPE', quoteName: 'USDC' } },
+      { id: 'perp-btc', spotUniverse: undefined },
+    ];
+
+    it('returns items unchanged for an empty query', () => {
+      expect(
+        filterPerpTokenSelectorSpotItemsBySearch({
+          items: spotItems,
+          searchQuery: '',
+        }),
+      ).toBe(spotItems);
+      expect(
+        filterPerpTokenSelectorSpotItemsBySearch({
+          items: spotItems,
+          searchQuery: '   ',
+        }),
+      ).toBe(spotItems);
+    });
+
+    it('matches base name case-insensitively and drops non-spot items', () => {
+      expect(
+        filterPerpTokenSelectorSpotItemsBySearch({
+          items: spotItems,
+          searchQuery: 'purr',
+        }).map((item) => item.id),
+      ).toEqual(['purr']);
+      expect(
+        filterPerpTokenSelectorSpotItemsBySearch({
+          items: spotItems,
+          searchQuery: 'btc',
+        }),
+      ).toEqual([]);
+    });
+
+    it('matches the pair display name', () => {
+      expect(
+        filterPerpTokenSelectorSpotItemsBySearch({
+          items: spotItems,
+          searchQuery: 'hype/usdc',
+        }).map((item) => item.id),
+      ).toEqual(['hype']);
+    });
+
+    it('matches spot items through the same localized aliases as perps', () => {
+      expect(
+        filterPerpTokenSelectorSpotItemsBySearch({
+          items: [
+            {
+              id: 'spot-btc',
+              spotUniverse: { baseName: 'UBTC', quoteName: 'USDC' },
+            },
+            ...spotItems,
+          ],
+          searchQuery: '比特币',
+          tokenSearchAliases: {
+            BTC: { aliases: ['Bitcoin', '比特币'] },
+          },
+        }).map((item) => item.id),
+      ).toEqual(['spot-btc']);
+    });
   });
 });

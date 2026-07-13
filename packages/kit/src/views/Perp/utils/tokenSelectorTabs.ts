@@ -1,8 +1,15 @@
 import type { IPerpDynamicTab } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
+import {
+  findTokensByAlias,
+  formatSpotPairDisplayName,
+  getSpotTokenDisplayName,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IPerpTokenSelectorConfig,
   IPerpTokenSortDirection,
   IPerpTokenSortField,
+  ISpotUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
 import {
   DEFAULT_PERP_TOKEN_ACTIVE_TAB,
@@ -22,10 +29,15 @@ type IPerpTokenSelectorSortSnapshotKey = {
 type IPerpTokenSelectorDynamicTabItem = {
   tokenName?: string;
 };
+type IPerpTokenSelectorSpotSearchItem = {
+  spotUniverse?: Pick<ISpotUniverse, 'baseName' | 'quoteName'>;
+};
 
 const PRIMARY_TAB_IDS = ['favorites', 'perps', 'spot'] as const;
 const FIXED_TAB_IDS = ['favorites', 'all', 'perps', 'spot'] as const;
 const ALL_TAB_IDS = new Set(['all']);
+const HOT_TAB_IDS = new Set(['hot', 'popular', 'trending']);
+const HOT_TAB_NAMES = new Set(['hot', 'popular', 'trending', '热门']);
 const PERPS_TAB_IDS = new Set(['perps']);
 const PRIMARY_TAB_ID_SET = new Set<string>(PRIMARY_TAB_IDS);
 
@@ -129,6 +141,23 @@ function isPerpTokenSelectorFavoritesTab(tabId: string) {
 
 function isPerpTokenSelectorSpotTab(tabId: string) {
   return normalizeTabId(tabId) === 'spot';
+}
+
+function isPerpTokenSelectorHotTab(
+  tab: Pick<IPerpDynamicTab, 'tabId' | 'name'>,
+) {
+  return (
+    HOT_TAB_IDS.has(normalizeTabId(tab.tabId)) ||
+    HOT_TAB_NAMES.has(normalizeTabId(tab.name))
+  );
+}
+
+function getPerpTokenSelectorHotTab(
+  serverTabs: IPerpDynamicTab[] | null | undefined,
+) {
+  return normalizeServerTabs(serverTabs).find((tab) =>
+    isPerpTokenSelectorHotTab(tab),
+  );
 }
 
 function getPerpTokenSelectorFallbackTabId(tabs: IPerpDynamicTab[]) {
@@ -311,6 +340,44 @@ function getPerpTokenSelectorDynamicTabItems<
   }, []);
 }
 
+function filterPerpTokenSelectorSpotItemsBySearch<
+  T extends IPerpTokenSelectorSpotSearchItem,
+>({
+  items,
+  searchQuery,
+  tokenSearchAliases,
+}: {
+  items: T[];
+  searchQuery: string;
+  tokenSearchAliases?: ITokenSearchAliases;
+}): T[] {
+  const query = searchQuery.trim().toLowerCase();
+  if (!query) {
+    return items;
+  }
+  const aliasMatchedSymbols = new Set(
+    findTokensByAlias(query, tokenSearchAliases),
+  );
+  return items.filter((item) => {
+    const spotUniverse = item.spotUniverse;
+    if (!spotUniverse) {
+      return false;
+    }
+    const displayBase = getSpotTokenDisplayName(spotUniverse.baseName);
+    const pairDisplay = formatSpotPairDisplayName(
+      spotUniverse.baseName,
+      spotUniverse.quoteName,
+    );
+    return (
+      spotUniverse.baseName.toLowerCase().includes(query) ||
+      displayBase.toLowerCase().includes(query) ||
+      pairDisplay.toLowerCase().includes(query) ||
+      aliasMatchedSymbols.has(spotUniverse.baseName) ||
+      aliasMatchedSymbols.has(displayBase)
+    );
+  });
+}
+
 function isPerpTokenSelectorSortFieldActive({
   activeTab,
   field,
@@ -434,8 +501,10 @@ export {
   buildPerpTokenSelectorCategoryTabs,
   buildPerpTokenSelectorTabs,
   comparePerpTokenSelectorSortValues,
+  filterPerpTokenSelectorSpotItemsBySearch,
   getPerpTokenSelectorDynamicTabItems,
   getPerpTokenSelectorFallbackTabId,
+  getPerpTokenSelectorHotTab,
   getNextPerpTokenSelectorActiveTabConfig,
   getNextPerpTokenSelectorSortConfig,
   getPerpTokenSelectorPrimaryTabId,
@@ -447,6 +516,7 @@ export {
   isPerpTokenSelectorPrimaryTab,
   isPerpTokenSelectorSortFieldActive,
   isPerpTokenSelectorSpotTab,
+  isPerpTokenSelectorHotTab,
   shouldRefreshPerpTokenSelectorSortSnapshot,
   sortPerpTokenSelectorItemsByServerOrder,
   sortPerpTokenSelectorItemsBySortValue,

@@ -60,6 +60,7 @@ interface ITradingViewNativeChartControlsProps {
   intervalConfig: ITradingViewIntervalConfigData | null;
   nativeChartControlsConfig: ITradingViewNativeChartControlsConfigData | null;
   nativeIndicatorState: ITradingViewNativeIndicatorState;
+  isControlsReady?: boolean;
   chartTypeControlMode?: ITradingViewNativeChartTypeControlMode;
   indicatorControlMode?: ITradingViewNativeIndicatorControlMode;
   intervalControlMode?: ITradingViewNativeIntervalControlMode;
@@ -74,6 +75,8 @@ interface ITradingViewNativeChartControlsProps {
   onPriceScaleModeChange: (mode: ITradingViewPriceScaleMode) => void;
   onPriceMarketCapModeChange: (mode: ITradingViewPriceMarketCapMode) => void;
   onCalendarPanelSubmit?: (payload: ICalendarPanelSubmitPayload) => void;
+  onOpenChartSettings?: () => void;
+  onControlInteraction?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
   onFullscreenChange?: (isFullscreen: boolean) => void;
@@ -83,11 +86,14 @@ function ToolbarSeparator() {
   return <Stack h="$6" w="$px" bg="$borderSubdued" flexShrink={0} />;
 }
 
+const DESKTOP_CONTROLS_HEIGHT = 38;
+
 export const TradingViewNativeChartControls = memo(
   ({
     intervalConfig,
     nativeChartControlsConfig,
     nativeIndicatorState,
+    isControlsReady = true,
     chartTypeControlMode = 'toggle',
     indicatorControlMode = 'dialog',
     intervalControlMode = 'dialog',
@@ -102,6 +108,8 @@ export const TradingViewNativeChartControls = memo(
     onPriceScaleModeChange,
     onPriceMarketCapModeChange,
     onCalendarPanelSubmit,
+    onOpenChartSettings,
+    onControlInteraction,
     onUndo,
     onRedo,
     onFullscreenChange,
@@ -163,6 +171,7 @@ export const TradingViewNativeChartControls = memo(
     );
 
     const showIndicatorsDialog = useCallback(() => {
+      onControlInteraction?.();
       Dialog.show({
         title: indicatorsTitle,
         showFooter: false,
@@ -180,6 +189,7 @@ export const TradingViewNativeChartControls = memo(
       handleNativeIndicatorSelect,
       indicators,
       indicatorsTitle,
+      onControlInteraction,
       onResetLayout,
       resetLayout,
     ]);
@@ -219,13 +229,34 @@ export const TradingViewNativeChartControls = memo(
 
     const handleChartTypeToggle = useCallback(() => {
       if (nextChartType) {
+        onControlInteraction?.();
         onChartTypeChange(nextChartType.value);
       }
-    }, [nextChartType, onChartTypeChange]);
+    }, [nextChartType, onChartTypeChange, onControlInteraction]);
 
     const handleFullscreenToggle = useCallback(() => {
+      onControlInteraction?.();
       onFullscreenChange?.(!isFullscreen);
-    }, [isFullscreen, onFullscreenChange]);
+    }, [isFullscreen, onControlInteraction, onFullscreenChange]);
+
+    const handleUndo = useCallback(() => {
+      onControlInteraction?.();
+      onUndo?.();
+    }, [onControlInteraction, onUndo]);
+
+    const handleRedo = useCallback(() => {
+      onControlInteraction?.();
+      onRedo?.();
+    }, [onControlInteraction, onRedo]);
+
+    const handleSettingsPress = useCallback(() => {
+      if (onOpenChartSettings) {
+        onOpenChartSettings();
+        return;
+      }
+
+      showChartSettingsDialog();
+    }, [onOpenChartSettings, showChartSettingsDialog]);
 
     const chartTypeControl = useMemo(() => {
       if (showChartTypeSelect) {
@@ -235,6 +266,7 @@ export const TradingViewNativeChartControls = memo(
             chartTypes={chartTypes}
             activeChartType={activeChartType}
             onChartTypeChange={onChartTypeChange}
+            onControlInteraction={onControlInteraction}
           />
         );
       }
@@ -263,6 +295,7 @@ export const TradingViewNativeChartControls = memo(
       handleChartTypeToggle,
       nextChartTypeLabel,
       onChartTypeChange,
+      onControlInteraction,
       showChartTypeSelect,
       showChartTypeToggle,
     ]);
@@ -279,6 +312,7 @@ export const TradingViewNativeChartControls = memo(
             indicators={indicators}
             activeIndicatorValues={activeIndicatorValues}
             onIndicatorPress={handleIndicatorPress}
+            onControlInteraction={onControlInteraction}
           />
         );
       }
@@ -301,6 +335,7 @@ export const TradingViewNativeChartControls = memo(
       hasVisibleIndicators,
       indicators,
       indicatorsTitle,
+      onControlInteraction,
       showIndicatorPopover,
       showIndicatorsDialog,
     ]);
@@ -314,15 +349,22 @@ export const TradingViewNativeChartControls = memo(
         <PriceMarketCapSelect
           priceMarketCap={priceMarketCap}
           onPriceMarketCapModeChange={onPriceMarketCapModeChange}
+          onControlInteraction={onControlInteraction}
         />
       );
-    }, [onPriceMarketCapModeChange, priceMarketCap, showPriceMarketCapSelect]);
+    }, [
+      onControlInteraction,
+      onPriceMarketCapModeChange,
+      priceMarketCap,
+      showPriceMarketCapSelect,
+    ]);
 
     const calendarControl =
       hasCalendarControl && onCalendarPanelSubmit ? (
         <CalendarPanelPopover
           chartTimezone={chartTimezone}
           onSubmit={onCalendarPanelSubmit}
+          onControlInteraction={onControlInteraction}
         />
       ) : null;
 
@@ -334,7 +376,7 @@ export const TradingViewNativeChartControls = memo(
         icon="SliderHorOutline"
         iconSize="$5"
         title={chartSettingsTitle}
-        onPress={showChartSettingsDialog}
+        onPress={handleSettingsPress}
         {...HEADER_ICON_BUTTON_STYLE_PROPS}
       />
     ) : null;
@@ -344,7 +386,11 @@ export const TradingViewNativeChartControls = memo(
         testID="trading-view-native-fullscreen-toggle"
         size="small"
         variant="tertiary"
-        icon={isFullscreen ? 'MinimizeOutline' : 'ExpandOutline'}
+        icon={
+          isFullscreen
+            ? 'TradingViewExitFullscreenCustom'
+            : 'TradingViewFullscreenCustom'
+        }
         iconSize="$5"
         title={intl.formatMessage({
           id: isFullscreen
@@ -366,23 +412,24 @@ export const TradingViewNativeChartControls = memo(
             icon="UndoOutline"
             iconSize="$5"
             title={intl.formatMessage({ id: ETranslations.menu_undo })}
-            onPress={onUndo}
+            onPress={handleUndo}
             {...HEADER_ICON_BUTTON_STYLE_PROPS}
           />
           <IconButton
             testID="trading-view-native-redo"
             size="small"
             variant="tertiary"
-            icon="RedoOutline"
+            icon="UndoFlipHorOutline"
             iconSize="$5"
             title={intl.formatMessage({ id: ETranslations.menu_redo })}
-            onPress={onRedo}
+            onPress={handleRedo}
             {...HEADER_ICON_BUTTON_STYLE_PROPS}
           />
         </XStack>
       ) : null;
 
     if (
+      isControlsReady &&
       !hasVisibleControls &&
       !hasCalendarControl &&
       !hasFullscreenControl &&
@@ -396,6 +443,7 @@ export const TradingViewNativeChartControls = memo(
         intervalConfig={intervalConfig}
         intervalControlMode={intervalControlMode}
         onIntervalChange={onIntervalChange}
+        onControlInteraction={onControlInteraction}
       />
     ) : null;
     const hasLeftChartTools = Boolean(
@@ -407,8 +455,20 @@ export const TradingViewNativeChartControls = memo(
 
     if (isDesktopLayout) {
       return (
-        <Stack bg="$bgApp" px="$4" py="$1" zIndex={3}>
-          <XStack alignItems="center" width="100%" gap="$2">
+        <Stack
+          bg="$bgApp"
+          px="$4"
+          py="$1"
+          h={DESKTOP_CONTROLS_HEIGHT}
+          zIndex={3}
+        >
+          <XStack
+            alignItems="center"
+            width="100%"
+            gap="$2"
+            opacity={isControlsReady ? 1 : 0}
+            pointerEvents={isControlsReady ? 'auto' : 'none'}
+          >
             <ScrollView
               horizontal
               flex={1}
@@ -460,6 +520,8 @@ export const TradingViewNativeChartControls = memo(
           justifyContent="space-between"
           width="100%"
           gap="$2"
+          opacity={isControlsReady ? 1 : 0}
+          pointerEvents={isControlsReady ? 'auto' : 'none'}
         >
           <XStack flex={1} minWidth={0} alignItems="center">
             {intervalSelector}

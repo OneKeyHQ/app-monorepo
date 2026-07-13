@@ -35,7 +35,7 @@
   src: url('./fonts/GeistMono-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: optional;
+  font-display: swap;
 }
 
 @font-face {
@@ -43,5 +43,11 @@
   src: url('./fonts/GeistMono-Medium.ttf') format('truetype');
   font-weight: 500;
   font-style: normal;
-  font-display: optional;
+  font-display: swap;
+}
+
+/* App-wide tabular (equal-width) figures — see utils/tabularNums.ts. Inherited
+   by every text node, covering text that bypasses the SizableText wrapper. */
+body {
+  font-variant-numeric: tabular-nums;
 }

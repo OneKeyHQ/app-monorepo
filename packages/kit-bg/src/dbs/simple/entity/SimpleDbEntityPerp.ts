@@ -101,6 +101,28 @@ export interface IPerpsAccountDisplayCacheEntry {
   };
 }
 
+export interface IPerpsDepositTokenListCacheToken {
+  networkId: string;
+  contractAddress: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  networkLogoURI: string;
+  price?: string;
+  balanceParsed?: string;
+  fiatValue?: string;
+  isNative?: boolean;
+  logoURI?: string;
+}
+
+export interface IPerpsDepositTokenListCacheEntry {
+  cacheKey: string;
+  ownerKey?: string;
+  updatedAt: number;
+  tokens: IPerpsDepositTokenListCacheToken[];
+  tokensByNetwork: Record<string, IPerpsDepositTokenListCacheToken[]>;
+}
+
 export interface ISimpleDbPerpData {
   hyperliquidBuilderAddress?: string;
   hyperliquidMaxBuilderFee?: number;
@@ -164,6 +186,7 @@ export interface ISimpleDbPerpData {
     string,
     IHyperliquidPortfolioSnapshot
   >;
+  perpsDepositTokenListCache?: Record<string, IPerpsDepositTokenListCacheEntry>;
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
@@ -930,6 +953,62 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
       return {
         ...prev,
         hyperliquidPortfolioSnapshotByAddress: map,
+      };
+    });
+  }
+
+  @backgroundMethod()
+  async getPerpsDepositTokenListCache({
+    cacheKey,
+    maxAgeMs,
+  }: {
+    cacheKey: string;
+    maxAgeMs: number;
+  }): Promise<IPerpsDepositTokenListCacheEntry | undefined> {
+    if (!cacheKey) {
+      return undefined;
+    }
+    const config = await this.getPerpData();
+    const entry = config.perpsDepositTokenListCache?.[cacheKey];
+    if (!entry || entry.cacheKey !== cacheKey) {
+      return undefined;
+    }
+    if (!this._isCacheEntryFresh(entry.updatedAt, maxAgeMs)) {
+      return undefined;
+    }
+    return entry;
+  }
+
+  @backgroundMethod()
+  async setPerpsDepositTokenListCache({
+    cacheKey,
+    ownerKey,
+    tokens,
+    tokensByNetwork,
+  }: {
+    cacheKey: string;
+    ownerKey: string;
+    tokens: IPerpsDepositTokenListCacheToken[];
+    tokensByNetwork: Record<string, IPerpsDepositTokenListCacheToken[]>;
+  }) {
+    if (!cacheKey) {
+      return;
+    }
+    await this.setPerpData((prev): ISimpleDbPerpData => {
+      const map = { ...prev?.perpsDepositTokenListCache };
+      map[cacheKey] = {
+        cacheKey,
+        ownerKey,
+        updatedAt: Date.now(),
+        tokens,
+        tokensByNetwork,
+      };
+      return {
+        ...prev,
+        perpsDepositTokenListCache: this._limitSnapshotCacheEntries(
+          map,
+          PERPS_ACCOUNT_DISPLAY_CACHE_MAX_ENTRIES,
+        ),
       };
     });
   }
