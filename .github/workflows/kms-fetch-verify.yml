@@ -1,0 +1,37 @@
+name: KMS Fetch Verify
+
+on:
+  workflow_dispatch:
+    inputs:
+      secret-names:
+        description: 'KMS secret name(s) to fetch, one per line'
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  verify:
+    name: Fetch and decrypt KMS secret
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fetch KMS secret
+        id: kms
+        # Temporary verification pin for OneKeyHQ/actions#108.
+        uses: qwang1113/actions/fetch-kms-secrets@d27dd5ca82d523739cbedd1119ae061b526e1a41
+        with:
+          volc-account-id: ${{ vars.VOLC_ACCOUNT_ID }}
+          volc-role-trn: ${{ vars.VOLC_ROLE_TRN }}
+          volc-kms-region: ${{ vars.VOLC_KMS_REGION }}
+          secret-names: ${{ inputs['secret-names'] }}
+          decrypt-private-key: ${{ secrets.KMS_DECRYPT_PRIVATE_KEY }}
+
+      - name: Verify fetched keys
+        env:
+          FETCHED_KEYS: ${{ steps.kms.outputs.fetched-keys }}
+        run: |
+          set -euo pipefail
+          echo "$FETCHED_KEYS" | jq -e 'type == "array" and length > 0' >/dev/null
+          echo "KMS fetch and decrypt completed. Fetched keys:"
+          echo "$FETCHED_KEYS" | jq -r '.[] | "  - \(.)"'
