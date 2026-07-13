@@ -72,6 +72,7 @@ export function useMarketBasicConfig() {
       checkIsFocused: !platformEnv.isWeb,
       watchLoading: true,
       revalidateOnReconnect: true,
+      undefinedResultIfError: true,
     },
   );
 
