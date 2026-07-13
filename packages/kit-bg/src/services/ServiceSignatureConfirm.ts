@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
@@ -351,14 +353,79 @@ class ServiceSignatureConfirm extends ServiceBase {
       }
     }
 
+    const permit2ApproveInfo = unsignedTx.approveInfo?.permit2Info;
+    const expectedApproveTokenAddress = getAddressKey(
+      unsignedTx.approveInfo?.tokenInfo?.address,
+    );
+    const expectedApproveSpender = getAddressKey(
+      unsignedTx.approveInfo?.spender,
+    );
+    const expectedPermit2Address = getAddressKey(
+      permit2ApproveInfo?.permit2Address,
+    );
+    const serverComponents = parsedTx?.display?.components;
+    const serverHasValidApproveComponent =
+      serverComponents?.some((component) => {
+        if (component.type !== EParseTxComponentType.Approve) {
+          return false;
+        }
+        const amount = new BigNumber(component.amountParsed);
+        const serverSpender = getAddressKey(component.spender);
+        return (
+          getAddressKey(component.token?.info?.address) ===
+            expectedApproveTokenAddress &&
+          amount.isFinite() &&
+          amount.isZero() &&
+          serverSpender === expectedApproveSpender &&
+          (!component.approveType ||
+            component.approveType === EApproveType.Approve)
+        );
+      }) === true;
+    const serverHasExpectedSpenderComponent =
+      serverComponents?.some(
+        (component) =>
+          component.type === EParseTxComponentType.Address &&
+          getAddressKey(component.address) === expectedApproveSpender,
+      ) === true;
+    const serverHasExpectedPermit2Component =
+      serverComponents?.some(
+        (component) =>
+          component.type === EParseTxComponentType.Address &&
+          getAddressKey(component.address) === expectedPermit2Address,
+      ) === true;
+    const serverHasCompletePermit2Display = Boolean(
+      permit2ApproveInfo &&
+      expectedApproveTokenAddress &&
+      expectedApproveSpender &&
+      expectedPermit2Address &&
+      serverHasValidApproveComponent &&
+      serverHasExpectedSpenderComponent &&
+      serverHasExpectedPermit2Component,
+    );
+    const shouldUseLocalPermit2Display = Boolean(
+      permit2ApproveInfo && !serverHasCompletePermit2Display,
+    );
+
     if (
       parsedTx &&
       (unsignedTx.stakingInfo || unsignedTx.swapInfo) &&
-      parsedTx?.type === EParseTxType.Unknown &&
+      parsedTx.type === EParseTxType.Unknown &&
       !unsignedTx.stakingInfo?.tags?.includes(EEarnLabels.Borrow)
     ) {
       parsedTx.display = null;
     }
+
+    // Permit2 fallback keeps server-owned simulation and risk alerts while
+    // replacing incomplete approval details with locally verified semantics.
+    const serverSimulationComponents =
+      shouldUseLocalPermit2Display && serverComponents
+        ? serverComponents.filter(
+            (component) => component.type === EParseTxComponentType.Simulation,
+          )
+        : [];
+    const serverAlerts = shouldUseLocalPermit2Display
+      ? (parsedTx?.display?.alerts ?? [])
+      : [];
 
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const decodedTx = await vault.buildDecodedTx({
@@ -385,7 +452,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       decodedTx.txABI = parsedTx.parsedTx?.data;
     }
 
-    if (parsedTx && parsedTx.display) {
+    if (parsedTx?.display && !shouldUseLocalPermit2Display) {
       decodedTx.txDisplay = parsedTx.display;
     } else {
       const vaultSettings =
@@ -403,8 +470,8 @@ class ServiceSignatureConfirm extends ServiceBase {
 
       decodedTx.txDisplay = {
         title: '',
-        components: txDisplayComponents,
-        alerts: [],
+        components: [...txDisplayComponents, ...serverSimulationComponents],
+        alerts: serverAlerts,
       };
       decodedTx.isLocalParsed = true;
     }

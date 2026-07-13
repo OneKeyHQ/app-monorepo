@@ -1,13 +1,17 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
   Checkbox,
   Icon,
   NumberSizeableText,
+  SizableText,
   Stack,
+  XStack,
+  YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
@@ -24,34 +28,50 @@ import { useApprovalManagementContext } from './ApprovalManagementContext';
 type IProps = {
   accountId: string;
   networkId: string;
+  contractAddress: string;
   approval: IApproval;
   isSelectMode: boolean;
   onSelect: ({
-    tokenInfo,
+    approval,
     isSelected,
   }: {
-    tokenInfo: IToken;
+    approval: IApproval;
     isSelected: boolean;
   }) => Promise<void>;
-  onRevoke: ({ tokenInfo }: { tokenInfo: IToken }) => Promise<void>;
+  onRevoke: ({
+    approval,
+    tokenInfo,
+  }: {
+    approval: IApproval;
+    tokenInfo: IToken;
+  }) => Promise<void>;
 };
 
 function ApprovedTokenItem(props: IProps) {
-  const { accountId, networkId, approval, isSelectMode, onRevoke, onSelect } =
-    props;
+  const {
+    accountId,
+    networkId,
+    contractAddress,
+    approval,
+    isSelectMode,
+    onRevoke,
+    onSelect,
+  } = props;
 
   const [{ tokenMap }] = useTokenMapAtom();
   const { isBuildingRevokeTxs, selectedTokens } =
     useApprovalManagementContext();
   const intl = useIntl();
+  const isPermit2Approval = approvalUtils.isPermit2Approval({ approval });
 
   const isSelected =
     !!selectedTokens[
       approvalUtils.buildSelectedTokenKey({
         accountId,
         networkId,
-        contractAddress: approval.spenderAddress,
+        contractAddress,
         tokenAddress: approval.tokenAddress,
+        permit2Address: approval.permit2Address,
       })
     ];
 
@@ -63,23 +83,87 @@ function ApprovedTokenItem(props: IProps) {
       })
     ];
 
+  const approvalDate = formatDate(new Date(approval.time), {
+    hideTimeForever: true,
+  });
+  const permit2ExpirationText = useMemo(() => {
+    if (!isPermit2Approval) {
+      return undefined;
+    }
+
+    const expiration = approvalUtils.normalizePermit2ExpirationMs(
+      approval.expirationMs,
+    );
+    if (!expiration) {
+      return '--';
+    }
+    if (expiration.isNeverExpires) {
+      return intl.formatMessage({
+        id: ETranslations.wallet_approval_permit2_never_expires__desc,
+      });
+    }
+
+    const expirationDate = new Date(
+      Number(expiration.expirationSeconds) * 1000,
+    );
+    if (Number.isNaN(expirationDate.getTime())) {
+      return '--';
+    }
+    const formattedExpiration = formatDate(expirationDate, {
+      hideSeconds: true,
+    });
+    if (!formattedExpiration || formattedExpiration === '-') {
+      return '--';
+    }
+
+    return intl.formatMessage(
+      {
+        id: ETranslations.wallet_approval_permit2_expires_at__desc,
+      },
+      { date: formattedExpiration },
+    );
+  }, [approval.expirationMs, intl, isPermit2Approval]);
+
   if (!token) {
     return null;
   }
 
   return (
     <ListItem
-      key={approval.tokenAddress}
-      title={token.info.symbol}
-      titleProps={{
-        numberOfLines: 1,
-      }}
-      subtitle={formatDate(new Date(approval.time), {
-        hideTimeForever: true,
-      })}
-      subtitleProps={{
-        numberOfLines: 1,
-      }}
+      renderItemText={
+        <ListItem.Text
+          flex={1}
+          primary={
+            <XStack alignItems="center" gap="$1.5" flex={1}>
+              <SizableText size="$bodyLgMedium" numberOfLines={1}>
+                {token.info.symbol}
+              </SizableText>
+              {isPermit2Approval ? (
+                <Badge
+                  badgeSize="sm"
+                  bg="$transparent"
+                  borderWidth={1}
+                  borderColor="$borderSubdued"
+                >
+                  <Badge.Text>Permit2</Badge.Text>
+                </Badge>
+              ) : null}
+            </XStack>
+          }
+          secondary={
+            <YStack>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {approvalDate}
+              </SizableText>
+              {permit2ExpirationText ? (
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {permit2ExpirationText}
+                </SizableText>
+              ) : null}
+            </YStack>
+          }
+        />
+      }
       avatarProps={{
         src: token.info.logoURI,
         borderRadius: '$full',
@@ -96,7 +180,7 @@ function ApprovedTokenItem(props: IProps) {
         isSelectMode
           ? () => {
               void onSelect({
-                tokenInfo: token.info,
+                approval,
                 isSelected: !isSelected,
               });
             }
@@ -110,7 +194,7 @@ function ApprovedTokenItem(props: IProps) {
               value={isSelected}
               onChange={() => {
                 void onSelect({
-                  tokenInfo: token.info,
+                  approval,
                   isSelected: !isSelected,
                 });
               }}
@@ -146,7 +230,7 @@ function ApprovedTokenItem(props: IProps) {
           loading={isBuildingRevokeTxs ? isSelected : null}
           disabled={isBuildingRevokeTxs}
           onPress={() => {
-            void onRevoke({ tokenInfo: token.info });
+            void onRevoke({ approval, tokenInfo: token.info });
           }}
         >
           {intl.formatMessage({ id: ETranslations.global_revoke })}
