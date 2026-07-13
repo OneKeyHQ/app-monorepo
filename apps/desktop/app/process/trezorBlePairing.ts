@@ -18,6 +18,12 @@ import type { BrowserWindow } from 'electron';
 // cached to resolve connectId -> BLE address. Non-Windows, or a build without
 // the bundled helper, passes straight through with unchanged behavior.
 
+// Grace period after a fresh bond before noble is allowed to scan for the
+// device: pairing leaves the BLE link up, and a connected peripheral does not
+// advertise. The helper drops the link on its side; this covers the gap until
+// the device is advertising again.
+const POST_PAIR_SETTLE_MS = 2000;
+
 export function createTrezorBlePairingIpcMain(
   base: IpcMainLike,
   browserWindow: BrowserWindow,
@@ -72,10 +78,21 @@ export function createTrezorBlePairingIpcMain(
     const startedAt = Date.now();
     // ensureDevicePaired no-ops (already-paired) when the OS bond already exists.
     try {
-      await ensureDevicePaired(address, showPin);
+      const paired = await ensureDevicePaired(address, showPin);
       logger.info(
         `[TrezorBLE] OS pairing OK for ${connectId} in ${Date.now() - startedAt}ms`,
       );
+      // A freshly bonded device needs a moment to drop the pairing link and
+      // resume advertising; noble's scan cannot see it until it does. Skipped
+      // when the bond already existed (no link was opened).
+      if (paired === 'paired') {
+        await new Promise((resolve) => {
+          setTimeout(resolve, POST_PAIR_SETTLE_MS);
+        });
+        logger.info(
+          `[TrezorBLE] post-pair settle ${POST_PAIR_SETTLE_MS}ms done for ${connectId}`,
+        );
+      }
     } catch (error) {
       logger.warn(
         `[TrezorBLE] OS pairing FAILED for ${connectId} after ${

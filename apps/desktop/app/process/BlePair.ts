@@ -162,22 +162,27 @@ function runHelper(
  * Pair `address` (a colon/dash BLE MAC) at the OS level, streaming the
  * numeric-comparison pin to `onPin` so the UI can show it. Resolves once the
  * device is paired (or already paired); rejects on error/timeout.
+ *
+ * Returns which of the two it was: a fresh bond briefly stops the device from
+ * advertising, an existing one does not, and only the caller knows whether that
+ * matters.
  */
 export async function ensureDevicePaired(
   address: string,
   onPin: (pin: string) => void,
-): Promise<void> {
+): Promise<'paired' | 'already-paired'> {
   const events = await runHelper(['pair', '--address', address], (event) => {
     if (event.type === 'pairing') {
       onPin(event.pin);
     }
   });
-  const ok = events.some(
-    (e) => e.type === 'paired' || e.type === 'already-paired',
-  );
-  if (!ok) {
-    throw new OneKeyLocalError('BLE pairing did not complete');
+  if (events.some((e) => e.type === 'paired')) {
+    return 'paired';
   }
+  if (events.some((e) => e.type === 'already-paired')) {
+    return 'already-paired';
+  }
+  throw new OneKeyLocalError('BLE pairing did not complete');
 }
 
 /** Query whether the OS already holds a bond for `address`. */

@@ -336,6 +336,22 @@ mod win {
 
         match status {
             DevicePairingResultStatus::Paired => {
+                // The bonded entry's WinRT DeviceId embeds the device's identity
+                // address. If it differs from the RPA we paired against, then the
+                // connectId noble was given is already dead and that — not the
+                // bond — is why `connect` cannot find the device afterwards.
+                dump_paired_inventory("after-paired").await;
+
+                // Suite does exactly this ("disconnect after successful pairing
+                // and proceed to discover_services()"). Pairing leaves the link
+                // UP, and a connected BLE peripheral stops advertising — so
+                // noble's scan finds nothing and connect fails with "device not
+                // found". Dropping the link lets it advertise again.
+                match device.Close() {
+                    Ok(()) => diag("closed device handle after pairing"),
+                    Err(e) => diag(&format!("close after pairing failed: {e}")),
+                }
+
                 super::emit(r#"{"type":"paired"}"#);
                 Ok(())
             }
