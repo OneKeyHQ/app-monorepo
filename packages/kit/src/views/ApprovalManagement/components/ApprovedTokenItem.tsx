@@ -132,10 +132,17 @@ function ApprovedTokenItem(props: IProps) {
     <ListItem
       renderItemText={
         <ListItem.Text
-          flex={1}
+          flex={isPermit2Approval ? 1.5 : 1}
+          minWidth={0}
           primary={
-            <XStack alignItems="center" gap="$1.5" flex={1}>
-              <SizableText size="$bodyLgMedium" numberOfLines={1}>
+            <XStack alignItems="center" gap="$1.5" minWidth={0}>
+              <SizableText
+                size="$bodyLgMedium"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                flexShrink={1}
+                minWidth={0}
+              >
                 {token.info.symbol}
               </SizableText>
               {isPermit2Approval ? (
@@ -144,6 +151,7 @@ function ApprovedTokenItem(props: IProps) {
                   bg="$transparent"
                   borderWidth={1}
                   borderColor="$borderSubdued"
+                  flexShrink={0}
                 >
                   <Badge.Text>Permit2</Badge.Text>
                 </Badge>
@@ -206,6 +214,8 @@ function ApprovedTokenItem(props: IProps) {
       <ListItem.Text
         align="right"
         flex={1}
+        minWidth={0}
+        primaryTextProps={{ numberOfLines: 1 }}
         primary={
           approval.isInfiniteAmount ? (
             intl.formatMessage({
