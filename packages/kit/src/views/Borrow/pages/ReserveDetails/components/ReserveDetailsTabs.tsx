@@ -87,7 +87,13 @@ const ReserveDetailsTabsComponent = ({
     const handleTabPress = (name: string) => {
       tabBarProps.onTabPress?.(name);
     };
-    return <Tabs.TabBar {...tabBarProps} onTabPress={handleTabPress} />;
+    return (
+      <Tabs.TabBar
+        {...tabBarProps}
+        scrollable={platformEnv.isNative}
+        onTabPress={handleTabPress}
+      />
+    );
   }, []);
 
   const tabContainerWidth = useTabContainerWidth();
