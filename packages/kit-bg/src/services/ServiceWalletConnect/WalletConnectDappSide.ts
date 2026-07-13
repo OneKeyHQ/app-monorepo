@@ -409,6 +409,19 @@ export class WalletConnectDappSide {
     }
   }
 
+  private openModalForConnectAttempt({
+    attempt,
+    uri,
+  }: {
+    attempt: IWalletConnectAttempt;
+    uri: string;
+  }) {
+    if (attempt.cancelled || this.activeConnectAttempt !== attempt) {
+      return;
+    }
+    this.openModal({ uri });
+  }
+
   async connectToWallet(params: IWalletConnectConnectToWalletParams) {
     const attempt: IWalletConnectAttempt = { cancelled: false };
     const previousAttempt = this.activeConnectAttempt;
@@ -486,9 +499,9 @@ export class WalletConnectDappSide {
 
     attempt.provider = provider;
 
-    const displayUriHandler = async (uri: string) => {
+    const displayUriHandler = (uri: string) => {
       console.log('uri', uri);
-      this.openModal({ uri });
+      this.openModalForConnectAttempt({ attempt, uri });
     };
 
     const sessionDeleteHandler = async (

@@ -23,6 +23,7 @@ import {
   EthersStoreUtil,
   StorageUtil,
 } from '@reown/appkit-scaffold-utils-react-native';
+import { parseUri } from '@walletconnect/utils';
 
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
@@ -46,6 +47,7 @@ import { StorageUtil as StorageUtilCore } from '@reown/appkit-core-react-native'
 import { ConstantsUtil as ConstantsUtilCore } from '@reown/appkit/core';
 
 import type { IWalletConnectModalShared } from './types';
+import { shouldAbortWalletConnectPairingOnModalClose } from './walletConnectModalCloseUtils';
 
 /*
 WalletConnect SDK Deeplink Auto-Handling Mechanism:
@@ -80,6 +82,8 @@ const appKit = createAppKit({
   chains: [],
 });
 let pairingUri = '';
+let pairingTopic = '';
+let connectedPairingTopic = '';
 let updateConnectModalUri: (uri: string) => void = (uri: string) => {
   console.log('updateConnectModalUri-init-fn', uri);
 };
@@ -115,6 +119,7 @@ appKit.walletConnectProvider = {
 
 async function resetAppKit() {
   pairingUri = '';
+  pairingTopic = '';
   // await appKitModalCtrl.disconnect();
 
   // ClientCtrl.resetSession();
@@ -165,6 +170,9 @@ appEventBus.on(
   EAppEventBusNames.WalletConnectConnectSuccess,
   (payload: { session: IWalletConnectSession }) => {
     const { session } = payload;
+    if (session.pairingTopic === pairingTopic) {
+      connectedPairingTopic = session.pairingTopic;
+    }
     resolveConnect(session);
   },
 );
@@ -354,6 +362,8 @@ const modal: IWalletConnectModalShared = {
         return;
       }
       pairingUri = uri;
+      pairingTopic = parseUri(uri).topic;
+      connectedPairingTopic = '';
       updateConnectModalUri(uri);
 
       // TODO use custom provider from bg make QRCode Modal not open automatically
@@ -407,7 +417,12 @@ const modal: IWalletConnectModalShared = {
           }
           if (!isNativeModalOpen) {
             const shouldAbortConnect =
-              wasNativeModalOpenRef.current && !isProgrammaticCloseRef.current;
+              shouldAbortWalletConnectPairingOnModalClose({
+                wasNativeModalOpen: wasNativeModalOpenRef.current,
+                isProgrammaticClose: isProgrammaticCloseRef.current,
+                pairingTopic,
+                connectedPairingTopic,
+              });
             const uri = pairingUri;
             wasNativeModalOpenRef.current = false;
             isProgrammaticCloseRef.current = false;

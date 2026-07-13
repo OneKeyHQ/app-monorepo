@@ -40,12 +40,18 @@ type ITestWalletConnectDappSide = {
     Promise<void>,
     [IWalletConnectConnectToWalletParams, ITestConnectAttempt]
   >;
+  openModal: jest.Mock<void, [{ uri: string }]>;
+  openModalForConnectAttempt: (params: {
+    attempt: ITestConnectAttempt;
+    uri: string;
+  }) => void;
 };
 
 function createDappSide() {
   return Object.assign(Object.create(WalletConnectDappSide.prototype), {
     closeModal: jest.fn(),
     connectToWalletInternal: jest.fn(),
+    openModal: jest.fn(),
   }) as unknown as ITestWalletConnectDappSide;
 }
 
@@ -90,5 +96,31 @@ describe('WalletConnectDappSide connection attempts', () => {
     resolvers[1]?.();
     await secondConnect;
     expect(dappSide.closeModal).toHaveBeenCalledTimes(1);
+  });
+
+  it('only lets the active attempt open the modal', () => {
+    const dappSide = createDappSide();
+    const staleAttempt: ITestConnectAttempt = { cancelled: true };
+    const supersededAttempt: ITestConnectAttempt = { cancelled: false };
+    const activeAttempt: ITestConnectAttempt = { cancelled: false };
+    dappSide.activeConnectAttempt = activeAttempt;
+
+    dappSide.openModalForConnectAttempt({
+      attempt: staleAttempt,
+      uri: 'wc:stale',
+    });
+    expect(dappSide.openModal).not.toHaveBeenCalled();
+
+    dappSide.openModalForConnectAttempt({
+      attempt: supersededAttempt,
+      uri: 'wc:superseded',
+    });
+    expect(dappSide.openModal).not.toHaveBeenCalled();
+
+    dappSide.openModalForConnectAttempt({
+      attempt: activeAttempt,
+      uri: 'wc:active',
+    });
+    expect(dappSide.openModal).toHaveBeenCalledWith({ uri: 'wc:active' });
   });
 });
