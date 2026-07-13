@@ -17,6 +17,20 @@ type ISwapKLineStableTokenIdentity = {
   isNative?: boolean;
 };
 
+type ISwapKLineTokenSymbol = Pick<ISwapToken, 'symbol'>;
+
+export function haveSameSwapKLineTokenSymbol({
+  fromToken,
+  toToken,
+}: {
+  fromToken?: ISwapKLineTokenSymbol;
+  toToken?: ISwapKLineTokenSymbol;
+}) {
+  const fromSymbol = fromToken?.symbol.trim().toLowerCase();
+  const toSymbol = toToken?.symbol.trim().toLowerCase();
+  return Boolean(fromSymbol && toSymbol && fromSymbol === toSymbol);
+}
+
 function normalizeSwapKLineStableTokenAddress({
   networkId,
   contractAddress,
@@ -162,6 +176,10 @@ export function getDefaultSwapKLineSide({
     return ESwapDirectionType.FROM;
   }
   if (!fromToken) {
+    return ESwapDirectionType.TO;
+  }
+
+  if (haveSameSwapKLineTokenSymbol({ fromToken, toToken })) {
     return ESwapDirectionType.TO;
   }
 
