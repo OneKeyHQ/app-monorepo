@@ -355,14 +355,23 @@ class ServiceSignatureConfirm extends ServiceBase {
       }
     }
 
-    if (
+    const shouldUseLocalTxDisplay = Boolean(
       parsedTx &&
-      (unsignedTx.stakingInfo || unsignedTx.swapInfo) &&
-      parsedTx.type === EParseTxType.Unknown &&
-      !unsignedTx.stakingInfo?.tags?.includes(EEarnLabels.Borrow)
-    ) {
-      parsedTx.display = null;
-    }
+        (unsignedTx.stakingInfo || unsignedTx.swapInfo) &&
+        parsedTx.type === EParseTxType.Unknown &&
+        !unsignedTx.stakingInfo?.tags?.includes(EEarnLabels.Borrow),
+    );
+    // Unknown staking transactions keep the established local action display,
+    // while simulation data remains server-owned and cannot be rebuilt.
+    const stakingSimulationComponents =
+      shouldUseLocalTxDisplay && unsignedTx.stakingInfo
+        ? (parsedTx?.display?.components.filter(
+            (component) => component.type === EParseTxComponentType.Simulation,
+          ) ?? [])
+        : [];
+    const stakingAlerts = shouldUseLocalTxDisplay
+      ? (parsedTx?.display?.alerts ?? [])
+      : [];
 
     const useLocalPermit2Display = shouldUseLocalPermit2Display({
       hasPermit2ApproveInfo: Boolean(unsignedTx.approveInfo?.permit2Info),
@@ -370,8 +379,8 @@ class ServiceSignatureConfirm extends ServiceBase {
     });
 
     const {
-      simulationComponents: serverSimulationComponents,
-      alerts: serverAlerts,
+      simulationComponents: permit2SimulationComponents,
+      alerts: permit2Alerts,
     } = getPermit2ServerDisplayExtras(
       useLocalPermit2Display ? parsedTx?.display : undefined,
     );
@@ -401,7 +410,11 @@ class ServiceSignatureConfirm extends ServiceBase {
       decodedTx.txABI = parsedTx.parsedTx?.data;
     }
 
-    if (parsedTx?.display && !useLocalPermit2Display) {
+    if (
+      parsedTx?.display &&
+      !useLocalPermit2Display &&
+      !shouldUseLocalTxDisplay
+    ) {
       decodedTx.txDisplay = parsedTx.display;
     } else {
       const vaultSettings =
@@ -419,8 +432,12 @@ class ServiceSignatureConfirm extends ServiceBase {
 
       decodedTx.txDisplay = {
         title: '',
-        components: [...txDisplayComponents, ...serverSimulationComponents],
-        alerts: serverAlerts,
+        components: [
+          ...txDisplayComponents,
+          ...permit2SimulationComponents,
+          ...stakingSimulationComponents,
+        ],
+        alerts: [...permit2Alerts, ...stakingAlerts],
       };
       decodedTx.isLocalParsed = true;
     }
