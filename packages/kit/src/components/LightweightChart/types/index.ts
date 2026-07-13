@@ -74,6 +74,9 @@ export interface ILightweightChartProps {
   // signal the chart is live. Web/desktop only; toggling it does not recreate
   // the chart.
   pulseLastPoint?: boolean;
+  // Web/desktop only. Keep the chart instance alive when only data changes,
+  // then update series data in place to avoid axis/marker flicker.
+  preserveChartInstanceOnDataChange?: boolean;
   onHover?: (data: {
     time?: number;
     price?: number;

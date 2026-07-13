@@ -22,6 +22,7 @@ import {
   PERPS_FILTERED_LEDGER_TYPES,
   PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
+import { PERPS_HL_PORTFOLIO_STALE_SERVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -637,6 +638,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         return {
           ...prev,
           tokens: tokensMap,
+          serverTokens: tokens,
           defaultTokens,
           currentPerpsDepositSelectedToken: selectedToken,
           depositTokenListSource: 'serverConfig',
@@ -673,6 +675,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       return {
         ...prev,
         tokens: tokensMap,
+        serverTokens: tokens,
         defaultTokens,
         currentPerpsDepositSelectedToken: selectedToken,
         depositTokenListSource: 'serverConfig',
@@ -1046,6 +1049,11 @@ export default class ServiceHyperliquid extends ServiceBase {
     async (address: string): Promise<IHyperliquidPortfolioSnapshot> => {
       const { infoClient } = hyperLiquidApiClients;
       const user = address.toLowerCase() as IHex;
+      // The abstraction mode request only depends on the address, so run it
+      // alongside the clearinghouse fetches instead of as a second serial wave.
+      const abstractionModePromise = this._getPortfolioAbstractionMode(
+        user,
+      ).catch((): undefined => undefined);
       const [clearinghouseStates, spot] = await Promise.all([
         this._fetchAllDexsClearinghouseStates(user),
         infoClient.spotClearinghouseState({ user }).catch(() => undefined),
@@ -1086,7 +1094,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         needsPrices
           ? this._getAllMidsMemo().catch(() => hyperLiquidCache.allMids?.mids)
           : Promise.resolve(undefined),
-        this._getPortfolioAbstractionMode(user).catch(() => undefined),
+        abstractionModePromise,
       ]);
       if (!abstractionMode) {
         throw new OneKeyLocalError(
@@ -1157,8 +1165,28 @@ export default class ServiceHyperliquid extends ServiceBase {
       );
       allowCachedFallback = !isCachedModeStale;
     }
-    if (!force && cached) {
-      if (allowCachedFallback && isHyperliquidPortfolioSnapshotFresh(cached)) {
+    if (!force && cached && allowCachedFallback) {
+      if (isHyperliquidPortfolioSnapshotFresh(cached)) {
+        return cached;
+      }
+      if (
+        !cached.isDegraded &&
+        Date.now() - cached.fetchedAt <=
+          PERPS_HL_PORTFOLIO_STALE_SERVE_MAX_AGE_MS
+      ) {
+        // Stale-while-revalidate: account switches render the last snapshot
+        // immediately instead of blocking on the network; pollers pick up the
+        // refreshed snapshot on their next tick. Degraded snapshots hold
+        // incomplete dex aggregates, so they never serve stale.
+        void this.fetchHyperliquidPortfolioByAddress(normalized)
+          .then((fresh) =>
+            this.backgroundApi.simpleDb.perp.setHyperliquidPortfolioSnapshot(
+              fresh,
+            ),
+          )
+          .catch(() => {
+            void this._fetchHlPortfolioMemo.delete(normalized);
+          });
         return cached;
       }
     }

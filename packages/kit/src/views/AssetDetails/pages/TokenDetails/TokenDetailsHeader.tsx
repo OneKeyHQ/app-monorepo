@@ -10,18 +10,16 @@ import {
   Divider,
   Icon,
   SizableText,
-  Skeleton,
   Stack,
   XStack,
   YStack,
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { Currency } from '@onekeyhq/kit/src/components/Currency';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { useDisplayAccountAddress } from '@onekeyhq/kit/src/hooks/useDisplayAccountAddress';
@@ -35,6 +33,7 @@ import {
 } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   WALLET_TYPE_HD,
   WALLET_TYPE_WATCHING,
@@ -52,10 +51,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import {
-  displayFiatValueOrUnavailable,
-  displayOrUnavailable,
-} from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { getSwapBridgeDefaultToToken } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapSource,
@@ -70,6 +65,7 @@ import type {
 import { AssetDetailsTestIDs } from '../../testIDs';
 
 import ActionBuy from './ActionBuy';
+import TokenDetailsBalanceHero from './TokenDetailsBalanceHero';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
 
@@ -81,6 +77,75 @@ const tokenDetailsCache = new cacheUtils.LRUCache<
   ttl: timerUtils.getTimeDurationMs({ minute: 10 }),
   ttlAutopurge: true,
 });
+
+// Shared with the aggregate Overview tab, which resolves the concrete member
+// network / derive type before delegating here.
+export async function pushSwapFromTokenDetails({
+  navigation,
+  token,
+  networkId,
+  networkLogoURI,
+  deriveType,
+  walletType,
+  isSoftwareWalletOnlyUser,
+}: {
+  navigation: IAppNavigation;
+  token: {
+    address: string;
+    symbol: string;
+    isNative?: boolean;
+    decimals: number;
+    name?: string;
+    logoURI?: string;
+  };
+  networkId: string;
+  networkLogoURI?: string;
+  deriveType?: IAccountDeriveTypes;
+  walletType?: string;
+  isSoftwareWalletOnlyUser: boolean;
+}) {
+  const importFromToken: ISwapToken = {
+    contractAddress: token.address,
+    symbol: token.symbol,
+    networkId,
+    isNative: token.isNative,
+    decimals: token.decimals,
+    name: token.name,
+    logoURI: token.logoURI,
+    networkLogoURI,
+  };
+  let importToToken: ISwapToken | undefined;
+  try {
+    const { isSupportSwap, isSupportCrossChain } =
+      await backgroundApiProxy.serviceSwap.checkSupportSwap({
+        networkId,
+      });
+    if (!isSupportSwap && isSupportCrossChain) {
+      importToToken = getSwapBridgeDefaultToToken(importFromToken);
+    }
+  } catch {
+    // Keep the existing Swap fallback if capability refresh fails.
+  }
+
+  defaultLogger.wallet.walletActions.actionTrade({
+    walletType: walletType ?? '',
+    networkId,
+    source: 'tokenDetails',
+    tradeType: ESwapTabSwitchType.SWAP,
+    isSoftwareWalletOnlyUser,
+  });
+  navigation.pushModal(EModalRoutes.SwapModal, {
+    screen: EModalSwapRoutes.SwapMainLand,
+    params: {
+      importNetworkId: networkId,
+      importFromToken,
+      importToToken,
+      importDeriveType: deriveType,
+      swapTabSwitchType: ESwapTabSwitchType.SWAP,
+      swapSource: ESwapSource.TOKEN_DETAIL,
+    },
+  });
+}
 
 type ITokenDetailsAddressBlockProps = {
   shouldShow: boolean;
@@ -266,7 +331,7 @@ function TokenDetailsHeaderContent({
         const data = tokensDetails?.[0];
 
         // Chart price-line surface cannot render '--'; coerce to 0. Header
-        // price/balance render '--' via displayOrUnavailable below.
+        // price/balance render '--' via TokenDetailsBalanceHero below.
         updateTokenMetadata({
           price: data?.price ?? 0,
           priceChange24h: data?.price24h ?? 0,
@@ -339,56 +404,26 @@ function TokenDetailsHeaderContent({
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
-  const createSwapActionHandler = useCallback(
-    () => async () => {
-      const importFromToken: ISwapToken = {
-        contractAddress: tokenInfo.address,
-        symbol: tokenInfo.symbol,
-        networkId,
-        isNative: tokenInfo.isNative,
-        decimals: tokenInfo.decimals,
-        name: tokenInfo.name,
-        logoURI: tokenInfo.logoURI,
-        networkLogoURI: network?.logoURI,
-      };
-      let importToToken: ISwapToken | undefined;
-      try {
-        const { isSupportSwap, isSupportCrossChain } =
-          await backgroundApiProxy.serviceSwap.checkSupportSwap({
-            networkId,
-          });
-        if (!isSupportSwap && isSupportCrossChain) {
-          importToToken = getSwapBridgeDefaultToToken(importFromToken);
-        }
-      } catch {
-        // Keep the existing Swap fallback if capability refresh fails.
-      }
-      const swapTabSwitchType = ESwapTabSwitchType.SWAP;
-
-      defaultLogger.wallet.walletActions.actionTrade({
-        walletType: wallet?.type ?? '',
-        networkId: network?.id ?? '',
-        source: 'tokenDetails',
-        tradeType: swapTabSwitchType,
-        isSoftwareWalletOnlyUser,
-      });
-      navigation.pushModal(EModalRoutes.SwapModal, {
-        screen: EModalSwapRoutes.SwapMainLand,
-        params: {
-          importNetworkId: networkId,
-          importFromToken,
-          importToToken,
-          importDeriveType: deriveType,
-          ...(swapTabSwitchType && {
-            swapTabSwitchType,
-          }),
-          swapSource: ESwapSource.TOKEN_DETAIL,
+  const handleOnSwap = useCallback(
+    () =>
+      pushSwapFromTokenDetails({
+        navigation,
+        token: {
+          address: tokenInfo.address,
+          symbol: tokenInfo.symbol,
+          isNative: tokenInfo.isNative,
+          decimals: tokenInfo.decimals,
+          name: tokenInfo.name,
+          logoURI: tokenInfo.logoURI,
         },
-      });
-    },
+        networkId,
+        networkLogoURI: network?.logoURI,
+        deriveType,
+        walletType: wallet?.type,
+        isSoftwareWalletOnlyUser,
+      }),
     [
       wallet?.type,
-      network?.id,
       network?.logoURI,
       navigation,
       networkId,
@@ -402,8 +437,6 @@ function TokenDetailsHeaderContent({
       isSoftwareWalletOnlyUser,
     ],
   );
-
-  const handleOnSwap = createSwapActionHandler();
 
   const disableSwapAction = useMemo(
     () => accountUtils.isUrlAccountFn({ accountId }),
@@ -526,39 +559,12 @@ function TokenDetailsHeaderContent({
         {/* Overview */}
         <Stack px="$5" py="$5">
           {/* Balance */}
-          <YStack gap="$2" mb="$5">
-            {showLoadingState ? (
-              <Skeleton.Group show>
-                <Skeleton.Heading5Xl />
-                <Skeleton.BodyLg />
-              </Skeleton.Group>
-            ) : (
-              <>
-                <Currency
-                  hideValue
-                  splitDecimal
-                  formatter="value"
-                  sourceCurrency={tokenDetails?.currency}
-                  fontSize={48}
-                  lineHeight={48}
-                  fontWeight={500}
-                >
-                  {displayFiatValueOrUnavailable(
-                    tokenDetails?.fiatValue,
-                    tokenDetails?.balanceParsed,
-                  )}
-                </Currency>
-                <NumberSizeableTextWrapper
-                  hideValue
-                  formatter="balance"
-                  color="$textSubdued"
-                  size="$bodyLg"
-                >
-                  {displayOrUnavailable(tokenDetails?.balanceParsed)}
-                </NumberSizeableTextWrapper>
-              </>
-            )}
-          </YStack>
+          <TokenDetailsBalanceHero
+            isLoading={showLoadingState}
+            currency={tokenDetails?.currency}
+            fiatValue={tokenDetails?.fiatValue}
+            balanceParsed={tokenDetails?.balanceParsed}
+          />
           {/* Actions */}
           <RawActions>
             <RawActions.Send

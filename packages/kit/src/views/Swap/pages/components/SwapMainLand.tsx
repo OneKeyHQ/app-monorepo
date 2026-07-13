@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
-import { useSharedValue } from 'react-native-reanimated';
 
 import type {
   IDialogInstance,
@@ -13,22 +12,14 @@ import {
   Dialog,
   EPageType,
   Page,
-  Stack,
   Toast,
   YStack,
   useInModalDialog,
   useInTabDialog,
   useMedia,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import {
-  ENABLE_IMMERSIVE_GLASS_HEADER,
-  IMMERSIVE_GLASS_OVERHANG,
-  IMMERSIVE_HEADER_ROW_HEIGHT,
-  ImmersiveGlassOverlay,
-} from '@onekeyhq/kit/src/components/ImmersiveGlassHeader';
 import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
@@ -153,11 +144,7 @@ import {
 } from './SwapStockDesktopContainer';
 import SwapSwapMbContainer from './SwapSwapMbContainer';
 
-import type {
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  ScrollView as ScrollViewNative,
-} from 'react-native';
+import type { ScrollView as ScrollViewNative } from 'react-native';
 
 interface ISwapMainLoadProps {
   children?: React.ReactNode;
@@ -169,29 +156,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const { preSwapStepsStart, preSwapBeforeStepActions } = useSwapBuildTx();
   const intl = useIntl();
   const { gtLg } = useMedia();
-  const { top } = useSafeAreaInsets();
-  // iOS immersive header: bridges each swap panel's scroll offset to the fixed
-  // glass nav bar so it fades in as content scrolls under it. All three native
-  // panels (Swap, Stock, Pro) feed this shared value via onScroll.
-  const headerGlassScrollY = useSharedValue(0);
-  const handleContentScroll = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      headerGlassScrollY.value = e.nativeEvent.contentOffset.y;
-    },
-    [headerGlassScrollY],
-  );
-  // Immersive glass header applies to the compact iOS tab surface only (never
-  // the swap modal, never the wide iPad/desktop split). Content then scrolls
-  // under a fixed translucent bar: pad its top by the bar height and route its
-  // scroll offset to the fade.
-  const isSwapImmersiveHeader =
-    ENABLE_IMMERSIVE_GLASS_HEADER && pageType !== EPageType.modal && !gtLg;
-  const swapContentTopInset = isSwapImmersiveHeader
-    ? top + IMMERSIVE_HEADER_ROW_HEIGHT
-    : 0;
-  const onSwapContentScroll = isSwapImmersiveHeader
-    ? handleContentScroll
-    : undefined;
   const { fetchLoading } = useSwapInit(swapInitParams);
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -1295,8 +1259,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           quoteLoading={quoteLoading}
           quoteEventFetching={quoteEventFetching}
           alerts={alerts}
-          onScroll={onSwapContentScroll}
-          contentTopInset={swapContentTopInset}
         />
       );
     }
@@ -1358,8 +1320,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         fromTokenAmountValue={fromTokenAmount.value}
         swapRecentTokenPairs={swapRecentTokenPairs}
         supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
-        onScroll={onSwapContentScroll}
-        contentTopInset={swapContentTopInset}
       />
     );
   }, [
@@ -1388,8 +1348,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapInitParams?.swapTabSwitchType,
     swapInitParams?.swapSource,
     gtLg,
-    onSwapContentScroll,
-    swapContentTopInset,
   ]);
 
   // Desktop: show provider panel on the right side, need wider layout
@@ -1438,113 +1396,68 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     contentTopPadding = '$0';
   }
 
-  const swapHeaderNode =
-    gtLg && pageType !== EPageType.modal && !platformEnv.isNative ? null : (
-      <SwapHeaderContainer
-        pageType={pageType}
-        defaultSwapType={swapInitParams?.swapTabSwitchType}
-        showSwapPro={platformEnv.isNative}
-        hideRightActions={showDesktopProviderPanel}
-        enterFrom={swapInitParams?.swapSource}
-        marketPresetSettings={
-          focusSwapPro ? swapProMarketPresetSettings : undefined
-        }
-      />
-    );
-
-  // Build the active scroll panel lazily: only the Pro branch allocates the
-  // heavy SwapProContainer element (and its inline config/props), so it isn't
-  // created and discarded on every render when the user is not in Pro mode.
-  let swapBodyNode: React.ReactNode;
-  if (focusSwapPro) {
-    swapBodyNode = (
-      <SwapProContainer
-        pageType={pageType}
-        onProSelectToken={onProSelectToken}
-        onOpenOrdersClick={onOpenOrdersClick}
-        onSwapProActionClick={onPreSwap}
-        onSelectPercentageStage={onSelectPercentageStage}
-        onBalanceMaxPress={onBalanceMaxPress}
-        handleSelectAccountClick={handleSelectAccountClick}
-        onProMarketDetail={onProMarketDetail}
-        onTokenPress={onTokenPress}
-        supportNetworksList={SwapProSupportNetworksList}
-        onScroll={onSwapContentScroll}
-        marketPresetSettings={
-          swapProMarketPresetTokenContext
-            ? swapProMarketPresetSettings
-            : undefined
-        }
-        config={{
-          isLoading,
-          speedConfig,
-          balanceLoading,
-          isMEV,
-          hasEnoughBalance,
-          supportSpeedSwap,
-        }}
-      />
-    );
-    // Pro mode pins a sticky token-selector header. If its scroll view filled
-    // the screen, that sticky row would pin at the top and tuck under the glass
-    // bar. So in immersive mode Pro's scroll view starts BELOW the bar (wrapped
-    // with the top inset), keeping the sticky row visible. Swap / Stock have no
-    // sticky header, so their content scrolls under the bar via contentTopInset.
-    if (isSwapImmersiveHeader) {
-      swapBodyNode = (
-        <Stack flex={1} pt={swapContentTopInset}>
-          {swapBodyNode}
-        </Stack>
-      );
-    }
-  } else {
-    swapBodyNode = renderSwapSwapBridgeContainer();
-  }
-
-  if (isSwapImmersiveHeader) {
-    return (
+  return (
+    <>
       <Page.Container flex={1} layout={containerLayout} padded={false}>
-        <YStack testID={SwapTestIDs.pageContainer} flex={1} width="100%">
-          {swapBodyNode}
-          {/* Fixed translucent nav bar: the progressive-blur glass frost
-              (fades in on scroll) sits behind the status-bar spacer + the swap
-              tab-switch row; content above scrolls up under it. */}
-          <YStack position="absolute" top={0} left={0} right={0}>
-            {/* Pro mode pins a sticky token selector directly under the bar, so
-                drop the overhang there to keep that row un-frosted; Swap / Stock
-                keep the soft overhang over their scrolling content. */}
-            <ImmersiveGlassOverlay
-              scrollY={headerGlassScrollY}
-              topOffset={0}
-              overhang={focusSwapPro ? 0 : IMMERSIVE_GLASS_OVERHANG}
+        <YStack
+          testID={SwapTestIDs.pageContainer}
+          flex={1}
+          width="100%"
+          pt={contentTopPadding}
+          gap="$2"
+          $gtMd={{
+            flex: 'unset',
+          }}
+          $gtLg={{
+            pt: '$0',
+          }}
+        >
+          {gtLg &&
+          pageType !== EPageType.modal &&
+          !platformEnv.isNative ? null : (
+            <SwapHeaderContainer
+              pageType={pageType}
+              defaultSwapType={swapInitParams?.swapTabSwitchType}
+              showSwapPro={platformEnv.isNative}
+              hideRightActions={showDesktopProviderPanel}
+              enterFrom={swapInitParams?.swapSource}
+              marketPresetSettings={
+                focusSwapPro ? swapProMarketPresetSettings : undefined
+              }
             />
-            <Stack h={top} />
-            {swapHeaderNode}
-          </YStack>
+          )}
+          {focusSwapPro ? (
+            <SwapProContainer
+              pageType={pageType}
+              onProSelectToken={onProSelectToken}
+              onOpenOrdersClick={onOpenOrdersClick}
+              onSwapProActionClick={onPreSwap}
+              onSelectPercentageStage={onSelectPercentageStage}
+              onBalanceMaxPress={onBalanceMaxPress}
+              handleSelectAccountClick={handleSelectAccountClick}
+              onProMarketDetail={onProMarketDetail}
+              onTokenPress={onTokenPress}
+              supportNetworksList={SwapProSupportNetworksList}
+              marketPresetSettings={
+                swapProMarketPresetTokenContext
+                  ? swapProMarketPresetSettings
+                  : undefined
+              }
+              config={{
+                isLoading,
+                speedConfig,
+                balanceLoading,
+                isMEV,
+                hasEnoughBalance,
+                supportSpeedSwap,
+              }}
+            />
+          ) : (
+            renderSwapSwapBridgeContainer()
+          )}
         </YStack>
       </Page.Container>
-    );
-  }
-
-  return (
-    <Page.Container flex={1} layout={containerLayout} padded={false}>
-      <YStack
-        testID={SwapTestIDs.pageContainer}
-        flex={1}
-        width="100%"
-        pt={contentTopPadding}
-        gap="$2"
-        $gtMd={{
-          flex: 'unset',
-        }}
-        $gtLg={{
-          pt: '$0',
-        }}
-      >
-        {swapHeaderNode}
-        {swapBodyNode}
-      </YStack>
-    </Page.Container>
+    </>
   );
 };
 

@@ -1,6 +1,7 @@
 import type { ComponentType, ReactElement } from 'react';
 import { useState } from 'react';
 
+import { useHeaderHeight } from '@react-navigation/elements';
 import { StackActions } from '@react-navigation/native';
 
 import {
@@ -91,6 +92,10 @@ export function Layout({
   const contentWidth = wideScreen ? 1440 : 576;
   const [settings] = useSettingsPersistAtom();
   const isDarkTheme = settings.theme === 'dark';
+  const headerHeight = useHeaderHeight();
+  const scrollViewPaddingTop = platformEnv.isNativeIOS26Plus
+    ? headerHeight + 20
+    : 20;
 
   const toggleTheme = async (isDark: boolean) => {
     await backgroundApiProxy.serviceSetting.setTheme(isDark ? 'dark' : 'light');
@@ -105,7 +110,7 @@ export function Layout({
         marginBottom={keyboardHeight}
         paddingHorizontal="$5"
         contentContainerStyle={{
-          paddingTop: 20,
+          paddingTop: scrollViewPaddingTop,
           paddingBottom: 280,
         }}
         keyboardDismissMode="on-drag"

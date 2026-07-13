@@ -52,8 +52,9 @@ const ClaimOptions = () => {
         accountId,
         symbol: finalSymbol,
         provider: finalProvider,
+        vault: protocolInfo?.vault,
       }),
-    [accountId, networkId, finalSymbol, finalProvider],
+    [accountId, networkId, finalSymbol, finalProvider, protocolInfo?.vault],
     { watchLoading: true },
   );
 

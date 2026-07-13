@@ -113,6 +113,31 @@
         <category android:name="android.intent.category.BROWSABLE" />
         <data android:scheme="ethereum" />
       </intent-filter>
+      <intent-filter android:autoVerify="true">
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <!-- No /swap here: intent-filters cannot match query strings, so it would
+             hijack ordinary swap web links; stock entry relies on stocks.* hosts. -->
+        <data android:scheme="https" android:host="app.onekey.so" android:path="/perps" />
+        <data android:scheme="https" android:host="app.onekey.so" android:path="/perps/" />
+        <data android:scheme="https" android:host="app.onekey.so" android:path="/market" />
+        <data android:scheme="https" android:host="app.onekey.so" android:path="/market/" />
+        <data android:scheme="https" android:host="app.onekeytest.com" android:path="/perps" />
+        <data android:scheme="https" android:host="app.onekeytest.com" android:path="/perps/" />
+        <data android:scheme="https" android:host="app.onekeytest.com" android:path="/market" />
+        <data android:scheme="https" android:host="app.onekeytest.com" android:path="/market/" />
+      </intent-filter>
+      <intent-filter android:autoVerify="true">
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="https" android:host="stocks.onekey.so" android:pathPrefix="/" />
+        <data android:scheme="https" android:host="stocks.onekeytest.com" android:pathPrefix="/" />
+        <data android:scheme="https" android:host="perps.onekey.so" android:pathPrefix="/" />
+        <data android:scheme="https" android:host="perps.onekeytest.com" android:pathPrefix="/" />
+        <data android:scheme="https" android:host="swap.onekey.so" android:pathPrefix="/" />
+      </intent-filter>
     </activity>
     <activity
         android:name=".RecoveryActivity"

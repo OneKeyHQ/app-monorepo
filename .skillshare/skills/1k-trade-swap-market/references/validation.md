@@ -1,5 +1,10 @@
 # Validation
 
+Run the exact relevant lane in [test-map.md](test-map.md) and use
+[runtime-boundaries.md](runtime-boundaries.md) to define the runtime pass. The
+readiness/eval scripts prove skill structure and anchor freshness only; they do
+not prove product behavior.
+
 ## Static Validation
 
 For documentation-only edits, run:

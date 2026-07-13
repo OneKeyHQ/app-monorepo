@@ -71,8 +71,6 @@ import { resolveOverviewCols } from './overviewColsResolver';
 import { type IProtocolHandle, Protocol } from './Protocol';
 import { useIsDeFiEnabled } from './useIsDeFiEnabled';
 
-const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
-
 const MAX_PROTOCOLS_ON_SMALL_SCREEN = 6;
 const PROTOCOL_LIST_TOGGLE_PRESS_LOCK_MS = 600;
 
@@ -1616,7 +1614,6 @@ function DeFiListBlock({
       <SizableText
         size="$headingXl"
         color={tableLayout ? '$textSubdued' : '$text'}
-        fontVariant={TABULAR_NUMS}
       >
         {formatPortfolioTotal(
           Number(overview.netWorth) || 0,
