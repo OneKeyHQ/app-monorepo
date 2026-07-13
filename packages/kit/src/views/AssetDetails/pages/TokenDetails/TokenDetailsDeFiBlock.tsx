@@ -76,7 +76,16 @@ export function TokenDetailsDeFiBlock({
   const requestIdRef = useRef(generateUUID());
   const isUnmountedRef = useRef(false);
 
-  const cacheKey = `${networkId}_${tokenAddress}`;
+  // Aggregate mode resolves against the member set, and different wallets can
+  // aggregate different member networks under the same mock networkId/$key —
+  // fingerprint the members so each set gets its own cache entry.
+  const memberFingerprint = aggregateTokens?.length
+    ? aggregateTokens
+        .map((member) => `${member.networkId}:${member.address}`)
+        .toSorted()
+        .join(',')
+    : '';
+  const cacheKey = `${networkId}_${tokenAddress}_${memberFingerprint}`;
   // Aggregate mode shows protocols across all member networks (no filter).
   const protocolFilterNetworkId = aggregateTokens?.length
     ? undefined

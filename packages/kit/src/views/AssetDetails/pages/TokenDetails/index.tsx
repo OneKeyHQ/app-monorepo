@@ -568,7 +568,11 @@ function TokenDetailsView() {
     [uniqueTabNames],
   );
 
-  usePromiseResult(async () => {
+  // Updating the context from the hook result (not inside the promise body)
+  // keeps usePromiseResult's stale-run protection: a slow response for a
+  // previously active tab can no longer overwrite the current tab's market
+  // data during fast tab switches.
+  const { result: footerTokenMetadata } = usePromiseResult(async () => {
     // The Overview descriptor has no token; fall back to the largest member
     // for its market data (tokens are fiat-sorted, tokens[0] is the largest
     // holding).
@@ -576,18 +580,25 @@ function TokenDetailsView() {
       (aggregateTabs
         ? aggregateTabs[activeTabIndex]?.token
         : tokens[activeTabIndex]) ?? tokens[0];
-    if (!activeToken) return;
+    if (!activeToken) return undefined;
 
     const resp = await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
       networkId: activeToken.networkId ?? '',
       tokenAddress: activeToken.address,
     });
-    updateTokenMetadata({
+    return {
       price: resp?.price ?? 0,
       priceChange24h: resp?.price24h ?? 0,
       coingeckoId: resp?.info?.coingeckoId ?? '',
-    });
-  }, [activeTabIndex, tokens, aggregateTabs, updateTokenMetadata]);
+      currency: resp?.currency,
+    };
+  }, [activeTabIndex, tokens, aggregateTabs]);
+
+  useEffect(() => {
+    if (footerTokenMetadata) {
+      updateTokenMetadata(footerTokenMetadata);
+    }
+  }, [footerTokenMetadata, updateTokenMetadata]);
 
   const tabs = useMemo(() => {
     if (aggregateTabs) {

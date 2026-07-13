@@ -9,6 +9,7 @@ import {
   SizableText,
   Stack,
   Tabs,
+  Toast,
   Tooltip,
   YStack,
 } from '@onekeyhq/components';
@@ -164,9 +165,15 @@ function TokenDetailsOverview(props: IProps) {
                 isInit: true,
                 data,
               });
+            } else {
+              // No data came back — unmark so a later run can retry instead of
+              // leaving the row on its placeholder forever (member tabs only
+              // fetch on focus, which never happens while staying on Overview).
+              backfilledKeysRef.current.delete(token.$key);
             }
           } catch {
-            // Tolerated: the row keeps its unavailable placeholder.
+            // Transient failure — same retry rationale as the empty response.
+            backfilledKeysRef.current.delete(token.$key);
           }
         }),
       );
@@ -389,6 +396,26 @@ function TokenDetailsOverview(props: IProps) {
         enableNetworkAfterSelect: true,
         closeAfterSelect: false,
         onSelect: async (token: IAccountToken) => {
+          // The chain-tab Buy button disables itself via this same check; the
+          // selector cannot know support upfront, so gate after selection
+          // instead of letting the widget request fail with a generic error.
+          const isBuySupported =
+            await backgroundApiProxy.serviceFiatCrypto.isTokenSupported({
+              networkId: token.networkId ?? '',
+              tokenAddress: token.address,
+              type: 'buy',
+            });
+          if (!isBuySupported) {
+            Toast.error({
+              title: intl.formatMessage(
+                {
+                  id: ETranslations.wallet_history_settings_hide_risk_transaction_desc_unsupported,
+                },
+                { networkName: token.networkName || token.symbol },
+              ),
+            });
+            return;
+          }
           await openFiatCryptoWidget({
             type: 'buy',
             networkId: token.networkId ?? '',
@@ -409,6 +436,7 @@ function TokenDetailsOverview(props: IProps) {
     indexedAccountId,
     tokenInfo,
     tokens,
+    intl,
     walletId,
     wallet?.type,
     isSoftwareWalletOnlyUser,
