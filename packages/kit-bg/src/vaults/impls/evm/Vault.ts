@@ -81,6 +81,7 @@ import {
   buildErc20ApproveEncodedTx,
   buildPermit2ApproveAction,
   buildPermit2ApproveEncodedTx,
+  resolveTrustedPermit2Address,
 } from './approveTransactionUtils';
 import { EVMContractDecoder } from './decoder';
 import {
@@ -693,16 +694,21 @@ export default class Vault extends VaultBase {
       approveInfo;
     const permit2Address = permit2Info?.permit2Address;
     const expirationSeconds = permit2Info?.expirationSeconds;
+    const trustedPermit2Address = resolveTrustedPermit2Address({
+      networkId: this.networkId,
+      permit2Address,
+    });
     const hasRequiredData = Boolean(
       owner &&
       spender &&
       tokenInfo?.address &&
       permit2Address &&
+      trustedPermit2Address &&
       expirationSeconds,
     );
     const addressValidationResults = hasRequiredData
       ? await Promise.all(
-          [owner, spender, tokenInfo?.address, permit2Address].map(
+          [owner, spender, tokenInfo?.address, trustedPermit2Address].map(
             async (address) =>
               address ? (await this.validateAddress(address)).isValid : false,
           ),
@@ -726,7 +732,7 @@ export default class Vault extends VaultBase {
     if (
       !isPermit2InfoValid ||
       !tokenInfo ||
-      !permit2Address ||
+      !trustedPermit2Address ||
       !expirationSeconds
     ) {
       throw new OneKeyLocalError(
@@ -736,7 +742,11 @@ export default class Vault extends VaultBase {
       );
     }
 
-    return { tokenInfo, permit2Address, expirationSeconds };
+    return {
+      tokenInfo,
+      permit2Address: trustedPermit2Address,
+      expirationSeconds,
+    };
   }
 
   async _buildEncodedDataFromTransferNFT(params: {

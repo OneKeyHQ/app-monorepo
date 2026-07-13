@@ -1,5 +1,6 @@
 import { defaultAbiCoder } from '@ethersproject/abi';
 
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import { EApproveType, EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
@@ -8,6 +9,7 @@ import {
   buildErc20ApproveEncodedTx,
   buildPermit2ApproveAction,
   buildPermit2ApproveEncodedTx,
+  resolveTrustedPermit2Address,
 } from './approveTransactionUtils';
 
 const owner = '0x4dbc53389b9ef869629e88b4ebe82e33dfc8ac61';
@@ -48,6 +50,38 @@ function buildAction(encodedTx = buildPermit2Tx()) {
 }
 
 describe('approval transaction utils', () => {
+  test('resolves Permit2 only for the trusted approval-network deployments', () => {
+    const networkIdsMap = getNetworkIdsMap();
+    const supportedNetworkIds = [
+      networkIdsMap.eth,
+      networkIdsMap.bsc,
+      networkIdsMap.polygon,
+      networkIdsMap.arbitrum,
+      networkIdsMap.avalanche,
+      networkIdsMap.optimism,
+      networkIdsMap.base,
+    ];
+
+    for (const networkId of supportedNetworkIds) {
+      expect(resolveTrustedPermit2Address({ networkId, permit2Address })).toBe(
+        '0x000000000022D473030F116dDEE9F6B43aC78BA3',
+      );
+    }
+
+    expect(
+      resolveTrustedPermit2Address({
+        networkId: networkIdsMap.eth,
+        permit2Address: otherAddress,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveTrustedPermit2Address({
+        networkId: networkIdsMap.zksyncera,
+        permit2Address,
+      }),
+    ).toBeUndefined();
+  });
+
   test('encodes the on-chain Permit2 revoke example', () => {
     expect(buildPermit2Tx()).toEqual({
       from: owner,

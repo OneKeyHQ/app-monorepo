@@ -2,6 +2,7 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import BigNumber from 'bignumber.js';
 
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import type { IDecodedTxAction } from '@onekeyhq/shared/types/tx';
@@ -13,8 +14,19 @@ import type { BigNumber as EthersBigNumber } from '@ethersproject/bignumber';
 
 export const PERMIT2_APPROVE_SELECTOR = '0x87517c45';
 
+const PERMIT2_ADDRESS = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
 const PERMIT2_APPROVE_DATA_LENGTH = 2 + 8 + 64 * 4;
 const UINT48_MAX = new BigNumber(2).pow(48).minus(1);
+const networkIdsMap = getNetworkIdsMap();
+const TRUSTED_PERMIT2_ADDRESSES: Readonly<Record<string, string>> = {
+  [networkIdsMap.eth]: PERMIT2_ADDRESS,
+  [networkIdsMap.bsc]: PERMIT2_ADDRESS,
+  [networkIdsMap.polygon]: PERMIT2_ADDRESS,
+  [networkIdsMap.arbitrum]: PERMIT2_ADDRESS,
+  [networkIdsMap.avalanche]: PERMIT2_ADDRESS,
+  [networkIdsMap.optimism]: PERMIT2_ADDRESS,
+  [networkIdsMap.base]: PERMIT2_ADDRESS,
+};
 
 function isSameEvmAddress(left?: string, right?: string) {
   const addressPattern = /^0x[0-9a-fA-F]{40}$/;
@@ -25,6 +37,19 @@ function isSameEvmAddress(left?: string, right?: string) {
     addressPattern.test(right) &&
     left.toLowerCase() === right.toLowerCase(),
   );
+}
+
+export function resolveTrustedPermit2Address({
+  networkId,
+  permit2Address,
+}: {
+  networkId: string;
+  permit2Address?: string;
+}) {
+  const trustedPermit2Address = TRUSTED_PERMIT2_ADDRESSES[networkId];
+  return isSameEvmAddress(permit2Address, trustedPermit2Address)
+    ? trustedPermit2Address
+    : undefined;
 }
 
 export function buildErc20ApproveEncodedTx({
