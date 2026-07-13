@@ -156,7 +156,7 @@ function SendConfirmFromDApp() {
             _disabledAnimationOfNavigate: true,
             _$t,
           };
-        // replace router to SendConfirm
+        // Replace the DApp entry screen with the shared TxConfirm page.
         action = StackActions.replace(signatureConfirmRoute, params);
       }
 

@@ -45,6 +45,7 @@ import {
   resolveStakeTokenAddress,
 } from '../../../utils/utils';
 
+import type { IManagePositionFooterAction } from './ManagePositionContent';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 
 export const WithdrawSection = ({
@@ -55,6 +56,7 @@ export const WithdrawSection = ({
   isDisabled,
   onSuccess,
   beforeFooter,
+  footerActionOverride,
   showApyDetail,
   isInModalContext,
   fallbackTokenImageUri,
@@ -80,6 +82,7 @@ export const WithdrawSection = ({
   isDisabled?: boolean;
   onSuccess?: () => void;
   beforeFooter?: ReactElement | null;
+  footerActionOverride?: IManagePositionFooterAction;
   showApyDetail?: boolean;
   isInModalContext?: boolean;
   fallbackTokenImageUri?: string;
@@ -480,10 +483,18 @@ export const WithdrawSection = ({
     if (selectedAsset) {
       if (borrowAction === 'repay') {
         // For repay, use borrowed balance
-        return selectedAsset.borrowed?.title?.text ?? '0';
+        return (
+          selectedAsset.borrowed?.number ??
+          selectedAsset.borrowed?.title?.text ??
+          '0'
+        );
       }
       // For withdraw, use supplied balance
-      return selectedAsset.supplied?.title?.text ?? '0';
+      return (
+        selectedAsset.supplied?.number ??
+        selectedAsset.supplied?.title?.text ??
+        '0'
+      );
     }
     return protocolInfo?.activeBalance ?? '0';
   }, [selectedAsset, borrowAction, protocolInfo?.activeBalance]);
@@ -852,7 +863,8 @@ export const WithdrawSection = ({
       return undefined;
     }
     return resolveBorrowRepayAllBalance({
-      selectedDebtBalance: selectedAsset?.borrowed?.amount,
+      selectedDebtBalance:
+        selectedAsset?.borrowed?.number ?? selectedAsset?.borrowed?.amount,
       protocolDebtBalance: protocolInfo?.debtBalance,
       reserveAddress: effectiveReserveAddress,
       tokenAddress: token?.address,
@@ -865,6 +877,7 @@ export const WithdrawSection = ({
     effectiveTokenSymbol,
     freshBorrowReserves?.borrowed?.assets,
     protocolInfo?.debtBalance,
+    selectedAsset?.borrowed?.number,
     selectedAsset?.borrowed?.amount,
     token?.address,
   ]);
@@ -992,6 +1005,7 @@ export const WithdrawSection = ({
         isDisabled
         isInModalContext={isInModalContext}
         beforeFooter={beforeFooter}
+        footerActionOverride={footerActionOverride}
         tokenImageUri={fallbackTokenImageUri}
         tokenSymbol={tokenInfo?.token.symbol}
       />
@@ -1043,7 +1057,8 @@ export const WithdrawSection = ({
           }
           debtBalance={
             protocolInfo?.debtBalance !== undefined
-              ? (selectedAsset?.borrowed?.title?.text ??
+              ? (selectedAsset?.borrowed?.number ??
+                selectedAsset?.borrowed?.title?.text ??
                 protocolInfo.debtBalance)
               : undefined
           }
@@ -1116,6 +1131,7 @@ export const WithdrawSection = ({
           protocolVault={protocolInfo?.vault ?? ''}
           isDisabled={isDisabled}
           beforeFooter={beforeFooter}
+          footerActionOverride={footerActionOverride}
           showApyDetail={showApyDetail}
           isInModalContext={isInModalContext}
           receiveInputConfig={effectiveReceiveInputConfig}

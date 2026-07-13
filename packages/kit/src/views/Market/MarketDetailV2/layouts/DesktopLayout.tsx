@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import type { RefObject } from 'react';
+import type { ComponentProps, RefObject } from 'react';
 
 import {
   Divider,
+  Spinner,
   Stack,
   XStack,
   YStack,
@@ -13,22 +14,25 @@ import {
   TRADING_VIEW_URL,
   TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-import {
-  MarketTradingView,
-  PerpetualTradingBanner,
-  StockTradingActivity,
-  SwapPanel,
-  TokenActivityOverview,
-  TokenDetailHeader,
-  TokenSupplementaryInfo,
-} from '../components';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
-import { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
-import { useTokenDetail } from '../hooks/useTokenDetail';
+import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
+import { SwapPanel } from '../components/SwapPanel/SwapPanel';
+import { TokenActivityOverview } from '../components/TokenActivityOverview/TokenActivityOverview';
+import { TokenDetailHeader } from '../components/TokenDetailHeader/TokenDetailHeader';
+import { StockTradingActivity } from '../components/TokenSupplementaryInfo/StockTradingActivity';
+import { TokenSupplementaryInfo } from '../components/TokenSupplementaryInfo/TokenSupplementaryInfo';
+import {
+  useMarketTradingViewParams,
+  useTokenDetail,
+} from '../hooks/useTokenDetail';
+
+import type { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
+import type { IMarketTradingViewProps } from '../components/MarketTradingView/MarketTradingView';
 
 const MARKET_DETAIL_LAYOUT = {
   chartHeight: 550,
@@ -42,9 +46,13 @@ const MARKET_CHART_FULLSCREEN_STYLE = {
   left: 0,
   top: 0,
   right: 0,
-  bottom: 0,
+  bottom: platformEnv.isWeb ? 40 : 0,
 } as const;
 const IFRAME_WHEEL_EVENT_TYPE = 'wheelEvent' as const;
+
+type IDesktopInformationTabsProps = ComponentProps<
+  typeof DesktopInformationTabs
+>;
 
 interface IIframeWheelEventMessage {
   type: typeof IFRAME_WHEEL_EVENT_TYPE;
@@ -56,6 +64,51 @@ const ALLOWED_TRADING_VIEW_ORIGINS = new Set([
   new URL(TRADING_VIEW_URL_TEST).origin,
   ...(platformEnv.isDev ? [TRADING_VIEW_LOCALHOST_ORIGIN] : []),
 ]);
+
+function ModuleLoadingFallback({ minHeight }: { minHeight?: number }) {
+  return (
+    <Stack
+      minHeight={minHeight}
+      flex={1}
+      alignItems="center"
+      justifyContent="center"
+    >
+      <Spinner size="large" />
+    </Stack>
+  );
+}
+
+const chartLoadingFallback = (
+  <ModuleLoadingFallback minHeight={MARKET_DETAIL_LAYOUT.chartHeight} />
+);
+
+const infoTabsLoadingFallback = (
+  <ModuleLoadingFallback minHeight={MARKET_DETAIL_LAYOUT.infoTabsHeight} />
+);
+
+const LazyMarketTradingView = LazyLoad<IMarketTradingViewProps>(
+  () =>
+    import(
+      /* webpackChunkName: "market-detail-v2-tradingview" */ '../components/MarketTradingView/MarketTradingView'
+    ).then(({ MarketTradingView }) => ({
+      default: (props: IMarketTradingViewProps) => (
+        <MarketTradingView {...props} />
+      ),
+    })),
+  undefined,
+  chartLoadingFallback,
+);
+
+const LazyDesktopInformationTabs = LazyLoad<IDesktopInformationTabsProps>(
+  () =>
+    import(
+      /* webpackChunkName: "market-detail-v2-desktop-info-tabs" */ '../components/InformationTabs/layout/DesktopInformationTabs'
+    ).then(({ DesktopInformationTabs }) => ({
+      default: DesktopInformationTabs,
+    })),
+  undefined,
+  infoTabsLoadingFallback,
+);
 
 // Listen for wheel events forwarded from TradingView iframe via postMessage.
 // TradingView side needs: window.parent.postMessage({ type: 'wheelEvent', deltaY }, '*')
@@ -89,15 +142,17 @@ function useIframeWheelPassthrough({
   }, [disabled, scrollRef]);
 }
 
+export interface IDesktopLayoutProps {
+  isChartFullscreen: boolean;
+  onChartFullscreenChange: (isFullscreen: boolean) => void;
+  showFavoriteButton?: boolean;
+}
+
 export function DesktopLayout({
   isChartFullscreen,
   onChartFullscreenChange,
   showFavoriteButton = true,
-}: {
-  isChartFullscreen: boolean;
-  onChartFullscreenChange: (isFullscreen: boolean) => void;
-  showFavoriteButton?: boolean;
-}) {
+}: IDesktopLayoutProps) {
   const {
     tokenAddress,
     networkId,
@@ -160,18 +215,26 @@ export function DesktopLayout({
     [isChartFullscreen],
   );
 
+  const marketTradingViewParams = useMarketTradingViewParams({
+    tokenAddress,
+    networkId,
+    tokenDetail,
+    isNative,
+    websocketConfig,
+  });
+
   const marketTradingView = useMemo(() => {
-    if (!networkId || !tokenDetail?.symbol) {
+    if (!marketTradingViewParams) {
       return null;
     }
 
     return (
-      <MarketTradingView
-        tokenAddress={tokenAddress}
-        networkId={networkId}
-        tokenSymbol={tokenDetail.symbol}
-        isNative={isNative}
-        dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
+      <LazyMarketTradingView
+        tokenAddress={marketTradingViewParams.tokenAddress}
+        networkId={marketTradingViewParams.networkId}
+        tokenSymbol={marketTradingViewParams.tokenSymbol}
+        isNative={marketTradingViewParams.isNative}
+        dataSource={marketTradingViewParams.dataSource}
         onTouchScroll={handleTradingViewTouchScroll}
         nativeChartTypeControlMode="select"
         nativeIndicatorControlMode="popover"
@@ -187,11 +250,7 @@ export function DesktopLayout({
     handleChartFullscreenChange,
     handleTradingViewTouchScroll,
     isChartFullscreen,
-    isNative,
-    networkId,
-    tokenAddress,
-    tokenDetail?.symbol,
-    websocketConfig?.kline,
+    marketTradingViewParams,
   ]);
 
   return (
@@ -233,7 +292,7 @@ export function DesktopLayout({
             borderTopWidth="$px"
             borderTopColor="$borderSubdued"
           >
-            <DesktopInformationTabs
+            <LazyDesktopInformationTabs
               portfolioData={portfolioData}
               isRefreshing={isRefreshing}
               isBTCNetwork={isBTCNetwork}

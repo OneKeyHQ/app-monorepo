@@ -2,6 +2,7 @@ import {
   forwardRef,
   memo,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -12,6 +13,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import { Accordion, Stack, YStack } from '@onekeyhq/components';
+import { preloadProtocolLendingActionDialog } from '@onekeyhq/kit/src/components/DeFi/ProtocolLendingActionDialog';
 import type { IProtocolPositionProviderDisplayInfo } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
 import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -127,6 +129,15 @@ const ProtocolDesktopLayout = memo(
       const anchorRef = useRef<HTMLElement | null>(null);
       const [accordionValue, setAccordionValue] =
         useState<string>(ACCORDION_OPEN_VALUE);
+      const shouldPreloadProtocolLendingActionDialog = categoryGroups.some(
+        (group) => group.kind === 'sectioned',
+      );
+
+      useEffect(() => {
+        if (shouldPreloadProtocolLendingActionDialog) {
+          preloadProtocolLendingActionDialog();
+        }
+      }, [shouldPreloadProtocolLendingActionDialog]);
 
       useImperativeHandle(
         forwardedRef,
@@ -312,9 +323,19 @@ function useProtocolViewModel({
         protocolInfo,
         accountId,
         indexedAccountId,
+        // Hand the already-resolved actions to the detail page so its buttons
+        // render on the first paint, together with the positions.
+        supportedActions,
       },
     });
-  }, [accountId, indexedAccountId, navigation, protocol, protocolInfo]);
+  }, [
+    accountId,
+    indexedAccountId,
+    navigation,
+    protocol,
+    protocolInfo,
+    supportedActions,
+  ]);
 
   return {
     categoryGroups,

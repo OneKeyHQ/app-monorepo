@@ -70,7 +70,7 @@ async function buildDesktop({ repoRoot, outputDir }) {
     'desktop',
     'app',
     'dist',
-    'appEntry.js',
+    'app.js',
   );
   const rendererIndex = path.join(
     repoRoot,
@@ -305,7 +305,7 @@ async function main() {
   // Don't check existence here: the runner is responsible for building outputs.
   const mainPath =
     process.env.PERF_DESKTOP_MAIN_PATH ||
-    path.join(repoRoot, 'apps', 'desktop', 'app', 'dist', 'appEntry.js');
+    path.join(repoRoot, 'apps', 'desktop', 'app', 'dist', 'app.js');
   const rendererIndex =
     process.env.PERF_DESKTOP_INDEX_HTML ||
     path.join(repoRoot, 'apps', 'desktop', 'app', 'build', 'index.html');

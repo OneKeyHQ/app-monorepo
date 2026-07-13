@@ -84,6 +84,10 @@ const TRADINGVIEW_RESET_LAYOUT_MESSAGE = 'TRADINGVIEW_RESET_LAYOUT';
 const TRADINGVIEW_PRICE_SCALE_CHANGE_MESSAGE = 'TRADINGVIEW_PRICE_SCALE_CHANGE';
 const TRADINGVIEW_PRICE_MARKET_CAP_CHANGE_MESSAGE =
   'TRADINGVIEW_PRICE_MARKET_CAP_CHANGE';
+const TRADINGVIEW_OPEN_CHART_SETTINGS_MESSAGE =
+  'TRADINGVIEW_OPEN_CHART_SETTINGS';
+const TRADINGVIEW_CLOSE_POPUPS_AND_DIALOGS_MESSAGE =
+  'TRADINGVIEW_CLOSE_POPUPS_AND_DIALOGS';
 const TRADINGVIEW_CALENDAR_PANEL_SUBMIT_MESSAGE =
   'TRADINGVIEW_CALENDAR_PANEL_SUBMIT';
 const TRADINGVIEW_UNDO_MESSAGE = 'TRADINGVIEW_UNDO';
@@ -198,6 +202,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const enableNativeChartControls = Boolean(enableNativeChartControlsProp);
   const enableNativeIntervalSelector =
     enableNativeIntervalSelectorProp || enableNativeChartControls;
+  const isNativeChartControlsReady =
+    !enableNativeChartControls || Boolean(nativeChartControlsConfig);
 
   const { handleNavigation } = useNavigationHandler();
   const handleCurrentKLineResolutionChange = useCallback(
@@ -233,6 +239,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         type: TRADINGVIEW_INTERVAL_CHANGE_MESSAGE,
         payload: {
           interval,
+          resetPriceScaleRange: true,
         },
       });
     },
@@ -330,11 +337,26 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     },
     [],
   );
+  const handleNativeOpenChartSettings = useCallback(() => {
+    webRef.current?.sendMessageViaInjectedScript({
+      type: TRADINGVIEW_OPEN_CHART_SETTINGS_MESSAGE,
+      payload: {},
+    });
+  }, []);
+  const handleNativeControlInteraction = useCallback(() => {
+    webRef.current?.sendMessageViaInjectedScript({
+      type: TRADINGVIEW_CLOSE_POPUPS_AND_DIALOGS_MESSAGE,
+      payload: {},
+    });
+  }, []);
   const handleNativeCalendarPanelSubmit = useCallback(
     (payload: ICalendarPanelSubmitPayload) => {
       webRef.current?.sendMessageViaInjectedScript({
         type: TRADINGVIEW_CALENDAR_PANEL_SUBMIT_MESSAGE,
-        payload,
+        payload: {
+          ...payload,
+          resetPriceScaleRange: true,
+        },
       });
     },
     [],
@@ -616,10 +638,12 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         nativeChartControlsConfig={nativeChartControlsConfig}
         nativeIndicatorState={nativeIndicatorState}
         onIndicatorSelect={handleNativeIndicatorSelect}
+        onControlInteraction={handleNativeControlInteraction}
       />
     );
   }, [
     enableNativeChartControls,
+    handleNativeControlInteraction,
     handleNativeIndicatorSelect,
     nativeChartControlsConfig,
     nativeIndicatorState,
@@ -697,6 +721,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           intervalConfig={intervalConfig}
           nativeChartControlsConfig={nativeChartControlsConfig}
           nativeIndicatorState={nativeIndicatorState}
+          isControlsReady={isNativeChartControlsReady}
           chartTypeControlMode={nativeChartTypeControlMode}
           indicatorControlMode={nativeIndicatorControlMode}
           intervalControlMode={nativeIntervalControlMode}
@@ -710,6 +735,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           onResetLayout={handleNativeResetLayout}
           onPriceScaleModeChange={handleNativePriceScaleModeChange}
           onPriceMarketCapModeChange={handleNativePriceMarketCapModeChange}
+          onOpenChartSettings={handleNativeOpenChartSettings}
+          onControlInteraction={handleNativeControlInteraction}
           onCalendarPanelSubmit={handleNativeCalendarPanelSubmit}
           onUndo={handleNativeUndo}
           onRedo={handleNativeRedo}

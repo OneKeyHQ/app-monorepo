@@ -5,7 +5,7 @@ require('../../development/env');
 
 const baseElectronBuilderConfig = {
   'extraMetadata': {
-    'main': 'dist/appEntry.js',
+    'main': 'dist/app.js',
     'version': process.env.VERSION,
   },
   'appId': 'so.onekey.wallet.desktop',

@@ -4,9 +4,9 @@
 // registration gets left in the real browser's NativeMessagingHosts dir:
 //
 //  - build (process.env.NODE_ENV, substituted by esbuild at build time): the
-//    production appEntry branch dead-code-eliminates the host entry, so a
+//    production appBootstrap branch dead-code-eliminates the host entry, so a
 //    production bundle can never actually serve the host — not even an
-//    unpackaged `electron app/dist/appEntry.js` smoke / bench run (where
+//    unpackaged `electron app/dist/app.js` smoke / bench run (where
 //    process.defaultApp is true). Registering from such a run would point the
 //    browser at a host that just exits.
 //  - runtime (process.defaultApp): only a genuine unpackaged/dev run should
@@ -16,7 +16,7 @@
 //
 // Used by both the manifest install gate (nativeMessagingHostInstall.ts) and the
 // host runtime guard (nativeMessagingHost.ts) so the two can never drift.
-// appEntry.ts mirrors the NODE_ENV clause inline because esbuild needs a literal
+// appBootstrap.ts mirrors the NODE_ENV clause inline because esbuild needs a literal
 // there to eliminate the host import from production bundles.
 export function isDesktopNativeMessagingHostServiceable(): boolean {
   return process.env.NODE_ENV !== 'production' && process.defaultApp === true;

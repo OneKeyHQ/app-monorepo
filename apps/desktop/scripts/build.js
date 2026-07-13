@@ -89,6 +89,17 @@ const serviceFiles = glob
   .sync(path.join(electronSource, 'service', '*.ts'))
   .map((name) => name.split('app/').pop());
 
+const entryPoints = {
+  app: path.join(electronSource, 'appBootstrap.ts'),
+  preload: path.join(electronSource, 'preload.ts'),
+  ...Object.fromEntries(
+    serviceFiles.map((file) => [
+      `service/${path.basename(file, '.ts')}`,
+      path.join(electronSource, file),
+    ]),
+  ),
+};
+
 console.log('process.env.NODE_ENV', process.env.NODE_ENV);
 console.log('process.env.DESK_CHANNEL', process.env.DESK_CHANNEL);
 console.log('process.env.COMMITHASH', process.env.COMMITHASH);
@@ -101,13 +112,13 @@ console.log('process.env.BUNDLE_VERSION', process.env.BUNDLE_VERSION);
 console.log('process.env.GITHUB_SHA', process.env.GITHUB_SHA);
 build({
   ...getDesktopMainEsbuildResolveOptions(),
-  entryPoints: ['appEntry.ts', 'preload.ts', ...serviceFiles].map((f) =>
-    path.join(electronSource, f),
-  ),
-  // platform/bundle/target/loader/alias/external/tsconfig come from the shared
-  // getDesktopMainEsbuildResolveOptions() spread above (single source of truth,
-  // also used by the native-messaging-host bundling smoke check). metafile and
-  // the locale-json externalization plugin are real-build-only and stay here.
+  // entryPoints is x's named-entry object ({ app: appBootstrap.ts, preload, ... }
+  // → dist/app.js). platform/bundle/target/loader/alias/external/tsconfig come
+  // from the shared getDesktopMainEsbuildResolveOptions() spread above (single
+  // source of truth, also used by the native-messaging-host bundling smoke
+  // check). metafile and the locale-json externalization plugin are
+  // real-build-only and stay here.
+  entryPoints,
   metafile: !!process.env.ESBUILD_METAFILE,
   plugins: [externalizeLocaleJsonPlugin],
   drop: isProduction ? ['console', 'debugger'] : [],

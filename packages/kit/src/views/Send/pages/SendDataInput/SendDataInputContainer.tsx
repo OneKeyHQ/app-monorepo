@@ -814,6 +814,8 @@ function SendDataInputContainer() {
         import(
           /* webpackPrefetch: true */ '@onekeyhq/kit/src/views/ScanQrCode/pages/ScanQrCodeModal'
         ),
+        // TODO(6.7.0): Remove this legacy SendModal confirmation prefetch.
+        // Active confirmation flows use SignatureConfirmModal -> TxConfirm.
         import(
           /* webpackPrefetch: true */ '@onekeyhq/kit/src/views/Send/pages/SendConfirm/SendConfirmContainer'
         ),

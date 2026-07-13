@@ -12,6 +12,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IPerpsHomeView } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
 import { mapSnapshotToPerpsHomeView } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
@@ -154,6 +155,7 @@ export function usePerpsHomePortfolio(): {
   viewState: 'ready' | 'loading' | 'empty';
   view: IPerpsHomeView | undefined;
   canDeposit: boolean;
+  isDepositDisabled: boolean;
 } {
   const {
     activeAccount: { account },
@@ -532,6 +534,9 @@ export function usePerpsHomePortfolio(): {
   ]);
 
   const view = result?.view;
+  const isDepositDisabled = accountUtils.isWatchingAccount({
+    accountId: accountId ?? '',
+  });
   const viewState = useMemo<'ready' | 'loading' | 'empty'>(() => {
     // result is undefined until a fetch resolves for the current account key (swrKey
     // resets it synchronously on switch), so an unresolved key reads as loading, not empty.
@@ -543,7 +548,7 @@ export function usePerpsHomePortfolio(): {
 
   const canDeposit = Boolean(result?.address);
   return useMemo(
-    () => ({ viewState, view, canDeposit }),
-    [canDeposit, viewState, view],
+    () => ({ viewState, view, canDeposit, isDepositDisabled }),
+    [canDeposit, isDepositDisabled, viewState, view],
   );
 }

@@ -9,13 +9,13 @@ const {
 
 // Smoke check for the experimental desktop Native Messaging host.
 //
-// `appEntry.ts` reaches the host only through a dynamic `import('./
-// nativeMessagingHost')` guarded by `process.env.NODE_ENV !== 'production'`,
-// and the host pulls in its safeStorage crypto helper
-// (`nativeMessagingSafeStorage.ts`). The feature is dev-only, so the design has
-// two halves that this test pins down by bundling `appEntry.ts` with the exact
-// resolution config the shipped bundle uses (shared via
-// desktopMainEsbuildConfig.js):
+// `appBootstrap.ts` (the desktop main entry → dist/app.js) reaches the host only
+// through a dynamic `import('./nativeMessagingHost')` guarded by
+// `process.env.NODE_ENV !== 'production'`, and the host pulls in its safeStorage
+// crypto helper (`nativeMessagingSafeStorage.ts`). The feature is dev-only, so
+// the design has two halves that this test pins down by bundling
+// `appBootstrap.ts` with the exact resolution config the shipped bundle uses
+// (shared via desktopMainEsbuildConfig.js):
 //
 //  1. Dev build (NODE_ENV !== 'production'): the host branch MUST resolve and be
 //     present. Otherwise an unresolvable import in the host chain would only
@@ -45,7 +45,7 @@ async function bundleAppEntry(nodeEnv) {
   // re-throw needed (and `throw new Error` is banned by lint anyway).
   const result = await build({
     ...getDesktopMainEsbuildResolveOptions(),
-    entryPoints: [path.join(electronSource, 'appEntry.ts')],
+    entryPoints: [path.join(electronSource, 'appBootstrap.ts')],
     write: false,
     metafile: true,
     logLevel: 'silent',

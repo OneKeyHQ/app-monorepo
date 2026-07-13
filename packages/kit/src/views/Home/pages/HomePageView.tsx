@@ -18,6 +18,7 @@ import {
   XStack,
   YStack,
   useFocusedTab,
+  useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
@@ -37,7 +38,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
@@ -50,7 +50,6 @@ import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WatchOnlyAlert } from '../../../components/WatchOnlyAlert';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { usePerpTabConfig } from '../../../hooks/usePerpTabConfig';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import {
@@ -69,12 +68,16 @@ import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
+import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
 
 import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { homePageContentMaxWidthSx } from './homePageContentMaxWidth';
-import { shouldShowNoWalletContent } from './homePageNoWalletContent';
+import {
+  isWalletListResolvedNoWallet,
+  shouldShowNoWalletContent,
+} from './homePageNoWalletContent';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { PerpsContainer } from './PerpsContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
@@ -197,6 +200,7 @@ export function HomePageView({
   const tabContainerWidth = useTabContainerWidth();
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { md: isSmallScreen } = useMedia();
   const {
     activeAccount: {
       account,
@@ -214,7 +218,7 @@ export function HomePageView({
     useAccountSelectorStorageInitDoneAtom();
   const accountSelectorActiveAccountInitDone =
     useIsAccountSelectorActiveAccountInitDone(0);
-  const { result: walletListResult } = usePromiseResult(
+  const { result: walletListResult, run: refreshWalletList } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceAccount.getWallets({
         ignoreEmptySingletonWalletAccounts: true,
@@ -303,27 +307,11 @@ export function HomePageView({
     (vaultSettings?.NFTEnabled &&
       networkUtils.getEnabledNFTNetworkIds().includes(network?.id ?? ''));
 
-  const { result: isDeFiEnabled = true } = usePromiseResult(
-    async () => {
-      if (!network?.id) return false;
-      if (networkUtils.isAllNetwork({ networkId: network.id })) return true;
-      const enabledNetworks =
-        await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
-      return !!enabledNetworks[network.id];
-    },
-    [network?.id],
-    {
-      initResult: true,
-      swrKey: network?.id ? swrKeys.defiEnabled(network.id) : undefined,
-    },
-  );
-  const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
-
-  const isPerpsEnabled = useMemo(() => {
-    if (perpDisabled) return false;
-    if (network?.isAllNetworks) return true;
-    return networkUtils.isEvmNetwork({ networkId: network?.id });
-  }, [network?.id, network?.isAllNetworks, perpDisabled]);
+  const {
+    isDeFiSupported: isDeFiEnabled,
+    isPerpsSupported: isPerpsEnabled,
+    perpTabShowWeb,
+  } = useHomeWalletTabSupport({ network });
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -655,6 +643,8 @@ export function HomePageView({
 
   const renderTabBar = useCallback(
     (tabBarProps: any) => {
+      // Design: plain-text tabs on small screens only; pill elsewhere.
+      const tabBarVariant = isSmallScreen ? 'text' : 'pill';
       const handleTabPress = (name: string) => {
         const nextTab = tabConfigs.find((tab) => tab.name === name);
         if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
@@ -675,7 +665,7 @@ export function HomePageView({
             tabNames={tabBarTabNames}
             indexDecimal={perpTabShowWeb ? undefined : tabBarProps.indexDecimal}
             onTabPress={handleTabPress}
-            variant="pill"
+            variant={tabBarVariant}
             renderItem={handleRenderItem}
             renderToolbar={renderToolbar}
           />
@@ -702,7 +692,7 @@ export function HomePageView({
                 perpTabShowWeb ? undefined : tabBarProps.indexDecimal
               }
               onTabPress={handleTabPress}
-              variant="pill"
+              variant={tabBarVariant}
               renderItem={handleRenderItem}
               renderToolbar={renderToolbar}
               containerStyle={{ position: 'relative' as any }}
@@ -728,6 +718,7 @@ export function HomePageView({
       renderToolbar,
       switchToPerpsWebTab,
       perpTabShowWeb,
+      isSmallScreen,
       tabConfigs,
       tabBarTabNames,
     ],
@@ -913,10 +904,28 @@ export function HomePageView({
     const clearCache = async () => {
       await backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
     };
+    // Keep the no-wallet gate's wallet list fresh: it feeds
+    // shouldShowNoWalletContent, and a stale mount-time list can hold Home on
+    // the blank fallback after wallets are removed while mounted.
+    const refreshWalletListForNoWalletGate = () => {
+      void refreshWalletList();
+    };
 
     appEventBus.on(EAppEventBusNames.WalletUpdate, clearCache);
     appEventBus.on(EAppEventBusNames.AccountUpdate, clearCache);
     appEventBus.on(EAppEventBusNames.AddressBookUpdate, clearCache);
+    appEventBus.on(
+      EAppEventBusNames.WalletUpdate,
+      refreshWalletListForNoWalletGate,
+    );
+    appEventBus.on(
+      EAppEventBusNames.AccountUpdate,
+      refreshWalletListForNoWalletGate,
+    );
+    appEventBus.on(
+      EAppEventBusNames.AccountRemove,
+      refreshWalletListForNoWalletGate,
+    );
     appEventBus.on(
       EAppEventBusNames.SwitchWalletHomeTab,
       handleSwitchWalletHomeTab,
@@ -926,15 +935,27 @@ export function HomePageView({
       appEventBus.off(EAppEventBusNames.AccountUpdate, clearCache);
       appEventBus.off(EAppEventBusNames.AddressBookUpdate, clearCache);
       appEventBus.off(
+        EAppEventBusNames.WalletUpdate,
+        refreshWalletListForNoWalletGate,
+      );
+      appEventBus.off(
+        EAppEventBusNames.AccountUpdate,
+        refreshWalletListForNoWalletGate,
+      );
+      appEventBus.off(
+        EAppEventBusNames.AccountRemove,
+        refreshWalletListForNoWalletGate,
+      );
+      appEventBus.off(
         EAppEventBusNames.SwitchWalletHomeTab,
         handleSwitchWalletHomeTab,
       );
     };
-  }, [handleSwitchWalletHomeTab]);
+  }, [handleSwitchWalletHomeTab, refreshWalletList]);
 
   const { result: accountNetworkNotSupported } = usePromiseResult(
     async () => {
-      if (!network?.id) return undefined;
+      if (!network?.id || (!wallet?.id && !account?.id)) return undefined;
       const checkResult =
         await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
           {
@@ -1044,6 +1065,10 @@ export function HomePageView({
     wallet,
     account,
   });
+  const walletListWalletIds = walletListResult?.wallets.map((item) => item.id);
+  const walletListResolvedNoWallet = isWalletListResolvedNoWallet({
+    wallets: walletListResult?.wallets,
+  });
   const walletPageContent = useMemo(
     () =>
       platformEnv.isNative ? (
@@ -1053,11 +1078,17 @@ export function HomePageView({
       ),
     [homePageContent],
   );
+  const activeWalletId = wallet?.id;
+  const activeWalletUnavailable =
+    accountUtils.isWalletDeprecatedOrMocked(wallet);
   const showNoWalletContent = shouldShowNoWalletContent({
     hasNoUsableWallet,
     accountSelectorStorageInitDone,
     accountSelectorActiveAccountInitDone,
-    walletListResolvedNoWallet: walletListResult?.wallets.length === 0,
+    walletListResolvedNoWallet,
+    activeWalletUnavailable,
+    activeWalletId,
+    walletListWalletIds,
   });
 
   const homePage = useMemo(() => {

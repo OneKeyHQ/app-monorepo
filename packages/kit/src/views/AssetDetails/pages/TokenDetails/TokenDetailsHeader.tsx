@@ -9,6 +9,7 @@ import {
   DebugRenderTracker,
   Divider,
   Icon,
+  PROPORTIONAL_NUMS,
   SizableText,
   Skeleton,
   Stack,
@@ -542,6 +543,10 @@ function TokenDetailsHeaderContent({
                   fontSize={48}
                   lineHeight={48}
                   fontWeight={500}
+                  // Large hero value uses natural proportional figures (matches
+                  // the home total-balance hero); tabular is reserved for
+                  // tables / ticking data.
+                  fontVariant={PROPORTIONAL_NUMS}
                 >
                   {displayFiatValueOrUnavailable(
                     tokenDetails?.fiatValue,

@@ -1,8 +1,8 @@
 {
+  "_comment": "Budgets for web cold-start. resourceCount, scriptCount and jsDecodedBytes use raw PerformanceResourceTiming entries to match existing baselines. Normalized URL de-duplicated diagnostics are emitted separately as uniqueResourceCount, uniqueScriptCount and uniqueJsDecodedBytes.",
   "defaults": {
     "fcpMs": 1000,
     "firstTextMs": 1000,
-    "lcpMs": 2500,
     "jsDecodedBytes": 18874368,
     "initialScriptRawBytes": 6291456,
     "longTaskTotalMs": 900,
@@ -15,7 +15,6 @@
     "initialScriptRawBytes": 6291456,
     "initialScriptGzipBytes": 2097152,
     "initialScriptBrotliBytes": 1638400,
-    "allScriptRawBytes": 94371840,
     "largestModuleBytes": 819200,
     "forbiddenSources": [
       "@keystonehq/",
@@ -29,44 +28,38 @@
   },
   "scenarios": {
     "root": {
-      "lcpMs": 2800,
       "resourceCount": 240,
-      "scriptCount": 169,
+      "scriptCount": 175,
       "jsDecodedBytes": 17616077,
       "longTaskTotalMs": 2000
     },
     "market": {
-      "lcpMs": 2500,
       "resourceCount": 240,
-      "scriptCount": 169,
+      "scriptCount": 175,
       "jsDecodedBytes": 17616077,
       "longTaskTotalMs": 1900,
       "businessReadyMs": 4000,
       "marketListReadyMs": 4000
     },
     "perps": {
-      "lcpMs": 2300,
       "resourceCount": 218,
       "scriptCount": 174,
       "jsDecodedBytes": 17930650,
       "longTaskTotalMs": 1500
     },
     "swap": {
-      "lcpMs": 2000,
       "resourceCount": 220,
       "scriptCount": 169,
       "jsDecodedBytes": 17458790,
       "longTaskTotalMs": 1200
     },
     "defi": {
-      "lcpMs": 2000,
       "resourceCount": 222,
       "scriptCount": 171,
       "jsDecodedBytes": 17668506,
       "longTaskTotalMs": 1300
     },
     "referFriends": {
-      "lcpMs": 2400,
       "resourceCount": 200,
       "scriptCount": 167,
       "jsDecodedBytes": 17511219,

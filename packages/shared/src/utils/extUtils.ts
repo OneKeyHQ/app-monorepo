@@ -23,6 +23,7 @@ export const EXT_HTML_FILES = {
 // Chrome extension popups can have a maximum height of 600px and maximum width of 800px
 export const UI_HTML_DEFAULT_MIN_WIDTH = 375;
 export const UI_HTML_DEFAULT_MIN_HEIGHT = 670;
+const EXTENSION_EXPAND_TAB_POPUP_CLOSE_DELAY_MS = 100;
 
 export type IOpenUrlRouteInfo = {
   routes?: string | string[];
@@ -236,6 +237,12 @@ async function openExpandTab(
   return tab;
 }
 
+export function closeExtensionPopupAfterExpandTabOpen() {
+  if (platformEnv.isExtensionUiPopup) {
+    setTimeout(globalThis.close, EXTENSION_EXPAND_TAB_POPUP_CLOSE_DELAY_MS);
+  }
+}
+
 async function resetSidePanelPath() {
   if (typeof chrome !== 'undefined' && chrome.sidePanel) {
     const url = buildExtRouteUrl(EXT_HTML_FILES.uiSidePanel, {});
@@ -304,9 +311,21 @@ function focusExistWindow({
 }: {
   windowId: number | undefined | null;
 }) {
-  if (windowId) {
-    void chrome.windows.update(windowId, { focused: true });
+  if (!windowId) {
+    return;
   }
+  chrome.windows.get(windowId, (win) => {
+    // Reading lastError keeps Chrome from logging "Unchecked
+    // runtime.lastError" when the window was already closed by the user.
+    if (chrome.runtime.lastError || !win) {
+      return;
+    }
+    void chrome.windows.update(windowId, {
+      focused: true,
+      // focused:true alone does not restore a minimized window
+      state: win.state === 'minimized' ? 'normal' : undefined,
+    });
+  });
 }
 
 async function openPermissionSettings() {

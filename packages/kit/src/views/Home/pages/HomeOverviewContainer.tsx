@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   IconButton,
+  PROPORTIONAL_NUMS,
   Skeleton,
   XStack,
   YStack,
@@ -31,7 +32,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   calculateAccountTokensValue,
@@ -57,6 +57,7 @@ import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOve
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { convertFiat } from '../../../utils/fiatConvert';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
+import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
 
 // Grace period (ms) after an account switch during which the previous
@@ -131,10 +132,9 @@ function HomeOverviewContainer() {
   } = useAccountOverviewActions().current;
 
   const [settings] = useSettingsPersistAtom();
-  const isPerpsEnabled = useMemo(() => {
-    if (network?.isAllNetworks) return true;
-    return networkUtils.isEvmNetwork({ networkId: network?.id });
-  }, [network?.id, network?.isAllNetworks]);
+  const { isPerpsSupported: isPerpsEnabled } = useHomeWalletTabSupport({
+    network,
+  });
 
   const { result: perpsNetWorthUsd } = usePromiseResult<string | undefined>(
     async () => {
@@ -521,7 +521,10 @@ function HomeOverviewContainer() {
   const handleRefreshWorth = useCallback(() => {
     if (isRefreshingWorth) return;
     setIsRefreshingWorth(true);
-    appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+    appEventBus.emit(EAppEventBusNames.AccountDataUpdate, {
+      isManualRefresh: true,
+      refreshSource: 'home-header',
+    });
     defaultLogger.account.wallet.walletManualRefresh();
   }, [isRefreshingWorth]);
 
@@ -683,7 +686,7 @@ function HomeOverviewContainer() {
       targetCurrency: USD_CURRENCY_ID,
       currencyMap,
     });
-    const perpsWorthUsd = perpsNetWorthUsd ?? '0';
+    const perpsWorthUsd = isPerpsEnabled ? (perpsNetWorthUsd ?? '0') : '0';
 
     return calculateAccountTotalValue({
       tokensValue: tokenWorthUsd,
@@ -698,6 +701,7 @@ function HomeOverviewContainer() {
     currencyMap,
     isCurrentAccountDeFiReady,
     isCurrentAccountWorthReady,
+    isPerpsEnabled,
     network?.isAllNetworks,
     perpsNetWorthUsd,
     settings.currencyInfo.id,
@@ -1006,6 +1010,9 @@ function HomeOverviewContainer() {
                 fontSize={48}
                 lineHeight={48}
                 fontWeight={500}
+                // Large hero balance reads better with the font's natural
+                // proportional figures than equal-width tabular ones.
+                fontVariant={PROPORTIONAL_NUMS}
                 {...numberFormatter}
               >
                 {renderedBalanceStringDisplay ?? '0'}

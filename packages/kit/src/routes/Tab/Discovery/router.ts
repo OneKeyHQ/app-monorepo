@@ -10,6 +10,7 @@ import {
   LazyLoadPage,
   LazyLoadRootTabPage,
 } from '../../../components/LazyLoadPage';
+import { createMarketDetailV2Route } from '../../../views/Market/MarketDetailV2/MarketDetailV2Route';
 
 const Browser = LazyLoadRootTabPage(
   () => import('../../../views/Discovery/pages/Browser/Browser'),
@@ -25,10 +26,7 @@ const EarnProtocolDetails = LazyLoadRootTabPage(
 );
 
 // Market pages for native platforms (Market is embedded in Discovery on mobile)
-const MarketDetailV2 = LazyLoadPage(
-  () => import('../../../views/Market/MarketDetailV2'),
-);
-
+const MarketDetailV2 = createMarketDetailV2Route();
 const MarketBannerDetail = LazyLoadPage(
   () => import('../../../views/Market/MarketBannerDetail'),
 );

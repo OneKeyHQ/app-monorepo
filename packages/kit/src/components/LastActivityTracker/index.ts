@@ -16,7 +16,7 @@ import { initPosthog } from '@onekeyhq/shared/src/modules3rdParty/posthog';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
-const LAST_ACTIVITY_TRACKER_START_DELAY_MS = platformEnv.isWeb ? 6000 : 0;
+const LAST_ACTIVITY_TRACKER_START_DELAY_MS = platformEnv.isWeb ? 3000 : 0;
 const LAST_ACTIVITY_TRACKER_REFRESH_INTERVAL_MS = platformEnv.isWeb
   ? 6000
   : 5 * 1000;

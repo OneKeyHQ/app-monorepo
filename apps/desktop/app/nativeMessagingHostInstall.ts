@@ -248,8 +248,8 @@ export async function ensureDesktopNativeMessagingHostManifest() {
   // Dev-only for now: don't touch user browser Native Messaging configs unless
   // this build+runtime can actually serve the host. Uses the same serviceable
   // gate as the host runtime guard so a production smoke / bench run (an
-  // unpackaged `electron app/dist/appEntry.js` with NODE_ENV=production, where
-  // process.defaultApp is still true) doesn't register a host that appEntry has
+  // unpackaged `electron app/dist/app.js` with NODE_ENV=production, where
+  // process.defaultApp is still true) doesn't register a host that appBootstrap has
   // already dead-code-eliminated — which would leave a broken registration in
   // the real browser until the next dev launch. See the header of
   // @onekeyhq/shared/src/consts/desktopNativeMessaging for the security model

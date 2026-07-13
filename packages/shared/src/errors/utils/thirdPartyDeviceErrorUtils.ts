@@ -118,6 +118,9 @@ export function convertThirdPartyDeviceError(
     case ThirdPartyHwErrorCode.PinCancelled:
       return new ThirdPartyErrors.ThirdPartyPinCancelled(props);
 
+    case ThirdPartyErrors.THIRD_PARTY_HW_PIN_MISMATCH_CODE:
+      return new ThirdPartyErrors.ThirdPartyPinMismatch(props);
+
     case ThirdPartyHwErrorCode.PassphraseStateMismatch:
       return new ThirdPartyErrors.ThirdPartyPassphraseStateMismatch(props);
 
@@ -185,6 +188,12 @@ export function convertThirdPartyDeviceError(
 
     case ThirdPartyHwErrorCode.DeviceBusy:
       return new ThirdPartyErrors.ThirdPartyDeviceBusy(props);
+
+    case ThirdPartyHwErrorCode.DeviceBusyInternal:
+      return new ThirdPartyErrors.ThirdPartyDeviceBusyInternal(props);
+
+    case ThirdPartyHwErrorCode.DeviceNotInitialized:
+      return new ThirdPartyErrors.ThirdPartyDeviceNotInitialized(props);
 
     case ThirdPartyHwErrorCode.DeviceOneDeviceOnly:
       return new ThirdPartyErrors.ThirdPartyDeviceOneDeviceOnly(props);
