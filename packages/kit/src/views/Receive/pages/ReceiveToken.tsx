@@ -1,32 +1,29 @@
-import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { useIntl } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { getColors } from 'react-native-image-colors';
 import { useThrottledCallback } from 'use-debounce';
 
 import {
-  Badge,
   Button,
   Dialog,
   Empty,
-  IconButton,
+  Icon,
   Image,
   Page,
   QRCode,
   SizableText,
+  Stack,
   XStack,
   YStack,
-  useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import {
   EHardwareUiStateAction,
   EThirdPartyHardwareUiAction,
   useHardwareUiStateAtom,
-  useSettingsPersistAtom,
   useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
@@ -46,6 +43,8 @@ import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { getReceiveArrivalTimeText } from '@onekeyhq/shared/src/utils/receiveArrivalTimeUtils';
+import { getReceiveNetworkDisplayName } from '@onekeyhq/shared/src/utils/receiveNetworkStandardUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
@@ -53,10 +52,7 @@ import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressTypeSelector from '../../../components/AddressTypeSelector/AddressTypeSelector';
 import { HighlightAddress } from '../../../components/HighlightAddress';
-import {
-  FormatHyperlinkText,
-  HyperlinkText,
-} from '../../../components/HyperlinkText';
+import { FormatHyperlinkText } from '../../../components/HyperlinkText';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import { Token } from '../../../components/Token';
 import { useAccountData } from '../../../hooks/useAccountData';
@@ -64,16 +60,24 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddress';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useWalletBanner } from '../../../hooks/useWalletBanner';
+import { ReceiveCard, ReceiveCardCell } from '../components/ReceiveCard';
+import {
+  ShareImageGenerator,
+  showReceiveShareDialog,
+} from '../components/ReceiveShare';
 import { ReceiveTestIDs } from '../testIDs';
 import { EAddressState } from '../types';
 
+import type {
+  IReceiveShareData,
+  IReceiveShareImageGeneratorRef,
+} from '../components/ReceiveShare';
 import type { RouteProp } from '@react-navigation/core';
 
 function ReceiveToken() {
   useDebugComponentRemountLog({
     name: 'ReceiveToken9971',
   });
-  const media = useMedia();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const route =
@@ -303,15 +307,6 @@ function ReceiveToken() {
     }
   }, [currentAccount?.id, networkId, throttledSyncBTCFreshAddress]);
 
-  const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
-  const isEnableBTCFreshAddressSetting = useMemo(() => {
-    return accountUtils.isEnabledBtcFreshAddress({
-      enableBTCFreshAddress,
-      networkId,
-      walletId,
-    });
-  }, [networkId, enableBTCFreshAddress, walletId]);
-
   const handleVerifyOnDevicePress = useCallback(async () => {
     setAddressState(EAddressState.Verifying);
     try {
@@ -501,126 +496,388 @@ function ReceiveToken() {
     }
   }, [btcUsedAddress, btcUsedAddressPath]);
 
-  const renderCopyAddressButton = useCallback(() => {
-    if (
-      isHardwareWallet &&
-      addressState !== EAddressState.Verified &&
-      addressState !== EAddressState.ForceShow
-    ) {
-      return null;
-    }
-
-    return (
-      <IconButton
-        testID={ReceiveTestIDs.CopyAddressButton}
-        size="medium"
-        icon="Copy3Outline"
-        onPress={handleCopyAddress}
-        variant="primary"
-      />
-    );
-  }, [addressState, handleCopyAddress, isHardwareWallet]);
-
-  const renderVerifyAddressButton = useCallback(() => {
-    if (!isHardwareWallet || shouldShowAddress) return null;
-
-    return (
-      <YStack
-        mt="$5"
-        alignItems="center"
-        justifyContent="space-between"
-        flexDirection="row-reverse"
-        $md={{
-          flexDirection: 'column',
-          gap: '$5',
-          mt: '0',
-          justifyContent: 'center',
-        }}
-      >
-        <Button
-          testID={ReceiveTestIDs.VerifyOnDeviceButton}
-          variant="primary"
-          size={media.gtMd ? 'medium' : 'large'}
-          onPress={handleVerifyOnDevicePress}
-          $md={{
-            width: '100%',
-          }}
-        >
-          {intl.formatMessage({
-            id: ETranslations.global_verify_on_device,
-          })}
-        </Button>
-        <Button
-          testID={ReceiveTestIDs.SkipVerifyButton}
-          size="medium"
-          variant="tertiary"
-          onPress={() => {
-            Dialog.confirm({
-              icon: 'ErrorOutline',
-              tone: 'warning',
-              title: intl.formatMessage({
-                id: ETranslations.global_receive_address_confirmation,
-              }),
-              description: intl.formatMessage({
-                id: ETranslations.global_receive_address_confirmation_desc,
-              }),
-              onConfirmText: intl.formatMessage({
-                id: ETranslations.global_receive_address_confirmation_button,
-              }),
-              onConfirm: () => {
-                setAddressState(EAddressState.ForceShow);
-              },
-              confirmButtonProps: {
-                variant: 'secondary',
-              },
-            });
-          }}
-        >
-          {intl.formatMessage({
-            id: ETranslations.skip_verify_text,
-          })}
-        </Button>
-      </YStack>
-    );
-  }, [
-    handleVerifyOnDevicePress,
-    intl,
-    isHardwareWallet,
-    media.gtMd,
-    shouldShowAddress,
-  ]);
-
-  const renderAddress = useCallback(() => {
-    if (!currentAccount || !network || !wallet) return null;
+  const renderAddressCell = useCallback(() => {
     if (!displayAddress) return null;
 
-    let addressContent: ReactNode;
+    return (
+      <ReceiveCardCell>
+        <XStack
+          testID={ReceiveTestIDs.AddressText}
+          px="$4"
+          py="$3"
+          gap="$3"
+          alignItems="flex-start"
+          borderRadius="$2.5"
+          onPress={handleCopyAddress}
+          userSelect="none"
+          hoverStyle={{
+            bg: '$bgHover',
+          }}
+          pressStyle={{
+            bg: '$bgActive',
+          }}
+          focusable
+          focusVisibleStyle={{
+            outlineWidth: 2,
+            outlineColor: '$focusRing',
+            outlineOffset: 2,
+            outlineStyle: 'solid',
+          }}
+        >
+          <XStack flex={1} flexWrap="wrap">
+            <HighlightAddress
+              address={displayAddress}
+              size="$bodyLg"
+              fontFamily="$monoRegular"
+            />
+          </XStack>
+          {platformEnv.isNative ? null : (
+            <Stack
+              testID={ReceiveTestIDs.CopyAddressButton}
+              mt="$0.5"
+              flexShrink={0}
+            >
+              <Icon name="Copy3Outline" size="$5" color="$iconSubdued" />
+            </Stack>
+          )}
+        </XStack>
+      </ReceiveCardCell>
+    );
+  }, [displayAddress, handleCopyAddress]);
 
-    if (shouldShowAddress) {
-      addressContent = <HighlightAddress address={displayAddress} />;
-    } else {
-      const maskedText = Array.from({ length: 11 })
-        .map(() => '****')
-        .join(' ');
-      addressContent = (
-        <SizableText fontFamily="$monoMedium">{maskedText}</SizableText>
+  const arrivalTimeText = useMemo(
+    () =>
+      getReceiveArrivalTimeText({
+        networkId,
+        isTestnet: network?.isTestnet,
+        isCustomNetwork: network?.isCustomNetwork,
+      }),
+    [networkId, network?.isTestnet, network?.isCustomNetwork],
+  );
+
+  const pageTitleText = useMemo(
+    () =>
+      intl.formatMessage(
+        { id: ETranslations.receive_token__title },
+        { token: token?.symbol ?? network?.symbol ?? '' },
+      ),
+    [intl, token?.symbol, network?.symbol],
+  );
+
+  // e.g. "Ethereum (ERC20)" — shown for native coins and tokens alike
+  const networkDisplayName = useMemo(
+    () =>
+      getReceiveNetworkDisplayName({
+        networkName: network?.name,
+        networkId,
+        isTestnet: network?.isTestnet,
+        isCustomNetwork: network?.isCustomNetwork,
+      }),
+    [network?.name, networkId, network?.isTestnet, network?.isCustomNetwork],
+  );
+
+  const shareData = useMemo<IReceiveShareData | null>(() => {
+    if (!network || !displayAddress) return null;
+    return {
+      title: pageTitleText,
+      subtitle: intl.formatMessage(
+        { id: ETranslations.receive_send_asset_warning_message },
+        { network: networkDisplayName },
+      ),
+      networkName: networkDisplayName,
+      address: displayAddress,
+      tokenLogoURI: token?.logoURI ?? nativeToken?.logoURI,
+      networkLogoURI: network.logoURI,
+    };
+  }, [
+    network,
+    displayAddress,
+    pageTitleText,
+    networkDisplayName,
+    intl,
+    token?.logoURI,
+    nativeToken?.logoURI,
+  ]);
+
+  const canShowShareEntry = shouldShowQRCode && !!displayAddress && !!shareData;
+
+  // pre-generate the share image before opening the dialog so the preview
+  // shows instantly and the dialog doesn't jump while the image loads
+  const shareGeneratorRef = useRef<IReceiveShareImageGeneratorRef | null>(null);
+  const [isPreparingShare, setIsPreparingShare] = useState(false);
+
+  const handleSharePress = useCallback(async () => {
+    if (!shareData || isPreparingShare) return;
+    setIsPreparingShare(true);
+    let presetImage = '';
+    try {
+      presetImage = (await shareGeneratorRef.current?.generate()) ?? '';
+    } finally {
+      setIsPreparingShare(false);
+    }
+    // fall back to in-dialog generation if pre-generation failed
+    showReceiveShareDialog(shareData, {
+      presetImage: presetImage || undefined,
+    });
+  }, [shareData, isPreparingShare]);
+
+  const renderHeaderRight = useCallback(() => {
+    if (platformEnv.isNative || !canShowShareEntry) {
+      return null;
+    }
+    return (
+      <Button
+        testID={ReceiveTestIDs.ShareButton}
+        variant="secondary"
+        size="small"
+        icon="ShareOutline"
+        loading={isPreparingShare}
+        onPress={handleSharePress}
+      >
+        {intl.formatMessage({ id: ETranslations.explore_share })}
+      </Button>
+    );
+  }, [canShowShareEntry, handleSharePress, isPreparingShare, intl]);
+
+  const handleSkipVerifyPress = useCallback(() => {
+    Dialog.confirm({
+      icon: 'ErrorOutline',
+      tone: 'warning',
+      title: intl.formatMessage({
+        id: ETranslations.global_receive_address_confirmation,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.global_receive_address_confirmation_desc,
+      }),
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_receive_address_confirmation_button,
+      }),
+      onConfirm: () => {
+        setAddressState(EAddressState.ForceShow);
+      },
+      confirmButtonProps: {
+        variant: 'secondary',
+      },
+    });
+  }, [intl]);
+
+  const renderVerifyFooter = useCallback(() => {
+    if (platformEnv.isNative) {
+      return (
+        <Page.Footer>
+          <YStack p="$5" pb={bottom || '$5'} gap="$2.5" bg="$bgApp">
+            <Button
+              testID={ReceiveTestIDs.VerifyOnDeviceButton}
+              variant="primary"
+              size="large"
+              onPress={handleVerifyOnDevicePress}
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_verify_on_device,
+              })}
+            </Button>
+            <Button
+              testID={ReceiveTestIDs.SkipVerifyButton}
+              size="large"
+              onPress={handleSkipVerifyPress}
+            >
+              {intl.formatMessage({
+                id: ETranslations.no_device_with_me__action,
+              })}
+            </Button>
+          </YStack>
+        </Page.Footer>
       );
     }
 
     return (
-      <XStack
-        testID={ReceiveTestIDs.AddressText}
-        flex={platformEnv.isNative ? 1 : undefined}
-        maxWidth={platformEnv.isNative ? undefined : 304}
-        flexWrap="wrap"
-        {...(shouldShowAddress && {
-          onPress: handleCopyAddress,
+      <Page.Footer
+        onConfirm={() => handleVerifyOnDevicePress()}
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_verify_on_device,
+        })}
+        confirmButtonProps={{
+          variant: 'primary',
+          testID: ReceiveTestIDs.VerifyOnDeviceButton,
+        }}
+        // keep one declared param: FooterCancelButton auto-closes the page
+        // when the handler declares zero params
+        onCancel={(_close) => handleSkipVerifyPress()}
+        onCancelText={intl.formatMessage({
+          id: ETranslations.no_device_with_me__action,
+        })}
+        cancelButtonProps={{
+          testID: ReceiveTestIDs.SkipVerifyButton,
+        }}
+      />
+    );
+  }, [bottom, handleSkipVerifyPress, handleVerifyOnDevicePress, intl]);
+
+  const deriveTypeTrigger = useMemo(() => {
+    if (!currentDeriveInfo) {
+      return undefined;
+    }
+    const label = currentDeriveInfo.labelKey
+      ? intl.formatMessage({ id: currentDeriveInfo.labelKey })
+      : currentDeriveInfo.label;
+    return (
+      <Button
+        testID={ReceiveTestIDs.AddressTypeSelector}
+        variant="tertiary"
+        size="small"
+        childrenAsText={false}
+      >
+        <XStack alignItems="center" gap="$0.5">
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            {label}
+          </SizableText>
+          {disableSelector ? null : (
+            <Icon
+              name="ChevronDownSmallOutline"
+              size="$4"
+              color="$iconSubdued"
+            />
+          )}
+        </XStack>
+      </Button>
+    );
+  }, [currentDeriveInfo, disableSelector, intl]);
+
+  const cardHeaderLeft = useMemo(() => {
+    if (!network) return null;
+
+    return (
+      <SizableText
+        testID={ReceiveTestIDs.CardHeaderNetworkEta}
+        size="$bodyMdMedium"
+        numberOfLines={1}
+        flexShrink={1}
+      >
+        {arrivalTimeText
+          ? `${network.name} (${arrivalTimeText})`
+          : network.name}
+      </SizableText>
+    );
+  }, [network, arrivalTimeText]);
+
+  const cardHeaderRight = useMemo(() => {
+    if (!vaultSettings?.mergeDeriveAssetsEnabled || !currentAccount) {
+      return null;
+    }
+
+    return (
+      <AddressTypeSelector
+        testID={ReceiveTestIDs.AddressTypeSelector}
+        placement="bottom-end"
+        offset={{
+          mainAxis: 8,
+        }}
+        disableSelector={disableSelector}
+        activeDeriveType={currentDeriveType}
+        activeDeriveInfo={currentDeriveInfo}
+        showTriggerWhenDisabled
+        renderSelectorTrigger={deriveTypeTrigger}
+        walletId={walletId}
+        networkId={networkId}
+        indexedAccountId={currentAccount?.indexedAccountId ?? ''}
+        onSelect={async (value) => {
+          if (value.account) {
+            setAddressState(EAddressState.Unverified);
+            setCurrentAccount(value.account);
+            setCurrentDeriveType(value.deriveType);
+            setCurrentDeriveInfo(value.deriveInfo);
+            onDeriveTypeChange?.(value.deriveType);
+          }
+        }}
+      />
+    );
+  }, [
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    currentAccount,
+    disableSelector,
+    currentDeriveType,
+    currentDeriveInfo,
+    deriveTypeTrigger,
+    walletId,
+    networkId,
+    onDeriveTypeChange,
+  ]);
+
+  const renderNativeActionsFooter = useCallback(() => {
+    return (
+      <Page.Footer>
+        <YStack p="$5" pb={bottom || '$5'} bg="$bgApp">
+          <XStack gap="$2.5">
+            {canShowShareEntry ? (
+              <Button
+                testID={ReceiveTestIDs.ShareButton}
+                flex={1}
+                size="large"
+                icon="ShareOutline"
+                loading={isPreparingShare}
+                onPress={handleSharePress}
+              >
+                {intl.formatMessage({ id: ETranslations.explore_share })}
+              </Button>
+            ) : null}
+            <Button
+              testID={ReceiveTestIDs.CopyAddressButton}
+              flex={1}
+              variant="primary"
+              size="large"
+              onPress={handleCopyAddress}
+            >
+              {intl.formatMessage({ id: ETranslations.global_copy_address })}
+            </Button>
+          </XStack>
+        </YStack>
+      </Page.Footer>
+    );
+  }, [
+    bottom,
+    canShowShareEntry,
+    handleSharePress,
+    handleCopyAddress,
+    isPreparingShare,
+    intl,
+  ]);
+
+  const renderPageFooter = useCallback(() => {
+    if (!currentAccount || !network || !wallet) return null;
+
+    if (isHardwareWallet && !shouldShowAddress) {
+      return renderVerifyFooter();
+    }
+
+    if (platformEnv.isNative && shouldShowQRCode && displayAddress) {
+      return renderNativeActionsFooter();
+    }
+
+    return null;
+  }, [
+    currentAccount,
+    network,
+    wallet,
+    isHardwareWallet,
+    shouldShowAddress,
+    shouldShowQRCode,
+    displayAddress,
+    renderVerifyFooter,
+    renderNativeActionsFooter,
+  ]);
+
+  const renderQrCodeCell = useCallback(() => {
+    if (!displayAddress || !network) return null;
+
+    return (
+      <ReceiveCardCell
+        alignItems="center"
+        justifyContent="center"
+        py={27}
+        px="$4"
+        {...(!shouldShowQRCode && {
+          onPress: handleVerifyOnDevicePress,
           userSelect: 'none',
-          py: '$1',
-          px: '$2',
-          mx: '$-2',
-          my: '$-1',
-          borderRadius: '$2',
           hoverStyle: {
             bg: '$bgHover',
           },
@@ -636,204 +893,25 @@ function ReceiveToken() {
           },
         })}
       >
-        {addressContent}
-      </XStack>
-    );
-  }, [
-    currentAccount,
-    displayAddress,
-    network,
-    wallet,
-    shouldShowAddress,
-    handleCopyAddress,
-  ]);
-
-  const renderReceiveFooter = useCallback(() => {
-    if (!currentAccount || !network || !wallet) return null;
-
-    return (
-      <YStack
-        backgroundColor="$bgSubdued"
-        padding="$5"
-        pb={bottom || '$5'}
-        gap="$5"
-        $platform-native={{
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: '$neutral3',
-        }}
-        $theme-dark={{
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: '$neutral3',
-        }}
-        $platform-web={{
-          boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.10) inset',
-        }}
-      >
-        <YStack gap="$1.5">
-          <XStack gap="$2" alignItems="center">
-            <SizableText size="$bodyMd">
-              {token?.symbol ?? network.symbol}
-            </SizableText>
-            <Badge>
-              <Badge.Text>{network.name}</Badge.Text>
-            </Badge>
-            {vaultSettings?.mergeDeriveAssetsEnabled ? (
-              <AddressTypeSelector
-                testID={ReceiveTestIDs.AddressTypeSelector}
-                placement="top-start"
-                offset={{
-                  mainAxis: 8,
-                }}
-                disableSelector={disableSelector}
-                activeDeriveType={currentDeriveType}
-                activeDeriveInfo={currentDeriveInfo}
-                showTriggerWhenDisabled
-                walletId={walletId}
-                networkId={networkId}
-                indexedAccountId={currentAccount?.indexedAccountId ?? ''}
-                onSelect={async (value) => {
-                  if (value.account) {
-                    setAddressState(EAddressState.Unverified);
-                    setCurrentAccount(value.account);
-                    setCurrentDeriveType(value.deriveType);
-                    setCurrentDeriveInfo(value.deriveInfo);
-                    onDeriveTypeChange?.(value.deriveType);
-                  }
-                }}
-              />
-            ) : null}
-            {shouldShowAddress && addressState === EAddressState.ForceShow ? (
-              <Badge badgeType="critical">
-                {intl.formatMessage({
-                  id: ETranslations.receive_address_unconfirmed_alert_message,
-                })}
-              </Badge>
-            ) : null}
-          </XStack>
-          <XStack
-            gap="$2"
-            alignItems="center"
-            justifyContent={platformEnv.isNative ? undefined : 'space-between'}
-          >
-            {renderAddress()}
-            {renderCopyAddressButton()}
-          </XStack>
-        </YStack>
-        {renderVerifyAddressButton()}
-        {shouldShowAddress && !isEnableBTCFreshAddressSetting ? (
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage(
-              {
-                id: ETranslations.receive_send_asset_warning_message,
-              },
-              {
-                network: network.name,
-              },
-            )}
-          </SizableText>
-        ) : null}
-        {shouldShowAddress &&
-        isEnableBTCFreshAddressSetting &&
-        !isBtcUsedAddressVerifyMode ? (
-          <HyperlinkText
-            testID={ReceiveTestIDs.BtcFreshAddressLink}
-            flexShrink={1}
-            color="$textSubdued"
-            size="$bodyMd"
-            translationId={ETranslations.wallet_receive_note_fresh_address}
-            autoExecuteParsedAction={false}
-            onAction={() => {
-              console.log('HyperlinkText onAction');
-              navigation.push(EModalReceiveRoutes.BtcAddresses, {
-                networkId,
-                accountId: currentAccount?.id,
-                deriveInfo: currentDeriveInfo,
-                walletId,
-              });
-            }}
-            boldTextProps={{
-              size: '$bodyMd',
-            }}
-          />
-        ) : null}
-      </YStack>
-    );
-  }, [
-    addressState,
-    bottom,
-    currentAccount,
-    currentDeriveInfo,
-    currentDeriveType,
-    intl,
-    network,
-    networkId,
-    onDeriveTypeChange,
-    renderAddress,
-    renderCopyAddressButton,
-    renderVerifyAddressButton,
-    shouldShowAddress,
-    isEnableBTCFreshAddressSetting,
-    disableSelector,
-    token?.symbol,
-    vaultSettings?.mergeDeriveAssetsEnabled,
-    wallet,
-    walletId,
-    navigation,
-    isBtcUsedAddressVerifyMode,
-  ]);
-
-  const renderReceiveQrCode = useCallback(() => {
-    if (!currentAccount || !network || !wallet) return null;
-    if (!displayAddress) return null;
-
-    return (
-      <YStack flex={1} justifyContent="center" alignItems="center">
-        <YStack
-          width={264}
-          height={264}
-          p="$5"
-          alignItems="center"
-          justifyContent="center"
-          bg="white"
-          borderRadius="$3"
-          borderCurve="continuous"
-          $platform-native={{
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: '$borderSubdued',
-          }}
-          $platform-web={{
-            boxShadow:
-              '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.10), 0 1px 2px 0 rgba(0, 0, 0, 0.10)',
-          }}
-          elevation={0.5}
-          {...(!shouldShowQRCode && {
-            onPress: handleVerifyOnDevicePress,
-            userSelect: 'none',
-            bg: '$bg',
-            hoverStyle: {
-              bg: '$bgHover',
-            },
-            pressStyle: {
-              bg: '$bgActive',
-            },
-            focusable: true,
-            focusVisibleStyle: {
-              outlineWidth: 2,
-              outlineColor: '$focusRing',
-              outlineOffset: 2,
-              outlineStyle: 'solid',
-            },
-          })}
-        >
-          {shouldShowQRCode ? (
-            <YStack testID={ReceiveTestIDs.QRCode}>
-              <QRCode value={displayAddress} size={224} />
-              {network.isCustomNetwork ? null : (
+        {shouldShowQRCode ? (
+          <YStack testID={ReceiveTestIDs.QRCode}>
+            <QRCode
+              value={displayAddress}
+              size={platformEnv.isNative ? 208 : 176}
+            />
+            {network.isCustomNetwork ? null : (
+              // full-bleed overlay + flex centering: percentage translate
+              // is unreliable on native, so avoid left/top 50% -50% here
+              <YStack
+                position="absolute"
+                top={0}
+                left={0}
+                right={0}
+                bottom={0}
+                alignItems="center"
+                justifyContent="center"
+              >
                 <YStack
-                  position="absolute"
-                  left="50%"
-                  top="50%"
-                  transform={[{ translateX: '-50%' }, { translateY: '-50%' }]}
                   borderWidth={4}
                   borderColor="white"
                   borderRadius="$full"
@@ -846,40 +924,36 @@ function ReceiveToken() {
                     networkId={networkId}
                   />
                 </YStack>
-              )}
-            </YStack>
-          ) : null}
-
-          {!shouldShowQRCode ? (
-            <Empty
-              p="0"
-              illustration="ShieldDevice"
-              description={intl.formatMessage({
-                id: ETranslations.address_verify_address_instruction,
-              })}
-              iconProps={{
-                size: '$8',
-                mb: '$5',
-              }}
-              descriptionProps={{
-                size: '$bodyLgMedium',
-                color: '$text',
-              }}
-            />
-          ) : null}
-        </YStack>
-      </YStack>
+              </YStack>
+            )}
+          </YStack>
+        ) : (
+          <Empty
+            p="0"
+            illustration="ShieldDevice"
+            description={intl.formatMessage({
+              id: ETranslations.verify_on_device_confirm_address__desc,
+            })}
+            iconProps={{
+              size: '$8',
+              mb: '$5',
+            }}
+            descriptionProps={{
+              size: '$bodyLgMedium',
+              color: '$text',
+            }}
+          />
+        )}
+      </ReceiveCardCell>
     );
   }, [
-    currentAccount,
+    intl,
     displayAddress,
     network,
-    wallet,
     shouldShowQRCode,
     handleVerifyOnDevicePress,
     token?.logoURI,
     networkId,
-    intl,
     nativeToken?.logoURI,
   ]);
 
@@ -887,13 +961,59 @@ function ReceiveToken() {
     return !!(banner?.href || banner?.mode);
   }, [banner?.href, banner?.mode]);
   return (
-    <Page testID={ReceiveTestIDs.ReceiveTokenPage} safeAreaEnabled={false}>
+    <Page
+      testID={ReceiveTestIDs.ReceiveTokenPage}
+      safeAreaEnabled={false}
+      scrollEnabled
+    >
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.global_receive })}
+        title=""
+        headerRight={renderHeaderRight}
+        headerRightNoGlass
       />
-      <Page.Body flex={1} pb="$5" px="$5">
-        {renderReceiveQrCode()}
-        <YStack gap="$2">
+      <Page.Body px="$5" py="$5" $md={{ py: '$0' }}>
+        <YStack width="100%" maxWidth={384} alignSelf="center" gap="$5">
+          <YStack gap="$2" alignItems="center">
+            <SizableText
+              testID={ReceiveTestIDs.PageHeading}
+              size="$heading2xl"
+              textAlign="center"
+            >
+              {pageTitleText}
+            </SizableText>
+            {network ? (
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                textAlign="center"
+              >
+                <FormattedMessage
+                  id={ETranslations.receive_send_asset_warning_message}
+                  values={{
+                    network: (
+                      <SizableText size="$bodyMdMedium">
+                        {networkDisplayName}
+                      </SizableText>
+                    ),
+                  }}
+                />
+              </SizableText>
+            ) : null}
+          </YStack>
+          {currentAccount && network && wallet && displayAddress ? (
+            <ReceiveCard
+              headerLeft={cardHeaderLeft}
+              headerRight={cardHeaderRight}
+            >
+              {renderQrCodeCell()}
+              {shouldShowAddress ? renderAddressCell() : null}
+            </ReceiveCard>
+          ) : null}
+          {canShowShareEntry && shareData ? (
+            // offscreen: pre-generates the share image so the dialog opens
+            // with the preview already resolved
+            <ShareImageGenerator ref={shareGeneratorRef} data={shareData} />
+          ) : null}
           {banner && shouldShowQRCode && !isBtcUsedAddressVerifyMode ? (
             <XStack
               testID={ReceiveTestIDs.Banner}
@@ -905,7 +1025,7 @@ function ReceiveToken() {
                 networkLogoColor ? `${networkLogoColor}2A` : '$borderSubdued'
               }
               bg={networkLogoColor ? `${networkLogoColor}0D` : '$bgSubdued'}
-              borderRadius="$2"
+              borderRadius={14}
               borderCurve="continuous"
               userSelect="none"
               {...(isPressable
@@ -947,7 +1067,7 @@ function ReceiveToken() {
           ) : null}
         </YStack>
       </Page.Body>
-      <Page.Footer>{renderReceiveFooter()}</Page.Footer>
+      {renderPageFooter()}
     </Page>
   );
 }
