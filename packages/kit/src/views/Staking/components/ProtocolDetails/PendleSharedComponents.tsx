@@ -238,24 +238,14 @@ export function usePendleTransactionDetails({
         (routeItem) =>
           !!routeItem?.token?.symbol && !!routeItem?.token?.logoURI,
       ) ?? [];
-    const resolveTooltipText = (tooltip?: IEarnTooltip) => {
-      if (tooltip?.type !== 'text') {
-        return undefined;
-      }
-      return tooltip.data?.description?.text;
-    };
-
     detailItems.forEach((detailItem, index) => {
-      const hasRichTooltip =
-        detailItem.tooltip &&
-        (detailItem.tooltip.type !== 'text' ||
-          detailItem.tooltip.data?.items?.length);
+      const hasTooltip = Boolean(detailItem.tooltip);
       const popupButton =
         detailItem.button?.type === 'popup' ? detailItem.button : undefined;
 
       items.push(
         <CalculationListItem key={`tx-detail-${index}`}>
-          {hasRichTooltip ? (
+          {hasTooltip ? (
             <XStack gap="$1" ai="center" flex={1}>
               <SizableText
                 color={detailItem.title.color ?? '$textSubdued'}
@@ -272,7 +262,6 @@ export function usePendleTransactionDetails({
             <CalculationListItem.Label
               size={detailItem.title.size || '$bodyMd'}
               color={detailItem.title.color}
-              tooltip={resolveTooltipText(detailItem.tooltip)}
             >
               {detailItem.title.text}
             </CalculationListItem.Label>
