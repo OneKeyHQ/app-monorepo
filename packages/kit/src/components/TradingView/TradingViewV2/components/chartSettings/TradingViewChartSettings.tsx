@@ -46,6 +46,8 @@ export type ITradingViewChartSettingsProps = {
   onChange?: (value: ITradingViewChartSettingsValue) => void;
   /** Receives the complete value after the user confirms the draft. */
   onConfirm?: (value: ITradingViewChartSettingsValue) => void | Promise<void>;
+  /** Called when the external confirmation fails. */
+  onConfirmError?: (error: unknown) => void;
   onCancel?: () => void;
   onClose?: () => void;
 };
@@ -56,6 +58,7 @@ export function TradingViewChartSettings({
   isSubmitting = false,
   onChange,
   onConfirm,
+  onConfirmError,
   onCancel,
   onClose,
 }: ITradingViewChartSettingsProps) {
@@ -75,6 +78,8 @@ export function TradingViewChartSettings({
   const [contentResetVersion, setContentResetVersion] = useState(0);
   const [isColorSettingsPanelOpen, setIsColorSettingsPanelOpen] =
     useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const submitInProgress = isSubmitting || isConfirming;
 
   const selectedAppearanceSection = useMemo(
     () =>
@@ -257,9 +262,20 @@ export function TradingViewChartSettings({
     onClose?.();
   };
 
-  const handleConfirm = () => {
-    commitSettingsValue();
-    void onConfirm?.(settingsValue);
+  const handleConfirm = async () => {
+    if (submitInProgress) {
+      return;
+    }
+
+    setIsConfirming(true);
+    try {
+      await onConfirm?.(settingsValue);
+      commitSettingsValue();
+    } catch (error) {
+      onConfirmError?.(error);
+    } finally {
+      setIsConfirming(false);
+    }
   };
 
   return (
@@ -295,8 +311,8 @@ export function TradingViewChartSettings({
           h={28}
           alignItems="center"
           justifyContent="center"
-          cursor={isSubmitting ? 'default' : 'pointer'}
-          pointerEvents={isSubmitting ? 'none' : 'auto'}
+          cursor={submitInProgress ? 'default' : 'pointer'}
+          pointerEvents={submitInProgress ? 'none' : 'auto'}
           onPress={handleClose}
         >
           <Icon name="CrossedSmallOutline" size="$5" color="$icon" />
@@ -377,9 +393,9 @@ export function TradingViewChartSettings({
           alignItems="center"
           justifyContent="center"
           borderRadius={20}
-          cursor={isSubmitting ? 'default' : 'pointer'}
-          opacity={isSubmitting ? 0.5 : 1}
-          pointerEvents={isSubmitting ? 'none' : 'auto'}
+          cursor={submitInProgress ? 'default' : 'pointer'}
+          opacity={submitInProgress ? 0.5 : 1}
+          pointerEvents={submitInProgress ? 'none' : 'auto'}
           userSelect="none"
           hoverStyle={{ bg: '$bgHover' }}
           pressStyle={{ bg: '$bgActive' }}
@@ -402,9 +418,9 @@ export function TradingViewChartSettings({
             borderWidth={1}
             borderColor="$borderStrong"
             bg={OKX_CHART_BG}
-            cursor={isSubmitting ? 'default' : 'pointer'}
-            opacity={isSubmitting ? 0.5 : 1}
-            pointerEvents={isSubmitting ? 'none' : 'auto'}
+            cursor={submitInProgress ? 'default' : 'pointer'}
+            opacity={submitInProgress ? 0.5 : 1}
+            pointerEvents={submitInProgress ? 'none' : 'auto'}
             onPress={handleCancel}
           >
             <SizableText
@@ -424,10 +440,10 @@ export function TradingViewChartSettings({
             justifyContent="center"
             borderRadius={18}
             bg="$bgInverse"
-            cursor={isSubmitting ? 'default' : 'pointer'}
-            opacity={isSubmitting ? 0.5 : 1}
-            pointerEvents={isSubmitting ? 'none' : 'auto'}
-            onPress={handleConfirm}
+            cursor={submitInProgress ? 'default' : 'pointer'}
+            opacity={submitInProgress ? 0.5 : 1}
+            pointerEvents={submitInProgress ? 'none' : 'auto'}
+            onPress={() => void handleConfirm()}
           >
             <SizableText
               fontSize={14}

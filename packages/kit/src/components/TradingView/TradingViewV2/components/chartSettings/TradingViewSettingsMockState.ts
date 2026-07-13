@@ -1724,9 +1724,9 @@ export function toggleTradingViewSettingsMockIndicator(
   active: boolean,
   maxActiveSubIndicators = 4,
 ): ITradingViewIndicatorSettingsValue {
-  const activeSubIndicatorLimit = Number.isFinite(maxActiveSubIndicators)
-    ? Math.max(0, Math.floor(maxActiveSubIndicators))
-    : 4;
+  const activeSubIndicatorLimit = normalizeTradingViewMaxActiveSubIndicators(
+    maxActiveSubIndicators,
+  );
   const targetIndicator = state.indicators.find(
     (indicator) => indicator.id === indicatorId,
   );
@@ -1764,6 +1764,14 @@ export function toggleTradingViewSettingsMockIndicator(
         indicators,
       }
     : state;
+}
+
+export function normalizeTradingViewMaxActiveSubIndicators(
+  maxActiveSubIndicators = 4,
+) {
+  return Number.isFinite(maxActiveSubIndicators)
+    ? Math.max(0, Math.floor(maxActiveSubIndicators))
+    : 4;
 }
 
 export function toggleTradingViewSettingsMockLine(

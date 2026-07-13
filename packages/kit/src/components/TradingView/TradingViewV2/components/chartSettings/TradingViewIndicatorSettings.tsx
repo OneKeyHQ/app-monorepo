@@ -5,6 +5,7 @@ import {
   createTradingViewIndicatorSettingsValue,
   getDefaultTradingViewIndicatorIdForScope,
   getTradingViewSettingsMockIndicatorsByScope,
+  normalizeTradingViewMaxActiveSubIndicators,
   toggleTradingViewSettingsMockIndicator,
   toggleTradingViewSettingsMockLine,
   updateTradingViewSettingsMockIndicatorOpacity,
@@ -34,6 +35,8 @@ export type ITradingViewIndicatorSettingsProps = {
   onConfirm?: (
     value: ITradingViewIndicatorSettingsValue,
   ) => void | Promise<void>;
+  /** Called when the external confirmation fails. */
+  onConfirmError?: (error: unknown) => void;
   onCancel?: () => void;
   onClose?: () => void;
 };
@@ -45,6 +48,7 @@ export function TradingViewIndicatorSettings({
   isSubmitting = false,
   onChange,
   onConfirm,
+  onConfirmError,
   onCancel,
   onClose,
 }: ITradingViewIndicatorSettingsProps) {
@@ -63,6 +67,11 @@ export function TradingViewIndicatorSettings({
     useState<ITradingViewSettingsMockIndicatorScope>('main');
   const [selectedIndicatorId, setSelectedIndicatorId] = useState(() =>
     getDefaultTradingViewIndicatorIdForScope(settingsValue.indicators, 'main'),
+  );
+  const [isConfirming, setIsConfirming] = useState(false);
+  const submitInProgress = isSubmitting || isConfirming;
+  const activeSubIndicatorLimit = normalizeTradingViewMaxActiveSubIndicators(
+    maxActiveSubIndicators,
   );
 
   const visibleIndicators = useMemo(
@@ -106,11 +115,11 @@ export function TradingViewIndicatorSettings({
           currentValue,
           indicatorId,
           active,
-          maxActiveSubIndicators,
+          activeSubIndicatorLimit,
         ),
       );
     },
-    [maxActiveSubIndicators, updateSettingsValue],
+    [activeSubIndicatorLimit, updateSettingsValue],
   );
 
   const handleClose = () => {
@@ -119,14 +128,26 @@ export function TradingViewIndicatorSettings({
     onClose?.();
   };
 
-  const handleConfirm = () => {
-    commitSettingsValue();
-    void onConfirm?.(settingsValue);
+  const handleConfirm = async () => {
+    if (submitInProgress) {
+      return;
+    }
+
+    setIsConfirming(true);
+    try {
+      await onConfirm?.(settingsValue);
+      commitSettingsValue();
+    } catch (error) {
+      onConfirmError?.(error);
+    } finally {
+      setIsConfirming(false);
+    }
   };
 
   return (
     <OkxIndicatorSettingsDialog
       value={settingsValue}
+      maxActiveSubIndicators={activeSubIndicatorLimit}
       selectedIndicatorScope={selectedIndicatorScope}
       selectedIndicatorId={effectiveSelectedIndicatorId}
       visibleIndicators={visibleIndicators}
@@ -213,9 +234,9 @@ export function TradingViewIndicatorSettings({
         );
       }}
       onReset={handleReset}
-      onConfirm={handleConfirm}
+      onConfirm={() => void handleConfirm()}
       onClose={handleClose}
-      isSubmitting={isSubmitting}
+      isSubmitting={submitInProgress}
     />
   );
 }

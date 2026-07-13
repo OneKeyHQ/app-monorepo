@@ -145,6 +145,7 @@ function OkxIndicatorContent({
 
 export function OkxIndicatorSettingsDialog({
   value,
+  maxActiveSubIndicators,
   selectedIndicatorScope,
   selectedIndicatorId,
   visibleIndicators,
@@ -166,6 +167,7 @@ export function OkxIndicatorSettingsDialog({
   isSubmitting = false,
 }: {
   value: ITradingViewIndicatorSettingsValue;
+  maxActiveSubIndicators: number;
   selectedIndicatorScope: ITradingViewSettingsMockIndicatorScope;
   selectedIndicatorId: string;
   visibleIndicators: ITradingViewSettingsMockIndicator[];
@@ -228,7 +230,9 @@ export function OkxIndicatorSettingsDialog({
           h={28}
           alignItems="center"
           justifyContent="center"
-          cursor={onClose ? 'pointer' : 'default'}
+          cursor={onClose && !isSubmitting ? 'pointer' : 'default'}
+          opacity={isSubmitting ? 0.5 : 1}
+          pointerEvents={isSubmitting ? 'none' : 'auto'}
           onPress={onClose}
         >
           <Icon name="CrossedSmallOutline" size="$5" color="$icon" />
@@ -237,6 +241,7 @@ export function OkxIndicatorSettingsDialog({
       <OkxIndicatorScopeTabs
         value={selectedIndicatorScope}
         indicators={value.indicators}
+        maxActiveSubIndicators={maxActiveSubIndicators}
         onChange={onScopeChange}
       />
       <XStack h={OKX_INDICATOR_BODY_HEIGHT} minHeight={0}>
