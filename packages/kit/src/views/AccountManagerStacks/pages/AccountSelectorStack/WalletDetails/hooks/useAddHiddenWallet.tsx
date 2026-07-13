@@ -19,7 +19,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';

@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   ActionList,
   IconButton,
-  Tooltip,
+  LazyTooltip,
 } from '@onekeyhq/components/src/actions';
 import type { IActionListSection } from '@onekeyhq/components/src/actions';
 import { useNetInfo } from '@onekeyhq/components/src/hooks/useNetInfo';
@@ -230,11 +230,11 @@ export function DesktopTabItem(
   );
   const defaultCloseButtonTitle = useMemo(
     () => (
-      <Tooltip.Text shortcutKey={EShortcutEvents.CloseTab}>
+      <LazyTooltip.Text shortcutKey={EShortcutEvents.CloseTab}>
         {intl.formatMessage({
           id: ETranslations.global_close,
         })}
-      </Tooltip.Text>
+      </LazyTooltip.Text>
     ),
     [intl],
   );
@@ -277,7 +277,7 @@ export function DesktopTabItem(
               <Stack
                 width="$2.5"
                 height="$2.5"
-                bg="$iconInfo"
+                bg="$bgAccent"
                 borderRadius="$full"
                 position="absolute"
                 right={-3}
@@ -372,7 +372,7 @@ export function DesktopTabItem(
       style={tabBarStyle as ViewStyle}
     >
       {platformEnv.isDesktop && shortcutKey && showTooltip ? (
-        <Tooltip
+        <LazyTooltip
           shortcutKey={shortcutKey}
           renderTrigger={trigger}
           renderContent={label}

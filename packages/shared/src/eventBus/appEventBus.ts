@@ -97,7 +97,9 @@ export type IEventBusPayloadShowToast = {
   message?: string;
   icon?: string;
   duration?: number;
-  errorCode?: number;
+  errorCode?: number | string;
+  errorClassName?: string;
+  errorName?: string;
   httpStatusCode?: number;
   toastId?: string;
   i18nKey?: ETranslations;
@@ -123,6 +125,13 @@ export type IEventBusPayloadShowLinuxUdevGuide = {
 export type IEventBusPayloadShowLocalSecretEnvelopeErrorDialog = {
   technicalMessage: string;
 };
+
+export type IEventBusPayloadAccountDataUpdate =
+  | undefined
+  | {
+      isManualRefresh?: boolean;
+      refreshSource?: 'home-header' | 'pull-to-refresh';
+    };
 
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: {
@@ -279,9 +288,16 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.LocalPendingTxConfirmed]: {
     accountId: string;
     indexedAccountId?: string;
+    accountAddress?: string;
+    deriveType?: string | IAccountDeriveTypes;
+    perpsAccountId?: string | null;
+    perpsIndexedAccountId?: string | null;
+    perpsAccountAddress?: string;
+    perpsDeriveType?: string | IAccountDeriveTypes;
     networkId: string;
     txid: string;
     status: EDecodedTxStatus;
+    isPerpsDepositTx?: boolean;
   };
   [EAppEventBusNames.DeFiPositionRefreshed]: {
     accountId: string;
@@ -357,7 +373,7 @@ export interface IAppEventBusPayload {
     accountId: string;
     networkId: string;
   };
-  [EAppEventBusNames.AccountDataUpdate]: undefined;
+  [EAppEventBusNames.AccountDataUpdate]: IEventBusPayloadAccountDataUpdate;
   [EAppEventBusNames.AccountValueUpdate]: undefined;
   [EAppEventBusNames.onDragBeginInListView]: undefined;
   [EAppEventBusNames.onDragEndInListView]: undefined;
@@ -505,6 +521,9 @@ export interface IAppEventBusPayload {
     mode: 'perp' | 'spot';
     coin: string;
   };
+  [EAppEventBusNames.PerpSwitchInfoPanelTab]: {
+    tab: 'Positions' | 'Balances';
+  };
   [EAppEventBusNames.HyperliquidConnectionChange]: {
     type: 'connection';
     subType: 'datastream';
@@ -564,6 +583,7 @@ export interface IAppEventBusPayload {
       | ETranslations.global_earn;
     openUrl?: boolean;
     shouldConsumePendingUrl?: boolean;
+    showWebPage?: boolean;
     switchType?: 'default' | 'tap' | 'swipe';
   };
   [EAppEventBusNames.SwitchEarnMode]: {
@@ -609,6 +629,7 @@ export interface IAppEventBusPayload {
     params: any;
   };
   [EAppEventBusNames.HomePageReady]: undefined;
+  [EAppEventBusNames.ModalNavigatorMounted]: undefined;
   [EAppEventBusNames.TrayActionWillNavigate]: undefined;
   [EAppEventBusNames.MemoryPressureWarning]: {
     /** 'low' (Android only) or 'critical' (iOS + Android). See native spec. */

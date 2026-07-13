@@ -1,7 +1,8 @@
-import { ONEKEY_WEBUSB_FILTER } from '@onekeyfe/hd-shared';
-import { TREZOR_WEBUSB_FILTERS } from '@onekeyfe/hwk-trezor-connector-webusb/constants';
-
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+
+import { isSupportedHardwareWebUsbDevice } from './webDeviceFilters';
+
+export { isSupportedHardwareWebUsbDevice };
 
 type IUsbDeviceIdentity = Pick<
   USBDevice,
@@ -18,27 +19,6 @@ type IWalletHardwareIdentity = {
     bleConnectId?: string;
   };
 };
-
-function matchesUsbFilter(
-  device: IUsbDeviceIdentity,
-  filter: USBDeviceFilter,
-): boolean {
-  if (filter.vendorId !== undefined && filter.vendorId !== device.vendorId) {
-    return false;
-  }
-  if (filter.productId !== undefined && filter.productId !== device.productId) {
-    return false;
-  }
-  return true;
-}
-
-export function isSupportedHardwareWebUsbDevice(
-  device: IUsbDeviceIdentity,
-): boolean {
-  return [...ONEKEY_WEBUSB_FILTER, ...TREZOR_WEBUSB_FILTERS].some((filter) =>
-    matchesUsbFilter(device, filter),
-  );
-}
 
 export function getWebUsbConnectedDeviceKey(
   device: IUsbDeviceIdentity,

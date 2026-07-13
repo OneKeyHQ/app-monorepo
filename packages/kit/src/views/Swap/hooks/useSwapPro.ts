@@ -50,10 +50,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useCurrency } from '../../../components/Currency';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
-  useAccountSelectorActions,
   useActiveAccount,
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import {
   buildSwapProPositionsOwnerKey,
   useSwapActions,
@@ -1187,20 +1187,27 @@ export function useSwapProTokenTransactionList(
     setSwapProTokenTransactionPrice(newTransactions[0].to.price ?? '');
   }, [transactionsData?.list, setSwapProTokenTransactionPrice]);
 
-  const addNewTransaction = useCallback(
-    (newTransaction: IMarketTokenTransaction) => {
-      const prev = swapProTokenTransactionListRef.current;
-      // Check if transaction already exists to avoid duplicates
-      const existingIndex = prev.findIndex(
-        (tx) => tx.hash === newTransaction.hash,
-      );
-
-      if (existingIndex !== -1) {
+  const addNewTransactions = useCallback(
+    (newTransactions: IMarketTokenTransaction[]) => {
+      if (newTransactions.length === 0) {
         return;
       }
 
-      // Add new transaction at the beginning and sort by timestamp
-      const updatedTransactions = [newTransaction, ...prev].toSorted(
+      const prev = swapProTokenTransactionListRef.current;
+      const seenHashes = new Set(prev.map((tx) => tx.hash));
+      const nextTransactions = newTransactions.filter((tx) => {
+        if (seenHashes.has(tx.hash)) {
+          return false;
+        }
+        seenHashes.add(tx.hash);
+        return true;
+      });
+
+      if (nextTransactions.length === 0) {
+        return;
+      }
+
+      const updatedTransactions = [...nextTransactions, ...prev].toSorted(
         (a, b) => b.timestamp - a.timestamp,
       );
       setSwapProTokenTransactionList(updatedTransactions);
@@ -1216,7 +1223,7 @@ export function useSwapProTokenTransactionList(
     tokenAddress,
     enabled: enableWebSocket && supportSpeedSwap,
     currency: currencyInfo.id,
-    onNewTransaction: addNewTransaction,
+    onNewTransactions: addNewTransactions,
   });
 
   return {
@@ -1480,15 +1487,18 @@ export function useSwapProPositionsListFilter(
   const [swapProSupportNetworksTokenList] =
     useSwapProSupportNetworksTokenListAtom();
   const positionsTokenList = sourceTokenList ?? swapProSupportNetworksTokenList;
-  const filterDefaultTokenList = useMemo(() => {
+  const filterMinValueTokenList = useMemo(() => {
     // Stock positions use a lower $0.1 floor (vs $1) and skip the max-count cap,
     // so small stock holdings still show and aren't pushed out of the top N.
     const minValue = isStockPositions
       ? swapProStockPositionsListMinValue
       : swapProPositionsListMinValue;
-    const filterMinValueTokenList = positionsTokenList.filter((token) => {
+    return positionsTokenList.filter((token) => {
       return new BigNumber(token.fiatValue || '0').gt(minValue);
     });
+  }, [positionsTokenList, isStockPositions]);
+
+  const filterDefaultTokenList = useMemo(() => {
     if (
       isStockPositions ||
       filterMinValueTokenList.length <= swapProPositionsListMaxCount
@@ -1496,18 +1506,18 @@ export function useSwapProPositionsListFilter(
       return filterMinValueTokenList;
     }
     return filterMinValueTokenList.slice(0, swapProPositionsListMaxCount);
-  }, [positionsTokenList, isStockPositions]);
+  }, [filterMinValueTokenList, isStockPositions]);
 
   const finallyTokenList = useMemo(
     () =>
       filterToken
-        ? positionsTokenList.filter((token) =>
+        ? filterMinValueTokenList.filter((token) =>
             filterToken.some((t) =>
               equalTokenNoCaseSensitive({ token1: t, token2: token }),
             ),
           )
         : filterDefaultTokenList,
-    [filterDefaultTokenList, positionsTokenList, filterToken],
+    [filterDefaultTokenList, filterMinValueTokenList, filterToken],
   );
   return {
     finallyTokenList,

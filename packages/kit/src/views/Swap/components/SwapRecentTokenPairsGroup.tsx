@@ -6,6 +6,7 @@ import { StyleSheet } from 'react-native';
 
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { maxRecentTokenPairs } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapTabSwitchType,
   type ISwapToken,
@@ -13,6 +14,7 @@ import {
 
 import { Token } from '../../../components/Token';
 import { useSwapTypeSwitchAtom } from '../../../states/jotai/contexts/swap';
+import { useShouldShowSwapLocalData } from '../hooks/useSwapLocalDataVisibility';
 
 const needFoldingMinCount = 4;
 const defaultVisibleSwapTypes = [ESwapTabSwitchType.SWAP];
@@ -39,13 +41,27 @@ const SwapRecentTokenPairsGroup = ({
   const intl = useIntl();
   const [openMore, setOpenMore] = useState(false);
   const [swapTypeSwitchAtom] = useSwapTypeSwitchAtom();
+  const shouldShowSwapLocalData = useShouldShowSwapLocalData();
   const fromTokenAmountBN = new BigNumber(fromTokenAmount ?? 0);
   const tokenPairsInCurrentType = useMemo(() => {
+    if (!shouldShowSwapLocalData) {
+      return [];
+    }
     if (visibleSwapTypes.includes(swapTypeSwitchAtom)) {
-      return tokenPairs;
+      // The store preserves global most-recent-first order while retaining
+      // up to maxRecentTokenPairs entries PER type (single-chain +
+      // cross-chain, so up to 2x in total). Show only the most recent
+      // maxRecentTokenPairs of the mix — the type composition floats with
+      // actual usage (OK-57347).
+      return tokenPairs.slice(0, maxRecentTokenPairs);
     }
     return [];
-  }, [swapTypeSwitchAtom, tokenPairs, visibleSwapTypes]);
+  }, [
+    shouldShowSwapLocalData,
+    swapTypeSwitchAtom,
+    tokenPairs,
+    visibleSwapTypes,
+  ]);
   const rerenderRecentTokenPairs = useCallback(() => {
     const tokenPairsToShow =
       !openMore && tokenPairsInCurrentType.length >= needFoldingMinCount

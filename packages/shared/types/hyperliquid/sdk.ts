@@ -74,6 +74,7 @@ export type IAllPerpMetasResponse = HL.AllPerpMetasResponse;
 export type ISpotMetaResponse = HL.SpotMetaResponse;
 export type ISpotMetaAndAssetCtxsResponse = HL.SpotMetaAndAssetCtxsResponse;
 export type ISpotClearinghouseStateResponse = HL.SpotClearinghouseStateResponse;
+export type IClearinghouseStateResponse = HL.ClearinghouseStateResponse;
 export type ISpotToken = ISpotMetaResponse['tokens'][number];
 export type ISpotUniverseRaw = ISpotMetaResponse['universe'][number];
 export type ISpotUniverse = ISpotUniverseRaw & {

@@ -85,6 +85,8 @@ export interface IWebViewProps
    * @see IInpageProviderWebViewProps.disableBridge
    */
   disableBridge?: boolean;
+  /** Keep customReceiveHandler active, but do not forward messages to background bridge. */
+  skipBackgroundBridge?: boolean;
   /** @platform desktop
    * @description Selects the Electron preload script.
    * @see IInpageProviderWebViewProps.preloadKind
@@ -106,18 +108,24 @@ const WebView: FC<IWebViewProps> = ({
   containerProps,
   webviewDebuggingEnabled,
   pullToRefreshEnabled,
+  skipBackgroundBridge,
   ...rest
 }) => {
   const receiveHandler = useCallback<IJsBridgeReceiveHandler>(
     async (payload, hostBridge) => {
-      await customReceiveHandler?.(payload, hostBridge);
+      const customResult = await customReceiveHandler?.(payload, hostBridge);
+
+      if (skipBackgroundBridge) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return customResult;
+      }
 
       const result = await backgroundApiProxy.bridgeReceiveHandler(payload);
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return result;
     },
-    [customReceiveHandler],
+    [customReceiveHandler, skipBackgroundBridge],
   );
   const webviewRef = useRef<IWebViewRef | null>(null);
   const handleWebViewRef = useCallback(

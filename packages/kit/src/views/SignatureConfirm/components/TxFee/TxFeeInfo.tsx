@@ -2576,7 +2576,7 @@ function TxFeeInfo(props: IProps) {
         )}
         {txFeeInfoInit && !isNil(selectedFee?.totalFiatMinForDisplay)
           ? renderTotalFiat()
-          : ''}
+          : null}
       </XStack>
     );
   }, [

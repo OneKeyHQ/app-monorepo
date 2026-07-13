@@ -48,10 +48,10 @@ export interface IAllNetworkSnapshotRound {
   /**
    * Per-round merge-derive flag. When defined it OVERRIDES the
    * `mergeDeriveAssetsByNetworkId[networkId]` lookup for THIS round. Required by
-   * the cold-owner cache∪live merge: a cache round (already derive-merged →
-   * `false`) and a live round (raw → the network's real flag) for the SAME
-   * networkId can coexist during a partial-settle window, so the flag must live
-   * on the round, not be looked up per-networkId.
+   * the cold-owner cache∪live merge: a cache round can carry the cached token
+   * rows' merge hint while a live round uses the network's real flag for the
+   * SAME networkId during a partial-settle window, so the flag must live on the
+   * round, not be looked up per-networkId.
    */
   mergeDeriveAssets?: boolean;
 }
@@ -233,17 +233,18 @@ export function buildMergedAllNetworkSnapshot({
   };
 
   const flattenAggregateTokenMap = flattenAggregateTokensMap(aggregateTokenMap);
+  const displayTokenFiatMap = {
+    ...mergeTokenListMap,
+    ...flattenAggregateTokenMap,
+  };
 
   let mergedTokens = sortTokensByFiatValue({
     tokens: [...tokenList.tokens, ...smallBalanceTokenList.smallBalanceTokens],
-    map: {
-      ...mergeTokenListMap,
-      ...flattenAggregateTokenMap,
-    },
+    map: displayTokenFiatMap,
   });
 
   const index = mergedTokens.findIndex((token) =>
-    isUnavailableOrZeroFiatValue(mergeTokenListMap[token.$key]?.fiatValue),
+    isUnavailableOrZeroFiatValue(displayTokenFiatMap[token.$key]?.fiatValue),
   );
 
   if (index > -1) {
@@ -265,7 +266,7 @@ export function buildMergedAllNetworkSnapshot({
 
   smallBalanceTokensFiatValue = sumFiatValuesFromTokens(
     smallBalanceTokenList.smallBalanceTokens,
-    mergeTokenListMap,
+    displayTokenFiatMap,
   );
 
   riskyTokenList.riskyTokens = sortTokensByFiatValue({

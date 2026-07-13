@@ -690,8 +690,7 @@ const results = await this.executeBatched(tasks, 3);
 - [ ] Test with poor network conditions
 
 ### Automated Testing
-- [ ] Run `yarn lint:staged`
-- [ ] Run `yarn tsc:staged`
+- [ ] Run `yarn agent:check --profile commit`
 - [ ] Verify no regressions in related tests
 
 ### Performance Metrics
@@ -927,11 +926,8 @@ const loadMore = () => {
 ### Run Linting and Type Checks
 
 ```bash
-# Lint the modified files
-yarn lint:staged
-
-# Type check (requires full project context)
-yarn tsc:staged
+# Agent pre-commit gate
+yarn agent:check --profile commit
 ```
 
 ### Test Locally

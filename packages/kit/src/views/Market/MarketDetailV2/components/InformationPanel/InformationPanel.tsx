@@ -7,13 +7,16 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
-import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
+import {
+  BaseMarketTokenPrice,
+  MarketTokenPrice,
+} from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
 import { useBtcMetadataContext } from '../../hooks/BtcMetadataContext';
-import { useTokenDetail } from '../../hooks/useTokenDetail';
+import { useMarketDetailDisplayData } from '../../hooks/useMarketDetailDisplayData';
 import {
   MARKET_CAP_FORMATTER,
   USD_CURRENCY_FORMATTER,
@@ -143,13 +146,14 @@ function HeaderStatRows({
 export function InformationPanel() {
   const intl = useIntl();
   const currencyInfo = useCurrency();
-  const { tokenDetail, networkId, tokenAddress, isStockToken } =
-    useTokenDetail();
+  const { tokenDetail, networkId, isPreviewTokenDetail, isStockToken } =
+    useMarketDetailDisplayData();
   const btcMetadata = useBtcMetadataContext();
+  const tokenAddress = tokenDetail?.address;
 
   const { securityData } = useTokenSecurity({
-    tokenAddress,
-    networkId,
+    tokenAddress: tokenAddress ?? '',
+    networkId: networkId ?? '',
   });
 
   if (!tokenDetail) return <InformationPanelSkeleton />;
@@ -197,12 +201,22 @@ export function InformationPanel() {
     >
       <YStack>
         <YStack pointerEvents="none">
-          <MarketTokenPrice
-            size={getPriceSizeByValue(currentPrice)}
-            price={currentPrice}
-            tokenName={name}
-            tokenSymbol={symbol}
-          />
+          {isPreviewTokenDetail ? (
+            <BaseMarketTokenPrice
+              size={getPriceSizeByValue(currentPrice)}
+              price={currentPrice}
+              tokenName={name}
+              tokenSymbol={symbol}
+            />
+          ) : (
+            <MarketTokenPrice
+              size={getPriceSizeByValue(currentPrice)}
+              price={currentPrice}
+              tokenName={name}
+              tokenSymbol={symbol}
+              lastUpdated={tokenDetail.lastUpdated?.toString()}
+            />
+          )}
           {priceConverted ? (
             <NumberSizeableText
               size="$bodySm"

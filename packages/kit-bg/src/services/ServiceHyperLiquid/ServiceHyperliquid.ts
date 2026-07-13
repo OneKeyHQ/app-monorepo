@@ -22,6 +22,7 @@ import {
   PERPS_FILTERED_LEDGER_TYPES,
   PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
+import { PERPS_HL_PORTFOLIO_STALE_SERVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -34,6 +35,16 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import { hyperLiquidErrorResolver } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
+import {
+  aggregateClearinghouseStates,
+  assembleHyperliquidSnapshot,
+  buildSpotPriceMap,
+  getActivePerpPositionsUnrealizedPnl,
+  isHyperliquidPortfolioSnapshotFresh,
+  isUnifiedPortfolioMode,
+  spotHasPositiveBalance,
+  spotNeedsPrices,
+} from '@onekeyhq/shared/src/utils/hyperliquidPortfolioUtils';
 import type {
   IResolvedTokenSelectorFavoriteAction,
   ITokenSelectorFavoriteAction,
@@ -57,10 +68,12 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 import {
   CACHE_TIME_QUANTIZE_MS,
+  DEX_PREFIXES,
   SPOT_ASSET_ID_OFFSET,
   XYZ_ASSET_ID_OFFSET,
   XYZ_DEX_PREFIX,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IHyperliquidPortfolioSnapshot } from '@onekeyhq/shared/types/hyperliquid/portfolio';
 import type {
   IApiRequestError,
   IApiRequestResult,
@@ -79,6 +92,7 @@ import type {
   IPerpsActiveAssetDataRaw,
   IPerpsUniverse,
   IRecentTrade,
+  ISpotMetaAndAssetCtxsResponse,
   ISpotUniverse,
   ITwapHistoryParameters,
   ITwapHistoryRecord,
@@ -131,6 +145,7 @@ import {
   spotTokenFavoritesPersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
+import { resolvePerpsDepositSelectedToken } from '../ServiceWebviewPerp/utils/depositTokenListUtils';
 
 import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import hyperLiquidCache from './hyperLiquidCache';
@@ -139,6 +154,11 @@ import {
   invalidateUserAbstractionRawCache,
 } from './userAbstractionCache';
 import { shouldPreserveConfirmedUserAbstractionMode } from './userAbstractionMode';
+import { buildDepositConfigFromTokensByNetwork } from './utils/depositConfigUtils';
+import {
+  buildPerpsAccountStatusCheckInitialDetails,
+  canApplyPerpsNotActivatedZeroState,
+} from './utils/perpsAccountStatusCheckUtils';
 
 import type ServiceHyperliquidCache from './ServiceHyperliquidCache';
 import type { IPerpsActiveAssetCtxSnapshotCacheHydration } from './ServiceHyperliquidCache';
@@ -169,6 +189,7 @@ import type { IHyperliquidMaxBuilderFee } from '../ServiceWebviewPerp';
 import type {
   IPerpServerConfigResponse,
   IPerpServerDepositConfig,
+  IPerpServerDepositTokensByNetworkConfig,
 } from '../ServiceWebviewPerp/ServiceWebviewPerp';
 
 type ILoadTradesHistoryOptions = {
@@ -586,12 +607,52 @@ export default class ServiceHyperliquid extends ServiceBase {
       });
   }
 
-  async parseDepositConfig(depositConfig?: IPerpServerDepositConfig[]) {
-    if (isNil(depositConfig)) {
+  async parseDepositConfig({
+    depositTokenConfig,
+    depositTokensByNetwork,
+  }: {
+    depositTokenConfig?: IPerpServerDepositConfig[];
+    depositTokensByNetwork?: IPerpServerDepositTokensByNetworkConfig;
+  }) {
+    if (!isNil(depositTokensByNetwork)) {
+      const { networks, tokensMap, defaultTokens } =
+        await buildDepositConfigFromTokensByNetwork({
+          tokensByNetwork: depositTokensByNetwork,
+          getNetworkSafe: ({ networkId }) =>
+            this.backgroundApi.serviceNetwork.getNetworkSafe({ networkId }),
+        });
+
+      await perpsDepositNetworksAtom.set((prev): IPerpsDepositNetworksAtom => {
+        return {
+          ...prev,
+          networks,
+        };
+      });
+      await perpsDepositTokensAtom.set((prev): IPerpsDepositTokensAtom => {
+        const tokens = Object.values(tokensMap).flat();
+        const selectedToken = resolvePerpsDepositSelectedToken({
+          tokens,
+          currentToken: prev.currentPerpsDepositSelectedToken,
+          defaultTokens,
+        });
+        return {
+          ...prev,
+          tokens: tokensMap,
+          serverTokens: tokens,
+          defaultTokens,
+          currentPerpsDepositSelectedToken: selectedToken,
+          depositTokenListSource: 'serverConfig',
+        };
+      });
       return;
     }
-    const networks = depositConfig.map((item) => item.network);
-    const tokens = depositConfig.flatMap((item) => item.tokens);
+
+    if (isNil(depositTokenConfig)) {
+      return;
+    }
+    const networks = depositTokenConfig.map((item) => item.network);
+    const tokens = depositTokenConfig.flatMap((item) => item.tokens);
+    const defaultTokens = tokens.filter((token) => token.isDefault);
     await perpsDepositNetworksAtom.set((prev): IPerpsDepositNetworksAtom => {
       return {
         ...prev,
@@ -606,9 +667,18 @@ export default class ServiceHyperliquid extends ServiceBase {
       tokensMap[network.networkId] = networkTokens;
     });
     await perpsDepositTokensAtom.set((prev): IPerpsDepositTokensAtom => {
+      const selectedToken = resolvePerpsDepositSelectedToken({
+        tokens,
+        currentToken: prev.currentPerpsDepositSelectedToken,
+        defaultTokens,
+      });
       return {
         ...prev,
         tokens: tokensMap,
+        serverTokens: tokens,
+        defaultTokens,
+        currentPerpsDepositSelectedToken: selectedToken,
+        depositTokenListSource: 'serverConfig',
       };
     });
   }
@@ -623,6 +693,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       commonConfig,
       bannerConfig,
       depositTokenConfig,
+      depositTokensByNetwork,
       hyperLiquidErrorLocales,
       tokenSearchAliases,
       tokenSelectorTabs,
@@ -685,7 +756,10 @@ export default class ServiceHyperliquid extends ServiceBase {
         return newVal;
       },
     );
-    await this.parseDepositConfig(depositTokenConfig);
+    await this.parseDepositConfig({
+      depositTokenConfig,
+      depositTokensByNetwork,
+    });
     await this.backgroundApi.simpleDb.perp.setPerpData(
       (prev): ISimpleDbPerpData => {
         const newConfig: ISimpleDbPerpData = {
@@ -778,6 +852,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         commonConfig: resData?.data?.commonConfig ?? {},
         bannerConfig: resData?.data?.bannerConfig,
         depositTokenConfig: resData?.data?.depositTokenConfig,
+        depositTokensByNetwork: resData?.data?.depositTokensByNetwork,
         hyperLiquidErrorLocales: resData?.data?.hyperLiquidErrorLocales,
         tokenSearchAliases: resData?.data?.tokenSearchAliases,
         tokenSelectorTabs: resData?.data?.tokenSelectorTabs,
@@ -896,6 +971,258 @@ export default class ServiceHyperliquid extends ServiceBase {
     params: IUserFillsByTimeParameters,
   ): Promise<IFill[]> {
     return this._getUserFillsByTimeMemo(params);
+  }
+
+  // Shared across addresses: non-USDC spot pricing is account-independent.
+  _getSpotPriceMapMemo = cacheUtils.memoizee(
+    async () => {
+      const result =
+        await hyperLiquidApiClients.infoClient.spotMetaAndAssetCtxs();
+      await this._applySpotMetaAndAssetCtxsResult(result);
+      return buildSpotPriceMap(result);
+    },
+    {
+      max: 1,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      promise: true,
+    },
+  );
+
+  _getAllMidsMemo = cacheUtils.memoizee(
+    async () => {
+      const allMids = await hyperLiquidApiClients.infoClient.allMids();
+      hyperLiquidCache.allMids = {
+        mids: allMids,
+      };
+      return allMids;
+    },
+    {
+      max: 1,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      promise: true,
+    },
+  );
+
+  private async _getPortfolioAbstractionMode(
+    user: IHex,
+  ): Promise<EHyperLiquidAbstractionMode | string | undefined> {
+    try {
+      const mode = await this.fetchUserAbstractionRawWithCache({
+        accountAddress: user,
+      });
+      if (mode) {
+        await this.backgroundApi.simpleDb.perp.setUserAbstractionMode(
+          user,
+          mode,
+        );
+        return mode;
+      }
+    } catch {
+      // Home portfolio snapshots are address-scoped and should still render when
+      // the mode endpoint is temporarily unavailable; fall back to the persisted
+      // mode cache below.
+    }
+    return this.backgroundApi.simpleDb.perp.getUserAbstractionMode(user);
+  }
+
+  private async _fetchAllDexsClearinghouseStates(user: IHex) {
+    const { infoClient } = hyperLiquidApiClients;
+    const dexes = ['', ...DEX_PREFIXES];
+    return Promise.all(
+      dexes.map(async (dex) => {
+        try {
+          return {
+            dex,
+            state: await infoClient.clearinghouseState({ user, dex }),
+          };
+        } catch (error) {
+          if (!dex) {
+            throw error;
+          }
+          return { dex, state: undefined };
+        }
+      }),
+    );
+  }
+
+  _fetchHlPortfolioMemo = cacheUtils.memoizee(
+    async (address: string): Promise<IHyperliquidPortfolioSnapshot> => {
+      const { infoClient } = hyperLiquidApiClients;
+      const user = address.toLowerCase() as IHex;
+      // The abstraction mode request only depends on the address, so run it
+      // alongside the clearinghouse fetches instead of as a second serial wave.
+      const abstractionModePromise = this._getPortfolioAbstractionMode(
+        user,
+      ).catch((): undefined => undefined);
+      const [clearinghouseStates, spot] = await Promise.all([
+        this._fetchAllDexsClearinghouseStates(user),
+        infoClient.spotClearinghouseState({ user }).catch(() => undefined),
+      ]);
+      const hasMissingSpotState = !spot;
+      const hasMainDexState = clearinghouseStates.some(
+        ({ dex, state }) => !dex && Boolean(state),
+      );
+      const hasMissingSubDexState = clearinghouseStates.some(
+        ({ dex, state }) => Boolean(dex) && !state,
+      );
+      if (!hasMainDexState) {
+        throw new OneKeyLocalError(
+          'Hyperliquid portfolio main clearinghouse state unavailable',
+        );
+      }
+      const clearinghouse = aggregateClearinghouseStates(clearinghouseStates);
+      if (!clearinghouse) {
+        throw new OneKeyLocalError(
+          'Hyperliquid portfolio clearinghouse state unavailable',
+        );
+      }
+      await this._ensureSpotMappings();
+      const needsPrices = spotNeedsPrices(spot);
+      const needsSpotMeta =
+        needsPrices ||
+        (spotHasPositiveBalance(spot) &&
+          Object.keys(this._spotMappings.baseNameToPairName).length === 0);
+      const priceMapPromise: Promise<Record<string, string>> = needsSpotMeta
+        ? this._getSpotPriceMapMemo().catch(
+            (): Record<string, string> => ({
+              USDC: '1',
+            }),
+          )
+        : Promise.resolve({ USDC: '1' });
+      const [priceMap, mids, abstractionMode] = await Promise.all([
+        priceMapPromise,
+        needsPrices
+          ? this._getAllMidsMemo().catch(() => hyperLiquidCache.allMids?.mids)
+          : Promise.resolve(undefined),
+        abstractionModePromise,
+      ]);
+      if (!abstractionMode) {
+        throw new OneKeyLocalError(
+          'Hyperliquid portfolio abstraction mode unavailable',
+        );
+      }
+      if (hasMissingSpotState && isUnifiedPortfolioMode(abstractionMode)) {
+        throw new OneKeyLocalError(
+          'Hyperliquid portfolio spot state unavailable for unified account',
+        );
+      }
+      return assembleHyperliquidSnapshot({
+        address: user,
+        clearinghouse,
+        spot,
+        priceMap,
+        getSpotMarkPrice: (coin) =>
+          this.getSpotBalanceMarkPrice(coin, mids) ?? priceMap[coin],
+        getSpotUniverseName: (coin) =>
+          this._spotMappings.baseNameToPairName[coin],
+        abstractionMode,
+        isDegraded: hasMissingSubDexState || hasMissingSpotState,
+        now: Date.now(),
+      });
+    },
+    {
+      max: 16,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }),
+      normalizer: ([a]: [string]) => a.toLowerCase(),
+      promise: true,
+    },
+  );
+
+  @backgroundMethod()
+  async fetchHyperliquidPortfolioByAddress(
+    address: string,
+  ): Promise<IHyperliquidPortfolioSnapshot> {
+    return this._fetchHlPortfolioMemo(address);
+  }
+
+  @backgroundMethod()
+  async getHyperliquidPortfolioSnapshot({
+    address,
+    force,
+    skipCacheWriteIfEmpty,
+  }: {
+    address: string;
+    force?: boolean;
+    skipCacheWriteIfEmpty?: boolean;
+  }): Promise<IHyperliquidPortfolioSnapshot | undefined> {
+    const normalized = address?.toLowerCase();
+    if (!normalized) {
+      return undefined;
+    }
+    const cached =
+      await this.backgroundApi.simpleDb.perp.getHyperliquidPortfolioSnapshot(
+        normalized,
+      );
+    let allowCachedFallback = true;
+    if (cached) {
+      const persistedAbstractionMode =
+        await this.backgroundApi.simpleDb.perp.getUserAbstractionMode(
+          normalized,
+        );
+      const isCachedModeStale = Boolean(
+        persistedAbstractionMode &&
+        cached.abstractionMode !== persistedAbstractionMode,
+      );
+      allowCachedFallback = !isCachedModeStale;
+    }
+    if (!force && cached && allowCachedFallback) {
+      if (isHyperliquidPortfolioSnapshotFresh(cached)) {
+        return cached;
+      }
+      if (
+        !cached.isDegraded &&
+        Date.now() - cached.fetchedAt <=
+          PERPS_HL_PORTFOLIO_STALE_SERVE_MAX_AGE_MS
+      ) {
+        // Stale-while-revalidate: account switches render the last snapshot
+        // immediately instead of blocking on the network; pollers pick up the
+        // refreshed snapshot on their next tick. Degraded snapshots hold
+        // incomplete dex aggregates, so they never serve stale.
+        void this.fetchHyperliquidPortfolioByAddress(normalized)
+          .then((fresh) =>
+            this.backgroundApi.simpleDb.perp.setHyperliquidPortfolioSnapshot(
+              fresh,
+            ),
+          )
+          .catch(() => {
+            void this._fetchHlPortfolioMemo.delete(normalized);
+          });
+        return cached;
+      }
+    }
+    if (force) {
+      // force must hit the network, so drop the 5s in-flight micro-cache too.
+      void this._fetchHlPortfolioMemo.delete(normalized);
+    }
+    try {
+      const fresh = await this.fetchHyperliquidPortfolioByAddress(normalized);
+      if (!skipCacheWriteIfEmpty || !fresh.isEmpty) {
+        await this.backgroundApi.simpleDb.perp.setHyperliquidPortfolioSnapshot(
+          fresh,
+        );
+      }
+      return fresh;
+    } catch {
+      // Don't cache the failure; fall back only while the snapshot is still fresh.
+      void this._fetchHlPortfolioMemo.delete(normalized);
+      return allowCachedFallback &&
+        cached &&
+        isHyperliquidPortfolioSnapshotFresh(cached)
+        ? cached
+        : undefined;
+    }
+  }
+
+  @backgroundMethod()
+  async invalidateHyperliquidPortfolio(address?: string): Promise<void> {
+    if (address) {
+      void this._fetchHlPortfolioMemo.delete(address.toLowerCase());
+    } else {
+      this._fetchHlPortfolioMemo.clear();
+    }
+    await this.backgroundApi.simpleDb.perp.clearHyperliquidPortfolioSnapshot(
+      address,
+    );
   }
 
   @backgroundMethod()
@@ -1550,10 +1877,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
       // Note: Deep compare not suitable here due to real-time data requirements
       const positions = webData2.clearinghouseState?.assetPositions || [];
-      const totalUnrealizedPnlBN = positions.reduce((sum, position) => {
-        const pnl = position.position?.unrealizedPnl;
-        return pnl ? sum.plus(pnl) : sum;
-      }, new BigNumber(0));
+      const totalUnrealizedPnl = getActivePerpPositionsUnrealizedPnl(positions);
 
       const summary: IPerpsActiveAccountSummaryAtom = {
         accountAddress: activeAccount?.accountAddress?.toLowerCase() as IHex,
@@ -1567,7 +1891,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         totalNtlPos: webData2.clearinghouseState?.marginSummary?.totalNtlPos,
         totalRawUsd: webData2.clearinghouseState?.marginSummary?.totalRawUsd,
         withdrawable: webData2.clearinghouseState?.withdrawable,
-        totalUnrealizedPnl: totalUnrealizedPnlBN.toFixed(),
+        totalUnrealizedPnl,
       };
       await perpsActiveAccountSummaryAtom.set(summary);
       void this.cacheService
@@ -1657,14 +1981,11 @@ export default class ServiceHyperliquid extends ServiceBase {
         // Aggregate withdrawable
         acc.withdrawable = acc.withdrawable.plus(state.withdrawable || '0');
 
-        // Aggregate unrealized PnL from all positions
+        // Aggregate unrealized PnL from active positions
         const positions = assetPositions || [];
-        positions.forEach((position) => {
-          const pnl = position.position?.unrealizedPnl;
-          if (pnl) {
-            acc.totalUnrealizedPnl = acc.totalUnrealizedPnl.plus(pnl);
-          }
-        });
+        acc.totalUnrealizedPnl = acc.totalUnrealizedPnl.plus(
+          getActivePerpPositionsUnrealizedPnl(positions),
+        );
 
         return acc;
       },
@@ -1946,6 +2267,53 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
   }
 
+  private _buildSpotMetaFromResponse(result: ISpotMetaAndAssetCtxsResponse) {
+    const meta = result[0];
+    if (!meta?.tokens || !meta?.universe) {
+      return undefined;
+    }
+
+    const tokens = meta.tokens;
+    // Look up by token `index`, not array position: newer tokens have an
+    // index beyond the array length, so positional access yields an empty
+    // baseName ("/USDC").
+    const tokenByIndex = new Map(tokens.map((token) => [token.index, token]));
+    const universes: ISpotUniverse[] = meta.universe.map((item) => {
+      const baseTokenIdx = item.tokens[0];
+      const quoteTokenIdx = item.tokens[1];
+      const baseToken = tokenByIndex.get(baseTokenIdx);
+      const quoteToken = tokenByIndex.get(quoteTokenIdx);
+      const baseName = baseToken?.name ?? '';
+      const quoteName = quoteToken?.name ?? 'USDC';
+      return {
+        ...item,
+        assetId: SPOT_ASSET_ID_OFFSET + item.index,
+        baseName,
+        quoteName,
+        displayName: perpsUtils.getSpotTokenDisplayName(baseName),
+        baseSzDecimals: baseToken?.szDecimals ?? 0,
+      };
+    });
+    return { tokens, universes };
+  }
+
+  private async _applySpotMetaAndAssetCtxsResult(
+    result: ISpotMetaAndAssetCtxsResponse,
+  ) {
+    const spotMeta = this._buildSpotMetaFromResponse(result);
+    if (spotMeta) {
+      await this.backgroundApi.simpleDb.perp.setSpotMeta(spotMeta);
+      this._rebuildSpotMappings(spotMeta.universes);
+    }
+
+    // Reuse the assetCtxs from this REST call so the first spot view doesn't
+    // wait 2-3s for the WS SPOT_ASSET_CTXS message and flash a skeleton.
+    const assetCtxs = result[1];
+    if (Array.isArray(assetCtxs) && assetCtxs.length > 0) {
+      void this.updateSpotAssetCtxsMap(assetCtxs);
+    }
+  }
+
   private _rebuildSpotMappings(universes: ISpotUniverse[]) {
     const pairToBaseName: Record<string, string> = {};
     const baseNameToAssetId: Record<string, number> = {};
@@ -2056,41 +2424,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       universeCount: result[0]?.universe?.length ?? 0,
       assetCtxCount: result[1]?.length ?? 0,
     });
-    const meta = result[0];
-    if (meta?.tokens && meta?.universe) {
-      const tokens = meta.tokens;
-      // Look up by token `index`, not array position: newer tokens have an
-      // index beyond the array length, so positional access yields an empty
-      // baseName ("/USDC").
-      const tokenByIndex = new Map(tokens.map((token) => [token.index, token]));
-      const universes: ISpotUniverse[] = meta.universe.map((item) => {
-        const baseTokenIdx = item.tokens[0];
-        const quoteTokenIdx = item.tokens[1];
-        const baseToken = tokenByIndex.get(baseTokenIdx);
-        const quoteToken = tokenByIndex.get(quoteTokenIdx);
-        const baseName = baseToken?.name ?? '';
-        const quoteName = quoteToken?.name ?? 'USDC';
-        return {
-          ...item,
-          assetId: SPOT_ASSET_ID_OFFSET + item.index,
-          baseName,
-          quoteName,
-          displayName: perpsUtils.getSpotTokenDisplayName(baseName),
-          baseSzDecimals: baseToken?.szDecimals ?? 0,
-        };
-      });
-      await this.backgroundApi.simpleDb.perp.setSpotMeta({
-        tokens,
-        universes,
-      });
-      this._rebuildSpotMappings(universes);
-    }
-    // Reuse the assetCtxs from this REST call so the first spot view doesn't
-    // wait 2-3s for the WS SPOT_ASSET_CTXS message and flash a skeleton.
-    const assetCtxs = result[1];
-    if (Array.isArray(assetCtxs) && assetCtxs.length > 0) {
-      void this.updateSpotAssetCtxsMap(assetCtxs);
-    }
+    await this._applySpotMetaAndAssetCtxsResult(result);
     void this.refreshSpotExternalMarketCaps();
     markPerpsColdStartPerf('service_refresh_spot_meta_end');
   }
@@ -2436,6 +2770,10 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   hideEnableTradingLoadingTimer: ReturnType<typeof setTimeout> | undefined;
 
+  // Monotonic id so concurrent checkPerpsAccountStatus() calls resolving out
+  // of order cannot overwrite newer results with stale ones
+  private perpsAccountStatusCheckSeq = 0;
+
   fetchUserAbstractionRawWithCache = createFetchUserAbstractionRawWithCache(
     async (accountAddress) => {
       const { infoClient } = hyperLiquidApiClients;
@@ -2609,17 +2947,13 @@ export default class ServiceHyperliquid extends ServiceBase {
     isEnableTradingTrigger?: boolean;
   } = {}): Promise<void> {
     const { infoClient } = hyperLiquidApiClients;
+    this.perpsAccountStatusCheckSeq += 1;
+    const checkSeq = this.perpsAccountStatusCheckSeq;
     markPerpsColdStartPerf('service_check_account_status_start', {
       isEnableTradingTrigger,
     });
-    const statusDetails: IPerpsActiveAccountStatusDetails = {
-      activatedOk: false,
-      agentOk: false,
-      referralCodeOk: false,
-      builderFeeOk: false,
-      internalRebateBoundOk: false,
-      abstractionOk: false,
-    };
+    const statusDetails: IPerpsActiveAccountStatusDetails =
+      buildPerpsAccountStatusCheckInitialDetails();
     let status: IPerpsActiveAccountStatusInfoAtom | undefined;
 
     const selectedAccount = await perpsActiveAccountAtom.get();
@@ -2640,9 +2974,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       );
 
       if (!accountAddress) {
-        throw new OneKeyLocalError(
-          'Check perps account status ERROR: Account address is required',
-        );
+        return;
       }
 
       // Run exchange client setup and activation check in parallel —
@@ -2672,6 +3004,22 @@ export default class ServiceHyperliquid extends ServiceBase {
           isEnableTradingTrigger,
           statusDetails: { ...statusDetails },
         });
+        const latestActiveAccount = await perpsActiveAccountAtom.get();
+        if (
+          canApplyPerpsNotActivatedZeroState({
+            checkSeq,
+            latestCheckSeq: this.perpsAccountStatusCheckSeq,
+            checkedAddress: accountAddress,
+            activeAddress: latestActiveAccount?.accountAddress,
+          })
+        ) {
+          await spotBalancesAtom.set({ balances: [], isLoaded: true });
+          await perpsSpotBalancesAtom.set({
+            accountAddress,
+            balances: [],
+            spotTotalUsd: '0',
+          });
+        }
         // await this.checkBuilderFeeStatus({
         //   accountAddress,
         //   isEnableTradingTrigger,
@@ -2741,29 +3089,33 @@ export default class ServiceHyperliquid extends ServiceBase {
         }
       }
     } finally {
-      status = {
-        accountAddress: accountAddress || null,
-        details: statusDetails,
-      };
-      await perpsActiveAccountStatusInfoAtom.set(status);
-      await perpsAccountLoadingInfoAtom.set(
-        (prev): IPerpsAccountLoadingInfo => ({
-          ...prev,
-          enableTradingStatusPending: false,
-        }),
-      );
-
-      clearTimeout(this.hideEnableTradingLoadingTimer);
-      this.hideEnableTradingLoadingTimer = setTimeout(async () => {
+      // Only the latest check may commit shared status/loading state; a stale
+      // check resolving late must not clobber a newer check's result
+      if (checkSeq === this.perpsAccountStatusCheckSeq) {
+        status = {
+          accountAddress: accountAddress || null,
+          details: statusDetails,
+        };
+        await perpsActiveAccountStatusInfoAtom.set(status);
         await perpsAccountLoadingInfoAtom.set(
           (prev): IPerpsAccountLoadingInfo => ({
             ...prev,
-            enableTradingLoading: false,
-            enableTradingTriggered: false,
             enableTradingStatusPending: false,
           }),
         );
-      }, 0);
+
+        clearTimeout(this.hideEnableTradingLoadingTimer);
+        this.hideEnableTradingLoadingTimer = setTimeout(async () => {
+          await perpsAccountLoadingInfoAtom.set(
+            (prev): IPerpsAccountLoadingInfo => ({
+              ...prev,
+              enableTradingLoading: false,
+              enableTradingTriggered: false,
+              enableTradingStatusPending: false,
+            }),
+          );
+        }, 0);
+      }
       markPerpsColdStartPerf('service_check_account_status_end', {
         accountAddress: accountAddress ? 'set' : 'empty',
         activatedOk: statusDetails.activatedOk,
@@ -3464,14 +3816,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     await perpsActiveAccountStatusInfoAtom.set(
       (_prev): IPerpsActiveAccountStatusInfoAtom => ({
         accountAddress: null,
-        details: {
-          activatedOk: false,
-          agentOk: false,
-          builderFeeOk: false,
-          referralCodeOk: false,
-          internalRebateBoundOk: false,
-          abstractionOk: false,
-        },
+        details: buildPerpsAccountStatusCheckInitialDetails(),
       }),
     );
   }

@@ -27,6 +27,56 @@ Run this before shipping or approving Earn/Borrow/Staking work:
     loading, operation state machine, listener refresh, pending/history bridge,
     or view-model composition.
 
+## Half-Year Recurrence Stops
+
+Use this stop list when a new Earn/DeFi/Borrow/Staking requirement mentions
+action buttons, claim/withdraw/repay, missing refresh, duplicate toast,
+mobile input, native Earn, AssetDetails, or cold-start entry:
+
+- Action visibility is contract-first. Check portfolio position payload,
+  supported-protocols, and build-transaction metadata before treating a missing
+  button as layout, i18n, or local visibility state.
+- Grouped portfolio rows must preserve source-position metadata such as
+  group id, pool address, token id, currency pair, queue id, proxy detail, and
+  category. If grouping drops metadata, fail closed instead of rendering a
+  button that cannot build a transaction.
+- Build responses can carry `orderId`, `tx`, `approvalTx`, and `permit`.
+  Normalize transport variants at the service boundary, keep UI typed, and
+  make approval/permit support explicit before entering signature confirm.
+- DeFi order tracking must guard duplicate submit: after broadcast, record the
+  transaction hash against the service `orderId`; after on-chain completion,
+  update final status and refresh the affected portfolio/detail scope.
+- Do not suppress operation errors only because a lower-level error has
+  `autoToast=false`. If the operation is user-actionable, preserve diagnostics
+  fields and show one visible operation-level error path.
+- Mobile DeFi amount input and dialogs need their own validation for decimal
+  precision, cursor position, keyboard, modal height, bottom-sheet drag, safe
+  area, and scrollability. Desktop/web behavior is not proof for native.
+- Successful submit/confirm triggers visible portfolio/detail refresh plus
+  delayed refresh for indexer lag. User cancel and failed tx do not get the
+  same refresh semantics unless product requires recovery refresh.
+- Native Earn is a Discovery-hosted flow. Validate fresh native open, repeated
+  entry, pop-to-home, and tab switching separately from desktop/web Earn tab.
+- AssetDetails and DeFi Portfolio action routes must carry account identity
+  through route params or payload. Home-only account context is not available
+  unless the target stack mounts the matching provider mirror.
+- Swap-assisted funding stops at prefill and return refresh. Once Swap quote
+  starts, quote/review/build/send/history validation belongs to
+  `1k-trade-swap-market`.
+
+## Entry And Platform Drill
+
+Run this when a requirement mentions Earn entry, Home Earn, native Earn,
+AssetDetails, DeFi Portfolio, or Swap-assisted funding:
+
+- Name the entry surface and the first DeFi owner after entry.
+- For native, prove whether the path is Discovery EarnHome sub-tab switching or
+  a pushed Earn route under Discovery; do not validate it only on desktop/web.
+- For DeFi Portfolio and AssetDetails routes, verify account and
+  indexed-account identity survive without Home-only provider context.
+- For Swap-assisted funding, validate DeFi source params and return refresh,
+  then hand quote/review/build/send/history validation to `1k-trade-swap-market`.
+
 ## ABI Readiness Drill
 
 Use this drill for L2 or protocol integrations where the App builds contract calls:
@@ -84,3 +134,35 @@ Use this drill for native staking, chain-specific, or provider-backed operations
 - Prefer local adapters over branching shared components for one protocol.
 - When changing shared Staking/Borrow contracts, list affected existing protocols and the regression path.
 - If ABI/native drills cannot be completed, the integration is not ready.
+
+## Recent Failure-Derived Gates
+
+Apply these as durable regression gates; verify current client/server/payload
+truth before assuming the original incident details still apply.
+
+- Action visibility is a three-source decision: portfolio/source metadata,
+  supported-protocol action contract, and build requirements. Do not infer it
+  from layout or one category field.
+- Outer position category and inner asset category have different meanings.
+  Preserve both through grouping and action resolution.
+- Native token may require an empty address while amount and `bps` have
+  different unit rules. Derive payloads from the current handler/DTO/example;
+  never trust an agent-generated field assumption without source proof.
+- ERC20 repay/withdraw can require approval. Complete approval and close or
+  hand off its confirm UI before business confirmation; every terminal callback
+  must release duplicate-submit state.
+- A build response can contain `tx`, `approvalTx`, `permit`, and `orderId`.
+  Broadcast success attaches tx hash to the order; settle updates final status;
+  only successful position-changing outcomes trigger success refresh.
+- Native iOS action pages and extension/desktop dialogs are different hosts.
+  Validate keyboard dismissal, replaceable 100% input, scroll/layout, confirm
+  layering, cancel, failure, and success on their owning hosts.
+- Manual portfolio refresh needs deliberate forced freshness without becoming
+  an abuse bypass. Keep frontend cadence/quota, backend abuse protection, and
+  bg persistence as separate owners.
+- All Networks refresh is account/network scoped. Direct per-account writes,
+  owner-key reconciliation, scheduled-refresh abort independence, and A -> B
+  stale-result rejection are mandatory.
+- Issue/PR titles are not authoritative scope. Inspect late Jira/Slack
+  corrections, attachments, branch-only commits, and actual changed files;
+  adjacent DeFi, Borrow, Stock, or chart changes can be hidden in one squash.

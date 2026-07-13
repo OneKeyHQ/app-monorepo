@@ -26,12 +26,11 @@ import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useResetApp } from '@onekeyhq/kit/src/views/Setting/hooks';
 import { showExportLogsDialog } from '@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs/showExportLogsDialog';
-import {
-  usePasswordPersistAtom,
-  useV4migrationAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
+import { useV4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/v4migration';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { APP_STATE_LOCK_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 import { verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
@@ -45,6 +44,16 @@ import type { View as IView, KeyboardEvent } from 'react-native';
 interface IAppStateLockProps extends IThemeableStackProps {
   passwordVerifyContainer: React.ReactNode;
   lockContainerRef: ForwardedRef<IView>;
+}
+
+// Diagnostic sink: mirror to console unconditionally (defaultLogger's local
+// transport only console-logs in dev and its background bridge can be down on
+// the lock screen when the keychain is broken) AND to defaultLogger for export.
+function diagLog(msg: string) {
+  // eslint-disable-next-line no-console
+  console.log(msg);
+  const { webAuth } = defaultLogger.app;
+  webAuth.log(msg);
 }
 
 const useSafeKeyboardAnimationStyle = platformEnv.isNative
@@ -98,16 +107,50 @@ const AppStateLock = ({
       // `platformAuthenticatorOnly` forces THIS device's built-in biometric and
       // blocks the cross-device "use a passkey on another device" / USB-key
       // flows.
+      diagLog(
+        `[KeychainLogUploadDiag] extension branch hasCredentialId=${!!webAuthCredentialId}`,
+      );
       if (webAuthCredentialId) {
         try {
           const cred = await verifiedWebAuth(webAuthCredentialId, {
             platformAuthenticatorOnly: true,
           });
+          // Diagnostics only — no credential ids logged (not sensitive-safe).
+          diagLog(
+            `[KeychainLogUploadDiag] verifiedWebAuth resolved ${JSON.stringify({
+              hasCred: !!cred,
+              match:
+                (cred as { id?: string } | undefined)?.id ===
+                webAuthCredentialId,
+            })}`,
+          );
+          // A returned-but-non-matching credential (e.g. a non-platform
+          // authenticator / USB key) is a real authenticator mismatch, not a
+          // lost keychain — keep blocking that.
           if (cred?.id !== webAuthCredentialId) {
+            diagLog(
+              '[KeychainLogUploadDiag] mismatch -> return, dialog BLOCKED',
+            );
             return;
           }
-        } catch {
-          // user cancelled or verification failed
+        } catch (e) {
+          // Enabled PassKey but the biometric check did not pass — the user
+          // cancelled, or the platform credential is gone (WebAuthn reports
+          // both as NotAllowedError and cannot tell them apart). Block: once
+          // the user has PassKey enabled, opening this hidden log-upload entry
+          // REQUIRES a passing biometric check, so a bystander or any
+          // unverified session cannot exfiltrate diagnostics. A user who
+          // genuinely lost their passkey can still export logs from in-app
+          // Settings after unlocking with their password. (OK-56874)
+          const caught = e as { name?: string; message?: string };
+          diagLog(
+            `[KeychainLogUploadDiag] handler caught error -> return, dialog BLOCKED ${JSON.stringify(
+              {
+                name: caught?.name,
+                message: caught?.message,
+              },
+            )}`,
+          );
           return;
         }
       }
@@ -117,6 +160,7 @@ const AppStateLock = ({
         return;
       }
     }
+    diagLog('[KeychainLogUploadDiag] passing gate -> showExportLogsDialog');
     showExportLogsDialog({
       title: intl.formatMessage({
         id: ETranslations.settings_upload_state_logs,

@@ -1,9 +1,9 @@
 import {
+  type RefObject,
   useCallback,
   useEffect,
   useRef,
   useState,
-  type RefObject,
 } from 'react';
 
 import type { IWebViewRef } from '../../WebView/types';
@@ -140,6 +140,7 @@ function createNotification(
 export function useChartProtocolBridge({
   webRef,
   enabled,
+  runtimeKey,
   onRuntimeReady,
   onWidgetReady,
   onFeatureReady,
@@ -147,20 +148,24 @@ export function useChartProtocolBridge({
 }: {
   webRef: RefObject<IWebViewRef | null>;
   enabled: boolean;
+  runtimeKey?: string;
   onRuntimeReady?: (params: unknown) => void;
   onWidgetReady?: (params: unknown) => void;
   onFeatureReady?: (params: unknown) => void;
   onRenderReady?: (params: unknown) => void;
 }) {
   const [isRuntimeReady, setIsRuntimeReady] = useState(false);
+  const [runtimeGeneration, setRuntimeGeneration] = useState(0);
   const pendingRef = useRef<Map<string, IChartProtocolPending>>(new Map());
 
   useEffect(() => {
-    if (enabled) {
-      return;
-    }
     setIsRuntimeReady(false);
-  }, [enabled]);
+    pendingRef.current.forEach((pending) => {
+      clearTimeout(pending.timer);
+      pending.reject(new Error('Chart protocol runtime changed.'));
+    });
+    pendingRef.current.clear();
+  }, [enabled, runtimeKey]);
 
   useEffect(
     () => () => {
@@ -241,6 +246,7 @@ export function useChartProtocolBridge({
       switch (message.method) {
         case 'chart.runtimeReady':
           setIsRuntimeReady(true);
+          setRuntimeGeneration((value) => value + 1);
           onRuntimeReady?.(message.params);
           return true;
         case 'chart.widgetReady':
@@ -262,6 +268,7 @@ export function useChartProtocolBridge({
   return {
     handleProtocolMessage,
     isRuntimeReady: enabled && isRuntimeReady,
+    runtimeGeneration,
     sendNotification,
     sendRequest,
   };

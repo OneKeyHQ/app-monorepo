@@ -6,11 +6,13 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   IconButton,
+  PROPORTIONAL_NUMS,
   Skeleton,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   settingsValuePersistAtom,
   useCurrencyPersistAtom,
@@ -18,6 +20,8 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
+import { PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import { SHOW_WALLET_FUNCTION_BLOCK_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -53,6 +57,7 @@ import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOve
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { convertFiat } from '../../../utils/fiatConvert';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
+import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
 
 // Grace period (ms) after an account switch during which the previous
@@ -127,6 +132,54 @@ function HomeOverviewContainer() {
   } = useAccountOverviewActions().current;
 
   const [settings] = useSettingsPersistAtom();
+  const { isPerpsSupported: isPerpsEnabled } = useHomeWalletTabSupport({
+    network,
+  });
+
+  const { result: perpsNetWorthUsd } = usePromiseResult<string | undefined>(
+    async () => {
+      if (!isPerpsEnabled) return undefined;
+      const accountId = account?.id;
+      const indexedAccountId = account?.indexedAccountId;
+      if (!accountId && !indexedAccountId) return undefined;
+
+      const deriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: PERPS_NETWORK_ID,
+        });
+      if (!deriveType) return undefined;
+
+      let address = '';
+      try {
+        const acc = await backgroundApiProxy.serviceAccount.getNetworkAccount({
+          accountId: indexedAccountId ? undefined : accountId,
+          indexedAccountId,
+          deriveType,
+          networkId: PERPS_NETWORK_ID,
+        });
+        address = acc?.addressDetail?.normalizedAddress || acc?.address || '';
+      } catch {
+        return undefined;
+      }
+
+      if (!address) return undefined;
+
+      const snapshot =
+        await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
+          { address },
+        );
+
+      return snapshot?.netWorthUsd;
+    },
+    [account?.id, account?.indexedAccountId, isPerpsEnabled],
+    {
+      swrKey:
+        account?.id || account?.indexedAccountId
+          ? `home-overview-perps-worth:${account?.indexedAccountId ?? account?.id}`
+          : undefined,
+      pollingInterval: PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
+    },
+  );
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -468,7 +521,10 @@ function HomeOverviewContainer() {
   const handleRefreshWorth = useCallback(() => {
     if (isRefreshingWorth) return;
     setIsRefreshingWorth(true);
-    appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+    appEventBus.emit(EAppEventBusNames.AccountDataUpdate, {
+      isManualRefresh: true,
+      refreshSource: 'home-header',
+    });
     defaultLogger.account.wallet.walletManualRefresh();
   }, [isRefreshingWorth]);
 
@@ -630,10 +686,11 @@ function HomeOverviewContainer() {
       targetCurrency: USD_CURRENCY_ID,
       currencyMap,
     });
+    const perpsWorthUsd = isPerpsEnabled ? (perpsNetWorthUsd ?? '0') : '0';
 
     return calculateAccountTotalValue({
       tokensValue: tokenWorthUsd,
-      deFiNetWorth: deFiWorthUsd,
+      deFiNetWorth: new BigNumber(deFiWorthUsd).plus(perpsWorthUsd).toFixed(),
     });
   }, [
     account?.id,
@@ -644,7 +701,9 @@ function HomeOverviewContainer() {
     currencyMap,
     isCurrentAccountDeFiReady,
     isCurrentAccountWorthReady,
+    isPerpsEnabled,
     network?.isAllNetworks,
+    perpsNetWorthUsd,
     settings.currencyInfo.id,
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
@@ -951,6 +1010,9 @@ function HomeOverviewContainer() {
                 fontSize={48}
                 lineHeight={48}
                 fontWeight={500}
+                // Large hero balance reads better with the font's natural
+                // proportional figures than equal-width tabular ones.
+                fontVariant={PROPORTIONAL_NUMS}
                 {...numberFormatter}
               >
                 {renderedBalanceStringDisplay ?? '0'}

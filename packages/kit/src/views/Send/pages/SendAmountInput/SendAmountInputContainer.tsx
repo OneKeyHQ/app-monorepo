@@ -35,9 +35,9 @@ import {
   TextAreaInput,
   XStack,
   YStack,
-  useForm,
   useMedia,
 } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import AddressTypeSelectorTrigger from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelectorTrigger';
@@ -1149,19 +1149,27 @@ function SendAmountInputContainer() {
     return undefined;
   }, [selectedUTXOs, networkId, currentAccountId]);
 
-  const maxBalance = useMemo(() => {
-    if (!tokenDetails) return '0';
-    let balance: string;
-    if (currentSelectedUtxoInfo?.totalValue && tokenDetails.info) {
-      balance = new BigNumber(
+  // Coin-control subtotal in token units, threaded to the confirm page via
+  // transferPayload so its balance checks run against what the tx can
+  // actually spend (find-address claimed UTXOs are excluded from the
+  // account-level balance the confirm page fetches).
+  const selectedUtxoTotalAmount = useMemo(() => {
+    if (currentSelectedUtxoInfo?.totalValue && tokenDetails?.info) {
+      return new BigNumber(
         chainValueUtils.convertTokenChainValueToAmount({
           value: currentSelectedUtxoInfo.totalValue,
           token: tokenDetails.info,
         }),
       ).toFixed();
-    } else {
-      balance = tokenDetails.balanceParsed;
     }
+    return undefined;
+  }, [currentSelectedUtxoInfo?.totalValue, tokenDetails?.info]);
+
+  const maxBalance = useMemo(() => {
+    if (!tokenDetails) return '0';
+    // `??` (not `||`) so a genuine "0" subtotal is kept, not replaced by the
+    // account balance.
+    const balance = selectedUtxoTotalAmount ?? tokenDetails.balanceParsed;
 
     // Lightning balanceParsed is already in sats (decimals=0)
     if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
@@ -1169,12 +1177,7 @@ function SendAmountInputContainer() {
     }
 
     return balance;
-  }, [
-    currentSelectedUtxoInfo?.totalValue,
-    isLightningNetwork,
-    lnUnit,
-    tokenDetails,
-  ]);
+  }, [selectedUtxoTotalAmount, isLightningNetwork, lnUnit, tokenDetails]);
 
   const maxBalanceFiat = useMemo(() => {
     if (!tokenDetails) return '0';
@@ -1183,21 +1186,14 @@ function SendAmountInputContainer() {
     // UTXO-selected fiat balance never renders as "NaN".
     const priceBN = new BigNumber(tokenDetails.price ?? 0);
     if (
-      currentSelectedUtxoInfo?.totalValue &&
+      selectedUtxoTotalAmount !== undefined &&
       priceBN.isFinite() &&
-      priceBN.isGreaterThan(0) &&
-      tokenDetails.info
+      priceBN.isGreaterThan(0)
     ) {
-      const balanceInToken = new BigNumber(
-        chainValueUtils.convertTokenChainValueToAmount({
-          value: currentSelectedUtxoInfo.totalValue,
-          token: tokenDetails.info,
-        }),
-      );
-      return balanceInToken.times(priceBN).toFixed();
+      return new BigNumber(selectedUtxoTotalAmount).times(priceBN).toFixed();
     }
     return tokenDetails.fiatValue ?? '0';
-  }, [tokenDetails, currentSelectedUtxoInfo?.totalValue]);
+  }, [tokenDetails, selectedUtxoTotalAmount]);
 
   const linkedAmount = useMemo(() => {
     const amountBN = new BigNumber(amount || 0);
@@ -2956,6 +2952,7 @@ function SendAmountInputContainer() {
                 isMaxSend: false,
                 isNFT: false,
                 isPrivateSend: true,
+                selectedUtxoTotalAmount,
                 originalRecipient: submitRecipientAddress,
                 privateSend: {
                   orderId: privateSendOrderId,
@@ -3023,6 +3020,7 @@ function SendAmountInputContainer() {
               amountToSend: realAmount,
               isMaxSend,
               isNFT,
+              selectedUtxoTotalAmount,
               originalRecipient: submitRecipientAddress,
               isToContract: submitRecipientIsContract,
               memo: recipientMemo,
@@ -3050,6 +3048,7 @@ function SendAmountInputContainer() {
       currentAccountId,
       currentSelectedUtxoKeys,
       currentUtxoSelectionStrategy,
+      selectedUtxoTotalAmount,
       displayTxMessageForm,
       form,
       isHexTxMessage,

@@ -70,7 +70,6 @@ import {
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
-  ESwapLimitOrderStatus,
   ESwapProTradeType,
   ESwapSlippageCustomStatus,
   ESwapSlippageSegmentKey,
@@ -79,10 +78,14 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { resolveStockKLineToken } from '../../hooks/swapStockChannelUtils';
+import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapRecipientAddressSettingsUpdate } from '../../utils/incognitoSettings';
-import { filterSwapMarketHistoryItems } from '../../utils/swapMarketHistory';
+import {
+  filterSwapMarketHistoryItems,
+  getSwapLimitOpenOrderCount,
+} from '../../utils/swapMarketHistory';
 import { SwapKLineContentWithProvider } from '../modal/SwapKLineContent';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -754,8 +757,9 @@ const SwapHeaderRightActionContainer = ({
 }) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const [{ swapHistoryPendingList, swapLimitOrders }] =
-    useInAppNotificationAtom();
+  const [
+    { swapHistoryPendingList, swapLimitOrders, swapLimitOrdersAccountIdKey },
+  ] = useInAppNotificationAtom();
   const intl = useIntl();
   const { gtLg } = useMedia();
   const InTabDialog = useInTabDialog();
@@ -764,6 +768,8 @@ const SwapHeaderRightActionContainer = ({
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const { shouldShowSwapLocalData, shouldShowSwapLimitOrders } =
+    useSwapLimitOrdersLocalDataVisibility(swapLimitOrdersAccountIdKey);
   const swapStoreName =
     pageType === EPageType.modal
       ? EJotaiContextStoreNames.swapModal
@@ -792,17 +798,16 @@ const SwapHeaderRightActionContainer = ({
       ),
     [historyProtocolType, swapHistoryPendingList],
   );
-  const limitOpenStatusList = useMemo(
+  const limitOpenOrderCount = useMemo(
     () =>
-      swapLimitOrders.filter(
-        (i) =>
-          i.status === ESwapLimitOrderStatus.OPEN ||
-          i.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
-      ),
-    [swapLimitOrders],
+      shouldShowSwapLimitOrders
+        ? getSwapLimitOpenOrderCount(swapLimitOrders)
+        : 0,
+    [shouldShowSwapLimitOrders, swapLimitOrders],
   );
-  const historyBadgeCount =
-    swapPendingStatusList.length + limitOpenStatusList.length;
+  const historyBadgeCount = shouldShowSwapLocalData
+    ? swapPendingStatusList.length + limitOpenOrderCount
+    : 0;
   const focusSwapPro =
     platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   const resolvedIconSize = iconSize ?? (compact ? 24 : 20);

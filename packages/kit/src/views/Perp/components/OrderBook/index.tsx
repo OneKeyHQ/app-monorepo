@@ -19,6 +19,7 @@ import {
   Popover,
   Select,
   SizableText,
+  TABULAR_NUMS,
   YStack,
   useTheme,
   useThemeName,
@@ -68,7 +69,7 @@ import { DefaultLoadingNode } from './DefaultLoadingNode';
 import { type ITickParam } from './tickSizeUtils';
 import { useAggregatedBook } from './useAggregatedBook';
 import { useRafCoalesced } from './useRafCoalesced';
-import { getMidPrice } from './utils';
+import { getOrderBookLiveMidPrice, getOrderBookMidPrice } from './utils';
 
 import type { IFormattedOBLevel, IOrderBookVariant } from './types';
 import type {
@@ -254,13 +255,19 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     width: '100%',
   },
-  monospaceText: {
-    fontFamily: platformEnv.isNative ? 'GeistMono-Regular' : 'monospace',
+  tabularText: {
+    // Not a mono face: the app font (Roobert) ships tabular figures via the
+    // `tnum` OpenType feature, so digits stay column-aligned while letters keep
+    // their natural proportional widths. Native raw <Text> can't pick a weight
+    // from a custom family via fontWeight, so name the medium face explicitly.
+    fontFamily: platformEnv.isNative ? 'Roobert-Medium' : undefined,
+    fontVariant: TABULAR_NUMS,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '500',
   },
-  monospaceTextBold: {
+  tabularTextBold: {
+    fontFamily: platformEnv.isNative ? 'Roobert-SemiBold' : undefined,
     fontWeight: '600',
   },
   interactiveRow: {
@@ -422,11 +429,11 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 999,
   },
   sideRatioLabel: {
-    fontFamily: platformEnv.isNative ? 'GeistMono-Regular' : 'monospace',
+    fontFamily: platformEnv.isNative ? 'Roobert-Medium' : undefined,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '500',
-    fontVariant: ['tabular-nums'],
+    fontVariant: TABULAR_NUMS,
   },
   sideRatioLabelCompact: {
     fontSize: 11,
@@ -462,27 +469,27 @@ const OrderBookVerticalRow = memo(
     sizeColor: string;
     isHovered?: boolean;
   }) => {
-    const fontWeightStyle = isHovered ? styles.monospaceTextBold : null;
+    const fontWeightStyle = isHovered ? styles.tabularTextBold : null;
     return (
       <DebugRenderTracker name="OrderBookVerticalRow" position="right-center">
         <View style={styles.verticalRowContainer}>
           <View style={styles.verticalRowCellPrice}>
             <PerpBookText
               style={[
-                styles.monospaceText,
+                styles.tabularText,
                 { color: priceColor },
                 fontWeightStyle,
               ]}
               numberOfLines={1}
             >
-              {item.price}
+              {item.displayPrice}
             </PerpBookText>
           </View>
           <View style={styles.verticalRowCellSize}>
             <PerpBookText
               numberOfLines={1}
               style={[
-                styles.monospaceText,
+                styles.tabularText,
                 { color: sizeColor },
                 fontWeightStyle,
               ]}
@@ -494,7 +501,7 @@ const OrderBookVerticalRow = memo(
             <PerpBookText
               numberOfLines={1}
               style={[
-                styles.monospaceText,
+                styles.tabularText,
                 { color: sizeColor },
                 fontWeightStyle,
               ]}
@@ -522,15 +529,19 @@ const useBlockColors = () => {
 
 const useTextColor = () => {
   const theme = useTheme();
-  const themeName = useThemeName();
   return useMemo(() => {
     return {
       textSubdued: theme.textSubdued.val,
       text: theme.text.val,
-      red: colorTokens[themeName].red.red11,
-      green: colorTokens[themeName].green.green11,
+      red: theme.bgCriticalStrong.val,
+      green: theme.bgAccent.val,
     };
-  }, [theme.text.val, theme.textSubdued.val, themeName]);
+  }, [
+    theme.bgAccent.val,
+    theme.bgCriticalStrong.val,
+    theme.text.val,
+    theme.textSubdued.val,
+  ]);
 };
 
 const useSideRatioColors = () => {
@@ -1011,21 +1022,21 @@ export function OrderBook({
                             <View style={styles.interactiveRowContent}>
                               <PerpBookText
                                 style={[
-                                  styles.monospaceText,
+                                  styles.tabularText,
                                   { color: textColor.textSubdued },
-                                  isHovered ? styles.monospaceTextBold : null,
+                                  isHovered ? styles.tabularTextBold : null,
                                 ]}
                               >
                                 {item.displaySize}
                               </PerpBookText>
                               <PerpBookText
                                 style={[
-                                  styles.monospaceText,
+                                  styles.tabularText,
                                   { color: textColor.green },
-                                  isHovered ? styles.monospaceTextBold : null,
+                                  isHovered ? styles.tabularTextBold : null,
                                 ]}
                               >
-                                {item.price}
+                                {item.displayPrice}
                               </PerpBookText>
                             </View>
                           );
@@ -1052,18 +1063,18 @@ export function OrderBook({
                             <View style={styles.interactiveRowContent}>
                               <PerpBookText
                                 style={[
-                                  styles.monospaceText,
+                                  styles.tabularText,
                                   { color: textColor.red },
-                                  isHovered ? styles.monospaceTextBold : null,
+                                  isHovered ? styles.tabularTextBold : null,
                                 ]}
                               >
-                                {item.price}
+                                {item.displayPrice}
                               </PerpBookText>
                               <PerpBookText
                                 style={[
-                                  styles.monospaceText,
+                                  styles.tabularText,
                                   { color: textColor.textSubdued },
-                                  isHovered ? styles.monospaceTextBold : null,
+                                  isHovered ? styles.tabularTextBold : null,
                                 ]}
                               >
                                 {item.displaySize}
@@ -1293,7 +1304,7 @@ const OrderBookPairRow = memo(
     sizeColor: string;
     isHovered?: boolean;
   }) => {
-    const fontWeightStyle = isHovered ? styles.monospaceTextBold : null;
+    const fontWeightStyle = isHovered ? styles.tabularTextBold : null;
     return (
       <DebugRenderTracker name="OrderBookPairRow" position="right-center">
         <View
@@ -1306,20 +1317,12 @@ const OrderBookPairRow = memo(
           }}
         >
           <PerpBookText
-            style={[
-              styles.monospaceText,
-              { color: priceColor },
-              fontWeightStyle,
-            ]}
+            style={[styles.tabularText, { color: priceColor }, fontWeightStyle]}
           >
-            {item.price}
+            {item.displayPrice}
           </PerpBookText>
           <PerpBookText
-            style={[
-              styles.monospaceText,
-              { color: sizeColor },
-              fontWeightStyle,
-            ]}
+            style={[styles.tabularText, { color: sizeColor }, fontWeightStyle]}
           >
             {item.displaySize}
           </PerpBookText>
@@ -1336,6 +1339,7 @@ export function OrderPairBook({
   symbol: _symbol,
   bids,
   asks,
+  liveMidPrice,
   maxLevelsPerSide = 30,
   selectedTickOption,
   onSelectLevel,
@@ -1345,6 +1349,7 @@ export function OrderPairBook({
   maxLevelsPerSide?: number;
   bids: IBookLevel[];
   asks: IBookLevel[];
+  liveMidPrice?: string;
   selectedTickOption?: ITickParam;
   onSelectLevel?: (payload: IOrderBookSelection) => void;
 }) {
@@ -1364,10 +1369,11 @@ export function OrderPairBook({
   const askDepth = useMemo(() => {
     return new BigNumber(aggregatedData.asks.at(-1)?.cumSize ?? '0');
   }, [aggregatedData.asks]);
-  const midPrice = getMidPrice(
-    parseFloat(bids[0]?.px ?? '0'),
-    parseFloat(asks[0]?.px ?? '0'),
-  );
+  const midPrice = getOrderBookMidPrice({
+    liveMidPrice,
+    bestBid: bids[0]?.px,
+    bestAsk: asks[0]?.px,
+  });
   const textColor = useTextColor();
   const blockColors = useBlockColors();
   const isInteractive = Boolean(onSelectLevel);
@@ -1562,13 +1568,22 @@ function MobileSpreadInfoContent({
   if (hasMarkPrice) {
     referencePriceDisplay = isSpot ? `≈$${localizedMarkPrice}` : markPrice;
   }
-  const emptyMidPrice =
-    hasTradingMidPrice && tradingMidPrice
-      ? formatLocalizedNumberString(tradingMidPrice)
-      : localizedMarkPrice;
-  const midPrice = isEmpty
-    ? emptyMidPrice
-    : getMidPrice(parseFloat(bestBidPx ?? '0'), parseFloat(bestAskPx ?? '0'));
+  const fallbackMidPrice = isEmpty ? markPrice : undefined;
+  const liveMidPrice = getOrderBookLiveMidPrice({
+    isSpot,
+    spotMidPrice: spotAssetCtx?.ctx?.midPrice,
+    tradingMidPrice: hasTradingMidPrice ? tradingMidPrice : undefined,
+  });
+  const resolvedMidPrice = getOrderBookMidPrice({
+    liveMidPrice: liveMidPrice || fallbackMidPrice,
+    bestBid: bestBidPx,
+    bestAsk: bestAskPx,
+  });
+  const resolvedMidPriceBN = new BigNumber(resolvedMidPrice);
+  const midPrice =
+    resolvedMidPriceBN.isFinite() && resolvedMidPriceBN.gt(0)
+      ? formatLocalizedNumberString(resolvedMidPrice)
+      : '--';
 
   useEffect(() => {
     tracePerpsMobileLayout('orderBook.mobileReferencePrice.state', {
@@ -1610,7 +1625,7 @@ function MobileSpreadInfoContent({
         renderTrigger={
           <PerpBookText
             style={[
-              styles.monospaceText,
+              styles.tabularText,
               {
                 color: textColor.text,
                 fontSize: 20,
@@ -1642,7 +1657,7 @@ function MobileSpreadInfoContent({
           isSpot ? (
             <PerpBookText
               style={[
-                styles.monospaceText,
+                styles.tabularText,
                 {
                   color: textColor.textSubdued,
                   fontSize: 11,
@@ -1656,7 +1671,7 @@ function MobileSpreadInfoContent({
           ) : (
             <DashText
               style={[
-                styles.monospaceText,
+                styles.tabularText,
                 {
                   color: textColor.textSubdued,
                   fontSize: 10,
@@ -1687,28 +1702,6 @@ function MobileSpreadInfoContent({
 }
 const MobileSpreadInfoContentMemo = memo(MobileSpreadInfoContent);
 
-const MobileEmptySpreadInfoRow = memo(
-  ({
-    isEmpty,
-    textColor,
-  }: {
-    isEmpty: boolean;
-    textColor: ReturnType<typeof useTextColor>;
-  }) => {
-    const { midPrice: tradingMidPrice, isValid: hasTradingMidPrice } =
-      useTradingPrice();
-    return (
-      <MobileSpreadInfoContentMemo
-        hasTradingMidPrice={hasTradingMidPrice}
-        isEmpty={isEmpty}
-        textColor={textColor}
-        tradingMidPrice={tradingMidPrice}
-      />
-    );
-  },
-);
-MobileEmptySpreadInfoRow.displayName = 'MobileEmptySpreadInfoRow';
-
 const MobileSpreadInfoRow = memo(
   ({
     bestAskPx,
@@ -1721,18 +1714,17 @@ const MobileSpreadInfoRow = memo(
     isEmpty: boolean;
     textColor: ReturnType<typeof useTextColor>;
   }) => {
-    if (isEmpty) {
-      return (
-        <MobileEmptySpreadInfoRow isEmpty={isEmpty} textColor={textColor} />
-      );
-    }
+    const { midPrice: tradingMidPrice, isValid: hasTradingMidPrice } =
+      useTradingPrice();
 
     return (
       <MobileSpreadInfoContentMemo
         bestAskPx={bestAskPx}
         bestBidPx={bestBidPx}
+        hasTradingMidPrice={hasTradingMidPrice}
         isEmpty={isEmpty}
         textColor={textColor}
+        tradingMidPrice={tradingMidPrice}
       />
     );
   },

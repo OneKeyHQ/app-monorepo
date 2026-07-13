@@ -379,6 +379,7 @@ export interface IColumnConfig {
   minWidth?: number;
   flex?: number;
   align?: 'left' | 'center' | 'right';
+  headerRightPadding?: number;
   onPress?: () => void;
   fixed?: boolean;
 }
@@ -822,6 +823,7 @@ export function CommonTableListView<T>({
     <XStack
       key={column.key}
       {...getColumnStyle(column)}
+      pr={column.headerRightPadding}
       justifyContent={calcCellAlign(column.align) as any}
       onPress={column.onPress}
       cursor="default"
@@ -839,7 +841,7 @@ export function CommonTableListView<T>({
               borderBottomColor="$border"
               borderStyle="dashed"
               cursor="help"
-              color={column.onPress ? '$textSuccess' : headerTextColor}
+              color={column.onPress ? '$bgAccent' : headerTextColor}
               textAlign={column.align || 'left'}
             >
               {column.title}
@@ -852,7 +854,7 @@ export function CommonTableListView<T>({
           size="$bodySmMedium"
           borderBottomWidth="$px"
           borderBottomColor="transparent"
-          color={column.onPress ? '$textSuccess' : headerTextColor}
+          color={column.onPress ? '$bgAccent' : headerTextColor}
           textAlign={column.align || 'left'}
         >
           {column.title}

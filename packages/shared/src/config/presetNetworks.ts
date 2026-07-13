@@ -2176,10 +2176,10 @@ const ton: IServerNetwork = {
   'name': 'TON',
   'shortcode': 'ton',
   'shortname': 'ton',
-  'symbol': 'TON',
+  'symbol': 'GRAM',
   'feeMeta': {
     'decimals': 9,
-    'symbol': 'TON',
+    'symbol': 'GRAM',
   },
   'defaultEnabled': true,
   'status': ENetworkStatus.LISTED,

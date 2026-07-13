@@ -162,3 +162,4 @@ apps/mobile/android/app/src/main/assets/modules.json
 
 # Local Windows perf remote config (host-specific, do not commit)
 development/scripts/.windows-perf.env
+/apps/web/out-dir-analysis

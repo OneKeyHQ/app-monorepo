@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { LottieView, Stack, useTheme } from '@onekeyhq/components';
-import type { IStackStyle } from '@onekeyhq/components';
+import type { IDialogInstance, IStackStyle } from '@onekeyhq/components';
 import TradingViewChartLoadingAnimation from '@onekeyhq/kit/assets/animations/swap_order_pending.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -151,7 +151,16 @@ const useSymbolSync = ({
         symbol,
       };
     }
-  }, [displayCoin, displayPair, enabled, sendSymbolChange, symbol, webRef]);
+  }, [
+    displayCoin,
+    displayPair,
+    enabled,
+    sendProtocolRequest,
+    sendProtocolSymbolPatch,
+    sendSymbolChange,
+    symbol,
+    webRef,
+  ]);
 
   // Re-sync symbol when chart becomes ready to catch messages lost during iframe load
   useEffect(() => {
@@ -342,6 +351,15 @@ export function TradingViewPerpsV2(
     useState<string | null>(null);
   const hasPerpsReadyRef = useRef(false);
   const lastHandledRestoreNonceRef = useRef(0);
+  const chartOrderDialogRef = useRef<IDialogInstance | null>(null);
+
+  const closeChartOrderDialog = useCallback(() => {
+    const dialog = chartOrderDialogRef.current;
+    chartOrderDialogRef.current = null;
+    if (dialog?.isExist()) {
+      void dialog.close();
+    }
+  }, []);
 
   const isChartLinesReady = chartLinesReadyWebviewKey === _webviewKey;
   const isChartContentReady = chartContentReadyWebviewKey === _webviewKey;
@@ -362,8 +380,19 @@ export function TradingViewPerpsV2(
     setMounted({ mounted: true });
     return () => {
       setMounted({ mounted: false });
+      closeChartOrderDialog();
     };
-  }, [setMounted]);
+  }, [closeChartOrderDialog, setMounted]);
+
+  const latestSymbolRef = useRef(symbol);
+  latestSymbolRef.current = symbol;
+  const prevSymbolRef = useRef(symbol);
+  useEffect(() => {
+    if (prevSymbolRef.current !== symbol) {
+      closeChartOrderDialog();
+      prevSymbolRef.current = symbol;
+    }
+  }, [closeChartOrderDialog, symbol]);
 
   const { handleNavigation } = useNavigationHandler();
 
@@ -427,11 +456,13 @@ export function TradingViewPerpsV2(
   const {
     handleProtocolMessage,
     isRuntimeReady: isChartProtocolRuntimeReady,
+    runtimeGeneration: chartProtocolRuntimeGeneration,
     sendNotification: sendChartProtocolNotification,
     sendRequest: sendChartProtocolRequest,
   } = useChartProtocolBridge({
     webRef,
     enabled: isOfflineChart,
+    runtimeKey: _webviewKey,
     onWidgetReady: handleProtocolWidgetReady,
     onFeatureReady: handleProtocolFeatureReady,
     onRenderReady: handleProtocolWidgetReady,
@@ -449,11 +480,14 @@ export function TradingViewPerpsV2(
     [displayCoin, displayPair, enablePerpsTradingUi, symbol],
   );
 
-  const lastOfflineConfigKeyRef = useRef<string | null>(null);
+  const lastOfflineConfigRef = useRef<{
+    configKey: string;
+    runtimeGeneration: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!isOfflineChart) {
-      lastOfflineConfigKeyRef.current = null;
+      lastOfflineConfigRef.current = null;
       return;
     }
     if (!isChartProtocolRuntimeReady || !webRef.current) {
@@ -461,20 +495,34 @@ export function TradingViewPerpsV2(
     }
 
     const configKey = JSON.stringify(offlineRuntimeConfig);
-    if (lastOfflineConfigKeyRef.current === configKey) {
+    const lastConfig = lastOfflineConfigRef.current;
+    if (
+      lastConfig?.configKey === configKey &&
+      lastConfig.runtimeGeneration === chartProtocolRuntimeGeneration
+    ) {
       return;
     }
 
-    const mode = lastOfflineConfigKeyRef.current ? 'patch' : 'replace';
-    lastOfflineConfigKeyRef.current = configKey;
+    const mode =
+      lastConfig?.runtimeGeneration === chartProtocolRuntimeGeneration
+        ? 'patch'
+        : 'replace';
+    const currentConfig = {
+      configKey,
+      runtimeGeneration: chartProtocolRuntimeGeneration,
+    };
+    lastOfflineConfigRef.current = currentConfig;
     void sendChartProtocolRequest('chart.applyConfig', {
       mode,
       config: offlineRuntimeConfig,
     }).catch((error) => {
-      lastOfflineConfigKeyRef.current = null;
+      if (lastOfflineConfigRef.current === currentConfig) {
+        lastOfflineConfigRef.current = null;
+      }
       console.error('[TradingViewPerpsV2] chart.applyConfig failed:', error);
     });
   }, [
+    chartProtocolRuntimeGeneration,
     isChartProtocolRuntimeReady,
     isOfflineChart,
     offlineRuntimeConfig,
@@ -637,8 +685,11 @@ export function TradingViewPerpsV2(
       // Fire-and-forget handler: self-own errors to avoid unhandled rejections.
       try {
         if (payload.intent === 'limitEntry') {
-          const isCurrentSymbolIntent = payload.symbol === symbol;
-          showLimitOrderDialog({
+          const isCurrentSymbolIntent =
+            payload.symbol === latestSymbolRef.current;
+          if (!isCurrentSymbolIntent) return;
+          closeChartOrderDialog();
+          chartOrderDialogRef.current = showLimitOrderDialog({
             symbol: payload.symbol,
             price: payload.price,
             displayPair: isCurrentSymbolIntent ? displayPair : undefined,
@@ -653,7 +704,9 @@ export function TradingViewPerpsV2(
               coin: payload.symbol,
             });
           if (!meta) return;
-          showSetTpslDialog({
+          if (payload.symbol !== latestSymbolRef.current) return;
+          closeChartOrderDialog();
+          chartOrderDialogRef.current = showSetTpslDialog({
             coin: payload.symbol,
             szDecimals: meta.universe?.szDecimals ?? 0,
             assetId: meta.assetId,
@@ -666,7 +719,13 @@ export function TradingViewPerpsV2(
         console.error('[TradingViewPerpsV2] onChartOrderIntent failed:', error);
       }
     },
-    [displayCoin, displayPair, enablePerpsTradingUi, intl, symbol],
+    [
+      closeChartOrderDialog,
+      displayCoin,
+      displayPair,
+      enablePerpsTradingUi,
+      intl,
+    ],
   );
 
   const rejectOrderPriceUpdate = useCallback(
@@ -777,6 +836,7 @@ export function TradingViewPerpsV2(
         containerStyle={tradingViewWebViewStyleProps.containerStyle}
         style={tradingViewWebViewStyleProps.style}
         customReceiveHandler={customReceiveHandler}
+        skipBackgroundBridge
         onWebViewRef={onWebViewRef}
         onLoadEnd={onLoadEnd}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}

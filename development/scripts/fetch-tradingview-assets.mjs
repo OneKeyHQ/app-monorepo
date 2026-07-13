@@ -8,10 +8,11 @@
  * `gh auth token` fallback. No token skips silently unless
  * TRADINGVIEW_ASSETS_REQUIRED=1 is set.
  *
- * Version: set TRADINGVIEW_CHART_PACKAGE_VERSION to pin a specific package
- * version. When omitted, the package's latest dist-tag is used.
+ * The package version is pinned below so every platform in a release stages
+ * identical, reviewable chart bytes.
  */
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   cpSync,
   mkdirSync,
@@ -25,6 +26,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PKG = '@onekeyhq/tradingview-charting-library';
+const VERSION = '0.1.19';
 const REGISTRY = 'https://npm.pkg.github.com';
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -110,17 +112,14 @@ if (!metaRes.ok) {
 }
 
 const meta = await metaRes.json();
-const version =
-  process.env.TRADINGVIEW_CHART_PACKAGE_VERSION || meta?.['dist-tags']?.latest;
-if (!version) {
-  fail(
-    'TRADINGVIEW_CHART_PACKAGE_VERSION is not set and package metadata has no latest dist-tag',
-  );
-}
-
-const tarballUrl = meta?.versions?.[version]?.dist?.tarball;
+const packageDist = meta?.versions?.[VERSION]?.dist;
+const tarballUrl = packageDist?.tarball;
 if (!tarballUrl) {
-  fail(`version ${version} not found in registry metadata for ${PKG}`);
+  fail(`version ${VERSION} not found in registry metadata for ${PKG}`);
+}
+const tarballIntegrity = packageDist?.integrity;
+if (!tarballIntegrity) {
+  fail(`registry metadata has no integrity for ${PKG}@${VERSION}`);
 }
 
 const expectedOrigin = new URL(REGISTRY).origin;
@@ -136,9 +135,32 @@ if (!tgzRes.ok) {
   fail(`tarball download failed: ${tgzRes.status} ${tgzRes.statusText}`);
 }
 
+const tgzBuffer = Buffer.from(await tgzRes.arrayBuffer());
+const integrityMatches = tarballIntegrity
+  .trim()
+  .split(/\s+/)
+  .some((entry) => {
+    const separatorIndex = entry.indexOf('-');
+    if (separatorIndex <= 0) {
+      return false;
+    }
+    const algorithm = entry.slice(0, separatorIndex);
+    const expectedDigest = entry.slice(separatorIndex + 1);
+    if (!['sha256', 'sha384', 'sha512'].includes(algorithm)) {
+      return false;
+    }
+    const actualDigest = createHash(algorithm)
+      .update(tgzBuffer)
+      .digest('base64');
+    return actualDigest === expectedDigest;
+  });
+if (!integrityMatches) {
+  fail(`tarball integrity mismatch for ${PKG}@${VERSION}`);
+}
+
 const tmp = mkdtempSync(join(tmpdir(), 'tv-assets-'));
 const tgzPath = join(tmp, 'pkg.tgz');
-writeFileSync(tgzPath, Buffer.from(await tgzRes.arrayBuffer()));
+writeFileSync(tgzPath, tgzBuffer);
 
 try {
   execFileSync('tar', ['-xzf', tgzPath, '-C', tmp, 'package/dist'], {
@@ -159,13 +181,13 @@ try {
 
 if (distEntries.length === 0) {
   rmSync(tmp, { recursive: true, force: true });
-  fail(`extracted dist/ is empty for ${PKG}@${version}`);
+  fail(`extracted dist/ is empty for ${PKG}@${VERSION}`);
 }
 
 rmSync(DEST_DIR, { recursive: true, force: true });
 mkdirSync(DEST_DIR, { recursive: true });
 cpSync(distSrc, DEST_DIR, { recursive: true });
 console.log(
-  `[tradingview-assets] staged ${PKG}@${version} dist -> ${DEST_DIR}`,
+  `[tradingview-assets] staged ${PKG}@${VERSION} dist -> ${DEST_DIR}`,
 );
 rmSync(tmp, { recursive: true, force: true });

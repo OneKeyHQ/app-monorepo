@@ -16,6 +16,12 @@ class ServiceBootstrap extends ServiceBase {
 
   public async init() {
     await this.initCritical();
+    if (platformEnv.isWeb || platformEnv.isDesktop) {
+      setTimeout(() => {
+        void this.initDeferred();
+      }, 6000);
+      return;
+    }
     void this.initDeferred();
   }
 
@@ -38,16 +44,6 @@ class ServiceBootstrap extends ServiceBase {
     defaultLogger.app.bootstrap.initCriticalStart();
     const criticalStart = Date.now();
     await this.timed('localDb.readyDb', () => localDb.readyDb);
-    try {
-      await this.timed('initTradingViewChartMigrationState', () =>
-        this.backgroundApi.serviceApp.initTradingViewChartMigrationState(),
-      );
-    } catch (_error) {
-      defaultLogger.app.bootstrap.initCriticalStep(
-        'initTradingViewChartMigrationState (FAILED)',
-        0,
-      );
-    }
     try {
       await this.timed('initSystemLocale', () =>
         this.backgroundApi.serviceSetting.initSystemLocale(),
@@ -78,6 +74,14 @@ class ServiceBootstrap extends ServiceBase {
    */
   public async initDeferred() {
     const deferredStart = Date.now();
+
+    // Wallet backup-status diagnostics: sample the persisted appStatus raw
+    // BEFORE any deferred task runs — several concurrent migrations below
+    // write simpleDb.appStatus, and a sample taken after their setRawData
+    // would misreport a freshly-created appStatus as pre-boot on-disk state.
+    // Synchronous kick (the read is awaited later inside
+    // migrateHdWalletsBackedUpStatus), so bootstrap is not delayed.
+    this.backgroundApi.serviceAccount.startBackupMigrationBootRawSample();
 
     const timedDeferred = async (label: string, fn: () => Promise<unknown>) => {
       const start = Date.now();

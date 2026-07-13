@@ -3,6 +3,8 @@ import { getDesktopOfflineChartReady } from '../utils/desktopOfflineChartReady';
 export const CHART_MIGRATION_EXPORT_MIN_RETRY_INTERVAL_MS = 60 * 1000;
 export const CHART_MIGRATION_EXPORT_TIMEOUT_MS = 30 * 1000;
 export const CHART_MIGRATION_RESTORE_ACK_TIMEOUT_MS = 30 * 1000;
+export const CHART_MIGRATION_RESTORE_MAX_ATTEMPTS = 3;
+export const CHART_MIGRATION_RESTORE_RETRY_DELAY_MS = 1000;
 
 export const CHART_MIGRATION_KEY_PREFIX = 'tradingview';
 

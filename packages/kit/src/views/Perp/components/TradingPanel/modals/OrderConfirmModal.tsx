@@ -25,7 +25,10 @@ import {
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  formatLocalizedNumberString,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatPriceToSignificantDigits,
   formatSpotPriceToValid,
@@ -68,7 +71,7 @@ function formatOrderPriceDisplay({
   const formattedPrice = isSpot
     ? formatSpotPriceToValid(price, szDecimals)
     : formatPriceToSignificantDigits(price, szDecimals);
-  return `$${formattedPrice}`;
+  return `$${formatLocalizedNumberString(formattedPrice)}`;
 }
 
 interface IOrderConfirmContentProps {
@@ -864,7 +867,7 @@ function OrderConfirmContent({
           {...buttonStyleProps}
           childrenAsText={false}
         >
-          <SizableText size="$bodyMdMedium" color="$textOnColor">
+          <SizableText size="$bodyMdMedium" color={buttonStyleProps.textColor}>
             {buttonText}
           </SizableText>
         </Button>

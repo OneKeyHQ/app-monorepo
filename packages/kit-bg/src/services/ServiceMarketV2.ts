@@ -59,12 +59,17 @@ type IMarketTokenListRequestParams = {
   minLiquidity?: number;
   maxLiquidity?: number;
   type?: string;
+  category?: string;
   timeFrame?: string;
 };
 
 type INormalizedMarketTokenListRequestParams = IMarketTokenListRequestParams & {
   page: number;
   limit: number;
+};
+
+type IFetchMarketTokenListOptions = {
+  forceRemote?: boolean;
 };
 
 @backgroundClass()
@@ -145,6 +150,7 @@ class ServiceMarketV2 extends ServiceBase {
     minLiquidity,
     maxLiquidity,
     type,
+    category,
     timeFrame,
   }: INormalizedMarketTokenListRequestParams) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
@@ -162,6 +168,7 @@ class ServiceMarketV2 extends ServiceBase {
         minLiquidity,
         maxLiquidity,
         type,
+        category,
         timeFrame,
         currency: 'usd',
       },
@@ -268,30 +275,37 @@ class ServiceMarketV2 extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchMarketTokenList({
-    networkId,
-    sortBy,
-    sortType,
-    page = 1,
-    limit = 20,
-    minLiquidity,
-    maxLiquidity,
-    type,
-    timeFrame,
-  }: IMarketTokenListRequestParams) {
-    return this.memoizedFetchMarketTokenList(
-      this._normalizeMarketTokenListParams({
-        networkId,
-        sortBy,
-        sortType,
-        page,
-        limit,
-        minLiquidity,
-        maxLiquidity,
-        type,
-        timeFrame,
-      }),
-    );
+  async fetchMarketTokenList(
+    {
+      networkId,
+      sortBy,
+      sortType,
+      page = 1,
+      limit = 20,
+      minLiquidity,
+      maxLiquidity,
+      type,
+      category,
+      timeFrame,
+    }: IMarketTokenListRequestParams,
+    options?: IFetchMarketTokenListOptions,
+  ) {
+    const normalizedParams = this._normalizeMarketTokenListParams({
+      networkId,
+      sortBy,
+      sortType,
+      page,
+      limit,
+      minLiquidity,
+      maxLiquidity,
+      type,
+      category,
+      timeFrame,
+    });
+    if (options?.forceRemote) {
+      return this._fetchMarketTokenListFromApi(normalizedParams);
+    }
+    return this.memoizedFetchMarketTokenList(normalizedParams);
   }
 
   @backgroundMethod()

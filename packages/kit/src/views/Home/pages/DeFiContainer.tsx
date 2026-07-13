@@ -21,6 +21,8 @@ import {
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import { useTabsContext } from '@onekeyhq/components/src/composite/Tabs/context';
+import { useTabNameContextSafe } from '@onekeyhq/components/src/composite/Tabs/TabNameContext';
 import {
   useSettingsPersistAtom,
   useSettingsValuePersistAtom,
@@ -76,8 +78,9 @@ import {
 // Page.Container is now layout="full" so the scroll container fills the
 // viewport, and visual max-width is enforced one level down per content block.
 const DEFI_CONTAINER_CONTENT_MAX_WIDTH = 1140;
-const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 const PROTOCOL_NAV_PENDING_TARGET_TIMEOUT_MS = 5000;
+const DEFI_TAB_REMEASURE_DELAYS_MS = [100, 350, 800] as const;
+const DEFI_TAB_CONTENT_TEST_ID = 'home-defi-tab-content';
 
 function scrollToAnchor(
   anchor: HTMLElement,
@@ -109,6 +112,8 @@ function DeFiContainer() {
   const media = useMedia();
   const reducedMotion = useReducedMotion();
   const intl = useIntl();
+  const currentTabName = useTabNameContextSafe();
+  const { requestRemeasure, scrollTabElementsRef } = useTabsContext();
 
   const tableLayout = media.gtMd;
 
@@ -160,6 +165,7 @@ function DeFiContainer() {
 
   const triggerPinCheckRef = useRef<() => void>(() => {});
   const scrollContainerRef = useRef<HTMLElement | null>(null);
+  const reportedDeFiTabContentRef = useRef<HTMLElement | null>(null);
   const protocolRefs = useRef<Map<string, IProtocolHandle>>(new Map());
   // Read by pin tracker each scroll frame; ref avoids effect teardown on remeasure.
   const chipStripHeightRef = useRef<number>(0);
@@ -447,6 +453,88 @@ function DeFiContainer() {
   const shouldShowChipStrip =
     tableLayout && !isOverviewLoading && filteredProtocols.length >= 2;
 
+  const reportDeFiContentHeight = useCallback(() => {
+    if (platformEnv.isNative || !isTabFocused || !currentTabName) {
+      return;
+    }
+
+    const element = globalThis.document?.querySelector?.(
+      `[data-testid="${DEFI_TAB_CONTENT_TEST_ID}"]`,
+    );
+    const refStore = scrollTabElementsRef?.current;
+    if (!(element instanceof HTMLElement) || !refStore) {
+      return;
+    }
+
+    const nextHeight = Math.max(
+      element.scrollHeight || 0,
+      element.clientHeight || 0,
+      element.getBoundingClientRect().height || 0,
+    );
+    if (!Number.isFinite(nextHeight) || nextHeight <= 0) {
+      return;
+    }
+
+    if (!refStore[currentTabName]) {
+      refStore[currentTabName] = {} as {
+        element: HTMLElement;
+        height?: number;
+      };
+    }
+    const entry = refStore[currentTabName];
+    const didChange =
+      entry.element !== element ||
+      Math.abs((entry.height ?? 0) - nextHeight) > 1;
+    if (!didChange) {
+      return;
+    }
+
+    entry.element = element;
+    entry.height = nextHeight;
+    reportedDeFiTabContentRef.current = element;
+    requestRemeasure?.();
+  }, [currentTabName, isTabFocused, requestRemeasure, scrollTabElementsRef]);
+
+  useEffect(() => {
+    if (platformEnv.isNative || !isTabFocused) {
+      return undefined;
+    }
+
+    reportDeFiContentHeight();
+    const refStore = scrollTabElementsRef?.current;
+    const frame = requestAnimationFrame(reportDeFiContentHeight);
+    const timers = DEFI_TAB_REMEASURE_DELAYS_MS.map((delay) =>
+      setTimeout(reportDeFiContentHeight, delay),
+    );
+
+    return () => {
+      cancelAnimationFrame(frame);
+      timers.forEach(clearTimeout);
+      const reportedElement = reportedDeFiTabContentRef.current;
+      const entry = currentTabName ? refStore?.[currentTabName] : undefined;
+      if (entry?.element === reportedElement) {
+        delete refStore[currentTabName];
+        reportedDeFiTabContentRef.current = null;
+        requestRemeasure?.();
+      }
+    };
+  }, [
+    addPaddingOnListFooter,
+    currentTabName,
+    filteredProtocols.length,
+    isDeFiEnabled,
+    isOverviewLoading,
+    isTabFocused,
+    portfolioStats.slices.length,
+    protocols?.length,
+    requestRemeasure,
+    reportDeFiContentHeight,
+    scrollTabElementsRef,
+    shouldShowChipStrip,
+    shouldShowOverview,
+    tableLayout,
+  ]);
+
   // When the strip unmounts (data not ready, dropped below threshold),
   // reset the height ref so the next scrollToAnchor / pin tracker pass
   // uses an accurate sticky line again, and force the reveal shared value
@@ -688,6 +776,7 @@ function DeFiContainer() {
     return (
       <>
         <YStack
+          testID={DEFI_TAB_CONTENT_TEST_ID}
           pt="$4"
           pb="$8"
           width="100%"
@@ -710,11 +799,7 @@ function DeFiContainer() {
                 // approximate a typical "$XX,XXX.XX" measurement.
                 <Skeleton.HeadingXl w={120} />
               ) : (
-                <SizableText
-                  size="$headingXl"
-                  color="$textSubdued"
-                  fontVariant={TABULAR_NUMS}
-                >
+                <SizableText size="$headingXl" color="$textSubdued">
                   {formatPortfolioTotal(
                     portfolioStats.total,
                     currencySymbol,
@@ -776,7 +861,7 @@ function DeFiContainer() {
   }
 
   return (
-    <YStack gap="$6" pb="$5">
+    <YStack testID={DEFI_TAB_CONTENT_TEST_ID} gap="$6" pb="$5">
       <DeFiListBlock />
       <Upgrade />
       <SupportHub />

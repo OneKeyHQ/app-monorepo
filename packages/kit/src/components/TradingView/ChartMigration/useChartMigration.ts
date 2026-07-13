@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { ITradingViewChartMigration } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAppStatus';
@@ -13,9 +13,13 @@ export type IChartMigrationPhase = 'idle' | 'export' | 'restore';
 export function useChartMigration(): {
   phase: IChartMigrationPhase;
   blob: Record<string, string> | undefined;
+  restoreAttemptCount: number;
+  handleExported: (items: Record<string, string>) => void;
+  handleRestored: () => void;
 } {
   const [phase, setPhase] = useState<IChartMigrationPhase>('idle');
   const [blob, setBlob] = useState<Record<string, string> | undefined>();
+  const [restoreAttemptCount, setRestoreAttemptCount] = useState(0);
 
   useEffect(() => {
     if (!isChartMigrationEffectivelyOffline()) {
@@ -43,6 +47,7 @@ export function useChartMigration(): {
         setPhase('export');
       } else if (state === 'restore-pending') {
         setBlob(storedBlob);
+        setRestoreAttemptCount(migration?.restoreAttemptCount ?? 0);
         setPhase(storedBlob ? 'restore' : 'idle');
       }
     })();
@@ -52,5 +57,28 @@ export function useChartMigration(): {
     };
   }, []);
 
-  return { phase, blob };
+  const handleExported = useCallback((items: Record<string, string>) => {
+    if (Object.keys(items).length === 0) {
+      setBlob(undefined);
+      setPhase('idle');
+      return;
+    }
+    setBlob(items);
+    setRestoreAttemptCount(0);
+    setPhase('restore');
+  }, []);
+
+  const handleRestored = useCallback(() => {
+    setBlob(undefined);
+    setRestoreAttemptCount(0);
+    setPhase('idle');
+  }, []);
+
+  return {
+    phase,
+    blob,
+    restoreAttemptCount,
+    handleExported,
+    handleRestored,
+  };
 }

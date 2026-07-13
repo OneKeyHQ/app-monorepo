@@ -14,6 +14,7 @@ export type ITradingViewChartMigrationState =
   | 'export-deferred'
   | 'export-empty'
   | 'restore-pending'
+  | 'restore-failed'
   | 'done'
   | 'skipped-first-install';
 
@@ -21,6 +22,9 @@ export type ITradingViewChartMigration = {
   state: ITradingViewChartMigrationState;
   lastAttemptAt?: number;
   exportedAt?: number;
+  restoreAttemptCount?: number;
+  lastRestoreAttemptAt?: number;
+  lastRestoreFailureReason?: 'ack-timeout' | 'protocol-error';
 };
 
 export interface ISimpleDBAppStatus {

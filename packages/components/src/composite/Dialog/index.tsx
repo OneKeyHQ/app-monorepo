@@ -1,4 +1,4 @@
-import type { ForwardedRef } from 'react';
+import type { ComponentProps, ForwardedRef } from 'react';
 import {
   cloneElement,
   createRef,
@@ -29,6 +29,10 @@ import {
   TMDialog,
 } from '@onekeyhq/components/src/shared/tamagui';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  createLazyModuleComponent,
+  preloadLazyComponents,
+} from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -37,7 +41,6 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { Toast } from '../../actions/Toast';
 import { Keyboard } from '../../content/Keyboard';
 import { SheetGrabber } from '../../content/SheetGrabber';
-import { Form } from '../../forms/Form';
 import {
   EPageType,
   EPortalContainerConstantName,
@@ -61,7 +64,6 @@ import {
 
 import { Content } from './Content';
 import { DialogContext } from './context';
-import { DialogForm } from './DialogForm';
 import { addDialogInstance, removeDialogInstance } from './dialogInstances';
 import { Footer, FooterAction } from './Footer';
 import {
@@ -80,6 +82,7 @@ import type {
   IDialogCancelProps,
   IDialogConfirmProps,
   IDialogContainerProps,
+  IDialogFormProps,
   IDialogHeaderProps,
   IDialogInstance,
   IDialogProps,
@@ -90,6 +93,50 @@ import type { UseFormReturn } from '../../hooks';
 import type { IYStackProps } from '../../primitives';
 import type { IColorTokens } from '../../types';
 import type { GestureResponderEvent } from 'react-native';
+
+type IDialogFormModule = typeof import('./DialogForm');
+type IDialogFormFieldProps = ComponentProps<
+  (typeof import('./DialogForm'))['DialogFormField']
+>;
+
+let loadDialogFormModulePromise: Promise<IDialogFormModule> | undefined;
+function loadDialogFormModule() {
+  if (!loadDialogFormModulePromise) {
+    loadDialogFormModulePromise = import('./DialogForm')
+      .then(async (dialogFormModule) => {
+        await dialogFormModule.preloadDialogForm();
+        return dialogFormModule;
+      })
+      .catch((error: unknown) => {
+        loadDialogFormModulePromise = undefined;
+        throw error;
+      });
+  }
+  return loadDialogFormModulePromise;
+}
+
+const LazyDialogFormFieldComponent = createLazyModuleComponent<
+  IDialogFormFieldProps,
+  IDialogFormModule
+>(loadDialogFormModule, ({ DialogFormField }) => DialogFormField);
+
+async function loadDialogFormComponentModule() {
+  const dialogFormModule = await loadDialogFormModule();
+  await LazyDialogFormFieldComponent.preload();
+  return dialogFormModule;
+}
+
+const LazyDialogFormComponent = createLazyModuleComponent<
+  IDialogFormProps,
+  IDialogFormModule
+>(loadDialogFormComponentModule, ({ DialogForm }) => DialogForm);
+
+export function preloadDialogFormComponents() {
+  return preloadLazyComponents([
+    LazyDialogFormComponent,
+    LazyDialogFormFieldComponent,
+  ]);
+}
 
 export * from './dialogInstances';
 export * from './hooks';
@@ -792,8 +839,9 @@ export const Dialog = {
   HyperlinkTextDescription: DialogHyperlinkTextDescription,
   Icon: DialogIcon,
   Footer: FooterAction,
-  Form: DialogForm,
-  FormField: Form.Field,
+  Form: LazyDialogFormComponent,
+  FormField: LazyDialogFormFieldComponent,
+  preloadForm: preloadDialogFormComponents,
   Loading: DialogLoadingView,
   show: dialogShow,
   confirm: dialogConfirm,

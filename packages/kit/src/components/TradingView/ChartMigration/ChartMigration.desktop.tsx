@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   TRADING_VIEW_URL,
   TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebView from '../../WebView';
+import { EDesktopWebViewPreloadKind } from '../../WebView/types';
 import { useTradingViewUrl } from '../hooks';
 import { useChartProtocolBridge } from '../protocol/useChartProtocolBridge';
 
@@ -17,6 +18,8 @@ import {
   CHART_MIGRATION_EXPORT_EVAL_JS,
   CHART_MIGRATION_EXPORT_TIMEOUT_MS,
   CHART_MIGRATION_RESTORE_ACK_TIMEOUT_MS,
+  CHART_MIGRATION_RESTORE_MAX_ATTEMPTS,
+  CHART_MIGRATION_RESTORE_RETRY_DELAY_MS,
   buildRestoreStorageMessage,
   nextChartMigrationRequestId,
   parseRestoreAck,
@@ -24,26 +27,47 @@ import {
 
 import type { IElectronWebView, IWebViewRef } from '../../WebView/types';
 
-const OLD_ORIGIN_URL = platformEnv.isProduction
-  ? TRADING_VIEW_URL
-  : TRADING_VIEW_URL_TEST;
+const OLD_ORIGIN_URLS = [TRADING_VIEW_URL, TRADING_VIEW_URL_TEST] as const;
 
 type IElectronWebViewWithEval = Omit<IElectronWebView, 'executeJavaScript'> & {
   executeJavaScript: (code: string) => Promise<unknown>;
 };
 
-function ExportHost() {
+type IChartMigrationExportResult =
+  | { ok: true; items: Record<string, string> }
+  | { ok: false };
+
+function ExportSourceHost({
+  sourceUrl,
+  onSettled,
+}: {
+  sourceUrl: string;
+  onSettled: (sourceUrl: string, result: IChartMigrationExportResult) => void;
+}) {
   const settledRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const webRef = useRef<IWebViewRef | null>(null);
+
+  const settle = useCallback(
+    (result: IChartMigrationExportResult) => {
+      if (settledRef.current) {
+        return;
+      }
+      settledRef.current = true;
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+      onSettled(sourceUrl, result);
+    },
+    [onSettled, sourceUrl],
+  );
 
   const fail = useCallback(() => {
     if (settledRef.current) {
       return;
     }
-    settledRef.current = true;
-    void backgroundApiProxy.serviceApp.markTradingViewChartMigrationAttempt();
-  }, []);
+    settle({ ok: false });
+  }, [settle]);
 
   const exportNow = useCallback(() => {
     if (settledRef.current) {
@@ -69,18 +93,12 @@ function ExportHost() {
         const items = (
           typeof raw === 'string' ? JSON.parse(raw) : {}
         ) as Record<string, string>;
-        settledRef.current = true;
-        if (timerRef.current) {
-          clearTimeout(timerRef.current);
-        }
-        await backgroundApiProxy.serviceApp.setTradingViewChartMigrationExported(
-          { blob: items },
-        );
+        settle({ ok: true, items });
       } catch {
         fail();
       }
     })();
-  }, [fail]);
+  }, [fail, settle]);
 
   const handleWebViewRef = useCallback((ref: IWebViewRef | null) => {
     webRef.current = ref;
@@ -106,7 +124,7 @@ function ExportHost() {
       pointerEvents="none"
     >
       <WebView
-        src={OLD_ORIGIN_URL}
+        src={sourceUrl}
         partition="persist:onekey"
         disableBridge
         onWebViewRef={handleWebViewRef}
@@ -119,12 +137,90 @@ function ExportHost() {
   );
 }
 
-function RestoreHost({ blob }: { blob: Record<string, string> }) {
+function ExportHost({
+  onExported,
+}: {
+  onExported: (items: Record<string, string>) => void;
+}) {
+  const [devSettings] = useDevSettingsPersistAtom();
+  const resultsRef = useRef<Map<string, IChartMigrationExportResult>>(
+    new Map(),
+  );
+  const finalizedRef = useRef(false);
+
+  const handleSettled = useCallback(
+    (sourceUrl: string, result: IChartMigrationExportResult) => {
+      if (finalizedRef.current || resultsRef.current.has(sourceUrl)) {
+        return;
+      }
+      resultsRef.current.set(sourceUrl, result);
+      if (resultsRef.current.size < OLD_ORIGIN_URLS.length) {
+        return;
+      }
+      finalizedRef.current = true;
+
+      const preferredOrigin = devSettings.enabled
+        ? TRADING_VIEW_URL_TEST
+        : TRADING_VIEW_URL;
+      const mergeOrder = [
+        ...OLD_ORIGIN_URLS.filter((url) => url !== preferredOrigin),
+        preferredOrigin,
+      ];
+      const items: Record<string, string> = {};
+      let hasFailure = false;
+      mergeOrder.forEach((url) => {
+        const sourceResult = resultsRef.current.get(url);
+        if (sourceResult?.ok) {
+          Object.assign(items, sourceResult.items);
+        } else {
+          hasFailure = true;
+        }
+      });
+
+      void (async () => {
+        if (hasFailure && Object.keys(items).length === 0) {
+          await backgroundApiProxy.serviceApp.markTradingViewChartMigrationAttempt();
+          return;
+        }
+        try {
+          await backgroundApiProxy.serviceApp.setTradingViewChartMigrationExported(
+            { blob: items },
+          );
+          onExported(items);
+        } catch {
+          await backgroundApiProxy.serviceApp.markTradingViewChartMigrationAttempt();
+        }
+      })();
+    },
+    [devSettings.enabled, onExported],
+  );
+
+  return OLD_ORIGIN_URLS.map((sourceUrl) => (
+    <ExportSourceHost
+      key={sourceUrl}
+      sourceUrl={sourceUrl}
+      onSettled={handleSettled}
+    />
+  ));
+}
+
+function RestoreHost({
+  blob,
+  initialRestoreAttemptCount,
+  onRestored,
+}: {
+  blob: Record<string, string>;
+  initialRestoreAttemptCount: number;
+  onRestored: () => void;
+}) {
   const webRef = useRef<IWebViewRef | null>(null);
   const sentRef = useRef(false);
   const doneRef = useRef(false);
+  const attemptCountRef = useRef(initialRestoreAttemptCount);
   const requestIdRef = useRef<string>('');
   const ackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [retryTrigger, setRetryTrigger] = useState(0);
 
   const { finalUrl, isOfflineChart } = useTradingViewUrl({
     additionalParams: {
@@ -140,7 +236,51 @@ function RestoreHost({ blob }: { blob: Record<string, string> }) {
   } = useChartProtocolBridge({
     webRef,
     enabled: isOfflineChart,
+    runtimeKey: finalUrl,
   });
+
+  const completeRestore = useCallback(async () => {
+    if (doneRef.current) {
+      return;
+    }
+    await backgroundApiProxy.serviceApp.setTradingViewChartMigrationDone();
+    doneRef.current = true;
+    if (ackTimerRef.current) {
+      clearTimeout(ackTimerRef.current);
+    }
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+    }
+    onRestored();
+  }, [onRestored]);
+
+  const recordFailureAndScheduleRetry = useCallback(
+    (reason: 'ack-timeout' | 'protocol-error') => {
+      if (doneRef.current) {
+        return;
+      }
+      sentRef.current = false;
+      const isTerminal =
+        attemptCountRef.current >= CHART_MIGRATION_RESTORE_MAX_ATTEMPTS;
+      void backgroundApiProxy.serviceApp.markTradingViewChartMigrationRestoreAttempt(
+        {
+          reason,
+          attemptCount: attemptCountRef.current,
+          isTerminal,
+        },
+      );
+      if (isTerminal) {
+        return;
+      }
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+      }
+      retryTimerRef.current = setTimeout(() => {
+        setRetryTrigger((value) => value + 1);
+      }, CHART_MIGRATION_RESTORE_RETRY_DELAY_MS * attemptCountRef.current);
+    },
+    [],
+  );
 
   const sendRestore = useCallback(() => {
     if (sentRef.current || doneRef.current) {
@@ -163,22 +303,17 @@ function RestoreHost({ blob }: { blob: Record<string, string> }) {
         return;
       }
       sentRef.current = true;
+      attemptCountRef.current += 1;
       void sendChartProtocolRequest(
         'chart.restoreStorage',
         { payload: restoreMessage.payload },
         CHART_MIGRATION_RESTORE_ACK_TIMEOUT_MS,
       )
-        .then(async () => {
-          doneRef.current = true;
-          if (ackTimerRef.current) {
-            clearTimeout(ackTimerRef.current);
-          }
-          await backgroundApiProxy.serviceApp.setTradingViewChartMigrationDone();
-        })
+        .then(completeRestore)
         .catch((error) => {
           if (!doneRef.current) {
-            sentRef.current = false;
             console.error('[ChartMigration] restoreStorage failed:', error);
+            recordFailureAndScheduleRetry('protocol-error');
           }
         });
       return;
@@ -186,27 +321,30 @@ function RestoreHost({ blob }: { blob: Record<string, string> }) {
 
     ref.sendMessageViaInjectedScript(restoreMessage);
     sentRef.current = true;
+    attemptCountRef.current += 1;
 
     if (ackTimerRef.current) {
       clearTimeout(ackTimerRef.current);
     }
     ackTimerRef.current = setTimeout(() => {
       if (!doneRef.current) {
-        sentRef.current = false;
+        recordFailureAndScheduleRetry('ack-timeout');
       }
     }, CHART_MIGRATION_RESTORE_ACK_TIMEOUT_MS);
   }, [
     blob,
+    completeRestore,
     isChartProtocolRuntimeReady,
     isOfflineChart,
+    recordFailureAndScheduleRetry,
     sendChartProtocolRequest,
   ]);
 
   useEffect(() => {
-    if (isOfflineChart && isChartProtocolRuntimeReady) {
+    if (!isOfflineChart || isChartProtocolRuntimeReady) {
       sendRestore();
     }
-  }, [isChartProtocolRuntimeReady, isOfflineChart, sendRestore]);
+  }, [isChartProtocolRuntimeReady, isOfflineChart, retryTrigger, sendRestore]);
 
   const customReceiveHandler = useCallback(
     async (payload: unknown) => {
@@ -234,14 +372,10 @@ function RestoreHost({ blob }: { blob: Record<string, string> }) {
       }
 
       if (ack.ok) {
-        doneRef.current = true;
-        if (ackTimerRef.current) {
-          clearTimeout(ackTimerRef.current);
-        }
-        await backgroundApiProxy.serviceApp.setTradingViewChartMigrationDone();
+        await completeRestore();
       }
     },
-    [handleProtocolMessage],
+    [completeRestore, handleProtocolMessage],
   );
 
   const handleWebViewRef = useCallback((ref: IWebViewRef | null) => {
@@ -252,6 +386,9 @@ function RestoreHost({ blob }: { blob: Record<string, string> }) {
     return () => {
       if (ackTimerRef.current) {
         clearTimeout(ackTimerRef.current);
+      }
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
       }
     };
   }, []);
@@ -268,6 +405,7 @@ function RestoreHost({ blob }: { blob: Record<string, string> }) {
     >
       <WebView
         src={finalUrl}
+        preloadKind={EDesktopWebViewPreloadKind.Chart}
         customReceiveHandler={customReceiveHandler}
         onWebViewRef={handleWebViewRef}
         onLoadEnd={sendRestore}
@@ -280,14 +418,21 @@ function RestoreHost({ blob }: { blob: Record<string, string> }) {
 }
 
 export function ChartMigration() {
-  const { phase, blob } = useChartMigration();
+  const { phase, blob, restoreAttemptCount, handleExported, handleRestored } =
+    useChartMigration();
 
   if (phase === 'export') {
-    return <ExportHost />;
+    return <ExportHost onExported={handleExported} />;
   }
 
   if (phase === 'restore' && blob) {
-    return <RestoreHost blob={blob} />;
+    return (
+      <RestoreHost
+        blob={blob}
+        initialRestoreAttemptCount={restoreAttemptCount}
+        onRestored={handleRestored}
+      />
+    );
   }
 
   return null;

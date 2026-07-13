@@ -11,6 +11,15 @@ import { createProductionConfig } from './rspack.prod.config';
 
 import type { RspackOptions, RspackPluginInstance } from '@rspack/core';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { WebAppVersionManifestPlugin } =
+  require('../plugins/WebAppVersionManifestPlugin') as {
+    WebAppVersionManifestPlugin: new (options: {
+      RawSource: typeof rspack.sources.RawSource;
+      processAssetsStage: number;
+    }) => RspackPluginInstance;
+  };
+
 interface IWebConfigOptions {
   basePath: string;
   platform?: string;
@@ -41,9 +50,14 @@ export function createWebConfig({
                 htmlPlugin: 'html-webpack-plugin',
                 enabled: 'auto',
               }),
+              new WebAppVersionManifestPlugin({
+                RawSource: rspack.sources.RawSource,
+                processAssetsStage:
+                  rspack.Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE,
+              }),
               // (C2) PWA service worker — rspack-native workbox InjectManifest
-              //   port. apps/web/index.js registers /service-worker.js; without
-              //   this the file 404s and the SW never registers.
+              //   port. apps/web/index.js registers it from the stable root path
+              //   so one SW can discover and preload future app versions.
               //   Precache NOTHING (`exclude: [/./]` matches every manifest URL
               //   -> empty precache). This is a large SPA (~800+ chunks) and
               //   InjectManifest's default precaches every emitted asset, making
@@ -51,10 +65,10 @@ export function createWebConfig({
               //   one failed/blocked/throttled request leaves the SW stuck
               //   "trying to install" forever (observed in prod/test: #2500+
               //   installs with ERR_CONNECTION_CLOSED bursts). Every asset is
-              //   already covered by the runtime caching routes in
-              //   service-worker.js (NetworkFirst navigations, CacheFirst
-              //   scripts/styles, CacheFirst images/fonts), so a full precache
-              //   adds fragility with no benefit. Mirrors the webpack web config.
+              //   already covered by service-worker.js (versioned HTML cache for
+              //   navigations, CacheFirst scripts/styles, CacheFirst images/fonts),
+              //   so a full precache adds fragility with no benefit. Mirrors the
+              //   webpack web config.
               new InjectManifest({
                 swSrc: path.join(basePath, 'src/service-worker.js'),
                 swDest: 'service-worker.js',

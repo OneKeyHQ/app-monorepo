@@ -1,12 +1,12 @@
 import { useEffect, useMemo } from 'react';
 
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms/jotaiContextStoreMap';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import {
   AccountSelectorJotaiProvider,
   useAccountSelectorAvailableNetworksAtom,
-} from '../../states/jotai/contexts/accountSelector';
+} from '../../states/jotai/contexts/accountSelector/atoms';
 import { jotaiContextStore } from '../../states/jotai/utils/jotaiContextStore';
 import { JotaiContextStoreMirrorTracker } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 
@@ -15,7 +15,7 @@ import { AccountSelectorStorageReady } from './AccountSelectorStorageReady';
 import type {
   IAccountSelectorAvailableNetworksMap,
   IAccountSelectorContextData,
-} from '../../states/jotai/contexts/accountSelector';
+} from '../../states/jotai/contexts/accountSelector/atoms';
 
 function AccountSelectorAvailableNetworksInit(props: {
   availableNetworksMap?: IAccountSelectorAvailableNetworksMap;
@@ -32,11 +32,13 @@ export function AccountSelectorProviderMirror({
   config,
   enabledNum,
   availableNetworksMap,
+  waitForStorageReady,
 }: {
   children?: any;
   config: IAccountSelectorContextData;
   enabledNum: number[];
   availableNetworksMap?: IAccountSelectorAvailableNetworksMap;
+  waitForStorageReady?: boolean;
 }) {
   if (!enabledNum || enabledNum.length <= 0) {
     throw new OneKeyLocalError(
@@ -61,7 +63,7 @@ export function AccountSelectorProviderMirror({
     <>
       <JotaiContextStoreMirrorTracker {...data} />
       <AccountSelectorJotaiProvider store={store} config={config}>
-        <AccountSelectorStorageReady>
+        <AccountSelectorStorageReady waitForStorageReady={waitForStorageReady}>
           <AccountSelectorAvailableNetworksInit
             availableNetworksMap={availableNetworksMap}
           />

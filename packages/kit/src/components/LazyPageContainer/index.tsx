@@ -4,8 +4,11 @@ import { useIsFocused } from '@react-navigation/core';
 
 import { useIsFirstFocused } from '../../hooks/useIsFirstFocused';
 
-export function LazyPageContainer({ children }: PropsWithChildren) {
+export function LazyPageContainer({
+  children,
+  eager,
+}: PropsWithChildren<{ eager?: boolean }>) {
   const isPageFocused = useIsFocused();
   const isFirstFocused = useIsFirstFocused(isPageFocused);
-  return isFirstFocused ? children : null;
+  return eager || isFirstFocused ? children : null;
 }

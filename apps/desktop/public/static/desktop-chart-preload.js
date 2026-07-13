@@ -16,8 +16,8 @@
   var INPAGE_TO_HOST_CHANNEL = 'onekey@JS_BRIDGE_MESSAGE_IPC_CHANNEL';
 
   contextBridge.exposeInMainWorld('__onekeyDesktopChartBridge', {
-    sendToHost: function (channel, data) {
-      ipcRenderer.sendToHost(channel, data);
+    sendToHost: function (data) {
+      ipcRenderer.sendToHost(INPAGE_TO_HOST_CHANNEL, data);
     },
     onHostMessage: function (callback) {
       ipcRenderer.on(HOST_CHANNEL, function (_event, data) {
@@ -31,8 +31,6 @@
       return;
     }
     window.__onekeyChartBridge = true;
-
-    var INPAGE_TO_HOST_CHANNEL = 'onekey@JS_BRIDGE_MESSAGE_IPC_CHANNEL';
 
     function getOrigin() {
       try {
@@ -78,10 +76,7 @@
             payload.requestId = chartMessage.requestId;
           }
         }
-        window.__onekeyDesktopChartBridge.sendToHost(
-          INPAGE_TO_HOST_CHANNEL,
-          JSON.stringify(payload),
-        );
+        window.__onekeyDesktopChartBridge.sendToHost(JSON.stringify(payload));
       } catch (e) {
         // noop
       }
@@ -104,6 +99,18 @@
 
     window.addEventListener('message', function (event) {
       try {
+        if (!event || event.source !== window) {
+          return;
+        }
+        var currentOrigin = getOrigin();
+        if (
+          event.origin &&
+          event.origin !== 'null' &&
+          currentOrigin &&
+          event.origin !== currentOrigin
+        ) {
+          return;
+        }
         var data = event && event.data;
         if (data && data.scope === '$private') {
           forward(data);

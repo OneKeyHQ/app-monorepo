@@ -65,7 +65,7 @@ const WIN_RATE_TOOLTIP_MAP: Record<IPortfolioTimePeriod, ETranslations> = {
   allTime: ETranslations.perp_portfolio_win_rate_tooltip_all_time__desc,
 };
 
-const MOBILE_TIME_PERIOD_ITEM_MIN_WIDTH = 36;
+const MOBILE_TIME_PERIOD_ITEM_MIN_WIDTH = 30;
 
 // Time period and chart type options are built inside the component using intl
 
@@ -111,16 +111,44 @@ const CHART_HEIGHT_DESKTOP = 480;
 const CHART_HEIGHT_MOBILE = 260;
 const HOVER_TOOLTIP_WIDTH = 148;
 const CHART_PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.12 };
+const CHART_AREA_FILL_ALPHA = 0.1;
 
-function gaugeColor(pct: number): string {
-  if (pct <= GAUGE_SAFE_THRESHOLD) return COLOR_SAFE;
+type IPortfolioPalette = {
+  positive: string;
+  negative: string;
+  caution: string;
+};
+
+function colorWithAlpha(color: string, alpha: number) {
+  const normalized = color.trim();
+  const percentage = Math.round(alpha * 100);
+  const hex = normalized.startsWith('#') ? normalized.slice(1) : normalized;
+  const fullHex =
+    hex.length === 3
+      ? hex
+          .split('')
+          .map((c) => `${c}${c}`)
+          .join('')
+      : hex;
+  if (fullHex.length !== 6) {
+    return `color-mix(in srgb, ${normalized} ${percentage}%, transparent)`;
+  }
+
+  const r = parseInt(fullHex.slice(0, 2), 16);
+  const g = parseInt(fullHex.slice(2, 4), 16);
+  const b = parseInt(fullHex.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function gaugeColor(pct: number, palette: IPortfolioPalette): string {
+  if (pct <= GAUGE_SAFE_THRESHOLD) return palette.positive;
   if (pct <= GAUGE_CAUTION_THRESHOLD) return COLOR_CAUTION;
-  return COLOR_DANGER;
+  return palette.negative;
 }
 
 // Margin Used gauge: green/yellow only (no red — high utilization ≠ liquidation risk)
-function marginUsedGaugeColor(pct: number): string {
-  if (pct <= GAUGE_SAFE_THRESHOLD) return COLOR_SAFE;
+function marginUsedGaugeColor(pct: number, palette: IPortfolioPalette): string {
+  if (pct <= GAUGE_SAFE_THRESHOLD) return palette.positive;
   return COLOR_CAUTION;
 }
 
@@ -129,7 +157,7 @@ function computeAccountHealthRisk(
   mmrPct: number,
   leverageX: number,
   marginUsedPct: number,
-): { level: 'safe' | 'caution' | 'danger'; color: string } {
+): { level: 'safe' | 'caution' | 'danger' } {
   let mmrScore = 2;
   if (mmrPct <= 30) mmrScore = 0;
   else if (mmrPct <= 60) mmrScore = 1;
@@ -144,9 +172,24 @@ function computeAccountHealthRisk(
 
   const total = mmrScore * 3 + levScore * 2 + marginScore * 1;
 
-  if (total >= 6) return { level: 'danger', color: COLOR_DANGER };
-  if (total >= 3) return { level: 'caution', color: COLOR_CAUTION };
-  return { level: 'safe', color: COLOR_SAFE };
+  if (total >= 6) return { level: 'danger' };
+  if (total >= 3) return { level: 'caution' };
+  return { level: 'safe' };
+}
+
+function getAccountHealthColor(
+  level: 'safe' | 'caution' | 'danger',
+  palette: IPortfolioPalette,
+) {
+  if (level === 'danger') return palette.negative;
+  if (level === 'caution') return palette.caution;
+  return palette.positive;
+}
+
+function getAccountHealthTextColor(level: 'safe' | 'caution' | 'danger') {
+  if (level === 'danger') return COLOR_DANGER;
+  if (level === 'caution') return COLOR_CAUTION;
+  return COLOR_SAFE;
 }
 
 function SemiCircleGauge({
@@ -167,7 +210,7 @@ function SemiCircleGauge({
   color?: string;
 }) {
   const theme = useTheme();
-  const arcColor = color ?? theme.textSuccess?.val ?? '#30a46c';
+  const arcColor = color ?? theme.bgAccent?.val ?? '#31E72F';
   const trackColor = theme.bgStrong?.val ?? '#333';
 
   const radius = (size - strokeWidth) / 2;
@@ -237,7 +280,17 @@ function PerpPortfolioContentComponent({
   isMobile = false,
 }: IPerpPortfolioContentProps) {
   const intl = useIntl();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const theme = useTheme();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal();
+  const portfolioPalette = useMemo(
+    () => ({
+      positive: theme.bgAccent?.val ?? '#31E72F',
+      negative: theme.bgCriticalStrong?.val ?? '#EF4444',
+      caution: COLOR_CAUTION,
+    }),
+    [theme.bgAccent?.val, theme.bgCriticalStrong?.val],
+  );
 
   const timePeriodOptions = useMemo(
     () => [
@@ -388,7 +441,7 @@ function PerpPortfolioContentComponent({
           >
             <SizableText
               size="$bodySmMedium"
-              color={timePeriod === option.value ? '$textInverse' : '$text'}
+              color={timePeriod === option.value ? '$text' : '$textSubdued'}
               textAlign="center"
               numberOfLines={1}
             >
@@ -538,6 +591,13 @@ function PerpPortfolioContentComponent({
       ),
     [marginPercentRaw, leverageRaw, marginUsedGaugePct],
   );
+  const accountHealthColor = getAccountHealthColor(
+    accountHealthRisk.level,
+    portfolioPalette,
+  );
+  const accountHealthTextColor = getAccountHealthTextColor(
+    accountHealthRisk.level,
+  );
   const accountHealthText = useMemo(() => {
     switch (accountHealthRisk.level) {
       case 'danger':
@@ -634,14 +694,26 @@ function PerpPortfolioContentComponent({
   const baselineOptions = useMemo(
     (): BaselineSeriesPartialOptions => ({
       baseValue: { type: 'price', price: 0 },
-      topLineColor: COLOR_SAFE,
-      topFillColor1: 'rgba(48, 164, 108, 0.24)',
-      topFillColor2: 'rgba(48, 164, 108, 0.0)',
-      bottomLineColor: COLOR_DANGER,
-      bottomFillColor1: 'rgba(229, 72, 77, 0.0)',
-      bottomFillColor2: 'rgba(229, 72, 77, 0.24)',
+      topLineColor: portfolioPalette.positive,
+      topFillColor1: colorWithAlpha(
+        portfolioPalette.positive,
+        CHART_AREA_FILL_ALPHA,
+      ),
+      topFillColor2: colorWithAlpha(
+        portfolioPalette.positive,
+        CHART_AREA_FILL_ALPHA,
+      ),
+      bottomLineColor: portfolioPalette.negative,
+      bottomFillColor1: colorWithAlpha(
+        portfolioPalette.negative,
+        CHART_AREA_FILL_ALPHA,
+      ),
+      bottomFillColor2: colorWithAlpha(
+        portfolioPalette.negative,
+        CHART_AREA_FILL_ALPHA,
+      ),
     }),
-    [],
+    [portfolioPalette.negative, portfolioPalette.positive],
   );
 
   const pnlTypeSelectorTrigger = (
@@ -711,10 +783,18 @@ function PerpPortfolioContentComponent({
               onChange={handleTimePeriodChange}
               options={mobileTimePeriodOptions}
               flexShrink={0}
+              slotBackgroundColor="$transparent"
+              activeBackgroundColor="$bgActive"
+              activeTextColor="$text"
+              inactiveTextColor="$textSubdued"
               segmentControlItemStyleProps={{
+                h: 28,
                 minWidth: MOBILE_TIME_PERIOD_ITEM_MIN_WIDTH,
-                px: '$2',
-                py: '$1',
+                px: '$1.5',
+                py: '$0',
+                borderRadius: '$full',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             />
           </XStack>
@@ -736,9 +816,23 @@ function PerpPortfolioContentComponent({
               {pnlTypeSelector}
             </XStack>
             <SegmentControl
+              h={32}
               value={timePeriod}
               onChange={handleTimePeriodChange}
               options={timePeriodOptions}
+              slotBackgroundColor="$transparent"
+              activeBackgroundColor="$bgActive"
+              activeTextColor="$text"
+              inactiveTextColor="$textSubdued"
+              segmentControlItemStyleProps={{
+                h: 32,
+                minWidth: 36,
+                py: '$0',
+                px: '$3.5',
+                borderRadius: '$full',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             />
           </XStack>
         </YStack>
@@ -792,12 +886,15 @@ function PerpPortfolioContentComponent({
             data={chartSeriesData}
             height={chartHeight}
             onHover={handleHover}
-            lineColor="#2EAA40"
+            lineColor={portfolioPalette.positive}
             secondaryLineData={isPnl ? undefined : chartSeriesData}
-            secondaryLineColor="#2EAA40"
+            secondaryLineColor={portfolioPalette.positive}
             secondaryLineWidth={3}
-            topColor="#2EAA4026"
-            bottomColor="#2EAA4000"
+            topColor={colorWithAlpha(
+              portfolioPalette.positive,
+              CHART_AREA_FILL_ALPHA,
+            )}
+            bottomColor={colorWithAlpha(portfolioPalette.positive, 0)}
             lineWidth={3}
             showPriceScale
             showHorzGridLines={isPnl}
@@ -882,6 +979,7 @@ function PerpPortfolioContentComponent({
         size={PERP_DIALOG_BUTTON_SIZE}
         variant="accent"
         icon="DownloadOutline"
+        disabled={isDepositDisabled}
         onPress={() => showDepositWithdrawModal('deposit')}
       >
         {intl.formatMessage({
@@ -969,11 +1067,11 @@ function PerpPortfolioContentComponent({
                 width={6}
                 height={6}
                 borderRadius="$full"
-                bg={accountHealthRisk.color}
+                bg={accountHealthColor}
               />
               <SizableText
                 size="$bodyXs"
-                color={accountHealthRisk.color}
+                color={accountHealthTextColor}
                 textTransform="uppercase"
                 letterSpacing={1.2}
               >
@@ -987,7 +1085,7 @@ function PerpPortfolioContentComponent({
             percentage={leverageGaugePct}
             label={intl.formatMessage({ id: ETranslations.perp_leverage })}
             value={leverageText}
-            color={gaugeColor(leverageGaugePct)}
+            color={gaugeColor(leverageGaugePct, portfolioPalette)}
           />
           <SemiCircleGauge
             percentage={marginUsedGaugePct}
@@ -1011,7 +1109,7 @@ function PerpPortfolioContentComponent({
               </DashText>
             }
             value={marginUsedText}
-            color={marginUsedGaugeColor(marginUsedGaugePct)}
+            color={marginUsedGaugeColor(marginUsedGaugePct, portfolioPalette)}
           />
           <SemiCircleGauge
             percentage={marginPercentRaw}
@@ -1031,7 +1129,7 @@ function PerpPortfolioContentComponent({
               </DashText>
             }
             value={marginPercentText}
-            color={gaugeColor(marginPercentRaw)}
+            color={gaugeColor(marginPercentRaw, portfolioPalette)}
           />
         </XStack>
       </SectionBlock>
@@ -1170,13 +1268,13 @@ function PerpPortfolioContentComponent({
               <>
                 <XStack
                   flex={winRateProgress}
-                  bg="$bgAccent"
+                  bg={portfolioPalette.positive}
                   borderTopLeftRadius="$full"
                   borderBottomLeftRadius="$full"
                 />
                 <XStack
                   flex={100 - winRateProgress}
-                  bg="$bgCriticalStrong"
+                  bg={portfolioPalette.negative}
                   borderTopRightRadius="$full"
                   borderBottomRightRadius="$full"
                 />
@@ -1190,7 +1288,7 @@ function PerpPortfolioContentComponent({
             <SizableText size="$bodyXs" color="$textDisabled">
               {intl.formatMessage({ id: ETranslations.perp_portfolio_avg_win })}
             </SizableText>
-            <SizableText size="$bodyMdMedium" color="$green11">
+            <SizableText size="$bodyMdMedium" color="$text">
               {formatPerpsUsd(fillsStats.avgWin, true)}
             </SizableText>
           </YStack>
@@ -1200,7 +1298,7 @@ function PerpPortfolioContentComponent({
                 id: ETranslations.perp_portfolio_avg_loss,
               })}
             </SizableText>
-            <SizableText size="$bodyMdMedium" color="$red11">
+            <SizableText size="$bodyMdMedium" color="$text">
               {formatPerpsUsd(fillsStats.avgLoss, true)}
             </SizableText>
           </YStack>

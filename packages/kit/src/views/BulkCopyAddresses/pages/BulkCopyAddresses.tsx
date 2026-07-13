@@ -29,9 +29,9 @@ import {
   Stack,
   XStack,
   YStack,
-  useForm,
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
   IBatchBuildAccountsAdvancedFlowParams,
@@ -41,7 +41,6 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -341,57 +340,46 @@ function BulkCopyAddresses({
 
         await timerUtils.wait(600);
 
-        try {
-          const { accountsForCreate } =
-            await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlow(
-              isAdvancedMode
-                ? {
-                    mode: 'advanced',
-                    saveToCache: false,
-                    params: checkIsDefined(advancedParams),
-                  }
-                : {
-                    mode: 'normal',
-                    saveToCache: false,
-                    params: checkIsDefined(normalParams),
-                  },
-            );
+        const { accountsForCreate } =
+          await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlow(
+            isAdvancedMode
+              ? {
+                  mode: 'advanced',
+                  saveToCache: false,
+                  params: checkIsDefined(advancedParams),
+                }
+              : {
+                  mode: 'normal',
+                  saveToCache: false,
+                  params: checkIsDefined(normalParams),
+                },
+          );
 
-          // @ts-ignore
-          const result: Record<
-            IAccountDeriveTypes,
-            {
-              account: IBatchCreateAccount;
-              deriveType: IAccountDeriveTypes;
-              deriveInfo?: IAccountDeriveInfo;
-            }[]
-          > = {};
-          for (const account of accountsForCreate) {
-            const accountDeriveType =
-              await backgroundApiProxy.serviceNetwork.getDeriveTypeByTemplate({
-                accountId: account.id,
-                networkId: selectedNetworkId,
-                template: account.template,
-              });
-            result[accountDeriveType.deriveType] =
-              result[accountDeriveType.deriveType] ?? [];
-            result[accountDeriveType.deriveType]?.push({
-              account,
-              deriveType: accountDeriveType.deriveType,
-              deriveInfo: accountDeriveType.deriveInfo,
+        // @ts-ignore
+        const result: Record<
+          IAccountDeriveTypes,
+          {
+            account: IBatchCreateAccount;
+            deriveType: IAccountDeriveTypes;
+            deriveInfo?: IAccountDeriveInfo;
+          }[]
+        > = {};
+        for (const account of accountsForCreate) {
+          const accountDeriveType =
+            await backgroundApiProxy.serviceNetwork.getDeriveTypeByTemplate({
+              accountId: account.id,
+              networkId: selectedNetworkId,
+              template: account.template,
             });
-          }
-          return result;
-        } catch (error) {
-          appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
-            totalCount: 0,
-            createdCount: 0,
-            progressTotal: 0,
-            progressCurrent: 0,
-            error: error as IOneKeyError,
+          result[accountDeriveType.deriveType] =
+            result[accountDeriveType.deriveType] ?? [];
+          result[accountDeriveType.deriveType]?.push({
+            account,
+            deriveType: accountDeriveType.deriveType,
+            deriveInfo: accountDeriveType.deriveInfo,
           });
-          throw error;
         }
+        return result;
       } finally {
         setIsGeneratingAddresses(false);
       }

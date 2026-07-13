@@ -85,33 +85,25 @@ function CancelOrderButton({
   onPress?: () => void;
 }) {
   return (
-    <XStack
-      alignItems="center"
-      justifyContent="center"
-      h={24}
-      minWidth={56}
-      px="$2.5"
+    <Button
+      testID="perp-intl-btn"
+      size="small"
+      variant="secondary"
       ml="$2"
-      borderRadius="$full"
-      bg={disabled ? '$bgSubdued' : '$bgStrong'}
-      borderWidth="$px"
-      borderColor="$transparent"
-      cursor={disabled ? 'default' : 'pointer'}
-      hoverStyle={
-        disabled ? undefined : { bg: '$bgHover', borderColor: '$borderHover' }
-      }
-      pressStyle={
-        disabled
-          ? undefined
-          : { bg: '$bgActive', borderColor: '$borderActive', opacity: 0.88 }
-      }
-      onPress={disabled ? undefined : onPress}
+      minWidth={56}
+      height={24}
+      px="$2.5"
+      disabled={disabled}
+      onPress={onPress}
       flexShrink={0}
     >
-      <SizableText size="$bodySm" color={disabled ? '$textDisabled' : '$text'}>
+      <SizableText
+        size="$bodySmMedium"
+        color={disabled ? '$textDisabled' : '$text'}
+      >
         {label}
       </SizableText>
-    </XStack>
+    </Button>
   );
 }
 
@@ -144,7 +136,7 @@ function ExistingTpslOrderSummary({
           <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
             {relationLabel}
           </SizableText>
-          <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
+          <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
             {triggerPx}
           </SizableText>
         </XStack>

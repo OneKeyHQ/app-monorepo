@@ -13,6 +13,7 @@ import {
   Toast,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -66,6 +67,7 @@ interface IClosePositionFormProps extends IClosePositionParams {
 const ClosePositionForm = memo(
   ({ position, type, onClose }: IClosePositionFormProps) => {
     const intl = useIntl();
+    const { gtMd } = useMedia();
     const [allMids] = usePerpsAllMidsAtom();
     const hyperliquidActions = useHyperliquidActions();
 
@@ -490,7 +492,9 @@ const ClosePositionForm = memo(
           onChange={handlePercentageChange}
           max={100}
           min={0}
-          segments={0}
+          segments={4}
+          snapTapToSegment
+          sliderHeight={gtMd ? 4 : 2}
         />
 
         <XStack justifyContent="space-between" gap="$1">

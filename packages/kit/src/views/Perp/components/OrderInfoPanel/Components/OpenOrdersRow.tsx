@@ -13,7 +13,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  formatLocalizedNumberString,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getValidPriceDecimals,
   isSpotInstrument,
@@ -186,9 +189,9 @@ const OpenOrdersRow = memo(
       const executePriceFormatted = new BigNumber(executePrice).toFixed(
         decimals,
       );
-      const executePriceLimitFormatted = new BigNumber(
-        executePriceLimit,
-      ).toFixed(decimals);
+      const executePriceLimitFormatted = formatLocalizedNumberString(
+        new BigNumber(executePriceLimit).toFixed(decimals),
+      );
       const priceFormatted = new BigNumber(price).toFixed(decimals);
       const sizeFormatted = numberFormat(size, balanceFormatter);
       const value = priceBN.times(origSizeBN).toFixed();
@@ -253,7 +256,7 @@ const OpenOrdersRow = memo(
             width="100%"
             alignItems="center"
           >
-            <YStack onPress={handleSwitchInstrument} cursor="default">
+            <YStack onPress={handleSwitchInstrument} cursor="pointer">
               <SizableText
                 numberOfLines={1}
                 ellipsizeMode="tail"
@@ -414,7 +417,7 @@ const OpenOrdersRow = memo(
               justifyContent="center"
               alignItems={calcCellAlign(columnConfigs[1].align)}
               onPress={handleSwitchInstrument}
-              cursor="default"
+              cursor="pointer"
             >
               <SizableText
                 size="$bodySm"
@@ -567,10 +570,9 @@ const OpenOrdersRow = memo(
             cursor="default"
           >
             <SizableText
-              color="$green11"
+              color="$bgAccent"
               hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
-              size="$bodySm"
-              fontWeight={400}
+              size="$bodySmMedium"
               onPress={handleCancelOrder}
             >
               {intl.formatMessage({

@@ -28,6 +28,14 @@ require('../env');
 const { resolveCommitSha } = require('../utils/resolveCommitSha') as {
   resolveCommitSha: () => string;
 };
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { readOneKeyBootstrapDataCode } = require('../htmlBootstrapData') as {
+  readOneKeyBootstrapDataCode: (opts: {
+    basePath: string;
+    isDev: boolean;
+    platform: string;
+  }) => string;
+};
 
 // Single source of truth for the client-exposed env vars. Mirrors the webpack
 // `transform-inline-environment-variables` plugin so the same ~42 vars are
@@ -87,6 +95,20 @@ const COMMIT_SHA = resolveCommitSha();
 
 const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
+const ICON_MODULE_TEST =
+  /[\\/]packages[\\/]components[\\/]src[\\/]primitives[\\/]Icon[\\/]react[\\/]/;
+
+function getIconChunkName(module: Module): string {
+  const resource = module.nameForCondition?.() || '';
+  const normalizedResource = resource.replaceAll(path.sep, '/');
+  const match = normalizedResource.match(
+    /\/Icon\/react\/([^/]+)\/([^/.]+)\.[jt]sx?$/,
+  );
+  const category = match?.[1] || 'misc';
+  const fileName = match?.[2] || 'misc';
+  const prefix = fileName.slice(0, 1).toLowerCase() || 'misc';
+  return `icons-${category}-${prefix}`;
+}
 
 class BuildDoneNotifyPlugin implements RspackPluginInstance {
   apply(compiler: Compiler) {
@@ -167,6 +189,7 @@ const baseResolve = ({
       basePath,
       '../../node_modules/@react-aria/utils/src/index.ts',
     ),
+    'bn.js$': require.resolve('bn.js'),
   },
   fallback: {
     crypto:
@@ -247,14 +270,49 @@ function buildDefineMap(
 
 const buildBasePlugins: (
   platform: string,
-) => (RspackPluginInstance | false | null | undefined)[] = (platform) => [
+  basePath: string,
+) => (RspackPluginInstance | false | null | undefined)[] = (
+  platform,
+  basePath,
+) => [
   new rspack.DefinePlugin(buildDefineMap(platform)),
   new rspack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],
     process: require.resolve('process/browser'),
   }),
+  !isDev &&
+    platform === 'web' &&
+    new rspack.NormalModuleReplacementPlugin(
+      /views[\\/]Developer[\\/]router$/,
+      path.join(
+        basePath,
+        '../../packages/kit/src/views/Developer/router.empty.ts',
+      ),
+    ),
+  !isDev &&
+    platform === 'web' &&
+    new rspack.CssExtractRspackPlugin({
+      filename: '[name].[contenthash:10].css',
+      chunkFilename: 'static/css/[name].[contenthash:10].chunk.css',
+    }),
   isDev && new BuildDoneNotifyPlugin(),
 ];
+
+function buildCssLoaders(platform: string) {
+  return [
+    !isDev && platform === 'web'
+      ? rspack.CssExtractRspackPlugin.loader
+      : 'style-loader',
+    {
+      loader: 'css-loader',
+      options: {
+        importLoaders: 1,
+        sourceMap: true,
+        modules: { mode: 'global' },
+      },
+    },
+  ];
+}
 
 const buildBaseExperiments: (
   basePath: string,
@@ -364,6 +422,11 @@ export function createBaseConfig({
               encoding: 'utf-8',
             },
           ),
+          onekeyBootstrapDataCode: readOneKeyBootstrapDataCode({
+            basePath,
+            isDev,
+            platform,
+          }),
           WEB_PUBLIC_URL: publicUrl || '/',
           WEB_TITLE: platform,
           NO_SCRIPT:
@@ -371,7 +434,7 @@ export function createBaseConfig({
           ROOT_ID: 'root',
         },
       }) as unknown as RspackPluginInstance,
-      ...buildBasePlugins(platform).filter(Boolean),
+      ...buildBasePlugins(platform, basePath).filter(Boolean),
     ],
     module: {
       rules: [
@@ -517,6 +580,14 @@ export function createBaseConfig({
                   ['@babel/preset-typescript', { allowDeclareFields: true }],
                 ],
                 plugins: [
+                  ...(platform === 'web'
+                    ? [
+                        path.join(
+                          __dirname,
+                          '../babel-plugins/inline-translations',
+                        ),
+                      ]
+                    : []),
                   // Sentry component annotations (data-sentry-*) — parity with
                   // the webpack babel chain (babelTools.js, !isJest). Runs while
                   // JSX is still intact (babel-loader precedes swc here). Builds
@@ -647,17 +718,7 @@ export function createBaseConfig({
         },
         {
           test: /\.(css)$/,
-          use: [
-            'style-loader',
-            {
-              loader: 'css-loader',
-              options: {
-                importLoaders: 1,
-                sourceMap: true,
-                modules: { mode: 'global' },
-              },
-            },
-          ],
+          use: buildCssLoaders(platform),
           sideEffects: true,
         },
         {
@@ -694,12 +755,10 @@ export function createBaseConfig({
         cacheGroups: {
           icons: {
             test: (module: Module): boolean => {
-              const iconTestRegex =
-                /[\\/]packages[\\/]components[\\/]src[\\/]primitives[\\/]Icon[\\/]react[\\/]/;
               const resource = module.nameForCondition?.();
-              return Boolean(resource && iconTestRegex.test(resource));
+              return Boolean(resource && ICON_MODULE_TEST.test(resource));
             },
-            name: 'icons',
+            name: getIconChunkName,
             chunks: 'async',
             enforce: true,
             priority: 30,

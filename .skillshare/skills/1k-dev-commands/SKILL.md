@@ -69,13 +69,12 @@ allowed-tools: Bash, Read
 
 ### Pre-commit Commands (Local Development)
 
-**Use these for fast pre-commit validation:**
-- `yarn lint:staged` - Lint only staged files (fast, recommended for pre-commit)
-- `yarn tsc:staged` - Type check (same as tsc:only)
+**Use this for fast agent pre-commit validation:**
+- `yarn agent:check --profile commit` - Runs staged lint and type checks with compact output
 
 **Pre-commit workflow:**
 ```bash
-yarn lint:staged && yarn tsc:staged && git commit -m "your message"
+yarn agent:check --profile commit && git commit -m "your message"
 ```
 
 ### CI Commands (Full Project Check)

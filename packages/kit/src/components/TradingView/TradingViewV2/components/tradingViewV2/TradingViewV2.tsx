@@ -88,6 +88,10 @@ const TRADINGVIEW_RESET_LAYOUT_MESSAGE = 'TRADINGVIEW_RESET_LAYOUT';
 const TRADINGVIEW_PRICE_SCALE_CHANGE_MESSAGE = 'TRADINGVIEW_PRICE_SCALE_CHANGE';
 const TRADINGVIEW_PRICE_MARKET_CAP_CHANGE_MESSAGE =
   'TRADINGVIEW_PRICE_MARKET_CAP_CHANGE';
+const TRADINGVIEW_OPEN_CHART_SETTINGS_MESSAGE =
+  'TRADINGVIEW_OPEN_CHART_SETTINGS';
+const TRADINGVIEW_CLOSE_POPUPS_AND_DIALOGS_MESSAGE =
+  'TRADINGVIEW_CLOSE_POPUPS_AND_DIALOGS';
 const TRADINGVIEW_CALENDAR_PANEL_SUBMIT_MESSAGE =
   'TRADINGVIEW_CALENDAR_PANEL_SUBMIT';
 const TRADINGVIEW_UNDO_MESSAGE = 'TRADINGVIEW_UNDO';
@@ -205,6 +209,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const enableNativeChartControls = Boolean(enableNativeChartControlsProp);
   const enableNativeIntervalSelector =
     enableNativeIntervalSelectorProp || enableNativeChartControls;
+  const isNativeChartControlsReady =
+    !enableNativeChartControls || Boolean(nativeChartControlsConfig);
 
   const { handleNavigation } = useNavigationHandler();
   const handleCurrentKLineResolutionChange = useCallback(
@@ -241,6 +247,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         'chart.setInterval',
         {
           interval,
+          resetPriceScaleRange: true,
         },
       );
     },
@@ -343,11 +350,26 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     },
     [],
   );
+  const handleNativeOpenChartSettings = useCallback(() => {
+    webRef.current?.sendMessageViaInjectedScript({
+      type: TRADINGVIEW_OPEN_CHART_SETTINGS_MESSAGE,
+      payload: {},
+    });
+  }, []);
+  const handleNativeControlInteraction = useCallback(() => {
+    webRef.current?.sendMessageViaInjectedScript({
+      type: TRADINGVIEW_CLOSE_POPUPS_AND_DIALOGS_MESSAGE,
+      payload: {},
+    });
+  }, []);
   const handleNativeCalendarPanelSubmit = useCallback(
     (payload: ICalendarPanelSubmitPayload) => {
       webRef.current?.sendMessageViaInjectedScript({
         type: TRADINGVIEW_CALENDAR_PANEL_SUBMIT_MESSAGE,
-        payload,
+        payload: {
+          ...payload,
+          resetPriceScaleRange: true,
+        },
       });
     },
     [],
@@ -448,14 +470,17 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     additionalParams,
     disabledFeatures,
   });
+  const chartWebViewRuntimeKey = `${theme}:${tradingViewUrlWithParams}`;
 
   const {
     handleProtocolMessage,
     isRuntimeReady: isChartProtocolRuntimeReady,
+    runtimeGeneration: chartProtocolRuntimeGeneration,
     sendRequest: sendChartProtocolRequest,
   } = useChartProtocolBridge({
     webRef,
     enabled: isOfflineChart,
+    runtimeKey: chartWebViewRuntimeKey,
   });
 
   useEffect(() => {
@@ -510,11 +535,14 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     useHyperLiquid,
   ]);
 
-  const lastOfflineConfigKeyRef = useRef<string | null>(null);
+  const lastOfflineConfigRef = useRef<{
+    configKey: string;
+    runtimeGeneration: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!isOfflineChart) {
-      lastOfflineConfigKeyRef.current = null;
+      lastOfflineConfigRef.current = null;
       return;
     }
     if (!isChartProtocolRuntimeReady || !webRef.current) {
@@ -522,20 +550,34 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     }
 
     const configKey = JSON.stringify(offlineRuntimeConfig);
-    if (lastOfflineConfigKeyRef.current === configKey) {
+    const lastConfig = lastOfflineConfigRef.current;
+    if (
+      lastConfig?.configKey === configKey &&
+      lastConfig.runtimeGeneration === chartProtocolRuntimeGeneration
+    ) {
       return;
     }
 
-    const mode = lastOfflineConfigKeyRef.current ? 'patch' : 'replace';
-    lastOfflineConfigKeyRef.current = configKey;
+    const mode =
+      lastConfig?.runtimeGeneration === chartProtocolRuntimeGeneration
+        ? 'patch'
+        : 'replace';
+    const currentConfig = {
+      configKey,
+      runtimeGeneration: chartProtocolRuntimeGeneration,
+    };
+    lastOfflineConfigRef.current = currentConfig;
     void sendChartProtocolRequest('chart.applyConfig', {
       mode,
       config: offlineRuntimeConfig,
     }).catch((error) => {
-      lastOfflineConfigKeyRef.current = null;
+      if (lastOfflineConfigRef.current === currentConfig) {
+        lastOfflineConfigRef.current = null;
+      }
       console.error('[TradingViewV2] chart.applyConfig failed:', error);
     });
   }, [
+    chartProtocolRuntimeGeneration,
     isChartProtocolRuntimeReady,
     isOfflineChart,
     offlineRuntimeConfig,
@@ -737,10 +779,12 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         nativeChartControlsConfig={nativeChartControlsConfig}
         nativeIndicatorState={nativeIndicatorState}
         onIndicatorSelect={handleNativeIndicatorSelect}
+        onControlInteraction={handleNativeControlInteraction}
       />
     );
   }, [
     enableNativeChartControls,
+    handleNativeControlInteraction,
     handleNativeIndicatorSelect,
     nativeChartControlsConfig,
     nativeIndicatorState,
@@ -777,7 +821,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const webView = useMemo(
     () => (
       <WebView
-        key={`${theme}:${tradingViewUrlWithParams}`}
+        key={chartWebViewRuntimeKey}
         containerProps={{ bg: '$bgApp' }}
         containerStyle={tradingViewWebViewStyleProps.containerStyle}
         style={tradingViewWebViewStyleProps.style}
@@ -805,10 +849,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     ),
     [
       customReceiveHandler,
+      chartWebViewRuntimeKey,
       handleLoadStart,
       handleWebViewRef,
       onShouldStartLoadWithRequest,
-      theme,
       tradingViewUrlWithParams,
       tradingViewWebViewStyleProps,
     ],
@@ -821,6 +865,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           intervalConfig={intervalConfig}
           nativeChartControlsConfig={nativeChartControlsConfig}
           nativeIndicatorState={nativeIndicatorState}
+          isControlsReady={isNativeChartControlsReady}
           chartTypeControlMode={nativeChartTypeControlMode}
           indicatorControlMode={nativeIndicatorControlMode}
           intervalControlMode={nativeIntervalControlMode}
@@ -834,6 +879,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           onResetLayout={handleNativeResetLayout}
           onPriceScaleModeChange={handleNativePriceScaleModeChange}
           onPriceMarketCapModeChange={handleNativePriceMarketCapModeChange}
+          onOpenChartSettings={handleNativeOpenChartSettings}
+          onControlInteraction={handleNativeControlInteraction}
           onCalendarPanelSubmit={handleNativeCalendarPanelSubmit}
           onUndo={handleNativeUndo}
           onRedo={handleNativeRedo}

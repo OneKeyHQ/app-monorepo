@@ -391,7 +391,17 @@ function getToastLabel(
   }
 }
 
-type IAnimationModule = { default: ILottieViewProps['source'] };
+type IAnimationModule = { default?: ILottieViewProps['source'] };
+
+function resolveLottieModule(
+  module: IAnimationModule | ILottieViewProps['source'] | null | undefined,
+): ILottieViewProps['source'] | null {
+  if (!module) {
+    return null;
+  }
+  return ((module as IAnimationModule).default ??
+    module) as ILottieViewProps['source'];
+}
 
 // Dynamically import animation JSON so the assets are code-split into an async
 // chunk instead of the startup bundle (matches ConfirmOnDeviceToastContent).
@@ -473,6 +483,9 @@ function DeviceActionToast({
 }) {
   const intl = useIntl();
   const [showCloseButton, setShowCloseButton] = useState(false);
+  const [animationSource, setAnimationSource] = useState<
+    ILottieViewProps['source'] | null
+  >(null);
   const themeVariant = useThemeVariant();
 
   useEffect(() => {
@@ -486,10 +499,6 @@ function DeviceActionToast({
 
   const label = getToastLabel(action, vendor, intl);
 
-  const [animationSource, setAnimationSource] = useState<
-    ILottieViewProps['source'] | null
-  >(null);
-
   useEffect(() => {
     let cancelled = false;
     setAnimationSource(null);
@@ -501,7 +510,9 @@ function DeviceActionToast({
     }
     loader
       ?.then((module) => {
-        if (!cancelled) setAnimationSource(module?.default ?? null);
+        if (!cancelled) {
+          setAnimationSource(resolveLottieModule(module));
+        }
       })
       .catch(() => {
         // ignore

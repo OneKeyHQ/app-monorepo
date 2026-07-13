@@ -396,13 +396,24 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   async updateLaunchTimes() {
-    await simpleDb.appStatus.setRawData(
-      (v): ISimpleDBAppStatus => ({
+    await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
+      const launchTimes = v?.launchTimes ?? 0;
+      return {
         ...v,
-        launchTimes: (v?.launchTimes ?? 0) + 1,
+        launchTimes: launchTimes + 1,
         launchTimesLastReset: (v?.launchTimesLastReset ?? 0) + 1,
-      }),
-    );
+        ...(platformEnv.isDesktop && !v?.tradingViewChartMigration
+          ? {
+              tradingViewChartMigration: {
+                state:
+                  launchTimes === 0
+                    ? ('skipped-first-install' as const)
+                    : ('export-deferred' as const),
+              },
+            }
+          : {}),
+      };
+    });
   }
 
   @backgroundMethod()
@@ -427,6 +438,11 @@ class ServiceApp extends ServiceBase {
       return;
     }
 
+    const current = await simpleDb.appStatus.getRawData();
+    if (current?.tradingViewChartMigration) {
+      return;
+    }
+
     await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
       if (v?.tradingViewChartMigration) {
         return v ?? {};
@@ -448,7 +464,11 @@ class ServiceApp extends ServiceBase {
     migration?: ITradingViewChartMigration;
     blob?: Record<string, string>;
   }> {
-    const v = await simpleDb.appStatus.getRawData();
+    let v = await simpleDb.appStatus.getRawData();
+    if (platformEnv.isDesktop && !v?.tradingViewChartMigration) {
+      await this.initTradingViewChartMigrationState();
+      v = await simpleDb.appStatus.getRawData();
+    }
     return {
       migration: v?.tradingViewChartMigration,
       blob: v?.tradingViewChartMigrationBlob,
@@ -511,6 +531,36 @@ class ServiceApp extends ServiceBase {
           state: 'done',
         },
         tradingViewChartMigrationBlob: undefined,
+      };
+    });
+  }
+
+  @backgroundMethod()
+  async markTradingViewChartMigrationRestoreAttempt(params: {
+    reason: 'ack-timeout' | 'protocol-error';
+    attemptCount: number;
+    isTerminal: boolean;
+  }) {
+    await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
+      if (v?.tradingViewChartMigration?.state !== 'restore-pending') {
+        return v ?? {};
+      }
+
+      return {
+        ...v,
+        tradingViewChartMigration: {
+          ...v.tradingViewChartMigration,
+          state: params.isTerminal ? 'restore-failed' : 'restore-pending',
+          restoreAttemptCount: Math.max(
+            v.tradingViewChartMigration.restoreAttemptCount ?? 0,
+            params.attemptCount,
+          ),
+          lastRestoreAttemptAt: Date.now(),
+          lastRestoreFailureReason: params.reason,
+        },
+        tradingViewChartMigrationBlob: params.isTerminal
+          ? undefined
+          : v.tradingViewChartMigrationBlob,
       };
     });
   }

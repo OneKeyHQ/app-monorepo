@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,10 +6,11 @@ import {
   Image,
   SizableText,
   Stack,
-  Tooltip,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
+import type { ITooltipRef } from '@onekeyhq/components/src/actions/Tooltip';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
@@ -73,7 +74,7 @@ const SubtitleBadge = memo(
     }
 
     return (
-      <Tooltip
+      <LazyTooltip
         renderTrigger={
           <Stack minWidth={0} flexShrink={1}>
             {badgeElement}
@@ -98,7 +99,19 @@ const SubtitleText = memo(
     // the localized name never diverges between lists.
     const size = gtMd ? '$bodyXs' : '$bodySm';
     const textRef = useRef<HTMLElement | null>(null);
+    const tooltipRef = useRef<ITooltipRef>({
+      closeTooltip: () => Promise.resolve(),
+      openTooltip: () => Promise.resolve(),
+    });
+    const wasTruncatedRef = useRef(false);
     const [isTruncated, setIsTruncated] = useState(false);
+
+    useEffect(() => {
+      if (wasTruncatedRef.current && !isTruncated) {
+        void tooltipRef.current.closeTooltip();
+      }
+      wasTruncatedRef.current = isTruncated;
+    }, [isTruncated]);
 
     // On web the name is clipped via CSS ellipsis, so detect truncation by
     // comparing the full content width against the clamped layout width.
@@ -108,7 +121,10 @@ const SubtitleText = memo(
       }
       const el = textRef.current;
       if (el && typeof el.scrollWidth === 'number') {
-        setIsTruncated(el.scrollWidth > el.clientWidth + 1);
+        const nextIsTruncated = el.scrollWidth > el.clientWidth + 1;
+        setIsTruncated((prev) =>
+          prev === nextIsTruncated ? prev : nextIsTruncated,
+        );
       }
     }, []);
 
@@ -134,16 +150,18 @@ const SubtitleText = memo(
       </Stack>
     );
 
-    // Only show a hover tooltip on desktop when the name is actually cut off.
-    if (platformEnv.isNative || !isTruncated) {
+    if (platformEnv.isNative) {
       return textElement;
     }
 
     return (
-      <Tooltip
+      <LazyTooltip
+        ref={tooltipRef}
+        disabled={!isTruncated}
         placement="top"
         renderContent={subtitle}
         renderTrigger={textElement}
+        triggerAsChild
       />
     );
   },
@@ -187,7 +205,7 @@ const StockIsOpenBadge = memo(({ stock }: { stock: IMarketStockInfo }) => {
   }
 
   return (
-    <Tooltip
+    <LazyTooltip
       hovering
       placement="bottom"
       renderContent={description}
@@ -214,7 +232,7 @@ const StockSourceLogo = memo(
 
     if (stock.title && !platformEnv.isNative) {
       return (
-        <Tooltip
+        <LazyTooltip
           hovering
           placement="top"
           renderContent={stock.title}

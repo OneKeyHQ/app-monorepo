@@ -9,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 
 import { consts } from '@onekeyfe/cross-inpage-provider-core';
@@ -62,42 +63,57 @@ type IBridgePreloadKind = Exclude<
   EDesktopWebViewPreloadKind.None
 >;
 
-const DEFAULT_PRELOAD_KIND: IBridgePreloadKind =
-  EDesktopWebViewPreloadKind.Dapp;
-
+const DEFAULT_PRELOAD_KIND = EDesktopWebViewPreloadKind.Dapp;
 const preloadJsUrls: Partial<Record<IBridgePreloadKind, string>> = {};
-const preloadJsUrlLoadErrors: Partial<Record<IBridgePreloadKind, unknown>> = {};
 const preloadJsUrlPromises: Partial<
   Record<IBridgePreloadKind, Promise<string>>
 > = {};
+const preloadJsUrlListeners = new Set<() => void>();
 
-const getPreloadJsContent = (kind: IBridgePreloadKind) =>
-  kind === EDesktopWebViewPreloadKind.Chart
-    ? globalThis.desktopApiProxy.webview.getChartPreloadJsContent()
-    : globalThis.desktopApiProxy.webview.getPreloadJsContent();
+function emitPreloadJsUrlChange() {
+  preloadJsUrlListeners.forEach((listener) => {
+    listener();
+  });
+}
 
-const loadPreloadJsUrl = (kind: IBridgePreloadKind, force = false) => {
-  if (!force && preloadJsUrlPromises[kind]) {
-    return preloadJsUrlPromises[kind];
+function subscribePreloadJsUrl(listener: () => void) {
+  preloadJsUrlListeners.add(listener);
+  return () => {
+    preloadJsUrlListeners.delete(listener);
+  };
+}
+
+function isDesktopChartPreloadReady() {
+  const globals =
+    globalThis.ONEKEY_DESKTOP_GLOBALS_GETTER?.() ??
+    globalThis.ONEKEY_DESKTOP_GLOBALS;
+  return !!globals?.tradingViewOfflineReady;
+}
+
+function getPreloadJsContent(kind: IBridgePreloadKind) {
+  if (kind === EDesktopWebViewPreloadKind.Chart) {
+    return globalThis.desktopApiProxy.webview.getChartPreloadJsContent();
   }
-  preloadJsUrlPromises[kind] = getPreloadJsContent(kind)
+  return globalThis.desktopApiProxy.webview.getPreloadJsContent();
+}
+
+function getPreloadJsUrl(kind: IBridgePreloadKind) {
+  const resolvedUrl = preloadJsUrls[kind];
+  if (resolvedUrl) {
+    return Promise.resolve(resolvedUrl);
+  }
+  preloadJsUrlPromises[kind] ??= getPreloadJsContent(kind)
     .then((url: string) => {
       preloadJsUrls[kind] = url;
-      preloadJsUrlLoadErrors[kind] = undefined;
+      emitPreloadJsUrlChange();
       return url;
     })
     .catch((error: unknown) => {
-      preloadJsUrlLoadErrors[kind] = error;
-      console.error(
-        `DesktopWebView: failed to resolve ${kind} preload url`,
-        error,
-      );
-      return '';
+      preloadJsUrlPromises[kind] = undefined;
+      throw error;
     });
   return preloadJsUrlPromises[kind];
-};
-
-void loadPreloadJsUrl(DEFAULT_PRELOAD_KIND);
+}
 
 function getDesktopWebViewOrigin(url: string): string {
   try {
@@ -148,21 +164,41 @@ const DesktopWebView = forwardRef(
   ) => {
     const bridgeDisabled =
       disableBridge || preloadKind === EDesktopWebViewPreloadKind.None;
-    const bridgePreloadKind =
+    const requestedBridgePreloadKind =
       preloadKind === EDesktopWebViewPreloadKind.None
         ? DEFAULT_PRELOAD_KIND
         : preloadKind;
+    const bridgePreloadKind =
+      requestedBridgePreloadKind === EDesktopWebViewPreloadKind.Chart &&
+      !isDesktopChartPreloadReady()
+        ? DEFAULT_PRELOAD_KIND
+        : requestedBridgePreloadKind;
     const [isWebviewReady, setIsWebviewReady] = useState(false);
     const [isDomReady, setIsDomReady] = useState(false);
-    const [, setPreloadLoadVersion] = useState(0);
-    const [preloadJsLoadFailed, setPreloadJsLoadFailed] = useState(
-      Boolean(preloadJsUrlLoadErrors[bridgePreloadKind]),
-    );
+    // Parents hold wrapper closures across renders, so dom-ready must be read
+    // from a ref, not a render snapshot.
+    const isDomReadyRef = useRef(false);
+    const updateIsDomReady = useCallback((value: boolean) => {
+      isDomReadyRef.current = value;
+      setIsDomReady(value);
+    }, []);
     const webviewRef = useRef<IElectronWebView | null>(null);
     const pendingScriptsRef = useRef<string[]>([]);
     const [devToolsAtLeft, setDevToolsAtLeft] = useState(false);
     const [devSettings] = useDevSettingsPersistAtom();
     const isUnmountingRef = useRef(false);
+    const getPreloadJsUrlSnapshot = useCallback(
+      () => preloadJsUrls[bridgePreloadKind] ?? '',
+      [bridgePreloadKind],
+    );
+    const resolvedPreloadJsUrl = useSyncExternalStore(
+      subscribePreloadJsUrl,
+      getPreloadJsUrlSnapshot,
+      getPreloadJsUrlSnapshot,
+    );
+    const [preloadJsUrlErrorKind, setPreloadJsUrlErrorKind] =
+      useState<IBridgePreloadKind | null>(null);
+    const preloadJsUrlError = preloadJsUrlErrorKind === bridgePreloadKind;
 
     const [desktopLoadError, setDesktopLoadError] = useState(false);
     const [desktopLoadErrorCode, setDesktopLoadErrorCode] = useState<number>();
@@ -193,39 +229,6 @@ const DesktopWebView = forwardRef(
       }, WEBVIEW_LOAD_TIMEOUT_MS);
     }, [clearLoadTimeout]);
 
-    useEffect(() => {
-      if (bridgeDisabled) {
-        return;
-      }
-      setPreloadJsLoadFailed(
-        Boolean(preloadJsUrlLoadErrors[bridgePreloadKind]),
-      );
-      if (preloadJsUrls[bridgePreloadKind]) {
-        setPreloadLoadVersion((v) => v + 1);
-      }
-    }, [bridgeDisabled, bridgePreloadKind]);
-
-    useEffect(() => {
-      if (bridgeDisabled || preloadJsUrls[bridgePreloadKind]) {
-        return;
-      }
-      let cancelled = false;
-      void loadPreloadJsUrl(bridgePreloadKind).then((url) => {
-        if (cancelled) {
-          return;
-        }
-        if (url) {
-          setPreloadJsLoadFailed(false);
-        } else {
-          setPreloadJsLoadFailed(true);
-        }
-        setPreloadLoadVersion((v) => v + 1);
-      });
-      return () => {
-        cancelled = true;
-      };
-    }, [bridgeDisabled, bridgePreloadKind]);
-
     const flushPendingScripts = useCallback(() => {
       if (!isDomReady || !webviewRef.current) {
         return;
@@ -243,6 +246,36 @@ const DesktopWebView = forwardRef(
         }
       }
     }, [isDomReady]);
+
+    useEffect(() => {
+      if (bridgeDisabled || preloadJsUrlError || resolvedPreloadJsUrl) {
+        return undefined;
+      }
+
+      let isMounted = true;
+      void getPreloadJsUrl(bridgePreloadKind)
+        .then(() => undefined)
+        .catch(() => {
+          if (isMounted) {
+            setPreloadJsUrlErrorKind(bridgePreloadKind);
+          }
+        });
+
+      return () => {
+        isMounted = false;
+      };
+    }, [
+      bridgeDisabled,
+      bridgePreloadKind,
+      preloadJsUrlError,
+      resolvedPreloadJsUrl,
+    ]);
+
+    useEffect(() => {
+      if (resolvedPreloadJsUrl && preloadJsUrlError) {
+        setPreloadJsUrlErrorKind(null);
+      }
+    }, [preloadJsUrlError, resolvedPreloadJsUrl]);
 
     // Register event listeners
     useEffect(() => {
@@ -324,7 +357,7 @@ const DesktopWebView = forwardRef(
             lastMainFrameLoadErrorRef.current = undefined;
             setDesktopLoadError(false);
             setDesktopLoadErrorCode(undefined);
-            setIsDomReady(false);
+            updateIsDomReady(false);
             startLoadTimeout();
           }
           checkGoogleOauth(url);
@@ -382,7 +415,7 @@ const DesktopWebView = forwardRef(
         webview.addEventListener('page-favicon-updated', onPageFaviconUpdated);
         webview.addEventListener('new-window', onNewWindow);
         const handleDomReady = (event: Event) => {
-          setIsDomReady(true);
+          updateIsDomReady(true);
           onDomReady?.(event);
         };
 
@@ -417,8 +450,12 @@ const DesktopWebView = forwardRef(
         console.error(error);
       }
     }, [
+      // the first run can precede <webview> mount when the preload URL
+      // resolves async, leaving every load listener unregistered.
+      isWebviewReady,
       clearLoadTimeout,
       startLoadTimeout,
+      updateIsDomReady,
       onDidFailLoad,
       onDidFinishLoad,
       onDidStartLoading,
@@ -464,7 +501,9 @@ const DesktopWebView = forwardRef(
       ref as Ref<unknown>,
       (): IWebViewWrapperRef => {
         const wrapper = {
-          innerRef: webviewRef.current,
+          // deferred preload mounts the node after the first create; the
+          // isWebviewReady dep re-snapshots innerRef once it exists.
+          innerRef: isWebviewReady ? webviewRef.current : null,
           jsBridge: jsBridgeHost,
           reload: () => {
             webviewRef.current?.reload();
@@ -476,7 +515,7 @@ const DesktopWebView = forwardRef(
           },
           sendMessageViaInjectedScript: (message: unknown) => {
             const script = createMessageInjectedScript(message);
-            if (!isDomReady || !webviewRef.current) {
+            if (!isDomReadyRef.current || !webviewRef.current) {
               pendingScriptsRef.current.push(script);
               if (pendingScriptsRef.current.length > 50) {
                 console.warn(
@@ -501,14 +540,19 @@ const DesktopWebView = forwardRef(
         jsBridgeHost.webviewWrapper = wrapper;
         return wrapper as IWebViewRef;
       },
-      [isDomReady, jsBridgeHost],
+      // dom-ready is read via isDomReadyRef so a parent holding an old
+      // wrapper still delivers.
+      [isWebviewReady, jsBridgeHost],
     );
 
-    const initWebviewByRef = useCallback(($ref: any) => {
-      webviewRef.current = $ref;
-      setIsDomReady(false);
-      setIsWebviewReady(Boolean($ref));
-    }, []);
+    const initWebviewByRef = useCallback(
+      ($ref: any) => {
+        webviewRef.current = $ref;
+        updateIsDomReady(false);
+        setIsWebviewReady(Boolean($ref));
+      },
+      [updateIsDomReady],
+    );
 
     useEffect(() => {
       const webview = webviewRef.current;
@@ -584,30 +628,21 @@ const DesktopWebView = forwardRef(
       flushPendingScripts();
     }, [flushPendingScripts, isWebviewReady]);
 
-    const effectivePreloadJsUrl = bridgeDisabled
-      ? ''
-      : preloadJsUrls[bridgePreloadKind] || '';
-
-    if (!effectivePreloadJsUrl && !bridgeDisabled) {
-      if (preloadJsLoadFailed) {
-        return (
+    if (preloadJsUrlError && !bridgeDisabled) {
+      return (
+        <Stack flex={1} position="relative" bg="$bgApp">
           <ErrorView
             onRefresh={() => {
-              setPreloadJsLoadFailed(false);
-              void loadPreloadJsUrl(bridgePreloadKind, true).then((url) => {
-                if (url) {
-                  setPreloadLoadVersion((v) => v + 1);
-                } else {
-                  setPreloadJsLoadFailed(true);
-                }
-              });
+              setPreloadJsUrlErrorKind(null);
             }}
           />
-        );
-      }
-      return null;
+        </Stack>
+      );
     }
 
+    if (!resolvedPreloadJsUrl && !bridgeDisabled) {
+      return null;
+    }
     return (
       <Stack flex={1} position="relative" bg="$bgApp">
         {devSettings?.enabled && devSettings?.settings?.showWebviewDevTools ? (
@@ -632,7 +667,7 @@ const DesktopWebView = forwardRef(
         ) : null}
         <webview
           ref={initWebviewByRef}
-          {...(bridgeDisabled ? {} : { preload: effectivePreloadJsUrl })}
+          {...(bridgeDisabled ? {} : { preload: resolvedPreloadJsUrl })}
           src={src}
           partition={partitionProp ?? 'persist:onekey'}
           style={{
