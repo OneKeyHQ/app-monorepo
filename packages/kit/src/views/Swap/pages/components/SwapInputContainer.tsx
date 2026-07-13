@@ -66,8 +66,8 @@ export function PercentageStageOnKeyboard({
   const isShow = useIsKeyboardShown();
   const [{ swapPercentageInputStageShowForNative }] =
     useInAppNotificationAtom();
-  let viewShow = platformEnv.isNativeIOS;
-  if (!platformEnv.isNativeIOS) {
+  let viewShow = platformEnv.isNativeIOSPhone;
+  if (!platformEnv.isNativeIOSPhone) {
     viewShow = isShow && swapPercentageInputStageShowForNative;
   }
 
@@ -389,7 +389,7 @@ const SwapInputContainer = ({
                   caretColor: 'transparent',
                 } as unknown as StyleProp<TextStyle>)
               : undefined,
-          inputAccessoryViewID: platformEnv.isNativeIOS
+          inputAccessoryViewID: platformEnv.isNativeIOSPhone
             ? SwapAmountInputAccessoryViewID
             : undefined,
           autoCorrect: false,
@@ -418,7 +418,7 @@ const SwapInputContainer = ({
         }}
         enableMaxAmount={!!(direction === ESwapDirectionType.FROM)}
       />
-      {platformEnv.isNativeIOS && direction === ESwapDirectionType.FROM ? (
+      {platformEnv.isNativeIOSPhone && direction === ESwapDirectionType.FROM ? (
         <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}

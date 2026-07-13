@@ -230,7 +230,9 @@ const SwapProInputContainer = ({
           onFocus={onInputFocus}
           onChangeText={handleInputChange}
           inputAccessoryViewID={
-            platformEnv.isNativeIOS ? SwapAmountInputAccessoryViewID : undefined
+            platformEnv.isNativeIOSPhone
+              ? SwapAmountInputAccessoryViewID
+              : undefined
           }
           placeholder={intl.formatMessage({
             id: ETranslations.content__amount,
@@ -294,7 +296,7 @@ const SwapProInputContainer = ({
         items={inputSegmentItems}
         onSelect={onSelectInputSegment}
       />
-      {platformEnv.isNativeIOS ? (
+      {platformEnv.isNativeIOSPhone ? (
         <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}

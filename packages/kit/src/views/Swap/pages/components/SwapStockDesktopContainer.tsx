@@ -1118,7 +1118,7 @@ function StockAmountInput({
         maxAmountText={intl.formatMessage({ id: ETranslations.global_max })}
         inputProps={{
           placeholder: '0.0',
-          inputAccessoryViewID: platformEnv.isNativeIOS
+          inputAccessoryViewID: platformEnv.isNativeIOSPhone
             ? SwapAmountInputAccessoryViewID
             : undefined,
           onFocus: handleAmountInputFocus,
@@ -1162,7 +1162,7 @@ function StockAmountInput({
         }}
         enableMaxAmount
       />
-      {platformEnv.isNativeIOS ? (
+      {platformEnv.isNativeIOSPhone ? (
         <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
