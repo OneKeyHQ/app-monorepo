@@ -351,14 +351,20 @@ class ServiceSignatureConfirm extends ServiceBase {
       }
     }
 
-    if (
+    const shouldUseLocalTxDisplay = Boolean(
       parsedTx &&
       (unsignedTx.stakingInfo || unsignedTx.swapInfo) &&
-      parsedTx?.type === EParseTxType.Unknown &&
-      !unsignedTx.stakingInfo?.tags?.includes(EEarnLabels.Borrow)
-    ) {
-      parsedTx.display = null;
-    }
+      parsedTx.type === EParseTxType.Unknown &&
+      !unsignedTx.stakingInfo?.tags?.includes(EEarnLabels.Borrow),
+    );
+    // Unknown staking transactions keep the established local action display,
+    // while simulation data remains server-owned and cannot be rebuilt.
+    const serverSimulationComponents =
+      shouldUseLocalTxDisplay && unsignedTx.stakingInfo
+        ? (parsedTx?.display?.components.filter(
+            (component) => component.type === EParseTxComponentType.Simulation,
+          ) ?? [])
+        : [];
 
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const decodedTx = await vault.buildDecodedTx({
@@ -385,7 +391,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       decodedTx.txABI = parsedTx.parsedTx?.data;
     }
 
-    if (parsedTx && parsedTx.display) {
+    if (parsedTx?.display && !shouldUseLocalTxDisplay) {
       decodedTx.txDisplay = parsedTx.display;
     } else {
       const vaultSettings =
@@ -403,7 +409,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
       decodedTx.txDisplay = {
         title: '',
-        components: txDisplayComponents,
+        components: [...txDisplayComponents, ...serverSimulationComponents],
         alerts: [],
       };
       decodedTx.isLocalParsed = true;
