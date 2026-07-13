@@ -1,11 +1,7 @@
-export {
-  TradingViewChartSettings,
-  TradingViewIndicatorSettings,
-} from './TradingViewSettingsMockGallery';
-export type {
-  ITradingViewChartSettingsProps,
-  ITradingViewIndicatorSettingsProps,
-} from './TradingViewSettingsMockGallery';
+export { TradingViewChartSettings } from './TradingViewChartSettings';
+export type { ITradingViewChartSettingsProps } from './TradingViewChartSettings';
+export { TradingViewIndicatorSettings } from './TradingViewIndicatorSettings';
+export type { ITradingViewIndicatorSettingsProps } from './TradingViewIndicatorSettings';
 export {
   TRADING_VIEW_SETTINGS_SCHEMA_VERSION,
   createTradingViewChartSettingsValue,
