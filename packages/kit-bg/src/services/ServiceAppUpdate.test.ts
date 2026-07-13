@@ -4045,6 +4045,60 @@ describe('computeUpdateTargetKey consistency', () => {
       }
     });
 
+    test('native-info failures keep a stable desktop runtime budget', async () => {
+      const { BundleUpdate: bundleUpdateMock } = jest.requireMock(
+        '@onekeyhq/shared/src/modules3rdParty/auto-update',
+      ) as {
+        BundleUpdate: {
+          getNativeAppVersion: jest.Mock;
+          getNativeBuildNumber: jest.Mock;
+        };
+      };
+      const previousVersion = platformEnv.version;
+      const previousBuildNumber = platformEnv.buildNumber;
+      platformEnv.isDesktop = true;
+      platformEnv.version = '6.5.0';
+      platformEnv.buildNumber = '100';
+      bundleUpdateMock.getNativeAppVersion.mockResolvedValue('6.5.0');
+      bundleUpdateMock.getNativeBuildNumber.mockRejectedValue(
+        new Error('native build unavailable'),
+      );
+
+      try {
+        for (let i = 1; i <= 8; i += 1) {
+          // eslint-disable-next-line no-await-in-loop
+          await service.recordDownloadAttempt({ targetKey: TARGET_A });
+        }
+        expect(
+          (await service.getDownloadAttemptBudget({ targetKey: TARGET_A }))
+            .givenUp,
+        ).toBe(true);
+
+        // The other getter may fail independently on the next read. Falling
+        // back either field for the SAME shell must not mint a new budget.
+        bundleUpdateMock.getNativeAppVersion.mockRejectedValue(
+          new Error('native version unavailable'),
+        );
+        bundleUpdateMock.getNativeBuildNumber.mockResolvedValue('100');
+        expect(
+          (await service.getDownloadAttemptBudget({ targetKey: TARGET_A }))
+            .givenUp,
+        ).toBe(true);
+
+        // A genuinely newer native build still gets a fresh budget.
+        bundleUpdateMock.getNativeBuildNumber.mockResolvedValue('101');
+        const freshEntry = await service.getDownloadAttemptBudget({
+          targetKey: TARGET_A,
+        });
+        expect(freshEntry.attemptCount).toBe(0);
+        expect(freshEntry.givenUp).toBe(false);
+      } finally {
+        platformEnv.isDesktop = false;
+        platformEnv.version = previousVersion;
+        platformEnv.buildNumber = previousBuildNumber;
+      }
+    });
+
     test('a long idle gap does NOT give up — only the attempt count matters (resume-friendly)', async () => {
       const now = 1_000_000_000_000;
       jest.setSystemTime(now);

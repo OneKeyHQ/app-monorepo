@@ -892,18 +892,28 @@ class ServiceAppUpdate extends ServiceBase {
     if (!platformEnv.isDesktop) {
       return undefined;
     }
-    try {
-      const [nativeAppVersion, nativeBuildNumber] = await Promise.all([
+    const [nativeAppVersionResult, nativeBuildNumberResult] =
+      await Promise.allSettled([
         BundleUpdate.getNativeAppVersion(),
         BundleUpdate.getNativeBuildNumber(),
       ]);
-      const version = nativeAppVersion || platformEnv.version || '';
-      const buildNumber = nativeBuildNumber || platformEnv.buildNumber || '';
-      return version || buildNumber ? `${version}:${buildNumber}` : undefined;
-    } catch {
-      // A transient native-info failure must not erase a valid retry budget.
-      return undefined;
-    }
+    const nativeAppVersion =
+      nativeAppVersionResult.status === 'fulfilled'
+        ? nativeAppVersionResult.value
+        : undefined;
+    const nativeBuildNumber =
+      nativeBuildNumberResult.status === 'fulfilled'
+        ? nativeBuildNumberResult.value
+        : undefined;
+    const version = nativeAppVersion || platformEnv.version || 'unknown';
+    const buildNumber =
+      nativeBuildNumber || platformEnv.buildNumber || 'unknown';
+    // Desktop must always write a stable key. Returning undefined here makes a
+    // transient native-info failure ambiguous: a later successful read can
+    // either erase the same runtime's budget or inherit an older runtime's
+    // exhausted budget. Build-time values are stable per installed shell and
+    // provide a conservative fallback when either native getter is unavailable.
+    return `${version}:${buildNumber}`;
   }
 
   /**

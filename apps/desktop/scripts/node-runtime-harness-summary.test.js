@@ -85,6 +85,21 @@ describe('node runtime harness summary', () => {
     ).toBe(true);
   });
 
+  it('fails closed for a canonical-only drift outside the API inventory', () => {
+    const report = createPassingReport();
+    report.canonicalNodeGlobalCheckNames.push('global.FutureCanonical');
+    report.canonicalDriftsAfterAppInit = [{ name: 'global.FutureCanonical' }];
+    const result = evaluate(report);
+    const summary = formatConsoleSummary(result);
+
+    expect(result.pass).toBe(false);
+    expect(result.apiChecks.map(({ name }) => name)).not.toContain(
+      'global.FutureCanonical',
+    );
+    expect(summary).toContain('FAIL    Canonical drift after app init');
+    expect(summary).toContain('- canonical: Canonical drift after app init');
+  });
+
   it('prints a structured fatal summary when Electron produces no report', () => {
     const result = evaluateHarnessReport({
       childExitCode: null,

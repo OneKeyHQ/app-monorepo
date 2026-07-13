@@ -53,6 +53,7 @@ function evaluateHarnessReport({
   if (!report || fatalError) {
     return {
       apiChecks: [],
+      canonicalDriftChecks: [],
       environmentChecks: [
         createValueCheck('Electron child exit code', childExitCode, 0),
       ],
@@ -79,6 +80,27 @@ function evaluateHarnessReport({
   const canonicalAfterRepair = getArray(report, 'canonicalDriftsAfterRepair');
   const canonicalAfterAppInit = getArray(report, 'canonicalDriftsAfterAppInit');
   const repairs = getArray(report, 'repairs');
+
+  const createEmptyArrayCheck = (name, items) => ({
+    actual: items?.length ?? null,
+    expected: 0,
+    name,
+    status: items === null ? STATUS.UNKNOWN : statusFor(items.length === 0),
+  });
+  // These arrays are an independent fail-closed boundary. Per-API rendering
+  // below is intentionally richer, but must not be the only gate: a future
+  // canonical-only check name may not exist in nodeRuntimeCheckNames.
+  const canonicalDriftChecks = [
+    createEmptyArrayCheck(
+      'Canonical drift before app load',
+      canonicalBeforeAppLoad,
+    ),
+    createEmptyArrayCheck('Canonical drift after repair', canonicalAfterRepair),
+    createEmptyArrayCheck(
+      'Canonical drift after app init',
+      canonicalAfterAppInit,
+    ),
+  ];
 
   const toNameSet = (items) =>
     items === null
@@ -203,12 +225,14 @@ function evaluateHarnessReport({
 
   const allStatuses = [
     ...environmentChecks.map(({ status }) => status),
+    ...canonicalDriftChecks.map(({ status }) => status),
     ...apiChecks.map(({ status }) => status),
     ...updaterChecks.map(({ status }) => status),
   ];
 
   return {
     apiChecks,
+    canonicalDriftChecks,
     environmentChecks,
     fatalError: null,
     pass: allStatuses.length > 0 && allStatuses.every((s) => s === STATUS.PASS),
@@ -298,6 +322,20 @@ function formatConsoleSummary(result) {
   }
 
   lines.push(prefixed());
+  lines.push(prefixed('Canonical drift arrays (all must be empty)'));
+  for (const check of result.canonicalDriftChecks) {
+    lines.push(
+      prefixed(
+        `${check.status.padEnd(7)} ${check.name.padEnd(
+          36,
+        )} actual=${displayValue(check.actual)} expected=${displayValue(
+          check.expected,
+        )}`,
+      ),
+    );
+  }
+
+  lines.push(prefixed());
   lines.push(prefixed('Updater staging safety'));
   if (result.updaterChecks.length === 0) {
     lines.push(
@@ -329,6 +367,7 @@ function formatConsoleSummary(result) {
 
   const checks = [
     ...result.environmentChecks,
+    ...result.canonicalDriftChecks,
     ...result.apiChecks,
     ...result.updaterChecks,
   ];
@@ -346,6 +385,9 @@ function formatConsoleSummary(result) {
     ...result.environmentChecks
       .filter(({ status }) => status === STATUS.FAIL)
       .map(({ name }) => `environment: ${name}`),
+    ...result.canonicalDriftChecks
+      .filter(({ status }) => status === STATUS.FAIL)
+      .map(({ name }) => `canonical: ${name}`),
     ...result.apiChecks
       .filter(({ status }) => status === STATUS.FAIL)
       .map(({ name }) => `Node API: ${name}`),
@@ -413,6 +455,22 @@ function formatGitHubStepSummary(result) {
       }),
     );
   }
+
+  lines.push(
+    '',
+    '### Canonical drift arrays',
+    '',
+    '| Result | Check | Actual | Expected |',
+    '| --- | --- | --- | --- |',
+    ...result.canonicalDriftChecks.map(
+      (check) =>
+        `| ${check.status} | ${escapeMarkdown(
+          check.name,
+        )} | ${escapeMarkdown(check.actual)} | ${escapeMarkdown(
+          check.expected,
+        )} |`,
+    ),
+  );
 
   lines.push(
     '',
