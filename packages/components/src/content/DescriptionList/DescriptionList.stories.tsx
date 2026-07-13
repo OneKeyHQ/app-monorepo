@@ -1,10 +1,10 @@
 import type { ComponentProps } from 'react';
+
 import { fn } from 'storybook/test';
 
 import { DescriptionList } from '@onekeyhq/components/src/content/DescriptionList';
 
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
-
 
 type IGap = ComponentProps<typeof DescriptionList>['gap'];
 

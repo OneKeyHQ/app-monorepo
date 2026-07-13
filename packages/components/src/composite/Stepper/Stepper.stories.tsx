@@ -1,9 +1,9 @@
 import type { ComponentProps } from 'react';
+
 import { Stepper } from '@onekeyhq/components/src/composite/Stepper';
 import { YStack } from '@onekeyhq/components/src/primitives/Stack';
 
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
-
 
 // stepIndex is the only state: items before it render as done, the item at it
 // as pending (spinner) — or failed when hasError — and items after it as
