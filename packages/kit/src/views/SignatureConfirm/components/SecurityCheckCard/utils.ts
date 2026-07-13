@@ -15,6 +15,43 @@ export type ISimulationGroup = {
   assets: ISimulationAsset[];
 };
 
+function isLikelyAsciiAbbreviation(text: string, endIndex: number) {
+  const token = text.slice(0, endIndex + 1).match(/[A-Za-z.]+$/)?.[0];
+
+  if (!token) {
+    return false;
+  }
+
+  return (
+    /^(?:[A-Za-z]\.){2,}$/.test(token) || /^[A-Z][a-z]{0,2}\.$/.test(token)
+  );
+}
+
+function findParserAlertSentenceEnd(text: string) {
+  for (const match of text.matchAll(/[。！？]|[.!?](?=\s|$)/g)) {
+    const endIndex = match.index;
+    if (match[0] !== '.') {
+      return endIndex;
+    }
+
+    const remainder = text.slice(endIndex + 1).trimStart();
+    if (!remainder) {
+      return endIndex;
+    }
+
+    // Parser alerts are backend-provided. Prefer the conservative fallback to
+    // a misleading title that ends at an abbreviation or mid-sentence period.
+    if (
+      !isLikelyAsciiAbbreviation(text, endIndex) &&
+      !/[a-z]/.test(remainder[0])
+    ) {
+      return endIndex;
+    }
+  }
+
+  return -1;
+}
+
 // Address tag severities that represent risk. They stay next to the address,
 // while the SecurityCheckCard uses this set only to avoid a contradictory
 // global "No issues" verdict.
@@ -48,6 +85,30 @@ export function shouldShowNoIssueSection({
     hasResolvedRequiredChecks &&
     hasCoverageTitle
   );
+}
+
+export function getParserAlertDisplay(alert: string) {
+  const normalizedAlert = alert.trim();
+  if (normalizedAlert.length <= 80) {
+    return { title: normalizedAlert };
+  }
+
+  const sentenceEndIndex = findParserAlertSentenceEnd(normalizedAlert);
+  const firstSentence =
+    sentenceEndIndex > 0 ? normalizedAlert.slice(0, sentenceEndIndex + 1) : '';
+
+  if (firstSentence && firstSentence.length <= 100) {
+    const description = normalizedAlert.slice(firstSentence.length).trim();
+    return {
+      title: firstSentence,
+      description: description || undefined,
+    };
+  }
+
+  return {
+    title: `${normalizedAlert.slice(0, 80).trim()}...`,
+    description: normalizedAlert,
+  };
 }
 
 export const SIMULATION_GROUP_FALLBACK_ID = 'asset-changes';

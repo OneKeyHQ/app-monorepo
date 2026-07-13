@@ -13,6 +13,7 @@ import type {
 
 import {
   SIMULATION_GROUP_FALLBACK_ID,
+  getParserAlertDisplay,
   getShownSimulationAssetNetworkId,
   getSimulationAssetAmount,
   getSimulationAssetIconProps,
@@ -111,6 +112,52 @@ function buildAddressComponent(
     ...overrides,
   };
 }
+
+describe('SecurityCheckCard parser alert display', () => {
+  it.each([
+    [
+      'an initialism',
+      'Approval to spend U.S. Dollar Coin (USDC) will be granted to an unverified spender address.',
+    ],
+    [
+      'a Latin abbreviation',
+      'This request, e.g. an unlimited approval, may expose all wallet assets to a malicious spender.',
+    ],
+    [
+      'a company suffix',
+      'Acme Inc. is not a verified spender and may gain unlimited access to every token in this wallet.',
+    ],
+    [
+      'a number abbreviation',
+      'Recipient No. 12 is associated with suspicious activity and may put all wallet assets at risk.',
+    ],
+  ])('does not split a long alert at %s', (_case, alert) => {
+    expect(alert.length).toBeGreaterThan(80);
+    expect(alert.length).toBeLessThanOrEqual(100);
+    expect(getParserAlertDisplay(alert)).toEqual({ title: alert });
+  });
+
+  it('splits a long alert at a high-confidence sentence boundary', () => {
+    const alert =
+      'This approval grants unlimited access to your USDC. The spender is unverified and may transfer all of your funds.';
+
+    expect(getParserAlertDisplay(alert)).toEqual({
+      title: 'This approval grants unlimited access to your USDC.',
+      description:
+        'The spender is unverified and may transfer all of your funds.',
+    });
+  });
+
+  it('does not mistake a decimal point for a sentence boundary', () => {
+    const alert =
+      'The request transfers 0.5 ETH to an unverified recipient. Confirm the amount and recipient before continuing.';
+
+    expect(getParserAlertDisplay(alert)).toEqual({
+      title: 'The request transfers 0.5 ETH to an unverified recipient.',
+      description: 'Confirm the amount and recipient before continuing.',
+    });
+  });
+});
 
 describe('SecurityCheckCard address risk boundaries', () => {
   it.each(['warning', 'critical'] as const)(

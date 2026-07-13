@@ -44,7 +44,11 @@ import { LaserBorder } from '../SignatureConfirmComponents/LaserBorder';
 import { ShimmerSignGuard } from '../SignatureConfirmComponents/ShimmerSignGuard';
 
 import TransactionPreview from './TransactionPreview';
-import { hasAddressRiskTags, shouldShowNoIssueSection } from './utils';
+import {
+  getParserAlertDisplay,
+  hasAddressRiskTags,
+  shouldShowNoIssueSection,
+} from './utils';
 
 type ISecurityCheckKind = 'transaction' | 'message';
 
@@ -285,33 +289,6 @@ function getCustomHexFindings({
       });
     });
   return findings;
-}
-
-function getParserAlertDisplay(alert: string) {
-  const normalizedAlert = alert.trim();
-  if (normalizedAlert.length <= 80) {
-    return { title: normalizedAlert };
-  }
-
-  // Only treat ASCII .!? as a sentence break when followed by whitespace/end,
-  // so decimals ("0.5") and abbreviations ("U.S.") don't split the alert
-  // mid-token. Full-width CJK enders always count.
-  const sentenceEndIndex = normalizedAlert.search(/[。！？]|[.!?](?=\s|$)/);
-  const firstSentence =
-    sentenceEndIndex > 0 ? normalizedAlert.slice(0, sentenceEndIndex + 1) : '';
-
-  if (firstSentence && firstSentence.length <= 100) {
-    const description = normalizedAlert.slice(firstSentence.length).trim();
-    return {
-      title: firstSentence,
-      description: description || undefined,
-    };
-  }
-
-  return {
-    title: `${normalizedAlert.slice(0, 80).trim()}...`,
-    description: normalizedAlert,
-  };
 }
 
 function normalizeAlertText(text?: string) {
