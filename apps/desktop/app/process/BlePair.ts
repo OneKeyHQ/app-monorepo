@@ -26,6 +26,12 @@ const PAIR_TIMEOUT_MS = 60_000;
 export type IBlePairEvent =
   | { type: 'diag'; t_ms: number; msg: string }
   | { type: 'pairing'; pin: string }
+  // The device's stable identity address, read from the OS bond record after a
+  // successful pair. Logged only for now: the SDK keys connect/write/subscribe
+  // AND its inbound notification events off one id, and this seam cannot rewrite
+  // the inbound ones — so swapping the id here would break the notify path.
+  // Decide what to do with it once we know what a post-bond scan reports.
+  | { type: 'identity'; address: string }
   | { type: 'paired' }
   | { type: 'already-paired' }
   | { type: 'is-paired'; paired: boolean }

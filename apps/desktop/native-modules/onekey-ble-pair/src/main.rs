@@ -74,6 +74,9 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     let command = args.get(1).map(String::as_str).unwrap_or("");
     let address = get_flag(&args, "--address");
+    let seconds = get_flag(&args, "--seconds")
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(60);
 
     diag(&format!("helper start command={command} address={address:?}"));
 
@@ -84,6 +87,8 @@ fn main() {
             "forget" => win::run_forget(address).await,
             // Read-only forensics: safe to run any time, changes no bond state.
             "inspect" => win::run_inspect(address).await,
+            // Raw advertisement dump — run standalone, no app rebuild needed.
+            "watch" => win::run_watch(seconds).await,
             other => Err(format!("unknown command: '{other}'")),
         }
     });
@@ -99,9 +104,15 @@ fn main() {
 #[cfg(windows)]
 mod win {
     use super::{diag, t_ms, ACCEPT_MS};
+    use std::collections::HashSet;
     use std::sync::atomic::Ordering;
+    use std::sync::Mutex;
     use windows::{
         core::{IInspectable, Ref},
+        Devices::Bluetooth::Advertisement::{
+            BluetoothLEAdvertisementReceivedEventArgs, BluetoothLEAdvertisementWatcher,
+            BluetoothLEScanningMode,
+        },
         Devices::Bluetooth::{BluetoothAddressType, BluetoothLEDevice},
         Devices::Enumeration::{
             DeviceInformation, DeviceInformationCustomPairing, DeviceInformationPairing,
@@ -225,6 +236,44 @@ mod win {
         }
     }
 
+    /// A BLE `DeviceInformation.Id` looks like
+    /// `BluetoothLE#BluetoothLE<adapter-addr>-<device-addr>`. For a BONDED
+    /// device the trailing address is the device's IDENTITY address — the stable
+    /// one, as opposed to the rotating RPA we had to pair against. That identity
+    /// is the only durable handle on a privacy-mode device like the Safe 7.
+    fn identity_from_device_id(id: &str) -> Option<String> {
+        id.rsplit('-').next().filter(|a| a.len() == 17).map(str::to_string)
+    }
+
+    /// After bonding, find the device's identity address from the OS bond record.
+    /// Prefers a name match; falls back to the sole bonded device when there is
+    /// exactly one (the common case on a clean machine).
+    async fn find_bonded_identity(device_name: &str) -> Option<String> {
+        let selector = BluetoothLEDevice::GetDeviceSelectorFromPairingState(true).ok()?;
+        let collection = DeviceInformation::FindAllAsyncAqsFilter(&selector)
+            .ok()?
+            .await
+            .ok()?;
+        let size = collection.Size().unwrap_or(0);
+        let mut candidates: Vec<(String, String)> = Vec::new();
+        for i in 0..size {
+            if let Ok(info) = collection.GetAt(i) {
+                let id = info.Id().map(|v| v.to_string()).unwrap_or_default();
+                let name = info.Name().map(|v| v.to_string()).unwrap_or_default();
+                if let Some(identity) = identity_from_device_id(&id) {
+                    candidates.push((name, identity));
+                }
+            }
+        }
+        if let Some((_, identity)) = candidates.iter().find(|(n, _)| n == device_name) {
+            return Some(identity.clone());
+        }
+        if candidates.len() == 1 {
+            return Some(candidates[0].1.clone());
+        }
+        None
+    }
+
     /// Open the device by address and return it together with its pairing
     /// handle. The device is returned so the caller keeps it alive across the
     /// (async) pairing call.
@@ -336,11 +385,24 @@ mod win {
 
         match status {
             DevicePairingResultStatus::Paired => {
-                // The bonded entry's WinRT DeviceId embeds the device's identity
-                // address. If it differs from the RPA we paired against, then the
-                // connectId noble was given is already dead and that — not the
-                // bond — is why `connect` cannot find the device afterwards.
                 dump_paired_inventory("after-paired").await;
+
+                // The RPA we just paired against is disposable — the device will
+                // rotate it. Hand the caller the identity address from the bond
+                // record so it can address the device durably; a connectId keyed
+                // on the RPA is dead the moment it rotates.
+                let name = device.Name().map(|v| v.to_string()).unwrap_or_default();
+                match find_bonded_identity(&name).await {
+                    Some(identity) => {
+                        diag(&format!(
+                            "bonded identity address={identity} (paired via RPA {addr:012x})"
+                        ));
+                        super::emit(&format!(
+                            r#"{{"type":"identity","address":"{identity}"}}"#
+                        ));
+                    }
+                    None => diag("could not resolve bonded identity address"),
+                }
 
                 // Suite does exactly this ("disconnect after successful pairing
                 // and proceed to discover_services()"). Pairing leaves the link
@@ -374,6 +436,94 @@ mod win {
                 Err(format!("pairing failed with status {status:?}"))
             }
         }
+    }
+
+    /// Raw advertisement dump. ACTIVE scanning (so scan-response payloads are
+    /// included) with NO service-UUID filter — this is deliberately everything
+    /// noble's filtered scan could be hiding. Answers, without any of our own
+    /// stack in the way:
+    ///   - is the device advertising at all, or does it go quiet for minutes?
+    ///   - does it advertise the Trezor service UUID in the ADV packet, or only
+    ///     in the scan response (which a passive filtered scan would miss)?
+    ///   - is it connectable, and under which (rotating) address?
+    /// Each address is reported on first sighting, then again with a total count
+    /// at the end, so the output stays readable.
+    pub async fn run_watch(seconds: u64) -> Result<(), String> {
+        let watcher = BluetoothLEAdvertisementWatcher::new().map_err(we)?;
+        watcher
+            .SetScanningMode(BluetoothLEScanningMode::Active)
+            .map_err(we)?;
+
+        let seen: &'static Mutex<HashSet<u64>> = Box::leak(Box::new(Mutex::new(HashSet::new())));
+        let hits: &'static Mutex<Vec<(u64, String, u32)>> = Box::leak(Box::new(Mutex::new(vec![])));
+
+        let handler = TypedEventHandler::<
+            BluetoothLEAdvertisementWatcher,
+            BluetoothLEAdvertisementReceivedEventArgs,
+        >::new(move |_sender, args: Ref<BluetoothLEAdvertisementReceivedEventArgs>| {
+            if let Ok(args) = args.ok() {
+                let addr = args.BluetoothAddress()?;
+                let rssi = args.RawSignalStrengthInDBm().unwrap_or(0);
+                let adv_type = args
+                    .AdvertisementType()
+                    .map(|v| format!("{v:?}"))
+                    .unwrap_or_else(|_| "<err>".into());
+                let addr_type = args
+                    .BluetoothAddressType()
+                    .map(addr_type_name)
+                    .unwrap_or("<err>");
+                let adv = args.Advertisement()?;
+                let name = adv
+                    .LocalName()
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|_| String::new());
+
+                let mut uuids: Vec<String> = Vec::new();
+                if let Ok(list) = adv.ServiceUuids() {
+                    let size = list.Size().unwrap_or(0);
+                    for i in 0..size {
+                        if let Ok(u) = list.GetAt(i) {
+                            uuids.push(format!("{u:?}"));
+                        }
+                    }
+                }
+
+                if let Ok(mut hits) = hits.lock() {
+                    if let Some(entry) = hits.iter_mut().find(|(a, _, _)| *a == addr) {
+                        entry.2 += 1;
+                    } else {
+                        hits.push((addr, name.clone(), 1));
+                    }
+                }
+
+                let first_time = seen.lock().map(|mut s| s.insert(addr)).unwrap_or(false);
+                if first_time {
+                    diag(&format!(
+                        "adv addr={addr:012x} addrType={addr_type} randomKind={} \
+                         type={adv_type} rssi={rssi} name='{name}' serviceUuids={uuids:?}",
+                        classify_random_address(addr)
+                    ));
+                }
+            }
+            Ok(())
+        });
+
+        watcher.Received(&handler).map_err(we)?;
+        watcher.Start().map_err(we)?;
+        diag(&format!("watching advertisements for {seconds}s (active scan, no filter)"));
+
+        std::thread::sleep(std::time::Duration::from_secs(seconds));
+
+        let _ = watcher.Stop();
+        if let Ok(hits) = hits.lock() {
+            diag(&format!("watch done: {} distinct address(es)", hits.len()));
+            for (addr, name, count) in hits.iter() {
+                diag(&format!(
+                    "  addr={addr:012x} adverts={count} name='{name}'"
+                ));
+            }
+        }
+        Ok(())
     }
 
     /// Read-only forensics — dumps device + bond state and changes nothing.

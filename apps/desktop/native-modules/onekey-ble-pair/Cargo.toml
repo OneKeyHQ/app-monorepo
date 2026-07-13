@@ -16,8 +16,13 @@ path = "src/main.rs"
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.61", features = [
     "Devices_Bluetooth",
+    # Raw advertisement watcher: ground truth for "is the device advertising at
+    # all, and under what address/UUIDs" — independent of noble's service-UUID
+    # filter, which is a prime suspect for the "scan finds nothing" symptom.
+    "Devices_Bluetooth_Advertisement",
     "Devices_Enumeration",
     "Foundation",
+    "Foundation_Collections",
     "Win32_System_Com",
 ] }
 # Minimal block_on so we can `.await` the WinRT async ops (like suite) instead
