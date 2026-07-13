@@ -26,7 +26,6 @@ export function useMarketBannerList(): {
       checkIsFocused: !platformEnv.isWeb,
       watchLoading: true,
       revalidateOnReconnect: true,
-      undefinedResultIfError: true,
     },
   );
 

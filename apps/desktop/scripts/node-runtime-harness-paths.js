@@ -57,6 +57,8 @@ function resolvePackagedExecutable({
   existsSync = fs.existsSync,
   platform = process.platform,
 }) {
+  // This is intentionally one runner-native smoke test per platform. Other
+  // architectures and distribution variants reuse this platform gate.
   return (
     getPackagedExecutableCandidates({ arch, desktopDir, platform }).find(
       (candidate) => existsSync(candidate),

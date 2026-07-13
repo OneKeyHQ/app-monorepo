@@ -509,6 +509,8 @@ jobs:
           cd apps/desktop
           npx electron-builder build -w --config electron-builder-win.config.js --publish never
 
+      # One runner-native executable is the Windows platform gate. ARM64 and
+      # universal artifacts intentionally reuse it instead of repeating the test.
       - name: Verify packaged Electron Node runtime integrity (NSIS)
         id: phase1_runtime_integrity
         if: steps.phase1_nsis.outcome == 'success'
@@ -812,6 +814,8 @@ jobs:
         if: always() && steps.phase2_snap.outcome == 'success'
         run: sudo snap install ./apps/desktop/build-electron/*.snap --dangerous
 
+      # Snap is intentionally the single runtime smoke gate for this Linux
+      # runner. AppImage reuses it; do not add per-format duplicate executions.
       - name: Verify packaged Electron Node runtime integrity (Snap)
         id: linux_runtime_integrity
         if: always() && steps.install_snap_runtime_integrity.outcome == 'success'
