@@ -323,3 +323,33 @@ Verified 2026-07-11 on an iPhone 16 Pro simulator:
   (zero app usages — dead-code candidate, story would legitimize it),
   `RefreshControl` (pull gesture is not verifiable on desktop web),
   `NativeSectionList` (one-line re-export of RN SectionList).
+- Notes from batches 13-15 (content leftovers + layouts + Stack/Haptics/
+  Trigger/Banner, 12 components): `Banner` calls `useIsFocused()`
+  unconditionally, so its stories mount inside a bare `NavigationContainer`
+  (no navigator needed) plus a column (`YStack`) width wrapper — a row
+  wrapper collapses the banner on native, and the root swallows `w` (only
+  `height` reaches the inner Swiper). `ScrollView`'s own `h`/`w` only
+  constrained the web shell, so the story bounds it with a plain Stack
+  wrapper like every list story. `SortableSectionList` (deep import, same
+  as SortableListView) flattens sections into one list — the web
+  `getItemLayout` table must count every flattened row: separator, header,
+  items, and a zero-height footer per section; `onDragEnd` returns
+  shallow-copied sections so extra fields like `title` survive. The `Video`
+  story streams an mp4 from the OneKey CDN; the web build hardcodes
+  autoplay and browsers require `muted`, while native react-native-video
+  plays unless `paused` (verified via frame diff on simulator). Its web
+  impl assigns the kebab-case `object-fit` style key, logging a dev warning
+  (component bug, fix task spawned). `expo-haptics` enums resolve through
+  vite; web `Haptics` is a silent no-op (buttons demo the API surface).
+  Exclusions: `GlassView`/`GlassButtonCapsule` (web passthrough; real
+  effect needs the iOS 26 Liquid-Glass native module), `Keyboard`
+  (keyboard-controller utility namespace, imperative — not a keypad),
+  `Splash` (app-root infra; the native file runs expo-splash-screen side
+  effects at import), `SortableCell` (throws outside a native draggable
+  list context; zero app usages), `Page` (unconditional
+  `useHeaderHeight`/`useNavigation` need a real navigator + header),
+  `OverlayContainer` (web passthrough; iOS floats children over the entire
+  window, covering the storybook UI), `DesktopDragZoneBox` (drag region is
+  Electron-only; inert box elsewhere), `View` (thin tamagui re-export —
+  covered by the Stack story), `ScrollGuard` (web passthrough; native-only
+  nested-scroll gesture guard).
