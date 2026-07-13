@@ -44,20 +44,20 @@ function buildOrder({
 }
 
 describe('ServiceSwap.enrichLimitOrderTokenMetadata', () => {
-  it('uses the native-token lookup for an empty native contract address', async () => {
-    const getNativeToken = jest.fn(async () => ({
-      logoURI: 'https://onekey.example/native.png',
-      name: 'OneKey Native',
-      symbol: 'NATIVE',
-    }));
-    const getToken = jest.fn(async () => ({
-      logoURI: 'https://onekey.example/token.png',
-      name: 'OneKey Token',
-      symbol: 'ERC20',
+  it('uses Market detail metadata for an empty native contract address', async () => {
+    const fetchMarketTokenDetailByTokenAddress = jest.fn(async () => ({
+      code: 0,
+      data: {
+        token: {
+          logoUrl: 'https://market.example/native.png',
+          name: 'Market Native',
+          symbol: 'NATIVE',
+        },
+      },
     }));
     const service = new ServiceSwap({
       backgroundApi: {
-        serviceToken: { getNativeToken, getToken },
+        serviceMarketV2: { fetchMarketTokenDetailByTokenAddress },
       },
     });
 
@@ -72,15 +72,19 @@ describe('ServiceSwap.enrichLimitOrderTokenMetadata', () => {
       }),
     ]);
 
-    expect(getNativeToken).toHaveBeenCalledWith({
-      accountId: '',
-      networkId: 'evm--1',
-      tokenInfoOnly: true,
-    });
+    expect(fetchMarketTokenDetailByTokenAddress).toHaveBeenCalledWith(
+      '',
+      'evm--1',
+      {
+        autoHandleError: false,
+        skipConvertCurrency: true,
+      },
+    );
     expect(result.fromTokenInfo).toMatchObject({
       contractAddress: '',
       isNative: true,
-      name: 'OneKey Native',
+      logoURI: 'https://market.example/native.png',
+      name: 'Market Native',
       symbol: 'NATIVE',
     });
   });
@@ -88,21 +92,29 @@ describe('ServiceSwap.enrichLimitOrderTokenMetadata', () => {
   it('deduplicates token lookups and caps network concurrency', async () => {
     let activeRequests = 0;
     let maxActiveRequests = 0;
-    const getToken = jest.fn(async ({ tokenIdOnNetwork }) => {
-      activeRequests += 1;
-      maxActiveRequests = Math.max(maxActiveRequests, activeRequests);
-      await new Promise((resolve) => {
-        setTimeout(resolve, 5);
-      });
-      activeRequests -= 1;
-      return {
-        name: tokenIdOnNetwork,
-        symbol: tokenIdOnNetwork,
-      };
-    });
+    const fetchMarketTokenDetailByTokenAddress = jest.fn(
+      async (contractAddress: string) => {
+        activeRequests += 1;
+        maxActiveRequests = Math.max(maxActiveRequests, activeRequests);
+        await new Promise((resolve) => {
+          setTimeout(resolve, 5);
+        });
+        activeRequests -= 1;
+        return {
+          code: 0,
+          data: {
+            token: {
+              logoUrl: `https://market.example/${contractAddress}.png`,
+              name: contractAddress,
+              symbol: contractAddress,
+            },
+          },
+        };
+      },
+    );
     const service = new ServiceSwap({
       backgroundApi: {
-        serviceToken: { getToken },
+        serviceMarketV2: { fetchMarketTokenDetailByTokenAddress },
       },
     });
     const repeatedToken = buildToken({ contractAddress: '0x1' });
@@ -121,7 +133,7 @@ describe('ServiceSwap.enrichLimitOrderTokenMetadata', () => {
 
     await service.enrichLimitOrderTokenMetadata(orders);
 
-    expect(getToken).toHaveBeenCalledTimes(7);
+    expect(fetchMarketTokenDetailByTokenAddress).toHaveBeenCalledTimes(7);
     expect(maxActiveRequests).toBeLessThanOrEqual(5);
   });
 });

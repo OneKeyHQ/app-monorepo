@@ -1,6 +1,6 @@
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
-import { mergeOneKeyLimitOrderTokenMetadata } from './swapLimitOrderUtils';
+import { mergeLimitOrderTokenDisplayMetadata } from './swapLimitOrderUtils';
 
 const providerToken = {
   networkId: 'evm--1',
@@ -11,12 +11,12 @@ const providerToken = {
   symbol: 'COW',
 } as ISwapToken;
 
-describe('mergeOneKeyLimitOrderTokenMetadata', () => {
-  it('uses OneKey display metadata without changing order token identity', () => {
+describe('mergeLimitOrderTokenDisplayMetadata', () => {
+  it('uses Market display metadata without changing order token identity', () => {
     expect(
-      mergeOneKeyLimitOrderTokenMetadata({
+      mergeLimitOrderTokenDisplayMetadata({
         providerToken,
-        oneKeyToken: {
+        displayMetadata: {
           logoURI: 'https://onekey.example/token.png',
           name: 'OneKey Token',
           symbol: 'ONE',
@@ -30,11 +30,11 @@ describe('mergeOneKeyLimitOrderTokenMetadata', () => {
     });
   });
 
-  it('keeps provider fields when OneKey metadata is unavailable', () => {
+  it('keeps provider fields when Market metadata is unavailable', () => {
     expect(
-      mergeOneKeyLimitOrderTokenMetadata({
+      mergeLimitOrderTokenDisplayMetadata({
         providerToken,
-        oneKeyToken: null,
+        displayMetadata: null,
       }),
     ).toBe(providerToken);
   });

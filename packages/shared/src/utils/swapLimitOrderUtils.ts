@@ -1,25 +1,24 @@
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
-import type { IToken } from '@onekeyhq/shared/types/token';
 
-export type IOneKeyLimitOrderTokenMetadata = Pick<
-  IToken,
+export type ILimitOrderTokenDisplayMetadata = Pick<
+  ISwapToken,
   'logoURI' | 'name' | 'symbol'
 >;
 
-export function mergeOneKeyLimitOrderTokenMetadata({
+export function mergeLimitOrderTokenDisplayMetadata({
   providerToken,
-  oneKeyToken,
+  displayMetadata,
 }: {
   providerToken: ISwapToken;
-  oneKeyToken?: IOneKeyLimitOrderTokenMetadata | null;
+  displayMetadata?: ILimitOrderTokenDisplayMetadata | null;
 }): ISwapToken {
-  if (!oneKeyToken) {
+  if (!displayMetadata) {
     return providerToken;
   }
   return {
     ...providerToken,
-    logoURI: oneKeyToken.logoURI || providerToken.logoURI,
-    name: oneKeyToken.name || providerToken.name,
-    symbol: oneKeyToken.symbol || providerToken.symbol,
+    logoURI: displayMetadata.logoURI || providerToken.logoURI,
+    name: displayMetadata.name || providerToken.name,
+    symbol: displayMetadata.symbol || providerToken.symbol,
   };
 }

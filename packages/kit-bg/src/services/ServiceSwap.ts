@@ -46,8 +46,8 @@ import {
   isSwapHistoryProtocolExcluded,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
-  type IOneKeyLimitOrderTokenMetadata,
-  mergeOneKeyLimitOrderTokenMetadata,
+  type ILimitOrderTokenDisplayMetadata,
+  mergeLimitOrderTokenDisplayMetadata,
 } from '@onekeyhq/shared/src/utils/swapLimitOrderUtils';
 import {
   getDenyBridgeProviderString,
@@ -522,6 +522,36 @@ export default class ServiceSwap extends ServiceBase {
 
   // cache for limit order
   private _swapSupportNetworks: ISwapNetwork[] = [];
+
+  private fetchLimitOrderTokenDisplayMetadataMemo = memoizee(
+    async (networkId: string, contractAddress: string) => {
+      const response =
+        await this.backgroundApi.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
+          contractAddress,
+          networkId,
+          {
+            autoHandleError: false,
+            skipConvertCurrency: true,
+          },
+        );
+      const token = response?.data?.token;
+      if (response?.code !== 0 || !token) {
+        return null;
+      }
+      return {
+        logoURI: token.logoUrl,
+        name: token.name,
+        symbol: token.symbol,
+      } satisfies ILimitOrderTokenDisplayMetadata;
+    },
+    {
+      max: 100,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 15 }),
+      normalizer: ([networkId, contractAddress]) =>
+        `${networkId}:${contractAddress}`,
+      promise: true,
+    },
+  );
 
   private swapSupportNetworksCacheTime = 0;
 
@@ -2689,29 +2719,14 @@ export default class ServiceSwap extends ServiceBase {
     const tokenLookupEntries = Array.from(tokenLookupMap.entries());
     const metadataResults = await promiseAllSettledSlidingWindow(
       tokenLookupEntries.map(([, identity]) => async () => {
-        const oneKeyToken = identity.isNative
-          ? await this.backgroundApi.serviceToken.getNativeToken({
-              accountId: '',
-              networkId: identity.networkId,
-              tokenInfoOnly: true,
-            })
-          : await this.backgroundApi.serviceToken.getToken({
-              accountId: '',
-              networkId: identity.networkId,
-              tokenIdOnNetwork: identity.contractAddress,
-              tokenInfoOnly: true,
-            });
-        return oneKeyToken
-          ? {
-              logoURI: oneKeyToken.logoURI,
-              name: oneKeyToken.name,
-              symbol: oneKeyToken.symbol,
-            }
-          : null;
+        return this.fetchLimitOrderTokenDisplayMetadataMemo(
+          identity.networkId,
+          identity.contractAddress,
+        );
       }),
       { concurrency: 5, continueOnError: true },
     );
-    const metadataMap = new Map<string, IOneKeyLimitOrderTokenMetadata | null>(
+    const metadataMap = new Map<string, ILimitOrderTokenDisplayMetadata | null>(
       tokenLookupEntries.map(([key], index) => [key, metadataResults[index]]),
     );
     const getMetadata = (token: ISwapToken, fallbackNetworkId: string) => {
@@ -2721,13 +2736,13 @@ export default class ServiceSwap extends ServiceBase {
 
     return fetchResult.map((order) => ({
       ...order,
-      fromTokenInfo: mergeOneKeyLimitOrderTokenMetadata({
+      fromTokenInfo: mergeLimitOrderTokenDisplayMetadata({
         providerToken: order.fromTokenInfo,
-        oneKeyToken: getMetadata(order.fromTokenInfo, order.networkId),
+        displayMetadata: getMetadata(order.fromTokenInfo, order.networkId),
       }),
-      toTokenInfo: mergeOneKeyLimitOrderTokenMetadata({
+      toTokenInfo: mergeLimitOrderTokenDisplayMetadata({
         providerToken: order.toTokenInfo,
-        oneKeyToken: getMetadata(order.toTokenInfo, order.networkId),
+        displayMetadata: getMetadata(order.toTokenInfo, order.networkId),
       }),
     }));
   }
