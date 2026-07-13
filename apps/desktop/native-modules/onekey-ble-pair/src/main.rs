@@ -1,36 +1,31 @@
 //! One-shot Windows BLE pairing helper for OneKey desktop.
 //!
 //! Why this exists: noble's WinRT backend never initiates OS BLE bonding, so a
-//! Trezor Safe 7 (whose GATT is encryption-gated) fails at service discovery
-//! with "Device is unreachable". This helper performs the WinRT
+//! Trezor Safe 7 (encryption-gated GATT) fails at service discovery with
+//! "Device is unreachable". This helper performs the WinRT
 //! `DeviceInformationCustomPairing` ceremony (ConfirmPinMatch) BEFORE noble
-//! connects, then exits. The Electron main process spawns it, reads the JSON
-//! lines below from stdout, shows the pin for numeric comparison, and — once
-//! "paired" — hands the (now bonded) device back to noble for GATT.
+//! connects, then exits. Ported from trezor-suite `transport-bluetooth`
+//! `src/server/platform/windows.rs` `try_to_pair`.
 //!
-//! It is a near-verbatim port of trezor-suite `transport-bluetooth`
-//! `src/server/platform/windows.rs` `try_to_pair` (same `windows` crate).
-//! Difference: Suite is a resident daemon that also does GATT via btleplug and
-//! streams status over a socket; we only borrow the pairing step and exit, so
-//! there is no channel/daemon — the PairingRequested handler writes straight to
-//! stdout, and process teardown closes the device handle (no explicit Close).
+//! Concurrency matches suite: the WinRT async ops are `.await`ed (driven by a
+//! minimal block_on), NOT blocked with `.get()`. Blocking starved the
+//! `PairingRequested` delegate, so our auto-accept never ran, Windows showed
+//! its own dialog, and pairing ended as Failed(19). We also init a
+//! multithreaded apartment so the delegate is dispatched on a pool thread.
 //!
 //! stdout protocol — one JSON object per line, flushed immediately:
 //!   {"type":"pairing","pin":"123456"}      pin to compare with the device screen
-//!   {"type":"paired"}                       OS bond established
-//!   {"type":"already-paired"}               device was already bonded
-//!   {"type":"is-paired","paired":true}      result of the `is-paired` command
-//!   {"type":"unpaired"}                      `forget` succeeded
-//!   {"type":"error","message":"..."}         failure (also non-zero exit)
+//!   {"type":"paired"} / {"type":"already-paired"}
+//!   {"type":"is-paired","paired":true}
+//!   {"type":"unpaired"}
+//!   {"type":"error","message":"..."}         (also non-zero exit)
 //!
 //! Usage: onekey-ble-pair <pair|is-paired|forget> --address AA:BB:CC:DD:EE:FF
 
 #[cfg(windows)]
 fn main() {
     // Multithreaded apartment so WinRT event delegates (PairingRequested) are
-    // dispatched on thread-pool threads and fire while we block on
-    // PairAsync().get(). Without this the handler never runs → Windows shows a
-    // fallback dialog and pairing ends as Failed(19).
+    // dispatched on thread-pool threads while we wait for PairAsync.
     unsafe {
         use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
@@ -40,12 +35,14 @@ fn main() {
     let command = args.get(1).map(String::as_str).unwrap_or("");
     let address = get_flag(&args, "--address");
 
-    let result = match command {
-        "pair" => run_pair(address),
-        "is-paired" => run_is_paired(address),
-        "forget" => run_forget(address),
-        other => Err(format!("unknown command: '{other}'")),
-    };
+    let result = pollster::block_on(async {
+        match command {
+            "pair" => win::run_pair(address).await,
+            "is-paired" => win::run_is_paired(address).await,
+            "forget" => win::run_forget(address).await,
+            other => Err(format!("unknown command: '{other}'")),
+        }
+    });
 
     if let Err(message) = result {
         emit_error(&message);
@@ -71,12 +68,14 @@ mod win {
     }
 
     /// Open the device by address and return it together with its pairing
-    /// handle. The device is returned so the caller keeps it alive for the
-    /// duration of the (async) pairing call.
-    fn open_pairing(addr: u64) -> Result<(BluetoothLEDevice, DeviceInformationPairing), String> {
+    /// handle. The device is returned so the caller keeps it alive across the
+    /// (async) pairing call.
+    async fn open_pairing(
+        addr: u64,
+    ) -> Result<(BluetoothLEDevice, DeviceInformationPairing), String> {
         let device = BluetoothLEDevice::FromBluetoothAddressAsync(addr)
             .map_err(we)?
-            .get()
+            .await
             .map_err(we)?;
         let pairing = device
             .DeviceInformation()
@@ -86,9 +85,9 @@ mod win {
         Ok((device, pairing))
     }
 
-    pub fn run_pair(address: Option<String>) -> Result<(), String> {
+    pub async fn run_pair(address: Option<String>) -> Result<(), String> {
         let addr = super::require_address(address)?;
-        let (_device, pairing) = open_pairing(addr)?;
+        let (_device, pairing) = open_pairing(addr).await?;
 
         if pairing.IsPaired().map_err(we)? {
             super::emit(r#"{"type":"already-paired"}"#);
@@ -126,7 +125,7 @@ mod win {
         let result = custom
             .PairAsync(DevicePairingKinds::ConfirmPinMatch)
             .map_err(we)?
-            .get()
+            .await
             .map_err(we)?;
         eprintln!("[pair] PairAsync returned");
 
@@ -139,18 +138,18 @@ mod win {
         }
     }
 
-    pub fn run_is_paired(address: Option<String>) -> Result<(), String> {
+    pub async fn run_is_paired(address: Option<String>) -> Result<(), String> {
         let addr = super::require_address(address)?;
-        let (_device, pairing) = open_pairing(addr)?;
+        let (_device, pairing) = open_pairing(addr).await?;
         let paired = pairing.IsPaired().map_err(we)?;
         super::emit(&format!(r#"{{"type":"is-paired","paired":{paired}}}"#));
         Ok(())
     }
 
-    pub fn run_forget(address: Option<String>) -> Result<(), String> {
+    pub async fn run_forget(address: Option<String>) -> Result<(), String> {
         let addr = super::require_address(address)?;
-        let (_device, pairing) = open_pairing(addr)?;
-        let result = pairing.UnpairAsync().map_err(we)?.get().map_err(we)?;
+        let (_device, pairing) = open_pairing(addr).await?;
+        let result = pairing.UnpairAsync().map_err(we)?.await.map_err(we)?;
         match result.Status().map_err(we)? {
             DeviceUnpairingResultStatus::Unpaired | DeviceUnpairingResultStatus::AlreadyUnpaired => {
                 super::emit(r#"{"type":"unpaired"}"#);
@@ -161,16 +160,12 @@ mod win {
     }
 }
 
-#[cfg(windows)]
-use win::{run_forget, run_is_paired, run_pair};
-
 // ----- shared helpers (Windows only; the stub main below needs none) -----
 
 #[cfg(windows)]
 fn emit(line: &str) {
     use std::io::Write;
-    // Locked + flushed so the pin reaches the parent immediately: the process
-    // then blocks in PairAsync, so an unflushed line would never be seen in time.
+    // Locked + flushed so the pin reaches the parent immediately.
     let mut out = std::io::stdout().lock();
     let _ = writeln!(out, "{line}");
     let _ = out.flush();
@@ -211,12 +206,9 @@ fn require_address(address: Option<String>) -> Result<u64, String> {
     parse_address(&s).ok_or_else(|| format!("invalid --address: {s}"))
 }
 
-/// Parse a BLE address into the u64 that
-/// `BluetoothLEDevice::FromBluetoothAddressAsync` expects (AA is the most
-/// significant byte). Accepts "AA:BB:CC:DD:EE:FF", dash-separated, or the bare
-/// "AABBCCDDEEFF" form — whichever noble hands us. NOTE: still confirm the
-/// exact format/endianness against noble's `address` field on-device (the app
-/// logs it); this is the most likely thing to need a tweak.
+/// Parse a BLE address into the u64 `FromBluetoothAddressAsync` expects (AA is
+/// the most significant byte). Accepts "AA:BB:CC:DD:EE:FF", dash-separated, or
+/// bare "AABBCCDDEEFF".
 #[cfg(windows)]
 fn parse_address(s: &str) -> Option<u64> {
     let s = s.trim();
@@ -234,8 +226,7 @@ fn parse_address(s: &str) -> Option<u64> {
 #[cfg(not(windows))]
 fn main() {
     // Windows-only: on macOS CoreBluetooth bonds transparently, and desktop BLE
-    // is disabled on Linux (platformEnv.isSupportDesktopBle). This stub keeps
-    // the crate compiling for local dev on non-Windows hosts.
+    // is disabled on Linux. This stub keeps the crate compiling on non-Windows.
     eprintln!("onekey-ble-pair is only supported on Windows");
     std::process::exit(2);
 }

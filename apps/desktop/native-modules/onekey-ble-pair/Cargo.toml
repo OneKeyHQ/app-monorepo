@@ -20,6 +20,14 @@ windows = { version = "0.61", features = [
     "Foundation",
     "Win32_System_Com",
 ] }
+# Minimal block_on so we can `.await` the WinRT async ops (like suite) instead
+# of blocking the thread with `.get()`, which starved the PairingRequested
+# delegate. No tokio — a single-purpose executor is enough here.
+pollster = "0.4"
+# `windows` pulls windows-future with default-features=false and only forwards
+# std to windows-core, so IAsyncOperation's IntoFuture (`.await`) is off. Depend
+# on it directly with std to enable it (feature unification, same 0.2.1 type).
+windows-future = { version = "0.2.1", features = ["std"] }
 
 [profile.release]
 opt-level = "z"
