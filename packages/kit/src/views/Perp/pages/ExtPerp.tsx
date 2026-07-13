@@ -19,7 +19,7 @@ export function ExtPerp() {
       if (shouldOpenExpandExtPerp) {
         void backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
         setTimeout(() => {
-          switchTab(ETabRoutes.Home);
+          switchTab(ETabRoutes.Swap);
         }, 300);
       }
     }, []),
