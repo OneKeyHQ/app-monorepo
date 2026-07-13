@@ -162,9 +162,9 @@ export const useColumnsDesktop = (
 ): ITableColumn<IMarketToken>[] => {
   const { gtLg, gtXl } = useMedia();
   const intl = useIntl();
+  const watchlistNameWidth = isWatchlistMode && gtLg ? 340 : 260;
 
-  return useMemo<ITableColumn<IMarketToken>[]>(() => {
-    const watchlistNameWidth = gtLg ? 340 : 260;
+  const allColumns = useMemo<ITableColumn<IMarketToken>[]>(() => {
     const shouldRenderRichCell = (index?: number) =>
       !shouldUseLightweightCell(index, deferRichRowAfterIndex);
 
@@ -455,7 +455,7 @@ export const useColumnsDesktop = (
               </YStack>
             ),
           },
-      gtLg && !isWatchlistMode
+      !isWatchlistMode
         ? {
             title: intl.formatMessage({ id: ETranslations.dexmarket_traders }),
             dataIndex: 'uniqueTraders',
@@ -471,7 +471,7 @@ export const useColumnsDesktop = (
             renderSkeleton: () => <Skeleton width={60} height={16} />,
           }
         : undefined,
-      gtXl && !isWatchlistMode
+      !isWatchlistMode
         ? {
             title: intl.formatMessage({ id: ETranslations.dexmarket_holders }),
             dataIndex: 'holders',
@@ -487,7 +487,7 @@ export const useColumnsDesktop = (
             renderSkeleton: () => <Skeleton width={60} height={16} />,
           }
         : undefined,
-      gtXl && !isWatchlistMode && !hideTokenAge
+      !isWatchlistMode && !hideTokenAge
         ? {
             title: intl.formatMessage({
               id: ETranslations.dexmarket_token_age,
@@ -528,8 +528,6 @@ export const useColumnsDesktop = (
     change24hColumnTitle,
     copyFrom,
     deferRichRowAfterIndex,
-    gtLg,
-    gtXl,
     hasStock,
     hiddenDesktopColumns,
     hideTokenAge,
@@ -538,6 +536,21 @@ export const useColumnsDesktop = (
     networkId,
     showStockSubtitle,
     useStockMetadataColumns,
+    watchlistNameWidth,
     watchlistFrom,
   ]);
+
+  return useMemo(
+    () =>
+      allColumns.filter((column) => {
+        if (column.dataIndex === 'uniqueTraders') {
+          return gtLg;
+        }
+        if (column.dataIndex === 'holders' || column.dataIndex === 'tokenAge') {
+          return gtXl;
+        }
+        return true;
+      }),
+    [allColumns, gtLg, gtXl],
+  );
 };

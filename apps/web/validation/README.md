@@ -1,7 +1,7 @@
 # App link verification files
 
 The files in this directory are copied into the web build by
-`apps/web/postbuild.sh`:
+`apps/web/scripts/postbuild.js`:
 
 - `deeplink.ios.json` -> `web-build/.well-known/apple-app-site-association`
 - `deeplink.android.json` -> `web-build/.well-known/assetlinks.json`

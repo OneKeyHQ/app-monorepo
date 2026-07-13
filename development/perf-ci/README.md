@@ -121,6 +121,39 @@ yarn perf:web:prepare --headed
 # run release perf job (3 runs; median aggregation + thresholds)
 yarn perf:web:release --headed
 
+# warm Market table resize benchmark without changing the desktop/mobile shell.
+# Defaults to an equal-distance control and 1016 <-> 1032 px, where the real
+# Market table changes from 8 to 9 visible columns. The runner verifies the
+# column counts before recording 20 transitions per scenario.
+# The wallet profile is preserved while PWA/network caches are cleared. Loaded
+# entry bundle names must match the current disk build or the run fails as stale.
+yarn perf:web:resize
+
+# optional: measure the 9 <-> 11 column transition around 1280 px
+PERF_WEB_RESIZE_SCENARIOS=market-control-xl,market-cross-xl yarn perf:web:resize
+
+# optional: retain the old Home 768 px shell-switch benchmark as a structural
+# stress regression; it is not the primary Tamagui style/list benchmark.
+PERF_WEB_RESIZE_TARGET=home yarn perf:web:resize
+
+# optional: save Chrome timeline traces next to report.json
+PERF_WEB_RESIZE_TRACE=1 yarn perf:web:resize
+
+# optional: include high-resolution V8 CPU samples in the Chrome trace.
+# Keep this diagnostic-only because sampling changes timing and trace size.
+PERF_WEB_RESIZE_TRACE=1 PERF_WEB_RESIZE_CPU_PROFILE=1 yarn perf:web:resize
+
+# optional: enable OneKey function-hit instrumentation in a diagnostic build.
+# Keep this off for comparison baselines because instrumentation adds CPU cost.
+PERF_WEB_RESIZE_FUNCTION_MONITOR=1 yarn perf:web:resize
+
+# compare a candidate with a previously captured resize report
+PERF_WEB_RESIZE_BASELINE_REPORT=/absolute/path/to/report.json yarn perf:web:resize
+
+# optional: exercise every configured width boundary on an explicitly chosen
+# page. These generic cases do not assert Market column counts.
+PERF_WEB_RESIZE_TARGET=home PERF_WEB_RESIZE_SCENARIOS=all-width-breakpoints yarn perf:web:resize
+
 # first-visit cold load matrix for entry routes.
 # This uses a fresh browser context, disables browser cache, blocks service workers,
 # and keeps budget failures non-fatal so it can be used to establish baselines.
@@ -135,6 +168,10 @@ yarn perf:web:cold
 # optional: narrow the cold matrix while investigating
 PERF_WEB_COLD_SCENARIOS=perps,swap,defi,refer-friends yarn perf:web:cold --headed
 ```
+
+If the ready selector times out, the resize runner writes
+`page-readiness-run-<n>.json` and `.png` beside the job report with page text,
+loaded bundle names, page errors, and console errors.
 
 Budget CI also writes AI-oriented diagnostic artifacts next to the raw reports:
 
