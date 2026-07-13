@@ -1,10 +1,11 @@
 const storage = new Map<string, string>();
 const getDeviceCpuTierMatchMock = jest.fn();
 const getDeviceMemoryGBSyncMock = jest.fn();
+const getStoredValueMock = jest.fn((key: string) => storage.get(key));
 
 jest.mock('../storage/instance/syncStorageInstance', () => ({
   syncStorage: {
-    getString: (key: string) => storage.get(key),
+    getString: getStoredValueMock,
     set: (key: string, value: string) => storage.set(key, value),
     delete: (key: string) => storage.delete(key),
   },
@@ -25,12 +26,26 @@ describe('devicePerformanceTier web capabilities', () => {
     storage.clear();
     getDeviceCpuTierMatchMock.mockReset();
     getDeviceMemoryGBSyncMock.mockReset();
+    getStoredValueMock.mockClear();
     getDeviceCpuTierMatchMock.mockReturnValue({
       tier: 'high',
       source: 'browserHardwareConcurrency',
       confidence: 'medium',
     });
     getDeviceMemoryGBSyncMock.mockReturnValue(8);
+  });
+
+  it('caches capability and storage reads within each JS context', () => {
+    const { getDevicePerformanceProfile } =
+      require('./devicePerformanceTier') as typeof import('./devicePerformanceTier');
+
+    const firstProfile = getDevicePerformanceProfile();
+    const secondProfile = getDevicePerformanceProfile();
+
+    expect(secondProfile).toBe(firstProfile);
+    expect(getDeviceCpuTierMatchMock).toHaveBeenCalledTimes(1);
+    expect(getDeviceMemoryGBSyncMock).toHaveBeenCalledTimes(1);
+    expect(getStoredValueMock).toHaveBeenCalledTimes(1);
   });
 
   it('builds independent CPU and memory capabilities without calibration', () => {

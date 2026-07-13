@@ -26,6 +26,8 @@ import {
 export { EDeviceCpuTier, EDeviceMemoryClass, EDevicePerformanceTier };
 export type { IDevicePerformanceProfile };
 
+// Cache per JS context so repeated consumers do not reread bridged or browser
+// capability inputs. Each desktop renderer keeps its own deserialized snapshot.
 let cachedProfile: IDevicePerformanceProfile | undefined;
 
 const CPU_TIER_BY_LEGACY_PERFORMANCE_TIER: Record<

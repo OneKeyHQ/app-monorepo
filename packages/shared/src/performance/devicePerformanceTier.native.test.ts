@@ -1,10 +1,11 @@
 const storage = new Map<string, string>();
 const getDeviceCpuTierMatchMock = jest.fn();
 const getDeviceMemoryGBSyncMock = jest.fn();
+const getStoredValueMock = jest.fn((key: string) => storage.get(key));
 
 jest.mock('../storage/instance/syncStorageInstance', () => ({
   syncStorage: {
-    getString: (key: string) => storage.get(key),
+    getString: getStoredValueMock,
     set: (key: string, value: string) => storage.set(key, value),
     delete: (key: string) => storage.delete(key),
   },
@@ -25,7 +26,27 @@ describe('devicePerformanceTier.native', () => {
     storage.clear();
     getDeviceCpuTierMatchMock.mockReset();
     getDeviceMemoryGBSyncMock.mockReset();
+    getStoredValueMock.mockClear();
     getDeviceMemoryGBSyncMock.mockReturnValue(8);
+  });
+
+  it('caches native-backed capability reads within each JS runtime', () => {
+    getDeviceCpuTierMatchMock.mockReturnValue({
+      tier: 'high',
+      source: 'iosModelId',
+      confidence: 'high',
+    });
+
+    const { getDevicePerformanceProfile } =
+      require('./devicePerformanceTier.native') as typeof import('./devicePerformanceTier.native');
+
+    const firstProfile = getDevicePerformanceProfile();
+    const secondProfile = getDevicePerformanceProfile();
+
+    expect(secondProfile).toBe(firstProfile);
+    expect(getDeviceCpuTierMatchMock).toHaveBeenCalledTimes(1);
+    expect(getDeviceMemoryGBSyncMock).toHaveBeenCalledTimes(1);
+    expect(getStoredValueMock).toHaveBeenCalledTimes(1);
   });
 
   it('ignores the unversioned V1 tier', () => {

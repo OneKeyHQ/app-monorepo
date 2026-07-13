@@ -58,6 +58,16 @@ export const buildPlatformInfoForIpc = (): IDesktopApiPlatformInfo => {
   };
 };
 
+let cachedPlatformInfoForIpc: IDesktopApiPlatformInfo | undefined;
+
+// Hardware and process metadata are stable for the Electron main-process
+// lifetime. Keep one lazy snapshot so every renderer preload receives the
+// same data without repeating OS capability reads in the main process.
+export const getPlatformInfoForIpc = (): IDesktopApiPlatformInfo => {
+  cachedPlatformInfoForIpc ??= buildPlatformInfoForIpc();
+  return cachedPlatformInfoForIpc;
+};
+
 /**
  * Register the sync IPC handlers that preload.js calls at module load time.
  * Without these, ipcRenderer.sendSync() blocks forever and the page never
@@ -79,7 +89,7 @@ export function registerInfoHandlers(
 
   ipcMain.removeAllListeners(ipcMessageKeys.GET_PLATFORM_INFO);
   ipcMain.on(ipcMessageKeys.GET_PLATFORM_INFO, (event) => {
-    event.returnValue = buildPlatformInfoForIpc();
+    event.returnValue = getPlatformInfoForIpc();
   });
 
   ipcMain.removeAllListeners(ipcMessageKeys.LOG_DIRECTORY);

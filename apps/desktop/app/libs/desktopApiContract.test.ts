@@ -31,7 +31,10 @@ jest.mock('electron-log/main', () => ({
 }));
 
 import { buildDesktopApiGlobal } from './react-native-mock';
-import { buildPlatformInfoForIpc } from './registerInfoHandlers';
+import {
+  buildPlatformInfoForIpc,
+  getPlatformInfoForIpc,
+} from './registerInfoHandlers';
 
 // Fields platformEnv.ts reads from `globalThis.desktopApi`. Kept in sync
 // manually — if platformEnv adds a new read, add it here and the writers'
@@ -51,6 +54,10 @@ const DEVICE_CAPABILITY_READS = [
 ] as const;
 
 describe('desktopApi contract', () => {
+  it('reuses one main-process platform snapshot across renderer requests', () => {
+    expect(getPlatformInfoForIpc()).toBe(getPlatformInfoForIpc());
+  });
+
   it('IPC payload has all fields platformEnv reads', () => {
     const info = buildPlatformInfoForIpc();
     const keys = Object.keys(info);

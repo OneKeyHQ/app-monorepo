@@ -27,6 +27,8 @@ import {
 export { EDeviceCpuTier, EDeviceMemoryClass, EDevicePerformanceTier };
 export type { IDevicePerformanceProfile };
 
+// Native main and background runtimes have separate JS heaps, so each runtime
+// keeps its own snapshot and reads native-backed capability inputs at most once.
 let cachedProfile: IDevicePerformanceProfile | undefined;
 
 const CPU_TIER_BY_LEGACY_PERFORMANCE_TIER: Record<
