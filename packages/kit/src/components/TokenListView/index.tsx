@@ -370,8 +370,9 @@ function TokenListViewCmp(props: IProps) {
   // HOME projection path marker — read the SAME context flag the leaves read so
   // home/leaf agree (spec §5, PR-S). The wrapper computes
   // `useCellSeam = enableCellSeam && !isTokenSelector &&
-  // !showActiveAccountTokenList && !scopedActiveAccountTokenListMap`; the inner
-  // cmp reads it here rather than recomputing divergently. Hoisted above the
+  // !showActiveAccountTokenList` (display-mode flags only — never the scoped
+  // map's content); the inner cmp reads it here rather than recomputing
+  // divergently. Hoisted above the
   // `tokens`/`filteredTokens` memos so those legacy-atom memos can early-return
   // on the home projection path (PR-6: free the HOME data path of the legacy
   // atom values).
@@ -1215,14 +1216,15 @@ const TokenListView = memo((props: IProps) => {
   // PR-7: cell seam (spec §5). Hoisted ABOVE the context-fill memos so they
   // can branch on the home path. Only the home path may bind leaves to per-key
   // cells — requires the producer (gated by `enableCellSeam`, set by
-  // TokenListBlock) AND that this list renders the global map (not selector / not
-  // an ACTIVE scoped override). The scoped LP map is `{}` on the normal home
-  // mount, so an empty scoped map MUST count as "no override" or the seam dies.
+  // TokenListBlock) AND that this list renders the global map (not selector /
+  // not the scoped LP-dapp display mode). Display-MODE flags only: the scoped
+  // LP map's CONTENT must not gate the seam — TokenListBlock keeps the last
+  // fetched map in state after the DeFi-token switch turns off, and gating on
+  // that residue flipped home onto the legacy no-data path (empty list).
   const useCellSeam = resolveUseCellSeam({
     enableCellSeam: props.enableCellSeam,
     isTokenSelector: props.isTokenSelector,
     showActiveAccountTokenList: props.showActiveAccountTokenList,
-    scopedActiveAccountTokenListMap: props.scopedActiveAccountTokenListMap,
   });
 
   // PR-7: the wrapper no longer reads `tokenListMapAtom` /
