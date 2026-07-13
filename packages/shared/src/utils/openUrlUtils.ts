@@ -155,8 +155,10 @@ const isSystemBrowserOnlyHost = (hostname: string): boolean => {
   return STORE_HOSTS.has(host) || SOCIAL_APP_HOSTS.has(host);
 };
 
-const trackOpenUrl = (url: string, method: 'inApp' | 'system') => {
-  const parsedUrl = parseUrl(url);
+const trackOpenUrl = (
+  parsedUrl: ReturnType<typeof parseUrl>,
+  method: 'inApp' | 'system',
+) => {
   // Host-level only: never report the full URL or its query params.
   const host = parsedUrl?.hostname || parsedUrl?.urlSchema || 'unknown';
   appGlobals.$defaultLogger?.app.page.openExternalUrl({ host, method });
@@ -189,25 +191,27 @@ export const openUrlExternal = (
     openUrlOutsideNative(trimmedUrl);
     return;
   }
+  const parsedUrl = parseUrl(trimmedUrl);
+  const openViaSystemBrowser = () => {
+    trackOpenUrl(parsedUrl, 'system');
+    void linkingOpenURL(trimmedUrl);
+  };
   if (
     options?.useSystemBrowser ||
     forceSystemBrowserForDebug ||
     // The background JS runtime cannot present a native view controller.
     platformEnv.isNativeBackgroundThread
   ) {
-    trackOpenUrl(trimmedUrl, 'system');
-    void linkingOpenURL(trimmedUrl);
+    openViaSystemBrowser();
     return;
   }
-  const parsedUrl = parseUrl(trimmedUrl);
   const isHttpUrl =
     parsedUrl?.urlSchema === 'http' || parsedUrl?.urlSchema === 'https';
   if (!parsedUrl || !isHttpUrl || isSystemBrowserOnlyHost(parsedUrl.hostname)) {
-    trackOpenUrl(trimmedUrl, 'system');
-    void linkingOpenURL(trimmedUrl);
+    openViaSystemBrowser();
     return;
   }
-  trackOpenUrl(trimmedUrl, 'inApp');
+  trackOpenUrl(parsedUrl, 'inApp');
   openUrlInAppBrowserNative(trimmedUrl).catch(() => {
     // e.g. Android NoMatchingActivityException when no installed browser
     // supports Custom Tabs — fall back to the system browser.

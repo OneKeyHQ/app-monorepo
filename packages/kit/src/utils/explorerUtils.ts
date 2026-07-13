@@ -10,6 +10,17 @@ import {
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
+// Single home for the explorer-link target policy: callers may force a
+// target via openInExternal; otherwise desktop and native open the system
+// or in-app browser, web/ext open the WebView modal.
+const openExplorerUrl = (url: string, openInExternal?: boolean) => {
+  if (openInExternal ?? (platformEnv.isDesktop || platformEnv.isNative)) {
+    openUrlExternal(url);
+  } else {
+    openUrlInApp(url);
+  }
+};
+
 export const openExplorerAddressUrl = async ({
   networkId,
   address,
@@ -28,11 +39,7 @@ export const openExplorerAddressUrl = async ({
     type: 'address' as const,
   };
   const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl(params);
-  if (openInExternal ?? (platformEnv.isDesktop || platformEnv.isNative)) {
-    openUrlExternal(url);
-  } else {
-    openUrlInApp(url);
-  }
+  openExplorerUrl(url, openInExternal);
 };
 
 export const openTransactionDetailsUrl = async ({
@@ -53,11 +60,7 @@ export const openTransactionDetailsUrl = async ({
     type: 'transaction' as const,
   };
   const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl(params);
-  if (openInExternal ?? (platformEnv.isDesktop || platformEnv.isNative)) {
-    openUrlExternal(url);
-  } else {
-    openUrlInApp(url);
-  }
+  openExplorerUrl(url, openInExternal);
 };
 
 export const openBlockExplorerUrl = async ({
@@ -81,11 +84,7 @@ export const openBlockExplorerUrl = async ({
   if (!url) {
     return;
   }
-  if (openInExternal ?? (platformEnv.isDesktop || platformEnv.isNative)) {
-    openUrlExternal(url);
-  } else {
-    openUrlInApp(url);
-  }
+  openExplorerUrl(url, openInExternal);
 };
 
 export const openTokenDetailsUrl = async ({
@@ -106,11 +105,7 @@ export const openTokenDetailsUrl = async ({
     type: 'token' as const,
   };
   const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl(params);
-  if (openInExternal ?? (platformEnv.isDesktop || platformEnv.isNative)) {
-    openUrlExternal(url);
-  } else {
-    openUrlInApp(url);
-  }
+  openExplorerUrl(url, openInExternal);
 };
 
 export const openHyperLiquidExplorerUrl = async ({
@@ -121,12 +116,7 @@ export const openHyperLiquidExplorerUrl = async ({
   openInExternal?: boolean;
 }) => {
   if (address) {
-    const url = `${HYPERLIQUID_EXPLORER_URL}${address}`;
-    if (openInExternal ?? (platformEnv.isDesktop || platformEnv.isNative)) {
-      openUrlExternal(url);
-    } else {
-      openUrlInApp(url);
-    }
+    openExplorerUrl(`${HYPERLIQUID_EXPLORER_URL}${address}`, openInExternal);
   }
 };
 
@@ -138,11 +128,9 @@ export const openHyperLiquidTokenExplorerUrl = async ({
   openInExternal?: boolean;
 }) => {
   if (tokenId) {
-    const url = `${HYPERLIQUID_TOKEN_EXPLORER_URL}${tokenId}`;
-    if (openInExternal ?? (platformEnv.isDesktop || platformEnv.isNative)) {
-      openUrlExternal(url);
-    } else {
-      openUrlInApp(url);
-    }
+    openExplorerUrl(
+      `${HYPERLIQUID_TOKEN_EXPLORER_URL}${tokenId}`,
+      openInExternal,
+    );
   }
 };

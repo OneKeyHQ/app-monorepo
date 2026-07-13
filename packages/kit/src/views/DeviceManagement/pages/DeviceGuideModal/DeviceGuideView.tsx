@@ -2,7 +2,6 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { Linking } from 'react-native';
 
 import {
   Anchor,
@@ -200,16 +199,8 @@ function ButtonContainer() {
   const toOnBoardingPage = useNavigateToPickYourDevicePage();
   const { gtMd } = useMedia();
 
-  const handleBuyButtonPress = useCallback(async () => {
-    const url = ONEKEY_BUY_HARDWARE_URL;
-
-    const supported = await Linking.canOpenURL(url);
-
-    if (supported) {
-      openUrlExternal(url);
-    } else {
-      alert(`Don't know how to open this URL: ${url}`);
-    }
+  const handleBuyButtonPress = useCallback(() => {
+    openUrlExternal(ONEKEY_BUY_HARDWARE_URL);
   }, []);
 
   const onAddDevice = useCallback(async () => {
