@@ -25,6 +25,7 @@ import { rootRouter, useRootRouter } from '../router';
 import { registerDeepLinking } from './deeplink';
 import { getStateFromPath } from './getStateFromPath';
 import { captureAndReportLoggerUtmParamsFromUrl } from './loggerUtmParams';
+import { getWebDappUrlFallback } from './webDappUrlFallback';
 
 import type { LinkingOptions } from '@react-navigation/native';
 
@@ -172,9 +173,13 @@ const useBuildLinking = (): LinkingOptions<any> => {
         }
 
         if (!rule?.showUrl) {
-          // WebDappMode: fallback to /market instead of / to avoid URL bounce
           if (platformEnv.isWebDappMode) {
-            return '/market';
+            return getWebDappUrlFallback({
+              allowList,
+              allowListKeys,
+              currentPath: globalThis.location?.pathname,
+              currentSearch: globalThis.location?.search,
+            });
           }
           return ROOT_PATH;
         }
