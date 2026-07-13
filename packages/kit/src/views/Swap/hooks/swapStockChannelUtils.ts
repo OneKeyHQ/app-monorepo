@@ -33,6 +33,31 @@ export enum ESwapStockTradeSide {
   Sell = 'sell',
 }
 
+export function isStockTradeReadyForQuote({
+  currentStockToken,
+  marketOpen,
+  marketStatusStatus,
+  payToken,
+  payTokenStatus,
+  stockTokenStatus,
+}: {
+  currentStockToken?: ISwapToken;
+  marketOpen?: boolean;
+  marketStatusStatus: ESwapStockChannelAsyncStatus;
+  payToken?: ISwapToken;
+  payTokenStatus: ESwapStockChannelAsyncStatus;
+  stockTokenStatus: ESwapStockChannelAsyncStatus;
+}) {
+  return Boolean(
+    currentStockToken &&
+    payToken &&
+    stockTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
+    marketStatusStatus !== ESwapStockChannelAsyncStatus.Initializing &&
+    payTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
+    marketOpen !== false,
+  );
+}
+
 const STOCK_DEFAULT_PAY_SYMBOLS = new Set(['USDC', 'USDT']);
 
 function buildUsdPriceFields(price?: number | string) {
@@ -228,14 +253,19 @@ export function isStockPayTokenReadyForTradeInput({
 }
 
 export function shouldRenderStockTradeInputSkeleton({
+  inputTokenStatus,
   inputTokenReady,
   inputTokenVisible,
   isBuySide,
 }: {
+  inputTokenStatus: ESwapStockChannelAsyncStatus;
   inputTokenReady: boolean;
   inputTokenVisible: boolean;
   isBuySide: boolean;
 }) {
+  if (inputTokenStatus !== ESwapStockChannelAsyncStatus.Initializing) {
+    return false;
+  }
   return isBuySide ? !inputTokenVisible : !inputTokenReady;
 }
 

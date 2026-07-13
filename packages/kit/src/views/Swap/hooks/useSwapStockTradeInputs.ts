@@ -467,17 +467,16 @@ export function useSwapStockAmountInputState({
     selectablePayTokens,
     payTokenOptionsLoading,
     disableNativePayToken,
-    marketStatusStatus,
     selectPayToken,
     stockTokenStatus,
     tradeSide,
   } = stockChannel;
   const isBuySide = tradeSide === ESwapStockTradeSide.Buy;
   const inputToken = isBuySide ? payToken : currentStockToken;
+  const inputTokenStatus = isBuySide ? payTokenStatus : stockTokenStatus;
   const inputTokenVisible = Boolean(inputToken);
   const stockIdentityReady =
-    stockTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
-    marketStatusStatus === ESwapStockChannelAsyncStatus.Ready;
+    stockTokenStatus === ESwapStockChannelAsyncStatus.Ready;
   const payTokenReady = isStockPayTokenReadyForTradeInput({
     payToken,
     payTokenStatus,
@@ -635,6 +634,7 @@ export function useSwapStockAmountInputState({
     selectablePayTokens,
     selectPayToken,
     shouldRenderSkeleton: shouldRenderStockTradeInputSkeleton({
+      inputTokenStatus,
       inputTokenReady,
       inputTokenVisible,
       isBuySide,
