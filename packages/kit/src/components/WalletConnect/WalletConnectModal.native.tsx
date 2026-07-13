@@ -10,6 +10,7 @@ import {
   useState,
 } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
+import { AppState } from 'react-native';
 
 import { ConstantsUtil } from '@reown/appkit-common-react-native';
 import {
@@ -41,13 +42,19 @@ import type { IWalletConnectSession } from '@onekeyhq/shared/src/walletConnect/t
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { StorageUtil as StorageUtilCore } from '@reown/appkit-core-react-native';
+import {
+  ConnectionController,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  StorageUtil as StorageUtilCore,
+} from '@reown/appkit-core-react-native';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ConstantsUtil as ConstantsUtilCore } from '@reown/appkit/core';
 
 import type { IWalletConnectModalShared } from './types';
-import { shouldAbortWalletConnectPairingOnModalClose } from './walletConnectModalCloseUtils';
+import {
+  shouldAbortWalletConnectPairingOnModalClose,
+  shouldMarkWalletHandoffStarted,
+} from './walletConnectModalCloseUtils';
 
 /*
 WalletConnect SDK Deeplink Auto-Handling Mechanism:
@@ -340,6 +347,7 @@ const modal: IWalletConnectModalShared = {
     isNativeModalOpenRef.current = isNativeModalOpen;
     const wasNativeModalOpenRef = useRef(false);
     const isProgrammaticCloseRef = useRef(false);
+    const hasStartedWalletHandoffRef = useRef(false);
     const openRequestIdRef = useRef(0);
 
     useEffect(
@@ -349,6 +357,45 @@ const modal: IWalletConnectModalShared = {
       [],
     );
 
+    useEffect(() => {
+      let resumeTimer: ReturnType<typeof setTimeout> | undefined;
+      const subscription = AppState.addEventListener(
+        'change',
+        (nextAppState) => {
+          if (
+            shouldMarkWalletHandoffStarted({
+              nextAppState,
+              isNativeModalOpen: isNativeModalOpenRef.current,
+              isWalletHandoffPrepared: Boolean(
+                ConnectionController.state.wcLinking,
+              ),
+            })
+          ) {
+            if (resumeTimer) {
+              clearTimeout(resumeTimer);
+              resumeTimer = undefined;
+            }
+            hasStartedWalletHandoffRef.current = true;
+            return;
+          }
+
+          if (nextAppState === 'active') {
+            resumeTimer = setTimeout(() => {
+              if (isNativeModalOpenRef.current) {
+                hasStartedWalletHandoffRef.current = false;
+              }
+            }, 0);
+          }
+        },
+      );
+      return () => {
+        if (resumeTimer) {
+          clearTimeout(resumeTimer);
+        }
+        subscription.remove();
+      };
+    }, []);
+
     console.log('isNativeModalOpen', isNativeModalOpen);
 
     const [shouldRenderNativeModal, setShouldRenderNativeModal] =
@@ -357,6 +404,8 @@ const modal: IWalletConnectModalShared = {
     const openModal = useCallback(async ({ uri }: { uri: string }) => {
       const openRequestId = openRequestIdRef.current + 1;
       openRequestIdRef.current = openRequestId;
+      hasStartedWalletHandoffRef.current = false;
+      ConnectionController.removeWcLinking();
       await resetAppKit();
       if (!isMountedRef.current || openRequestId !== openRequestIdRef.current) {
         return;
@@ -420,12 +469,14 @@ const modal: IWalletConnectModalShared = {
               shouldAbortWalletConnectPairingOnModalClose({
                 wasNativeModalOpen: wasNativeModalOpenRef.current,
                 isProgrammaticClose: isProgrammaticCloseRef.current,
+                hasStartedWalletHandoff: hasStartedWalletHandoffRef.current,
                 pairingTopic,
                 connectedPairingTopic,
               });
             const uri = pairingUri;
             wasNativeModalOpenRef.current = false;
             isProgrammaticCloseRef.current = false;
+            hasStartedWalletHandoffRef.current = false;
             openRequestIdRef.current += 1;
             await resetAppKit();
             console.log('setShouldRenderNativeModal false');
