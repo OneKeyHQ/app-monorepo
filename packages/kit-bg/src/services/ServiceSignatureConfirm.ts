@@ -365,6 +365,9 @@ class ServiceSignatureConfirm extends ServiceBase {
             (component) => component.type === EParseTxComponentType.Simulation,
           ) ?? [])
         : [];
+    const serverAlerts = shouldUseLocalTxDisplay
+      ? (parsedTx?.display?.alerts ?? [])
+      : [];
 
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const decodedTx = await vault.buildDecodedTx({
@@ -410,7 +413,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       decodedTx.txDisplay = {
         title: '',
         components: [...txDisplayComponents, ...serverSimulationComponents],
-        alerts: [],
+        alerts: serverAlerts,
       };
       decodedTx.isLocalParsed = true;
     }

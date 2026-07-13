@@ -64,8 +64,10 @@ const contractAddress = '0xcontract';
 
 function buildParsedTx({
   components,
+  alerts = [],
 }: {
   components: IDisplayComponent[];
+  alerts?: string[];
 }): IParseTransactionResp {
   return {
     accountAddress,
@@ -87,7 +89,7 @@ function buildParsedTx({
     display: {
       title: 'Server display',
       components,
-      alerts: [],
+      alerts,
     },
     type: EParseTxType.Unknown,
   };
@@ -146,12 +148,13 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
     jest.clearAllMocks();
   });
 
-  it('keeps server simulation when an unknown staking tx uses local display', async () => {
+  it('keeps server simulation and alerts when an unknown staking tx uses local display', async () => {
     const simulation: IDisplayComponentSimulation = {
       type: EParseTxComponentType.Simulation,
       label: 'Simulation',
       assets: [],
     };
+    const alerts = ['Server risk alert'];
     const parsedTx = buildParsedTx({
       components: [
         {
@@ -162,6 +165,7 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
         },
         simulation,
       ],
+      alerts,
     });
 
     const decodedTx = await buildService(parsedTx).buildDecodedTx({
@@ -182,6 +186,7 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
     expect(decodedTx.txDisplay?.components).not.toContainEqual(
       expect.objectContaining({ address: '0xserver-contract' }),
     );
+    expect(decodedTx.txDisplay?.alerts).toEqual(alerts);
   });
 
   it('keeps the full server display for Borrow transactions', async () => {
